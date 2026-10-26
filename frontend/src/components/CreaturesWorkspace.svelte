@@ -11,7 +11,8 @@
 	import ClassIcon from './ClassIcon.svelte'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import DisplayPicker, { forgetCreatureDisplays } from './DisplayPicker.svelte'
-	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
+	import ItemIcon from './ItemIcon.svelte'
+	import WeaponPicker, { loadWeapons, SLOTS } from './WeaponPicker.svelte'
 
 	// The Creatures workspace (#132, World › Creatures…): the world database's creatures to find and
 	// open in the creature editor, and a guide that makes a new one step by step: who it is, whom it
@@ -129,6 +130,17 @@
 	// Step 3: the look shown, the picked display dressed in the picked gear.
 	let hovered = $state<vmangos.DisplayEntry | null>(null)
 	let slot = $state(0)
+	// The names and displays of the holdable items, for the gear's names and icons (read once).
+	let weaponNames = $state<Map<number, string>>(new Map())
+	let weaponDisplays = $state<Map<number, number>>(new Map())
+	loadWeapons()
+		.then((list) => {
+			weaponNames = new Map(list.map((w) => [w.entry, w.name]))
+			weaponDisplays = new Map(list.map((w) => [w.entry, w.display]))
+		})
+		.catch(() => {})
+	const itemName = (entry: number) => (weaponNames.get(entry) ?? `Item ${entry}`).replace(/^monster\s*-\s*/i, '')
+
 	let equipment = $state(0)
 	let look = $state<vmangos.LookResult | null>(null)
 	$effect(() => {
@@ -340,8 +352,9 @@
 								<h3>Held items</h3>
 								<span class="row">
 									<select bind:value={slot}>
-										{#each SLOTS as s, i (s)}<option value={i}>{s}{draft.items[i] ? ` (item ${draft.items[i]})` : ''}</option>{/each}
+										{#each SLOTS as s, i (s)}<option value={i}>{s}{draft.items[i] ? ` (${itemName(draft.items[i])})` : ''}</option>{/each}
 									</select>
+									{#if draft.items[slot]}<ItemIcon displayId={weaponDisplays.get(draft.items[slot]) ?? 0} size={14} />{/if}
 									<button disabled={!draft.items[slot]} onclick={() => (draft.items[slot] = 0)}>Empty hand</button>
 								</span>
 								<WeaponPicker which={slot} selected={draft.items[slot]} onpick={(e) => (draft.items[slot] = e)} />
@@ -407,7 +420,10 @@
 								<dt>Faction</dt>
 								<dd>{pickedFaction ? `${pickedFaction.name} (${pickedFaction.id}): ${pickedFaction.alliance} to the Alliance, ${pickedFaction.horde} to the Horde` : draft.faction}</dd>
 								<dt>Looks</dt>
-								<dd>display {draft.display}, size {draft.scale}{draft.items.some((i) => i) ? `, holding ${draft.items.filter((i) => i).join(', ')}` : ''}</dd>
+								<dd>
+									display {draft.display}, size {draft.scale}{#if draft.items.some((i) => i)}, holding
+										{#each draft.items.filter((i) => i) as it, n (n)}{n ? ', ' : ''}<ItemIcon displayId={weaponDisplays.get(it) ?? 0} size={14} /> {itemName(it)}{/each}{/if}
+								</dd>
 								<dt>Strength</dt>
 								<dd>{CLASSES.find(([v]) => v === draft.unitClass)?.[1]}, health ×{draft.healthMul}, damage ×{draft.damageMul}, armour ×{draft.armorMul}</dd>
 							</dl>
