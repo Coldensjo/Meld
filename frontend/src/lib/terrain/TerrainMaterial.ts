@@ -307,7 +307,11 @@ void main() {
     if (depth > 0.0) {
       lit = mix(lit, waterDeep, clamp(depth / 7.0, 0.0, 0.88));
     }
-    float foam = 1.0 - smoothstep(0.0, 0.35, abs(depth));
+    // The foam line is 0.35 yd either side of the waterline. Where a pixel spans more height than that
+    // (far off, or on a steep shore) the line is widened to the pixel and dimmed to match, so it stays
+    // a steady line instead of a thinner-than-a-pixel one that sparkles as the camera moves (#747).
+    float band = max(0.35, fwidth(depth) * 1.5);
+    float foam = (1.0 - smoothstep(0.0, band, abs(depth))) * (0.35 / band);
     // Foam is lit like everything else, so it doesn't glow at night.
     vec3 foamColor = vec3(0.85, 0.92, 0.95) * clamp(skyAmbient * 1.4 + sunColor * 0.7, 0.0, 1.0);
     lit = mix(lit, foamColor, foam * 0.35);

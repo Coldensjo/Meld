@@ -410,6 +410,28 @@ types, cells, all 81 heights and the depths must match, and no other chunk gains
 checks a partial save (`PartialLiquids`). Magma and slime read their depths as 255 (the file holds
 texture coordinates there), so don't compare theirs.
 
+## The coast while the camera moves (#747, probe `coast-foam`)
+
+Checks: the line where the sea meets the land doesn't sparkle in flight. `bun run probe coast-foam
+--shot <dir>` makes a Large Island on the New world page, looks at its west coast from 1200 yd, takes
+four shots a sub-pixel turn apart and counts the pixels on the coast whose brightness swings by over
+30, with the terrain's foam line as drawn, as it was before #747 and taken out. The thin line (0.35 yd
+either side of the waterline, under a pixel far off or on a steep shore) gave 250 to 275 against 40
+to 50 without foam; widened to the pixel and dimmed to match (`band` in `TerrainMaterial.ts`), about
+100.
+
+- The swing of shots a sub-pixel apart is the way to see shimmer in a still probe: a feature thinner
+  than a pixel swings, a band-limited one barely does. Save the swing as a grey picture (the probe's
+  `-spread` shots) and look at where it is bright.
+- Hold the clock (`P.e.timer.setTimescale(0)`, as `shadow-poses` does): the sea's frame advances 24
+  times a second and swings the whole sea between shots. Replacing the sea material's `oceanTex`
+  uniform after it compiled freezes nothing (three keeps the uniform objects it first saw). Run
+  `P.settle()` and a few frames first, so no texture arrives between two shots.
+- Count only a region round the coast: on a rugged island the inland ridges outweigh it.
+- Not the cause, measured on 2026-10-26: the depth buffer. The near plane at 5 yd instead of 0.5 gave
+  the same swing, and worked out for a 24-bit buffer the band where the sea and a beach are within
+  one depth step is under a yard wide at 2000 yd, far below a pixel's footprint there.
+
 ## Baked shadows: bake, paint, save and export (B-057, #16)
 
 Checks: a region's client shadows become the map's, the Map data tool's Shadow mode paints them,
