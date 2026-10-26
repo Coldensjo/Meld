@@ -245,11 +245,11 @@ right opens the bar over the viewport with all of them; Esc, a click elsewhere o
 it; Tab onto a clipped control opens it.
 The Sculpt bar fits the row with no More in all twelve modes, even Flatten with Lock, Angled and
 paint by slope on (#715); so do every Water, Doodad and Paint mode (Water's lock, follow ground,
-spray and mask by slope on, two creatures in the spawn brush; #734). The panel button opens the
+spray and mask by slope on, a spawn brush of any number of creatures, which is one "n creatures" chip on the bar and a chip each in the Spawns panel; #734, #735). The panel button opens the
 panel of the tool's other settings below the bar, inside the window, and Esc closes it (Sculpt
 Flatten and Water paint are checked).
 Probe: `bun run probe options-more` (every Sculpt, Water, Doodad and Paint mode, and Place). The
-More and Tab checks use a spawn brush of 14 creatures, the one bar left that overflows;
+More and Tab checks narrow the bar's window to 700 px, since no bar overflows at 1400 px;
 `--shot <dir>` leaves that bar open in the picture.
 Trap: a headless page has no window focus (`document.hasFocus()` is false), so `el.focus()` fires no
 `focusin`; the probe dispatches it. Focus also scrolls the clipped bar to the control, which the bar

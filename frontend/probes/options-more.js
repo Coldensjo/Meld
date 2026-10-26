@@ -74,6 +74,21 @@ const waterPanelOk = !!wpanel?.querySelector('[aria-label="Opacity"]')
 wpanel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 await P.frames(2)
 const waterPanelCloses = !root().querySelector('.brushpanel')
+// Fourteen creatures stay one chip on the bar; the Spawns panel lists them (#735).
+prefs.spawnBrush.entries = Array.from({ length: 14 }, (_, i) => ({ entry: 100 + i, name: `Creature number ${i}`, weight: 10 }))
+Object.assign(editor, { tool: 'doodad', doodadMode: 'creatures' })
+await P.frames(3)
+const chipsOnBar = bar().querySelectorAll('.chip').length
+const barOneRow = !more() && [...bar().children].filter(visible).length === firstRow().length
+root().querySelector('.brushbtn').click()
+await P.frames(3)
+const creaturesInPanel = root().querySelectorAll('.brushpanel .chip').length
+root()
+	.querySelector('.brushpanel')
+	?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+await P.frames(2)
+prefs.spawnBrush.entries = spawnEntries
+const spawnChipsOk = chipsOnBar === 1 && barOneRow && creaturesInPanel === 14
 // The Brush button opens its panel below the bar, inside the window, and Esc closes it.
 Object.assign(editor, { tool: 'sculpt', sculptMode: 'flatten' })
 await P.frames(3)
@@ -118,8 +133,9 @@ for (const [name, set, keep] of cases) {
 	}
 	results.push({ name, ok: kept && counted && opened && rowStays, kept, hidden: hiddenN, counted, opened, rowStays })
 }
-// Tab onto a clipped control opens the bar: a spawn brush of many creatures is too wide for the row.
+// Tab onto a clipped control opens the bar. No bar overflows at 1400 px now, so narrow the options bar's window to 700 px.
 prefs.spawnBrush.entries = Array.from({ length: 14 }, (_, i) => ({ entry: 100 + i, name: `Creature number ${i}`, weight: 10 }))
+root().style.maxWidth = '700px'
 Object.assign(editor, { tool: 'doodad', doodadMode: 'creatures' })
 await P.frames(3)
 const last = [...bar().querySelectorAll('button, input, select')].filter((c) => !firstRow().some((f) => f.contains(c))).pop()
@@ -130,10 +146,15 @@ await P.frames(2)
 const focusOpens = !!last && bar().classList.contains('open')
 bar().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 prefs.spawnBrush.entries = spawnEntries
+root().style.maxWidth = ''
 await P.frames(2)
 return {
-	ok: results.every((r) => r.ok) && focusOpens && !fits.length && panelOk && panelCloses && waterPanelOk && waterPanelCloses,
+	ok: results.every((r) => r.ok) && focusOpens && !fits.length && panelOk && panelCloses && waterPanelOk && waterPanelCloses && spawnChipsOk,
 	focusOpens,
+	spawnChipsOk,
+	chipsOnBar,
+	barOneRow,
+	creaturesInPanel,
 	overflow: fits,
 	panelOk,
 	panelCloses,

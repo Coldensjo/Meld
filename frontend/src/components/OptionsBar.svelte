@@ -685,13 +685,9 @@
 		{/if}
 		{#if editor.tool === 'doodad' && editor.doodadMode === 'creatures'}
 			{@const sb = prefs.spawnBrush}
-			{#each sb.entries as e, i (e.entry)}
-				<span class="chip" title="{e.name} (entry {e.entry}): its weight among the brush's creatures">
-					{e.name}
-					<input class="weight" type="number" min="0" max="100" step="1" bind:value={e.weight} aria-label="Weight of {e.name}" />
-					<button class="x" onclick={() => (sb.entries = sb.entries.filter((_, j) => j !== i))} title="Take {e.name} out of the brush" aria-label="Remove {e.name}">×</button>
-				</span>
-			{/each}
+			<span class="chip" title={sb.entries.length ? sb.entries.map((e) => `${e.name} (${e.weight})`).join(', ') : 'No creatures in the brush yet; the Spawns panel lists them'}
+				>{sb.entries.length} {sb.entries.length === 1 ? 'creature' : 'creatures'}</span
+			>
 			<OptSlider label="Per 100×100 yd" bind:value={sb.density} min={1} max={60} step={1} digits={0} width={60} title="How many creatures the brush fills 100 by 100 yards of ground with" />
 			<OptSlider label="Spacing" bind:value={sb.spacing} min={0} max={40} step={0.5} digits={1} width={60} title="No two creatures closer than this many yards (social aggro)" />
 		{:else if editor.tool === 'doodad'}
@@ -943,6 +939,16 @@
 			{:else if spawnBrushing}
 				{@const sb = prefs.spawnBrush}
 				<div class="row">
+					<span class="dim head">Creatures</span>
+					{#each sb.entries as e, i (e.entry)}
+						<span class="chip" title="{e.name} (entry {e.entry}): its weight among the brush's creatures">
+							{e.name}
+							<input class="weight" type="number" min="0" max="100" step="1" bind:value={e.weight} aria-label="Weight of {e.name}" />
+							<button class="x" onclick={() => (sb.entries = sb.entries.filter((_, j) => j !== i))} title="Take {e.name} out of the brush" aria-label="Remove {e.name}">×</button>
+						</span>
+					{/each}
+				</div>
+				<div class="row">
 					<span class="dim head">Spawn</span>
 					<select class="curve" bind:value={sb.movement} title="How the creatures move" aria-label="Movement">
 						<option value="random">Wander</option>
@@ -1182,6 +1188,7 @@
 	}
 	.brushpanel .row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 10px;
 	}
