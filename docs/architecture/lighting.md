@@ -26,7 +26,9 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   `keyShadow()`, and `patchCascadeShadows` makes every Lambert prop material do the same through
   `onBeforeCompile`. The key light must stay directional light 0.
 - `Engine.fitShadows` fits both cascades each frame (`Environment.fitCascade` snaps each to its
-  texels and sets its depth range and biases in world units from the texel size). Both maps are
+  texels and sets its depth range and biases in world units from the texel size), from how far ahead
+  the camera meets the ground (300 yards when it doesn't): in a world view the streamed tiles
+  (`marchGround` over `WorldStream.heightAt`), not the hidden stand-in terrain (#741). Both maps are
   kept between frames (`autoUpdate` off); `Engine.markShadows`, just before the render, redraws the
   far one when its fit, the scene (objects, heights, holes, spawns, a model texture bound:
   `shadowSceneChanged`) or a preference changed, and the near one on those and when the camera moved

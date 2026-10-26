@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { tileKey } from '../src/lib/io/mapTiles.ts'
 import { TILE_SIZE as TILE_YARDS } from '../src/lib/io/portCoords.ts'
-import { GROUND_CELLS, GROUND_SIDE, groundHeight, groundMesh, groundStride, keepReach, parseGround, streamReach, tileDistance, TileModelShare, wantedTiles, type TileModel } from '../src/lib/world/worldGround.ts'
+import { GROUND_CELLS, GROUND_SIDE, groundHeight, groundMesh, groundStride, keepReach, marchGround, parseGround, streamReach, tileDistance, TileModelShare, wantedTiles, type TileModel } from '../src/lib/world/worldGround.ts'
 
 /** A /wow/ground reply (wow.EncodeGround) for heights f(x, y) and the hole cells listed. */
 function reply(f: (x: number, y: number) => number, holes: Array<[number, number]> = []): ArrayBuffer {
@@ -170,4 +170,25 @@ test('a model several tiles list is placed once, and taken away with the last of
 	// A tile that was never added drops nothing.
 	share.drop(3, remove)
 	assert.equal(removed.length, 3)
+})
+
+test('marchGround finds where a ray meets the ground, passing over unloaded ground', () => {
+	// Flat ground at 10 from x = 100 on, nothing loaded before it.
+	const h = (x: number) => (x < 100 ? NaN : 10)
+	// From (0, 50) down at 45 degrees: under the ground at x = 40, but nothing is loaded there; meets it at x = 100.
+	const s = Math.SQRT1_2
+	const t = marchGround(h, 0, 50, 0, s, -s, 0, 3000, 8)
+	assert.ok(Math.abs(t - 100 * Math.SQRT2) < 0.5, `t ${t}`)
+	// Flat loaded ground: a ray down 30 degrees from 20 yards up meets it 20 yards below, 40 along.
+	const t2 = marchGround(() => 0, 0, 20, 0, Math.cos(Math.PI / 6), -0.5, 0, 3000, 8)
+	assert.ok(Math.abs(t2 - 40) < 0.1, `t2 ${t2}`)
+	// Looking up, or nothing within reach: -1.
+	assert.equal(
+		marchGround(() => 0, 0, 20, 0, 0, 1, 0, 3000, 8),
+		-1,
+	)
+	assert.equal(
+		marchGround(() => NaN, 0, 20, 0, 0, -1, 0, 3000, 8),
+		-1,
+	)
 })

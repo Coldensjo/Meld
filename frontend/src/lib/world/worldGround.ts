@@ -193,6 +193,33 @@ export function groundHeight(g: TileGround, u: number, v: number): number {
 	return top + (bottom - top) * fy
 }
 
+/**
+ * How far along the ray from (ox, oy, oz) in the unit direction (dx, dy, dz) it first goes below
+ * `height` (NaN where no ground is loaded, which the ray passes over), or -1 within `maxDist`: a march
+ * in `step`-yard steps, then a bisection of the step it went under in. A coarse step can miss a thin
+ * ridge, which suits the shadow fit (#741) it was written for, not picking.
+ */
+export function marchGround(height: (x: number, z: number) => number, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number, step: number): number {
+	let prev = 0
+	for (let t = 0; t <= maxDist; t += step) {
+		const h = height(ox + dx * t, oz + dz * t)
+		if (!(oy + dy * t <= h)) {
+			prev = t
+			continue
+		}
+		if (t === 0) return 0
+		let lo = prev
+		let hi = t
+		for (let i = 0; i < 10; i++) {
+			const mid = (lo + hi) * 0.5
+			if (oy + dy * mid <= height(ox + dx * mid, oz + dz * mid)) hi = mid
+			else lo = mid
+		}
+		return hi
+	}
+	return -1
+}
+
 /** How far a point is from tile (tx, ty) across the ground, in yards: 0 inside it. */
 export function tileDistance(x: number, z: number, tx: number, ty: number): number {
 	const dx = Math.max(tx * TILE_YARDS - x, 0, x - (tx + 1) * TILE_YARDS)

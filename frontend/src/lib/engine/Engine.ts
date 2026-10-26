@@ -35,7 +35,7 @@ import { cornerFactor, nearPlane, roomFloor } from './cameraMove'
 import { Environment, SHADOW_FAR, SHADOW_NEAR, type ClientSky } from './Environment'
 import { HorizonLayer } from '../world/HorizonLayer'
 import { WorldStream } from '../world/WorldStream'
-import { streamReach } from '../world/worldGround'
+import { marchGround, streamReach } from '../world/worldGround'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { BrushTool, PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
@@ -2337,7 +2337,10 @@ export class Engine {
 		const fwd = this.camera.getWorldDirection(this.shadowFwd)
 		this.shadowRay.set(eye, fwd)
 		const focus = this.shadowFocus
-		const dist = this.terrain.raycast(this.shadowRay, focus, 3000) ? focus.distanceTo(eye) : 300
+		// A world view's ground is its streamed tiles, not the hidden stand-in terrain (#741).
+		const world = this.doc.world
+		const ahead = world ? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, 3000, 8) : this.terrain.raycast(this.shadowRay, focus, 3000) ? focus.distanceTo(eye) : -1
+		const dist = ahead < 0 ? 300 : ahead
 		const nearExtent = THREE.MathUtils.clamp(dist, 30, 250)
 		const farExtent = THREE.MathUtils.clamp(dist * 6, 800, 2500)
 		const nearCenter = this.shadowNear.copy(eye).addScaledVector(fwd, Math.min(dist, nearExtent))
@@ -2410,6 +2413,8 @@ export class Engine {
 	private drawnShadowMatrix = new THREE.Matrix4()
 	private shadowFwd = new THREE.Vector3()
 	private shadowRay = new THREE.Ray()
+	/** The world view's streamed ground height, NaN where no tile is loaded, for `marchGround`. */
+	private worldHeight = (x: number, z: number): number => this.doc.world?.heightAt(x, z) ?? NaN
 	private shadowFocus = new THREE.Vector3()
 	private shadowNear = new THREE.Vector3()
 	private shadowFar = new THREE.Vector3()
