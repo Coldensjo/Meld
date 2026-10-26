@@ -17,7 +17,7 @@
 // checks, which --touching reads; a probe without one is picked by every range.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -193,6 +193,34 @@ async function devStarted() {
 	}
 }
 
+/** The newest non-test .go file the app is built from (the repo root's, internal/ and cmd/), as { file, mtime }, or null. */
+function newestGo() {
+	const root = join(here, '..', '..')
+	let best = null
+	const walk = (dir, deep) => {
+		for (const e of readdirSync(dir, { withFileTypes: true })) {
+			const f = join(dir, e.name)
+			if (e.isDirectory()) {
+				if (deep) walk(f, true)
+			} else if (e.name.endsWith('.go') && !e.name.endsWith('_test.go')) {
+				const m = statSync(f).mtimeMs
+				if (!best || m > best.mtime) best = { file: f, mtime: m }
+			}
+		}
+	}
+	walk(root, false)
+	for (const d of ['internal', 'cmd']) if (existsSync(join(root, d))) walk(join(root, d), true)
+	return best
+}
+
+/** Says so when a Go source file is newer than the running Go side: wails dev did not rebuild (#387), so a new binding is missing in the page. Returns '' or the message. */
+async function staleBackend() {
+	const started = await devStarted()
+	const g = newestGo()
+	if (!started || !g || g.mtime <= started + 5000) return ''
+	return `the dev server's Go side started at ${new Date(started).toLocaleTimeString()}, before ${basename(g.file)} changed (${new Date(g.mtime).toLocaleTimeString()}): wails dev did not rebuild it, so a new binding is missing in the page. Stop wails.exe, Meld-dev.exe and the bun processes and rerun, and the runner starts \`make dev\` again`
+}
+
 /** Starts `make dev` detached (it outlives this run, for the next one) when the server is down, and waits for it. Only for the default local URL. */
 async function ensureDev() {
 	const why = await devDown()
@@ -211,6 +239,8 @@ async function ensureDev() {
 
 async function main() {
 	await ensureDev()
+	const stale = process.env.MELD_URL ? '' : await staleBackend()
+	if (stale) console.error(`probe: warning: ${stale}`)
 
 	const others = otherRuns()
 	if (others.length) {
@@ -523,6 +553,10 @@ async function main() {
 		if (bootBefore && bootAfter && bootAfter !== bootBefore) {
 			out.devRebuilt = `the dev server restarted during this probe (at ${new Date(bootAfter).toLocaleTimeString()}): wails dev rebuilt the Go side, so a lost page or failure here may come from that`
 			console.error(`probe: ${p.name}: ${out.devRebuilt}`)
+		}
+		if (!out.ok && !process.env.MELD_URL) {
+			const why = await staleBackend()
+			if (why) out.staleBackend = why
 		}
 		out.seconds = Math.round((Date.now() - t0) / 100) / 10
 		// Taken after every probe, so a later probe never writes this one's pictures.
