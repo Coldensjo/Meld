@@ -4,6 +4,8 @@ const { ui, editor } = await P.state()
 // Without a project the page asks for one (#48, the owner's limit: editing the client's maps needs a
 // project folder and a client folder); the probe then lends the page a project of its own in the
 // state only, so the owner's config keeps theirs.
+// The page's startup read of the config's projects (App.svelte's onMount, refreshProjects) answers after the page is up and would set ui.project back, so wait for it first: an open project is always in the recent list. With no project in the config the wait times out and the state is already what the probe wants.
+await P.until(() => ui.recentProjects.length > 0 || null, 5000, 'the startup read of the projects').catch(() => null)
 const hadProject = ui.project
 ui.project = null
 ui.newMapMode = 'open'
