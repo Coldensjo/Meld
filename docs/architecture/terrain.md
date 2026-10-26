@@ -312,8 +312,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   minimap image and lets go of its paint. No rock on slopes (`cliffAuto` 0), no texture looks yet.
   Each tile's liquids come beside its ground from `/wow/groundliquids` (`wow.Client.GroundLiquids`,
   `EncodeLiquids`: its MCLQ layers as `adt.ParseLiquids` reads them for a region) and are drawn in
-  `WorldStream.water` (beside `group`, so View › Water shows them; the frame sets its `visible`, so a
-  probe hides the meshes) with a region's liquid material (`liquidLayerMaterial`), a mesh a tile
+  `WorldStream.water` (beside `group`, so View › Water shows them, through `applyLayerVisibility`) with a region's liquid material (`liquidLayerMaterial`), a mesh a tile
   (`liquidMesh` in `world/worldLiquid.ts`), at the ground's stride: at 2 or 4, a block of cells the
   layer covers whole is one quad from its corners, so open sea far off costs a sixteenth, and a
   block with a dry cell keeps its cells (a sloping river can show a hairline at such a seam, far off

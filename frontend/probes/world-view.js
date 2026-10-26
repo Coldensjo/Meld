@@ -132,8 +132,7 @@ for (const t of worldDoc.world.tiles.values()) {
 }
 const placedOnce = worldDoc.objects.objects.size === uids.size + unnamed && e.worldStats().models === worldDoc.objects.objects.size
 // The tiles' liquids (MCLQ) are drawn: Elwynn has lakes and rivers near the block, and looking down at
-// the loaded one nearest the eye, the view with the liquids hidden differs. (The frame sets the group's
-// `visible` from View › Water, so the probe hides the tiles' meshes.)
+// the loaded one nearest the eye, the view with the tiles' liquid meshes hidden differs.
 const liquids = { wet: e.worldStats().wet, triangles: e.worldStats().liquidTriangles, at: '', drawn: 0 }
 {
 	let best = null
