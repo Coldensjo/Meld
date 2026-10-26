@@ -129,6 +129,7 @@ import { baseType, withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { castsNear, clearNearCasters, materialsNear, setNearCascade } from '../world/shadowReach'
 import { PosedShadows } from './posedShadows'
+import { drawFarLayers, farLayersLost, isFarLayerScene, setFarRenderer } from '../models/farLayers'
 import { WmoRooms } from '../world/WmoRooms'
 import { RETRY_MS } from '../wow/loadCache'
 import { GROUND_SNAP_REACH } from '../world/particles'
@@ -626,6 +627,8 @@ export class Engine {
 		this.scene.background = new THREE.Color()
 		this.renderer.shadowMap.enabled = true
 		this.renderer.shadowMap.type = THREE.PCFShadowMap
+		// Far WMOs' textures are drawn into a layer array with it (#691).
+		setFarRenderer(this.renderer)
 		this.gpu = new GpuTimer(this.renderer.getContext())
 		// three's own listeners (added in its constructor, so run first) keep the context restorable and
 		// rebuild its state; these pause the editor around it.
@@ -888,6 +891,7 @@ export class Engine {
 			if ((o as THREE.Light).isLight && o.castShadow) (o as THREE.PointLight).shadow.needsUpdate = true
 		})
 		for (const d of this.documents) d.terrain.contextRestored()
+		farLayersLost()
 		// The time the context was lost advances `elapsed` but is not the next frame's delta.
 		this.timer.update()
 		setStatus('The viewport is back.', 4000)
@@ -926,6 +930,7 @@ export class Engine {
 		this.taxi.dispose()
 		this.nav.dispose()
 		this.gpu.dispose()
+		setFarRenderer(null)
 		this.renderer.dispose()
 	}
 
@@ -1520,6 +1525,8 @@ export class Engine {
 	/** Draws what `simulate` readied to the canvas: the scene, the spawn labels and the outline passes. */
 	private draw(dt: number) {
 		const m = this.meter
+		// The far WMOs' texture layers that came in since the last frame (#691).
+		drawFarLayers()
 		if (m.on) this.gpu.begin(1)
 		this.renderer.render(this.scene, this.camera)
 		m.mark(SECTION['Render (CPU)'])
@@ -1759,7 +1766,8 @@ export class Engine {
 		const sm = this.renderer.shadowMap
 		const render = sm.render.bind(sm)
 		sm.render = (lights, scene, camera) => {
-			if (!this.meter.on) return render(lights, scene, camera)
+			// The far layers' copies (#691) have no shadows to time.
+			if (!this.meter.on || isFarLayerScene(scene)) return render(lights, scene, camera)
 			const timing = this.gpu.active
 			const pass = this.gpu.pass
 			this.meter.mark(SECTION['Render (CPU)'])

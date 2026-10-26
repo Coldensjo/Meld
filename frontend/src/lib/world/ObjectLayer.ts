@@ -10,6 +10,7 @@ import { CellGrid } from './cellGrid'
 import { firstPick, hitId } from './instanceHit'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { wantLiquid, wmoLiquidMaterial } from '../water/liquidMaterial'
+import { farDepthMaterial } from '../models/farLayers'
 import type { LiquidClass } from '../water/liquids'
 
 /** The least upward part of a surface's normal that a creature stands on (#660): about 70° of slope; steeper is a wall, below 0 a ceiling. */
@@ -715,7 +716,7 @@ export class ObjectLayer {
 				mesh: this.makeMesh(type, a.geometry, 64, ids, cull),
 				ids,
 				cull,
-				lod: a.lod ? this.makeMesh(type, a.lod, 64, lodIds) : null,
+				lod: a.lod ? this.makeMesh(type, a.lod, 64, lodIds, null, a.lodMaterial) : null,
 				lodIds,
 				liquid: a.liquid ? this.makeLiquidMesh(type, a.liquid, 64, liquidIds) : null,
 				liquidIds,
@@ -747,7 +748,7 @@ export class ObjectLayer {
 		const a = getAsset(type)
 		b.cull = a.skeleton ? null : WmoGroupCull.of(a.geometry)
 		b.mesh = this.makeMesh(type, a.geometry, capacity, b.ids, b.cull)
-		b.lod = a.lod ? this.makeMesh(type, a.lod, capacity, b.lodIds) : null
+		b.lod = a.lod ? this.makeMesh(type, a.lod, capacity, b.lodIds, null, a.lodMaterial) : null
 		b.liquid = a.liquid ? this.makeLiquidMesh(type, a.liquid, capacity, b.liquidIds) : null
 		this.group.add(b.mesh)
 		if (b.lod) this.group.add(b.lod)
@@ -768,12 +769,14 @@ export class ObjectLayer {
 		return m
 	}
 
-	/** `ids` names the object drawn by each instance, as `cull` packs them. */
-	private makeMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[], cull: WmoGroupCull | null = null) {
+	/** `ids` names the object drawn by each instance, as `cull` packs them; `material` is the model's unless given (a far WMO's LOD). */
+	private makeMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[], cull: WmoGroupCull | null = null, material?: THREE.Material[]) {
 		const a = getAsset(type)
 		// Shown by `pack` once it holds an instance.
-		const m = instancedMesh(a.skeleton ? geometry : (cull?.geometry ?? geometry), a.material, capacity, a.skeleton, ids)
+		const m = instancedMesh(a.skeleton ? geometry : (cull?.geometry ?? geometry), material ?? a.material, capacity, a.skeleton, ids)
 		m.userData.type = type
+		// A far WMO's merged classes sample their textures from the layer array, its shadow too (#691).
+		if (geometry.userData.farLayers) m.customDepthMaterial = farDepthMaterial()
 		if (cull) {
 			// The scene pass and the near shadow cascade draw only the groups in their frustums; the far
 			// cascade and the point lights keep the whole model. A shadow pass is told apart by its own camera.

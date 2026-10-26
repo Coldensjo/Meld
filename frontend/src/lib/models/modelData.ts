@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { MeshBVH } from 'three-mesh-bvh'
-import { lodIndex, lodReady, type LodIndex } from './lod'
+import { farMerge, lodIndex, lodReady, type FarMerge, type LodIndex } from './lod'
 import { cullData, type CullData } from '../world/wmoGroupCull'
 
 // What a loaded model needs besides its geometry, built from its buffers alone (#507): the bounds tree
@@ -16,6 +16,8 @@ export interface ModelJob {
 	groups: { start: number; count: number; materialIndex: number }[]
 	/** The WMO room attribute (two values a vertex), only for a model big enough for a group cull. */
 	rooms?: Uint16Array
+	/** A WMO's far class of each material, or -1 to keep it apart (`farMerge`, #691); absent for a model whose LOD keeps its groups. */
+	classes?: Int32Array
 }
 
 export interface ModelData {
@@ -24,6 +26,8 @@ export interface ModelData {
 	/** The bounds tree's node buffers (`MeshBVH.serialize`). */
 	roots: ArrayBuffer[]
 	lod?: LodIndex
+	/** The LOD with its groups merged by class, when the job had `classes` and merging draws fewer groups. */
+	far?: FarMerge
 	/** The group cull's data; absent for a model sent without rooms, null when it gets no cull. */
 	cull?: CullData | null
 }
@@ -42,6 +46,7 @@ export async function buildModelData(job: ModelJob): Promise<ModelData> {
 	try {
 		await lodReady
 		out.lod = lodIndex(job.index, job.groups, job.positions, g.boundingSphere!.radius)
+		if (out.lod && job.classes) out.far = farMerge(out.lod, job.classes, job.groups.length, job.positions.length / 3)
 	} catch (err) {
 		// The model is drawn whole at any distance.
 		console.warn('model LOD failed', err)
@@ -54,6 +59,7 @@ export async function buildModelData(job: ModelJob): Promise<ModelData> {
 export function transfers(data: ModelData): ArrayBuffer[] {
 	const list = [data.index.buffer as ArrayBuffer, ...data.roots]
 	if (data.lod) list.push(data.lod.index.buffer as ArrayBuffer)
+	if (data.far) list.push(data.far.src.buffer as ArrayBuffer, data.far.index.buffer as ArrayBuffer, data.far.runs.buffer as ArrayBuffer)
 	if (data.cull) list.push(data.cull.index.buffer as ArrayBuffer, data.cull.boxes.buffer as ArrayBuffer)
 	return list
 }

@@ -370,6 +370,24 @@ what the worker built is what the main thread would have.
 - Unit: `frontend/tests/modelBuild.test.ts` (Bun has no `window`, so it runs the main-thread path of
   the same build and compares it with `buildBoundsTree`, `buildLod` and `WmoGroupCull.of`).
 
+## Far WMOs' LODs merged by class, textures in a layer array (#691)
+Checks: a far WMO's LOD draws a few groups (one a class: lit or unlit, blend, sides) instead of one
+a texture, its textures drawn small into one shared array (`models/farLayers.ts`), and looks as the
+full model does.
+- Probe: `bun run probe far-wmo-lod` (about 90 s). Opens Elwynn's world view, counts the far WMO LODs
+  drawn and their groups, checks every layer taken was drawn, then shoots Goldshire's two-story
+  house close up with every instance forced to its LOD (`cullView.lodPx` overridden) and the
+  doodads hidden (`layers.set(7)`): the LOD's picture is far closer to the full house's than the
+  picture with the LOD's class materials hidden.
+- Measured on 2026-10-26 (the probe's view, Elwynn 31-33 x 48-50): 4,070 render calls to 1,990, CPU
+  frame 21 ms to 16 ms; the 70 far WMO LODs drawn had 2,407 groups, 334 merged.
+- Trap: forcing the LOD by lowering `LOD_PX` doesn't work at run time (a constant the Engine writes
+  into the cull view each frame); define a getter on `e.cullView.lodPx` and delete it after.
+- Trap: the merged LOD has vertex buffers of its own, so the `model-worker` probe compares it with
+  `farMerge` of the main-thread LOD (`userData.farClasses`), not with `lodIndex`'s index.
+- Unit: `frontend/tests/farLayers.test.ts` (the plan's classes and tints, the merge's groups, runs and
+  copied vertices).
+
 ## Compressed client textures (DXT, #178)
 Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where
 the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look as the RGBA path did.

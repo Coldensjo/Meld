@@ -7,6 +7,7 @@ import { patchRoomGate, ROOM_ATTRIBUTE } from '../world/roomGate'
 import { buildBoundsTree } from '../world/bvh'
 import { markShadowMoving } from '../world/shadowReach'
 import { adoptModel, buildModel } from './modelBuild'
+import { farLayersDrawn, farLod, farPlan, releaseFarLayers } from './farLayers'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
 import { RETRY_MS } from '../wow/loadCache'
 import type { LiquidClass } from '../water/liquids'
@@ -32,8 +33,15 @@ export interface ModelAsset {
 	emitters: MeshEmitter[]
 	/** Ribbon emitters in model space (world/ribbons.ts). */
 	ribbons: MeshRibbon[]
-	/** A simplified model for instances far away, sharing the geometry's vertices (see lod.ts). */
+	/**
+	 * A simplified model for instances far away (see lod.ts): sharing the geometry's vertices, or, for a
+	 * WMO, its groups merged by class with vertices of its own (farLayers.ts, #691).
+	 */
 	lod?: THREE.BufferGeometry
+	/** The materials `lod` draws with, when not `material`: a far WMO's (the model's, then its classes'). */
+	lodMaterial?: THREE.Material[]
+	/** The texture layers a far WMO's `lod` took, let go of with it. */
+	farLayers?: string[]
 	/**
 	 * A WMO's lava and water (its groups' MLIQ, #287), drawn by ObjectLayer with `wmoLiquidMaterial`
 	 * as a mesh of its own: never picked and casting no shadow.
@@ -148,8 +156,17 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 				}
 				building.add(asset)
 				try {
-					// The bounds tree, the LOD and the WMO group cull, off the main thread (#507).
-					asset.lod = adoptModel(asset.geometry, await buildModel(asset.geometry))
+					// The bounds tree, the LOD and the WMO group cull, off the main thread (#507); a WMO's LOD
+					// with its groups merged by class too (#691).
+					const plan = type.startsWith('wmo:') ? farPlan(m.groups, !!m.colors, !!m.rooms) : undefined
+					const data = await buildModel(asset.geometry, plan?.classes)
+					const lod = adoptModel(asset.geometry, data)
+					const far = lod && data.far && plan ? farLod(asset.geometry, data.far, plan, asset.material as THREE.Material[]) : undefined
+					if (far) {
+						asset.lod = far.geometry
+						asset.lodMaterial = far.material
+						asset.farLayers = far.layers
+					} else asset.lod = lod
 				} finally {
 					building.delete(asset)
 				}
@@ -190,9 +207,9 @@ let animatedAt = -1
 /** How many textures have been bound to model materials, so a shadow map drawn before one arrived is redrawn. */
 let texturesBound = 0
 
-/** Bumped each time a model material gets its texture (an alpha-tested one casts a different shadow with it). */
+/** Bumped each time a model material, or a far WMO's layer (farLayers.ts), gets its texture (an alpha-tested one casts a different shadow with it). */
 export function texturesBoundCount(): number {
-	return texturesBound
+	return texturesBound + farLayersDrawn()
 }
 
 /**
@@ -327,6 +344,8 @@ export function releaseWowAsset(asset: ModelAsset) {
 	loose.delete(asset)
 	asset.geometry.dispose()
 	asset.lod?.dispose()
+	if (asset.farLayers) releaseFarLayers(asset.farLayers)
+	asset.farLayers = undefined
 	asset.liquid?.dispose()
 	asset.skeleton?.dispose()
 	const own = new Set<THREE.Material>()

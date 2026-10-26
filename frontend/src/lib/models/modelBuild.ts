@@ -73,7 +73,7 @@ export function modelWorkers(): { workers: number; broken: boolean } {
 }
 
 /** Copies of the buffers of `geometry` the build reads, handed over to the worker. */
-function modelJob(geometry: THREE.BufferGeometry): ModelJob {
+function modelJob(geometry: THREE.BufferGeometry, classes?: Int32Array): ModelJob {
 	const pos = geometry.getAttribute('position') as THREE.BufferAttribute
 	const index = geometry.index!.array as Uint16Array | Uint32Array
 	const job: ModelJob = {
@@ -84,28 +84,31 @@ function modelJob(geometry: THREE.BufferGeometry): ModelJob {
 	const room = geometry.getAttribute(ROOM_ATTRIBUTE) as THREE.BufferAttribute | undefined
 	// A smaller WMO gets no cull (WmoGroupCull.of tells so at once), so its rooms aren't copied.
 	if (room && room.itemSize === 2 && index.length / 3 >= MIN_TRIANGLES) job.rooms = room.array instanceof Uint16Array ? room.array.slice() : Uint16Array.from(room.array)
+	if (classes) job.classes = classes.slice()
 	return job
 }
 
-function buildHere(geometry: THREE.BufferGeometry, resolve: (d: ModelData) => void, reject: (e: Error) => void) {
-	buildModelData(modelJob(geometry)).then(resolve, reject)
+function buildHere(geometry: THREE.BufferGeometry, classes: Int32Array | undefined, resolve: (d: ModelData) => void, reject: (e: Error) => void) {
+	buildModelData(modelJob(geometry, classes)).then(resolve, reject)
 }
 
 /**
  * Builds the bounds tree, LOD and group cull of a model's `geometry` (positions, index and groups
- * set, not yet drawn) in a worker; `adoptModel` puts them on it.
+ * set, not yet drawn) in a worker; `adoptModel` puts them on it. With `classes` (a far WMO's class of
+ * each material, models/farLayers.ts) the LOD's groups are merged by class too (`ModelData.far`).
  */
-export function buildModel(geometry: THREE.BufferGeometry): Promise<ModelData> {
+export function buildModel(geometry: THREE.BufferGeometry, classes?: Int32Array): Promise<ModelData> {
 	return new Promise((resolve, reject) => {
-		if (!startWorkers()) return buildHere(geometry, resolve, reject)
+		if (!startWorkers()) return buildHere(geometry, classes, resolve, reject)
 		let slot = slots[0]
 		for (const s of slots) if (s.jobs < slot.jobs) slot = s
 		const id = nextId++
-		const job = modelJob(geometry)
-		waiting.set(id, { resolve, reject, again: () => buildHere(geometry, resolve, reject), worker: slot })
+		const job = modelJob(geometry, classes)
+		waiting.set(id, { resolve, reject, again: () => buildHere(geometry, classes, resolve, reject), worker: slot })
 		slot.jobs++
 		const list: ArrayBuffer[] = [job.positions.buffer as ArrayBuffer, job.index.buffer as ArrayBuffer]
 		if (job.rooms) list.push(job.rooms.buffer as ArrayBuffer)
+		if (job.classes) list.push(job.classes.buffer as ArrayBuffer)
 		slot.worker.postMessage({ id, job }, list)
 	})
 }

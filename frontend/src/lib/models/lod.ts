@@ -50,6 +50,76 @@ export function lodIndex(index: Uint16Array | Uint32Array, groups: readonly { st
 }
 
 /**
+ * A far WMO's LOD with its groups merged by class (#691), as the model worker posts it back: the
+ * vertices are the model's, picked out again (`src`), so that each one belongs to one group and can
+ * carry that group's texture layer (models/farLayers.ts).
+ */
+export interface FarMerge {
+	/** The model's vertex each of the merged LOD's vertices copies. */
+	src: Uint32Array
+	index: Uint16Array | Uint32Array
+	/**
+	 * The draw groups: one a class, whose `materialIndex` is the model's material count plus the class,
+	 * then each group kept apart, with its own material's index.
+	 */
+	groups: { start: number; count: number; materialIndex: number }[]
+	/** For each of the model's groups in the LOD, its run of vertices: start, count and material index, three values a run. */
+	runs: Uint32Array
+}
+
+/**
+ * Merges the groups of `lod` by class (#691): `classes[m]` is the class of material `m`, or -1 to keep
+ * its groups apart (a moving texture or colour). The triangles of a class's groups are drawn together,
+ * in their order; each group's vertices are copied, so a vertex two groups share gets a copy for each.
+ * `materials` is the model's material count, `vertices` its vertex count. Undefined when merging would
+ * not draw fewer groups. Pure, so the model worker runs it.
+ */
+export function farMerge(lod: LodIndex, classes: Int32Array, materials: number, vertices: number): FarMerge | undefined {
+	// A bucket a class, then one a group kept apart, in the order they come.
+	const buckets = new Map<number, number[]>()
+	for (let i = 0; i < lod.groups.length; i++) {
+		const m = lod.groups[i].materialIndex
+		const c = classes[m] ?? -1
+		const key = c >= 0 ? c : -1 - m
+		let list = buckets.get(key)
+		if (!list) buckets.set(key, (list = []))
+		list.push(i)
+	}
+	if (buckets.size >= lod.groups.length) return
+	const order = [...buckets.keys()].sort((a, b) => (a >= 0 === b >= 0 ? 0 : a >= 0 ? -1 : 1))
+	const stamp = new Int32Array(vertices).fill(-1)
+	const remap = new Uint32Array(vertices)
+	const src = new Uint32Array(lod.index.length)
+	const index = new Uint32Array(lod.index.length)
+	const runs = new Uint32Array(lod.groups.length * 3)
+	const groups: FarMerge['groups'] = []
+	let nv = 0
+	let at = 0
+	let r = 0
+	for (const key of order) {
+		const start = at
+		for (const gi of buckets.get(key)!) {
+			const g = lod.groups[gi]
+			const first = nv
+			for (let k = g.start; k < g.start + g.count; k++) {
+				const v = lod.index[k]
+				if (stamp[v] !== gi) {
+					stamp[v] = gi
+					remap[v] = nv
+					src[nv++] = v
+				}
+				index[at++] = remap[v]
+			}
+			runs[r++] = first
+			runs[r++] = nv - first
+			runs[r++] = g.materialIndex
+		}
+		groups.push({ start, count: at - start, materialIndex: key >= 0 ? materials + key : -1 - key })
+	}
+	return { src: src.slice(0, nv), index: nv < 65535 ? Uint16Array.from(index) : index, groups, runs }
+}
+
+/**
  * The LOD geometry of `geometry` from its `lod` index: it shares the model's vertex buffers (and so
  * its skinning) and its bounds tree, so picking still hits the full model.
  */

@@ -42,6 +42,22 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     same vertices, drawn by a second InstancedMesh for instances under `LOD_PX` on screen
     (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking
     always hits the full model.
+  - A WMO's LOD merges its groups by class (#691, `models/farLayers.ts`), so a far building costs a
+    few draw calls instead of one a texture (Elwynn's world view: 4,070 calls to 1,990). `farPlan`
+    gives each of the model's materials a class (lit or unlit, blend, sides; a group whose texture or
+    colour moves gets -1 and keeps its own material), the worker's `farMerge` (`lod.ts`) concatenates
+    each class's LOD triangles and picks their vertices out of the model's (a vertex two groups share
+    is copied for each), and `farLod` copies those vertices into buffers of the LOD's own with a
+    `farLayer` attribute: the layer of one shared `WebGLArrayRenderTarget` (64 px a layer, mipmapped,
+    repeating, sRGB) that the group's texture is drawn into, times the tint `wowMaterial` gives its
+    material (a dim interior, a grey untextured group). `drawFarLayers` draws the layers waiting at the
+    start of each frame, 96 at most (a grey fill until the texture comes); the array doubles from 256
+    layers as they are taken, up to 2,048 or the GPU's limit, past which a LOD keeps its groups.
+    `releaseWowAsset` gives the layers back. The class materials are shared by every far WMO, patched
+    for the cascades and the room gate like a group's, and sample the array where three samples
+    `map`. The LOD mesh's materials are the model's, then the classes' (`ModelAsset.lodMaterial`), so
+    a pick through the full model's bounds tree finds the group's own material. Its shadow is drawn
+    with `farDepthMaterial`, where a cut-out's triangles (a negative layer) test the layer's alpha.
   - A WMO with liquids (MLIQ, #287) has a third InstancedMesh in its batch, `liquid`, packed with
     every instance in view (`docs/architecture/water.md`, "A WMO's liquids"); `intersect` leaves it
     out, so its lava and water are never picked.
