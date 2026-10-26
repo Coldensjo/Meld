@@ -7,6 +7,8 @@ import {
 	CAMERA_KEYS,
 	SHORTCUTS,
 	assignBinding,
+	flyOnQE,
+	setFlyOnQE,
 	bindKeymap,
 	bindingFromEvent,
 	bindingLabel,
@@ -268,5 +270,18 @@ describe('rebinding (#396)', () => {
 		expect(bindingFromEvent('camForward', ev('w', 'KeyW', { ctrl: true }))).toHaveProperty('error')
 		expect(bindingLabel('camUp', 'Space')).toBe('Space')
 		expect(bindingLabel('grid', ' ')).toBe('Space')
+	})
+})
+
+describe('Q/E fly switch (#725)', () => {
+	test('on gives Q and E to up and down, off gives the turns back', () => {
+		expect(flyOnQE({})).toBe(false)
+		const on = setFlyOnQE({}, true)
+		expect(flyOnQE(on)).toBe(true)
+		expect(bindingsOf('camUp', on)).toEqual(['Space', 'KeyQ'])
+		expect(bindingsOf('camDown', on)).toEqual(['KeyX', 'KeyC', 'KeyE'])
+		expect(bindingsOf('camTurnLeft', on)).toEqual([])
+		expect(bindingsOf('camTurnRight', on)).toEqual([])
+		expect(setFlyOnQE(on, false)).toEqual({})
 	})
 })

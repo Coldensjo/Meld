@@ -27,7 +27,7 @@
 	import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../lib/state/graphicsPresets'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
 	import { tick } from 'svelte'
-	import { keysOf, type CommandId } from '../lib/ui/commands'
+	import { flyOnQE, keysOf, setFlyOnQE, type CommandId } from '../lib/ui/commands'
 	import { runCommand } from '../lib/ui/runCommand'
 
 	/** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
@@ -641,6 +641,7 @@
 				{ kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
 				{ kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
 				{ kind: 'action', label: 'Hotkey Manager…', run: () => (ui.dialog = 'hotkeys') },
+				{ kind: 'check', label: 'Q / E Fly Up and Down (instead of turning)', checked: flyOnQE(prefs.keymap), toggle: () => (prefs.keymap = setFlyOnQE(prefs.keymap, !flyOnQE(prefs.keymap))) },
 				{ kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
 				{ kind: 'check', label: 'Check the Map before Compile (stop on errors)', checked: prefs.checkBeforeCompile, toggle: () => (prefs.checkBeforeCompile = !prefs.checkBeforeCompile) },
 				{ kind: 'check', label: 'Build movement maps on compile (server mmaps)', checked: prefs.buildMoveMaps, toggle: () => (prefs.buildMoveMaps = !prefs.buildMoveMaps) },

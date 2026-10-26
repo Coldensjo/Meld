@@ -549,6 +549,7 @@ reads the key follows.
   Shortcuts dialog the new keys, the camera flies on I and not W, and Reset all puts every default
   back. The probe page runs with `?nosave`, so the owner's keymap is never touched; it sets
   `prefs.keymap = {}` at the start and end.
+- Preferences › Q / E Fly Up and Down (#725) is only a keymap rewrite (`setFlyOnQE`, checked state `flyOnQE`): Q joins Fly up, E joins Fly down, the turns lose them; off gives them back. Tested in `tests/shortcuts.test.ts` ("Q/E fly switch"). Fly up/down only act with Follow the Ground off, as Space does.
 - Not in the probe: a reload keeping the keys (the page doesn't save). In `make dev`'s window, rebind
   a key, restart, and check `%AppData%\Meld\config.json` holds `"keymap"` with only that row.
 - Trap: a synthetic keydown on the capture button must be dispatched on the button itself (it

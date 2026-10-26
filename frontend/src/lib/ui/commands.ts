@@ -85,7 +85,7 @@ const GENERAL = [
 	{ id: 'cameraFaster', group: 'Camera', desc: 'Camera speed up a step', chords: [key('p')] },
 	{ id: 'cameraSlower', group: 'Camera', desc: 'Camera speed down a step', chords: [key('o')] },
 	{ id: 'followGround', group: 'Camera', desc: 'Follow the ground on/off (on, the camera stays above the terrain; off, it can enter caves)', chords: [key('t')] },
-	{ id: 'topDown', group: 'Camera', desc: 'Top-down view on/off: straight down with no perspective; the wheel zooms, Q/E or a right drag turn the map', chords: [key('u')] },
+	{ id: 'topDown', group: 'Camera', desc: 'Top-down view on/off: straight down with no perspective; the wheel zooms, the turn keys (Q/E unless moved) or a right drag turn the map', chords: [key('u')] },
 	{ id: 'minimap', group: 'Camera', desc: "Minimap window: the map from above with the camera's spot; a click moves the camera there", chords: [key('m')] },
 	{ id: 'focus', group: 'Camera', desc: 'Focus selected object', chords: [key('f')] },
 	{ id: 'climbView', group: 'Camera', desc: 'Climb view on/off: ground too steep to walk up is tinted red (the slope is in the View menu)', chords: [shift('f2')] },
@@ -479,6 +479,29 @@ export function removeBinding(km: Keymap | undefined, id: string, index: number)
 		id,
 		bindingsOf(id, km).filter((_, i) => i !== index),
 	)
+}
+
+/** Whether `km` has Q flying the camera up and E down (the "Q/E fly up and down" switch, #725). */
+export function flyOnQE(km: Keymap | undefined): boolean {
+	return bindingsOf('camUp', km).includes('KeyQ') && bindingsOf('camDown', km).includes('KeyE')
+}
+
+/**
+ * `km` with the switch on or off. On, Q joins Fly up and E joins Fly down (the turns lose them, and
+ * keep whatever other keys they have); off, they leave those rows and go back to the turns. It is
+ * only the keymap, so the Hotkey Manager and the Shortcuts dialog show the truth.
+ */
+export function setFlyOnQE(km: Keymap | undefined, on: boolean): Keymap {
+	if (on) return assignBinding(assignBinding(km, 'camUp', 'KeyQ').keymap, 'camDown', 'KeyE').keymap
+	let out: Keymap = { ...km }
+	const drop = (id: string, code: string) => {
+		const i = bindingsOf(id, out).indexOf(code)
+		if (i >= 0) out = removeBinding(out, id, i)
+	}
+	drop('camUp', 'KeyQ')
+	drop('camDown', 'KeyE')
+	out = assignBinding(out, 'camTurnLeft', 'KeyQ').keymap
+	return assignBinding(out, 'camTurnRight', 'KeyE').keymap
 }
 
 /** `km` with row `id` back on its default keys. */

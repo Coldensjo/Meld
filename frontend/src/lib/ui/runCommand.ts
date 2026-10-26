@@ -84,7 +84,7 @@ const RUN: Record<Exclude<CommandId, `tool:${string}`>, Run> = {
 	},
 	topDown: () => {
 		ui.topDown = !ui.topDown
-		setStatus(ui.topDown ? 'Top-down view: the wheel zooms, Q/E or a right drag turn the map (U for the 3D view).' : '3D view.', 3000)
+		setStatus(ui.topDown ? 'Top-down view: the wheel zooms, the turn keys (Q/E) or a right drag turn the map (U for the 3D view).' : '3D view.', 3000)
 	},
 	minimap: () => (ui.minimap = !ui.minimap),
 	focus: (e) => e.focusSelected(),
