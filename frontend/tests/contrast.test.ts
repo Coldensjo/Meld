@@ -87,7 +87,8 @@ test('component styles use app.css tokens, not colour literals', () => {
 		if (!f.endsWith('.svelte') || allowed.has(f)) continue
 		const src = readFileSync(new URL(f, dir), 'utf8')
 		for (const m of src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
-			for (const line of m[1].split(/\r?\n/)) {
+			// CSS comments may name an issue such as (#718), which is not a colour.
+			for (const line of m[1].replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/)) {
 				if (/#[0-9a-fA-F]{3,8}\b/.test(line.replace(/var\([^)]*\)/g, ''))) bad.push(`${f}: ${line.trim()}`)
 			}
 		}
