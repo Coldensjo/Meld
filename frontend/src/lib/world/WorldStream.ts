@@ -6,9 +6,13 @@ import { groundHeight, groundMesh, groundStride, keepReach, parseGround, tileDis
 import type { ObjectLayer } from './ObjectLayer'
 import { WorldHorizon } from '../../../wailsjs/go/main/App'
 import { horizonMesh, packHorizon, type HorizonTile } from './horizonMesh'
+import { parsePaint, PAINT_DROP, PAINT_REACH } from './worldPaint'
+import { WorldPainter, type PaintedTile } from './WorldPainter'
 
 /** How many tiles are read at once. */
 const LOADS = 3
+/** How many tiles' texture layers are read at once, beside the tiles. */
+const PAINT_LOADS = 2
 /** The colour of a tile with no minimap image (every tile of an instance). */
 const BARE = 0x8a9078
 /** How many tiles past the reach the horizon reaches, as a region's does (`RegionHorizon`). */
@@ -23,7 +27,18 @@ interface StreamTile {
 	/** The tile's minimap image in the client, '' for none. */
 	file: string
 	ground: TileGround | null
-	mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial> | null
+	/** Drawn in the minimap's colour (`colour`) or, near the camera, in the tile's texture layers (`paint`). */
+	mesh: THREE.Mesh<THREE.BufferGeometry, THREE.Material> | null
+	/** The minimap image's material, which the mesh keeps while it isn't painted. */
+	colour: THREE.MeshLambertMaterial | null
+	/** The tile's texture layers, read; drawn once its textures have loaded (`waiting`). */
+	paint: PaintedTile | null
+	/** Its texture layers are being read. */
+	painting: boolean
+	/** Its texture layers could not be read or had no room in the palette: not tried again until the tile is let go of. */
+	paintFailed: boolean
+	/** Counts the paint's reads and drops, as `gen` the tile's. */
+	paintGen: number
 	/** The stride the mesh is drawn at (groundStride). */
 	stride: GroundStride
 	/** A read is under way; `loads` counts them. */
@@ -52,7 +67,9 @@ function geometryOf(ground: TileGround, stride: GroundStride): THREE.BufferGeome
  * one at a time nearest first (`/wow/ground`, the heights and holes; the minimap image as the
  * colour; `/wow/groundmodels`, the models), and let go of once the camera is a tile further off. A
  * tile is drawn at a coarser stride the further it is (`groundStride`), redrawn when that changes. The
- * ground is drawn lit, as the props are, with the scene's fog; the models are placed in the document's
+ * ground is drawn lit, as the props are, with the scene's fog; within PAINT_REACH of the camera a tile
+ * is drawn in its own texture layers instead (`/wow/groundpaint`, through the terrain shader as a
+ * region's ground: `WorldPainter`), once their textures have loaded. The models are placed in the document's
  * own `ObjectLayer`, so they are drawn, culled, lit and animated as a region's are. The tiles are the
  * client's as it reads them now, Meld's patch included; nothing here edits them: a block is edited in
  * a region tab (io/region.ts `editWorldHere`). Past the ground it draws, and where a tile is still
@@ -90,16 +107,28 @@ export class WorldStream {
 	private horizonPacked = 0
 	/** How many horizon tiles are drawn, for the probes. */
 	private horizonShown = 0
+	/** Draws the near tiles in their texture layers. */
+	private painter: WorldPainter
+	/** The tiles whose texture layers to read, nearest first; worked out again with the plan or when a tile lands. */
+	private paintQueue: StreamTile[] = []
+	private paintLoads = 0
+	/** The plan or the tiles drawn changed since the paint's queue was worked out. */
+	private paintDirty = true
+	/** The tiles whose paint is read but whose textures are still loading. */
+	private waiting = new Set<StreamTile>()
 
 	/**
 	 * `objects` is the world view's document's layer, whose terrain is a flat stand-in: `groundAt` is
-	 * its height, which a model's height above it (`yOff`) is taken from.
+	 * its height, which a model's height above it (`yOff`) is taken from. `terrainMaterial` is the
+	 * stand-in's material, whose light the painted tiles share.
 	 */
 	constructor(
 		readonly mapName: string,
 		private objects: ObjectLayer,
 		private groundAt: (x: number, z: number) => number,
+		terrainMaterial: THREE.ShaderMaterial,
 	) {
+		this.painter = new WorldPainter(terrainMaterial)
 		this.group.name = 'world'
 		this.horizon.name = 'world horizon'
 		this.horizon.frustumCulled = false
@@ -120,7 +149,23 @@ export class WorldStream {
 				this.tiles = new Map()
 				for (const t of list) {
 					const key = tileKey(t.X, t.Y)
-					this.tiles.set(key, { key, x: t.X, y: t.Y, file: t.File ?? '', ground: null, mesh: null, stride: 1, loading: false, failed: false, gen: 0 })
+					this.tiles.set(key, {
+						key,
+						x: t.X,
+						y: t.Y,
+						file: t.File ?? '',
+						ground: null,
+						mesh: null,
+						colour: null,
+						paint: null,
+						painting: false,
+						paintFailed: false,
+						paintGen: 0,
+						stride: 1,
+						loading: false,
+						failed: false,
+						gen: 0,
+					})
 					this.have.add(key)
 				}
 				this.planX = NaN
@@ -166,12 +211,42 @@ export class WorldStream {
 				}
 			}
 			this.horizonDirty = true
+			this.paintDirty = true
 		}
 		while (this.loads < LOADS && this.queue.length) {
 			const t = tiles.get(this.queue.shift()!)
 			if (t && !t.ground && !t.loading && !t.failed) void this.load(t)
 		}
+		if (this.paintDirty) this.planPaint(tiles)
+		while (this.paintLoads < PAINT_LOADS && this.paintQueue.length) {
+			const t = this.paintQueue.shift()!
+			if (t.mesh && !t.paint && !t.painting && !t.paintFailed) void this.loadPaint(t)
+		}
+		for (const t of this.waiting) {
+			if (!t.paint?.ready() || !t.mesh) continue
+			this.waiting.delete(t)
+			t.mesh.material = t.paint.material
+			// The models' shadows fall on the painted ground, as on a region's.
+			t.mesh.receiveShadow = true
+		}
 		if (this.horizonDirty && this.horizonFull && performance.now() - this.horizonPacked >= HORIZON_EVERY) this.packHorizon()
+	}
+
+	/**
+	 * Works out which drawn tiles to read the texture layers of (those within PAINT_REACH of the eye,
+	 * nearest first), and lets go of the paint of those past PAINT_DROP.
+	 */
+	private planPaint(tiles: Map<number, StreamTile>) {
+		this.paintDirty = false
+		const want: Array<{ t: StreamTile; d: number }> = []
+		for (const t of tiles.values()) {
+			if (!t.mesh) continue
+			const d = tileDistance(this.eyeX, this.eyeZ, t.x, t.y)
+			if (d >= PAINT_DROP) this.dropPaint(t)
+			else if (d < PAINT_REACH && !t.paint && !t.painting && !t.paintFailed) want.push({ t, d })
+		}
+		want.sort((a, b) => a.d - b.d)
+		this.paintQueue = want.map((w) => w.t)
 	}
 
 	/** Shows the horizon (View › Far Horizon, where it can be seen) in `color`, the fog's. */
@@ -246,24 +321,58 @@ export class WorldStream {
 
 	/**
 	 * What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's
-	 * count, the models placed, the tiles drawn at each stride ("1", "2", "4") and the horizon's tiles drawn.
+	 * count, the models placed, the tiles drawn at each stride ("1", "2", "4"), the horizon's tiles
+	 * drawn, and the paint: tiles drawn in their texture layers, their layers being read or waiting
+	 * to be (`painting`, the reads and the queue), read but their textures still loading
+	 * (`paintWaiting`), and failed.
 	 */
-	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number; models: number; strides: Record<GroundStride, number>; horizon: number } {
+	stats(): {
+		loaded: number
+		loading: number
+		queued: number
+		tiles: number
+		failed: number
+		models: number
+		strides: Record<GroundStride, number>
+		horizon: number
+		painted: number
+		painting: number
+		paintWaiting: number
+		paintFailed: number
+	} {
 		let loaded = 0
 		let failed = 0
+		let painted = 0
+		let paintFailed = 0
 		const strides: Record<GroundStride, number> = { 1: 0, 2: 0, 4: 0 }
 		for (const t of this.tiles?.values() ?? []) {
 			if (t.mesh) {
 				loaded++
 				strides[t.stride]++
+				if (t.paint && !this.waiting.has(t)) painted++
 			}
 			if (t.failed) failed++
+			if (t.paintFailed) paintFailed++
 		}
+		const painting = this.paintLoads + this.paintQueue.filter((t) => t.mesh && !t.paint && !t.painting && !t.paintFailed).length + (this.paintDirty ? 1 : 0)
 		const queued = this.queue.filter((k) => {
 			const t = this.tiles?.get(k)
 			return !!t && !t.ground && !t.loading && !t.failed
 		}).length
-		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed, models: this.models.count, strides, horizon: this.horizonShown }
+		return {
+			loaded,
+			loading: this.loads,
+			queued,
+			tiles: this.have.size,
+			failed,
+			models: this.models.count,
+			strides,
+			horizon: this.horizonShown,
+			painted,
+			painting,
+			paintWaiting: this.waiting.size,
+			paintFailed,
+		}
 	}
 
 	private async load(t: StreamTile) {
@@ -295,6 +404,7 @@ export class WorldStream {
 			t.mesh = this.meshOf(t, ground, image)
 			this.group.add(t.mesh)
 			this.horizonDirty = true
+			this.paintDirty = true
 			this.models.add(t.key, placed, (m) => this.place(m))
 		} catch (err) {
 			if (t.gen === gen) t.failed = true
@@ -303,6 +413,44 @@ export class WorldStream {
 			if (t.gen === gen) t.loading = false
 			this.loads--
 		}
+	}
+
+	/** Reads tile `t`'s texture layers; they are drawn once their textures have loaded (`waiting`). */
+	private async loadPaint(t: StreamTile) {
+		const gen = ++t.paintGen
+		t.painting = true
+		this.paintLoads++
+		try {
+			const res = await fetch(`/wow/groundpaint?map=${encodeURIComponent(this.mapName)}&x=${t.x}&y=${t.y}`)
+			if (!res.ok) throw new Error((await res.text()).trim() || `${res.status}`)
+			const p = parsePaint(await res.arrayBuffer())
+			// Let go of while it was read (the camera moved off, the tile was dropped or the tab closed).
+			if (this.disposed || t.paintGen !== gen || !t.mesh) return
+			const painted = this.painter.paint(t.x, t.y, p)
+			if (!painted) throw new Error("the world view's palette is full")
+			t.paint = painted
+			this.waiting.add(t)
+		} catch (err) {
+			if (t.paintGen === gen) t.paintFailed = true
+			console.warn(`the paint of tile ${this.mapName} ${t.x}_${t.y} not read`, err)
+		} finally {
+			if (t.paintGen === gen) t.painting = false
+			this.paintLoads--
+		}
+	}
+
+	/** Draws tile `t` in its minimap colour again and lets go of its paint. */
+	private dropPaint(t: StreamTile) {
+		t.paintGen++
+		t.painting = false
+		this.waiting.delete(t)
+		if (!t.paint) return
+		if (t.mesh && t.colour) {
+			t.mesh.material = t.colour
+			t.mesh.receiveShadow = false
+		}
+		this.painter.drop(t.paint)
+		t.paint = null
 	}
 
 	private meshOf(t: StreamTile, ground: TileGround, image: { width: number; height: number; pixels: Uint8Array } | null) {
@@ -318,7 +466,8 @@ export class WorldStream {
 			map.anisotropy = textureAnisotropy()
 			map.needsUpdate = true
 		}
-		const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map, color: map ? 0xffffff : BARE }))
+		t.colour = new THREE.MeshLambertMaterial({ map, color: map ? 0xffffff : BARE })
+		const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(g, t.colour)
 		mesh.name = `world tile ${t.x}_${t.y}`
 		mesh.position.set(t.x * TILE_YARDS, 0, t.y * TILE_YARDS)
 		mesh.matrixAutoUpdate = false
@@ -345,6 +494,8 @@ export class WorldStream {
 		t.gen++
 		t.loading = false
 		t.ground = null
+		this.dropPaint(t)
+		t.paintFailed = false
 		this.models.drop(t.key, (id) => {
 			this.objects.remove(id)
 			this.dropped = true
@@ -353,8 +504,9 @@ export class WorldStream {
 		this.horizonDirty = true
 		this.group.remove(t.mesh)
 		t.mesh.geometry.dispose()
-		t.mesh.material.map?.dispose()
-		t.mesh.material.dispose()
+		t.colour?.map?.dispose()
+		t.colour?.dispose()
+		t.colour = null
 		t.mesh = null
 	}
 
@@ -363,5 +515,6 @@ export class WorldStream {
 		for (const t of this.tiles?.values() ?? []) this.drop(t)
 		this.horizon.geometry.dispose()
 		this.horizon.material.dispose()
+		this.painter.dispose()
 	}
 }

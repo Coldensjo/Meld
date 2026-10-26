@@ -2755,7 +2755,7 @@ export class Engine {
 		else {
 			d = new MapDocument(WORLD_STAND_IN, this.uniqueName(`${mapName} world`))
 			const stand = d.terrain
-			d.world = new WorldStream(mapName, d.objects, (x, z) => stand.heightAt(x, z))
+			d.world = new WorldStream(mapName, d.objects, (x, z) => stand.heightAt(x, z), stand.material)
 			d.objects.lookOnly = true
 			// The client's water is part of what a later step streams; the stand-in has no sea.
 			d.meta.waterEnabled = false

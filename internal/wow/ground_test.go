@@ -89,3 +89,75 @@ func TestTileModelsReadABuiltTile(t *testing.T) {
 		t.Fatalf("inn %+v", inn)
 	}
 }
+
+// A tile's texture layers read back as the world view draws them: the textures it names, each chunk's
+// slots naming them in layer order, and the weights adt.ClientWeights gives at the chunk's place in the
+// tile; a chunk with no layer has no slot and its first weight full. EncodePaint lays them out as
+// world/worldPaint.ts reads them.
+func TestTilePaintReadsABuiltTile(t *testing.T) {
+	outer := make([]float32, GroundSide*GroundSide)
+	alpha := make([]byte, adt.AlphaSize*adt.AlphaSize)
+	for i := range alpha {
+		alpha[i] = byte(i % 251)
+	}
+	grass, dirt := `Tileset\Elwynn\ElwynnGrassBase.blp`, `Tileset\Elwynn\ElwynnDirtBase2.blp`
+	// Chunk (5, 2): the 37th in the file's order.
+	painted := adt.ChunkPaint{Layers: []adt.Layer{{Texture: grass}, {Texture: dirt, Alpha: alpha}}}
+	root, err := adt.BuildTile(outer, adt.Ring{}, adt.Changes{TileX: 30, TileY: 40, Paint: map[int]adt.ChunkPaint{2*16 + 5: painted}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, slots, weights, err := TilePaint(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(slots) != 16*16*4 || len(weights) != PaintSide*PaintSide*4 {
+		t.Fatalf("%d slots and %d weights", len(slots), len(weights))
+	}
+	c := 2*16 + 5
+	if slots[c*4] == NoSlot || slots[c*4+1] == NoSlot || slots[c*4+2] != NoSlot || names[slots[c*4]] != grass || names[slots[c*4+1]] != dirt {
+		t.Fatalf("chunk (5, 2) slots %v of %q", slots[c*4:c*4+4], names)
+	}
+	if slots[0] != NoSlot || weights[0] != 255 || weights[1] != 0 {
+		t.Fatalf("an unpainted chunk: slots %v, weights %v", slots[:4], weights[:4])
+	}
+	ter, err := adt.ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tex, err := adt.ParseTextures(root, false, ter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var own adt.TexChunk
+	for i, ch := range ter.Chunks {
+		if ch.IndexX == 5 && ch.IndexY == 2 {
+			own = tex.Chunks[i]
+		}
+	}
+	want := adt.ClientWeights(own, PaintPerChunk)
+	for v := 0; v < PaintPerChunk; v++ {
+		for u := 0; u < PaintPerChunk; u++ {
+			at := ((2*PaintPerChunk+v)*PaintSide + 5*PaintPerChunk + u) * 4
+			for k := 0; k < 4; k++ {
+				if weights[at+k] != want[(v*PaintPerChunk+u)*4+k] {
+					t.Fatalf("texel (%d, %d) weight %d: %d, want %d", u, v, k, weights[at+k], want[(v*PaintPerChunk+u)*4+k])
+				}
+			}
+		}
+	}
+	b := EncodePaint(names, slots, weights)
+	head := 6
+	for _, s := range names {
+		head += 2 + len(s)
+	}
+	if string(b[:4]) != "PANT" || int(binary.LittleEndian.Uint16(b[4:])) != len(names) || len(b) != head+len(slots)+len(weights) {
+		t.Fatalf("reply %q, %d bytes", b[:4], len(b))
+	}
+	if l := int(binary.LittleEndian.Uint16(b[6:])); string(b[8:8+l]) != names[0] {
+		t.Fatalf("first name %q", b[8:8+l])
+	}
+	if b[head+c*4+1] != slots[c*4+1] || b[head+len(slots)+4] != weights[4] {
+		t.Fatal("the slots and weights are not after the names")
+	}
+}

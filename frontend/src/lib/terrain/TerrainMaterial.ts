@@ -98,6 +98,9 @@ uniform float chunksSide;
 uniform float chunkWorld;
 uniform float rockLayer;
 uniform float worldSize;
+// Where the paint's texel (0, 0) lies in the world: 0 for a region's terrain, the tile's corner for a
+// world view's painted tile (world/worldPaint.ts).
+uniform vec2 paintOrigin;
 // The texture looks (world/textureLooks.ts) per palette entry, 256 wide: r is 0 for still or the speed
 // plus one, g the scroll's direction (0 to 7), b 255 for overbright. lookTime is in seconds.
 uniform sampler2D lookTex;
@@ -204,7 +207,8 @@ vec4 blend(vec4 ids, vec4 w, vec2 tuv, vec2 dx, vec2 dy) {
 void main() {
   // Seen from below (the camera under the ground, or inside a hill), the ground is a dark ceiling.
   vec3 n = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
-  vec2 suv = vWorldPos.xz / worldSize;
+  vec2 pp = vWorldPos.xz - paintOrigin;
+  vec2 suv = pp / worldSize;
   // One repeat a cell, eight a chunk, as the client tiles its ground textures (Benilla's
   // TERRAIN_LAYER_TILES, terrain.rs; MIT/Apache-2.0): fixed, not a setting.
   vec2 tuv = vWorldPos.xz / cellSize;
@@ -212,7 +216,8 @@ void main() {
   // so one pair of derivatives serves them all, taken here outside any branch.
   vec3 pdx = dFdx(vWorldPos) / cellSize;
   vec3 pdy = dFdy(vWorldPos) / cellSize;
-  vec2 cell = floor(vWorldPos.xz / chunkWorld);
+  // Clamped, so the far edge (and a world tile's skirt, hung from it) reads the last chunk.
+  vec2 cell = clamp(floor(pp / chunkWorld), 0.0, chunksSide - 1.0);
   vec4 ids = floor(texture2D(slotTex, (cell + 0.5) / chunksSide) * 255.0 + 0.5);
   // Bilinear within the chunk, as the game filters its alpha maps. The four weights name this chunk's
   // own slots, so texels of a neighbouring chunk (other slots) are never mixed in: every tap is clamped
@@ -471,6 +476,7 @@ export function createTerrainMaterial(palette: THREE.Texture, slots: THREE.Textu
 		chunkWorld: { value: chunkWorld },
 		rockLayer: { value: 3 },
 		worldSize: { value: worldSize },
+		paintOrigin: { value: new THREE.Vector2() },
 		cellSize: { value: cellSize },
 		lookTex: { value: null },
 		lookTime: { value: 0 },

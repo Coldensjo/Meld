@@ -573,6 +573,10 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   `worldStats().strides` counting the tiles at 1, 2 and 4), that the WDL horizon is drawn past the
   ground and on no tile whose ground is drawn (`horizon`: its tiles, those on ground, the share of the
   view it changes; `worldStats().horizon`), that the ground is drawn (a shot with `doc.world.group` hidden differs), that
+  the tiles within `PAINT_REACH` are drawn in their texture layers once those load and none past
+  `PAINT_DROP` is (`paint`: painted, near ones left unpainted and far ones painted, both 0, and the
+  share of the view that changes with the painted tiles put back in their minimap colour; `worldStats()`
+  counts `painted`, `painting`, `paintWaiting` and `paintFailed`), that
   the models are drawn (the same with `doc.objects.group`) and placed once (as many as the loaded
   tiles list unique IDs), that no doodad (M2) is drawn further across the ground than
   `doodadReach` gives for its size and some are left out for it (`doodads`: drawn, past, cut), that a
@@ -588,7 +592,10 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   30 frames of the last far redraw, `early` must be 0: with `WORLD_FAR_FRAMES` at 1 it was 10 in 41
   frames), then Edit Here (a project lent in the state) and File ›
   World View back, the camera where it was each way, and that every building of the region stands
-  where the world view has it, the block's corner apart. It reports `perf` with the models and
+  where the world view has it, the block's corner apart, and that on every tile of the block the
+  world view painted, each chunk's textures and every texel's weights are the region's (`regionPaint`:
+  slots and texels off, both 0; the region's palette is `editor.palette`, which the frame hands to
+  its terrain, so `terrain.palette.entries` can still be empty right after the tab opens). It reports `perf` with the models and
   without (not checked): at the Elwynn view, reach 3, about 26,000 models, 4,500 draw calls, 3.4M
   triangles and 26 ms of CPU against 3 ms bare, on 2026-10-25; with the doodads' reach, 4,070 calls,
   3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%);
@@ -596,6 +603,8 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   about 180k triangles and no draw call worth counting.
 - `bun test tests/selectObjects.test.ts`: a look-only layer (the world view's streamed models) selects nothing.
 - `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
+- `bun test tests/worldPaint.test.ts` and `go test ./internal/wow/ -run TilePaint`: a tile's paint
+  reply (`/wow/groundpaint`) reads back, and the painted tiles share palette entries.
 - `go test ./internal/vmangos/ -run Horizon`: the world's horizon has every WDL tile once at its own
   coordinates, Northshire's as the region's horizon has it.
 - `bun test tests/instanceCull.test.ts`: the doodads' reach by size, across the ground, only for a

@@ -1,5 +1,5 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, while the models and textures landing redraw the far shadow map at most once every 30 frames (its fit moving still redraws it at once), and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
-// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, the near ones (within PAINT_REACH) in their own texture layers once those load and the rest in the minimap's colour, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, while the models and textures landing redraw the far shadow map at most once every 30 frames (its fit moving still redraws it at once), and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/WorldPainter.ts, frontend/src/lib/world/worldPaint.ts, frontend/src/lib/terrain/TerrainMaterial.ts, frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/region.ts')
@@ -38,6 +38,27 @@ for (const t of worldDoc.world.tiles.values()) {
 	if (groundStride(Math.max(0, d - T / 3)) !== t.stride && groundStride(d + T / 3) !== t.stride) strideOff++
 }
 const strides = first.strides[1] > 0 && first.strides[4] > 0 && strideOff === 0
+// The tiles within PAINT_REACH of the eye are drawn in their texture layers once those and their
+// textures are read, those past PAINT_DROP in the minimap's colour (each as of the plan's last quarter
+// tile, so with the same slack as the strides).
+const { PAINT_REACH, PAINT_DROP } = await P.app('/src/lib/world/worldPaint.ts')
+await P.until(
+	() => {
+		const s = e.worldStats()
+		return s && !s.painting && !s.paintWaiting ? s : null
+	},
+	120000,
+	'the near tiles painted',
+)
+const paint = { painted: 0, nearUnpainted: 0, farPainted: 0, failed: e.worldStats().paintFailed, entries: worldDoc.world.painter.entries.length }
+for (const t of worldDoc.world.tiles.values()) {
+	if (!t.mesh) continue
+	const d = tileDistance(eye.x, eye.z, t.x, t.y)
+	const painted = !!t.paint && t.mesh.material === t.paint.material
+	if (painted) paint.painted++
+	if (!painted && d < PAINT_REACH - T / 2) paint.nearUnpainted++
+	if (painted && d > PAINT_DROP + T / 2) paint.farPainted++
+}
 // Drawn: the view with the tiles hidden differs.
 await P.lookAt({ x: mid.x, y: ground + 120, z: mid.z + 300 }, { pitch: 0.35, back: 1 })
 await P.settle()
@@ -46,6 +67,14 @@ e.doc.world.group.visible = false
 const hidden = await P.shot()
 e.doc.world.group.visible = true
 const drawn = +P.diff(shown, hidden).off.toFixed(3)
+// The paint is drawn: the view with the painted tiles in their minimap colour differs.
+const paintedTiles = [...worldDoc.world.tiles.values()].filter((t) => t.mesh && t.paint && t.mesh.material === t.paint.material)
+for (const t of paintedTiles) t.mesh.material = t.colour
+const minimap = await P.shot()
+for (const t of paintedTiles) t.mesh.material = t.paint.material
+paint.drawn = +P.diff(shown, minimap).off.toFixed(3)
+P.save(shown, 'painted')
+P.save(minimap, 'minimap')
 // Past the ground the map's WDL horizon is drawn, none of it on a tile whose ground is drawn: the view
 // with it hidden differs.
 const hz = worldDoc.world.horizon
@@ -219,6 +248,43 @@ for (const o of e.objects.objects.values()) {
 		}
 	}
 }
+// The world view's paint is the region's: on every tile of the block the world view has painted, each
+// chunk's textures and every texel's weights are the ones the region read (a chunk with no layer,
+// which the world view draws bare, aside).
+const regionPaint = { tiles: 0, chunks: 0, slotsOff: 0, texelsOff: 0 }
+{
+	// The region's palette is editor.palette (the frame hands it to the terrain's array).
+	const ter = e.terrain
+	const res = ter.size * 4
+	const side = ter.size / 8
+	const entries = worldDoc.world.painter.entries
+	for (const t of worldDoc.world.tiles.values()) {
+		if (!t.paint || t.x < r.x || t.y < r.y || t.x >= r.x + r.size || t.y >= r.y + r.size) continue
+		regionPaint.tiles++
+		const slots = t.paint.material.uniforms.slotTex.value.image.data
+		const weights = t.paint.material.uniforms.weightTex.value.image.data
+		for (let cy = 0; cy < 16; cy++)
+			for (let cx = 0; cx < 16; cx++) {
+				const c = cy * 16 + cx
+				if (entries[slots[c * 4]]?.startsWith('#')) continue
+				regionPaint.chunks++
+				const gx = (t.x - r.x) * 16 + cx
+				const gy = (t.y - r.y) * 16 + cy
+				const rc = gy * side + gx
+				for (let k = 0; k < 4; k++) {
+					const wp = slots[c * 4 + k] === 255 ? '' : entries[slots[c * 4 + k]].toLowerCase()
+					const rp = ter.chunkSlots[rc * 4 + k] === 255 ? '' : (editor.palette[ter.chunkSlots[rc * 4 + k]] ?? '?').toLowerCase()
+					if (wp !== rp) regionPaint.slotsOff++
+				}
+				for (let v = 0; v < 32; v++)
+					for (let u = 0; u < 32; u++) {
+						const wi = ((cy * 32 + v) * 512 + cx * 32 + u) * 4
+						const ri = ((gy * 32 + v) * res + gx * 32 + u) * 4
+						if (weights[wi] !== ter.weights[ri] || weights[wi + 1] !== ter.weights[ri + 1] || weights[wi + 2] !== ter.weights[ri + 2] || weights[wi + 3] !== ter.weights[ri + 3]) regionPaint.texelsOff++
+					}
+			}
+	}
+}
 // And back to the world tab, the camera where the region had it.
 openWorldView(e)
 await P.frames(3)
@@ -232,6 +298,7 @@ const out = {
 	loadedAll,
 	strides,
 	strideOff,
+	paint,
 	drawn,
 	horizon,
 	modelsDrawn,
@@ -249,6 +316,7 @@ const out = {
 	holds,
 	regionCam: +regionCam.toFixed(2),
 	buildings: `${matched}/${checked}`,
+	regionPaint,
 	backToWorld,
 	worldCam: +worldCam.toFixed(2),
 }
@@ -257,6 +325,11 @@ out.ok =
 	Number.isFinite(ground) &&
 	loadedAll &&
 	strides &&
+	paint.painted > 0 &&
+	paint.nearUnpainted === 0 &&
+	paint.farPainted === 0 &&
+	paint.failed === 0 &&
+	paint.drawn > 0.05 &&
 	drawn > 0.05 &&
 	horizon.tiles > 0 &&
 	horizon.onGround === 0 &&
@@ -282,6 +355,10 @@ out.ok =
 	regionCam < 0.5 &&
 	checked > 0 &&
 	matched === checked &&
+	regionPaint.tiles > 0 &&
+	regionPaint.chunks > 0 &&
+	regionPaint.slotsOff === 0 &&
+	regionPaint.texelsOff === 0 &&
 	backToWorld &&
 	worldCam < 0.5
 return out

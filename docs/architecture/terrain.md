@@ -297,6 +297,19 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   drawn, at most every 250 ms as tiles land. The frame sets its colour and shows it
   (`WorldStream.showHorizon`), so a probe hides it through its material. The plan is worked out again
   only when the eye crosses a quarter tile. The fog closes at the reach (`applyViewDistance`).
+  Within `PAINT_REACH` (a tile and a half, the tiles at stride 1 and 2) a tile is drawn in its own
+  texture layers instead of the minimap image: `/wow/groundpaint` (`wow.Client.GroundPaint`,
+  `TilePaint`) sends the textures it names, each chunk's four slots and every texel's weights as
+  `adt.ClientWeights` gives them (so the same as a region's `tilePaint`), read two at a time nearest
+  first. `world/WorldPainter.ts` draws each through the terrain shader with its own slot and weight
+  textures and `paintOrigin` (the tile's corner; 0 for a region), over one texture palette all the
+  painted tiles share (`PaletteSlots` in `world/worldPaint.ts`: an entry a texture, counted per tile;
+  a full array reuses an unused entry before it grows; `PaletteArray.setEntry` writes one layer), and
+  takes the light, the texture looks' clock and the view overlays from the stand-in terrain's
+  material (its `SHARED` uniforms, which the frame keeps up to date). The material is swapped in only
+  once its textures have loaded (`waiting`), so no grey shows, and the painted ground takes the
+  models' shadows (`receiveShadow`). Past `PAINT_DROP`, half a tile further, a tile goes back to its
+  minimap image and lets go of its paint. No rock on slopes (`cliffAuto` 0), no texture looks yet.
   Each tile's models come beside its ground from `/wow/groundmodels` (`wow.Client.GroundModels`,
   `TileModel`: the placements in the map's editor coordinates, named by `adt.ModelType` and turned by
   `adt.Placement.EditorTurn`, which the region reader uses too) and go into the document's own
@@ -326,8 +339,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the session keep a world tab. Far buildings draw their LOD in a few calls (#691), and the scene
   pass leaves out the models that only the far shadow cascade's box (up to 5,000 yd across) holds,
   which the shadows still draw (objects.md, the instance batch). The models and textures landing
-  redraw the far shadow map at most once every 30 frames (lighting.md). Not yet streamed: liquids, the
-  texture layers (the minimap stands in), and editing in the world view itself.
+  redraw the far shadow map at most once every 30 frames (lighting.md). Not yet streamed: liquids, and
+  editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

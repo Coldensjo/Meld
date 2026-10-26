@@ -176,6 +176,30 @@ export class PaletteArray {
 		this.texture.needsUpdate = true
 	}
 
+	/**
+	 * Sets entry `i` alone, growing the array as `set` does, and leaves the other layers as they are
+	 * (`set` writes every layer again). The bytes of the path it replaces are let go of unless another
+	 * entry shows it. For a palette whose entries come and go, the world view's (world/worldPaint.ts).
+	 */
+	setEntry(i: number, path: string) {
+		const old = this.paths[i]
+		this.paths[i] = path
+		if (old && old !== path && !this.paths.includes(old)) this.loaded.delete(old)
+		const depth = depthFor(Math.max(1, this.paths.length))
+		if (depth !== this.texture.image.depth) {
+			this.texture.dispose()
+			this.texture = this.make(depth)
+			this.onReplace(this.texture)
+		}
+		// Only a write of its own uploads anything: a needsUpdate without a layer update sends every layer.
+		if (this.fill(i, path)) this.texture.needsUpdate = true
+	}
+
+	/** Whether `path`'s texture has loaded or failed, so its layer will not change again. */
+	settled(path: string): boolean {
+		return isColor(path) || this.loaded.has(path) || this.failed.has(path)
+	}
+
 	private make(depth: number): THREE.DataArrayTexture | THREE.CompressedArrayTexture {
 		this.levels = this.levelBytes.map((n) => new Uint8Array(n * depth))
 		for (let i = 0; i < depth; i++) this.put(i, this.blank)
@@ -226,21 +250,22 @@ export class PaletteArray {
 		if (!this.whole) this.texture.addLayerUpdate(layer)
 	}
 
-	private fill(layer: number, path: string) {
-		if (!path) return
+	/** Writes the layer of entry `path`, now when its bytes are at hand (true) or once they load. */
+	private fill(layer: number, path: string): boolean {
+		if (!path) return false
 		const px = this.loaded.get(path)
 		if (px) {
 			this.write(layer, px)
-			return
+			return true
 		}
 		if (isColor(path)) {
 			const [r, g, b] = hexRGB(path)
 			const c = this.compressed ? solidLayer(r, g, b) : solid(path)
 			this.loaded.set(path, c)
 			this.write(layer, c)
-			return
+			return true
 		}
-		if (this.loading.has(path) || this.failed.has(path)) return
+		if (this.loading.has(path) || this.failed.has(path)) return false
 		this.loading.add(path)
 		const layerBytes = this.compressed
 			? Promise.all([fetchTextureDXT(path), hasSheenTwin(path).then((has) => (has ? fetchTextureDXT(sheenPath(path)).catch(() => null) : null))]).then(([base, sheen]) => blockLayer(path, base, sheen))
@@ -253,11 +278,15 @@ export class PaletteArray {
 			.then((px) => {
 				this.loading.delete(path)
 				this.loaded.set(path, px)
-				// Every layer that shows this path gets it, whichever slot it sits in now.
+				// Every layer that shows this path gets it, whichever slot it sits in now; none may (an entry
+				// replaced while it loaded), and then nothing is sent.
+				let wrote = false
 				this.paths.forEach((p, i) => {
-					if (p === path) this.write(i, px)
+					if (p !== path) return
+					this.write(i, px)
+					wrote = true
 				})
-				this.texture.needsUpdate = true
+				if (wrote) this.texture.needsUpdate = true
 			})
 			.catch((err) => {
 				this.loading.delete(path)
@@ -266,6 +295,7 @@ export class PaletteArray {
 				failedPalettes.add(this)
 				failHandler?.(path, err)
 			})
+		return false
 	}
 
 	/** Asks again for the textures that failed. */
