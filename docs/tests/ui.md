@@ -533,6 +533,19 @@ Checks: the menu bar and the right-click menu work from the keyboard.
 - Trap: a synthetic Tab doesn't move the focus, so the probe only checks the menu closed and the
   focus sits on the title, from where the browser's own Tab moves on.
 
+## Copy id (#681)
+
+Checks: a right-click copies a thing's id and name.
+- `cd frontend && bun test tests/copyId.test.ts tests/spawnActions.test.ts`: the labels (entry for
+  items, creatures and objects, id for the rest), the menu under a row's own actions, a spawn's
+  Copy creature entry, Copy spawn guid and Copy name.
+- `bun run probe item-editor` right-clicks the Worn Shortsword's search result and checks Copy item
+  entry 25 puts `25` on the clipboard (`window.runtime.ClipboardGetText()`).
+- By hand in a probe: dispatch `contextmenu` on a RefField's `.name` (Hogger, 448, Loot gives "Copy
+  creature loot id 448" and no Copy name), then Escape on `.menu[role=menu]`: the editor stays.
+  Trap: an Escape dispatched on `document` reaches the menu's and the editor's window handlers
+  both and closes the editor; a real Escape lands in the focused menu, which stops it.
+
 ## Shortcut table (#583, probe `shortcut-table`)
 
 Checks: the menus, App's key handler and Help › Keyboard Shortcuts use the one table in

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../../wailsjs/go/main/App'
@@ -399,7 +400,14 @@
 						<ul class="list tall" aria-label="Game objects" onmouseleave={() => (hovered = null)}>
 							{#each matches.slice(0, LIMIT) as t (t.entry)}
 								<li>
-									<button class="row" class:active={t.entry === target.entry} title="Entry {t.entry}" onclick={() => openObject(t)} onmouseenter={() => (hovered = t)}>
+									<button
+										class="row"
+										use:idMenu={{ ids: [idOf('object', t.entry)], name: t.name }}
+										class:active={t.entry === target.entry}
+										title="Entry {t.entry}"
+										onclick={() => openObject(t)}
+										onmouseenter={() => (hovered = t)}
+									>
 										<span class="name">{t.name}</span>
 										<span class="dim">{objectCategory(t)} · {t.entry}{t.model ? '' : ' · no model'}</span>
 									</button>
@@ -425,7 +433,14 @@
 						<ul class="list" aria-label="Game objects" onmouseleave={() => (hovered = null)}>
 							{#each matches.slice(0, LIMIT) as t (t.entry)}
 								<li>
-									<button class="row" class:active={t.entry === spawn.entry} title="Entry {t.entry}" onclick={() => changeTo(t)} onmouseenter={() => (hovered = t)}>
+									<button
+										class="row"
+										use:idMenu={{ ids: [idOf('object', t.entry)], name: t.name }}
+										class:active={t.entry === spawn.entry}
+										title="Entry {t.entry}"
+										onclick={() => changeTo(t)}
+										onmouseenter={() => (hovered = t)}
+									>
 										<span class="name">{t.name}</span>
 										<span class="dim">{t.entry}{t.model ? '' : ' · no model'}</span>
 									</button>

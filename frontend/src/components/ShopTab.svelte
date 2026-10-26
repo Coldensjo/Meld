@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { ReadVendor, SaveVendor, SearchItems } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -122,7 +123,7 @@
 			<tbody>
 				{#each rows.rows as it, i (it.item)}
 					<tr>
-						<td class="item" {...hoverItem(it.item, it.displayId)}
+						<td class="item" use:idMenu={{ ids: [idOf('item', it.item)], name: it.name }} {...hoverItem(it.item, it.displayId)}
 							><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}</span></td
 						>
 						<td><input type="number" min="0" max="255" value={it.maxCount} oninput={(e) => (it.maxCount = num(e.currentTarget.value, 255))} /></td>
@@ -145,7 +146,7 @@
 		<ul class="results">
 			{#each results as r (r.entry)}
 				<li>
-					<button disabled={rows.rows.some((i) => i.item === r.entry)} onclick={() => add(r)} {...hoverItem(r.entry, r.displayId)}>
+					<button disabled={rows.rows.some((i) => i.item === r.entry)} onclick={() => add(r)} use:idMenu={{ ids: [idOf('item', r.entry)], name: r.name }} {...hoverItem(r.entry, r.displayId)}>
 						<ItemIcon displayId={r.displayId} /> <span style:color={QUALITY[r.quality] ?? QUALITY[1]}>{r.name}</span> <span class="dim">{r.entry}</span>
 					</button>
 				</li>
@@ -160,7 +161,7 @@
 		<p class="dim">The template's shared list (npc_vendor_template); it is shared with other creatures, so it is shown, not edited, here.</p>
 		<ul class="shared">
 			{#each template as it (it.item)}
-				<li {...hoverItem(it.item, it.displayId)}>
+				<li use:idMenu={{ ids: [idOf('item', it.item)], name: it.name }} {...hoverItem(it.item, it.displayId)}>
 					<ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}{it.maxCount ? ` · stock ${it.maxCount}` : ''}</span>
 				</li>
 			{/each}

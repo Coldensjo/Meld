@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte'
 	import { takeEscape, leaveField } from '../lib/state/escape'
+	import { ui } from '../lib/state/editor.svelte'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import type { EditorFlow } from '../lib/ui/templateEditor.svelte'
 
@@ -33,7 +34,8 @@
 	let root = $state<HTMLElement>()
 
 	function onKey(e: KeyboardEvent) {
-		if (e.key !== 'Escape' || blocked?.()) return
+		// A right-click menu open over the editor (a row's Copy id, #681) takes the Esc.
+		if (e.key !== 'Escape' || ui.contextMenu || blocked?.()) return
 		if (!takeEscape(e, root)) return
 		if (leaveField(e)) return
 		e.preventDefault()

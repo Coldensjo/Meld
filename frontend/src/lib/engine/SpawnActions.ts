@@ -6,6 +6,7 @@ import { NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, SpawnLook
 import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import type { TriggerDestination } from '../world/areaTriggers'
 import { spawnType } from '../world/spawnInfo'
+import { copyItems } from '../ui/copyId'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields } from '../world/pools'
@@ -477,6 +478,10 @@ export class SpawnActions {
 				this.host.deselect()
 			},
 		})
+		const kind = spawn.kind === 'object' ? 'object' : 'creature'
+		// Copy id (#681): the template's entry and this placement's guid (none yet for a new spawn).
+		const ids = [{ what: `${kind} entry`, id: spawn.entry }, ...(spawn.guid > 0 ? [{ what: 'spawn guid', id: spawn.guid }] : [])]
+		items.push({ separator: true }, ...copyItems({ ids, name: spawn.name }))
 		items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
 		return { title, items }
 	}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
@@ -241,7 +242,7 @@
 				<ul class="found" aria-label="Quests found">
 					{#each found as q (q.quest)}
 						<li>
-							<button class:on={q.quest === target.entry} onclick={() => open(q.quest)}>
+							<button class:on={q.quest === target.entry} onclick={() => open(q.quest)} use:idMenu={{ ids: [idOf('quest', q.quest)], name: q.title }}>
 								<span><span class="lvl">[{q.level}]</span> {q.title || '(no title)'}</span>
 								<span class="dim">{q.quest}</span>
 							</button>

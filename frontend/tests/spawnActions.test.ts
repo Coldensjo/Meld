@@ -101,7 +101,7 @@ test("a spawn's right-click menu selects it and lists its actions, Focus before 
 	assert.equal(m.title, 'monster8 (creature 108, invisible in the game)')
 	assert.deepEqual(
 		m.items.map((i) => ('label' in i ? i.label : '-')),
-		['Edit creature…', 'Give it a path', 'Focus', 'Unselect', '-', 'Delete spawn'],
+		['Edit creature…', 'Give it a path', 'Focus', 'Unselect', '-', 'Copy creature entry 108', 'Copy spawn guid 8', 'Copy name', '-', 'Delete spawn'],
 	)
 	m.items.find((i) => 'label' in i && i.label === 'Focus')!.run!()
 	assert.deepEqual(focused, [[0, 0, 40]])

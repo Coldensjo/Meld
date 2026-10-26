@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { SoundEntries } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
@@ -62,7 +63,7 @@
 	<ul class="list" aria-label="Sounds">
 		{#each matches.slice(0, LIMIT) as s (s.id)}
 			<li class:active={s.id === selected}>
-				<button class="row" title="SoundEntries {s.id}{s.file ? `: ${s.file}` : ''}" onclick={() => onpick(s)}>
+				<button class="row" use:idMenu={{ ids: [idOf('sound', s.id)], name: s.name }} title="SoundEntries {s.id}{s.file ? `: ${s.file}` : ''}" onclick={() => onpick(s)}>
 					<span class="name">{s.name || `Sound ${s.id}`}</span>
 					<span class="dim">{s.id}{s.file ? ` · ${fileName(s.file)}` : ' · no file'}</span>
 				</button>

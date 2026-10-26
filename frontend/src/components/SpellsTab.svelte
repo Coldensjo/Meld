@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { ReadCreatureSpells, SaveCreatureSpells } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -144,7 +145,7 @@
 				{@const ref = refs[s.spell]}
 				{@const target = castTarget(s.castTarget)}
 				<li>
-					<div class="title">
+					<div class="title" use:idMenu={{ ids: [idOf('spell', s.spell)], name: ref?.name }}>
 						<SpellIcon icon={ref?.icon ?? ''} size={28} />
 						<div class="name">
 							<span>{ref ? spellLabel(ref.name, ref.rank) : ref === null ? spellLabel('', '') : '…'}</span>

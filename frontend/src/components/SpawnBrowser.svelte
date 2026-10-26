@@ -51,6 +51,7 @@
 </script>
 
 <script lang="ts">
+	import { idOf, openIdMenu } from '../lib/ui/copyId'
 	import PaletteTile from './PaletteTile.svelte'
 	import VirtualGrid from './VirtualGrid.svelte'
 	import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
@@ -288,6 +289,7 @@
 							active={t.key === activeKey}
 							onclick={() => pick(t)}
 							onhover={(on) => on && onhover(asItem(t))}
+							onmenu={(e) => openIdMenu(e, { ids: [idOf(kind === 'object' ? 'object' : 'creature', t.entry)], name: t.name })}
 						/>
 					{/snippet}
 				</VirtualGrid>

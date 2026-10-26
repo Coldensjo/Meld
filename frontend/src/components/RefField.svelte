@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { SearchCreatures, SearchItems, SearchQuests, SearchWorldRefs } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ownListIds, type CreatureField } from '../lib/world/creatureFields'
@@ -272,6 +273,10 @@
 		open = false
 	}
 
+	/** A thing's name for Copy name (#681): a list or script is named by a summary of what it holds, not a name. */
+	const NAMED = new Set<string>(['item', 'creature', 'object', 'quest', 'spell', 'faction', 'skill', 'item set', 'zone', 'spell icon', 'emote', 'map', 'language'])
+	const copyName = (kind: string, name: string) => (NAMED.has(kind) ? name : undefined)
+
 	function pick(h: Hit) {
 		rememberName(h.kind, h.id, { name: h.full ?? h.name, quality: h.quality, displayId: h.displayId, icon: h.icon })
 		// Only a column that names one of two kinds tells them apart by the sign.
@@ -292,7 +297,11 @@
 	{:else}
 		<span class="row">
 			<input type="number" step="1" {value} oninput={(e) => onset((e.currentTarget as HTMLInputElement).value)} aria-label={f.label} />
-			<span class="name" title={target ? `${shown && shown.name ? `${shown.name} (${target.kind} ${target.id})` : `${target.kind} ${target.id}`}` : (special ?? '')}>
+			<span
+				class="name"
+				use:idMenu={target ? { ids: [idOf(target.kind, target.id)], name: shown ? copyName(target.kind, shown.name) : undefined, title: shown ? shown.name : undefined } : null}
+				title={target ? `${shown && shown.name ? `${shown.name} (${target.kind} ${target.id})` : `${target.kind} ${target.id}`}` : (special ?? '')}
+			>
 				{#if special !== undefined}
 					<span>{special}</span>
 				{:else if target && shown && shown.name}
@@ -343,7 +352,7 @@
 				<ul>
 					{#each hits as h (h.kind + h.id)}
 						<li>
-							<button onclick={() => pick(h)}>
+							<button onclick={() => pick(h)} use:idMenu={{ ids: [idOf(h.kind, h.id)], name: copyName(h.kind, h.full ?? h.name), title: h.full ?? h.name }}>
 								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell' || h.kind === 'spell icon'}<SpellIcon icon={h.icon ?? ''} />{:else if h.kind === 'equipment'}<EquipIcons
 										id={h.id}
 									/>{/if}

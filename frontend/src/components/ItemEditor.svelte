@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { copyItems } from '../lib/ui/copyId'
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItemsSorted } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
@@ -439,6 +440,8 @@
 			items: [
 				{ label: 'Open', run: () => open(i.entry) },
 				{ label: `Copy ${addItemCommand(i.entry)} to the clipboard`, run: () => void copyItemCommand(i) },
+				{ separator: true },
+				...copyItems({ ids: [{ what: 'item entry', id: i.entry }, ...(i.displayId > 0 ? [{ what: 'display id', id: i.displayId }] : [])], name: i.name }),
 			],
 		}
 	}
@@ -511,7 +514,7 @@
 				<ul class="found" aria-label="Items found">
 					{#each found as i (i.entry)}
 						<li>
-							<button class:on={i.entry === target.entry} onclick={() => open(i.entry)} oncontextmenu={(e) => resultMenu(e, i)} title="Right-click to copy the command that gives it in the game">
+							<button class:on={i.entry === target.entry} onclick={() => open(i.entry)} oncontextmenu={(e) => resultMenu(e, i)} title="Right-click to copy its entry, its name or the command that gives it in the game">
 								<ItemIcon displayId={i.displayId} />
 								<span class="name" style:color={i.entry === target.entry ? undefined : QUALITY_VARS[i.quality]}>{i.name || '(no name)'}</span>
 								<span class="dim" title="Item {i.entry}">{sideNumber(i)}</span>

@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import type { Snippet } from 'svelte'
 	import { ListSpells } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
@@ -171,7 +172,7 @@
 					{#if row}
 						{@render row(r)}
 					{:else}
-						<button class="pick" {disabled} onclick={() => onpick?.(r)} title={title || r.text || r.name}>
+						<button class="pick" {disabled} onclick={() => onpick?.(r)} use:idMenu={{ ids: [idOf('spell', r.id)], name: r.name }} title={title || r.text || r.name}>
 							<SpellIcon icon={r.icon} size={text ? 24 : 18} />
 							<span class="found">
 								<span>{spellLabel(r.name, r.rank)} <span class="dim">{r.id}</span></span>

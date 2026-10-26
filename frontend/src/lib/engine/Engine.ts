@@ -183,6 +183,7 @@ import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdg
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
+import { copyItems, copyValue } from '../ui/copyId'
 import { yieldToFrame } from './yieldToFrame'
 
 /** A world view's side (#15): the whole map, 64 tiles. */
@@ -2821,6 +2822,7 @@ export class Engine {
 			const at = editorPoint(t, layer.tileX, layer.tileY)
 			items.push({ label: 'Focus', run: () => this.controller.focus(at.x, at.z, Math.max(20, t.radius * 4, t.boxX * 2)) })
 			items.push({ label: 'Unselect', run: () => this.selectTrigger(null) })
+			items.push({ separator: true }, ...copyItems({ ids: [{ what: 'area trigger id', id: t.id }], name: t.name }))
 			ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
 			return
 		}
@@ -2844,6 +2846,13 @@ export class Engine {
 			items.push({ label: 'Duplicate', shortcut: 'Ctrl+Shift+D', run: () => this.duplicateSelected() })
 			items.push({ label: 'Place more of this', run: () => pickModel(o) })
 			items.push({ label: 'Unselect', run: () => this.deselect() })
+			// Copy id (#681): a model of the client's region has its unique ID there; one added here has none yet.
+			if (n === 1) {
+				const uid = this.doc.meta.region?.uids.get(o.id)
+				const path = o.type.replace(/^(m2|wmo):/, '')
+				items.push({ separator: true }, ...copyItems({ ids: uid !== undefined ? [{ what: 'unique id', id: uid }] : [] }))
+				if (path !== o.type) items.push({ label: 'Copy path', run: () => void copyValue(path, 'path') })
+			}
 			items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })
 		}
 		ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }

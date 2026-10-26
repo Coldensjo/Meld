@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { copyItems } from '../lib/ui/copyId'
 	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
@@ -305,6 +306,8 @@
 				{ label: 'Open', run: () => open(s.id) },
 				{ label: `Copy .cast ${s.id} to the clipboard`, run: () => void copyCommand(ed, `.cast ${s.id}`, "paste it in the game's chat as a GM to cast it on your target.") },
 				{ label: `Copy .learn ${s.id} to the clipboard`, run: () => void copyCommand(ed, `.learn ${s.id}`, "paste it in the game's chat as a GM to learn it (or teach it to the player you have selected).") },
+				{ separator: true },
+				...copyItems({ ids: [{ what: 'spell id', id: s.id }], name: s.name }),
 			],
 		}
 	}
@@ -386,7 +389,13 @@
 				<button class="new" class:active={isNew} onclick={startNew}>New spell…</button>
 				<SpellPicker memoryKey="spell-editor" start="every" leftovers height={0} text={false} label="Find a spell" listLabel="Spells found" version={searchVersion}>
 					{#snippet row(s: vmangos.SpellRef)}
-						<button class="hit" class:on={s.id === target.entry} onclick={() => open(s.id)} oncontextmenu={(e) => resultMenu(e, s)} title={`${s.text || s.name}\nRight-click for the commands that try it in the game`}>
+						<button
+							class="hit"
+							class:on={s.id === target.entry}
+							onclick={() => open(s.id)}
+							oncontextmenu={(e) => resultMenu(e, s)}
+							title={`${s.text || s.name}\nRight-click to copy its id, its name or the commands that try it in the game`}
+						>
 							<SpellIcon icon={s.icon} />
 							<span class="name"
 								>{s.name || '(no name)'}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { ReadQuestGivers, SaveQuestGivers, SearchCreatures } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { editor } from '../lib/state/editor.svelte'
@@ -133,7 +134,7 @@
 		{:else}
 			<ul class="list" aria-label={title}>
 				{#each rows as g, i (id(g))}
-					<li>
+					<li use:idMenu={{ ids: [idOf(g.kind, g.id)], name: g.name }}>
 						<span class="kind">{what(g)}</span>
 						<span class="name">{g.name || `(no ${g.kind} ${g.id})`}</span>
 						<span class="dim">{g.id}{spawnsText(g)}{g.patchMin > 0 || g.patchMax < 10 ? ` · patches ${g.patchMin}–${g.patchMax}` : ''}</span>
@@ -172,7 +173,7 @@
 	{#if results.length}
 		<ul class="list results">
 			{#each results as r (id(r))}
-				<li>
+				<li use:idMenu={{ ids: [idOf(r.kind, r.id)], name: r.name }}>
 					<span class="name">{r.name}</span>
 					<span class="dim">{r.id}{r.ready ? '' : r.kind === 'creature' ? ' · no Quest giver flag' : ' · not a quest giver (type 2), so it cannot be added'}</span>
 					<button disabled={refused(r) || givers.starts.some((q) => id(q) === id(r))} title={refused(r) ? refusedText : ''} onclick={() => add('starts', r)}>Starts</button>

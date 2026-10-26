@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte'
 	import PaletteTile from './PaletteTile.svelte'
+	import { copyItems, copyValue } from '../lib/ui/copyId'
 	import VirtualGrid from './VirtualGrid.svelte'
 	import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
 	import AssetPreview from './AssetPreview.svelte'
@@ -212,6 +213,8 @@
 			}
 			items.push({ label: 'Add to a New Set', run: () => addSet(it) })
 		}
+		// Copy id (#681): an asset's id is its path in the client.
+		items.push({ separator: true }, { label: 'Copy path', run: () => void copyValue(it.path, 'path') }, ...copyItems({ ids: [], name: it.name }))
 		ui.contextMenu = { x: e.clientX, y: e.clientY, title: it.name, items }
 	}
 

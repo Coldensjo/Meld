@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { leaveField, takeEscape } from '../lib/state/escape'
 	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../../wailsjs/go/main/App'
@@ -272,7 +273,7 @@
 				<ul class="found">
 					{#each found as c (c.entry)}
 						<li>
-							<button onclick={() => open(c.entry)} title="Open in the creature editor">
+							<button onclick={() => open(c.entry)} use:idMenu={{ ids: [idOf('creature', c.entry)], name: c.name }} title="Open in the creature editor">
 								<span>{c.name}{c.subname ? ` <${c.subname}>` : ''}</span>
 								<span class="dim">{c.entry} · level {levelText(c.levelMin, c.levelMax)}</span>
 							</button>

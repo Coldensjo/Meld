@@ -203,6 +203,14 @@ The window layout, the asset browser and the dock panels and floating windows.
   map's hotkeys (App.svelte `onKeyDown`, on `window`) don't fire while a menu holds the focus. Keep
   each dropdown right after its title in the DOM: `dialogFocus` finds the title as the menu's
   previous sibling.
+- **Copy id** (#681): anything with an id has a right-click that copies it, as plain text, and its
+  name where it has one: spawns (entry and guid), area triggers and a region's models (their unique
+  ID; Copy path too) in the viewport, the asset tiles (Copy path), the creature and object tiles, and
+  the editors' search results, list rows and RefField names and hits. `lib/ui/copyId.ts` makes the
+  items (`copyItems`, labelled with what the id is: "Copy creature entry 448", via `idOf`), opens a
+  menu (`openIdMenu`) or wires a row (`use:idMenu`); a row with a menu of its own adds `copyItems`
+  to it. A list or script named by a summary of what it holds gets no Copy name (RefField `NAMED`).
+  `EditorFrame` leaves Esc to an open right-click menu.
 - **Shortcuts in one table** (#583): `lib/ui/commands.ts` lists every shortcut (id, group, text, and
   the `chords` App binds). App.svelte `onKeyDown` asks `commandFor(e, early)` and runs the command
   through `lib/ui/runCommand.ts`: the early chords (Ctrl, the function keys, Tab) before the engine

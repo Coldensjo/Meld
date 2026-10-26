@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { ReadCreatureQuests, ReadObjectQuests, SaveCreatureQuests, SaveObjectQuests, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
@@ -130,7 +131,7 @@
 		{:else}
 			<ul class="list">
 				{#each rows as r, i (r.quest)}
-					<li>
+					<li use:idMenu={{ ids: [idOf('quest', r.quest)], name: r.title }}>
 						<span class="lvl">[{r.level}]</span>
 						<span class="name">{r.title || '(unknown quest)'}</span>
 						<span class="dim">{r.quest}{r.patchMin > 0 || r.patchMax < 10 ? ` · patches ${r.patchMin}–${r.patchMax}` : ''}</span>
@@ -151,7 +152,7 @@
 	{#if results.length}
 		<ul class="list results">
 			{#each results as r (r.quest)}
-				<li>
+				<li use:idMenu={{ ids: [idOf('quest', r.quest)], name: r.title }}>
 					<span class="lvl">[{r.level}]</span>
 					<span class="name">{r.title}</span>
 					<span class="dim">{r.quest}</span>
