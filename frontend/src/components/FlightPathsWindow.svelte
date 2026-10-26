@@ -13,6 +13,7 @@
 	import { applyNote } from '../lib/io/applyNote'
 	import Money from './Money.svelte'
 	import MoneyField from './MoneyField.svelte'
+	import RefField from './RefField.svelte'
 
 	// World › Flight Paths (#180): the open map's flight stops (TaxiNodes.dbc) and the routes between
 	// them (TaxiPath.dbc and TaxiPathNode.dbc's points), edited on the map. A window, not a dialog, so
@@ -391,6 +392,8 @@
 		e.stopPropagation()
 	}
 
+	/** A mount creature typed or picked: an entry the taxi table holds (16 bits). */
+	const mountEntry = (v: string) => Math.min(65535, Math.max(0, Math.round(Number(v) || 0)))
 	const num = (e: Event) => {
 		const v = Number((e.target as HTMLInputElement).value)
 		return Number.isFinite(v) ? v : 0
@@ -451,17 +454,14 @@
 							{#each ALLIANCE_MOUNTS as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
 							{#if stop.allianceMount && !ALLIANCE_MOUNTS.some((m) => m.id === stop.allianceMount)}<option value={stop.allianceMount}>Creature {stop.allianceMount}</option>{/if}
 						</select>
-						<input
-							class="entry"
-							type="number"
-							min="0"
-							max="65535"
-							value={stop.allianceMount}
-							oninput={(e) => editStop('allianceMount', Math.max(0, Math.round(num(e))))}
-							aria-label="Alliance mount creature"
-							title="The creature the flight is ridden on"
-						/>
 					</span>
+					<RefField
+						f={{ col: 'allianceMount', label: 'Alliance mount creature', ref: 'creature', hint: 'The creature the flight is ridden on' }}
+						value={String(stop.allianceMount)}
+						changed={false}
+						bare
+						onset={(v) => editStop('allianceMount', mountEntry(v))}
+					/>
 					<label class="k" for="fp-horde">Horde</label>
 					<span class="row">
 						<select id="fp-horde" value={stop.hordeMount} onchange={(e) => editStop('hordeMount', Number((e.target as HTMLSelectElement).value))}>
@@ -469,17 +469,14 @@
 							{#each HORDE_MOUNTS as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
 							{#if stop.hordeMount && !HORDE_MOUNTS.some((m) => m.id === stop.hordeMount)}<option value={stop.hordeMount}>Creature {stop.hordeMount}</option>{/if}
 						</select>
-						<input
-							class="entry"
-							type="number"
-							min="0"
-							max="65535"
-							value={stop.hordeMount}
-							oninput={(e) => editStop('hordeMount', Math.max(0, Math.round(num(e))))}
-							aria-label="Horde mount creature"
-							title="The creature the flight is ridden on"
-						/>
 					</span>
+					<RefField
+						f={{ col: 'hordeMount', label: 'Horde mount creature', ref: 'creature', hint: 'The creature the flight is ridden on' }}
+						value={String(stop.hordeMount)}
+						changed={false}
+						bare
+						onset={(v) => editStop('hordeMount', mountEntry(v))}
+					/>
 					<span class="k">Routes</span>
 					<span class="row">
 						<select bind:value={routeTo} aria-label="To stop">
@@ -622,9 +619,6 @@
 	.row select {
 		flex: 1;
 		min-width: 0;
-	}
-	.row input.entry {
-		flex: 0 0 64px;
 	}
 	.list {
 		list-style: none;

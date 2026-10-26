@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
-	import { AreaRows, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../../wailsjs/go/main/App'
+	import { AreaRows, LiquidTypes, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -209,6 +209,25 @@
 		[4, 'Horde'],
 		[6, 'Alliance and Horde'],
 	]
+	// AreaTable's flags: VMaNGOS's AreaFlags (DBCEnums.h, AREA_FLAG_*), with what each does in 1.12.
+	const AREA_FLAGS: Array<[number, string, string]> = [
+		[0x001, 'Breath in the cold', 'Players breathe out mist (Dun Morogh, Winterspring)'],
+		[0x002, 'Own breath setting', "Overrides its zone's breath (Naxxramas, Razorfen Downs)"],
+		[0x004, 'Development', 'Only used on the development map'],
+		[0x008, 'Trade channel', 'Players here may use the Trade channel'],
+		[0x010, 'Enemies flagged for PvP', 'Enemy players are flagged for PvP here'],
+		[0x020, 'Resting', 'Players rest here, as in an inn'],
+		[0x040, 'Duels', 'Duels are allowed'],
+		[0x080, 'Arena', 'An arena, instanced or in the world'],
+		[0x100, 'Capital', 'A main capital city'],
+		[0x200, 'City', 'A city: the highest such area names the chat channels (Trade - City)'],
+	]
+	const AREA_FLAG_MASK = AREA_FLAGS.reduce((m, [bit]) => m | bit, 0)
+	// The client's liquids (LiquidType.dbc), read once, for a zone's liquid type.
+	let liquids = $state<vmangos.LiquidTypeEntry[]>([])
+	LiquidTypes()
+		.then((l) => (liquids = l ?? []))
+		.catch(() => (liquids = []))
 	const num = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 </script>
 
@@ -264,10 +283,20 @@
 					{/each}
 					{#if !FACTIONS.some(([v]) => v === row.faction)}<option value={row.faction}>Mask {row.faction}</option>{/if}
 				</select>
-				<label class="k" for="zone-flags">Flags</label>
-				<input id="zone-flags" type="number" min="0" value={row.flags} oninput={(e) => edit('flags', num(e))} />
+				<span class="k">Flags</span>
+				<div class="flags" id="zone-flags" role="group" aria-label="Flags">
+					{#each AREA_FLAGS as [bit, name, hint] (bit)}
+						<label class="check" title={hint}><input type="checkbox" checked={(row.flags & bit) !== 0} onchange={(e) => edit('flags', (e.target as HTMLInputElement).checked ? row.flags | bit : row.flags & ~bit)} /> {name}</label
+						>
+					{/each}
+					{#if row.flags & ~AREA_FLAG_MASK}<span class="dim">Other bits: {row.flags & ~AREA_FLAG_MASK}</span>{/if}
+				</div>
 				<label class="k" for="zone-liquid">Liquid type</label>
-				<input id="zone-liquid" type="number" min="0" value={row.liquid} oninput={(e) => edit('liquid', num(e))} title="A LiquidType.dbc ID; 0 for the default" />
+				<select id="zone-liquid" value={row.liquid} onchange={(e) => edit('liquid', Number((e.target as HTMLSelectElement).value))} title="The LiquidType.dbc row its water is (0 for the default)">
+					<option value={0}>Default</option>
+					{#each liquids as l (l.id)}<option value={l.id}>{l.name} ({l.id})</option>{/each}
+					{#if row.liquid && !liquids.some((l) => l.id === row.liquid)}<option value={row.liquid}>Liquid {row.liquid}</option>{/if}
+				</select>
 				<label class="k" for="zone-music">Zone music</label>
 				{@render soundPick('zone-music', 'music', sounds?.music, 'A ZoneMusic.dbc row')}
 				<label class="k" for="zone-intro">Intro music</label>
@@ -452,6 +481,19 @@
 		min-width: 0;
 		width: 100%;
 		box-sizing: border-box;
+	}
+	.flags {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 2px 10px;
+	}
+	.flags .check {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.form .flags input {
+		width: auto;
 	}
 	.weather {
 		grid-column: 1 / -1;

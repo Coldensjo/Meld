@@ -529,7 +529,25 @@ reads Kalimdor (no quest in VMaNGOS' database has a point map). `bun run probe q
 - Trap: a picker's name reads "None" until a typed value lands, so wait for the expected name, not
   for any name.
 
-## Icons beside item, spell and class names (#682, probe `editor-icons`)
+## The id boxes outside the template editors (#705, probe `id-pickers`)
+
+Checks: World › Zones shows Stormwind City's flags as ten ticks (AreaFlags, Capital ticked) and its
+liquid type as a select of LiquidType.dbc's rows (Water (1)); Map Properties' Ghost goes to, on a
+map made for the client, is a select of the client's maps with This map (-1) first; the creature editor's Spells tab
+(Scarlet Commander Mograine, 3976) gives the first spell's target a creature RefField for Nearest
+creature of an entry (10), a spell RefField for A friend without the aura (19), the twelve
+SELECT_FLAG_* ticks for a threat-list target (2) and a Not its target checkbox for Any friend (16),
+and Revert drops them; a made-up Defias Thug spawn's Display › Choose… opens the creature display
+picker, and a tile picked sets the spawn's own display as one undo step; World › Flight Paths in
+Redridge names Lakeshire's Alliance mount creature
+(541) beside its number. `bun run probe id-pickers` (about 30 s, nothing written). Unit test: `bun
+test tests/creatureSpellNames.test.ts` (which parameter gets which editor, the select flag bits).
+- Trap: rows held in `$state` must be plain objects. The Spells tab's rows were
+  `vmangos.CreatureSpell` class instances, which the state does not proxy, so a target or chance
+  changed in place neither redrew the row nor counted as unsaved; the probe's Save spells check
+  catches that again.
+
+
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's
 Requirements › Classes ticks each show a different class icon (nine cells of the class atlas), the

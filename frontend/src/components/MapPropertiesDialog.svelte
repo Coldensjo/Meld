@@ -6,7 +6,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { defaultMapInfo, type MapInfo } from '../lib/engine/MapDocument'
 	import { loadAreas } from '../lib/wow/areas'
-	import { LoadingScreens, OpenImageDialog, ReadImageFile, WriteLoadingScreen } from '../../wailsjs/go/main/App'
+	import { LoadingScreens, MapEntries, OpenImageDialog, ReadImageFile, WriteLoadingScreen } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { hasBackend } from '../lib/io/backend'
 	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
@@ -39,7 +39,12 @@
 		LoadingScreens()
 			.then((s) => (screens = s ?? []))
 			.catch(() => {})
+	// The client's maps, for where a ghost goes back from (#705).
+	let maps = $state<vmangos.MapEntry[]>([])
 	if (ref && hasBackend()) {
+		MapEntries()
+			.then((m) => (maps = m ?? []))
+			.catch(() => {})
 		void loadAreas().then((a) => (areas = a.filter((x) => x.mapId === ref.mapId && !x.parent)))
 		void loadScreens()
 	}
@@ -184,7 +189,13 @@
 			>
 			<span class="k">Ghost goes to</span>
 			<span class="row">
-				<input type="number" value={info.ghostMap} onchange={(e) => setInfo({ ghostMap: Math.round(num(e)) })} title="The map a dead player's ghost goes back to its corpse from (-1 for this map)" aria-label="Ghost entrance map" />
+				<select value={info.ghostMap} onchange={(e) => setInfo({ ghostMap: Number((e.target as HTMLSelectElement).value) })} title="The map a dead player's ghost goes back to its corpse from" aria-label="Ghost entrance map">
+					<option value={-1}>This map</option>
+					{#each maps as m (m.ID)}{#if m.ID !== ref.mapId}<option value={m.ID}>{m.Name || m.Dir} ({m.ID})</option>{/if}{/each}
+					{#if info.ghostMap !== -1 && (info.ghostMap === ref.mapId || !maps.some((m) => m.ID === info.ghostMap))}<option value={info.ghostMap}
+							>{info.ghostMap === ref.mapId ? `This map (${ref.mapId})` : `Map ${info.ghostMap}`}</option
+						>{/if}
+				</select>
 				<input type="number" step="any" value={info.ghostX} onchange={(e) => setInfo({ ghostX: num(e) })} aria-label="Ghost entrance x" />
 				<input type="number" step="any" value={info.ghostY} onchange={(e) => setInfo({ ghostY: num(e) })} aria-label="Ghost entrance y" />
 			</span>
@@ -254,6 +265,10 @@
 	}
 	.row input {
 		width: 70px;
+		min-width: 0;
+	}
+	.row select {
+		flex: 1;
 		min-width: 0;
 	}
 	.facts {

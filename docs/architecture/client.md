@@ -263,6 +263,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   a typed number). The three reputation values offer the ranks in a datalist with the rank as the
   note (`REP_RANKS`, `repText`), and RewRepSpilloverMask is a tick list (bit i stops faction i + 1's
   spillover, `Player::RewardReputation`). PointOpt stays a number: VMaNGOS only passes it on.
+  Outside the template editors (#705) a `RefField` is used bare, with a `CreatureField` built in
+  place: the flight window's mount creatures and the Spells tab's target parameters (which editor a
+  parameter gets comes from its label, `paramKind` in `lib/wow/creatureSpellNames.ts`: a creature
+  entry, an aura spell, `SELECT_FLAGS` ticks or a Not its target checkbox; radii and health stay
+  numbers). The Zones dialog ticks AreaTable's flags (`AREA_FLAGS`) and lists LiquidType.dbc for the
+  liquid; Map Properties' ghost map is a select of `MapEntries`; a spawn's Display opens
+  `DisplayPicker` under the box.
   The spell editor's fields (`lib/world/spellFields.ts`, #703) put the masks on two tabs: Needs
   (forms by `1 << (form - 1)`, target flags, creature types by `1 << (type - 1)`, the item class with
   its subclasses' tick list, which follows the class, and the slots; the aura states, spell focus and

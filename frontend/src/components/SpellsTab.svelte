@@ -2,9 +2,10 @@
 	import { ReadCreatureSpells, SaveCreatureSpells } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
-	import { CAST_FLAGS, CAST_TARGETS, castTarget, spellLabel } from '../lib/wow/creatureSpellNames'
+	import { CAST_FLAGS, CAST_TARGETS, SELECT_FLAGS, castTarget, paramKind, spellLabel } from '../lib/wow/creatureSpellNames'
 	import { spellRef } from '../lib/wow/spells'
 	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'
+	import RefField from './RefField.svelte'
 	import SpellIcon from './SpellIcon.svelte'
 	import SpellPicker from './SpellPicker.svelte'
 
@@ -25,7 +26,8 @@
 		read: async () => {
 			const c = await ReadCreatureSpells(entry)
 			list = c
-			return (c.spells ?? []).map((s) => vmangos.CreatureSpell.createFrom({ ...s }))
+			// Plain objects, which the state proxies (a class instance it would not), so an edit in place shows and counts.
+			return (c.spells ?? []).map((s): vmangos.CreatureSpell => ({ ...s }))
 		},
 	})
 	rows.follow(() => entry)
@@ -102,6 +104,9 @@
 		}
 	}
 
+	/** Every select flag the list names, to show the bits it doesn't. */
+	const SELECT_MASK = SELECT_FLAGS.reduce((m, f) => m | f.bit, 0)
+
 	const flagCount = (f: number) => CAST_FLAGS.filter((c) => f & c.bit).length
 
 	/** Adds a spell the picker (#340) found, with the usual timings. */
@@ -112,7 +117,7 @@
 		}
 		refs[r.id] = r
 		asked.add(r.id)
-		rows.rows = [...rows.rows, vmangos.CreatureSpell.createFrom({ spell: r.id, probability: 100, castTarget: 1, targetParam1: 0, targetParam2: 0, castFlags: 0, initialMin: 5, initialMax: 10, repeatMin: 10, repeatMax: 20, scriptId: 0 })]
+		rows.rows = [...rows.rows, { spell: r.id, probability: 100, castTarget: 1, targetParam1: 0, targetParam2: 0, castFlags: 0, initialMin: 5, initialMax: 10, repeatMin: 10, repeatMax: 20, scriptId: 0 }]
 	}
 </script>
 
@@ -163,12 +168,8 @@
 								{#if !CAST_TARGETS.some((t) => t.id === s.castTarget)}<option value={s.castTarget}>{target.name}</option>{/if}
 							</select>
 						</label>
-						{#if target.params[0]}
-							<label>{target.params[0]} <input type="number" min="0" max="65535" value={s.targetParam1} oninput={(e) => (s.targetParam1 = num(e.currentTarget.value, 65535))} /></label>
-						{/if}
-						{#if target.params[1]}
-							<label>{target.params[1]} <input type="number" min="0" max="65535" value={s.targetParam2} oninput={(e) => (s.targetParam2 = num(e.currentTarget.value, 65535))} /></label>
-						{/if}
+						{#if target.params[0]}{@render param(s, 'targetParam1', target.params[0])}{/if}
+						{#if target.params[1]}{@render param(s, 'targetParam2', target.params[1])}{/if}
 						<label title="Seconds after the fight starts, a random time from the first to the second"
 							>First cast (s)
 							<span class="pair"
@@ -200,6 +201,25 @@
 	<h3>Add spells</h3>
 	<SpellPicker memoryKey="creature" start="npc" onpick={add} disabled={rows.rows.length >= SLOTS} title={rows.rows.length >= SLOTS ? `The list is full (${SLOTS} spells)` : 'Add it to the creature'} />
 </div>
+
+{#snippet param(s: vmangos.CreatureSpell, key: 'targetParam1' | 'targetParam2', label: string)}
+	{@const kind = paramKind(label)}
+	{#if kind === 'creature' || kind === 'spell'}
+		<RefField f={{ col: key === 'targetParam1' ? 'target_param1' : 'target_param2', label, ref: kind }} value={String(s[key])} changed={false} onset={(v) => (s[key] = num(v, 65535))} />
+	{:else if kind === 'select flags'}
+		<fieldset class="wide select-flags">
+			<legend>{label}</legend>
+			{#each SELECT_FLAGS as f (f.bit)}
+				<label class="check"><input type="checkbox" checked={(s[key] & f.bit) !== 0} onchange={(e) => (s[key] = e.currentTarget.checked ? s[key] | f.bit : s[key] & ~f.bit)} /> {f.name}</label>
+			{/each}
+			{#if s[key] & ~SELECT_MASK}<span class="dim">Other bits: {s[key] & ~SELECT_MASK}</span>{/if}
+		</fieldset>
+	{:else if kind === 'bool'}
+		<label class="check" title="Leave out the creature's current target"><input type="checkbox" checked={s[key] !== 0} onchange={(e) => (s[key] = e.currentTarget.checked ? 1 : 0)} /> {label}</label>
+	{:else}
+		<label>{label} <input type="number" min="0" max="65535" value={s[key]} oninput={(e) => (s[key] = num(e.currentTarget.value, 65535))} /></label>
+	{/if}
+{/snippet}
 
 <style>
 	.spells {
@@ -282,6 +302,25 @@
 	}
 	.grid label.wide {
 		grid-column: span 2;
+	}
+	.grid label.check {
+		flex-direction: row;
+		align-items: center;
+		gap: 4px;
+	}
+	.select-flags {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 2px 10px;
+		margin: 0;
+		padding: 4px 8px 6px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		color: var(--text-dim);
+	}
+	.grid .check input {
+		width: auto;
 	}
 	.grid input,
 	.grid select {

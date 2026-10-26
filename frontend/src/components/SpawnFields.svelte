@@ -7,6 +7,7 @@
 	import { SpawnEmotes } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { loadWeapons, SLOTS } from './WeaponPicker.svelte'
+	import DisplayPicker from './DisplayPicker.svelte'
 	import FormationFields from './FormationFields.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import PoolFields from './PoolFields.svelte'
@@ -54,6 +55,9 @@
 		ui.weaponPick = { key: spawnKey(s), slot }
 		ui.dialog = 'weapon'
 	}
+
+	/** The display picker under the Display box, open (#705). */
+	let pickDisplay = $state(false)
 
 	const emoteName = (n: string) =>
 		n
@@ -268,16 +272,29 @@
 		<h4>Look and pose</h4>
 		<div class="fields">
 			<label
-				>Display <input
-					type="number"
-					min="0"
-					value={s.display}
-					onchange={(e) => {
-						const v = int(e)
-						if (v !== null) edit({ display: Math.max(0, v) }, 'Display')
-					}}
-				/></label
+				>Display <span class="display"
+					><input
+						type="number"
+						min="0"
+						value={s.display}
+						title="This spawn's own look; 0 for its template's"
+						onchange={(e) => {
+							const v = int(e)
+							if (v !== null) edit({ display: Math.max(0, v) }, 'Display')
+						}}
+					/><button class:on={pickDisplay} title="Choose this spawn's look from the client's creature displays" onclick={() => (pickDisplay = !pickDisplay)}>Choose…</button></span
+				></label
 			>
+			{#if pickDisplay}
+				<div class="wide">
+					<DisplayPicker
+						selected={s.display}
+						onpick={(d) => {
+							if (d.id !== s.display) edit({ display: d.id }, 'Display')
+						}}
+					/>
+				</div>
+			{/if}
 			<div class="wide gear">
 				<span class="dim">Gear{s.equipment ? ` (equipment ${s.equipment})` : ''}</span>
 				{#each SLOTS as slot, i (slot)}
@@ -347,6 +364,21 @@
 	.fields select {
 		width: 100%;
 		min-width: 0;
+	}
+	.display {
+		display: flex;
+		gap: 4px;
+	}
+	.fields .display input {
+		flex: 1;
+	}
+	.display button {
+		flex: none;
+		padding: 1px 6px;
+	}
+	.display button.on {
+		background: var(--accent);
+		color: var(--accent-ink);
 	}
 	.points {
 		list-style: none;
