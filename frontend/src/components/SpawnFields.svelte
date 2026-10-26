@@ -11,10 +11,11 @@
 	import FormationFields from './FormationFields.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import PoolFields from './PoolFields.svelte'
+	import ScriptFields from './ScriptFields.svelte'
 
 	// The fields of one spawn the editor changes: placement, respawn time, pool, movement, formation,
-	// path, look and pose. The creature editor and the game object editor show them; every change is one
-	// undo step.
+	// path, look and pose, with the scripts attached to it shown read-only. The creature editor and the
+	// game object editor show them; every change is one undo step.
 
 	interface Props {
 		s: vmangos.WorldSpawn
@@ -157,6 +158,8 @@
 	</div>
 
 	<PoolFields {s} {onswitch} />
+
+	<ScriptFields {s} />
 
 	{#if creature}
 		<h4>Movement</h4>

@@ -3281,6 +3281,26 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class SpawnScript {
+	    kind: string;
+	    id: number;
+	    name: string;
+	    commands: number;
+	    comment: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpawnScript(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.commands = source["commands"];
+	        this.comment = source["comment"];
+	    }
+	}
 	export class SpawnTeleport {
 	    label: string;
 	    dest: TriggerTeleport;

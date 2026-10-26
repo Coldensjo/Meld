@@ -102,6 +102,17 @@ func (a *App) SpawnTeleports(kind string, entry, guid int) ([]vmangos.SpawnTelep
 	return vmangos.SpawnTeleports(server, kind, entry, guid)
 }
 
+// SpawnScripts lists the scripts attached to a creature (kind "creature") or game object (kind
+// "object") spawn in the world database: its template's C++ script and AI, an object's use and event
+// scripts, a creature's EventAI events and path scripts (#137).
+func (a *App) SpawnScripts(kind string, entry, guid int) ([]vmangos.SpawnScript, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SpawnScripts(server, kind, entry, guid)
+}
+
 // NextObjectGUID is the first free game object guid of the world database, for placed objects.
 func (a *App) NextObjectGUID() (int, error) {
 	server, _, err := a.serverAndData()

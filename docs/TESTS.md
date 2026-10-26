@@ -768,6 +768,7 @@ the same scene, the report before and after.
 - Right-click near the selected creature (#205)
 - Formations and spawn pools (#172)
 - Creature path editing on the map (#138)
+- A spawn's scripts on the This spawn tab (#137, probe `spawn-scripts`)
 - World event spawns (#143)
 - Creature editor: Looks opens on the creature's display (#206)
 - Creature editor: Shop tab (npc_vendor, #145)

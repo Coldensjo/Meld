@@ -770,6 +770,10 @@ export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SpawnLook'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function SpawnScripts(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SpawnScripts'](arg1, arg2, arg3);
+}
+
 export function SpawnTeleports(arg1, arg2, arg3) {
   return window['go']['main']['App']['SpawnTeleports'](arg1, arg2, arg3);
 }

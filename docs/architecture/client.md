@@ -353,6 +353,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   view, not the game's character (Play here does that).
   A Select-tool left click that does not drag picks a trigger by the same rule (`Engine.triggerUnderPointer`,
   `finishTriggerClick`), and `ui.pickedTrigger` is the pick the Portals dialog follows and sets (#307).
+- **A spawn's scripts** (#137): the editors' This spawn tab (`SpawnFields.svelte`) lists, read-only,
+  what the world database attaches to the spawn (`ScriptFields.svelte`, the `SpawnScripts` binding,
+  `internal/vmangos/scripts.go`, one query): its template's `script_name` (C++), a creature's
+  `ai_name`, its EventAI events (`creature_ai_events`, their action scripts counted in
+  `creature_ai_scripts`) and its path's point scripts (`creature_movement_scripts`, from the spawn's
+  own `creature_movement` path, else its template's), and a game object's use scripts
+  (`gameobject_scripts`, by guid) and event (`event_scripts` and `scripted_event_id`, the event id in
+  the data field `GameObjectInfo::GetEventScriptId` reads: goober data2, chest data6, camera data2).
+  It reads the database as saved, not the spawn's unsaved edits; gossip and quest scripts are not
+  listed. A first step toward the node editor (#30) and Lua (#28).
 - **Flight paths** (#180): `internal/vmangos/taxi.go` reads and writes the client's three taxi tables
   (`LoadTaxiTables`, `ReadTaxiNetwork`, `SetTaxi`; 1.12 layouts: TaxiNodes 16 fields with the Horde
   mount at 14 and the Alliance one at 15, TaxiPath 4, TaxiPathNode 9). VMaNGOS reads the stops from

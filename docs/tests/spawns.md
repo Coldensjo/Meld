@@ -259,6 +259,19 @@ In the dev page: `e.editPath('npc/<guid>')` (a key from `e.doc.spawnLayer.spawns
 (`[...document.querySelectorAll('.pathbar button')]`). A second press near the first point picks
 it instead of adding one (`ctx.paths.pickPoint`), so space test presses apart.
 
+## A spawn's scripts on the This spawn tab (#137)
+
+Checks: the Scripts list under the pool on the creature and game object editors' This spawn tab.
+Probe `spawn-scripts` (needs the world database) opens three spawns on a flat map and reads the
+list: the Shadowfang Keep lever (object 18901, guid 34006) has an On use script, the Altar of the
+Tides (2576) event 364, creature 6175 at guid 108 scripts at path points 1, 4, 7, 12 and 16. The
+Go side alone: `go test ./internal/vmangos/ -run SpawnScriptsReal -v` (skipped under `-short`, so
+`make test-full` runs it; `-v` logs the rows). Other spawns with scripts:
+`select g.guid, g.id from gameobject_scripts s join gameobject g on g.guid = s.id`, a creature with
+`ai_name = 'EventAI'` (2240, Syndicate Footpad). Trap: the list comes from a new binding, so the
+running `make dev` must have rebuilt its Go side (`/wow/status`'s `started` changes); before that the
+page logs `SpawnScripts is not a function`.
+
 ## World event spawns (#143)
 
 Checks: spawns of a world event (`WorldSpawn.events`, from `game_event_creature`/`_gameobject`) are
