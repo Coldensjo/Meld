@@ -224,6 +224,11 @@ async function main() {
 	let seq = 0
 	const waiting = new Map()
 	const pageErrors = []
+	/** Everything the page said or failed to load (console at every level, failed and 4xx/5xx requests), kept to report a page that never sets up __engine. */
+	const pageLog = []
+	const note = (l) => {
+		if (pageLog.length < 40) pageLog.push(l.slice(0, 300))
+	}
 	/** Kills Chrome with its children (taskkill /T on Windows, the process group on Linux, where launch detaches it). */
 	const killChrome = () => {
 		const pid = chrome?.pid
@@ -355,6 +360,12 @@ async function main() {
 			if (msg.id && waiting.has(msg.id)) {
 				waiting.get(msg.id).resolve(msg)
 				waiting.delete(msg.id)
+			} else if (msg.method === 'Runtime.consoleAPICalled') {
+				note(`console.${msg.params.type}: ${msg.params.args.map((a) => a.value ?? a.description ?? a.type).join(' ')}`)
+			} else if (msg.method === 'Network.loadingFailed') {
+				note(`request failed: ${msg.params.errorText}${msg.params.canceled ? ' (canceled)' : ''} ${msg.params.requestId}`)
+			} else if (msg.method === 'Network.responseReceived' && msg.params.response.status >= 400) {
+				note(`HTTP ${msg.params.response.status} ${msg.params.response.url}`)
 			} else if (msg.method === 'Runtime.exceptionThrown') {
 				const d = msg.params.exceptionDetails
 				// The message and its first frames, enough to find the code. Wails' runtime throws in
@@ -370,6 +381,7 @@ async function main() {
 			}
 		}
 		await send('Runtime.enable')
+		await send('Network.enable')
 		// The page keeps only 250 resource entries by default, which the app's modules fill, and P.app (lib.js)
 		// reads the module URLs from them; raise the limit before the page's scripts run.
 		await send('Page.enable')
@@ -397,6 +409,7 @@ async function main() {
 	/** One probe on a fresh page, so one probe's state never leaks into the next. */
 	const runOnce = async ({ name, file }) => {
 		pageErrors.length = 0
+		pageLog.length = 0
 		let out
 		let prof = null
 		let bodyStart = Infinity
@@ -430,6 +443,16 @@ async function main() {
 			// stack line inside the probe's own body, as a line of the probe file.
 			const step = await evaluate('window.__probeStep ?? null', 5000).catch(() => null)
 			if (step) out.step = step
+			// The page never set up __engine: say what it did instead (#727), so a stuck page over a dev server that answers is told from a dead one.
+			if (/never set up __engine/.test(err.message)) {
+				const state = await evaluate(
+					`({ readyState: document.readyState, url: location.href, hasWindowGo: typeof window.go, hasWailsRuntime: typeof window.runtime, bodyChildren: document.body?.children.length ?? null })`,
+					5000,
+				).catch((e) => ({ unreadable: e.message }))
+				out.pageState = state
+				out.pageLog = pageLog.slice()
+				out.hint = 'the page loaded but the app did not start; see pageLog and docs/TESTS.md, "a page that never sets up __engine"'
+			}
 			for (const m of (err.description ?? '').matchAll(/<anonymous>:(\d+):(\d+)/g)) {
 				if (Number(m[1]) >= bodyStart) {
 					out.line = `${basename(file)}:${Number(m[1]) - bodyStart + 1}:${m[2]}`

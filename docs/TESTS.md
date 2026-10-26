@@ -613,6 +613,12 @@ the same scene, the report before and after.
     and `getShaderParameter` on the context with timers and time each `frame()`.
   - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set
     up __engine"; rerun those, and the runner starts `make dev` again. The runner also checks the server when a probe fails, and waits a minute for a rebuild, then starts `make dev` before the retry (`devRestarted` in the result, #391). When the app restarted during a probe (`/wow/status` reports a new `started`, as when a Go change, maybe another session's, makes wails dev rebuild), the runner prints `probe: <name>: the dev server restarted during this probe` and the line has `devRebuilt` (#656): read a lost page or a failure there as the restart, and rerun the probe.
+  - Trap: "the page never set up __engine" while `/wow/status` answers (a dev server that is alive but whose page is
+    stuck, #727): the result now has `pageState` (`readyState`, `window.go`, `window.runtime`, body children) and
+    `pageLog` (the console at every level, failed requests and 4xx/5xx responses), so read those first. `window.go`
+    `undefined` with an `ipc.js` error means the Wails host is half dead: kill `wails.exe`, the `bun --bun vite`
+    process and `Meld-dev.exe`, and let the runner start `make dev` again (that fixed #481's run); a 404 or failed
+    request for a module means Vite is stale. Do not restart `make dev` for an app error in `pageLog` that a code change caused.
   - **The rule for using them**: a change measured as faster on a stress map is kept only if
     `perf-everything` and `bench` (Northshire) are not slower. Give the stress map's numbers and those
     two, before and after, in the done comment.
