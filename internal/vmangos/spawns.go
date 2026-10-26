@@ -134,13 +134,27 @@ type Waypoint struct {
 var runSQL = func(db worldDB, sql string) ([]byte, error) {
 	args := append([]string{"-B", "-N"}, db.args(sql)...)
 	cmd := exec.Command("mariadb", args...)
+	cmd.Env = append(os.Environ(), db.env()...)
 	hideConsole(cmd)
 	var out, errOut bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("mariadb: %w: %s", err, strings.TrimSpace(errOut.String()))
+		return nil, fmt.Errorf("mariadb: %w: %s", err, mariadbError(errOut.String()))
 	}
 	return out.Bytes(), nil
+}
+
+// mariadbError is mariadb's error output without its WARNING lines: with the password in MYSQL_PWD,
+// MariaDB 11.4's client warns on every run that it skips the server certificate check of a
+// "passwordless" login, which would otherwise come before every error.
+func mariadbError(stderr string) string {
+	var keep []string
+	for _, line := range strings.Split(stderr, "\n") {
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "WARNING:") {
+			keep = append(keep, line)
+		}
+	}
+	return strings.Join(keep, "\n")
 }
 
 // ReadSpawns returns the creatures and game objects the world database places in the block of

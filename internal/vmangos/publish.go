@@ -14,9 +14,11 @@ import (
 )
 
 // Runner runs the programs a publish needs: the server's extractors and mariadb, and the world
-// server itself. Run waits for a program and passes its output lines to log; Start leaves it running.
+// server itself. Run waits for a program and passes its output lines to log; RunEnv does the same with
+// env (KEY=value) added to its environment; Start leaves it running.
 type Runner interface {
 	Run(dir, name string, args []string, log func(string)) error
+	RunEnv(dir, name string, env, args []string, log func(string)) error
 	Start(dir, name string, args ...string) error
 	// Running reports whether a program with this image name (say "mangosd.exe") is running.
 	Running(image string) bool
@@ -33,9 +35,16 @@ func (OSRunner) Running(image string) bool {
 	return err == nil && strings.Contains(strings.ToLower(string(out)), strings.ToLower(image))
 }
 
-func (OSRunner) Run(dir, name string, args []string, log func(string)) error {
+func (r OSRunner) Run(dir, name string, args []string, log func(string)) error {
+	return r.RunEnv(dir, name, nil, args, log)
+}
+
+func (OSRunner) RunEnv(dir, name string, env, args []string, log func(string)) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	hideConsole(cmd)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
@@ -204,7 +213,7 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []strin
 		mariadb = "mariadb"
 	}
 	log("Adding the map to the world database…")
-	if err := p.Run.Run(p.ServerRoot, mariadb, db.args(templateSQL(spec)), nil); err != nil {
+	if err := p.Run.RunEnv(p.ServerRoot, mariadb, db.env(), db.args(templateSQL(spec)), nil); err != nil {
 		return fmt.Errorf("world database: %w", err)
 	}
 
@@ -444,9 +453,15 @@ type worldDB struct {
 	host, port, user, password, name string
 }
 
-// args are mariadb's arguments to run sql against the world database.
+// args are mariadb's arguments to run sql against the world database. The password is not among
+// them, since any process can read another's command line (#482): it goes in env.
 func (d worldDB) args(sql string) []string {
-	return []string{"-h", d.host, "-P", d.port, "-u", d.user, "-p" + d.password, d.name, "-e", sql}
+	return []string{"-h", d.host, "-P", d.port, "-u", d.user, d.name, "-e", sql}
+}
+
+// env is what mariadb's environment needs beside args: the password, in MYSQL_PWD.
+func (d worldDB) env() []string {
+	return []string{"MYSQL_PWD=" + d.password}
 }
 
 // worldDatabase reads WorldDatabase.Info from the server's mangosd.conf:

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -34,11 +35,11 @@ func TestServerSpawnUndoesRegionSpawn(t *testing.T) {
 func TestRunScriptWrapsATransaction(t *testing.T) {
 	old := pipeMariadb
 	defer func() { pipeMariadb = old }()
-	var gotArgs []string
+	var gotArgs, gotEnv []string
 	var got string
 	var fail error
-	pipeMariadb = func(args []string, input string) error { gotArgs, got = args, input; return fail }
-	db := worldDB{host: "h", port: "1", user: "u", password: "p", name: "mangos"}
+	pipeMariadb = func(args, env []string, input string) error { gotArgs, gotEnv, got = args, env, input; return fail }
+	db := worldDB{host: "h", port: "1", user: "u", password: "secret", name: "mangos"}
 	statements := []string{"DELETE FROM `creature` WHERE `guid` = 1;", "INSERT INTO `creature` (`guid`) VALUES (2);"}
 	if err := runScript(db, strings.Join(statements, "\n")); err != nil {
 		t.Fatal(err)
@@ -51,6 +52,12 @@ func TestRunScriptWrapsATransaction(t *testing.T) {
 		if a == "-e" {
 			t.Fatalf("args %v pass -e; the script must come on stdin", gotArgs)
 		}
+		if strings.Contains(a, "secret") {
+			t.Fatalf("args %v hold the password; it goes in MYSQL_PWD (#482)", gotArgs)
+		}
+	}
+	if !reflect.DeepEqual(gotEnv, []string{"MYSQL_PWD=secret"}) {
+		t.Fatalf("env %v, want the password in MYSQL_PWD", gotEnv)
 	}
 	lines := strings.Split(strings.TrimSpace(got), "\n")
 	if len(lines) != len(statements)+2 || lines[0] != "START TRANSACTION;" || lines[len(lines)-1] != "COMMIT;" {

@@ -24,6 +24,16 @@ type fakeRunner struct {
 	writes map[string][]string
 	// onRun, when set, is called as each program starts, so a test can look at the folders then.
 	onRun func(name string, args []string)
+	// envs are the environments RunEnv added, by program name.
+	envs map[string][]string
+}
+
+func (f *fakeRunner) RunEnv(dir, name string, env, args []string, log func(string)) error {
+	if f.envs == nil {
+		f.envs = map[string][]string{}
+	}
+	f.envs[name] = env
+	return f.Run(dir, name, args, log)
 }
 
 func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) error {
@@ -93,8 +103,11 @@ func TestPublishServerRunsStepsInOrder(t *testing.T) {
 			t.Fatalf("call %d = %q, want %q", i, f.calls[i], w)
 		}
 	}
-	if !strings.Contains(f.calls[0], "-p"+"secret") || !strings.Contains(f.calls[0], "INSERT IGNORE INTO map_template") || !strings.Contains(f.calls[0], "'MyMap'") {
-		t.Fatalf("world database call = %q", f.calls[0])
+	if strings.Contains(f.calls[0], "secret") || !strings.Contains(f.calls[0], "INSERT IGNORE INTO map_template") || !strings.Contains(f.calls[0], "'MyMap'") {
+		t.Fatalf("world database call = %q (the password goes in MYSQL_PWD, not the arguments: #482)", f.calls[0])
+	}
+	if env := f.envs["mariadb"]; len(env) != 1 || env[0] != "MYSQL_PWD=secret" {
+		t.Fatalf("world database env = %q, want MYSQL_PWD=secret", env)
 	}
 }
 

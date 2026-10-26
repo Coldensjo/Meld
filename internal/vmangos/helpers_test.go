@@ -242,8 +242,16 @@ func TestConfDatabase(t *testing.T) {
 	if err != nil || got.password != "pass word" || got.name != "realmd" {
 		t.Errorf("login %+v %v", got, err)
 	}
-	if args := got.args("SELECT 1"); !reflect.DeepEqual(args[6:8], []string{"-ppass word", "realmd"}) {
+	// The password goes in the environment, never on the command line, where any process reads it (#482).
+	if args := got.args("SELECT 1"); !reflect.DeepEqual(args, []string{"-h", "127.0.0.1", "-P", "3307", "-u", "mangos", "realmd", "-e", "SELECT 1"}) {
 		t.Errorf("args %v", args)
+	}
+	if env := got.env(); !reflect.DeepEqual(env, []string{"MYSQL_PWD=pass word"}) {
+		t.Errorf("env %v", env)
+	}
+	warned := "WARNING: option --ssl-verify-server-cert is disabled, because of an insecure passwordless login.\r\nERROR 1045 (28000): Access denied\r\n"
+	if got := mariadbError(warned); got != "ERROR 1045 (28000): Access denied" {
+		t.Errorf("mariadbError = %q", got)
 	}
 
 	// Only comments, a missing key, a line without quotes, a short line, a bad port: all "has no key".

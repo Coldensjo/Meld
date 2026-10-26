@@ -31,6 +31,10 @@ func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) erro
 	return nil
 }
 
+func (f *fakeRunner) RunEnv(dir, name string, env, args []string, log func(string)) error {
+	return f.Run(dir, name, args, log)
+}
+
 func (f *fakeRunner) Start(dir, name string, args ...string) error {
 	f.calls = append(f.calls, "START "+filepath.Base(name))
 	f.running[filepath.Base(name)] = true

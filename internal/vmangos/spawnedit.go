@@ -3,6 +3,7 @@ package vmangos
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -111,7 +112,7 @@ func SpawnSQL(serverRoot, mapName string, x, y, size int, edits []SpawnEdit, now
 func runScript(db worldDB, script string) error {
 	args := db.args("")
 	args = args[:len(args)-2] // no -e: the script comes on stdin
-	return pipeMariadb(args, transactionScript(script))
+	return pipeMariadb(args, db.env(), transactionScript(script))
 }
 
 // transactionScript wraps a script in the one transaction runScript runs it in.
@@ -119,16 +120,17 @@ func transactionScript(script string) string {
 	return "START TRANSACTION;\n" + script + "\nCOMMIT;\n"
 }
 
-// pipeMariadb runs the mariadb client with args and feeds it input. It's a variable so tests can
-// catch the script runScript sends, and fail it.
-var pipeMariadb = func(args []string, input string) error {
+// pipeMariadb runs the mariadb client with args, env added to its environment, and feeds it input.
+// It's a variable so tests can catch the script runScript sends, and fail it.
+var pipeMariadb = func(args, env []string, input string) error {
 	cmd := exec.Command("mariadb", args...)
+	cmd.Env = append(os.Environ(), env...)
 	hideConsole(cmd)
 	cmd.Stdin = strings.NewReader(input)
 	var errOut bytes.Buffer
 	cmd.Stderr = &errOut
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("mariadb: %w: %s", err, strings.TrimSpace(errOut.String()))
+		return fmt.Errorf("mariadb: %w: %s", err, mariadbError(errOut.String()))
 	}
 	return nil
 }
