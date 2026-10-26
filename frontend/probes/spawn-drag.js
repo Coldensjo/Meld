@@ -9,6 +9,8 @@ const loaded = await App.LoadSpawns('Azeroth', 30, 48, 1)
 const layer = e.activeDocument().spawnLayer
 layer.set(loaded)
 se.syncSpawnUi(layer, true)
+// Look and label work resolves after set and bumps the version (#731): wait for it to go quiet before taking the baseline.
+await P.settle()
 await P.frames(3)
 const s = layer.spawns.find((x) => x.kind === 'monster')
 const v0 = layer.version
