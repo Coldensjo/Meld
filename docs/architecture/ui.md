@@ -14,7 +14,13 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Per-tool settings go in `OptionsBar` (use `OptSlider`). The bar is one row: its controls wrap
     and the rows below the first are clipped until its More (n) button opens the bar over the
     viewport (#254), so put a tool's most used controls first; the brush's Size and Strength
-    (`sizeStrength`) follow right after a tool's modes. It holds controls only: a sentence of
+    (`sizeStrength`) follow right after a tool's modes. Aim for a tool's controls to fit the row at 1400 px with
+    nothing under More (#715): the Sculpt bar does, with its twelve modes as icon buttons (`SCULPT_MODES`,
+    named by their tooltips and `aria-label`), narrower sliders, and a Brush button that opens a panel
+    under the bar (`.brushpanel`, outside the clipped `.options`) with the settings set once: edit
+    limit, image, falloff curve, shape, Flatten's target, direction and angled plane, Terrace's offset
+    and painting while sculpting (the button reads "Brush · Paint" while that is on). `OptSlider`'s
+    number box hides its spin arrows to stay 46 px wide. It holds controls only: a sentence of
     help for the tool goes in `ToolHint.svelte` (a branch per tool and mode, with `<kbd>` markup),
     which `StatusBar` shows in its message slot while `ui.status` is 'Ready'; a status message takes
     the slot for its few seconds. Labels that name a control (`Texture:`, `Selected:`) stay in the bar.

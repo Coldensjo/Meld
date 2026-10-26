@@ -15,19 +15,36 @@
 	import { NARROW_WIDTH, PATH_KINDS, type MapPath, type PathKind } from '../lib/terrain/paths'
 	import type { PathField } from '../lib/tools/PathTool'
 
-	const SCULPT_MODES: Array<{ id: SculptMode; name: string; tip: string }> = [
-		{ id: 'raise', name: 'Raise', tip: 'Lift the ground under the brush' },
-		{ id: 'lower', name: 'Lower', tip: 'Sink the ground under the brush' },
-		{ id: 'smooth', name: 'Smooth', tip: 'Even out bumps toward the ground around them' },
-		{ id: 'blur', name: 'Blur', tip: 'Blur the heights under the brush, softening every edge' },
-		{ id: 'flatten', name: 'Flatten', tip: 'Level the ground to one height (Alt+click locks the height)' },
-		{ id: 'noise', name: 'Noise', tip: 'Roughen the ground with random bumps' },
-		{ id: 'mountain', name: 'Mountain', tip: 'Build up a peak' },
-		{ id: 'crevice', name: 'Crevice', tip: 'Dig a trench and pile the ground onto its sides' },
-		{ id: 'terrace', name: 'Terrace', tip: 'Step the ground into levels, for mesas, farmland and cliff levels (Shift+drag levels to the step under the first click)' },
-		{ id: 'erode', name: 'Erode', tip: 'Wear the ground down as water and loose rock do: water carves gullies and leaves fans of sediment below them; thermal lets ground slide off slopes steeper than the talus angle' },
-		{ id: 'vertex', name: 'Vertex', tip: 'Pick points of the ground with the brush, then raise or lower them together (Shift+drag), level them (Flatten) or tilt them onto a slope (Slope, Direction)' },
-		{ id: 'hole', name: 'Hole', tip: 'Cut holes in the ground, or fill them' },
+	// The modes are icon buttons, named by their tooltips, so the Sculpt bar fits one row (#715).
+	const SCULPT_MODES: Array<{ id: SculptMode; name: string; tip: string; icon: string; dots?: boolean }> = [
+		{ id: 'raise', name: 'Raise', tip: 'Lift the ground under the brush', icon: 'M3 20h18M12 17V5M7 10l5-5 5 5' },
+		{ id: 'lower', name: 'Lower', tip: 'Sink the ground under the brush', icon: 'M3 4h18M12 7v12M7 14l5 5 5-5' },
+		{ id: 'smooth', name: 'Smooth', tip: 'Even out bumps toward the ground around them', icon: 'M2 14c3-5 7-5 10 0s7 5 10 0' },
+		{ id: 'blur', name: 'Blur', tip: 'Blur the heights under the brush, softening every edge', icon: 'M12 4a8 8 0 1 1 0 16a8 8 0 1 1 0-16M12 9a3 3 0 1 1 0 6a3 3 0 1 1 0-6' },
+		{ id: 'flatten', name: 'Flatten', tip: 'Level the ground to one height (Alt+click locks the height)', icon: 'M2 17h20M5 17l3-6h8l3 6' },
+		{ id: 'noise', name: 'Noise', tip: 'Roughen the ground with random bumps', icon: 'M2 15l3-5 3 7 3-9 3 8 3-5 3 4 2-2' },
+		{ id: 'mountain', name: 'Mountain', tip: 'Build up a peak', icon: 'M2 20L12 4l10 16zM12 4l-2 7 3 3' },
+		{ id: 'crevice', name: 'Crevice', tip: 'Dig a trench and pile the ground onto its sides', icon: 'M2 9h3l2-3 5 13 5-13 2 3h3' },
+		{
+			id: 'terrace',
+			name: 'Terrace',
+			tip: 'Step the ground into levels, for mesas, farmland and cliff levels (Shift+drag levels to the step under the first click)',
+			icon: 'M2 20h6v-5h5v-5h5V5h4',
+		},
+		{
+			id: 'erode',
+			name: 'Erode',
+			tip: 'Wear the ground down as water and loose rock do: water carves gullies and leaves fans of sediment below them; thermal lets ground slide off slopes steeper than the talus angle',
+			icon: 'M12 3c3 5 6 8 6 11a6 6 0 0 1-12 0c0-3 3-6 6-11z',
+		},
+		{
+			id: 'vertex',
+			name: 'Vertex',
+			tip: 'Pick points of the ground with the brush, then raise or lower them together (Shift+drag), level them (Flatten) or tilt them onto a slope (Slope, Direction)',
+			icon: 'M5 6h.01M12 6h.01M19 6h.01M5 12h.01M12 12h.01M19 12h.01M5 18h.01M12 18h.01M19 18h.01',
+			dots: true,
+		},
+		{ id: 'hole', name: 'Hole', tip: 'Cut holes in the ground, or fill them', icon: 'M4 4h16v16H4zM9 9h6v6H9z' },
 	]
 
 	const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
@@ -60,6 +77,8 @@
 	// The spawn brush (#171) takes only the brush's size.
 	const spawnBrushing = $derived(editor.tool === 'doodad' && editor.doodadMode === 'creatures')
 	// Tools with modes show the brush's size and strength right after them (sizeStrength).
+	// The Sculpt bar's sliders are narrower, so its row fits (#715).
+	const sliderW = $derived(editor.tool === 'sculpt' ? 70 : 90)
 	const sizeAfterModes = $derived(editor.tool === 'sculpt' || editor.tool === 'paint' || editor.tool === 'water' || editor.tool === 'doodad')
 
 	/** The client's zones for the Map data tool's picker, read when the tool is first opened. */
@@ -160,15 +179,38 @@
 			changes.disconnect()
 		}
 	})
-	// A new tool starts with the bar closed.
+	// The Sculpt bar's Brush button opens a panel under it with the settings set once and left alone
+	// (edit limit, image, shape, falloff curve, Flatten's target, painting while sculpting), so the
+	// controls used while working fit on one row (#715). The panel sits outside the clipped bar.
+	let brushOpen = $state(false)
+	let brushBtn = $state<HTMLButtonElement>()
+	let brushPanel = $state<HTMLDivElement>()
+	let brushLeft = $state(0)
+	function toggleBrush(e: MouseEvent) {
+		brushOpen = !brushOpen
+		if (!brushOpen || !brushBtn || !root) return
+		brushLeft = brushBtn.offsetLeft
+		// A keyboard press (no pointer, detail 0) takes focus into the panel, so Tab walks its controls.
+		const keyboard = e.detail === 0
+		requestAnimationFrame(() => {
+			if (!brushPanel || !root) return
+			brushLeft = Math.max(0, Math.min(brushLeft, root.clientWidth - brushPanel.offsetWidth - 4))
+			if (keyboard) brushPanel.querySelector<HTMLElement>('button, input, select')?.focus()
+		})
+	}
+	// A new tool starts with the bar and the panel closed.
 	$effect(() => {
 		void editor.tool
 		open = false
+		brushOpen = false
 	})
 	$effect(() => {
-		if (!open) return
+		if (!open && !brushOpen) return
 		const away = (e: PointerEvent) => {
-			if (!root?.contains(e.target as Node)) open = false
+			if (!root?.contains(e.target as Node)) {
+				open = false
+				brushOpen = false
+			}
 		}
 		window.addEventListener('pointerdown', away, true)
 		return () => window.removeEventListener('pointerdown', away, true)
@@ -180,7 +222,11 @@
 		if (!open && e.target instanceof Element && wrapped(e.target)) open = true
 	}
 	function onKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && open) {
+		if (e.key === 'Escape' && brushOpen) {
+			brushOpen = false
+			brushBtn?.focus()
+			e.stopPropagation()
+		} else if (e.key === 'Escape' && open) {
 			open = false
 			e.stopPropagation()
 		}
@@ -213,11 +259,12 @@
 {#snippet sizeStrength()}
 	{#if usesBrush}
 		{#if !vertexMode}
-			<OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
+			<OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} width={sliderW} title="Brush radius ( [ / ] )" />
 		{/if}
 		{#if !paintingWater && !mapData && !spawnBrushing}
 			<OptSlider
 				label="Strength"
+				width={sliderW}
 				bind:value={editor.brush.strength}
 				min={0.02}
 				max={editor.tool === 'sculpt' ? 10 : 1}
@@ -226,6 +273,16 @@
 				title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : editor.tool === 'sculpt' ? 'How fast the ground moves: up to ten times the normal speed, for big mountains' : undefined}
 			/>
 		{/if}
+	{/if}
+{/snippet}
+
+{#snippet brushShape()}
+	<div class="seg" title="Brush shape">
+		<button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
+		<button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>
+	</div>
+	{#if editor.brush.shape === 'square'}
+		<label class="check" title="Align square brushes to the terrain grid"><input type="checkbox" bind:checked={editor.brush.snap} /> Snap to grid</label>
 	{/if}
 {/snippet}
 
@@ -248,32 +305,25 @@
 		<div class="divider"></div>
 
 		{#if editor.tool === 'sculpt'}
-			<div class="seg">
+			<div class="seg icons" role="group" aria-label="Sculpt mode">
 				{#each SCULPT_MODES as m (m.id)}
-					<button class:active={editor.sculptMode === m.id} onclick={() => (editor.sculptMode = m.id)} title={m.tip}>{m.name}</button>
+					<button class:active={editor.sculptMode === m.id} onclick={() => (editor.sculptMode = m.id)} title="{m.name}: {m.tip}" aria-label={m.name} aria-pressed={editor.sculptMode === m.id}>
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width={m.dots ? 3.2 : 1.8} stroke-linejoin="round" stroke-linecap="round">
+							<path d={m.icon} />
+						</svg>
+					</button>
 				{/each}
 			</div>
 			{@render sizeStrength()}
+			{#if !vertexMode}
+				<OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} width={70} />
+			{/if}
 			{#if editor.sculptMode === 'flatten'}
-				<select class="curve" bind:value={editor.flattenTarget} disabled={editor.flattenLock.on} title="Height to flatten to (the lock sets it while on)" aria-label="Flatten target">
-					<option value="origin">To clicked height</option>
-					<option value="average">To average height</option>
-				</select>
-				<select class="curve" bind:value={editor.flattenDir} title="Which way ground moves toward the target" aria-label="Flatten direction">
-					<option value="both">Raise and lower</option>
-					<option value="raise">Raise only</option>
-					<option value="lower">Lower only</option>
-				</select>
 				<label class="check" title="Level every stroke to the locked height instead of the height where it starts; Alt+click locks the point under the cursor"
 					><input type="checkbox" bind:checked={editor.flattenLock.on} /> Lock</label
 				>
 				{#if editor.flattenLock.on}
 					<label class="check" title="The locked height, in yards">H <input class="num" type="number" step="0.1" bind:value={editor.flattenLock.y} /></label>
-				{/if}
-				<label class="check" title="Level to a plane through the stroke's start (or the locked point) instead of one height"><input type="checkbox" bind:checked={editor.flattenAngled.on} /> Angled</label>
-				{#if editor.flattenAngled.on}
-					<OptSlider label="Angle" bind:value={editor.flattenAngled.angle} min={-89} max={89} step={0.5} digits={1} width={60} title="How steeply the plane rises, in degrees" />
-					<OptSlider label="Direction" bind:value={editor.flattenAngled.orientation} min={0} max={360} step={1} digits={0} width={60} title="Direction the plane rises toward, in degrees (0 is east, 90 south)" />
 				{/if}
 			{/if}
 			{#if editor.sculptMode === 'mountain'}
@@ -319,9 +369,8 @@
 				<button onclick={() => (ui.dialog = 'erode')} title="Erode the selected area, or the whole map, at once (Terrain › Erode)">Area…</button>
 			{/if}
 			{#if editor.sculptMode === 'terrace'}
-				<OptSlider label="Step" bind:value={editor.terrace.step} min={0.5} max={50} step={0.5} digits={1} width={60} title="Yards between the levels" />
-				<OptSlider label="Offset" bind:value={editor.terrace.offset} min={-50} max={50} step={0.1} digits={1} width={60} title="The height a level sits at, so the steps line up with the sea or a chosen height" />
-				<OptSlider label="Sharpness" bind:value={editor.terrace.sharpness} min={0} max={1} step={0.05} digits={2} width={60} title="How much of each step is flat: 1 flat levels with cliffs between them, 0 smooth stairs" />
+				<OptSlider label="Step" bind:value={editor.terrace.step} min={0.5} max={50} step={0.5} digits={1} width={50} title="Yards between the levels" />
+				<OptSlider label="Sharpness" bind:value={editor.terrace.sharpness} min={0} max={1} step={0.05} digits={2} width={50} title="How much of each step is flat: 1 flat levels with cliffs between them, 0 smooth stairs" />
 			{/if}
 			{#if editor.sculptMode === 'hole'}
 				<div class="seg">
@@ -335,64 +384,29 @@
 					<button onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>
 					<button onclick={() => engineRef.current?.vertexAction('clear')} title="Drop every picked point (the ground stays as it is)">Clear</button>
 					<select class="curve" bind:value={editor.vertexRef} title="Point the slope plane passes through" aria-label="Slope reference">
-						<option value="center">Through selection centre</option>
+						<option value="center">Through centre</option>
 						<option value="cursor">Through cursor</option>
 					</select>
-					<OptSlider label="Slope" bind:value={editor.vertexAngle} min={-89} max={89} step={1} digits={0} width={70} title="Angle of the plane the selection is laid on, in degrees" />
-					<OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
-				{/if}
-			{:else}
-				{@render editLimit()}
-				{@render imageBrush()}
-				<select
-					class="curve"
-					bind:value={editor.sculptPaint}
-					title="Also paint the ground the brush shapes: one texture, or the map's rock on the steep ground and its dirt on the slopes below it, as a raised hill was painted while it was raised"
-					aria-label="Paint while sculpting"
-				>
-					<option value="off">Paint: off</option>
-					<option value="slope">Paint: rock and dirt by slope</option>
-					<option value="texture">Paint: one texture</option>
-				</select>
-				{#if editor.sculptPaint === 'texture'}
-					<button
-						class="chip"
-						onclick={() => {
-							ui.palette = 'textures'
-							prefs.browserCollapsed = false
-						}}
-						title="The texture sculpting paints (pick one in the asset browser below)"
-					>
-						<span class="dim">Texture:</span>
-						{sculptTex ? texName(sculptTex) : 'pick one below'}
-					</button>
-				{:else if editor.sculptPaint === 'slope'}
-					<button class="chip" onclick={() => (ui.dialog = 'mapProps')} title="The map's rock and dirt textures (File › Map Properties)">
-						<span class="dim">Rock:</span>
-						{editor.roles.rock >= 0 ? texName(editor.palette[editor.roles.rock] ?? '') : 'none'}
-						<span class="dim">· Dirt:</span>
-						{editor.roles.dirt >= 0 ? texName(editor.palette[editor.roles.dirt] ?? '') : 'none'}
-					</button>
-					<OptSlider label="Rock from" bind:value={editor.slopePaint.rockDeg} min={10} max={80} step={1} digits={0} width={60} title="Ground steeper than this many degrees is painted rock" />
-					<OptSlider
-						label="Dirt from"
-						bind:value={editor.slopePaint.dirtDeg}
-						min={0}
-						max={70}
-						step={1}
-						digits={0}
-						width={60}
-						title="Ground steeper than this many degrees, up to the rock, is painted dirt: the rim at a mountain's foot"
-					/>
-					<label
-						class="check"
-						title="Ground gentler than the dirt gets each chunk's base (first) texture back, so lowering a hill takes its rock away too. Off by default, since it also paints over roads and details under the brush."
-					>
-						<input type="checkbox" bind:checked={editor.slopePaint.restoreBase} /> Restore base
-					</label>
+					<OptSlider label="Slope" bind:value={editor.vertexAngle} min={-89} max={89} step={1} digits={0} width={60} title="Angle of the plane the selection is laid on, in degrees" />
+					<OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={60} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
 				{/if}
 			{/if}
-			<div class="divider"></div>
+			{#if !vertexMode}
+				<div class="divider"></div>
+				<button
+					class="brushbtn"
+					class:active={brushOpen}
+					class:painting={!holeMode && editor.sculptPaint !== 'off'}
+					bind:this={brushBtn}
+					onclick={toggleBrush}
+					aria-expanded={brushOpen}
+					title="The brush's other settings: edit limit, image, shape and falloff curve{holeMode ? '' : ', and painting while sculpting'}{editor.sculptMode === 'flatten'
+						? ", and Flatten's target, direction and angled plane"
+						: editor.sculptMode === 'terrace'
+							? ", and Terrace's offset"
+							: ''}">Brush{!holeMode && editor.sculptPaint !== 'off' ? ' · Paint' : ''} {brushOpen ? '▴' : '▾'}</button
+				>
+			{/if}
 		{:else if editor.tool === 'paint' || editor.tool === 'road'}
 			{#if editor.tool === 'paint'}
 				<div class="seg">
@@ -858,20 +872,15 @@
 			{/if}
 		{/if}
 
-		{#if usesBrush && editor.tool !== 'place' && editor.tool !== 'doodad' && !paintingWater && !vertexMode && !holeMode && !mapData}
-			<div class="seg" title="Brush shape">
-				<button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
-				<button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>
-			</div>
-			{#if editor.brush.shape === 'square'}
-				<label class="check" title="Align square brushes to the terrain grid"><input type="checkbox" bind:checked={editor.brush.snap} /> Snap to grid</label>
-			{/if}
+		<!-- The Sculpt tool keeps its shape, falloff and curve in its Brush panel (#715). -->
+		{#if usesBrush && editor.tool !== 'sculpt' && editor.tool !== 'place' && editor.tool !== 'doodad' && !paintingWater && !mapData}
+			{@render brushShape()}
 		{/if}
 		{#if usesBrush}
 			{#if !sizeAfterModes}
 				{@render sizeStrength()}
 			{/if}
-			{#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode && !mapData && !spawnBrushing}
+			{#if editor.tool !== 'sculpt' && editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !mapData && !spawnBrushing}
 				<OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
 				<select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
 					{#each FALLOFF_CURVES as c (c.id)}
@@ -945,6 +954,107 @@
 			>More ({hidden}) {open ? '▴' : '▾'}</button
 		>
 	{/if}
+	{#if brushOpen && editor.tool === 'sculpt' && !vertexMode}
+		<div class="brushpanel" bind:this={brushPanel} style:left="{brushLeft}px" role="group" aria-label="Brush settings">
+			<div class="row">
+				<span class="dim head">Brush</span>
+				{#if !holeMode}
+					{@render editLimit()}
+					{@render imageBrush()}
+				{/if}
+				<select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
+					{#each FALLOFF_CURVES as c (c.id)}
+						<option value={c.id}>{c.name}</option>
+					{/each}
+				</select>
+				{#if !holeMode}
+					{@render brushShape()}
+				{/if}
+			</div>
+			{#if editor.sculptMode === 'flatten'}
+				<div class="row">
+					<span class="dim head">Flatten</span>
+					<select class="curve" bind:value={editor.flattenTarget} disabled={editor.flattenLock.on} title="Height to flatten to (the lock sets it while on)" aria-label="Flatten target">
+						<option value="origin">To clicked height</option>
+						<option value="average">To average height</option>
+					</select>
+					<select class="curve" bind:value={editor.flattenDir} title="Which way ground moves toward the target" aria-label="Flatten direction">
+						<option value="both">Raise and lower</option>
+						<option value="raise">Raise only</option>
+						<option value="lower">Lower only</option>
+					</select>
+					<label class="check" title="Level to a plane through the stroke's start (or the locked point) instead of one height"><input type="checkbox" bind:checked={editor.flattenAngled.on} /> Angled</label>
+					{#if editor.flattenAngled.on}
+						<OptSlider label="Angle" bind:value={editor.flattenAngled.angle} min={-89} max={89} step={0.5} digits={1} width={70} title="How steeply the plane rises, in degrees" />
+						<OptSlider label="Direction" bind:value={editor.flattenAngled.orientation} min={0} max={360} step={1} digits={0} width={70} title="Direction the plane rises toward, in degrees (0 is east, 90 south)" />
+					{/if}
+				</div>
+			{/if}
+			{#if editor.sculptMode === 'terrace'}
+				<div class="row">
+					<span class="dim head">Terrace</span>
+					<OptSlider label="Offset" bind:value={editor.terrace.offset} min={-50} max={50} step={0.1} digits={1} width={70} title="The height a level sits at, so the steps line up with the sea or a chosen height" />
+				</div>
+			{/if}
+			{#if !holeMode}
+				<div class="row">
+					<span class="dim head">Paint</span>
+					<select
+						class="curve"
+						bind:value={editor.sculptPaint}
+						title="Also paint the ground the brush shapes: one texture, or the map's rock on the steep ground and its dirt on the slopes below it, as a raised hill was painted while it was raised"
+						aria-label="Paint while sculpting"
+					>
+						<option value="off">Off</option>
+						<option value="slope">Rock and dirt by slope</option>
+						<option value="texture">One texture</option>
+					</select>
+					{#if editor.sculptPaint === 'texture'}
+						<button
+							class="chip"
+							onclick={() => {
+								ui.palette = 'textures'
+								prefs.browserCollapsed = false
+							}}
+							title="The texture sculpting paints (pick one in the asset browser below)"
+						>
+							<span class="dim">Texture:</span>
+							{sculptTex ? texName(sculptTex) : 'pick one below'}
+						</button>
+					{:else if editor.sculptPaint === 'slope'}
+						<button class="chip" onclick={() => (ui.dialog = 'mapProps')} title="The map's rock and dirt textures (File › Map Properties)">
+							<span class="dim">Rock:</span>
+							{editor.roles.rock >= 0 ? texName(editor.palette[editor.roles.rock] ?? '') : 'none'}
+							<span class="dim">· Dirt:</span>
+							{editor.roles.dirt >= 0 ? texName(editor.palette[editor.roles.dirt] ?? '') : 'none'}
+						</button>
+					{/if}
+				</div>
+				{#if editor.sculptPaint === 'slope'}
+					<div class="row">
+						<span class="dim head"></span>
+						<OptSlider label="Rock from" bind:value={editor.slopePaint.rockDeg} min={10} max={80} step={1} digits={0} width={60} title="Ground steeper than this many degrees is painted rock" />
+						<OptSlider
+							label="Dirt from"
+							bind:value={editor.slopePaint.dirtDeg}
+							min={0}
+							max={70}
+							step={1}
+							digits={0}
+							width={60}
+							title="Ground steeper than this many degrees, up to the rock, is painted dirt: the rim at a mountain's foot"
+						/>
+						<label
+							class="check"
+							title="Ground gentler than the dirt gets each chunk's base (first) texture back, so lowering a hill takes its rock away too. Off by default, since it also paints over roads and details under the brush."
+						>
+							<input type="checkbox" bind:checked={editor.slopePaint.restoreBase} /> Restore base
+						</label>
+					</div>
+				{/if}
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -982,6 +1092,37 @@
 		background: var(--panel);
 		border-bottom: 1px solid var(--border);
 		box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
+	}
+	/* The Sculpt tool's Brush panel: rows of controls under its button, over the viewport. */
+	.brushpanel {
+		position: absolute;
+		top: 34px;
+		z-index: 47;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 8px 10px;
+		background: var(--panel);
+		border: 1px solid var(--border);
+		border-radius: 0 0 var(--radius) var(--radius);
+		box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
+		white-space: nowrap;
+	}
+	.brushpanel .row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.brushpanel .head {
+		width: 44px;
+	}
+	.brushbtn.painting {
+		color: var(--accent-text);
+	}
+	.seg.icons button {
+		display: grid;
+		place-items: center;
+		padding: 2px 4px;
 	}
 	.more {
 		position: absolute;

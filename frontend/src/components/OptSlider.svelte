@@ -33,11 +33,20 @@
 		color: var(--text-dim);
 	}
 	.num {
-		/* Room for the value beside the native spin arrows (about 15 px), which sit flush at the right edge. */
-		width: 68px;
+		/* Room for five characters of value; the spin arrows are hidden, since the slider and the arrow keys
+		   step it, so the options bar keeps one row. */
+		width: 46px;
 		padding: 1px 0 1px 4px;
 		font: 11px var(--mono);
 		text-align: right;
+	}
+	.num::-webkit-inner-spin-button,
+	.num::-webkit-outer-spin-button {
+		appearance: none;
+		margin: 0;
+	}
+	.num {
+		appearance: textfield;
 	}
 	input[type='range'] {
 		height: 14px;

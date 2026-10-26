@@ -243,7 +243,10 @@ Checks: at 1400 px the options bar stays one 34 px row; the brush's Size and Str
 the tool's modes; the controls that don't fit wrap below and are clipped, and a More (n) button at the
 right opens the bar over the viewport with all of them; Esc, a click elsewhere or another tool closes
 it; Tab onto a clipped control opens it.
-Probe: `bun run probe options-more` (Hole, Raise, Terrace, Water, both doodad modes, Paint and Place).
+The Sculpt bar fits the row with no More in all twelve modes, even Flatten with Lock, Angled and
+paint by slope on (#715); its Brush button opens the panel of its other settings below the bar, inside
+the window, and Esc closes it.
+Probe: `bun run probe options-more` (every Sculpt mode, Water, both doodad modes, Paint and Place).
 `--shot <dir>` leaves the Water bar open in the picture.
 Trap: a headless page has no window focus (`document.hasFocus()` is false), so `el.focus()` fires no
 `focusin`; the probe dispatches it. Focus also scrolls the clipped bar to the control, which the bar
