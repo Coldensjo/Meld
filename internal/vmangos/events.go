@@ -31,7 +31,7 @@ func GameEvents(serverRoot string) ([]GameEvent, error) {
 // parseGameEvents reads (entry, description) rows.
 func parseGameEvents(raw []byte) []GameEvent {
 	var out []GameEvent
-	for _, f := range tsvRows(raw, 2) {
+	for _, f := range batchRows(raw, 2) {
 		id, err := strconv.Atoi(f[0])
 		if err != nil {
 			continue
@@ -79,7 +79,7 @@ func readSpawnEvents(db worldDB, spawns []WorldSpawn) error {
 // parseSpawnEvents reads (guid, event) rows into the events of each guid, in the rows' order.
 func parseSpawnEvents(raw []byte) map[int][]int {
 	out := map[int][]int{}
-	for _, f := range tsvRows(raw, 2) {
+	for _, f := range batchRows(raw, 2) {
 		guid, err1 := strconv.Atoi(f[0])
 		event, err2 := strconv.Atoi(f[1])
 		if err1 != nil || err2 != nil || event == 0 {

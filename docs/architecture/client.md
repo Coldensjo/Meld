@@ -101,6 +101,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `game.Session`'s server stop and `App.PlayHere` return instead of "not running"; `ensureDatabase`
   starts the server folder's mariadbd only on Windows. A test's fake runner is always supported, and
   tests set `hostOS` to check the guard on any machine.
+
+- **Reading the world database's output** (#478): `runSQL` gives mariadb's batch output (`-B -N`),
+  which escapes tabs, newlines, backslashes and NULs in a field. Read it only through
+  `internal/vmangos/batch.go`: `batchRows(raw, n)` (rows of n fields) or `batchLines(raw)` (any
+  width), which unescape every field, with `row.num`, `row.u32` and `row.f32` for numbers. Never call
+  `unescapeBatch` on their fields again: a second pass turns an escaped `\n` in a name into a newline.
 - **Spawn looks** (`internal/vmangos/looks.go`, `internal/wow/look.go`): a creature spawn's
   display is resolved in Go into a `wow.Look`: textures per replaceable M2 texture type (bake,
   hair, fur, creature skins), the character geosets shown (hair, facial hair, gear from

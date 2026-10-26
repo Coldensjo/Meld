@@ -81,7 +81,7 @@ func readFormations(db worldDB, spawns []WorldSpawn) error {
 // parseFormations reads formationsSQL's rows.
 func parseFormations(raw []byte) []formationRow {
 	var out []formationRow
-	for _, f := range tsvRows(raw, 5) {
+	for _, f := range batchRows(raw, 5) {
 		leader, err1 := strconv.Atoi(f[0])
 		member, err2 := strconv.Atoi(f[1])
 		dist, err3 := strconv.ParseFloat(f[2], 32)

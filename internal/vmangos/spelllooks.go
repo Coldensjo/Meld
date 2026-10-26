@@ -95,7 +95,7 @@ func lookLine(kind string, id int, rec []uint32) string {
 
 // looksComment is the "-- meld" lines of the icons and visuals the rows name (cols in the rows'
 // order), read from the client's tables (icon, visual and kit; an ID a table lacks is left out).
-func looksComment(cols []TemplateColumn, rows [][]string, icon, visual, kit *dbcTable) string {
+func looksComment(cols []TemplateColumn, rows []batchRow, icon, visual, kit *dbcTable) string {
 	iconAt, visualAt := -1, -1
 	for i, c := range cols {
 		switch c.Name {

@@ -138,13 +138,13 @@ func ListItemDisplays(serverRoot, dataDir string) ([]ItemDisplayEntry, error) {
 	if t.fields < itemDisplayFields-1 {
 		return nil, fmt.Errorf("ItemDisplayInfo.dbc has %d fields, not 1.12's %d", t.fields, itemDisplayFields)
 	}
-	var rows [][]string
+	var rows []batchRow
 	if serverRoot != "" {
 		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
 			raw, err := runSQL(db, "SELECT i.display_id, i.inventory_type, i.name, i.class, i.subclass FROM item_template i "+
 				"WHERE i.display_id <> 0 AND i.patch = (SELECT MAX(patch) FROM item_template WHERE entry = i.entry) ORDER BY i.name")
 			if err == nil {
-				rows = tsvRows(raw, 5)
+				rows = batchRows(raw, 5)
 			}
 		}
 	}
@@ -155,7 +155,7 @@ func ListItemDisplays(serverRoot, dataDir string) ([]ItemDisplayEntry, error) {
 
 // listItemDisplays makes the display list from the table and the items' rows (display, inventory
 // type, name, class, subclass, by name), by ID.
-func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
+func listItemDisplays(t *dbcTable, rows []batchRow) []ItemDisplayEntry {
 	shoots := shotSubclasses(t, rows)
 	type use struct {
 		kinds map[string]int
@@ -174,7 +174,7 @@ func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
 			uses[d] = u
 		}
 		u.kinds[invKind(inv)]++
-		u.names = append(u.names, unescapeBatch(f[2]))
+		u.names = append(u.names, f[2])
 	}
 	out := make([]ItemDisplayEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
@@ -213,7 +213,7 @@ func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
 
 // shotSubclasses gives each shot visual the ranged weapon subclass whose items' displays have it
 // most, from the world database's items (rows as listItemDisplays reads them).
-func shotSubclasses(t *dbcTable, rows [][]string) map[int]int {
+func shotSubclasses(t *dbcTable, rows []batchRow) map[int]int {
 	votes := map[int]map[int]int{}
 	for _, f := range rows {
 		if len(f) < 5 || f[3] != "2" {

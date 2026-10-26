@@ -37,12 +37,12 @@ func conditionSQL(where string) string {
 // parseConditions reads conditionSQL's rows.
 func parseConditions(raw []byte) []conditionEntry {
 	var out []conditionEntry
-	for _, f := range tsvRows(raw, 8) {
+	for _, f := range batchRows(raw, 8) {
 		n, ok := atoiAll(f[:7])
 		if !ok {
 			continue
 		}
-		out = append(out, conditionEntry{id: n[0], kind: n[1], v: [4]int{n[2], n[3], n[4], n[5]}, flags: n[6], ref: unescapeBatch(f[7])})
+		out = append(out, conditionEntry{id: n[0], kind: n[1], v: [4]int{n[2], n[3], n[4], n[5]}, flags: n[6], ref: f[7]})
 	}
 	return out
 }

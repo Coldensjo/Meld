@@ -88,7 +88,7 @@ func TestItemsScriptRoundTrip(t *testing.T) {
 		TemplateColumn{Name: "description", Kind: "text", MaxLen: 255},
 		TemplateColumn{Name: "dmg_min1", Kind: "float"},
 		TemplateColumn{Name: "other_team_entry", Kind: "uint", Nullable: true, Max: 1<<32 - 1})
-	rows := [][]string{{"25", "0", `It's \\ "fine"`, `line\none`, "2.5", "NULL"}}
+	rows := []batchRow{{"25", "0", `It's \ "fine"`, "line\none", "2.5", "NULL"}}
 	script := templateScript(itemScript, cols, rows, "", time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
 	if !strings.Contains(script, "-- It's \\ \"fine\" (entry 25, patch 0)") {
 		t.Fatalf("script:\n%s", script)

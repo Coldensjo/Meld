@@ -464,12 +464,8 @@ func questGiversSQL(table, kind string, quest int) string {
 // parseQuestGivers reads questGiversSQL's rows.
 func parseQuestGivers(raw []byte, kind string) []QuestGiver {
 	var out []QuestGiver
-	for _, f := range tsvRows(raw, 6) {
-		n := func(i int) int {
-			v, _ := strconv.Atoi(f[i])
-			return v
-		}
-		out = append(out, QuestGiver{Kind: kind, ID: n(0), Name: unescapeBatch(f[1]), PatchMin: n(2), PatchMax: n(3), Ready: f[4] == "1", Spawns: n(5)})
+	for _, f := range batchRows(raw, 6) {
+		out = append(out, QuestGiver{Kind: kind, ID: f.num(0), Name: f[1], PatchMin: f.num(2), PatchMax: f.num(3), Ready: f[4] == "1", Spawns: f.num(5)})
 	}
 	return out
 }
@@ -668,12 +664,8 @@ func TemplateNames(serverRoot, kind string, ids []int) (map[int]NamedRef, error)
 	if err != nil {
 		return nil, err
 	}
-	for _, f := range tsvRows(raw, 5) {
-		n := func(i int) int {
-			v, _ := strconv.Atoi(f[i])
-			return v
-		}
-		out[n(0)] = NamedRef{Name: unescapeBatch(f[1]), Quality: n(2), DisplayID: n(3), Level: n(4)}
+	for _, f := range batchRows(raw, 5) {
+		out[f.num(0)] = NamedRef{Name: f[1], Quality: f.num(2), DisplayID: f.num(3), Level: f.num(4)}
 	}
 	return out, nil
 }
@@ -905,13 +897,13 @@ func PlanQuestDelete(serverRoot string, entry int) (QuestDeletePlan, error) {
 	if err != nil {
 		return plan, err
 	}
-	for _, f := range tsvRows(raw, 3) {
+	for _, f := range batchRows(raw, 3) {
 		q, _ := strconv.Atoi(f[0])
 		if n := len(plan.Links); n > 0 && plan.Links[n-1].Quest == q {
 			plan.Links[n-1].Columns = append(plan.Links[n-1].Columns, f[1])
 			continue
 		}
-		plan.Links = append(plan.Links, QuestLink{Quest: q, Title: unescapeBatch(f[2]), Columns: []string{f[1]}})
+		plan.Links = append(plan.Links, QuestLink{Quest: q, Title: f[2], Columns: []string{f[1]}})
 	}
 	if cdb, err := confDatabase(serverRoot, "CharacterDatabase.Info"); err == nil {
 		if raw, err := runSQL(cdb, fmt.Sprintf("SELECT COUNT(DISTINCT guid) FROM character_queststatus WHERE quest = %d", entry)); err == nil {

@@ -155,7 +155,7 @@ func TestSpellColumnsMatchClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := tsvRows(raw, len(cols)+1)
+	rows := batchRows(raw, len(cols)+1)
 	sb, err := readClientFile(dataDir, SpellPath)
 	if err != nil {
 		t.Fatal(err)
@@ -176,7 +176,7 @@ func TestSpellColumnsMatchClient(t *testing.T) {
 		both++
 		values := map[string]string{}
 		for i, c := range cols {
-			values[c.Name] = unescapeBatch(f[i+1])
+			values[c.Name] = f[i+1]
 		}
 		rec, strs, err := spellClientRow(entry, cols, values, nil, tb.fields)
 		if err != nil {

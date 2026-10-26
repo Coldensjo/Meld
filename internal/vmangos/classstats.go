@@ -34,7 +34,7 @@ func ReadClassLevelStats(serverRoot string, class, from, to int) ([]ClassLevelSt
 
 func parseClassLevelStats(raw []byte) []ClassLevelStats {
 	var out []ClassLevelStats
-	for _, f := range tabRows(raw, 5) {
+	for _, f := range batchRows(raw, 5) {
 		lvl, _ := strconv.Atoi(f[0])
 		hp, _ := strconv.Atoi(f[1])
 		mana, _ := strconv.Atoi(f[2])

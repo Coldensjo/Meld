@@ -57,16 +57,8 @@ func vendorRowsSQL(table string, entry int) string {
 // parseVendorItems reads vendorRowsSQL's output.
 func parseVendorItems(raw []byte) []VendorItem {
 	var items []VendorItem
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 8 {
-			continue
-		}
-		n := func(i int) int {
-			v, _ := strconv.Atoi(f[i])
-			return v
-		}
-		items = append(items, VendorItem{Item: n(0), Name: unescapeBatch(f[1]), Quality: n(2), DisplayID: n(3), MaxCount: n(4), IncrTime: n(5), ItemFlags: n(6), Condition: n(7)})
+	for _, f := range batchRows(raw, 8) {
+		items = append(items, VendorItem{Item: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3), MaxCount: f.num(4), IncrTime: f.num(5), ItemFlags: f.num(6), Condition: f.num(7)})
 	}
 	return items
 }
@@ -181,15 +173,8 @@ func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
 		return nil, err
 	}
 	var out []ItemRef
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 4 {
-			continue
-		}
-		e, _ := strconv.Atoi(f[0])
-		q, _ := strconv.Atoi(f[2])
-		d, _ := strconv.Atoi(f[3])
-		out = append(out, ItemRef{Entry: e, Name: unescapeBatch(f[1]), Quality: q, DisplayID: d})
+	for _, f := range batchRows(raw, 4) {
+		out = append(out, ItemRef{Entry: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3)})
 	}
 	return out, nil
 }

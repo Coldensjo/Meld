@@ -72,11 +72,7 @@ func knownEntriesSQL(table string, entries []int) string {
 
 func parseGUIDRows(raw []byte) []GUIDRow {
 	var out []GUIDRow
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 3 {
-			continue
-		}
+	for _, f := range batchRows(raw, 3) {
 		g, err1 := strconv.Atoi(f[0])
 		e, err2 := strconv.Atoi(f[1])
 		m, err3 := strconv.Atoi(f[2])

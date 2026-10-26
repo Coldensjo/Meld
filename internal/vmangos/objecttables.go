@@ -333,13 +333,13 @@ func worldRefs(serverRoot, kind, where string, limit int) ([]NamedID, error) {
 	}
 	out := []NamedID{}
 	seen := map[int]bool{}
-	for _, f := range tsvRows(raw, 3) {
+	for _, f := range batchRows(raw, 3) {
 		id, err := strconv.Atoi(f[0])
 		if err != nil || seen[id] {
 			continue
 		}
 		seen[id] = true
-		name := firstLine(unescapeBatch(f[1]))
+		name := firstLine(f[1])
 		if name == "" {
 			name = "(no text)"
 		}

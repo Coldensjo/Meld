@@ -51,11 +51,7 @@ func readWeather(db worldDB) ([]ZoneWeather, error) {
 		return nil, err
 	}
 	var out []ZoneWeather
-	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 13 {
-			continue
-		}
+	for _, f := range batchRows(raw, 13) {
 		var v [13]int
 		for i, s := range f {
 			if v[i], err = strconv.Atoi(strings.TrimSpace(s)); err != nil {

@@ -155,8 +155,8 @@ func spawnTeleportSQL(kind string, entry, guid int) string {
 func parseSpawnTeleports(raw []byte) []SpawnTeleport {
 	out := []SpawnTeleport{}
 	seen := map[SpawnTeleport]bool{}
-	for _, f := range tabRows(raw, 6) {
-		t := SpawnTeleport{Label: unescapeBatch(f[0]), Dest: TriggerTeleport{Map: atou(f[1]), X: atof(f[2]), Y: atof(f[3]), Z: atof(f[4]), O: atof(f[5])}}
+	for _, f := range batchRows(raw, 6) {
+		t := SpawnTeleport{Label: f[0], Dest: TriggerTeleport{Map: f.u32(1), X: f.f32(2), Y: f.f32(3), Z: f.f32(4), O: f.f32(5)}}
 		if !seen[t] {
 			seen[t] = true
 			out = append(out, t)

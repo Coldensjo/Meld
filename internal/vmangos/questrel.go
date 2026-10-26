@@ -40,19 +40,11 @@ func questRelationSQL(table string, id int) string {
 // parseQuestRefs reads questRelationSQL's output (or a search's, with the patches left out).
 func parseQuestRefs(raw []byte) []QuestRef {
 	var out []QuestRef
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
+	for _, f := range batchLines(raw) {
 		if len(f) != 5 && len(f) != 3 {
 			continue
 		}
-		n := func(i int) int {
-			if i >= len(f) {
-				return 0
-			}
-			v, _ := strconv.Atoi(f[i])
-			return v
-		}
-		r := QuestRef{Quest: n(0), Title: unescapeBatch(f[1]), Level: n(2), PatchMin: n(3), PatchMax: n(4)}
+		r := QuestRef{Quest: f.num(0), Title: f[1], Level: f.num(2), PatchMin: f.num(3), PatchMax: f.num(4)}
 		if len(f) == 3 {
 			r.PatchMax = 10
 		}
@@ -227,7 +219,7 @@ func objectTypes(db worldDB, ids []int) (map[int]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, f := range tsvRows(raw, 2) {
+	for _, f := range batchRows(raw, 2) {
 		e, err1 := strconv.Atoi(f[0])
 		t, err2 := strconv.Atoi(f[1])
 		if err1 == nil && err2 == nil {

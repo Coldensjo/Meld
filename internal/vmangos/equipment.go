@@ -61,7 +61,7 @@ func ListWeapons(serverRoot, dataDir string) ([]WeaponEntry, error) {
 		return nil, err
 	}
 	var out []WeaponEntry
-	for _, f := range tsvRows(raw, 7) {
+	for _, f := range batchRows(raw, 7) {
 		entry, err1 := strconv.Atoi(f[0])
 		display, err2 := strconv.Atoi(f[2])
 		inv, err3 := strconv.Atoi(f[3])
@@ -124,7 +124,7 @@ func EquipmentItems(serverRoot string, id int) ([3]int, error) {
 	if err != nil {
 		return items, err
 	}
-	for _, f := range tsvRows(raw, 3) {
+	for _, f := range batchRows(raw, 3) {
 		if n, ok := atoiAll(f); ok {
 			copy(items[:], n)
 		}
@@ -149,7 +149,7 @@ func EquipmentFor(serverRoot string, items [3]int) (int, error) {
 			return 0, err
 		}
 		// No rows is one empty line, which tsvRows gives as a one-field row.
-		rows := tsvRows(raw, 1)
+		rows := batchRows(raw, 1)
 		if len(rows) == 0 || rows[0][0] == "" {
 			return 0, nil
 		}

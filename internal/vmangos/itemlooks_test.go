@@ -20,7 +20,7 @@ func itemDisplayDBC(t *testing.T) *dbcTable {
 }
 
 func TestListItemDisplays(t *testing.T) {
-	rows := [][]string{{"7", "13", "Blade", "2", "7"}, {"7", "21", "Edge", "2", "7"}, {"7", "13", "Cutter", "2", "7"}, {"9", "20", "Robe", "4", "1"}}
+	rows := []batchRow{{"7", "13", "Blade", "2", "7"}, {"7", "21", "Edge", "2", "7"}, {"7", "13", "Cutter", "2", "7"}, {"9", "20", "Robe", "4", "1"}}
 	got := listItemDisplays(itemDisplayDBC(t), rows)
 	if len(got) != 4 {
 		t.Fatalf("%d displays", len(got))
@@ -117,7 +117,7 @@ func TestShotVisuals(t *testing.T) {
 		[]any{21, "Bow_2H_Crossbow_A.mdx", "", "XbowSkin", "", "INV_Weapon_Crossbow_01", 0, 0, 0, 0, 743},
 		[]any{22, "Bow_A.mdx", "", "XbowSkin", "", "INV_Weapon_Bow_09", 0, 0, 0, 0, 743},
 	)
-	rows := [][]string{{"20", "15", "Shortbow", "2", "2"}, {"21", "26", "Crossbow", "2", "18"}}
+	rows := []batchRow{{"20", "15", "Shortbow", "2", "2"}, {"21", "26", "Crossbow", "2", "18"}}
 	got := listItemDisplays(tab, rows)
 	if got[0].Shoots != 2 || got[1].Shoots != 18 || got[2].Shoots != 18 || got[2].Visual != 743 {
 		t.Fatalf("shoots %d %d %d", got[0].Shoots, got[1].Shoots, got[2].Shoots)

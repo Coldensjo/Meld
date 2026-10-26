@@ -85,7 +85,7 @@ func parseCreatureSpells(raw []byte) (name string, spells []CreatureSpell, ok bo
 		spells = append(spells, CreatureSpell{Spell: v[0], Probability: v[1], CastTarget: v[2], TargetParam1: v[3], TargetParam2: v[4], CastFlags: v[5],
 			InitialMin: v[6], InitialMax: v[7], RepeatMin: v[8], RepeatMax: v[9], ScriptID: v[10]})
 	}
-	return unescapeBatch(f[0]), spells, true
+	return f[0], spells, true
 }
 
 // ReadCreatureSpells reads creature template entry's spell list.

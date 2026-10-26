@@ -74,11 +74,10 @@ func lootRowsSQL(loot int, patches bool) string {
 func parseLootItems(raw []byte) []LootItem {
 	var out []LootItem
 	for _, f := range batchRows(raw, 11) {
-		n := func(i int) int { v, _ := strconv.Atoi(f[i]); return v }
 		chance, _ := strconv.ParseFloat(f[4], 64)
 		out = append(out, LootItem{
-			Item: n(0), Name: unescapeBatch(f[1]), Quality: n(2), DisplayID: n(3), Chance: chance, Group: n(5),
-			MinCount: n(6), MaxCount: n(7), Condition: n(8), PatchMin: n(9), PatchMax: n(10),
+			Item: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3), Chance: chance, Group: f.num(5),
+			MinCount: f.num(6), MaxCount: f.num(7), Condition: f.num(8), PatchMin: f.num(9), PatchMax: f.num(10),
 		})
 	}
 	return out
@@ -98,7 +97,7 @@ func parseLootUsers(raw []byte) []LootUser {
 	for _, f := range batchRows(raw, 3) {
 		e, _ := strconv.Atoi(f[0])
 		s, _ := strconv.Atoi(f[2])
-		out = append(out, LootUser{Entry: e, Name: unescapeBatch(f[1]), Spawns: s})
+		out = append(out, LootUser{Entry: e, Name: f[1], Spawns: s})
 	}
 	return out
 }

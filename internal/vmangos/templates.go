@@ -71,8 +71,7 @@ type TemplateRecord struct {
 // columns the editor may change: all but the key (entry, patch).
 func parseColumns(raw []byte) []TemplateColumn {
 	var out []TemplateColumn
-	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
+	for _, f := range batchLines(raw) {
 		if len(f) < 3 || f[0] == "entry" || f[0] == "patch" {
 			continue
 		}
@@ -109,32 +108,6 @@ func templateColumns(db worldDB, table string) ([]TemplateColumn, error) {
 		return nil, errors.New(table + " has no columns")
 	}
 	return cols, nil
-}
-
-// unescapeBatch undoes mariadb's batch output escapes (\t, \n, \\, \0) in a field.
-func unescapeBatch(s string) string {
-	if !strings.Contains(s, `\`) {
-		return s
-	}
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		if s[i] != '\\' || i+1 == len(s) {
-			b.WriteByte(s[i])
-			continue
-		}
-		i++
-		switch s[i] {
-		case 't':
-			b.WriteByte('\t')
-		case 'n':
-			b.WriteByte('\n')
-		case '0':
-			b.WriteByte(0)
-		default:
-			b.WriteByte(s[i])
-		}
-	}
-	return b.String()
 }
 
 // sqlQuote makes text an SQL string literal.
@@ -243,20 +216,19 @@ func readKeyedRow(db worldDB, table, key, cond string, cols []TemplateColumn, wh
 	if err != nil {
 		return 0, nil, err
 	}
-	// Only the line end: empty last columns leave trailing tabs that are fields.
-	line := strings.TrimRight(string(raw), "\r\n")
-	f := strings.Split(line, "\t")
-	if line == "" || len(f) != len(cols)+1 {
+	rows := batchRows(raw, len(cols)+1)
+	if len(rows) == 0 {
 		return 0, nil, fmt.Errorf("the world database has no %s %d", what, entry)
 	}
-	k, _ := strconv.Atoi(f[0])
+	f := rows[0]
+	k := f.num(0)
 	values := make(map[string]string, len(cols))
 	for i, c := range cols {
 		v := f[i+1]
 		if v == "NULL" && c.Nullable {
 			v = ""
 		}
-		values[c.Name] = unescapeBatch(v)
+		values[c.Name] = v
 	}
 	return k, values, nil
 }
@@ -568,7 +540,7 @@ type displayUse struct {
 // parseDisplayUses reads displayUsesSQL's rows (display, type, name).
 func parseDisplayUses(raw []byte) map[int]*displayUse {
 	out := map[int]*displayUse{}
-	for _, f := range tsvRows(raw, 3) {
+	for _, f := range batchRows(raw, 3) {
 		d, err1 := strconv.Atoi(f[0])
 		t, err2 := strconv.Atoi(f[1])
 		if err1 != nil || err2 != nil {

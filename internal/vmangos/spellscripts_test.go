@@ -17,7 +17,7 @@ func TestSpellScriptRoundTrip(t *testing.T) {
 		TemplateColumn{Name: "spellIconId", Kind: "uint", Max: 1<<32 - 1},
 		TemplateColumn{Name: "speed", Kind: "float"},
 		TemplateColumn{Name: "spellFamilyFlags", Kind: "uint", Max: 1<<63 - 1})
-	rows := [][]string{{"133", "5875", `Fire's \\ "ball"`, "185", "24", "1"}}
+	rows := []batchRow{{"133", "5875", `Fire's \ "ball"`, "185", "24", "1"}}
 	script := templateScript(spellScript, cols, rows, "", time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC))
 	if !strings.Contains(script, "-- Fire's \\ \"ball\" (entry 133, build 5875)") || !strings.Contains(script, "REPLACE INTO `spell_template` (`entry`, `build`, `name`") ||
 		!strings.Contains(script, "spell editor (Tools > Spells)") {

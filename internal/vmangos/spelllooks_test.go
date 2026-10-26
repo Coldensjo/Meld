@@ -21,7 +21,7 @@ func TestSpellScriptLooks(t *testing.T) {
 		TemplateColumn{Name: "name", Kind: "text", MaxLen: 256},
 		TemplateColumn{Name: "spellIconId", Kind: "uint", Max: 1<<32 - 1},
 		TemplateColumn{Name: "spellVisual1", Kind: "uint", Max: 1<<32 - 1})
-	rows := [][]string{{"40000", "5875", "Bolt", "7", "10"}, {"40001", "5875", "Plain", "1", "0"}}
+	rows := []batchRow{{"40000", "5875", "Bolt", "7", "10"}, {"40001", "5875", "Plain", "1", "0"}}
 	extra := looksComment(cols, rows, it, vt, kt)
 	if !strings.Contains(extra, "-- meld icon 7 Interface\\Icons\\Meld_Bolt\n") || !strings.Contains(extra, "-- meld icon 1 Interface\\Icons\\Temp\n") ||
 		!strings.Contains(extra, "-- meld visual 10 5 0 0 0 0 1 7 2 3 4 0 0 0 0 0\n") || !strings.Contains(extra, "-- meld kit 5 ") {

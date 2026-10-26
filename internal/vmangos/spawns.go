@@ -300,7 +300,7 @@ func readWaypoints(db worldDB, spawns []WorldSpawn, x, y int) error {
 // paths by owner, in the region at tile (x, y), in the order the rows come.
 func parseWaypoints(raw []byte, x, y int) map[int][]Waypoint {
 	out := map[int][]Waypoint{}
-	for _, f := range tsvRows(raw, 9) {
+	for _, f := range batchRows(raw, 9) {
 		owner, err1 := strconv.Atoi(f[0])
 		wait, err2 := strconv.Atoi(f[6])
 		script, err3 := strconv.Atoi(f[7])
@@ -350,7 +350,7 @@ func readEquipment(db worldDB, rows []spawnRow) (map[int][3]heldItem, error) {
 	}
 	items := map[int][3]int{}
 	itemIDs := map[int]bool{}
-	for _, f := range tsvRows(raw, 4) {
+	for _, f := range batchRows(raw, 4) {
 		n, ok := atoiAll(f)
 		if !ok {
 			continue
@@ -372,7 +372,7 @@ func readEquipment(db worldDB, rows []spawnRow) (map[int][3]heldItem, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, f := range tsvRows(raw, 3) {
+		for _, f := range batchRows(raw, 3) {
 			if n, ok := atoiAll(f); ok {
 				held[n[0]] = heldItem{display: uint32(n[1]), invType: n[2]}
 			}
@@ -401,18 +401,6 @@ func intList(ids map[int]bool) string {
 		parts[i] = strconv.Itoa(id)
 	}
 	return strings.Join(parts, ", ")
-}
-
-// tsvRows splits mariadb's batch output into rows of n fields, skipping rows of another width.
-func tsvRows(raw []byte, n int) [][]string {
-	var out [][]string
-	// Only line ends are trimmed: an empty last column leaves a trailing tab that is a field.
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		if f := strings.Split(strings.TrimRight(line, "\r"), "\t"); len(f) == n {
-			out = append(out, f)
-		}
-	}
-	return out
 }
 
 // atoiAll reads every field as an integer.
@@ -483,14 +471,12 @@ const spawnColumns = 29
 // most respawn seconds, and last for an object (zeros for a creature) its rotation quaternion.
 func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 	var out []spawnRow
-	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
-		line = strings.TrimRight(line, "\r")
-		if line == "" {
+	for _, f := range batchLines(raw) {
+		if len(f) == 1 && f[0] == "" {
 			continue
 		}
-		f := strings.Split(line, "\t")
 		if len(f) != spawnColumns {
-			return nil, fmt.Errorf("spawn row has %d columns, want %d: %q", len(f), spawnColumns, line)
+			return nil, fmt.Errorf("spawn row has %d columns, want %d: %q", len(f), spawnColumns, strings.Join(f, "\t"))
 		}
 		var r spawnRow
 		var display, addonDisplay int

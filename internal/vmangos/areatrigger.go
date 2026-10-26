@@ -272,9 +272,9 @@ func TriggerExtras(serverRoot string, triggers []AreaTrigger) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	for _, f := range tabRows(raw, 2) {
-		if a := byID[atou(f[0])]; a != nil {
-			a.Name = unescapeBatch(f[1])
+	for _, f := range batchRows(raw, 2) {
+		if a := byID[f.u32(0)]; a != nil {
+			a.Name = f[1]
 		}
 	}
 	raw, err = runSQL(db, fmt.Sprintf("SELECT t.id, t.name, t.message, t.required_level, t.target_map, t.target_position_x, t.target_position_y, t.target_position_z, t.target_orientation FROM areatrigger_teleport t "+
@@ -282,38 +282,16 @@ func TriggerExtras(serverRoot string, triggers []AreaTrigger) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	for _, f := range tabRows(raw, 9) {
-		a := byID[atou(f[0])]
+	for _, f := range batchRows(raw, 9) {
+		a := byID[f.u32(0)]
 		if a == nil {
 			continue
 		}
 		if a.Name == "" {
-			a.Name = unescapeBatch(f[1])
+			a.Name = f[1]
 		}
 		lvl, _ := strconv.Atoi(f[3])
-		a.Teleport = &TriggerTeleport{Message: unescapeBatch(f[2]), Level: lvl, Map: atou(f[4]), X: atof(f[5]), Y: atof(f[6]), Z: atof(f[7]), O: atof(f[8])}
+		a.Teleport = &TriggerTeleport{Message: f[2], Level: lvl, Map: f.u32(4), X: f.f32(5), Y: f.f32(6), Z: f.f32(7), O: f.f32(8)}
 	}
 	return uint32(top), nil
-}
-
-// tabRows splits mariadb's batch output into rows of n fields, skipping any other.
-func tabRows(raw []byte, n int) [][]string {
-	var out [][]string
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) == n {
-			out = append(out, f)
-		}
-	}
-	return out
-}
-
-func atou(s string) uint32 {
-	v, _ := strconv.ParseUint(strings.TrimSpace(s), 10, 32)
-	return uint32(v)
-}
-
-func atof(s string) float32 {
-	v, _ := strconv.ParseFloat(strings.TrimSpace(s), 32)
-	return float32(v)
 }

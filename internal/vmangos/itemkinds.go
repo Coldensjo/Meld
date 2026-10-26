@@ -48,7 +48,7 @@ func ListItemKinds(serverRoot string) ([]ItemKind, error) {
 		return nil, err
 	}
 	var out []ItemKind
-	for _, f := range tsvRows(raw, 4) {
+	for _, f := range batchRows(raw, 4) {
 		n, ok := atoiAll(f)
 		if !ok {
 			continue
@@ -89,7 +89,7 @@ func CreateItemOfKind(serverRoot string, k ItemKind, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	rows := tsvRows(raw, len(read))
+	rows := batchRows(raw, len(read))
 	if len(rows) == 0 {
 		return 0, fmt.Errorf("the world database has no item of class %d, subclass %d and inventory type %d to start from", k.Class, k.Subclass, k.InvType)
 	}
@@ -105,7 +105,7 @@ func CreateItemOfKind(serverRoot string, k ItemKind, name string) (int, error) {
 
 // usualItemValues is, for each column (cols, the rows' order), the value most rows have (the lowest
 // of a tie), or for a kindMedians column the middle one.
-func usualItemValues(cols []string, rows [][]string) map[string]string {
+func usualItemValues(cols []string, rows []batchRow) map[string]string {
 	out := make(map[string]string, len(cols))
 	for i, c := range cols {
 		if kindMedians[c] {

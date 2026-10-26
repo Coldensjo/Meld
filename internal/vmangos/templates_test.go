@@ -150,6 +150,22 @@ func TestUnescapeBatch(t *testing.T) {
 	}
 }
 
+// batchRows unescapes every field, keeps an empty last column, skips rows of another width and
+// gives no rows for empty output.
+func TestBatchRows(t *testing.T) {
+	raw := []byte("1\t" + `Back\\slash\tTab` + "\t\r\n2\tshort\n3\tTwo\\nLines\t7\n")
+	rows := batchRows(raw, 3)
+	if len(rows) != 2 || rows[0][1] != `Back\slash`+"\tTab" || rows[0][2] != "" || rows[1][1] != "Two\nLines" || rows[1].num(2) != 7 {
+		t.Fatalf("rows %q", rows)
+	}
+	if r := rows[0]; r.num(0) != 1 || r.num(9) != 0 || r.u32(0) != 1 || r.f32(9) != 0 {
+		t.Fatalf("fields of %q", r)
+	}
+	if got := batchRows(nil, 1); len(got) != 0 {
+		t.Fatalf("empty output gave %q", got)
+	}
+}
+
 // TestCreatureRecordsLive reads a template, searches displays and lists a model's animations from
 // the server and client. It needs VMANGOS_DIR (database running) and WOW_DIR, and writes nothing.
 func TestCreatureRecordsLive(t *testing.T) {

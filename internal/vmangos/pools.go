@@ -116,7 +116,7 @@ func readSpawnPools(db worldDB, spawns []WorldSpawn) error {
 // parseSpawnPools reads poolsSQL's rows into each guid's pool, the first row of a guid counting.
 func parseSpawnPools(raw []byte) map[int]spawnPool {
 	out := map[int]spawnPool{}
-	for _, f := range tsvRows(raw, 5) {
+	for _, f := range batchRows(raw, 5) {
 		guid, err1 := strconv.Atoi(f[0])
 		pool, err2 := strconv.Atoi(f[1])
 		limit, err3 := strconv.Atoi(f[2])
@@ -128,7 +128,7 @@ func parseSpawnPools(raw []byte) map[int]spawnPool {
 			chance = 0
 		}
 		if _, seen := out[guid]; !seen {
-			out[guid] = spawnPool{pool: pool, limit: limit, name: unescapeBatch(f[3]), chance: float32(chance)}
+			out[guid] = spawnPool{pool: pool, limit: limit, name: f[3], chance: float32(chance)}
 		}
 	}
 	return out
@@ -137,7 +137,7 @@ func parseSpawnPools(raw []byte) map[int]spawnPool {
 // parseCounts reads rows of an id and a count.
 func parseCounts(raw []byte) map[int]int {
 	out := map[int]int{}
-	for _, f := range tsvRows(raw, 2) {
+	for _, f := range batchRows(raw, 2) {
 		if v, ok := atoiAll(f); ok {
 			out[v[0]] = v[1]
 		}
@@ -148,7 +148,7 @@ func parseCounts(raw []byte) map[int]int {
 // parseMothers reads mothersSQL's rows into each pool's mother, the first row of a pool counting.
 func parseMothers(raw []byte) map[int]motherPool {
 	out := map[int]motherPool{}
-	for _, f := range tsvRows(raw, 5) {
+	for _, f := range batchRows(raw, 5) {
 		pool, err1 := strconv.Atoi(f[0])
 		mother, err2 := strconv.Atoi(f[1])
 		limit, err3 := strconv.Atoi(f[2])
@@ -157,7 +157,7 @@ func parseMothers(raw []byte) map[int]motherPool {
 			continue
 		}
 		if _, seen := out[pool]; !seen {
-			out[pool] = motherPool{pool: mother, limit: limit, size: size, name: unescapeBatch(f[3])}
+			out[pool] = motherPool{pool: mother, limit: limit, size: size, name: f[3]}
 		}
 	}
 	return out

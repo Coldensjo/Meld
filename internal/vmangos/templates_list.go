@@ -40,7 +40,7 @@ func creatureTemplateSQL(where, tail string) string {
 // parseCreatureTemplates reads creatureTemplateSQL's rows.
 func parseCreatureTemplates(raw []byte) []CreatureTemplate {
 	var out []CreatureTemplate
-	for _, f := range tsvRows(raw, 12) {
+	for _, f := range batchRows(raw, 12) {
 		var c CreatureTemplate
 		c.Name, c.Subname = f[1], f[2]
 		ok := true
@@ -124,7 +124,7 @@ func ListObjectTemplates(serverRoot, dataDir string) ([]ObjectTemplate, error) {
 		return nil, err
 	}
 	var out []ObjectTemplate
-	for _, f := range tsvRows(raw, 5) {
+	for _, f := range batchRows(raw, 5) {
 		entry, err1 := strconv.Atoi(f[0])
 		typ, err2 := strconv.Atoi(f[2])
 		display, err3 := strconv.Atoi(f[3])

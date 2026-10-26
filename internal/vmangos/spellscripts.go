@@ -25,7 +25,7 @@ func ExportSpells(serverRoot, dataDir string, entries []int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return exportScript(db, spellScript, cols, entries, func(all []TemplateColumn, rows [][]string) (string, error) {
+	return exportScript(db, spellScript, cols, entries, func(all []TemplateColumn, rows []batchRow) (string, error) {
 		set, err := mpq.OpenDataDir(dataDir)
 		if err != nil {
 			return "", err
@@ -225,7 +225,7 @@ func SpellClientFiles(serverRoot, dataDir string, entries []int) ([]mpq.File, er
 	if err != nil {
 		return nil, err
 	}
-	used := tsvRows(raw, 1)
+	used := batchRows(raw, 1)
 	if len(used) == 0 {
 		return nil, nil
 	}

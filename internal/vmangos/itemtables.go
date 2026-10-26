@@ -219,7 +219,7 @@ func itemEnchantments(serverRoot, dataDir, where string) ([]enchantmentRow, erro
 		return nil, err
 	}
 	out := []enchantmentRow{}
-	for _, f := range tsvRows(raw, 2) {
+	for _, f := range batchRows(raw, 2) {
 		if id, err := strconv.Atoi(f[0]); err == nil {
 			out = append(out, enchantmentRow{id, enchantmentNames(f[1], props)})
 		}

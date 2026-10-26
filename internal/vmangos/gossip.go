@@ -147,26 +147,14 @@ func readGossip(db worldDB, entry int) (Gossip, error) {
 	return g, nil
 }
 
-// batchRows splits mariadb's batch output into rows of n tab-separated fields, skipping others.
-func batchRows(raw []byte, n int) [][]string {
-	var out [][]string
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		if f := strings.Split(strings.TrimRight(line, "\r"), "\t"); len(f) == n {
-			out = append(out, f)
-		}
-	}
-	return out
-}
-
 // parseGossipOptions reads readGossip's option rows.
 func parseGossipOptions(raw []byte) []GossipOption {
 	var out []GossipOption
 	for _, f := range batchRows(raw, 14) {
-		n := func(i int) int { v, _ := strconv.Atoi(f[i]); return v }
 		out = append(out, GossipOption{
-			ID: n(0), Icon: n(1), Text: unescapeBatch(f[2]), BroadcastText: n(3), Action: n(4), NpcFlag: n(5),
-			ActionMenu: n(6), ActionPOI: n(7), ActionScript: n(8), BoxCoded: n(9) != 0, BoxMoney: n(10),
-			BoxText: unescapeBatch(f[11]), BoxBroadcastText: n(12), Condition: n(13),
+			ID: f.num(0), Icon: f.num(1), Text: f[2], BroadcastText: f.num(3), Action: f.num(4), NpcFlag: f.num(5),
+			ActionMenu: f.num(6), ActionPOI: f.num(7), ActionScript: f.num(8), BoxCoded: f.num(9) != 0, BoxMoney: f.num(10),
+			BoxText: f[11], BoxBroadcastText: f.num(12), Condition: f.num(13),
 		})
 	}
 	return out
@@ -176,8 +164,7 @@ func parseGossipOptions(raw []byte) []GossipOption {
 func parseAILines(raw []byte) []AILine {
 	var out []AILine
 	for _, f := range batchRows(raw, 5) {
-		n := func(i int) int { v, _ := strconv.Atoi(f[i]); return v }
-		out = append(out, AILine{Event: n(0), Chance: n(1), Chat: n(2), TextID: n(3), Text: unescapeBatch(f[4])})
+		out = append(out, AILine{Event: f.num(0), Chance: f.num(1), Chat: f.num(2), TextID: f.num(3), Text: f[4]})
 	}
 	return out
 }
@@ -185,14 +172,8 @@ func parseAILines(raw []byte) []AILine {
 // parseGossipTexts reads readGossip's text rows.
 func parseGossipTexts(raw []byte) []GossipText {
 	var out []GossipText
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 4 {
-			continue
-		}
-		id, _ := strconv.Atoi(f[0])
-		cond, _ := strconv.Atoi(f[1])
-		out = append(out, GossipText{TextID: id, Condition: cond, Male: unescapeBatch(f[2]), Female: unescapeBatch(f[3])})
+	for _, f := range batchRows(raw, 4) {
+		out = append(out, GossipText{TextID: f.num(0), Condition: f.num(1), Male: f[2], Female: f[3]})
 	}
 	return out
 }

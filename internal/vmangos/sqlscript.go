@@ -46,7 +46,7 @@ func (t scriptTable) keyColumns() []TemplateColumn {
 // exportScript is an SQL script that puts the rows of entries back as they are now: every row of
 // each entry (all its patches or builds), cols being the table's columns but its keys. extra, when
 // not nil, gives comment lines to write after the header from the rows (keys first, as cols).
-func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []int, extra func([]TemplateColumn, [][]string) (string, error)) (string, error) {
+func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []int, extra func([]TemplateColumn, []batchRow) (string, error)) (string, error) {
 	if len(entries) == 0 {
 		return "", fmt.Errorf("no %s to export", strings.ToLower(t.things))
 	}
@@ -64,7 +64,7 @@ func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []in
 	if err != nil {
 		return "", err
 	}
-	rows := tsvRows(raw, len(all))
+	rows := batchRows(raw, len(all))
 	if len(rows) == 0 {
 		return "", fmt.Errorf("the world database has no %s %s", t.thing, strings.Join(ids, ", "))
 	}
@@ -77,9 +77,9 @@ func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []in
 	return templateScript(t, all, rows, more, time.Now()), nil
 }
 
-// templateScript writes rows (mariadb's batch fields, in the order of cols, the keys first) as an SQL
+// templateScript writes rows (batchRows' unescaped fields, in the order of cols, the keys first) as an SQL
 // script, extra (comment lines) after its header.
-func templateScript(t scriptTable, cols []TemplateColumn, rows [][]string, extra string, now time.Time) string {
+func templateScript(t scriptTable, cols []TemplateColumn, rows []batchRow, extra string, now time.Time) string {
 	names := make([]string, len(cols))
 	for i, c := range cols {
 		names[i] = "`" + c.Name + "`"
@@ -94,13 +94,12 @@ func templateScript(t scriptTable, cols []TemplateColumn, rows [][]string, extra
 		for i, c := range cols {
 			v := f[i]
 			if c.Name == "name" {
-				name = unescapeBatch(v)
+				name = v
 			}
 			if v == "NULL" && c.Nullable {
 				vals[i] = "NULL"
 				continue
 			}
-			v = unescapeBatch(v)
 			if c.Kind == "text" {
 				vals[i] = sqlQuote(v)
 			} else if s, err := sqlValue(c, v); err == nil {
@@ -164,7 +163,7 @@ func tableOrder(db worldDB, t scriptTable) ([]string, error) {
 		return nil, err
 	}
 	var order []string
-	for _, f := range tsvRows(raw, 6) {
+	for _, f := range batchRows(raw, 6) {
 		order = append(order, f[0])
 	}
 	if len(order) == 0 {
@@ -260,7 +259,7 @@ func existingRows(db worldDB, t scriptTable, plan scriptPlan) (map[string]bool, 
 		return nil, err
 	}
 	have := map[string]bool{}
-	for _, f := range tsvRows(raw, 2) {
+	for _, f := range batchRows(raw, 2) {
 		have[f[0]+"|"+f[1]] = true
 	}
 	return have, nil
