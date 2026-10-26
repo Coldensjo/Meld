@@ -478,6 +478,12 @@ the same scene, the report before and after.
 - Northshire (Azeroth 32_48, 1x1, the camera over the abbey) in the dev page on 2026-10-16: about
   16 ms of CPU a frame, 9 of it three's render submit and 3.5 the shadow maps; GPU 10 ms scene,
   3.5 ms shadows; 2000 draw calls, 3.6M triangles, and stormwind.wmo alone 1.3M of them.
+- A probe's frame is slow in wall time: `P.frames` waits for SwiftShader to draw each one, about
+  0.5 s a frame in Elwynn's world view (#15). So a rule timed in ms (redraw at most once a second)
+  cannot be checked or measured in a probe, and what lands asynchronously (tiles, models, textures)
+  lands in far fewer frames than at 60 fps. Count such rules in frames, and give a streaming
+  measurement as counts (redraws in N frames, events landed) rather than as a rate. Skipping the
+  `P.drawn` wait does not help: the GPU backlog then stalls the frames instead.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 - **The benchmark scene.** Optimization issues and their done comments measure on this one scene, so
