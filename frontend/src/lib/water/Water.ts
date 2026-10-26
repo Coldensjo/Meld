@@ -1,6 +1,10 @@
 import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
+import { TILE_YARDS } from '../terrain/Terrain'
 import { seaMaterial, wantLiquid } from './liquidMaterial'
+
+/** The most cells a side of the sea's grid: past it a cell grows beyond a tile (a map wider than 25 tiles). */
+const SEA_CELLS_MAX = 256
 
 /**
  * A map's sea: ocean at the sea level, out past the map's edge, drawn like a painted ocean (see
@@ -15,7 +19,13 @@ export class Water {
 
 	constructor(terrain: Terrain) {
 		const worldSize = terrain.worldSize
-		const geo = new THREE.PlaneGeometry(worldSize * 10, worldSize * 10)
+		// A grid of cells about a tile wide, not one quad: on a real GPU (D3D11 through ANGLE) the depth of a
+		// quad tens of thousands of yards wide, clipped round the camera, came out a little different each
+		// frame the camera moved, so the shore against the ground swapped sea and land back and forth in
+		// flight (#747). SwiftShader draws it steady. Up to 256 cells a side, about 130k triangles.
+		const size = worldSize * 10
+		const cells = Math.min(SEA_CELLS_MAX, Math.max(16, Math.ceil(size / TILE_YARDS)))
+		const geo = new THREE.PlaneGeometry(size, size, cells, cells)
 		geo.rotateX(-Math.PI / 2)
 		this.material = seaMaterial(terrain.heightTexture(), terrain.verts, terrain.cellSize)
 		this.mesh = new THREE.Mesh(geo, this.material)

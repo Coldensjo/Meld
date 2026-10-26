@@ -432,7 +432,8 @@ four shots a sub-pixel turn apart and counts the pixels on the coast whose brigh
 30, with the terrain's foam line as drawn, as it was before #747 and taken out. The thin line (0.35 yd
 either side of the waterline, under a pixel far off or on a steep shore) gave 250 to 275 against 40
 to 50 without foam; widened to the pixel and dimmed to match (`band` in `TerrainMaterial.ts`), about
-100.
+100. Once the sea became a grid (the next entry) the whole coast held far steadier, on SwiftShader too:
+17 thin, 4 widened, 4 without foam, so the probe now passes while the widened line adds under 20.
 
 - The swing of shots a sub-pixel apart is the way to see shimmer in a still probe: a feature thinner
   than a pixel swings, a band-limited one barely does. Save the swing as a grey picture (the probe's
@@ -442,9 +443,29 @@ to 50 without foam; widened to the pixel and dimmed to match (`band` in `Terrain
   uniform after it compiled freezes nothing (three keeps the uniform objects it first saw). Run
   `P.settle()` and a few frames first, so no texture arrives between two shots.
 - Count only a region round the coast: on a rugged island the inland ridges outweigh it.
-- Not the cause, measured on 2026-10-26: the depth buffer. The near plane at 5 yd instead of 0.5 gave
-  the same swing, and worked out for a 24-bit buffer the band where the sea and a beach are within
-  one depth step is under a yard wide at 2000 yd, far below a pixel's footprint there.
+- The depth buffer's step is not the cause (measured on 2026-10-26: the near plane at 5 yd instead of
+  0.5 gave the same swing, and for a 24-bit buffer the band where the sea and a beach are within one
+  step is under a yard wide at 2000 yd). But on a real GPU the sea's own depth was: see the next entry.
+  This probe runs on SwiftShader, which never showed it.
+
+## The coast in flight on a real GPU (#747, probe `coast-flight`)
+
+Checks: the shore doesn't swap sea and land as the camera flies. The owner saw it in the desktop
+window after `coast-foam`'s fix: still, nothing; holding W, the coast flickered back and forth. The
+cause was the sea drawn as one quad ten map widths across: on the GPU (D3D11 through ANGLE) its depth,
+clipped round the camera, came out a little different each frame the camera moved, so along the whole
+shoreline the ground and the sea took turns in front. Built as a grid of cells about a tile wide
+(`Water.ts`) it holds still; even 16 cells a side did. `PROBE_GPU=1 bun run probe coast-flight
+--shot <dir>` makes the Large Island of `coast-foam` (seed 4242), looks at its west coast from 1200
+yd, takes six shots with the camera stepped 0.37 yd apart and counts the pixels whose brightness jumps
+by over 25 at least twice, with the sea as drawn and as the old quad: 1 against 551 on an RTX 5080.
+
+- Only a real GPU shows it: on SwiftShader both counted 2 to 3. Without `PROBE_GPU=1` the probe only
+  checks the grid's count stays low.
+- Hide the sea through its material (`water.material.visible = false`): the Engine sets
+  `water.mesh.visible` again every frame.
+- Turning the shadows pref off before a run of shots (5 frames settled) made about 14,000 pixels jump,
+  the whole land, not the coast; not looked into, so leave the pref alone in such a comparison.
 
 ## The sea past the map's edge (#748, probe `sea-edge`)
 

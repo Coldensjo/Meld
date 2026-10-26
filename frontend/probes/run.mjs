@@ -31,6 +31,9 @@ const DEBUG_PORT = process.env.DEBUG_PORT ?? '0'
 const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 300) * 1000
 // `bun run` starts the script in frontend/ and doesn't set INIT_CWD; a path is meant from there, or from where `bun probes/run.mjs` was typed.
 const CWD = process.env.INIT_CWD ?? process.cwd()
+// PROBE_GPU=1 draws on the machine's GPU instead of SwiftShader (#747): a fault that only a real GPU's rasteriser shows (depth precision, a
+// huge triangle's clipping) never shows on SwiftShader, and frames are far faster. The probes' numbers and baselines are SwiftShader's.
+const GPU = process.env.PROBE_GPU === '1'
 const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
 
 const args = process.argv.slice(2)
@@ -353,8 +356,7 @@ async function main() {
 				`--remote-debugging-port=${DEBUG_PORT}`,
 				`--user-data-dir=${profile}`,
 				'--window-size=1400,900',
-				'--use-angle=swiftshader',
-				'--enable-unsafe-swiftshader',
+				...(GPU ? ['--ignore-gpu-blocklist', '--enable-gpu'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
 				'--no-first-run',
 				'--no-default-browser-check',
 				'about:blank',

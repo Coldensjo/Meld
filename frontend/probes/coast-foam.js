@@ -1,4 +1,4 @@
-// The coast holds still as the camera moves (#747): on a Large Island made on the New world page, seen from 1200 yd, four shots a sub-pixel turn apart, and the pixels on the near coast whose brightness swings by over 30 counted, with the terrain's foam line at the waterline as drawn, as it was before #747 (0.35 yd either side of the waterline however small on screen) and taken out. The thin line sparkled: 250 to 275 such pixels against 40 to 50 without foam; widened to the pixel (TerrainMaterial's `band`), about 100. The clock is held, so the sea's frame stays put. Passes while the widened line adds under half what the thin one adds. About 140 s; through `newDocument` instead of the dialog the island is far more rugged and inland swings drown the coast's. Saves the coast and its swing for each with `--shot`.
+// The coast holds still as the camera moves (#747): on a Large Island made on the New world page, seen from 1200 yd, four shots a sub-pixel turn apart, and the pixels on the near coast whose brightness swings by over 30 counted, with the terrain's foam line at the waterline as drawn, as it was before #747 (0.35 yd either side of the waterline however small on screen) and taken out. The thin line sparkled: 250 to 275 such pixels against 40 to 50 without foam; widened to the pixel (TerrainMaterial's `band`), about 100. Since the sea is a grid instead of one quad (#747, `coast-flight`) the whole coast is far steadier, also on SwiftShader: 17 thin, 4 widened, 4 without foam. The clock is held, so the sea's frame stays put. Passes while the widened line adds under 20 pixels, or under half what the thin one adds. About 140 s; through `newDocument` instead of the dialog the island is far more rugged and inland swings drown the coast's. Saves the coast and its swing for each with `--shot`.
 // touches: frontend/src/lib/terrain/TerrainMaterial.ts, frontend/src/lib/terrain/presets.ts, frontend/src/lib/water/liquidMaterial.ts, frontend/src/lib/water/Water.ts
 const e = P.e
 // A Large Island from the Start dialog's New world page, as the owner made it (its coast follows the tiles).
@@ -89,6 +89,6 @@ await patch(/float band = [^;]+;/, 'float band = 0.35;')
 r.thinFoam = await swing('thin')
 await patch('lit = mix(lit, foamColor, foam * 0.35);', '')
 r.noFoam = await swing('nofoam')
-// The widened line's swing over no foam stays well under the thin line's.
-r.ok = r.thinFoam - r.noFoam > 40 && r.foam - r.noFoam < (r.thinFoam - r.noFoam) * 0.5
+// The widened line adds little swing over no foam: under 20 pixels, or well under the thin line's.
+r.ok = r.foam - r.noFoam < Math.max(20, (r.thinFoam - r.noFoam) * 0.5)
 return r
