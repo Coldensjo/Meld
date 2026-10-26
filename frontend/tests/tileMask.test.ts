@@ -63,7 +63,7 @@ describe("a new world's tiles on the 64×64 grid (#46)", () => {
 			for (let j = 0; j < 20; j++) {
 				const u = (i + 0.5) / 20
 				const v = (j + 0.5) / 20
-				const h = presetHeight('island', u, v, 7, shape)
+				const h = presetHeight('island', u, v, 7, { tiles: 2, shape })
 				if (!shape.present(u, v)) off = Math.max(off, h)
 				else if (h > 0) land++
 			}
@@ -72,6 +72,6 @@ describe("a new world's tiles on the 64×64 grid (#46)", () => {
 		expect(off).toBeLessThan(0)
 		expect(land).toBeGreaterThan(50)
 		// Without a shape, the island is as it always was.
-		expect(presetHeight('island', 0.5, 0.5, 7, null)).toBe(presetHeight('island', 0.5, 0.5, 7))
+		expect(presetHeight('island', 0.5, 0.5, 7, { tiles: 2, shape: null })).toBe(presetHeight('island', 0.5, 0.5, 7, { tiles: 2 }))
 	})
 })

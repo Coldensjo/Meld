@@ -117,6 +117,30 @@ Roughen (more bend than before), each hard-edged and with the falloff, checking 
 square changes and undo and redo are exact under the mode's label; and it opens the dialog, checks
 Mode lists the five and that picking Flatten shows its target and names the button.
 
+## A new world's ground: presets in yards, erosion at creation, Canyon and the seabed (#744, probe `new-world-shape`)
+
+Checks: the New world page's presets and sliders. `presetHeight` (`terrain/presets.ts`) and
+`generateHeights` (`terrain/generate.ts`) have unit tests in `terrainGenerate.test.ts`: the presets'
+heights in yards (Rolling hills 35 to 110 yd, Mountains over 150), detail keeping its size on a 6x6
+map (the mean slope round the middle against a 1-tile map's), Height scaling only the land, Roughness
+0 dropping the detail, erosion seeded and changing the ground, the open sea's floor and Sea depth, and
+a Canyon no one can walk out of: a flood fill from the middle over vertices whose gradient is under
+50 degrees (the server's `walkableSlopeAngle`) never reaches the map's edge, for 1 and 2 tiles, with
+and without erosion, at Height 0.4 and Roughness 2. In the live app, `bun run probe new-world-shape
+--shot <dir>` makes Large Mountains, Rolling hills and Canyon worlds through the dialog and saves a
+view over each.
+
+- To judge how a preset looks without the app, a Bun script can call `generateHeights` for a map
+  and write a hillshade (the gradient towards the north-west, coloured by height and slope as
+  `autoPaint` does) as a PPM, which `magick` turns into a PNG; a 4x4 map takes about 0.4 s with
+  erosion. Look at a crop at full size too: one-vertex spikes (a checkerboard) don't show scaled down.
+- Walk-out test traps: test the ground's own gradient at each vertex, not the slope between two
+  vertices along the step, since along that any wall can be crossed sideways. Erosion's gullies cut
+  ramps through a Canyon wall, which is why `generateHeights` lays the walls on after it.
+- A probe's view over a new map: `controller.setView(x, y, z, yaw, pitch, distance)` needs Follow the
+  Ground on; with it off the camera sits on the target and the distance does nothing. Keep the
+  distance under 900 (`maxDistance`) and inside the fog, or the shot is the sky's colour.
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are
@@ -132,8 +156,8 @@ cone's foot, empty on its peak, nothing outside the rect written).
 
 - To see it, a scratch probe can `e.controller.setView(x, y, z, 0.8, 0.7, 380)` over the highest peak
   and run `bun run probe <file> --shot <dir>` with and without `erodeArea` (density 1, 5 passes): the peak
-  comes out lower and gullied. The 256 Mountains preset is only about 60 yd high, so a stroke there is
-  stronger than on a client continent.
+  comes out lower and gullied. Before #744 the 256 Mountains preset was only about 60 yd high; it now
+  reaches 150 yd or more, closer to a client continent.
 - To see the mask, a scratch probe can draw the area's heights and `t.mask` side by side into a
   `{ w, h, px }` picture and `P.save` it (spot (68, 52) of that map): the mask lies in the low ground
   beside the ridge, about 45% of the square's texels, a sixth of them full.

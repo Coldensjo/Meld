@@ -6,7 +6,7 @@
 	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
 	import { defaultLayerTextures } from '../lib/wow/defaults'
 	import { LAYERS } from '../lib/terrain/layers'
-	import { CoastShape, PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
+	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawPresetPreview, presetById, type PresetId, type ShapeOptions } from '../lib/terrain/presets'
 	import { boundingSquare, gridTile, maskBytes, maskOf } from '../lib/terrain/tileMask'
 	import type { VmangosRef } from '../lib/engine/MapDocument'
 	import { engineRef } from '../lib/state/engineRef'
@@ -38,6 +38,9 @@
 	})
 	let preset = $state<PresetId>('island')
 	let seed = $state(Math.floor(Math.random() * 100000))
+	/** Height, Roughness, Erosion and Sea depth (#744). */
+	let look = $state<ShapeOptions>({ ...DEFAULT_SHAPE })
+	const lookChanged = $derived((Object.keys(DEFAULT_SHAPE) as (keyof ShapeOptions)[]).some((k) => look[k] !== DEFAULT_SHAPE[k]))
 	let mapId = $state(1900)
 	let showId = $state(false)
 	const nameOk = $derived(/^[A-Za-z0-9_-]+$/.test(name.trim()))
@@ -59,9 +62,9 @@
 	}
 	const sizeShown = $derived(mask ? 0 : square.size)
 
-	/** Draws a preset's picture into its card; redrawn when the seed or the picked shape changes. */
+	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness or Sea depth change. */
 	function preview(canvas: HTMLCanvasElement, id: PresetId) {
-		$effect(() => drawPresetPreview(canvas, id, seed, 96, shape))
+		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth }))
 	}
 
 	// --- the client's maps and zones, read once --------------------------------------------------
@@ -142,7 +145,7 @@
 		if (square.x) ref.tileX = square.x
 		if (square.y) ref.tileY = square.y
 		if (mask) ref.tiles = mask
-		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref)
+		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref, { ...look })
 		editor.palette = palette
 		editor.dirty = false
 		engineRef.current?.refreshTabs()
@@ -202,6 +205,25 @@
 						</button>
 					{/each}
 				</div>
+			</div>
+			<div class="row look">
+				<label class="field slider" title="How tall the land stands above the sea">
+					<span>Height <b>{look.relief.toFixed(1)}×</b></span>
+					<input type="range" min="0.4" max="2" step="0.1" bind:value={look.relief} />
+				</label>
+				<label class="field slider" title="How much small detail lies over the hills: bumps, knolls and broken ground">
+					<span>Roughness <b>{look.roughness.toFixed(1)}×</b></span>
+					<input type="range" min="0" max="2" step="0.1" bind:value={look.roughness} />
+				</label>
+				<label class="field slider" title="How much water and gravity carve the ground once it is made: valleys, gullies and scree. Not shown in the pictures; a large world takes a moment longer.">
+					<span>Erosion <b>{look.erosion ? `${Math.round(look.erosion * 100)}%` : 'none'}</b></span>
+					<input type="range" min="0" max="1" step="0.05" bind:value={look.erosion} />
+				</label>
+				<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
+					<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>
+					<input type="range" min="0.2" max="3" step="0.1" bind:value={look.seaDepth} disabled={!presetById(preset).water} />
+				</label>
+				<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
 			</div>
 			<div class="row bottom">
 				<label class="field seed">
@@ -344,6 +366,19 @@
 	}
 	.row.bottom {
 		align-items: center;
+	}
+	.row.look {
+		align-items: flex-end;
+	}
+	.slider {
+		flex: 1;
+	}
+	.slider b {
+		color: var(--text);
+		font-weight: 500;
+	}
+	.link.reset {
+		align-self: center;
 	}
 	.field {
 		display: flex;

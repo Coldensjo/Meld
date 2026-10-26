@@ -1,10 +1,11 @@
 import { fbm, ridged } from '../engine/noise'
+import { TILE_YARDS } from '../wow/format'
 
-// The starting shapes a new world can have. Every preset but Flat land is an island: the ground
-// falls away to the sea towards the map's edge, so a world is always bounded by water, which the
-// client renders as endless ocean beyond the map.
+// The starting shapes a new world can have. Every preset but Flat land and Canyon is an island: the
+// ground falls away to the sea towards the map's edge, so a world is bounded by water, which the client
+// renders as endless ocean beyond the map. Canyon is bounded by mountains instead.
 
-export type PresetId = 'ocean' | 'flat' | 'island' | 'archipelago' | 'hills' | 'mountains' | 'highlands' | 'lakeland'
+export type PresetId = 'ocean' | 'flat' | 'island' | 'archipelago' | 'hills' | 'mountains' | 'highlands' | 'lakeland' | 'canyon'
 
 export interface Preset {
 	id: PresetId
@@ -15,17 +16,18 @@ export interface Preset {
 	waterLevel: number
 }
 
-/** Seabed height of an empty ("ocean") map; water sits at 0. */
+/** Seabed height of new ground added to a map (Map Properties growing it); water sits at 0. */
 export const OCEAN_FLOOR = -12
 
 export const PRESETS: readonly Preset[] = [
-	{ id: 'ocean', name: 'Open sea', blurb: 'Nothing but water. Raise land wherever you like.', water: true, waterLevel: 0 },
+	{ id: 'ocean', name: 'Open sea', blurb: 'Deep water over a seabed of ridges, trenches and shoals. Raise land wherever you like.', water: true, waterLevel: 0 },
 	{ id: 'island', name: 'Island', blurb: 'One rugged island with beaches and a hilly middle.', water: true, waterLevel: 0 },
 	{ id: 'archipelago', name: 'Archipelago', blurb: 'A scatter of small islands in a shallow sea.', water: true, waterLevel: 0 },
 	{ id: 'hills', name: 'Rolling hills', blurb: 'Soft green hills, ringed by the sea.', water: true, waterLevel: 0 },
 	{ id: 'lakeland', name: 'Lakeland', blurb: 'Low hills with lakes and ponds between them.', water: true, waterLevel: 0 },
 	{ id: 'highlands', name: 'Highlands', blurb: 'A high plateau with cliffs down to the shore.', water: true, waterLevel: 0 },
 	{ id: 'mountains', name: 'Mountains', blurb: 'Steep ridged peaks, snow on top, sea all round.', water: true, waterLevel: 0 },
+	{ id: 'canyon', name: 'Canyon', blurb: 'Open plains walled in by mountains too high and steep to cross.', water: false, waterLevel: -2 },
 	{ id: 'flat', name: 'Flat land', blurb: 'Level ground to the edge of the map, and no water.', water: false, waterLevel: -2 },
 ]
 
@@ -153,98 +155,229 @@ function squaredDistance(f: Float64Array, side: number): Float64Array {
  * tiles' (CoastShape), so the coast follows them.
  */
 function coast(u: number, v: number, seed: number, shape?: CoastShape | null): number {
-	const ragged = (fbm(u * 3 + 11, v * 3 + 7, 3, seed + 101) - 0.5) * 0.3
-	if (shape) return 1 - smoothstep(0.6, 0.95, 1 - shape.depth(u, v) + ragged)
-	const dx = u - 0.5
-	const dz = v - 0.5
-	// Between a circle and a square, so the island fills the map without touching its edges.
-	const round = Math.sqrt(dx * dx + dz * dz) * 2
-	const square = Math.max(Math.abs(dx), Math.abs(dz)) * 2
-	const d = round * 0.65 + square * 0.35 + ragged
-	return 1 - smoothstep(0.6, 0.95, d)
+	return 1 - smoothstep(0.6, 0.95, edge(u, v, seed, shape))
 }
 
-/** Ground height at (u, v) in 0..1 of the map for a preset, its coast following `shape`'s tiles when given. */
-export function presetHeight(id: PresetId, u: number, v: number, seed: number, shape?: CoastShape | null): number {
+/**
+ * How near (u, v) lies to the map's edge, ragged: about 0 in the middle and 1 at the edge (or at the
+ * tiles left out, with a `shape`). Between a circle and a square, so an island fills the map without
+ * touching its edges.
+ */
+function edge(u: number, v: number, seed: number, shape?: CoastShape | null): number {
+	const ragged = (fbm(u * 3 + 11, v * 3 + 7, 3, seed + 101) - 0.5) * 0.3
+	if (shape) return 1 - shape.depth(u, v) + ragged
+	const dx = u - 0.5
+	const dz = v - 0.5
+	const round = Math.sqrt(dx * dx + dz * dz) * 2
+	const square = Math.max(Math.abs(dx), Math.abs(dz)) * 2
+	return round * 0.65 + square * 0.35 + ragged
+}
+
+/**
+ * The seabed at (x, y) in tiles, at most 4 yd under the water: about 60 yd down at `depth` 1, with
+ * trenches, ridges and seamounts that come up into shoals, all scaled by `depth`.
+ */
+function seabed(x: number, y: number, seed: number, depth: number): number {
+	const n = fbm(x * 1.3, y * 1.3, 5, seed + 307)
+	const r = ridged(x * 0.9 + 4, y * 0.9 + 6, 5, seed + 301)
+	return Math.min(-4, -(14 + 46 * depth) + ((n - 0.5) * 50 + r * r * 55) * depth)
+}
+
+/** A Canyon wall's height in yards over its floor: whatever the Height slider, too high and steep to walk up. */
+const CANYON_WALL = 300
+/** Yards of a Canyon's wall from its foot to its crest at most; less on a small map, which makes it steeper. */
+const CANYON_BAND = 220
+
+/**
+ * How a new world's ground is drawn beyond its preset (#744), the New world page's sliders. `relief`
+ * scales the land's height above the sea, `roughness` the small detail laid over it (0 none), and
+ * `erosion` (0 to 1) how much water and gravity carve it once made (`generateHeights`), and `seaDepth`
+ * how deep the open sea's floor lies (1 about 60 yd down).
+ */
+export interface ShapeOptions {
+	relief: number
+	roughness: number
+	erosion: number
+	seaDepth: number
+}
+
+/** The New world page's defaults. */
+export const DEFAULT_SHAPE: ShapeOptions = { relief: 1, roughness: 1, erosion: 0.5, seaDepth: 1 }
+
+/** How a map is shaped by `presetHeight`, beyond its preset and seed. */
+export interface HeightOptions {
+	/** The map's side in tiles (533 yd each); the noise is laid out in tiles, so detail keeps its size on a big map. */
+	tiles: number
+	/** Its tiles when they aren't the whole square, for the coast. */
+	shape?: CoastShape | null
+	relief?: number
+	roughness?: number
+	seaDepth?: number
+	/** Leaves a Canyon's walls out, for `generateHeights` to lay them on after erosion (`canyonWall`). */
+	noWall?: boolean
+}
+
+/**
+ * Ground height in yards at (u, v) in 0..1 of the map for a preset. The coast is laid out over the map
+ * (an island fills it whatever its size), but the hills and ridges in tiles, through domain-warped
+ * noise (its coordinates bent by more noise, so ridges and shores wind), so a 6x6 world has more of
+ * them rather than the same few stretched. Heights are in real yards: Rolling hills rise to about
+ * 50 yd as Elwynn's do, Mountains to well over 200. Off the coast the ground goes down to the open
+ * sea's floor (`seabed`), and a Canyon's walls stand over 300 yd whatever the Height.
+ */
+export function presetHeight(id: PresetId, u: number, v: number, seed: number, o: HeightOptions): number {
+	if (id === 'flat') return 0
+	const p = u * o.tiles
+	const q = v * o.tiles
+	const x = warpX(p, q, seed)
+	const y = warpY(p, q, seed)
+	const depth = o.seaDepth ?? 1
+	if (id === 'ocean') return seabed(x, y, seed, depth)
+	const c = coast(u, v, seed, o.shape)
+	let h: number
+	/** How far out into the open sea the point is (0 on and round the land, 1 out at sea), for the seabed. */
+	let open = 1 - c
+	/** Height laid on after Height scales the land: a Canyon's walls. */
+	let wall = 0
 	switch (id) {
-		case 'ocean':
-			return OCEAN_FLOOR
-		case 'flat':
-			return 0
 		case 'island': {
-			const c = coast(u, v, seed, shape)
-			const n = fbm(u * 5, v * 5, 5, seed)
-			const r = ridged(u * 3, v * 3, 5, seed + 3)
-			return c * (8 + n * 14 + r * r * 40) - 6
+			const n = fbm(x * 2, y * 2, 6, seed)
+			const r = ridged(x * 1.4, y * 1.4, 6, seed + 3)
+			h = c * (12 + n * 34 + r * r * 110) - 8
+			break
 		}
 		case 'archipelago': {
-			// Low broad noise decides where islands rise; the sea between them is shallow.
-			const c = coast(u, v, seed, shape)
+			// Broad noise over the map decides where islands rise; the sea between them is shallow.
 			const where = smoothstep(0.5, 0.64, fbm(u * 4, v * 4, 4, seed + 5))
-			const n = fbm(u * 9, v * 9, 4, seed)
-			return c * where * (10 + n * 16) - 5
+			const n = fbm(x * 3, y * 3, 5, seed)
+			h = c * where * (14 + n * 36) - 6
+			open = 1 - c * where
+			break
 		}
 		case 'hills': {
-			const c = coast(u, v, seed, shape)
-			const n = fbm(u * 4, v * 4, 5, seed)
-			return c * (10 + (n - 0.5) * 28) - 7
+			const n = fbm(x * 1.6, y * 1.6, 6, seed)
+			h = c * (26 + (n - 0.5) * 90) - 8
+			break
 		}
 		case 'lakeland': {
-			const c = coast(u, v, seed, shape)
-			const n = fbm(u * 4, v * 4, 5, seed)
+			const n = fbm(x * 1.6, y * 1.6, 6, seed)
 			// Lakes: dips where a second noise runs high, cut below the water line.
-			const lake = smoothstep(0.58, 0.7, fbm(u * 6 + 3, v * 6 + 9, 4, seed + 17))
-			return c * (9 + (n - 0.5) * 16 - lake * 24) - 6
+			const lake = smoothstep(0.58, 0.7, fbm(x * 2.4 + 3, y * 2.4 + 9, 4, seed + 17))
+			h = c * (14 + (n - 0.5) * 44 - lake * 40) - 7
+			break
 		}
 		case 'highlands': {
-			const c = coast(u, v, seed, shape)
 			// A plateau with a steep rim: the coast mask squared and stepped makes the cliffs.
 			const rim = smoothstep(0.25, 0.6, c)
-			const n = fbm(u * 6, v * 6, 4, seed)
-			const r = ridged(u * 4, v * 4, 4, seed + 9)
-			return rim * (22 + (n - 0.5) * 10 + r * 6) + c * 3 - 8
+			const n = fbm(x * 2, y * 2, 5, seed)
+			const r = ridged(x * 1.6, y * 1.6, 5, seed + 9)
+			h = rim * (55 + (n - 0.5) * 30 + r * 26) + c * 4 - 10
+			break
 		}
 		case 'mountains': {
-			const c = coast(u, v, seed, shape)
-			const base = fbm(u * 3, v * 3, 5, seed)
-			const r = ridged(u * 2.5, v * 2.5, 6, seed + 7)
+			const base = fbm(x * 1.1, y * 1.1, 5, seed)
+			const r = ridged(x, y, 7, seed + 7)
 			const mask = smoothstep(0.4, 0.75, base)
-			return c * (8 + (base - 0.45) * 20 + r * r * 90 * mask) - 6
+			h = c * (12 + (base - 0.45) * 44 + r * r * 260 * mask) - 8
+			break
+		}
+		case 'canyon': {
+			// A floor of low rolling plains, and the wall round it.
+			const n = fbm(x * 1.4, y * 1.4, 5, seed)
+			h = 6 + (n - 0.5) * 22
+			open = 0
+			if (!o.noWall) wall = canyonWall(u, v, seed, o)
+			break
 		}
 	}
+	// Out at sea, the ground goes down to the seabed, from a shallow shelf just off the shore.
+	if (h < 0 && open > 0) h += open * smoothstep(0, 6, -h) * (seabed(x, y, seed, depth) - h)
+	// Small detail down to a few cells, stronger on high ground and fading out under the sea; unwarped,
+	// since the warp would stretch it into streaks.
+	const rough = o.roughness ?? 1
+	if (rough > 0) {
+		const land = smoothstep(-4, 4, h)
+		h += (fbm(p * 7, q * 7, 6, seed + 61) - 0.5) * rough * land * (14 + Math.max(0, h) * 0.2)
+	}
+	const relief = o.relief ?? 1
+	return (h > 0 ? h * relief : h) + wall
+}
+
+// The noise's coordinates in tiles, warped by up to about a sixth of a tile (90 yd) each way.
+const warpX = (p: number, q: number, seed: number) => p + (fbm(p * 0.7 + 5.2, q * 0.7 + 1.3, 3, seed + 201) - 0.5) * 0.6
+const warpY = (p: number, q: number, seed: number) => q + (fbm(p * 0.7 + 9.7, q * 0.7 + 2.8, 3, seed + 211) - 0.5) * 0.6
+
+/**
+ * A Canyon's wall at (u, v), over its floor: a smoothstep from its foot to its crest across at most
+ * CANYON_BAND yards, so the middle of the wall is everywhere far steeper than the 50 degrees a player
+ * (or the server's paths) can climb, with ridged peaks along the crest. Height doesn't scale it.
+ */
+export function canyonWall(u: number, v: number, seed: number, o: HeightOptions): number {
+	const p = u * o.tiles
+	const q = v * o.tiles
+	const x = warpX(p, q, seed)
+	const y = warpY(p, q, seed)
+	const half = (o.tiles * TILE_YARDS) / 2
+	const band = Math.min(CANYON_BAND, half * 0.45)
+	const inside = (1 - edge(u, v, seed, o.shape)) * half
+	const t = smoothstep(band + 40, 40, inside)
+	if (t <= 0) return 0
+	const r = ridged(x * 1.2, y * 1.2, 6, seed + 13)
+	return t * (CANYON_WALL + r * 140)
+}
+
+/** The height above which `Terrain.autoPaint` lays snow, for a map whose highest ground is `maxH`: high ground only, never a hilltop. */
+export function snowLine(waterLevel: number, maxH: number): number {
+	return Math.max(waterLevel + 110, maxH * 0.72)
 }
 
 /**
  * Paints a bird's-eye picture of a preset onto a canvas: sea by depth, land from sand through green
- * to rock and snow, lit from the north-west. `px` pixels a side. With a `shape`, over its square, the
- * tiles left out dark.
+ * to rock (by slope, as `autoPaint` does) and snow, lit from the north-west. `px` pixels a side. With
+ * `o.shape`, over its square, the tiles left out dark. Erosion isn't drawn: it is too slow to run here.
  */
-export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed: number, px = 96, shape?: CoastShape | null) {
+export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed: number, px: number, o: HeightOptions) {
 	canvas.width = canvas.height = px
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return
 	const img = ctx.createImageData(px, px)
-	const h = new Float32Array((px + 1) * (px + 1))
-	for (let y = 0; y <= px; y++) for (let x = 0; x <= px; x++) h[y * (px + 1) + x] = presetHeight(id, x / px, y / px, seed, shape)
+	const s = px + 1
+	const h = new Float32Array(s * s)
+	let maxH = 0
+	for (let y = 0; y <= px; y++)
+		for (let x = 0; x <= px; x++) {
+			const v = presetHeight(id, x / px, y / px, seed, o)
+			h[y * s + x] = v
+			maxH = Math.max(maxH, v)
+		}
 	const water = presetById(id).water
+	const snow = snowLine(0, maxH)
+	// Yards a pixel, for the slope.
+	const cell = (o.tiles * TILE_YARDS) / px
+	const shape = o.shape
 	for (let y = 0; y < px; y++) {
 		for (let x = 0; x < px; x++) {
-			const v = h[y * (px + 1) + x]
+			const v = h[y * s + x]
 			let r: number, g: number, b: number
 			if (shape && !shape.present((x + 0.5) / px, (y + 0.5) / px)) [r, g, b] = [24, 26, 30]
 			else if (water && v < 0) {
-				const d = Math.min(1, -v / 14)
+				const d = Math.min(1, -v / 90)
 				r = 70 - d * 50
 				g = 140 - d * 80
 				b = 190 - d * 70
 			} else {
-				if (v < 1.2) [r, g, b] = [196, 182, 128]
-				else if (v < 16) [r, g, b] = [86 + v * 2, 128 + v, 56]
-				else if (v < 34) [r, g, b] = [120, 108, 92]
-				else [r, g, b] = [230, 232, 236]
+				const dx = h[y * s + x + 1] - v
+				const dz = h[(y + 1) * s + x] - v
+				const slope = Math.hypot(dx, dz) / cell
+				if (v < 1.2 && water) [r, g, b] = [196, 182, 128]
+				else if (v > snow) [r, g, b] = [230, 232, 236]
+				else if (slope > 0.55) [r, g, b] = [120, 108, 92]
+				else {
+					const t = Math.min(1, v / 120)
+					;[r, g, b] = [86 + t * 40, 128 + t * 6, 56 + t * 10]
+				}
 				// Shade by the slope towards the light.
-				const slope = h[y * (px + 1) + x + 1] - v + (h[(y + 1) * (px + 1) + x] - v)
-				const light = Math.min(1.25, Math.max(0.6, 1 - slope * 0.08))
+				const light = Math.min(1.3, Math.max(0.55, 1 - ((dx + dz) / cell) * 0.7))
 				r *= light
 				g *= light
 				b *= light

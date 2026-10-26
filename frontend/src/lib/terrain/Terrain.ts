@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { fbm } from '../engine/noise'
-import { presetHeight, type CoastShape, type PresetId } from './presets'
+import { snowLine as snowLineOf, type CoastShape, type PresetId, type ShapeOptions } from './presets'
+import { generateHeights } from './generate'
 import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
@@ -640,14 +641,12 @@ export class Terrain {
 		return rayMarchGround(this, this.rayBox, this.rayHit, ray, out, maxDist, solid)
 	}
 
-	/** Procedural starting terrain from a preset (see presets.ts), its coast following `shape`'s tiles when given. */
-	generate(kind: GenerateKind, seed: number, shape?: CoastShape | null) {
-		const V = this.verts
-		const h = this.heights
-		const s = this.size
-		for (let z = 0; z < V; z++) {
-			for (let x = 0; x < V; x++) h[z * V + x] = presetHeight(kind, x / s, z / s, seed, shape)
-		}
+	/**
+	 * Procedural starting terrain from a preset (see presets.ts and generate.ts), its coast following
+	 * `shape`'s tiles when given, shaped by `opts` (relief, roughness, erosion; none erodes by default).
+	 */
+	generate(kind: GenerateKind, seed: number, shape?: CoastShape | null, opts?: Partial<ShapeOptions>) {
+		generateHeights(this.heights, this.size, this.cellSize, kind, seed, shape, opts)
 		this.markAllDirty()
 	}
 
@@ -661,7 +660,7 @@ export class Terrain {
 		const w = new Float32Array(roles)
 		let maxH = -Infinity
 		for (let i = 0; i < this.heights.length; i++) maxH = Math.max(maxH, this.heights[i])
-		const snowLine = Math.max(waterLevel + 30, maxH * 0.72)
+		const snowLine = snowLineOf(waterLevel, maxH)
 		const packed = packRoles(this.paintChunksPerSide, R, roles, (i, j, out) => {
 			const x = ((i + 0.5) / R) * this.worldSize
 			const z = ((j + 0.5) / R) * this.worldSize

@@ -459,6 +459,18 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   one away, Shift+click adds the 3×3 round it, a drag goes on; the Size buttons pick a whole square)
   and a preset from `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands,
   so a world is bounded by sea); the cards are drawn by `drawPresetPreview`, over the picked shape.
+  **The ground** (#744): `presetHeight` gives heights in yards, laid out in tiles rather than the
+  map's 0..1 (so a big map has more hills, not the same few stretched), through domain-warped noise,
+  with the coast still laid out over the map. Off the coast the ground goes down to `seabed` (about
+  60 yd at Sea depth 1, with trenches, ridges and shoals, never above 4 yd under the water). Canyon has
+  no sea: plains inside a wall (`canyonWall`) over 300 yd high whose middle is everywhere steeper than
+  the 50 degrees the server's paths climb, which Height doesn't scale. The page's Height, Roughness,
+  Erosion and Sea depth (`ShapeOptions`, `DEFAULT_SHAPE`) go to `Engine.newVmangosDocument` and
+  `Terrain.generate`, which calls `terrain/generate.ts` `generateHeights`: the preset, then droplet and
+  thermal erosion (terrain/erosion.ts) from land only, then a half 3x3 blur against the spikes drops
+  leave at cliff feet; a Canyon's walls go on after the erosion, whose gullies would cut ramps through
+  them. Other callers of `newDocument` (the benchmark maps, probes) get no erosion. `snowLine` keeps
+  snow to ground over 110 yd above the water, so hilltops stay green.
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'
