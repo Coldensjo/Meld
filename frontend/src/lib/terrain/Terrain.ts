@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { fbm } from '../engine/noise'
-import { presetHeight, type PresetId } from './presets'
+import { presetHeight, type CoastShape, type PresetId } from './presets'
 import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
@@ -47,6 +47,13 @@ export class Terrain {
 	readonly holes: Uint8Array
 	/** Counts the edits of `holes`, so a view of them (the hole walls) knows when to rebuild. */
 	holesVersion = 0
+	/**
+	 * For a map made for the client whose tiles aren't its whole square (#46, terrain/tileMask.ts): a byte
+	 * a 128-cell tile, row by row, 1 where the tile is the map's. A tile left out is drawn nowhere and
+	 * counts as a hole (`isHole`), so it is never picked, grows no tufts and takes no model; its ground
+	 * stays. Null for every tile. Set through `setTileMask`.
+	 */
+	tileMask: Uint8Array | null = null
 	/**
 	 * One byte per cell: non-zero where the client's tile grows no ground effect doodads (its
 	 * noEffectDoodad bits, under roads and buildings). Read from a region, painted with the Map data
@@ -255,7 +262,8 @@ export class Terrain {
 		const nor = geo.attributes.normal.array as Float32Array
 		const idx = geo.index!
 		const count = writeCellIndex(idx.array as Uint32Array, cells, cellsZ, vx, ox, oz, this.holes, this.size)
-		geo.setDrawRange(0, count)
+		// A render chunk lies inside one tile (CHUNK divides TILE_CELLS), so a tile left out draws none of it.
+		geo.setDrawRange(0, this.tileOff(ox, oz) ? 0 : count)
 		idx.needsUpdate = true
 		const V = this.verts
 		const h = this.heights
@@ -545,13 +553,45 @@ export class Terrain {
 		return this.heightTex
 	}
 
-	/** Whether the ground under world position (x, z) is a hole: its cell's triangle there is cut. Outside the map counts as solid. */
+	/**
+	 * Sets which tiles of the square are the map's (`tileMask`), or every tile for null, and redraws the
+	 * ground. A mask that doesn't fit the square's tiles is taken as every tile.
+	 */
+	setTileMask(mask: Uint8Array | null) {
+		const n = this.size / TILE_CELLS
+		this.tileMask = mask && Number.isInteger(n) && mask.length === n * n && mask.includes(0) ? mask.slice() : null
+		this.touchHoles()
+		this.markDirty(0, 0, this.size, this.size)
+	}
+
+	/** Whether cell (cx, cz), inside the map, is on a tile left out of it (`tileMask`). */
+	tileOff(cx: number, cz: number): boolean {
+		const m = this.tileMask
+		if (!m) return false
+		const n = this.size / TILE_CELLS
+		return m[Math.floor(cz / TILE_CELLS) * n + Math.floor(cx / TILE_CELLS)] === 0
+	}
+
+	/** Whether world position (x, z) is on the map but on a tile left out of it (`tileMask`). */
+	isOff(x: number, z: number): boolean {
+		if (!this.tileMask) return false
+		const cx = Math.floor(x / this.cellSize)
+		const cz = Math.floor(z / this.cellSize)
+		if (cx < 0 || cz < 0 || cx >= this.size || cz >= this.size) return false
+		return this.tileOff(cx, cz)
+	}
+
+	/**
+	 * Whether the ground under world position (x, z) is a hole: its cell's triangle there is cut, or its
+	 * tile is left out of the map (`tileMask`). Outside the map counts as solid.
+	 */
 	isHole(x: number, z: number): boolean {
 		const gx = x / this.cellSize
 		const gz = z / this.cellSize
 		const cx = Math.floor(gx)
 		const cz = Math.floor(gz)
 		if (cx < 0 || cz < 0 || cx >= this.size || cz >= this.size) return false
+		if (this.tileMask && this.tileOff(cx, cz)) return true
 		const v = this.holes[cz * this.size + cx]
 		return v !== 0 && triangleIsHole(v, holeTriangle(cx, cz, gx - cx, gz - cz))
 	}
@@ -584,13 +624,13 @@ export class Terrain {
 		return rayMarchGround(this, this.rayBox, this.rayHit, ray, out, maxDist, solid)
 	}
 
-	/** Procedural starting terrain from a preset (see presets.ts). */
-	generate(kind: GenerateKind, seed: number) {
+	/** Procedural starting terrain from a preset (see presets.ts), its coast following `shape`'s tiles when given. */
+	generate(kind: GenerateKind, seed: number, shape?: CoastShape | null) {
 		const V = this.verts
 		const h = this.heights
 		const s = this.size
 		for (let z = 0; z < V; z++) {
-			for (let x = 0; x < V; x++) h[z * V + x] = presetHeight(kind, x / s, z / s, seed)
+			for (let x = 0; x < V; x++) h[z * V + x] = presetHeight(kind, x / s, z / s, seed, shape)
 		}
 		this.markAllDirty()
 	}

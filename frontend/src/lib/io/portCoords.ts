@@ -13,20 +13,21 @@ const fmt = (v: number) => (Math.round(v * 100) / 100).toFixed(2)
  * The tile is the editor's column and row (x, then z), as the tiles are named.
  *
  * The Trinity line uses the `xyz` subcommand, which the in-app publish hint also uses. noggit's line
- * leaves it out.
+ * leaves it out. `tileX` and `tileY` are as teleportCommand's.
  */
-export function formatPortCoords(pos: { x: number; y: number; z: number }, mapId: number, area = ''): string {
-	const w = toServer(pos.x, pos.z)
+export function formatPortCoords(pos: { x: number; y: number; z: number }, mapId: number, area = '', tileX = 0, tileY = 0): string {
+	const w = toServer(pos.x, pos.z, tileX, tileY)
 	const wowX = fmt(w.x)
 	const wowY = fmt(w.y)
 	const h = fmt(pos.y)
-	return [`Map: ${area || 'Unknown area'} on ADT ${Math.floor(pos.x / TILE_SIZE)} ${Math.floor(pos.z / TILE_SIZE)}`, 'Trinity:', teleportCommand(pos, mapId), 'ArcEmu:', `.worldport ${mapId} ${wowX} ${wowY} ${h}`, ''].join('\n')
+	const adt = `${Math.floor(pos.x / TILE_SIZE + tileX)} ${Math.floor(pos.z / TILE_SIZE + tileY)}`
+	return [`Map: ${area || 'Unknown area'} on ADT ${adt}`, 'Trinity:', teleportCommand(pos, mapId, tileX, tileY), 'ArcEmu:', `.worldport ${mapId} ${wowX} ${wowY} ${h}`, ''].join('\n')
 }
 
 /**
  * The VMaNGOS (and Trinity) command that teleports a GM to a point of the editor's map: `.go xyz <x> <y>
  * <z> <map>` in the client's coordinates. `tileX` and `tileY` are the client tile at the map's
- * north-west corner: a region's first tile, 0 for a map made with New World, whose tiles start at 0.
+ * north-west corner: a region's first tile, or a map made with New World's place on the grid (#46).
  */
 export function teleportCommand(pos: { x: number; y: number; z: number }, mapId: number, tileX = 0, tileY = 0): string {
 	const s = serverSpot(pos, mapId, tileX, tileY)

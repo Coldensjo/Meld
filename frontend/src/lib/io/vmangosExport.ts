@@ -140,19 +140,31 @@ export interface TileOut {
 	Headers?: HeaderOut[]
 }
 
+/**
+ * Where a map made for the client sits on the client's 64×64 grid and which of its square's tiles are
+ * its own (#46): `x`, `y` the tile at the map's north-west corner, `present` a byte a tile row by row (1
+ * a present one; null for every tile).
+ */
+export interface TileLayout {
+	x: number
+	y: number
+	present?: Uint8Array | null
+}
+
 export interface ExportOut {
 	tiles: TileOut[]
 	/** Chunks whose paint uses a colour rather than a texture, which the client can't show, so it isn't written. */
 	colorChunks: number
-	/** Models outside the map, which aren't written. */
+	/** Models outside the map, or on a tile left out of it, which aren't written. */
 	outside: number
 }
 
 /**
  * The map as tiles. Throws when the map's size doesn't cut into whole tiles. Every tile of the map
- * is written, since each one needs its file for the client to walk it.
+ * is written, since each one needs its file for the client to walk it, but those `layout` leaves out;
+ * the tiles are numbered from `layout`'s corner on the grid (0,0 without one).
  */
-export function mapToTiles(input: ExportInput): ExportOut {
+export function mapToTiles(input: ExportInput, layout?: TileLayout): ExportOut {
 	if (input.size % TILE_CELLS !== 0) throw new Error(`the map is ${input.size} cells, not a whole number of 128-cell tiles`)
 	const tilesPerSide = input.size / TILE_CELLS
 	const V = input.size + 1
@@ -177,10 +189,15 @@ export function mapToTiles(input: ExportInput): ExportOut {
 				Scale: o.scale,
 			}))
 	const extent = input.size * input.cellSize
-	const outside = input.objects.filter((o) => o.x < 0 || o.z < 0 || o.x >= extent || o.z >= extent).length
+	const present = layout?.present && layout.present.length === tilesPerSide * tilesPerSide ? layout.present : null
+	const isIn = (tx: number, ty: number) => !present || present[ty * tilesPerSide + tx] !== 0
+	const outside = input.objects.filter((o) => o.x < 0 || o.z < 0 || o.x >= extent || o.z >= extent || !isIn(Math.floor(o.x / tileYards), Math.floor(o.z / tileYards))).length
+	const gx0 = layout?.x ?? 0
+	const gy0 = layout?.y ?? 0
 
 	for (let ty = 0; ty < tilesPerSide; ty++) {
 		for (let tx = 0; tx < tilesPerSide; tx++) {
+			if (!isIn(tx, ty)) continue
 			const outer = new Float32Array(TILE_VERTS * TILE_VERTS)
 			for (let r = 0; r <= TILE_CELLS; r++) {
 				for (let c = 0; c <= TILE_CELLS; c++) {
@@ -228,7 +245,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
 			}
 
 			const liquids = input.liquids ? liquidsToAdt(input.liquids, tx * CHUNKS_PER_TILE, ty * CHUNKS_PER_TILE, CHUNKS_PER_TILE) : []
-			const tile: TileOut = { X: tx, Y: ty, Outer: floatsToBase64(outer), Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids }
+			const tile: TileOut = { X: gx0 + tx, Y: gy0 + ty, Outer: floatsToBase64(outer), Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids }
 			const h = input.headers
 			// Holes and baked shadows travel in the headers too, so a map without chunk data of its own
 			// still sends them, with area ID 0 and no impassable flag or no-tuft rows, which keep the tile's (#644).

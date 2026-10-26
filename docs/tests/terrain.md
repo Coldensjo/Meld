@@ -429,18 +429,21 @@ with roles or a region failed to save) were.
   optional field set through `toMapData` → JSON → `fromMapData` and compares it whole, checks that one
   with every optional field unset writes none of them and reads back the defaults, and covers the
   #120 and #161 cases. "every readable .wmap version opens" has one hand-written `MapData` per
-  version 1 to 6, built from `internal/mapfile`'s test streams (`writeV1`, `writeOld`), with the blobs
-  each version has.
-- When the format gets a version 7: add its fixture there (the previous one plus the new field), and
-  the new field to `fullSnapshot`. The Go side's own fixtures are `go test ./internal/mapfile/`.
+  version 1 to 7, built from `internal/mapfile`'s test streams (`writeV1`, `writeOld`), with the blobs
+  each version has (7, #46, adds no blob: its case is a map made for the client with `tileX`, `tileY`
+  and `tiles`).
+- When the format gets a version 8: add its fixture there (the previous one plus the new field), and
+  the new field to `fullSnapshot`. The Go side's own fixtures are `go test ./internal/mapfile/`. The
+  probe `unknown-flags` checks the version a save reads back as: bump it there too.
 - Go (#545): `go test ./internal/mapfile/ -run TestFixtures` reads the committed
-  `internal/mapfile/testdata/v1.wmap` to `v6.wmap` (a 16-cell map written once by each version's
+  `internal/mapfile/testdata/v1.wmap` to `v7.wmap` (a 16-cell map written once by each version's
   layout, `writeVersion` in `version_test.go`) and checks each opens with its header and exactly the
   blobs that version had, saves again at `Version` with the same blobs, and that `Write` still lays out
   the current fixture byte for byte (the JSON header aside). So a reader that drops or reorders a tail
-  blob fails even when `Write` and `Read` change together. For a version 7: add its case to
+  blob fails even when `Write` and `Read` change together. For a version 8: add its case to
   `writeVersion` and `fixtureMap`, bump `Version`, then `go test ./internal/mapfile/ -run TestFixtures
-  -update`, which writes only the missing `v7.wmap`. Never regenerate an existing fixture (delete and
+  -update`, which writes only the missing `v8.wmap` (a version that changes only the header, as 7 did,
+  needs only the bump in `writeVersion`'s range: its layout is the one before). Never regenerate an existing fixture (delete and
   `-update`): a fixture made by the code it tests checks nothing.
 - Trap: `toEqual` treats a key set to `undefined` as missing, so a field `fromMapData` forgets to read
   but whose snapshot value is `undefined` passes; give every optional field in `fullSnapshot` a value.

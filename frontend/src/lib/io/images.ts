@@ -5,6 +5,7 @@ import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { TILE_CELLS } from '../wow/format'
+import { maskBytes } from '../terrain/tileMask'
 import { minimapScale, shadeHeights } from './minimapImage'
 import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, importHeightsOnTile, type HeightmapMode } from './heightmapImport'
@@ -139,7 +140,7 @@ export function writeMinimapTiles(engine: Engine) {
 	return guarded('Write minimap', async () => {
 		const region = engine.activeRegion()
 		const ref = engine.activeVmangos()
-		const target = region ? { dir: region.mapName, x: region.x, y: region.y } : ref ? { dir: ref.dir, x: 0, y: 0 } : null
+		const target = region ? { dir: region.mapName, x: region.x, y: region.y } : ref ? { dir: ref.dir, x: ref.tileX ?? 0, y: ref.tileY ?? 0 } : null
 		if (!target) {
 			setStatus('Only a part of Azeroth or a map made for the client has a minimap in the game.')
 			return
@@ -153,10 +154,14 @@ export function writeMinimapTiles(engine: Engine) {
 			}
 			const n = engine.terrain.size / TILE_CELLS
 			const models = prefs.minimapAllModels ? 'all' : 'buildings'
+			// The tiles a map made for the client leaves out of its square have none (#46).
+			const present = ref && !region ? maskBytes(ref.tiles, n) : null
+			const count = present ? present.reduce((a, b) => a + b, 0) : n * n
 			const tiles = []
 			for (let tz = 0; tz < n; tz++) {
 				for (let tx = 0; tx < n; tx++) {
-					setStatus(`Drawing minimap tile ${tz * n + tx + 1} of ${n * n}…`, 0)
+					if (present && !present[tz * n + tx]) continue
+					setStatus(`Drawing minimap tile ${tiles.length + 1} of ${count}…`, 0)
 					await new Promise((done) => setTimeout(done, 0))
 					tiles.push({ x: target.x + tx, y: target.y + tz, pixels: toBase64(engine.renderMinimapTile(tx, tz, models)) })
 				}

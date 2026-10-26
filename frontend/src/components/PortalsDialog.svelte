@@ -185,9 +185,9 @@
 	/** Puts the camera on the picked trigger, when it is in the open block. */
 	function goTo() {
 		const e = engineRef.current
-		const r = e?.activeRegion()
 		if (!t || !e) return
-		const p = editorPoint(t, r?.x ?? 0, r?.y ?? 0)
+		const o = e.serverOrigin()
+		const p = editorPoint(t, o.x, o.y)
 		e.setSceneView({ ...e.sceneView(), target: [p.x, p.y, p.z], distance: Math.max(20, t.radius * 4, t.boxX * 2), pitch: 0.6 })
 	}
 

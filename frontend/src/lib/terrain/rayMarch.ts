@@ -7,11 +7,14 @@ export interface GroundSampler {
 	contains(x: number, z: number): boolean
 	heightAt(x: number, z: number): number
 	isHole(x: number, z: number): boolean
+	/** Whether (x, z) is on a tile left out of the map (Terrain.tileMask), passed through even when `solid`. */
+	isOff?(x: number, z: number): boolean
 }
 
 /**
  * Where `ray` meets the ground, in `out`. `box` (its y range wide enough for any height) and `hit` are
- * scratch, since this runs several times a frame. Holes are passed through unless `solid`; a ray that
+ * scratch, since this runs several times a frame. Holes are passed through unless `solid`, and tiles left
+ * out of the map (`isOff`) always; a ray that
  * went below the surface through a hole stays under until it comes back above the ground, so it does
  * not hit the ground's underside where it leaves the hole's cells.
  */
@@ -40,7 +43,7 @@ export function rayMarchGround(g: GroundSampler, box: THREE.Box3, hit: THREE.Vec
 			continue
 		}
 		const overGround = y > g.heightAt(x, z)
-		const inHole = !solid && g.isHole(x, z)
+		const inHole = solid ? !!g.isOff?.(x, z) : g.isHole(x, z)
 		const above = overGround || inHole
 		// Below the surface inside a hole, the ray is under; it is over the ground again only above it.
 		if (inHole && !overGround) under = true
@@ -53,7 +56,7 @@ export function rayMarchGround(g: GroundSampler, box: THREE.Box3, hit: THREE.Vec
 				const mid = (lo + hi) * 0.5
 				const mx = o.x + dir.x * mid
 				const mz = o.z + dir.z * mid
-				if (o.y + dir.y * mid > g.heightAt(mx, mz) || (!solid && g.isHole(mx, mz))) lo = mid
+				if (o.y + dir.y * mid > g.heightAt(mx, mz) || (solid ? !!g.isOff?.(mx, mz) : g.isHole(mx, mz))) lo = mid
 				else hi = mid
 			}
 			out.copy(dir).multiplyScalar(hi).add(o)

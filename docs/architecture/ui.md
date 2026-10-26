@@ -166,7 +166,10 @@ The window layout, the asset browser and the dock panels and floating windows.
     BLP at `Interface\Glues\LoadingScreens\LoadScreenMeld<Dir>.blp`, a LoadingScreens.dbc row of its
     own (found again by that path) and the map's Map.dbc field 38 when the client has the row, and the
     dialog chooses the row in `MapInfo` so a later publish keeps it. The preview draws the chosen
-    picture 4:3, as the game stretches its square pictures over the screen.
+    picture 4:3, as the game stretches its square pictures over the screen. Its tiles on the
+    client's 64×64 grid are a `TileGrid` too (#46, terrain.md's Start dialog): read from the map
+    after every undo step (`ui.historyVersion`), a change inside the square is `setWorldTiles`, one
+    past it `growWorld` after `askConfirm`.
     Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
   - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
     under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.

@@ -69,6 +69,20 @@ game: rename an object, Save with the game closed, start it from Meld and look a
   outside Meld after such a Save still shows the old template; the entries are kept in memory only,
   so closing Meld first loses them too.
 
+## A new world's tiles on the 64×64 grid (#46, probe `new-world-tiles`)
+
+Probe `new-world-tiles`: the Start dialog's grid (pointer events on its canvas: a press with
+`ctrlKey` takes a tile away, `shiftKey` adds a 3×3) makes an L of three tiles at 31-32, Create world
+makes it, and the probe checks the ref (`tileX`, `tileY`, `tiles`), that the tile left out is a hole,
+seabed and not hit by a ray from above, the export's tile numbers (`mapToTiles` with the layout
+publish builds), Launch's spot in the grid's frame, then Map Properties' grid: the tile added back as
+one undo step, and a tile two west of the square answered yes to "Grow the map?" (`P.dialog`, the
+`[data-confirm="yes"]` button), after which a model keeps its server spot and the ground under it
+its height. Nothing is written. Traps: the grid's readout (`[data-tilegrid] .readout span`) is
+what to wait on; Map Properties reads the tiles again on `ui.historyVersion`, so a check of the grid
+after `e.undo()` sees the undone tiles. To see it, `scratch`-style: leave the Start dialog open on a
+shape and run with `--shot`: the preset cards draw the shape (tiles left out dark).
+
 ## Minimap tiles for the client (B-129, #17)
 
 Checks: Import/Export › Write Minimap Tiles to the Client draws each tile from above and writes it

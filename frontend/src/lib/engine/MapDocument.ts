@@ -74,6 +74,18 @@ export interface VmangosRef {
 	mapId: number
 	/** The map's own Map.dbc and map_template facts (Map Properties); absent until set. */
 	info?: MapInfo
+	/**
+	 * The client tile at the terrain's north-west corner on the 64×64 grid, where publish puts it (#46);
+	 * absent for 0, as every map made before sat at the grid's corner.
+	 */
+	tileX?: number
+	tileY?: number
+	/**
+	 * Which tiles of the terrain's square are the map's, a '1' or '0' a tile row by row
+	 * (terrain/tileMask.ts); absent for every tile. A tile left out is not drawn, picked or published,
+	 * and keeps its ground.
+	 */
+	tiles?: string
 }
 
 /**

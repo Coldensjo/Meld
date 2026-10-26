@@ -26,7 +26,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		objects: s.objects,
 		region: s.region ?? undefined,
 		// The info travels as JSON the Go side keeps opaque (mapfile.VmangosFolder.Info).
-		vmangos: s.vmangos ? { dir: s.vmangos.dir, mapId: s.vmangos.mapId, info: s.vmangos.info } : undefined,
+		// The place on the tile grid and the mask of present tiles (#46) are left out where they are the default.
+		vmangos: s.vmangos ? { dir: s.vmangos.dir, mapId: s.vmangos.mapId, info: s.vmangos.info, tileX: s.vmangos.tileX || undefined, tileY: s.vmangos.tileY || undefined, tiles: s.vmangos.tiles || undefined } : undefined,
 		palette: s.palette,
 		roles: s.roles ?? undefined,
 		textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
@@ -90,7 +91,16 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		waterEnabled: m.waterEnabled,
 		objects: dropOrphanParents((m.objects ?? []).map((o) => ({ ...o, id: o.id ?? 0, parent: o.parent || undefined, uid: o.uid || undefined }))),
 		region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
-		vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId, info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as Partial<MapInfo>) } as MapInfo) : undefined } : null,
+		vmangos: m.vmangos
+			? {
+					dir: m.vmangos.dir,
+					mapId: m.vmangos.mapId,
+					info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as Partial<MapInfo>) } as MapInfo) : undefined,
+					...(m.vmangos.tileX ? { tileX: m.vmangos.tileX } : {}),
+					...(m.vmangos.tileY ? { tileY: m.vmangos.tileY } : {}),
+					...(m.vmangos.tiles ? { tiles: m.vmangos.tiles } : {}),
+				}
+			: null,
 		roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
 		textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
 		textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },

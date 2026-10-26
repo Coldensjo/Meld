@@ -1,6 +1,10 @@
 <script lang="ts">
 	import Modal from './Modal.svelte'
 	import Slider from './Slider.svelte'
+	import TileGrid from './TileGrid.svelte'
+	import { boundingSquare, maskOf, placeTiles, squareOf } from '../lib/terrain/tileMask'
+	import { TILE_CELLS } from '../lib/wow/format'
+	import { askConfirm } from '../lib/state/confirm'
 	import { editor, setStatus, stats, ui } from '../lib/state/editor.svelte'
 	import { NO_ROLE } from '../lib/terrain/roles'
 	import { engineRef } from '../lib/state/engineRef'
@@ -31,6 +35,7 @@
 	const unknown = doc && editor.region ? [!doc.holesKnown && 'holes', !doc.liquidsKnown && 'liquids', !doc.chunkDataKnown && 'zones, flags and no-tuft cells'].filter((x): x is string => !!x) : []
 
 	// A map made for the client also says what it is to the client and the server (written on publish).
+	// The same object after the map grows (Engine.growWorld keeps it).
 	const ref = engineRef.current?.activeVmangos() ?? null
 	let info = $state<MapInfo>(ref?.info ? { ...ref.info } : defaultMapInfo())
 	let areas = $state<vmangos.Area[]>([])
@@ -103,6 +108,42 @@
 			screenError = String(err)
 		} finally {
 			writing = false
+		}
+	}
+	// The map's tiles on the client's 64×64 grid (#46): those of its square it keeps, and tiles past it,
+	// which grow the square (up to 8×8) by making the map again, which can't be undone.
+	// Read from the map again after every undo step (an undo of a tile, or the grow's new map).
+	const worldSquare = $derived.by(() => {
+		void ui.historyVersion
+		return ref ? squareOf(ref, editor.mapSize / TILE_CELLS) : null
+	})
+	const worldTiles = $derived.by(() => {
+		void ui.historyVersion
+		return ref ? placeTiles(ref, editor.mapSize / TILE_CELLS) : new Set<number>()
+	})
+	let growing = $state(false)
+	async function setTiles(next: Set<number>) {
+		const e = engineRef.current
+		if (!e || !ref || !worldSquare) return
+		const sq = boundingSquare(next, worldSquare)
+		if (!sq) return
+		if (sq.size === worldSquare.size) {
+			e.setWorldTiles(maskOf(worldSquare, next))
+			return
+		}
+		const yes = await askConfirm(
+			`The tiles reach past the map's square, so the map is made again as ${sq.size}×${sq.size} tiles from tile ${sq.x}, ${sq.y}, with its ground, paint and models moved into it. That can't be undone: the map's undo history starts again.`,
+			{ title: 'Grow the map?', ok: 'Grow' },
+		)
+		if (!yes) return
+		growing = true
+		try {
+			e.growWorld(sq, maskOf(sq, next))
+			setStatus(`The map is now ${sq.size}×${sq.size} tiles from tile ${sq.x}, ${sq.y}.`)
+		} catch (err) {
+			setStatus(`The map could not grow: ${err instanceof Error ? err.message : err}`, 8000)
+		} finally {
+			growing = false
 		}
 	}
 	function setInfo(patch: Partial<MapInfo>) {
@@ -203,6 +244,13 @@
 		<p class="dim">
 			Written on publish: the kind, name, zone and loading screen into the client's Map.dbc (Picture… writes its own loading screen at once), and the kind, zone, player limit and ghost entrance into the server's map_template.
 		</p>
+		{#if !info.wmoOnly}
+			<div class="section">Tiles on the client's map</div>
+			<div class:busy={growing}>
+				<TileGrid tiles={worldTiles} keep={worldSquare} onchange={(t) => void setTiles(t)} />
+			</div>
+			<p class="dim">Publish writes these tiles where they are on the grid. A tile taken away is hidden and left out, its ground kept to add back. A tile past the dashed square grows the map, up to 8×8 tiles.</p>
+		{/if}
 	{/if}
 	<div class="section">World</div>
 	<label class="check" title="Ocean at the sea level wherever the ground lies below it. Lakes and rivers are painted with the Water tool."
@@ -305,5 +353,9 @@
 		color: var(--text-dim);
 		font-size: 11px;
 		margin: 2px 0 6px;
+	}
+	.busy {
+		pointer-events: none;
+		opacity: 0.6;
 	}
 </style>

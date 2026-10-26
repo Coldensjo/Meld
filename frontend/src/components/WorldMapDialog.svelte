@@ -75,8 +75,12 @@
 		try {
 			const ref = e.activeVmangos()
 			const region = e.activeRegion()
-			if (ref) mapId = ref.mapId
-			else if (region) {
+			if (ref) {
+				mapId = ref.mapId
+				// A map made for the client sits where it was picked on the grid (#46).
+				tileX = ref.tileX ?? 0
+				tileY = ref.tileY ?? 0
+			} else if (region) {
 				const maps = (await MapEntries()) ?? []
 				mapId = maps.find((m) => m.Dir.toLowerCase() === region.mapName.toLowerCase())?.ID ?? null
 				tileX = region.x

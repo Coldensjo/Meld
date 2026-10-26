@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
-import { presetById } from '../terrain/presets'
+import { CoastShape, presetById } from '../terrain/presets'
+import { maskBytes, type TileSquare } from '../terrain/tileMask'
+import { growSnapshot } from '../io/worldGrow'
 import type { Command } from '../state/history'
 import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
@@ -1895,11 +1897,12 @@ export class Engine {
 		if (this.prefs.navServer) {
 			// The map's ID is still being read: wait for it rather than build the browser's tiles first.
 			if (id === null) return
-			const r = this.doc.meta.region
+			// Per frame, so the map's corner (tileOrigin) is read without an object.
+			const m = this.doc.meta
 			source = this.navSource
 			source.mapId = id
-			source.tileX = r?.x ?? 0
-			source.tileY = r?.y ?? 0
+			source.tileX = m.region ? m.region.x : (m.vmangos?.tileX ?? 0)
+			source.tileY = m.region ? m.region.y : (m.vmangos?.tileY ?? 0)
 		}
 		if (!this.prefs.navServer) this.updateInnerLift()
 		this.nav.update(this.terrain, this.objects, this.doc.liquids, editor.waterEnabled ? editor.waterLevel : null, this.controller.target, id === null || id <= 1, now, source)
@@ -1991,8 +1994,8 @@ export class Engine {
 			return id === null ? null : AreaTriggers(id)
 		},
 		apply: (doc, r) => {
-			const reg = doc.meta.region
-			this.triggerLayer.set(r?.triggers ?? [], reg?.x ?? 0, reg?.y ?? 0, null)
+			const o = this.serverTiles(doc)
+			this.triggerLayer.set(r?.triggers ?? [], o.x, o.y, null)
 		},
 		failed: (err) => setStatus(`View › Area triggers: the map's area triggers could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 	})
@@ -2000,8 +2003,8 @@ export class Engine {
 	/** Draws the Portals dialog's triggers, `selected` highlighted, until endTriggerEdit. */
 	showTriggers(list: readonly TriggerShape[], selected: number | null) {
 		this.triggers.edited = true
-		const r = this.doc.meta.region
-		this.triggerLayer.set(list, r?.x ?? 0, r?.y ?? 0, selected)
+		const o = this.serverTiles(this.doc)
+		this.triggerLayer.set(list, o.x, o.y, selected)
 	}
 
 	/** The Portals dialog closed: View › Area triggers reads the map's triggers again (they may have been saved). */
@@ -2061,9 +2064,9 @@ export class Engine {
 					}),
 			}
 		}
-		const r = m.region
-		const dx = r ? r.x * TILE_YARDS : 0,
-			dz = r ? r.y * TILE_YARDS : 0
+		const o = this.tileOrigin(this.doc)
+		const dx = o.x * TILE_YARDS,
+			dz = o.y * TILE_YARDS
 		return (await this.zoneLights.lights).map((l) => ({ ...l, x: l.x - dx, z: l.z - dz }))
 	}
 
@@ -2207,8 +2210,8 @@ export class Engine {
 	/** Where the camera is in the tiles' placement frame (yards), which the client's lights are placed in. */
 	cameraInFileFrame(): { x: number; y: number; z: number } {
 		const cam = this.camera.position
-		const region = this.doc.meta.region
-		return { x: cam.x + (region ? region.x * TILE_YARDS : 0), y: cam.y, z: cam.z + (region ? region.y * TILE_YARDS : 0) }
+		const o = this.tileOrigin(this.doc)
+		return { x: cam.x + o.x * TILE_YARDS, y: cam.y, z: cam.z + o.y * TILE_YARDS }
 	}
 
 	/** Reads the map's lights again for the preview (after the light editor saved them). */
@@ -2254,9 +2257,10 @@ export class Engine {
 		}
 		const lights = this.clientLights
 		const cam = this.camera.position
-		const region = this.doc.meta.region
-		const x = cam.x + (region ? region.x * TILE_YARDS : 0)
-		const z = cam.z + (region ? region.y * TILE_YARDS : 0)
+		// Per frame, so the origin is read without tileOrigin's object.
+		const m = this.doc.meta
+		const x = cam.x + (m.region ? m.region.x : (m.vmangos?.tileX ?? 0)) * TILE_YARDS
+		const z = cam.z + (m.region ? m.region.y : (m.vmangos?.tileY ?? 0)) * TILE_YARDS
 		const grade = WEATHER_GRADE[ui.weatherGrade]
 		if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut, stormBlend(ui.weather, grade))) {
 			setLiquidLight(null)
@@ -2624,9 +2628,9 @@ export class Engine {
 	 * Create a new map in its own tab. `setup` fills it before the tab opens (the benchmark maps, #322),
 	 * since opening copies its `meta` into `editor`.
 	 */
-	newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void) {
+	newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void, shape?: CoastShape | null) {
 		const d = new MapDocument(size, this.uniqueName(name))
-		d.terrain.generate(kind, seed)
+		d.terrain.generate(kind, seed, shape)
 		const preset = presetById(kind)
 		d.meta.waterLevel = preset.waterLevel
 		d.meta.waterEnabled = preset.water
@@ -2854,8 +2858,8 @@ export class Engine {
 	 * from a little behind, as a player arriving there would (Teleport to destination, #306).
 	 */
 	viewSpot(dest: { x: number; y: number; z: number; o: number }) {
-		const r = this.doc.meta.region
-		const p = editorPoint(dest, r?.x ?? 0, r?.y ?? 0)
+		const o = this.serverTiles(this.doc)
+		const p = editorPoint(dest, o.x, o.y)
 		// A player's eye height above the spot: where the flying camera sits, and what an orbit looks at.
 		this.controller.setView(p.x, p.y + 1.7, p.z, dest.o, 0.3, 12)
 	}
@@ -2923,12 +2927,81 @@ export class Engine {
 
 	/**
 	 * A new map to export for the 1.12 client, of tiles x tiles 128-cell tiles. It's made the same as
-	 * any new map, then marked with its folder and map ID.
+	 * any new map, then marked with its folder and map ID, and its place and tiles on the client's grid
+	 * (`ref.tileX`, `tileY`, `tiles`, #46): a preset's coast follows the tiles, and those left out are hidden.
 	 */
 	newVmangosDocument(tiles: number, kind: GenerateKind, seed: number, ref: VmangosRef): MapDocument {
-		const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir)
+		const mask = maskBytes(ref.tiles, tiles)
+		const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir, (doc) => doc.terrain.setTileMask(mask), mask ? new CoastShape(mask, tiles) : null)
 		d.meta.vmangos = { ...ref }
+		if (!mask) delete d.meta.vmangos.tiles
 		return d
+	}
+
+	/**
+	 * Sets which tiles of the open client map's square are the map's (Map Properties, #46): `tiles` is the
+	 * mask (terrain/tileMask.ts, '' for every tile). One undo step; the ground of a tile left out stays.
+	 */
+	setWorldTiles(tiles: string) {
+		const ref = this.doc.meta.vmangos
+		if (!ref) return
+		const before = ref.tiles ?? ''
+		if (before === tiles) return
+		// Through the active document at call time, as every undo step.
+		const apply = (mask: string) => {
+			const r = this.doc.meta.vmangos
+			if (!r) return
+			if (mask) r.tiles = mask
+			else delete r.tiles
+			this.terrain.setTileMask(maskBytes(mask, this.terrain.size / TILE_CELLS))
+		}
+		apply(tiles)
+		this.history.push({ label: 'Map tiles', undo: () => apply(before), redo: () => apply(tiles) })
+	}
+
+	/**
+	 * Makes the open client map's terrain the bigger square `square` of the grid, with mask `tiles`
+	 * (Map Properties adding a tile outside the square, #46): the map is made again in its tab with its
+	 * ground, paint, models and the rest moved into the new square (io/worldGrow.ts), the new tiles flat
+	 * below the sea. It can't be undone, so the tab's undo history starts again; the map is left unsaved.
+	 */
+	growWorld(square: TileSquare, tiles: string) {
+		const d = this.doc
+		const ref = d.meta.vmangos
+		if (!ref) return
+		const n0 = d.terrain.size / TILE_CELLS
+		// The old square's place in the new one, in tiles.
+		const dx = (ref.tileX ?? 0) - square.x
+		const dy = (ref.tileY ?? 0) - square.y
+		if (!Number.isInteger(n0) || dx < 0 || dy < 0 || dx + n0 > square.size || dy + n0 > square.size) throw new Error(`tiles ${square.x},${square.y} (${square.size}×${square.size}) don't hold the map's square`)
+		const fill = editor.waterEnabled ? editor.waterLevel - 6 : 0
+		const snap = growSnapshot(this.snapshot(), dx, dy, square.size, fill)
+		// The same ref, so Map Properties and anything else holding it see the new place.
+		const was = { ...ref }
+		const place = (r: VmangosRef) => {
+			delete ref.tileX
+			delete ref.tileY
+			delete ref.tiles
+			if (r.tileX) ref.tileX = r.tileX
+			if (r.tileY) ref.tileY = r.tileY
+			if (r.tiles) ref.tiles = r.tiles
+		}
+		place({ ...ref, tileX: square.x, tileY: square.y, tiles })
+		snap.vmangos = ref
+		const mx = dx * TILE_YARDS
+		const mz = dy * TILE_YARDS
+		try {
+			this.openDocument(snap, editor.filePath, d.id)
+		} catch (e) {
+			place(was)
+			throw e
+		}
+		// The new tab, now open, kept the old one's camera and bookmarks: they move with the ground.
+		const c = this.controller
+		c.setView(c.target.x + mx, c.target.y, c.target.z + mz, c.yaw, c.pitch, c.distance)
+		editor.bookmarks = editor.bookmarks.map((b) => ({ ...b, x: b.x + mx, z: b.z + mz }))
+		editor.dirty = true
+		this.refreshTabs()
 	}
 
 	/** The active map's client folder and map ID, when it was made for the client. */
@@ -2975,14 +3048,32 @@ export class Engine {
 
 	/**
 	 * The client tile at the north-west corner of a map's editor frame, for serverSpot: a region's first
-	 * tile; 0 for a map made with New World, but for a WMO-only one, whose building Publish writes at the
-	 * world's middle (#272), the frame that puts its building there.
+	 * tile; a map made with New World's place on the grid (#46), but for a WMO-only one, whose building
+	 * Publish writes at the world's middle (#272), the frame that puts its building there.
 	 */
 	private serverTiles(d: MapDocument): { x: number; y: number } {
 		const m = d.meta
 		if (m.region) return { x: m.region.x, y: m.region.y }
 		const b = m.vmangos?.info?.wmoOnly ? this.globalBuilding(d) : null
-		return b ? wmoOnlyTiles(b) : { x: 0, y: 0 }
+		return b ? wmoOnlyTiles(b) : this.tileOrigin(d)
+	}
+
+	/**
+	 * The client tile at the north-west corner of the open map's editor frame (see serverTiles), for
+	 * the windows that place the server's points on it.
+	 */
+	serverOrigin(): { x: number; y: number } {
+		return this.serverTiles(this.doc)
+	}
+
+	/**
+	 * The client tile at a map's north-west corner: a region's first tile, a map made for the client's
+	 * place on the grid (#46, 0,0 for one made before), else 0,0. Whole tiles, unlike serverTiles.
+	 */
+	tileOrigin(d: MapDocument = this.doc): { x: number; y: number } {
+		const m = d.meta
+		if (m.region) return { x: m.region.x, y: m.region.y }
+		return { x: m.vmangos?.tileX ?? 0, y: m.vmangos?.tileY ?? 0 }
 	}
 
 	/** A WMO-only map's building, as Publish picks it: the first WMO, at its editor position. */
@@ -3492,6 +3583,8 @@ export class Engine {
 			reference: copyReference(m.reference),
 			paths: copyPaths(m.paths ?? []),
 		}
+		// A map made for the client may leave tiles of its square out (#46).
+		if (m.vmangos?.tiles) t.setTileMask(maskBytes(m.vmangos.tiles, m.size / TILE_CELLS))
 		// The image is the author's file, read again each time the map opens.
 		if (m.reference) void this.loadReferenceImage(m.reference.path, d)
 		if (replace) {
@@ -5358,10 +5451,10 @@ export class Engine {
 		}
 		const key = this.geKey
 		// The client seeds each chunk's tufts by its place in the client's map: a region's tiles start at its first.
-		const region = this.doc.meta.region
+		const origin = this.tileOrigin(this.doc)
 		// Tufts show as far as the fade lets them, which is farther at the corners of a wide view.
 		layer.reach = tuftReach(this.persp.fov, this.persp.aspect)
-		layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, frillDensity(density), editor.scopedEffects, region?.x ?? 0, region?.y ?? 0)
+		layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, frillDensity(density), editor.scopedEffects, origin.x, origin.y)
 	}
 
 	/** How many grass tufts are drawn now, for the status bar. */

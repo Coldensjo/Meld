@@ -197,8 +197,8 @@
 		const e = engineRef.current
 		if (!e) return null
 		if (atSpawn && spawn) {
-			const r = e.activeRegion()
-			const s = serverSpot(spawn, mapId ?? 0, r?.x ?? 0, r?.y ?? 0)
+			const o = e.serverOrigin()
+			const s = serverSpot(spawn, mapId ?? 0, o.x, o.y)
 			return { x: s.x, y: s.y, z: s.z }
 		}
 		const s = await e.playerSpot()
@@ -315,8 +315,8 @@
 	function lookAt(p: Vec3) {
 		const e = engineRef.current
 		if (!e) return
-		const r = e.activeRegion()
-		const at = editorPoint(p, r?.x ?? 0, r?.y ?? 0)
+		const o = e.serverOrigin()
+		const at = editorPoint(p, o.x, o.y)
 		e.controller.focus(at.x, at.z, 40)
 	}
 

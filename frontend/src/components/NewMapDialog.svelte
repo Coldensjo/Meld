@@ -1,11 +1,14 @@
 <script lang="ts">
 	import Modal from './Modal.svelte'
 	import MapPicker from './MapPicker.svelte'
+	import TileGrid from './TileGrid.svelte'
 	import type { TileBlock as Block } from '../lib/io/regionGrow'
 	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
 	import { defaultLayerTextures } from '../lib/wow/defaults'
 	import { LAYERS } from '../lib/terrain/layers'
-	import { PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
+	import { CoastShape, PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
+	import { boundingSquare, gridTile, maskBytes, maskOf } from '../lib/terrain/tileMask'
+	import type { VmangosRef } from '../lib/engine/MapDocument'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { openWorldView, openWowBuilding, openWowRegion } from '../lib/io/region'
@@ -21,7 +24,18 @@
 
 	// --- a new world ------------------------------------------------------------------------------
 	let name = $state('MyWorld')
-	let tiles = $state(2)
+	/**
+	 * The world's tiles on the client's 64×64 grid (#46): where they are picked is where publish puts
+	 * them. A 2×2 block in the grid's middle to start with, round the server's 0,0.
+	 */
+	let tiles = $state<Set<number>>(new Set([gridTile(31, 31), gridTile(32, 31), gridTile(31, 32), gridTile(32, 32)]))
+	const square = $derived(boundingSquare(tiles)!)
+	const mask = $derived(maskOf(square, tiles))
+	/** The picked shape when it isn't its whole square, for the presets' coast. */
+	const shape = $derived.by(() => {
+		const m = maskBytes(mask, square.size)
+		return m ? new CoastShape(m, square.size) : null
+	})
 	let preset = $state<PresetId>('island')
 	let seed = $state(Math.floor(Math.random() * 100000))
 	let mapId = $state(1900)
@@ -35,14 +49,19 @@
 		{ tiles: 4, label: 'Large', note: '4×4 tiles · 2.1 km' },
 		{ tiles: 6, label: 'Huge', note: '6×6 tiles · 3.2 km' },
 	]
+	/** A size picks a whole square of that many tiles, from the picked tiles' corner (kept on the grid). */
+	function pickSize(n: number) {
+		const x0 = Math.min(square.x, 64 - n)
+		const y0 = Math.min(square.y, 64 - n)
+		const next = new Set<number>()
+		for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) next.add(gridTile(x0 + x, y0 + y))
+		tiles = next
+	}
+	const sizeShown = $derived(mask ? 0 : square.size)
 
-	/** Draws a preset's picture into its card; redrawn when the seed changes. */
+	/** Draws a preset's picture into its card; redrawn when the seed or the picked shape changes. */
 	function preview(canvas: HTMLCanvasElement, id: PresetId) {
-		const draw = () => drawPresetPreview(canvas, id, seed, 96)
-		$effect(() => {
-			void seed
-			draw()
-		})
+		$effect(() => drawPresetPreview(canvas, id, seed, 96, shape))
 	}
 
 	// --- the client's maps and zones, read once --------------------------------------------------
@@ -119,7 +138,11 @@
 	async function create() {
 		if (!nameOk || !mapIdOk) return
 		const palette = wow.loaded ? await defaultLayerTextures() : LAYERS.map((l) => l.swatch)
-		engineRef.current?.newVmangosDocument(tiles, preset, seed, { dir: name.trim(), mapId })
+		const ref: VmangosRef = { dir: name.trim(), mapId }
+		if (square.x) ref.tileX = square.x
+		if (square.y) ref.tileY = square.y
+		if (mask) ref.tiles = mask
+		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref)
 		editor.palette = palette
 		editor.dirty = false
 		engineRef.current?.refreshTabs()
@@ -157,7 +180,7 @@
 					<span>Size</span>
 					<div class="sizes">
 						{#each SIZES as s (s.tiles)}
-							<button class="size" class:active={tiles === s.tiles} onclick={() => (tiles = s.tiles)} title={s.note}>
+							<button class="size" class:active={sizeShown === s.tiles} onclick={() => pickSize(s.tiles)} title={s.note}>
 								<b>{s.label}</b><small>{s.note}</small>
 							</button>
 						{/each}
@@ -165,14 +188,20 @@
 				</div>
 			</div>
 			{#if !nameOk}<p class="warn">Use letters, digits, - and _ for the name: it is the map's folder in the client.</p>{/if}
-			<div class="presets">
-				{#each PRESETS as p (p.id)}
-					<button class="preset" class:active={preset === p.id} onclick={() => (preset = p.id)} title={p.blurb}>
-						<canvas use:preview={p.id} width="96" height="96"></canvas>
-						<b>{p.name}</b>
-						<small>{p.blurb}</small>
-					</button>
-				{/each}
+			<div class="row">
+				<div class="field">
+					<span>Tiles on the client's map</span>
+					<TileGrid {tiles} onchange={(t) => (tiles = t)} />
+				</div>
+				<div class="presets">
+					{#each PRESETS as p (p.id)}
+						<button class="preset" class:active={preset === p.id} onclick={() => (preset = p.id)} title={p.blurb}>
+							<canvas use:preview={p.id} width="96" height="96"></canvas>
+							<b>{p.name}</b>
+							<small>{p.blurb}</small>
+						</button>
+					{/each}
+				</div>
 			</div>
 			<div class="row bottom">
 				<label class="field seed">
@@ -346,16 +375,18 @@
 		opacity: 0.8;
 	}
 	.presets {
+		flex: 1;
+		min-width: 0;
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
-		gap: 8px;
+		gap: 6px;
 	}
 	.preset {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 4px;
-		padding: 8px;
+		padding: 6px;
 		background: var(--bg);
 		text-align: center;
 	}

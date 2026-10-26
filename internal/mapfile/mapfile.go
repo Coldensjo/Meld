@@ -27,6 +27,10 @@
 // 21, whose kind the header's LiquidKinds keeps), uint64 cell mask (bit z*8+x), 81 float32 surface
 // heights and 81 depth bytes, each 9x9 row-major.
 //
+// Version 7 adds no blob: it is the first whose header's vmangos may place the map on the client's
+// 64x64 tile grid and leave tiles of its square out (TileX, TileY, Tiles, #46). An older Meld refuses
+// it rather than publish such a map whole at the grid's corner.
+//
 // Version 5 has no shadows blob: such a map opens with none of its own. Version 4 has no area IDs, chunk flags or no-effect cells: such a map opens with none, and says so
 // (Version < 5), so a region's export can keep the client's own. Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
 // Saved again, such a map keeps saying so through the header's HolesUnknown, LiquidsUnknown and ChunkDataUnknown.
@@ -48,12 +52,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Versions 1 to 5 are still read.
-	Version = 6
+	// Version is the format written. Versions 1 to 6 are still read.
+	Version = 7
 	// ShadowTexels is the baked shadow map's texels per cell side (64 a chunk, as MCSH has them).
 	ShadowTexels = 8
 	// LiquidRecordSize is the bytes of one liquid layer in the liquids blob.
@@ -66,6 +71,10 @@ const (
 	MaxPalette = 255
 	// ChunkImpassable is the chunk flag that marks a chunk players can't walk.
 	ChunkImpassable = 1
+	// TileCells is a 1.12 client tile's side in cells, for a map made for the client (VmangosFolder).
+	TileCells = 128
+	// GridTiles is the client's map grid's side in tiles.
+	GridTiles = 64
 )
 
 // PlacedObject is a model instance placed in the world. Objects with a Parent
@@ -242,6 +251,34 @@ func (h *Header) validate() error {
 	if len(h.Palette) > MaxPalette {
 		return fmt.Errorf("palette has %d entries, at most %d allowed", len(h.Palette), MaxPalette)
 	}
+	if v := h.Vmangos; v != nil && (v.TileX != 0 || v.TileY != 0 || v.Tiles != "") {
+		return v.validate(h.Size)
+	}
+	return nil
+}
+
+// validate checks a map's place on the tile grid against its square of size cells: the square on the
+// grid, and a mask of one '0' or '1' a tile with at least one present.
+func (v *VmangosFolder) validate(size int) error {
+	if size%TileCells != 0 {
+		return fmt.Errorf("vmangos tiles: a map of %d cells is not whole tiles", size)
+	}
+	n := size / TileCells
+	if v.TileX < 0 || v.TileY < 0 || v.TileX+n > GridTiles || v.TileY+n > GridTiles {
+		return fmt.Errorf("vmangos tiles: %d tiles from %d,%d leave the %dx%d grid", n, v.TileX, v.TileY, GridTiles, GridTiles)
+	}
+	if v.Tiles == "" {
+		return nil
+	}
+	if len(v.Tiles) != n*n {
+		return fmt.Errorf("vmangos tiles: mask of %d tiles, want %d", len(v.Tiles), n*n)
+	}
+	if strings.Trim(v.Tiles, "01") != "" {
+		return errors.New("vmangos tiles: the mask holds only 0 and 1")
+	}
+	if !strings.Contains(v.Tiles, "1") {
+		return errors.New("vmangos tiles: the mask has no tile")
+	}
 	return nil
 }
 
@@ -389,7 +426,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 to 6 are all accepted.
+// Read decodes a map from r. Versions 1 to 7 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -570,4 +607,12 @@ type VmangosFolder struct {
 	// here (an object to the frontend, not the byte array a RawMessage would generate); absent for a
 	// map that hasn't set them.
 	Info json.RawMessage `json:"info,omitempty" ts_type:"object"`
+	// TileX and TileY are the client tile at the map's north-west corner on the 64x64 grid, where
+	// publish puts it (version 7, #46); 0,0 for a map made before, which sat at the grid's corner.
+	TileX int `json:"tileX,omitempty"`
+	TileY int `json:"tileY,omitempty"`
+	// Tiles is which tiles of the map's square are the map's, one byte a tile, row by row from the
+	// north-west: '1' a tile that is drawn and published, '0' one left out, whose ground stays in the
+	// file. Empty for every tile (version 7, #46).
+	Tiles string `json:"tiles,omitempty"`
 }

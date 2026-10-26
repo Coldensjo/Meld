@@ -62,3 +62,11 @@ test('a WMO-only map made with New World puts its building at the server 0,0 (#2
 	assert.ok(Math.abs(east.y + 10) < 1e-9 && Math.abs(east.x) < 1e-9, `${east.x}, ${east.y}`)
 	assert.equal(teleportCommand(building, 1902, t.x, t.y), '.go xyz 0.00 0.00 12.00 1902')
 })
+
+test('the port commands of a map placed on the grid (#46) name its tile and point on the server', () => {
+	const text = formatPortCoords({ x: 100, y: 5, z: 200 }, 1900, '', 31, 31).split('\n')
+	assert.equal(text[0], 'Map: Unknown area on ADT 31 31')
+	assert.equal(text[2], teleportCommand({ x: 100, y: 5, z: 200 }, 1900, 31, 31))
+	// Tile 31's corner is a tile short of the world's middle on both axes.
+	assert.equal(text[2], `.go xyz ${(533 + 1 / 3 - 200).toFixed(2)} ${(533 + 1 / 3 - 100).toFixed(2)} 5.00 1900`)
+})

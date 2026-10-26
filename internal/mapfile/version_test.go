@@ -22,11 +22,11 @@ var update = flag.Bool("update", false, "write the missing testdata/v<n>.wmap fi
 
 // writeVersion writes m as a version v stream, laid out as that version had it: version 1 the
 // heights and its two splats, version 2 on the weights and slot table, then each version's tail in
-// turn (holes 3, liquids 4, chunk data 5, shadows 6). It is the format's history kept apart from
+// turn (holes 3, liquids 4, chunk data 5, shadows 6; 7 the layout of 6, its change in the header). It is the format's history kept apart from
 // Write, so the fixtures it made stay what each version wrote.
 func writeVersion(w io.Writer, m *MapData, v uint32) error {
-	if v < 1 || v > 6 {
-		return fmt.Errorf("writeVersion knows versions 1 to 6, not %d", v)
+	if v < 1 || v > 7 {
+		return fmt.Errorf("writeVersion knows versions 1 to 7, not %d", v)
 	}
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {

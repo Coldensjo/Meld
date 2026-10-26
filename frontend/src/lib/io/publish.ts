@@ -5,7 +5,9 @@ import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { savingDetail, startSaving } from '../state/saving'
 import { mapToTiles, type ExportObject } from './vmangosExport'
-import { teleportCommand, wmoOnlyTiles } from './portCoords'
+import { TILE_SIZE, teleportCommand, wmoOnlyTiles } from './portCoords'
+import { maskBytes } from '../terrain/tileMask'
+import { TILE_CELLS } from '../wow/format'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { saveMap } from './mapio'
@@ -45,7 +47,12 @@ export function publishVmangosMap(engine: Engine) {
 		}
 		listenToPublish()
 		const input = engine.exportInput()
-		const out = mapToTiles(input)
+		// The map's place on the client's grid and the tiles of its square it leaves out (#46).
+		const n = input.size / TILE_CELLS
+		const present = maskBytes(ref.tiles, n)
+		const tx0 = ref.tileX ?? 0
+		const ty0 = ref.tileY ?? 0
+		const out = mapToTiles(input, { x: tx0, y: ty0, present })
 		const notes: string[] = []
 		if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out`)
 		if (out.outside) notes.push(`${out.outside} models outside the map were left out`)
@@ -60,9 +67,16 @@ export function publishVmangosMap(engine: Engine) {
 			out.tiles = []
 		}
 		// A WMO-only map's building goes to the world's middle (#272), so the line points there, a little
-		// over its origin; another map's points near its corner.
+		// over its origin; another map's points at the middle of its first tile, over the ground or the sea.
 		const at = global && wmoOnlyTiles(global)
-		lastGo = global && at ? teleportCommand({ x: global.x, y: global.y + 2, z: global.z }, ref.mapId, at.x, at.y) : `.go xyz 16800 16800 10 ${ref.mapId}`
+		if (global && at) lastGo = teleportCommand({ x: global.x, y: global.y + 2, z: global.z }, ref.mapId, at.x, at.y)
+		else {
+			const first = present ? Math.max(0, present.indexOf(1)) : 0
+			const x = ((first % n) + 0.5) * TILE_SIZE
+			const z = (Math.floor(first / n) + 0.5) * TILE_SIZE
+			const y = Math.max(engine.terrain.heightAt(x, z), input.waterEnabled ? input.waterLevel : -Infinity) + 10
+			lastGo = teleportCommand({ x, y, z }, ref.mapId, tx0, ty0)
+		}
 		ui.busy = true
 		endPublish = startSaving(`Publishing ${ref.dir}`)
 		setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)

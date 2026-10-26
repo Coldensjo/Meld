@@ -6,6 +6,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows). Blobs
   cross the bridge as base64 strings. If you change the format, bump `Version`, update the tests and add the new version's fixture
   (`internal/mapfile/testdata`, `TestFixtures`, docs/tests/terrain.md).
+  Version 7 adds no blob: its header's `vmangos` may place a map made for the client on the 64×64
+  grid and leave tiles of its square out (`tileX`, `tileY`, `tiles`, #46; the Start dialog below), and
+  an older Meld refuses the file rather than publish such a map whole at the grid's corner.
   Older versions stay readable (a version 5 map has no shadows, a version 4 map no chunk data, a
   version 3 map no liquids blob, a version 2 map no holes blob either). Such a map opens with
   `MapDocument.holesKnown` / `liquidsKnown` / `chunkDataKnown` false, and saved again it keeps saying
@@ -437,9 +440,31 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   fails `make check` until mapped) and edits every leaf of the input to see the key change (#433).
 
 - **Start dialog** (`components/NewMapDialog.svelte`, `ui.showNewDialog` + `ui.newMapMode`): every
-  map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from
-  `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands, so a world is
-  bounded by sea); the cards are drawn by `drawPresetPreview`. "Part of Azeroth" picks a square of
+  map is for the 1.12 client (folder + map ID). "New world" picks its tiles on the client's 64×64
+  grid (`TileGrid.svelte`, as Noggit Red's map creation wizard: a click adds a tile, Ctrl+click takes
+  one away, Shift+click adds the 3×3 round it, a drag goes on; the Size buttons pick a whole square)
+  and a preset from `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands,
+  so a world is bounded by sea); the cards are drawn by `drawPresetPreview`, over the picked shape.
+  **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
+  smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
+  = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'
+  or '0' a tile row by row, absent for every tile). The tiles sit where they were picked, so their
+  numbers and the server's coordinates are the grid's: `Engine.serverTiles`/`tileOrigin` give the
+  map's corner to Launch, Play Here, F9, the port commands, the nav source, the lights, the tufts'
+  seeds and the windows that place server points (`serverOrigin`); publish numbers the tiles from it
+  and writes only the present ones (`mapToTiles`' `TileLayout`; a model on a tile left out counts as
+  outside), and so does Write Minimap Tiles. A tile left out (`Terrain.tileMask`, `setTileMask`)
+  draws none of its render chunks (each lies in one tile) and `Terrain.isHole` is true on it, so it
+  is never picked (`isOff` keeps the Hole mode's solid ray off it too), grows no tufts and takes no
+  model; its ground stays in the file. A brush near its edge can still reach into it, unseen (#737). The
+  presets' coast follows the shape (`CoastShape`: a distance field to the tiles left out, so the sea
+  fills their edges); a whole square keeps the old round coast. Map Properties shows the same grid:
+  a tile of the square added or taken away is one undo step (`Engine.setWorldTiles`); a tile past
+  the square grows it (`Engine.growWorld`, asked first): the map is made again in its tab from its
+  snapshot moved into the bigger square (`io/worldGrow.ts`, `growSnapshot`: heights, paint, holes,
+  zones, shadows, liquids, root models, paths, the reference image, the tiles' tuft choices; the
+  camera and bookmarks move too), the new tiles flat 6 yd under the sea, and the tab's undo history
+  starts again. `growWorld` keeps the same `VmangosRef` object, so a dialog holding it stays right. "Part of Azeroth" picks a square of
   tiles on `MapPicker.svelte` (only with a project open, #48: it asks for one first), a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir, keyed by the archives' sizes and times so a patch write builds a new one, #493), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps. The

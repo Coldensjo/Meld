@@ -427,3 +427,40 @@ func TestNoClientLinkByDefault(t *testing.T) {
 		t.Fatal("a map with no link must not gain one")
 	}
 }
+
+// A map made for the client keeps its place on the tile grid and its mask of present tiles (#46), and
+// a place off the grid or a mask that doesn't fit its square is refused.
+func TestVmangosTilesRoundTrip(t *testing.T) {
+	m := sample(2 * TileCells)
+	m.Vmangos = &VmangosFolder{Dir: "MeldTest", MapID: 1900, TileX: 30, TileY: 62, Tiles: "1101"}
+	var buf bytes.Buffer
+	if err := Write(&buf, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := got.Vmangos; v == nil || v.TileX != 30 || v.TileY != 62 || v.Tiles != "1101" {
+		t.Fatalf("tiles lost: %+v", got.Vmangos)
+	}
+	for _, bad := range []VmangosFolder{
+		{TileX: 63},              // two tiles from 63 leave the grid
+		{TileY: -1},              // off the grid
+		{Tiles: "11"},            // two of four tiles
+		{Tiles: "0000"},          // no tile
+		{Tiles: "1x01"},          // not a mask
+		{TileX: 1, Tiles: "111"}, // three of four
+	} {
+		m.Vmangos = &bad
+		if err := Write(&bytes.Buffer{}, m); err == nil {
+			t.Errorf("%+v: written, want refused", bad)
+		}
+	}
+	// A size that isn't whole tiles can't have a place on the grid.
+	m = sample(32)
+	m.Vmangos = &VmangosFolder{TileX: 1}
+	if err := Write(&bytes.Buffer{}, m); err == nil {
+		t.Error("a 32-cell map placed on the grid: written, want refused")
+	}
+}

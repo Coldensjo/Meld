@@ -166,7 +166,8 @@ export function exportPortCoords(engine: Engine) {
 		const at = engine.camera.position
 		const area = engine.areaAt(at.x, at.z)
 		if (area) await loadAreas()
-		await WriteTextFile(path, formatPortCoords(at, ref.mapId, area ? areaName(area) : ''))
+		const o = engine.serverOrigin()
+		await WriteTextFile(path, formatPortCoords(at, ref.mapId, area ? areaName(area) : '', o.x, o.y))
 		setStatus(`Wrote the port commands for map ${ref.mapId} to ${path}.`)
 	})
 }

@@ -161,7 +161,14 @@ function fullSnapshot(): MapSnapshot {
 			{ id: 3, type: 'helper:cube', x: 5, z: 5, yOff: 0, rotY: 0, scale: 2 },
 		],
 		region: { mapName: 'Kalimdor', x: 30, y: 31, size: 2 },
-		vmangos: { dir: 'C:\\WoW\\vmangos\\data', mapId: 800, info: { type: 1, name: 'Test Dungeon', areaId: 12, loadingScreen: 3, maxPlayers: 5, ghostMap: 0, ghostX: 1.5, ghostY: -2.5, wmoOnly: true } },
+		vmangos: {
+			dir: 'C:\\WoW\\vmangos\\data',
+			mapId: 800,
+			info: { type: 1, name: 'Test Dungeon', areaId: 12, loadingScreen: 3, maxPlayers: 5, ghostMap: 0, ghostX: 1.5, ghostY: -2.5, wmoOnly: true },
+			tileX: 30,
+			tileY: 61,
+			tiles: '1101',
+		},
 		palette: ['Tileset\\Elwynn\\ElwynnGrassBase.blp', 'Tileset\\Elwynn\\ElwynnRock.blp', '#5d8a2f'],
 		roles: { rock: 1, dirt: -1 },
 		textureEffects: { 'Tileset\\Elwynn\\ElwynnGrassBase.blp': 41 },
@@ -364,5 +371,13 @@ describe('every readable .wmap version opens (#431)', () => {
 		expect(m.shadows).toEqual(ramp(SIZE * SIZE * 8))
 		expect([m.holesKnown, m.liquidsKnown, m.chunkDataKnown]).toEqual([true, true, true])
 		expect(fromMapData(reread(m, 6))).toEqual(m)
+	})
+
+	test('version 7: a map made for the client keeps its place on the grid and its tiles (#46); one made before sits at the corner, whole', () => {
+		const m = open(7, { ...v6, vmangos: { dir: 'Isle', mapId: 1900, tileX: 31, tileY: 30, tiles: '0111' } })
+		expect(m.vmangos).toEqual({ dir: 'Isle', mapId: 1900, info: undefined, tileX: 31, tileY: 30, tiles: '0111' })
+		expect(fromMapData(reread(m, 7))).toEqual(m)
+		const old = open(6, { ...v6, vmangos: { dir: 'Isle', mapId: 1900 } })
+		expect(old.vmangos).toEqual({ dir: 'Isle', mapId: 1900, info: undefined })
 	})
 })

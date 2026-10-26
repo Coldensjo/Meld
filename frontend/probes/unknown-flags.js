@@ -29,7 +29,8 @@ P.e.activeDocument().liquidsKnown = false
 P.e.activeDocument().chunkDataKnown = false
 for (const pass of [1, 2]) {
 	const raw = await roundTrip()
-	if (raw.version !== 6) bad.push(`pass ${pass}: read back as version ${raw.version}`)
+	// The format Go writes (mapfile.Version), bumped with it.
+	if (raw.version !== 7) bad.push(`pass ${pass}: read back as version ${raw.version}`)
 	if (!raw.holesUnknown || !raw.liquidsUnknown || !raw.chunkDataUnknown) bad.push(`pass ${pass}: header has holesUnknown ${raw.holesUnknown}, liquidsUnknown ${raw.liquidsUnknown}, chunkDataUnknown ${raw.chunkDataUnknown}`)
 	const d = P.e.activeDocument()
 	if (d.holesKnown || d.liquidsKnown || d.chunkDataKnown) bad.push(`pass ${pass}: reopened with holesKnown ${d.holesKnown}, liquidsKnown ${d.liquidsKnown}, chunkDataKnown ${d.chunkDataKnown}`)

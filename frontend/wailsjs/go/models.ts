@@ -640,6 +640,9 @@ export namespace mapfile {
 	    dir: string;
 	    mapId: number;
 	    info?: object;
+	    tileX?: number;
+	    tileY?: number;
+	    tiles?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new VmangosFolder(source);
@@ -650,6 +653,9 @@ export namespace mapfile {
 	        this.dir = source["dir"];
 	        this.mapId = source["mapId"];
 	        this.info = source["info"];
+	        this.tileX = source["tileX"];
+	        this.tileY = source["tileY"];
+	        this.tiles = source["tiles"];
 	    }
 	}
 	export class ClientRegion {
