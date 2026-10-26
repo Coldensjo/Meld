@@ -127,7 +127,7 @@ import { loadAreas } from '../wow/areas'
 import { animatedAssets, displayName, getAsset, type ModelAsset, releaseAssets, texturesBoundCount, updateMaterialAnimations, withParticleModels } from '../models/assets'
 import { baseType, withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
-import { castsNear, clearNearCasters, materialsNear, setNearCascade } from '../world/shadowReach'
+import { castsNear, clearNearCasters, materialsNear, setFarCascade, setNearCascade } from '../world/shadowReach'
 import { PosedShadows } from './posedShadows'
 import { drawFarLayers, farLayersLost, isFarLayerScene, setFarRenderer } from '../models/farLayers'
 import { WmoRooms } from '../world/WmoRooms'
@@ -1573,8 +1573,10 @@ export class Engine {
 			v.shadowCamera = this.env.key.shadow.camera
 			v.shadowFrustum = this.env.key.shadow.getFrustum()
 		}
-		// The near pass draws a batch only with a drawn instance in its box (#325).
+		// The near pass draws a batch only with a drawn instance in its box (#325); the far pass draws
+		// every batch with one packed, and the scene pass only those with one in view (#15).
 		setNearCascade(v.shadowFrustum)
+		setFarCascade(this.env.far.castShadow ? this.env.far.shadow.getFrustum() : null)
 		v.spheres = this.effects.shadowSpheres
 		// In a WMO room the open world shows only through its doorways (#116): each window the portal
 		// flood left is the view narrowed to its rect, and a sealed room has none.

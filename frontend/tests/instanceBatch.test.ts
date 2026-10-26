@@ -11,6 +11,7 @@ import type { CullView } from '../src/lib/world/instanceCull.ts'
 
 const { InstanceBatch, instancedMesh, RANGES_MAX } = await import('../src/lib/world/instanceBatch.ts')
 const { firstPick } = await import('../src/lib/world/instanceHit.ts')
+const { packedCount } = await import('../src/lib/world/shadowReach.ts')
 const { SpawnLayer, spawnMatrix } = await import('../src/lib/world/SpawnLayer.ts')
 
 /** A camera at the origin looking down -z with a 90 degree view, and the view it makes. */
@@ -106,6 +107,46 @@ test('a moved row is written in place with a range of its own, or the whole buff
 	assert.equal(attr.array[32 + 13], 7)
 	assert.ok(mesh.boundingSphere!.containsPoint(new THREE.Vector3(2, 7, -10)), 'the sphere grows over the moved row')
 	assert.ok(RANGES_MAX > 1)
+})
+
+test('the scene pass draws the rows in view and a shadow pass also the ones only its box holds (#15)', () => {
+	const { rows, ids, mesh } = setup(
+		['ahead', 'behind', 'far ahead'],
+		[
+			[0, 0, -10],
+			[0, 0, 10],
+			[3, 0, -20],
+		],
+	)
+	// A shadow box behind the camera.
+	const v = view()
+	const back = new THREE.PerspectiveCamera(90, 1, 0.1, 1000)
+	back.rotation.y = Math.PI
+	back.updateMatrixWorld()
+	v.frustums.push(new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(back.projectionMatrix, back.matrixWorldInverse)))
+	rows.cull(v)
+	rows.pack(mesh, ids)
+	assert.deepEqual(ids, ['ahead', 'far ahead', 'behind'])
+	assert.equal(mesh.count, 2, 'the scene pass draws the two in view')
+	assert.equal(packedCount(mesh), 3)
+	assert.equal(mesh.visible, true)
+	assert.ok(!mesh.boundingSphere!.containsPoint(new THREE.Vector3(0, 0, 10)), 'the bounds cover only what is in view')
+	mesh.onBeforeShadow(null!, null!, null!, null!, null!, null!, null!)
+	assert.equal(mesh.count, 3, 'a shadow pass draws all three')
+	mesh.onAfterShadow(null!, null!, null!, null!, null!, null!, null!)
+	assert.equal(mesh.count, 2)
+	// The row behind moves; it is written where it was packed, after the ones in view.
+	rows.setRow(1, at(0, 4, 10), box)
+	rows.patch(mesh, [1])
+	assert.equal(mesh.instanceMatrix.array[32 + 13], 4)
+	// Only the shadow sees it: a ray onto it picks nothing.
+	const ray = new THREE.Raycaster(new THREE.Vector3(0, 50, 10), new THREE.Vector3(0, -1, 0))
+	assert.equal(firstPick<string>(ray.intersectObject(mesh, false)), null)
+	// With only that one, the mesh stays shown for the shadow passes, drawing nothing in the scene.
+	const one = setup(['behind'], [[0, 0, 10]])
+	one.rows.cull(v)
+	one.rows.pack(one.mesh, one.ids)
+	assert.deepEqual([one.mesh.count, packedCount(one.mesh), one.mesh.visible], [0, 1, true])
 })
 
 test('a ray on a packed instance names its item', () => {

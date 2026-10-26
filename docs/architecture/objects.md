@@ -30,7 +30,20 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     (`world/shadowReach.ts`, `cullForShadows`): a point light's cube face draws it when one of its
     packed instances meets the light's reach and the face (#133), and the sun's near cascade (registered
     each frame by `Engine.cullInstances` through `setNearCascade`) when one meets the
-    cascade's box (#325). The camera and the far cascade keep every packed batch. So `visible` on a batch mesh means "drawn now".
+    cascade's box (#325). The far cascade (registered through `setFarCascade`) keeps every packed batch. So `visible` on a batch mesh means "drawn now".
+  - The scene pass draws only the instances in the camera's frustum (#15). `cullSpheres` (with
+    `InstanceBatch.split`) packs those first and the ones only a shadow's box or a light's reach holds
+    after them, each part ascending; `splitLod` keeps that order in `near` and `far` and counts each
+    list's lead (`Batch.nearFar`). `pack` sets the mesh's `count` to the ones in view
+    (`shadowReach.setPacked`), and `cullForShadows`' `onBeforeShadow`/`onAfterShadow` swap in every
+    packed instance for a shadow pass and back. So `count`, picking and the mesh's bounding sphere
+    mean "in view"; `packedCount(mesh)` is what the shadows draw, and the readers that mean "drawn
+    anywhere" use it (`hasVisible`, which poses a model, the WMO group cull's one-instance test, a
+    spawn kind's `visible`). A scene-pass frustum (any one not registered) passes a batch only with
+    `count` above 0. A mesh that sets shadow hooks of its own must call `cullForShadows`' too
+    (`ObjectLayer.makeMesh` chains them for the WMO group cull). In the Elwynn world view this took
+    the scene pass from 1,993 calls to 1,017: the far box (up to 5,000 yd across) packed 5,989
+    instances, 979 of them in view.
   - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
     `raycastSurface` cast through. Both read a hit's object through `hitId` (`world/instanceHit.ts`)
     and go on past a hit whose instance has no id (a mesh repacked or swapped since the last pack, #524).

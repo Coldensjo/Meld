@@ -52,6 +52,8 @@ export function throughGate(view: CullView, s: THREE.Sphere): boolean {
 }
 
 const sphere = new THREE.Sphere()
+/** Scratch for `cullSpheres`: the instances only a shadow's frustum or a light's reach holds. */
+const shadowOnly: number[] = []
 
 /** Above this radius in yards a doodad has no draw distance of its own; only the far clip drops it. */
 export const DOODAD_ALWAYS_RADIUS = 7
@@ -89,9 +91,14 @@ export function instanceSphere(geometry: THREE.BufferGeometry, matrix: THREE.Mat
  * are in view, in order, written into `out`. Returns false when `out` already held exactly them, so
  * the caller can skip re-packing the instance buffer. With `doodads` and the view's `doodadReach`,
  * an instance further across the ground than its `doodadReach` past its radius is left out too.
+ *
+ * With `split`, `out` leads with the instances in the camera's frustum (`frustums[0]`), in order, and
+ * then the ones only a shadow's frustum or a light's reach holds, in order; `split.view` says how many
+ * lead (#15). The scene pass draws only those, the shadow passes all of them (`setPacked`).
  */
-export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[], exempt = -1, doodads = false): boolean {
+export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[], exempt = -1, doodads = false, split?: { view: number }): boolean {
 	scratch.length = 0
+	shadowOnly.length = 0
 	const { frustums, eye, pxPerUnit, cutoffPx } = view
 	const reachCut = doodads && view.doodadReach === true
 	for (let i = 0; i < n; i++) {
@@ -110,44 +117,64 @@ export function cullSpheres(view: CullView, spheres: Float32Array, n: number, ou
 			// Seen from outside, the model covers about its diameter over its distance.
 			if (d > r && (2 * r * pxPerUnit) / d < cutoffPx) continue
 		}
-		let seen = false
-		for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(sphere)
+		const inView = frustums.length > 0 && frustums[0].intersectsSphere(sphere)
+		let seen = inView
+		for (let k = 1; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(sphere)
 		const reach = view.spheres
 		for (let k = 0; !seen && reach && k < reach.length; k++) seen = reach[k].intersectsSphere(sphere)
 		if (seen && i !== exempt && !throughGate(view, sphere)) seen = false
-		if (seen) scratch.push(i)
+		if (!seen) continue
+		if (inView || !split) scratch.push(i)
+		else shadowOnly.push(i)
 	}
-	let same = scratch.length === out.length
+	const nView = scratch.length
+	for (let k = 0; k < shadowOnly.length; k++) scratch.push(shadowOnly[k])
+	let same = scratch.length === out.length && (!split || split.view === nView)
 	for (let k = 0; same && k < scratch.length; k++) if (scratch[k] !== out[k]) same = false
 	if (same) return false
 	out.length = scratch.length
 	for (let k = 0; k < scratch.length; k++) out[k] = scratch[k]
+	if (split) split.view = nView
 	return true
 }
 
 /**
  * Splits the instances `packed` names into the ones drawn in full (`near`) and the ones that cover
  * fewer than `view.lodPx` pixels and get their model's LOD (`far`). Returns false when both already
- * held exactly them, so the caller can skip re-packing.
+ * held exactly them, so the caller can skip re-packing. With `split`, the first `inView` of `packed`
+ * are the ones in the camera's view (`cullSpheres`' `split`): each list keeps them in the lead, and
+ * `split.near` and `split.far` say how many lead each.
  */
-export function splitLod(view: CullView, spheres: Float32Array, packed: number[], near: number[], far: number[], scratchNear: number[], scratchFar: number[]): boolean {
+export function splitLod(view: CullView, spheres: Float32Array, packed: number[], near: number[], far: number[], scratchNear: number[], scratchFar: number[], inView = packed.length, split?: { near: number; far: number }): boolean {
 	const { eye, pxPerUnit } = view
 	const lodPx = view.lodPx ?? 0
 	scratchNear.length = 0
 	scratchFar.length = 0
-	for (const i of packed) {
+	let nearView = 0
+	let farView = 0
+	for (let k = 0; k < packed.length; k++) {
+		const i = packed[k]
 		const o = i * 4
 		const r = spheres[o + 3]
 		const dx = spheres[o] - eye.x,
 			dy = spheres[o + 1] - eye.y,
 			dz = spheres[o + 2] - eye.z
 		const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
-		if (lodPx > 0 && d > r && (2 * r * pxPerUnit) / d < lodPx) scratchFar.push(i)
-		else scratchNear.push(i)
+		if (lodPx > 0 && d > r && (2 * r * pxPerUnit) / d < lodPx) {
+			scratchFar.push(i)
+			if (k < inView) farView++
+		} else {
+			scratchNear.push(i)
+			if (k < inView) nearView++
+		}
 	}
 	const a = copyIfChanged(scratchNear, near)
 	const b = copyIfChanged(scratchFar, far)
-	return a || b
+	if (!split) return a || b
+	const c = split.near !== nearView || split.far !== farView
+	split.near = nearView
+	split.far = farView
+	return a || b || c
 }
 
 function copyIfChanged(from: number[], to: number[]): boolean {

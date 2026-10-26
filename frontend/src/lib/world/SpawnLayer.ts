@@ -4,6 +4,7 @@ import { getAsset, isWowType, onAssetLoaded } from '../models/assets'
 import { spawnType } from './spawnInfo'
 import type { CullView } from './instanceCull'
 import { InstanceBatch, instancedMesh } from './instanceBatch'
+import { packedCount } from './shadowReach'
 import { firstPick } from './instanceHit'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { spawnQuaternion } from './spawnTilt'
@@ -248,7 +249,7 @@ export class SpawnLayer {
 
 	private applyKinds() {
 		// An empty mesh is hidden too: three would still set up each of its groups in every pass (#323).
-		for (const b of this.batches) b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
+		for (const b of this.batches) b.mesh.visible = this.shown[b.kind] && packedCount(b.mesh) > 0
 		this.version++
 	}
 
@@ -278,7 +279,7 @@ export class SpawnLayer {
 		for (const b of this.batches) {
 			if (b.rows.cull(view)) {
 				b.rows.pack(b.mesh, b.ids)
-				b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
+				b.mesh.visible = this.shown[b.kind] && packedCount(b.mesh) > 0
 			} else if (b.moved.length) b.rows.patch(b.mesh, b.moved)
 			b.moved.length = 0
 			if (b.mesh.visible && b.ready) this.drawn.add(b.type)

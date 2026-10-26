@@ -5,6 +5,7 @@ import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 import { splitLod, type CullView } from './instanceCull'
 import { InstanceBatch, instancedMesh, watchUploads } from './instanceBatch'
+import { packedCount } from './shadowReach'
 import { WmoGroupCull } from './wmoGroupCull'
 import { CellGrid } from './cellGrid'
 import { firstPick, hitId } from './instanceHit'
@@ -84,6 +85,8 @@ interface Batch {
 	/** Indices into `rows.items` of the instances drawn in full and with the LOD, and scratch for the split. */
 	near: number[]
 	far: number[]
+	/** How many of `near` and of `far` lead as the ones in the camera's view (`splitLod`'s split). */
+	nearFar: { near: number; far: number }
 	scratchNear: number[]
 	scratchFar: number[]
 	/** The rows need building again from `members`: an object joined, left or was hidden. */
@@ -722,6 +725,7 @@ export class ObjectLayer {
 				liquidIds,
 				near: [],
 				far: [],
+				nearFar: { near: 0, far: 0 },
 				scratchNear: [],
 				scratchFar: [],
 				dirty: true,
@@ -780,10 +784,19 @@ export class ObjectLayer {
 		if (cull) {
 			// The scene pass and the near shadow cascade draw only the groups in their frustums; the far
 			// cascade and the point lights keep the whole model. A shadow pass is told apart by its own camera.
+			// The shadow hooks also keep `cullForShadows`' own, which draw every instance packed in a shadow pass.
+			const before = m.onBeforeShadow
+			const after = m.onAfterShadow
 			m.onBeforeRender = (_r, _s, camera, _g, _m, group) => cull.before(camera, group as unknown as THREE.GeometryGroup | null)
 			m.onAfterRender = (_r, _s, camera, _g, _m, group) => cull.after(camera, group as unknown as THREE.GeometryGroup | null)
-			m.onBeforeShadow = (_r, _s, _c, shadowCamera, _g, _m, group) => cull.before(shadowCamera, group as unknown as THREE.GeometryGroup | null)
-			m.onAfterShadow = (_r, _s, _c, shadowCamera, _g, _m, group) => cull.after(shadowCamera, group as unknown as THREE.GeometryGroup | null)
+			m.onBeforeShadow = (r, s, c, shadowCamera, g, dm, group) => {
+				before.call(m, r, s, c, shadowCamera, g, dm, group)
+				cull.before(shadowCamera, group as unknown as THREE.GeometryGroup | null)
+			}
+			m.onAfterShadow = (r, s, c, shadowCamera, g, dm, group) => {
+				cull.after(shadowCamera, group as unknown as THREE.GeometryGroup | null)
+				after.call(m, r, s, c, shadowCamera, g, dm, group)
+			}
 		}
 		// A model with nothing to draw in the game (a collision blocker) shows as a marker with no shadow.
 		m.castShadow = !a.marker
@@ -819,10 +832,10 @@ export class ObjectLayer {
 		return into
 	}
 
-	/** Whether any object of `type` is drawn: not hidden, and in view as of the last cull. */
+	/** Whether any object of `type` is drawn: not hidden, and in view or a shadow's box as of the last cull. */
 	hasVisible(type: string): boolean {
 		const b = this.batches.get(type)
-		return !!b && (b.mesh.count > 0 || (b.lod?.count ?? 0) > 0)
+		return !!b && (packedCount(b.mesh) > 0 || (b.lod ? packedCount(b.lod) : 0) > 0)
 	}
 
 	/** What each model type drew in the last cull, full meshes and LODs, and how many instanced meshes there are (#179). */
@@ -901,26 +914,29 @@ export class ObjectLayer {
 			// Rows moved since the last cull, in a packing that is otherwise the same, are written in place.
 			const moved = b.movedIdx
 			if (b.liquid) {
-				if (changed) rows.pack(b.liquid, b.liquidIds)
-				else if (moved.length) rows.patch(b.liquid, moved)
+				// A WMO's liquids show only in view: they cast no shadow.
+				if (changed) {
+					rows.pack(b.liquid, b.liquidIds)
+					b.liquid.visible = b.liquid.count > 0
+				} else if (moved.length) rows.patch(b.liquid, moved)
 			}
 			if (!b.lod) {
 				if (changed) rows.pack(b.mesh, b.ids)
 				else if (moved.length) rows.patch(b.mesh, moved)
-			} else if (splitLod(view, rows.spheres, rows.packed, b.near, b.far, b.scratchNear, b.scratchFar) || changed) {
+			} else if (splitLod(view, rows.spheres, rows.packed, b.near, b.far, b.scratchNear, b.scratchFar, rows.split.view, b.nearFar) || changed) {
 				// The split changes as the camera moves, even when the instances in view don't.
-				rows.pack(b.mesh, b.ids, b.near)
-				rows.pack(b.lod, b.lodIds, b.far)
+				rows.pack(b.mesh, b.ids, b.near, b.nearFar.near)
+				rows.pack(b.lod, b.lodIds, b.far, b.nearFar.far)
 			} else if (moved.length) {
-				rows.patch(b.mesh, moved, b.near)
-				rows.patch(b.lod, moved, b.far)
+				rows.patch(b.mesh, moved, b.near, b.nearFar.near)
+				rows.patch(b.lod, moved, b.far, b.nearFar.far)
 			}
 			moved.length = 0
 		}
 		// A big WMO drawn once is culled by group, every frame, as its groups' view changes with the camera.
 		for (const b of this.batches.values()) {
 			if (!b.cull) continue
-			const one = WmoGroupCull.enabled && b.mesh.count === 1 && view.camera && b.mesh.visible
+			const one = WmoGroupCull.enabled && packedCount(b.mesh) === 1 && view.camera && b.mesh.visible
 			b.cull.update(one ? view.camera! : null, view.frustums[0], b.mesh.instanceMatrix.array, view.shadowCamera ?? null, view.shadowFrustum ?? null)
 		}
 	}

@@ -2,7 +2,22 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { addShadowReach, castsNear, clearNearCasters, clearShadowReach, cullForShadows, instancesMeet, markShadowMoving, materialsNear, POSED_LAYER, setNearCascade, setNearStill } from '../src/lib/world/shadowReach.ts'
+import {
+	addShadowReach,
+	castsNear,
+	clearNearCasters,
+	clearShadowReach,
+	cullForShadows,
+	instancesMeet,
+	markShadowMoving,
+	materialsNear,
+	packedCount,
+	POSED_LAYER,
+	setFarCascade,
+	setNearCascade,
+	setNearStill,
+	setPacked,
+} from '../src/lib/world/shadowReach.ts'
 
 /** An InstancedMesh of unit boxes drawing one instance at each of `at`. */
 function batch(...at: Array<[number, number, number]>): THREE.InstancedMesh {
@@ -36,7 +51,7 @@ test('a batch joins a shadow face only with an instance in the light reach and t
 	assert.equal(instancesMeet(batch([0, 0, -10.6]), f), true)
 })
 
-test('only the instances drawn count, and any other frustum keeps every batch', () => {
+test('only the instances drawn count, and any other frustum keeps every batch with one in view', () => {
 	clearShadowReach()
 	const l = light([0, 0, 0], 10)
 	addShadowReach(l)
@@ -46,6 +61,26 @@ test('only the instances drawn count, and any other frustum keeps every batch', 
 	assert.equal(instancesMeet(b, new THREE.Frustum()), true)
 	clearShadowReach()
 	assert.equal(instancesMeet(b, l.shadow.getFrustum()), true, 'a light no longer registered culls nothing')
+})
+
+test('the scene pass skips a batch with nothing in view, the shadow passes draw what is packed for them (#15)', () => {
+	clearShadowReach()
+	const l = light([0, 0, 0], 10)
+	addShadowReach(l)
+	const far = new THREE.Frustum()
+	setFarCascade(far)
+	// Two instances packed, the one in view first; then none in view, one only a shadow needs.
+	const b = batch([200, 0, 0], [0, 0, -5])
+	setPacked(b, 2, 1)
+	assert.deepEqual([b.count, packedCount(b)], [1, 2])
+	assert.equal(instancesMeet(b, l.shadow.getFrustum()), true, "the light's face meets the second, packed for the shadows")
+	setPacked(b, 1, 0)
+	assert.equal(instancesMeet(b, new THREE.Frustum()), false, 'the scene pass: nothing in view')
+	assert.equal(instancesMeet(b, far), true, 'the far cascade keeps it')
+	setPacked(b, 0, 0)
+	assert.equal(instancesMeet(b, far), false)
+	setFarCascade(null)
+	clearShadowReach()
 })
 
 test('the near cascade draws a batch only with a drawn instance in its box', () => {

@@ -410,6 +410,16 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
   behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
   shadows (Help › Benchmark maps) for casters missing at the near box's edge.
+- The scene pass draws only what is in view (#15): a batch's `count` is its instances in the camera's
+  frustum, and a shadow pass draws `packedCount(mesh)` (objects.md, the instance batch). Unit tests
+  in `tests/instanceCull.test.ts`, `tests/instanceBatch.test.ts` and `tests/shadowReach.test.ts`. In
+  the app: the `world-view` probe's `perf.models.calls` (1,993 before, 1,017 after, CPU 15.7 to 10.8
+  ms). To split the passes, wrap `renderer.shadowMap.render` and set `env.key.shadow.needsUpdate` or
+  `env.far.shadow.needsUpdate` before a frame: the shadow passes must draw the same calls and triangles
+  before and after a change here (near 160 calls, far 1,920 at that view). To see that no shadow went
+  missing, shoot the same views on both commits at a low sun (`prefs.dayCycle = false`,
+  `prefs.timeOfDay = 17.6`, four headings, both maps forced redrawn) and compare the PNGs with
+  `magick compare -metric AE -fuzz 2%`: a few pixels differ between identical runs.
 - The moving casters' pass (#346, probe `shadow-poses`): with Prop animations on, a still view draws
   only the posed models and moving cut-outs into the near map, over a copy of the rest. A/B it in one
   page with `P.ab((on) => { __engine.posedShadows.enabled = on }, 6, { sections: ['Shadow', 'Render'] })`

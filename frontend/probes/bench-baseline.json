@@ -1,8 +1,8 @@
 {
 	"_about": "The benchmark scene's counts for `bun run probe bench` (#429), which fails when one drifts more than `band` from here. Valid only on the probe page: default prefs (?defaults, #253) and P.BENCH with Follow the Ground on (#256). Milliseconds and heap are not kept: SwiftShader makes them noise. A commit that moves a count on purpose updates this file and says why in its message (docs/TESTS.md, 'Measuring performance').",
 	"band": 0.1,
-	"calls": 1159,
-	"triangles": 597707,
-	"geometries": 175,
-	"textures": 727
+	"calls": 920,
+	"triangles": 425904,
+	"geometries": 176,
+	"textures": 708
 }

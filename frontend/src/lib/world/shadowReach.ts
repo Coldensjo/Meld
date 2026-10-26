@@ -12,11 +12,19 @@ import * as THREE from 'three'
  *   Engine redraws them into that map (only on a change, #326) when one is posed or its material
  *   moves. While the near map's still casters are drawn apart from those (#346, `setNearStill`), the
  *   moving batches keep out of it but are still noted.
- * Any other frustum (the camera's, the far cascade's) keeps every batch.
+ * - The sun's far cascade keeps every batch with an instance packed.
+ * Any other frustum is the scene pass's (#15): a batch joins it only with an instance in the camera's
+ * view. The cull packs those first (`cullSpheres`' split) and the instances only a shadow needs after
+ * them. The mesh's `count` is the ones in view, which the scene pass, picking and the mesh's bounds
+ * use, and a shadow pass draws all of them (`setPacked`), so a model behind the camera that throws
+ * its shadow into view no longer costs the scene pass a draw call a group.
  */
 const reaches = new Map<THREE.Frustum, THREE.Sphere>()
 const spheres: THREE.Sphere[] = []
 let nearCascade: THREE.Frustum | null = null
+let farCascade: THREE.Frustum | null = null
+/** Per mesh: the instances packed for every pass, and how many of them lead as the ones in view. */
+const packedCounts = new WeakMap<THREE.InstancedMesh, { all: number; view: number }>()
 /** The skeletons of the batches drawn into the near cascade's map when it was last drawn. */
 const nearSkeletons = new Set<THREE.Skeleton>()
 /** A batch with a moving material was drawn into the near cascade's map when it was last drawn. */
@@ -63,6 +71,28 @@ export function setNearCascade(frustum: THREE.Frustum | null) {
 	nearCascade = frustum
 }
 
+/** Registers the sun's far cascade frustum, or null without shadows: its pass draws every batch with an instance packed. */
+export function setFarCascade(frustum: THREE.Frustum | null) {
+	farCascade = frustum
+}
+
+/**
+ * Notes what `mesh` holds after a pack: `all` instances, the first `view` of them in the camera's view.
+ * Its `count` (what the scene pass draws) becomes `view`; a shadow pass draws `all`.
+ */
+export function setPacked(mesh: THREE.InstancedMesh, all: number, view: number) {
+	let c = packedCounts.get(mesh)
+	if (!c) packedCounts.set(mesh, (c = { all, view }))
+	c.all = all
+	c.view = view
+	mesh.count = view
+}
+
+/** How many instances `mesh` has packed for the shadow passes, the ones in view among them. */
+export function packedCount(mesh: THREE.InstancedMesh): number {
+	return packedCounts.get(mesh)?.all ?? mesh.count
+}
+
 /** While on, the near cascade's pass leaves out the moving batches, still noting those in its box. */
 export function setNearStill(on: boolean) {
 	nearStill = on
@@ -89,12 +119,13 @@ const test = new THREE.Sphere()
 /**
  * Whether `mesh` (an InstancedMesh in world space, its instances packed to the front) has a drawn
  * instance in `frustum`: for a shadowed light's frustum, an instance whose bounding sphere meets the
- * light's reach and the face; for the near cascade's, one whose sphere meets it; for any other
- * frustum, always.
+ * light's reach and the face; for the near cascade's, one whose sphere meets it; for the far
+ * cascade's, any; for any other (the scene pass's), one in the camera's view.
  */
 export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum): boolean {
 	const reach = reaches.get(frustum)
-	if (!reach && frustum !== nearCascade) return true
+	const all = packedCount(mesh)
+	if (!reach && frustum !== nearCascade) return frustum === farCascade ? all > 0 : mesh.count > 0
 	const g = mesh.geometry
 	if (!g.boundingSphere) g.computeBoundingSphere()
 	const bs = g.boundingSphere!
@@ -102,7 +133,7 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
 	const cx = bs.center.x
 	const cy = bs.center.y
 	const cz = bs.center.z
-	for (let k = 0, o = 0; k < mesh.count; k++, o += 16) {
+	for (let k = 0, o = 0; k < all; k++, o += 16) {
 		const x = a[o] * cx + a[o + 4] * cy + a[o + 8] * cz + a[o + 12]
 		const y = a[o + 1] * cx + a[o + 5] * cy + a[o + 9] * cz + a[o + 13]
 		const z = a[o + 2] * cx + a[o + 6] * cy + a[o + 10] * cz + a[o + 14]
@@ -131,9 +162,21 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
 	return false
 }
 
-/** Lets three cull `mesh` per shadow pass through `instancesMeet`; it is still drawn wherever else three draws it. */
+/**
+ * Lets three cull `mesh` per pass through `instancesMeet`, and has a shadow pass draw every instance
+ * packed, the scene pass only those in view (`setPacked`). A caller that sets shadow hooks of its own
+ * must call these too.
+ */
 export function cullForShadows(mesh: THREE.InstancedMesh) {
 	mesh.frustumCulled = true
+	mesh.onBeforeShadow = () => {
+		const c = packedCounts.get(mesh)
+		if (c) mesh.count = c.all
+	}
+	mesh.onAfterShadow = () => {
+		const c = packedCounts.get(mesh)
+		if (c) mesh.count = c.view
+	}
 	const m = mesh.material
 	const pose = (mesh as { skeleton?: THREE.Skeleton }).skeleton ? MOVES_POSE : 0
 	const material = (Array.isArray(m) ? m.some((x) => movingMaterials.has(x)) : movingMaterials.has(m)) ? MOVES_MATERIAL : 0

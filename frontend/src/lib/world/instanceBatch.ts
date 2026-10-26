@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
-import { cullForShadows } from './shadowReach'
+import { cullForShadows, setPacked } from './shadowReach'
 
 // The instance batch ObjectLayer and SpawnLayer share (#517): the rows of one model's instances (a
 // world matrix and a bounding sphere each), the cull that picks the ones in view, and the packing of
@@ -37,10 +37,10 @@ export function instancedMesh<T>(geometry: THREE.BufferGeometry, material: THREE
 	return m
 }
 
-/** The position of `v` in the ascending `sorted`, or -1. */
-function indexIn(sorted: number[], v: number): number {
-	let lo = 0
-	let hi = sorted.length - 1
+/** The position of `v` in `sorted[from..to)`, ascending, or -1. */
+function indexIn(sorted: number[], v: number, from = 0, to = sorted.length): number {
+	let lo = from
+	let hi = to - 1
 	while (lo <= hi) {
 		const mid = (lo + hi) >> 1
 		const x = sorted[mid]
@@ -66,8 +66,13 @@ export class InstanceBatch<T> {
 	items: T[] = []
 	matrices = new Float32Array(0)
 	spheres = new Float32Array(0)
-	/** Indices into `items` of the rows in view as of the last `cull`, ascending. */
+	/**
+	 * Indices into `items` of the rows in view as of the last `cull`: first the ones in the camera's view
+	 * (`split.view` of them), then the ones only a shadow needs, each part ascending.
+	 */
 	readonly packed: number[] = []
+	/** How many of `packed` lead as the rows in the camera's view. */
+	readonly split = { view: 0 }
 	private readonly scratch: number[] = []
 	/** Makes the next `cull` report a change even with the same rows in view: rows were rewritten. */
 	repack = true
@@ -91,43 +96,46 @@ export class InstanceBatch<T> {
 	 * so the meshes need packing again.
 	 */
 	cull(view: CullView, exempt = -1, doodads = false): boolean {
-		const changed = cullSpheres(view, this.spheres, this.items.length, this.packed, this.scratch, exempt, doodads)
+		const changed = cullSpheres(view, this.spheres, this.items.length, this.packed, this.scratch, exempt, doodads, this.split)
 		const again = this.repack
 		this.repack = false
 		return changed || again
 	}
 
 	/**
-	 * Packs the rows `which` names (ascending indices into `items`; `packed` by default) to the front
-	 * of `mesh`, and the items they draw into `ids` (the mesh's `userData.ids`). An empty mesh is
-	 * hidden: three would still set up each of its groups in every pass (#323).
+	 * Packs the rows `which` names (indices into `items`, `packed` by default, the first `view` of them
+	 * in the camera's view) to the front of `mesh`, and the items they draw into `ids` (the mesh's
+	 * `userData.ids`). The mesh's `count` is the ones in view; its shadow passes draw them all
+	 * (`setPacked`). An empty mesh is hidden: three would still set up each of its groups in every pass (#323).
 	 */
-	pack(mesh: THREE.InstancedMesh, ids: T[], which: number[] = this.packed) {
+	pack(mesh: THREE.InstancedMesh, ids: T[], which: number[] = this.packed, view = this.split.view) {
 		packMatrices(this.matrices, which, mesh.instanceMatrix.array as Float32Array)
 		ids.length = which.length
 		for (let k = 0; k < which.length; k++) ids[k] = this.items[which[k]]
-		mesh.count = which.length
+		setPacked(mesh, which.length, view)
 		mesh.visible = which.length > 0
 		// The whole buffer: a range left from a `patch` not yet uploaded would cut the upload short.
 		mesh.instanceMatrix.clearUpdateRanges()
 		mesh.instanceMatrix.needsUpdate = true
 		wholePending.add(mesh.instanceMatrix)
-		// Picking tests the mesh's sphere first, so it must cover the instances drawn.
+		// Picking tests the mesh's sphere first, so it must cover the instances drawn (in view).
 		mesh.computeBoundingSphere()
 	}
 
 	/**
 	 * Writes the rows `moved` (indices into `items`, rewritten by `setRow` since the last pack) into
-	 * `mesh`, where `which` (as packed into it) draws them, and uploads only those rows (#510). The
-	 * mesh's sphere grows to cover them; the next `pack` fits it again.
+	 * `mesh`, where `which` (as packed into it, the first `view` of them in view) draws them, and
+	 * uploads only those rows (#510). The mesh's sphere grows to cover the ones in view; the next
+	 * `pack` fits it again.
 	 */
-	patch(mesh: THREE.InstancedMesh, moved: readonly number[], which: number[] = this.packed) {
+	patch(mesh: THREE.InstancedMesh, moved: readonly number[], which: number[] = this.packed, view = this.split.view) {
 		const attr = mesh.instanceMatrix
 		const arr = attr.array as Float32Array
 		const ranged = !wholePending.has(attr) && moved.length <= RANGES_MAX
 		let any = false
 		for (const i of moved) {
-			const k = indexIn(which, i)
+			let k = indexIn(which, i, 0, view)
+			if (k < 0) k = indexIn(which, i, view)
 			if (k < 0) continue
 			const s = i * 16
 			const d = k * 16
@@ -137,7 +145,7 @@ export class InstanceBatch<T> {
 			instanceSphere(mesh.geometry, patchM, patchS, 0)
 			patchSphere.center.set(patchS[0], patchS[1], patchS[2])
 			patchSphere.radius = patchS[3]
-			if (mesh.boundingSphere) mesh.boundingSphere.union(patchSphere)
+			if (mesh.boundingSphere && k < view) mesh.boundingSphere.union(patchSphere)
 			any = true
 		}
 		if (!any) return
