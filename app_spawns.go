@@ -53,6 +53,16 @@ func (a *App) EquipmentItems(id int) ([3]int, error) {
 	return vmangos.EquipmentItems(server, id)
 }
 
+// EquipmentDisplays are the display IDs of the held items of each equipment template in ids, for
+// the pickers' icons.
+func (a *App) EquipmentDisplays(ids []int) (map[int][3]int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.EquipmentDisplays(server, ids)
+}
+
 // EquipmentFor is the equipment template with these items (main hand, off hand, ranged), made
 // in the world database when none has them; 0 for none.
 func (a *App) EquipmentFor(items [3]int) (int, error) {

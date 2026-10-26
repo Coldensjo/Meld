@@ -476,7 +476,7 @@ Marshal's Satin Sandals (17607) Honor rank Marshal / General (16). `bun run prob
 ## The creature editor's list pickers (#700, probe `creature-list-pickers`)
 
 Checks: Hogger (448) names his loot, pickpocket loot, spell list (4480) and, on the Looks tab,
-equipment by what they hold, each "(this creature's own)"; Loot's Find offers list 448 before a
+equipment by what they hold (with the weapons' icons, #707), each "(this creature's own)"; Loot's Find offers list 448 before a
 search, a search for "Linen Cloth" lists other loot with "used by N creatures", and a pick puts its
 number in (the field turns changed); Zaldimar Wefhellt (328) names trainer list 1 by its spells
 (used by 25 creatures) and his gossip menu by its first line; Innkeeper Helbrek (1464) vendor list

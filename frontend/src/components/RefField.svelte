@@ -28,6 +28,7 @@
 		type NameKind,
 		type RefName,
 	} from '../lib/wow/refNames'
+	import EquipIcons from './EquipIcons.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -295,7 +296,9 @@
 				{#if special !== undefined}
 					<span>{special}</span>
 				{:else if target && shown && shown.name}
-					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell' || target.kind === 'spell icon'}<SpellIcon icon={shown.icon ?? ''} />{/if}
+					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell' || target.kind === 'spell icon'}<SpellIcon
+							icon={shown.icon ?? ''}
+						/>{:else if target.kind === 'equipment'}<EquipIcons id={target.id} />{/if}
 					<span style:color={target.kind === 'item' ? (QUALITY_VARS[shown.quality ?? 1] ?? QUALITY_VARS[1]) : undefined}>{shown.name}</span>
 					{#if kinds[1]}<span class="dim">({SIDE_NAMES[target.kind]})</span>{/if}
 					{#if isOwn(target.id)}<span class="dim own">(this {owner}'s own)</span>{/if}
@@ -341,7 +344,9 @@
 					{#each hits as h (h.kind + h.id)}
 						<li>
 							<button onclick={() => pick(h)}>
-								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell' || h.kind === 'spell icon'}<SpellIcon icon={h.icon ?? ''} />{/if}
+								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell' || h.kind === 'spell icon'}<SpellIcon icon={h.icon ?? ''} />{:else if h.kind === 'equipment'}<EquipIcons
+										id={h.id}
+									/>{/if}
 								<span class="hit" style:color={h.kind === 'item' ? (QUALITY_VARS[h.quality ?? 1] ?? QUALITY_VARS[1]) : undefined}>{h.name}</span>
 								<span class="dim">{h.sub}{isOwn(h.id) ? ` · this ${owner}'s own` : ''}</span>
 							</button>

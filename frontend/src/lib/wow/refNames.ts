@@ -1,4 +1,4 @@
-import { Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, SpellTables, SpellsWithVisual, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
+import { EquipmentDisplays, Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, SpellTables, SpellsWithVisual, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { areaName, loadAreas } from './areas'
 import { lockText } from './locks'
@@ -401,4 +401,38 @@ export function refTarget(ref: string, value: number): { kind: NameKind; id: num
 			return { kind: 'quest', id }
 	}
 	return { kind: ref as NameKind, id: value }
+}
+
+const gear = new Map<number, Promise<number[]>>()
+const gearAsked = new Map<number, (d: number[]) => void>()
+let gearFlush = 0
+
+/**
+ * The display IDs of the weapons an equipment template holds (main hand, off hand, ranged; 0 for an
+ * empty slot), for the pickers' icons (#707). Asks made in the same tick go to the server as one.
+ */
+export function equipmentDisplays(id: number): Promise<number[]> {
+	let p = gear.get(id)
+	if (!p) {
+		p = new Promise<number[]>((resolve) => gearAsked.set(id, resolve))
+		gear.set(id, p)
+		if (!gearFlush) {
+			gearFlush = window.setTimeout(() => {
+				gearFlush = 0
+				const asked = new Map(gearAsked)
+				gearAsked.clear()
+				EquipmentDisplays([...asked.keys()])
+					.then((got: Record<number, number[]> | null) => {
+						for (const [k, done] of asked) done(got?.[k] ?? [])
+					})
+					.catch(() => {
+						for (const [k, done] of asked) {
+							gear.delete(k)
+							done([])
+						}
+					})
+			}, 0)
+		}
+	}
+	return p
 }

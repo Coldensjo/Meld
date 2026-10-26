@@ -126,6 +126,10 @@ export function EquipBonuses() {
   return window['go']['main']['App']['EquipBonuses']();
 }
 
+export function EquipmentDisplays(arg1) {
+  return window['go']['main']['App']['EquipmentDisplays'](arg1);
+}
+
 export function EquipmentFor(arg1) {
   return window['go']['main']['App']['EquipmentFor'](arg1);
 }

@@ -70,6 +70,8 @@ export function EndRecovery():Promise<void>;
 
 export function EquipBonuses():Promise<Array<vmangos.EquipBonusKind>>;
 
+export function EquipmentDisplays(arg1:Array<number>):Promise<Record<number, any>>;
+
 export function EquipmentFor(arg1:any):Promise<number>;
 
 export function EquipmentItems(arg1:number):Promise<any>;

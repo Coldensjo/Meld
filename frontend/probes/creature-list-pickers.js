@@ -46,6 +46,8 @@ got.changed = ref('Loot').classList.contains('changed')
 tab('Looks').click()
 await P.until(() => named('Equipment'), WAIT, "Hogger's equipment")
 got.equipment = text('Equipment')
+await P.until(() => ref('Equipment').querySelector('.name img'), WAIT, "Hogger's equipment icon")
+got.equipmentIcons = ref('Equipment').querySelectorAll('.name img').length
 
 await open(328, 'Creature')
 await P.until(() => named('Trainer list') && named('Gossip menu'), WAIT, "Zaldimar's lists")
@@ -71,6 +73,7 @@ const ok =
 	got.loot.includes(own) &&
 	got.pickpocket.includes(own) &&
 	got.equipment.includes(own) &&
+	got.equipmentIcons > 0 &&
 	got.spells.includes(own) &&
 	/448 · this creature's own/.test(got.offered) &&
 	got.searched.some((h) => /used by \d+ creature/.test(h)) &&

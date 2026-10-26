@@ -168,3 +168,38 @@ func EquipmentFor(serverRoot string, items [3]int) (int, error) {
 	}
 	return id, err
 }
+
+// EquipmentDisplays are the display IDs of the held items of each equipment template in ids (its
+// likeliest row's main hand, off hand and ranged item, 0 for an empty slot or an unknown item), for
+// the pickers' icons (#707). A template the database lacks is left out.
+func EquipmentDisplays(serverRoot string, ids []int) (map[int][3]int, error) {
+	out := map[int][3]int{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return nil, err
+	}
+	list := make([]string, len(ids))
+	for i, id := range ids {
+		list[i] = strconv.Itoa(id)
+	}
+	display := func(c string) string {
+		return "COALESCE((SELECT display_id FROM item_template WHERE entry = e." + c + " ORDER BY patch DESC LIMIT 1), 0)"
+	}
+	raw, err := runSQL(db, "SELECT e.entry, "+display("item1")+", "+display("item2")+", "+display("item3")+" FROM creature_equip_template e WHERE e.entry IN ("+strings.Join(list, ",")+") ORDER BY e.entry, e.probability DESC")
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range batchRows(raw, 4) {
+		n, ok := atoiAll(f)
+		if !ok {
+			continue
+		}
+		if _, seen := out[n[0]]; !seen {
+			out[n[0]] = [3]int{n[1], n[2], n[3]}
+		}
+	}
+	return out, nil
+}
