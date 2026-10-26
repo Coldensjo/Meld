@@ -27,6 +27,8 @@ const FRAME_RATE = 24
 const RIVER_DEPTH_FULL = 42
 /** Water's own shininess for the sun's sheen. */
 const WATER_SHININESS = 6
+/** Yards past the map's edge over which the sea's ground falls from the edge's height to deep (#748), about a tile. */
+const SEA_FADE = 533
 /** A texture repeats every four cells, as noggit's liquid uv (vertex index / 4). */
 const UV_SCALE = 1 / (4 * (TILE_YARDS / 128))
 
@@ -190,17 +192,21 @@ varying float vDepth;
 varying float vKind;
 
 #ifdef SEA
-// The ground under the sea, bilinear between the four vertices around the point.
-float groundAt(vec2 p) {
+// The ground under the sea, bilinear between the four vertices around the point. Past the map it carries
+// on from the edge's height and falls to deep, where the swatch is at its last row, over ${SEA_FADE} yd
+// (#748): a step straight to deep at the edge drew the map's square as a pale rectangle in a dark sea.
+float groundAt(vec2 p, float deep) {
   vec2 g = p / groundCell;
-  if (g.x < 0.0 || g.y < 0.0 || g.x > groundVerts - 1.0 || g.y > groundVerts - 1.0) return -1e4;
-  vec2 i = min(floor(g), vec2(groundVerts - 2.0));
-  vec2 f = g - i;
+  vec2 gc = clamp(g, vec2(0.0), vec2(groundVerts - 1.0));
+  vec2 i = min(floor(gc), vec2(groundVerts - 2.0));
+  vec2 f = gc - i;
   float a = texelFetch(groundTex, ivec2(i), 0).r;
   float b = texelFetch(groundTex, ivec2(i) + ivec2(1, 0), 0).r;
   float c = texelFetch(groundTex, ivec2(i) + ivec2(0, 1), 0).r;
   float d = texelFetch(groundTex, ivec2(i) + ivec2(1, 1), 0).r;
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  float h = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  float past = length(g - gc) * groundCell;
+  return past > 0.0 ? mix(h, min(h, deep), smoothstep(0.0, ${SEA_FADE}.0, past)) : h;
 }
 #endif
 
@@ -255,7 +261,7 @@ void main() {
   vec2 uv = vWorldPos.xz * uvScale;
   float depth = vDepth;
 #ifdef SEA
-  depth = clamp((vWorldPos.y - groundAt(vWorldPos.xz) + 1.0) * seaOpacity, 0.0, 1.0);
+  depth = clamp((vWorldPos.y - groundAt(vWorldPos.xz, vWorldPos.y + 1.0 - 1.0 / seaOpacity) + 1.0) * seaOpacity, 0.0, 1.0);
 #endif
   vec3 col;
   float alpha;

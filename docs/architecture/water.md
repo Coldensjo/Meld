@@ -22,7 +22,7 @@ Liquids, the sea and how both are drawn and exported.
     leave the cell), each corner at the curve's nearest surface height, so the surface slopes down
     the river within and across chunks, and the depth from the carved bed by the brush's rule.
   - The sea (`editor.waterEnabled`/`waterLevel`, `Water.ts`) is a map-wide ocean plane. Its shader
-    reads the ground's depth from `Terrain.heightTexture()`. The export writes it as ocean in the
+    reads the ground's depth from `Terrain.heightTexture()`. Past the map (the plane is 10 map widths across) the ground carries on from the edge's height and falls to the depth where the swatch reaches its last row over `SEA_FADE` yd (`groundAt`, #748), so the colour fades out from the edge instead of stepping there. The export writes it as ocean in the
     cells that no painted layer covers. The terrain shader tints the ground under it and draws a foam
     line at the waterline (`TerrainMaterial.ts`), 0.35 yd either side but never thinner than about a
     pixel (`fwidth`), dimmed as it widens: thinner, it sparkled along every coast in flight (#747).

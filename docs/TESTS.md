@@ -687,6 +687,7 @@ the same scene, the report before and after.
 - Reference image (View › Reference Image, #184)
 - Water layers (the Water tool's All layers / Layer, #14)
 - The coast while the camera moves: the foam line's shimmer (#747, probe `coast-foam`)
+- The sea past the map's edge (#748, probe `sea-edge`)
 - Baked shadows: bake, paint, save and export (B-057, #16)
 - The .wmap snapshot round trip and every readable version (#431)
 - The unknown state of holes, liquids and chunk data across a save (#525, #644, #663, probe `unknown-flags`)

@@ -432,6 +432,18 @@ to 50 without foam; widened to the pixel and dimmed to match (`band` in `Terrain
   the same swing, and worked out for a 24-bit buffer the band where the sea and a beach are within
   one depth step is under a yard wide at 2000 yd, far below a pixel's footprint there.
 
+## The sea past the map's edge (#748, probe `sea-edge`)
+
+Checks: the sea's colour carries on across the map's edge instead of stepping to the deep colour
+there. `bun run probe sea-edge --shot <dir>` makes a flat map under 20 yd of sea, looks down at the
+west edge from 600 yd, and compares 9 by 9 pixel boxes 6 yd either side of the edge (a step of about
+1 now) and one 250 yd or more past the north edge (darker, about 78 against 87). It then patches the
+sea shader's `past` back to a jump straight to deep, as before #748, and checks the step comes back
+(about 29); the `step` shot shows the map's square as a pale rectangle in a dark sea.
+
+- The camera needs `setFollowGround(true)` before `setView`: flying, the target is the camera's own
+  position, and `project` puts the edge off the view.
+
 ## Baked shadows: bake, paint, save and export (B-057, #16)
 
 Checks: a region's client shadows become the map's, the Map data tool's Shadow mode paints them,
