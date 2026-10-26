@@ -6,13 +6,15 @@
 	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
 	import { defaultLayerTextures } from '../lib/wow/defaults'
 	import { LAYERS } from '../lib/terrain/layers'
-	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawPresetPreview, presetById, type PresetId, type ShapeOptions } from '../lib/terrain/presets'
+	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawHeights, drawPresetPreview, presetById, type PresetId, type ShapeOptions } from '../lib/terrain/presets'
+	import { imageRatios } from '../lib/io/heightmapImport'
+	import { guarded } from '../lib/io/backend'
 	import { boundingSquare, gridTile, maskBytes, maskOf } from '../lib/terrain/tileMask'
 	import type { VmangosRef } from '../lib/engine/MapDocument'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { openWorldView, openWowBuilding, openWowRegion } from '../lib/io/region'
-	import { MapEntries, MapZones } from '../../wailsjs/go/main/App'
+	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
 	// Every map Meld makes is a map for the 1.12 client and the VMaNGOS server. It starts
@@ -43,6 +45,42 @@
 	/** Only the island presets have a coast for Land to move. */
 	const landApplies = $derived(presetById(preset).water && preset !== 'ocean')
 	const lookChanged = $derived((Object.keys(DEFAULT_SHAPE) as (keyof ShapeOptions)[]).some((k) => look[k] !== DEFAULT_SHAPE[k]))
+	// --- From a heightmap (#745) ---------------------------------------------------------------------
+	/** The heightmap image the world starts from, once one is chosen, and whether it is picked over the presets. */
+	let image = $state<{ name: string; side: number; heights: number[] } | null>(null)
+	let fromImage = $state(false)
+	/**
+	 * Its black and white in yards, the sea at 0 or none, and its own Erosion, none to start with: Gaea,
+	 * World Machine and World Creator erode their terrain already. The presets' sliders don't apply.
+	 */
+	let imageLook = $state({ min: -40, max: 240, sea: true, erosion: 0 })
+	const imageOk = $derived(!fromImage || (!!image && Number.isFinite(imageLook.min) && Number.isFinite(imageLook.max) && imageLook.max > imageLook.min))
+	/** Asks for a heightmap PNG and picks it; cancelling keeps the one before. */
+	function pickImage() {
+		return guarded('Read heightmap', async () => {
+			const path = await OpenHeightmapDialog()
+			if (!path) {
+				if (image) fromImage = true
+				return
+			}
+			const img = await ReadHeightmap(path)
+			image = { name: path.slice(Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/')) + 1), side: img.side, heights: img.heights }
+			fromImage = true
+		})
+	}
+	/** Draws the chosen image into its card as the world it makes, by Min, Max and Sea. */
+	function imagePreview(canvas: HTMLCanvasElement) {
+		$effect(() => {
+			if (!image) return
+			const px = 96
+			const r = imageRatios(image, px + 1)
+			const { min, max, sea } = imageLook
+			const h = new Float32Array(r.length)
+			for (let i = 0; i < r.length; i++) h[i] = min + r[i] * (max - min)
+			drawHeights(canvas, h, px, sea, square.size, shape)
+		})
+	}
+
 	let mapId = $state(1900)
 	let showId = $state(false)
 	const nameOk = $derived(/^[A-Za-z0-9_-]+$/.test(name.trim()))
@@ -141,13 +179,14 @@
 	}
 
 	async function create() {
-		if (!nameOk || !mapIdOk) return
+		if (!nameOk || !mapIdOk || !imageOk) return
 		const palette = wow.loaded ? await defaultLayerTextures() : LAYERS.map((l) => l.swatch)
 		const ref: VmangosRef = { dir: name.trim(), mapId }
 		if (square.x) ref.tileX = square.x
 		if (square.y) ref.tileY = square.y
 		if (mask) ref.tiles = mask
-		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref, { ...look })
+		const ground = fromImage && image ? { img: image, min: imageLook.min, max: imageLook.max, sea: imageLook.sea } : undefined
+		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref, ground ? { erosion: imageLook.erosion } : { ...look }, ground)
 		editor.palette = palette
 		editor.dirty = false
 		engineRef.current?.refreshTabs()
@@ -200,37 +239,81 @@
 				</div>
 				<div class="presets">
 					{#each PRESETS as p (p.id)}
-						<button class="preset" class:active={preset === p.id} onclick={() => (preset = p.id)} title={p.blurb}>
+						<button
+							class="preset"
+							class:active={!fromImage && preset === p.id}
+							onclick={() => {
+								preset = p.id
+								fromImage = false
+							}}
+							title={p.blurb}
+						>
 							<canvas use:preview={p.id} width="96" height="96"></canvas>
 							<b>{p.name}</b>
 							<small>{p.blurb}</small>
 						</button>
 					{/each}
+					<button
+						class="preset fromimage"
+						class:active={fromImage}
+						onclick={() => void pickImage()}
+						disabled={!hasBackend()}
+						title="A 16-bit greyscale PNG from Gaea, World Machine, World Creator or the like, stretched over the whole world"
+					>
+						{#if image}
+							<canvas use:imagePreview width="96" height="96"></canvas>
+						{:else}
+							<span class="pick">PNG</span>
+						{/if}
+						<b>From a heightmap…</b>
+						<small>{image ? image.name : 'A greyscale PNG made in Gaea, World Machine or the like.'}</small>
+					</button>
 				</div>
 			</div>
-			<div class="row look">
-				<label class="field slider" title="How tall the land stands above the sea">
-					<span>Height <b>{look.relief.toFixed(1)}×</b></span>
-					<input type="range" min="0.4" max="2" step="0.1" bind:value={look.relief} />
-				</label>
-				<label class="field slider" title="How much small detail lies over the hills: bumps, knolls and broken ground">
-					<span>Roughness <b>{look.roughness.toFixed(1)}×</b></span>
-					<input type="range" min="0" max="2" step="0.1" bind:value={look.roughness} />
-				</label>
-				<label class="field slider" title="How much water and gravity carve the ground once it is made: valleys, gullies and scree. Not shown in the pictures; a large world takes a moment longer.">
-					<span>Erosion <b>{look.erosion ? `${Math.round(look.erosion * 100)}%` : 'none'}</b></span>
-					<input type="range" min="0" max="1" step="0.05" bind:value={look.erosion} />
-				</label>
-				<label class="field slider" title={landApplies ? 'How much of the map is land: a small island in open sea at the left, land up to the edges at the right' : 'This preset has no coast'}>
-					<span>Land <b>{Math.round(look.land * 100)}%</b></span>
-					<input type="range" min="0" max="1" step="0.05" bind:value={look.land} disabled={!landApplies} />
-				</label>
-				<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
-					<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>
-					<input type="range" min="0.2" max="3" step="0.1" bind:value={look.seaDepth} disabled={!presetById(preset).water} />
-				</label>
-				<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
-			</div>
+			{#if fromImage}
+				<div class="row look image">
+					<label class="field num" title="The height in yards the image's black becomes">
+						<span>Black at (yd)</span>
+						<input type="number" step="any" bind:value={imageLook.min} />
+					</label>
+					<label class="field num" title="The height in yards the image's white becomes">
+						<span>White at (yd)</span>
+						<input type="number" step="any" bind:value={imageLook.max} />
+					</label>
+					<label class="check" title="Sea at 0 yd over the ground below it: set Black below 0 for a coast">
+						<input type="checkbox" bind:checked={imageLook.sea} /> Sea at 0 yd
+					</label>
+					<label class="field slider" title="How much water and gravity carve the ground once it is made. None to start with, since Gaea and World Machine erode their terrain already.">
+						<span>Erosion <b>{imageLook.erosion ? `${Math.round(imageLook.erosion * 100)}%` : 'none'}</b></span>
+						<input type="range" min="0" max="1" step="0.05" bind:value={imageLook.erosion} />
+					</label>
+				</div>
+				{#if !imageOk}<p class="warn">White must be higher than Black.</p>{/if}
+			{:else}
+				<div class="row look">
+					<label class="field slider" title="How tall the land stands above the sea">
+						<span>Height <b>{look.relief.toFixed(1)}×</b></span>
+						<input type="range" min="0.4" max="2" step="0.1" bind:value={look.relief} />
+					</label>
+					<label class="field slider" title="How much small detail lies over the hills: bumps, knolls and broken ground">
+						<span>Roughness <b>{look.roughness.toFixed(1)}×</b></span>
+						<input type="range" min="0" max="2" step="0.1" bind:value={look.roughness} />
+					</label>
+					<label class="field slider" title="How much water and gravity carve the ground once it is made: valleys, gullies and scree. Not shown in the pictures; a large world takes a moment longer.">
+						<span>Erosion <b>{look.erosion ? `${Math.round(look.erosion * 100)}%` : 'none'}</b></span>
+						<input type="range" min="0" max="1" step="0.05" bind:value={look.erosion} />
+					</label>
+					<label class="field slider" title={landApplies ? 'How much of the map is land: a small island in open sea at the left, land up to the edges at the right' : 'This preset has no coast'}>
+						<span>Land <b>{Math.round(look.land * 100)}%</b></span>
+						<input type="range" min="0" max="1" step="0.05" bind:value={look.land} disabled={!landApplies} />
+					</label>
+					<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
+						<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>
+						<input type="range" min="0.2" max="3" step="0.1" bind:value={look.seaDepth} disabled={!presetById(preset).water} />
+					</label>
+					<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
+				</div>
+			{/if}
 			<div class="row bottom">
 				<label class="field seed">
 					<span>Seed</span>
@@ -299,7 +382,7 @@
 	{#snippet actions()}
 		{#if mode === 'new'}
 			<button onclick={close}>Cancel</button>
-			<button class="active" disabled={!nameOk || !mapIdOk} onclick={create}>Create world</button>
+			<button class="active" disabled={!nameOk || !mapIdOk || !imageOk} onclick={create}>Create world</button>
 		{:else}
 			<span class="dim grow"
 				>{building
@@ -448,6 +531,31 @@
 	}
 	.preset.active small {
 		color: var(--text);
+	}
+	.preset small {
+		overflow-wrap: anywhere;
+	}
+	.fromimage .pick {
+		width: 100%;
+		aspect-ratio: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px dashed var(--border);
+		border-radius: 4px;
+		color: var(--text-dim);
+	}
+	.num input {
+		width: 90px;
+	}
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
+		color: var(--text-dim);
+		align-self: flex-end;
+		padding-bottom: 4px;
 	}
 	.seedrow {
 		display: flex;

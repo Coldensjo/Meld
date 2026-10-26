@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { fbm } from '../engine/noise'
 import { snowLine as snowLineOf, type CoastShape, type PresetId, type ShapeOptions } from './presets'
-import { generateHeights } from './generate'
+import { generateHeights, imageGroundHeights, type ImageGround } from './generate'
 import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
@@ -647,6 +647,12 @@ export class Terrain {
 	 */
 	generate(kind: GenerateKind, seed: number, shape?: CoastShape | null, opts?: Partial<ShapeOptions>) {
 		generateHeights(this.heights, this.size, this.cellSize, kind, seed, shape, opts)
+		this.markAllDirty()
+	}
+
+	/** The ground from a heightmap image (#745), eroded at `erosion` (0 to 1). */
+	generateFromImage(g: ImageGround, erosion: number, seed: number) {
+		imageGroundHeights(this.heights, this.size, this.cellSize, g, erosion, seed)
 		this.markAllDirty()
 	}
 

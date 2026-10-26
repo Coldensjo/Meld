@@ -478,6 +478,14 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   leave at cliff feet; a Canyon's walls go on after the erosion, whose gullies would cut ramps through
   them. Land (0 to 1, 0.5 the old coast) moves where `coast` starts to fall off (and, for Archipelago, the threshold of its `where` mask): a small island at 0, land up to the edges at 1; Canyon, Open sea and Flat ignore it. Other callers of `newDocument` (the benchmark maps, probes) get no erosion. `snowLine` keeps
   snow to ground over 110 yd above the water, so hilltops stay green.
+  **From a heightmap** (#745): the card after the presets asks for a PNG (`OpenHeightmapDialog`,
+  `ReadHeightmap`, as Terrain > Import Heightmap, #44) and swaps the sliders for Black at and White at
+  (yards), Sea at 0 yd and its own Erosion, none to start (Gaea and World Machine erode already; the
+  loop's choice, see the issue). `Engine.newVmangosDocument`'s `image` (`ImageGround`) goes to
+  `Terrain.generateFromImage`, `generate.ts` `imageGroundHeights`: `imageRatios` stretches the image
+  over the whole square (tiles left out are masked as for a preset, not avoided), then the same erosion,
+  from ground above the sea (everywhere without one). The sea is the water level 0, or none (Flat
+  land's -2); the card's picture is `drawHeights`, the presets' painter.
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'

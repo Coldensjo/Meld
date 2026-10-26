@@ -344,24 +344,27 @@ export function snowLine(waterLevel: number, maxH: number): number {
  * `o.shape`, over its square, the tiles left out dark. Erosion isn't drawn: it is too slow to run here.
  */
 export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed: number, px: number, o: HeightOptions) {
+	const s = px + 1
+	const h = new Float32Array(s * s)
+	for (let y = 0; y <= px; y++) for (let x = 0; x <= px; x++) h[y * s + x] = presetHeight(id, x / px, y / px, seed, o)
+	drawHeights(canvas, h, px, presetById(id).water, o.tiles, o.shape)
+}
+
+/**
+ * Paints heights `h` ((px+1)² yards, over a map of `tiles` a side) as `drawPresetPreview` does: the sea
+ * below 0 when `water`, and with `shape` the tiles left out dark. Also the From a heightmap card's (#745).
+ */
+export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, water: boolean, tiles: number, shape?: CoastShape | null) {
 	canvas.width = canvas.height = px
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return
 	const img = ctx.createImageData(px, px)
 	const s = px + 1
-	const h = new Float32Array(s * s)
 	let maxH = 0
-	for (let y = 0; y <= px; y++)
-		for (let x = 0; x <= px; x++) {
-			const v = presetHeight(id, x / px, y / px, seed, o)
-			h[y * s + x] = v
-			maxH = Math.max(maxH, v)
-		}
-	const water = presetById(id).water
+	for (const v of h) maxH = Math.max(maxH, v)
 	const snow = snowLine(0, maxH)
 	// Yards a pixel, for the slope.
-	const cell = (o.tiles * TILE_YARDS) / px
-	const shape = o.shape
+	const cell = (tiles * TILE_YARDS) / px
 	for (let y = 0; y < px; y++) {
 		for (let x = 0; x < px; x++) {
 			const v = h[y * s + x]

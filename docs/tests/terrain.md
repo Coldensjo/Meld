@@ -141,6 +141,20 @@ view over each.
   Ground on; with it off the camera sits on the target and the distance does nothing. Keep the
   distance under 900 (`maxDistance`) and inside the fog, or the shot is the sky's colour.
 
+## A new world from a heightmap (#745, probe `new-world-image`)
+
+Checks: the New world page's From a heightmap… card. `imageGroundHeights` has a unit test in
+`terrainGenerate.test.ts` (black and white at Min and Max, bilinear between samples, erosion moving the
+ground). In the live app, `bun run probe new-world-image --shot <dir>` stubs `OpenHeightmapDialog` and
+`ReadHeightmap` on `window.go.main.App` with a 64-pixel grey cone made in the page (no file, no client
+sandbox), picks it, sets Black -40 and White 200 and makes a Small world: its middle near 200 yd, its
+corners at -40 under a sea at 0. About 25 s.
+
+- Stubbing a file binding: the generated `wailsjs` functions look `window.go.main.App.<Name>` up at
+  call time, so assigning it in the probe (and putting it back in a `finally`) reaches the dialog's
+  imports too; a stubbed `ReadHeightmap` returns `{ side, heights }` with heights from -1024 (black) to
+  1024 (white), as `internal/heightmap` decodes them.
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are

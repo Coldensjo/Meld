@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CoastShape, presetHeight, snowLine, type PresetId } from '../src/lib/terrain/presets.ts'
-import { generateHeights } from '../src/lib/terrain/generate.ts'
+import { generateHeights, imageGroundHeights } from '../src/lib/terrain/generate.ts'
 
 const CELL = 1600 / 3 / 128
 const TILE = 1600 / 3
@@ -196,4 +196,22 @@ test('Land moves the shore: a small island at 0, the default coast at 0.5, land 
 	assert.ok(share('hills', 1, shape) > share('hills', 0, shape) + 0.2)
 	// Canyon and the open sea ignore it.
 	assert.equal(presetHeight('canyon', 0.3, 0.4, 5, { tiles: 4, land: 0 }), presetHeight('canyon', 0.3, 0.4, 5, { tiles: 4, land: 1 }))
+})
+
+test('a world from a heightmap stretches the image over the map between its black and white heights (#745)', () => {
+	// A 3x3 image: black left, mid grey in the middle column, white right (heights as internal/heightmap decodes them).
+	const img = { side: 3, heights: [-1024, 0, 1024, -1024, 0, 1024, -1024, 0, 1024] }
+	const size = 8
+	const out = new Float32Array((size + 1) ** 2)
+	imageGroundHeights(out, size, CELL, { img, min: -40, max: 200, sea: true })
+	const at = (x: number, z: number) => out[z * (size + 1) + x]
+	assert.equal(at(0, 0), -40)
+	assert.equal(at(size, size), 200)
+	assert.ok(Math.abs(at(size / 2, 3) - 80) < 1e-4, `middle ${at(size / 2, 3)}`)
+	// Bilinear between the samples: a quarter of the way across is a quarter of the way up to the grey.
+	assert.ok(Math.abs(at(2, 5) - 20) < 1e-4, `quarter ${at(2, 5)}`)
+	// Erosion leaves the range roughly where it was but moves the ground.
+	const eroded = new Float32Array(out.length)
+	imageGroundHeights(eroded, size, CELL, { img, min: -40, max: 200, sea: true }, 1, 3)
+	assert.ok(eroded.some((v, i) => Math.abs(v - out[i]) > 1e-3))
 })

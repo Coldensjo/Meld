@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { CoastShape, presetById, type ShapeOptions } from '../terrain/presets'
+import type { ImageGround } from '../terrain/generate'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
 import type { Command } from '../state/history'
@@ -2654,12 +2655,19 @@ export class Engine {
 	 * Create a new map in its own tab. `setup` fills it before the tab opens (the benchmark maps, #322),
 	 * since opening copies its `meta` into `editor`.
 	 */
-	newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void, shape?: CoastShape | null, opts?: Partial<ShapeOptions>) {
+	newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void, shape?: CoastShape | null, opts?: Partial<ShapeOptions>, image?: ImageGround) {
 		const d = new MapDocument(size, this.uniqueName(name))
-		d.terrain.generate(kind, seed, shape, opts)
-		const preset = presetById(kind)
-		d.meta.waterLevel = preset.waterLevel
-		d.meta.waterEnabled = preset.water
+		if (image) {
+			// From a heightmap (#745): the sea at 0 when asked, else none, as Flat land's.
+			d.terrain.generateFromImage(image, opts?.erosion ?? 0, seed)
+			d.meta.waterLevel = image.sea ? 0 : presetById('flat').waterLevel
+			d.meta.waterEnabled = image.sea
+		} else {
+			d.terrain.generate(kind, seed, shape, opts)
+			const preset = presetById(kind)
+			d.meta.waterLevel = preset.waterLevel
+			d.meta.waterEnabled = preset.water
+		}
 		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled)
 		setup?.(d)
 		d.meta.roles = guessRoles(d.meta.palette)
@@ -2963,11 +2971,12 @@ export class Engine {
 	 * A new map to export for the 1.12 client, of tiles x tiles 128-cell tiles. It's made the same as
 	 * any new map, then marked with its folder and map ID, and its place and tiles on the client's grid
 	 * (`ref.tileX`, `tileY`, `tiles`, #46): a preset's coast follows the tiles, and those left out are hidden.
-	 * `opts` are the New world page's Height, Roughness and Erosion (#744).
+	 * `opts` are the New world page's Height, Roughness and Erosion (#744); `image`, when given, is the ground
+	 * instead of the preset (From a heightmap, #745), eroded at `opts.erosion`.
 	 */
-	newVmangosDocument(tiles: number, kind: GenerateKind, seed: number, ref: VmangosRef, opts?: Partial<ShapeOptions>): MapDocument {
+	newVmangosDocument(tiles: number, kind: GenerateKind, seed: number, ref: VmangosRef, opts?: Partial<ShapeOptions>, image?: ImageGround): MapDocument {
 		const mask = maskBytes(ref.tiles, tiles)
-		const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir, (doc) => doc.terrain.setTileMask(mask), mask ? new CoastShape(mask, tiles) : null, opts)
+		const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir, (doc) => doc.terrain.setTileMask(mask), mask ? new CoastShape(mask, tiles) : null, opts, image)
 		d.meta.vmangos = { ...ref }
 		if (!mask) delete d.meta.vmangos.tiles
 		return d

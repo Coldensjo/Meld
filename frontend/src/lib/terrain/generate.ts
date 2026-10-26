@@ -4,6 +4,7 @@
 import { Eroder, talusSlope } from './erosion'
 import { canyonWall, presetHeight, type CoastShape, type PresetId, type ShapeOptions } from './presets'
 import { TILE_YARDS } from '../wow/format'
+import { imageRatios } from '../io/heightmapImport'
 
 /** Water drops a cell at full erosion, and thermal passes after them. */
 const FULL_DENSITY = 0.8
@@ -27,13 +28,40 @@ export function generateHeights(out: Float32Array, size: number, cellSize: numbe
 	if (walls) for (let z = 0; z < V; z++) for (let x = 0; x < V; x++) out[z * V + x] += canyonWall(x / size, z / size, seed, h)
 }
 
-/** Erodes the heights `hs` (`V` a side, yards) in place at `strength` 0 to 1: the Eroder works in cell units. */
-function erode(hs: Float32Array, V: number, cellSize: number, strength: number, seed: number) {
+/**
+ * A new world started from a heightmap image (#745), as Terrain > Import Heightmap reads it (#44): the
+ * decoded image (internal/heightmap, through the ReadHeightmap binding), its black at `min` yards and
+ * its white at `max`, stretched over the whole map, with the sea at 0 when `sea`.
+ */
+export interface ImageGround {
+	img: { side: number; heights: ArrayLike<number> }
+	min: number
+	max: number
+	sea: boolean
+}
+
+/**
+ * Fills `out`, the (size+1)² heights of a map of `size` cells of `cellSize` yards, from `g`'s image
+ * resampled to the map's grid, then erodes it at `erosion` (0 to 1) as a preset is: off by default,
+ * since Gaea and World Machine erode already.
+ */
+export function imageGroundHeights(out: Float32Array, size: number, cellSize: number, g: ImageGround, erosion = 0, seed = 0) {
+	const ratios = imageRatios(g.img, size + 1)
+	for (let i = 0; i < out.length; i++) out[i] = g.min + ratios[i] * (g.max - g.min)
+	const e = Math.min(1, Math.max(0, erosion))
+	if (e > 0) erode(out, size + 1, cellSize, e, seed, g.sea ? 0 : -Infinity)
+}
+
+/**
+ * Erodes the heights `hs` (`V` a side, yards) in place at `strength` 0 to 1: the Eroder works in cell
+ * units. Drops start only on ground above `landAbove` (the sea, or -Infinity on a map without one).
+ */
+function erode(hs: Float32Array, V: number, cellSize: number, strength: number, seed: number, landAbove = 0) {
 	// Drops start on land only: rain on the seabed would carve its ridges as if they stood in the air.
 	const spawn = new Float32Array(hs.length)
 	let land = 0
 	for (let i = 0; i < hs.length; i++) {
-		if (hs[i] > 0) {
+		if (hs[i] > landAbove) {
 			spawn[i] = 1
 			land++
 		}
