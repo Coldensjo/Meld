@@ -47,7 +47,7 @@ func TestTaxiAndCinematicNames(t *testing.T) {
 }
 
 func TestWorldRefSQL(t *testing.T) {
-	for _, k := range []string{"gossip", "page", "text", "event", "loot", "vendor", "trainer", "equipment", "creature loot", "pickpocket loot", "skinning loot", "spell list", "gossip script", "map point"} {
+	for _, k := range []string{"gossip", "page", "text", "event", "loot", "vendor", "trainer", "equipment", "creature loot", "pickpocket loot", "skinning loot", "spell list", "gossip script", "map point", "quest start script", "quest end script", "exclusive group"} {
 		q, err := worldRefSQL(k, worldRefMatch(k, "12"))
 		if err != nil || !strings.Contains(q, "id = 12") {
 			t.Fatalf("%s: %q, %v", k, q, err)

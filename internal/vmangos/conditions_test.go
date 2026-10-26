@@ -68,16 +68,19 @@ func TestCreatureListRefsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := map[string]string{
-		"vendor":          "SELECT MIN(entry) FROM npc_vendor_template",
-		"trainer":         "SELECT MIN(entry) FROM npc_trainer_template",
-		"equipment":       "SELECT MIN(entry) FROM creature_equip_template WHERE item1 > 0",
-		"creature loot":   "SELECT MIN(entry) FROM creature_loot_template",
-		"pickpocket loot": "SELECT MIN(entry) FROM pickpocketing_loot_template",
-		"skinning loot":   "SELECT MIN(entry) FROM skinning_loot_template",
-		"spell list":      "SELECT MIN(entry) FROM creature_spells",
-		"gossip script":   "SELECT MIN(id) FROM gossip_scripts",
-		"map point":       "SELECT MIN(entry) FROM points_of_interest",
-		"gossip":          "SELECT MIN(entry) FROM gossip_menu",
+		"vendor":             "SELECT MIN(entry) FROM npc_vendor_template",
+		"trainer":            "SELECT MIN(entry) FROM npc_trainer_template",
+		"equipment":          "SELECT MIN(entry) FROM creature_equip_template WHERE item1 > 0",
+		"creature loot":      "SELECT MIN(entry) FROM creature_loot_template",
+		"pickpocket loot":    "SELECT MIN(entry) FROM pickpocketing_loot_template",
+		"skinning loot":      "SELECT MIN(entry) FROM skinning_loot_template",
+		"spell list":         "SELECT MIN(entry) FROM creature_spells",
+		"gossip script":      "SELECT MIN(id) FROM gossip_scripts",
+		"map point":          "SELECT MIN(entry) FROM points_of_interest",
+		"quest start script": "SELECT MIN(id) FROM quest_start_scripts",
+		"quest end script":   "SELECT MIN(id) FROM quest_end_scripts",
+		"exclusive group":    "SELECT MIN(ExclusiveGroup) FROM quest_template WHERE ExclusiveGroup > 0",
+		"gossip":             "SELECT MIN(entry) FROM gossip_menu",
 	}
 	for kind, q := range first {
 		raw, err := runSQL(db, q)

@@ -16,8 +16,8 @@ export interface CreatureField {
 	flags?: Array<[number, string]>
 	/** The bits (with `flags`) or the values (with `options`) are classes: each shows its class icon (#682). */
 	classes?: 'mask' | 'id'
-	/** A text input that offers these values (a datalist) but still takes any text. */
-	suggest?: string[]
+	/** An input that offers these values (a datalist), each with its label if it has one, but still takes any value. */
+	suggest?: Array<string | [string, string]>
 	/** A 0/1 checkbox. */
 	bool?: boolean
 	hint?: string
@@ -51,9 +51,10 @@ export interface CreatureField {
  * cooldown category, a map, a random enchantment or disenchant loot; for the creature editor's lists
  * (#700) a vendor, trainer, equipment, loot or spell list, and the Messages tab's gossip scripts,
  * map points and conditions; for the spell editor's (#703) a global cooldown category, an icon or a
- * visual.
+ * visual; for the quest editor's (#704) a mail template, a start or end script or an exclusive group.
  */
-export type RefKind = 'item' | 'creature or object' | 'creature' | 'object' | 'zone' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote' | ObjectTableKind | ItemTableKind | SpellTableKind | WorldKind
+export type RefKind =
+	'item' | 'creature or object' | 'creature' | 'object' | 'zone' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote' | 'mail template' | ObjectTableKind | ItemTableKind | SpellTableKind | WorldKind
 
 export interface CreatureFieldGroup {
 	title: string

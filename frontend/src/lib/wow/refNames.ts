@@ -10,7 +10,7 @@ import { spellRef } from './spells'
 // answer kept for the session (forgetName drops one that a save changed).
 
 /** What a reference number can be once its sign is read (see refTarget). */
-export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | ObjectTableKind | ItemTableKind | SpellTableKind | WorldKind
+export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | 'mail template' | ObjectTableKind | ItemTableKind | SpellTableKind | WorldKind
 
 /** The client tables a game object's data columns name (#702), read once (objectTables); a lock type is also an Open lock effect's misc value (#703). */
 export type ObjectTableKind = 'lock' | 'lock type' | 'language' | 'page material' | 'spell focus' | 'cinematic' | 'taxi path' | 'auction house'
@@ -27,10 +27,29 @@ export type ItemTableKind = 'item set' | 'spell category' | 'map'
 /**
  * The world database rows a game object's data columns (#702), an item's random enchantment and
  * disenchant columns (#701) and the creature editor's lists and its Messages tab's ids (#700) name,
- * named by WorldRefNames.
+ * named by WorldRefNames; and the quest editor's start and end scripts and exclusive groups (#704).
  */
 export type WorldKind =
-	'gossip' | 'page' | 'text' | 'event' | 'loot' | 'enchantment' | 'disenchant' | 'vendor' | 'trainer' | 'equipment' | 'creature loot' | 'pickpocket loot' | 'skinning loot' | 'spell list' | 'gossip script' | 'map point' | 'condition'
+	| 'gossip'
+	| 'page'
+	| 'text'
+	| 'event'
+	| 'loot'
+	| 'enchantment'
+	| 'disenchant'
+	| 'vendor'
+	| 'trainer'
+	| 'equipment'
+	| 'creature loot'
+	| 'pickpocket loot'
+	| 'skinning loot'
+	| 'spell list'
+	| 'gossip script'
+	| 'map point'
+	| 'condition'
+	| 'quest start script'
+	| 'quest end script'
+	| 'exclusive group'
 
 export const WORLD_KINDS: readonly WorldKind[] = [
 	'gossip',
@@ -50,6 +69,9 @@ export const WORLD_KINDS: readonly WorldKind[] = [
 	'gossip script',
 	'map point',
 	'condition',
+	'quest start script',
+	'quest end script',
+	'exclusive group',
 ]
 
 /** Whether kind is a world database kind (WorldRefNames, SearchWorldRefs). */
@@ -114,10 +136,10 @@ function flushNames() {
 }
 
 let tables: Promise<vmangos.QuestTables> | null = null
-/** The client's quest sorts, skills and reputation factions, read once. */
+/** The client's quest sorts, skills, reputation factions and mail templates, read once. */
 export function questTables(): Promise<vmangos.QuestTables> {
 	if (!tables) {
-		tables = QuestTables().then((t) => ({ sorts: t.sorts ?? [], skills: t.skills ?? [], factions: t.factions ?? [] }) as vmangos.QuestTables)
+		tables = QuestTables().then((t) => ({ sorts: t.sorts ?? [], skills: t.skills ?? [], factions: t.factions ?? [], mailTemplates: t.mailTemplates ?? [] }) as vmangos.QuestTables)
 		tables.catch(() => (tables = null))
 	}
 	return tables
@@ -249,11 +271,17 @@ export async function lockName(lock: vmangos.LockInfo, lockTypes: vmangos.NamedI
 }
 
 /** A client table row's name, or null. */
-async function tableName(kind: 'faction' | 'skill' | 'sort', id: number): Promise<RefName | null> {
-	const t = await questTables()
-	const list = kind === 'faction' ? t.factions : kind === 'skill' ? t.skills : t.sorts
-	const row = list.find((r) => r.id === id)
+async function tableName(kind: QuestTableKind, id: number): Promise<RefName | null> {
+	const row = questTableList(await questTables(), kind).find((r) => r.id === id)
 	return row ? { name: row.name } : null
+}
+
+/** The quest editor's client tables: quest sorts, skills, reputation factions and mail templates (#704). */
+export type QuestTableKind = 'faction' | 'skill' | 'sort' | 'mail template'
+
+/** The list of a quest table kind. */
+export function questTableList(t: vmangos.QuestTables, kind: QuestTableKind): vmangos.NamedID[] {
+	return kind === 'faction' ? t.factions : kind === 'skill' ? t.skills : kind === 'mail template' ? t.mailTemplates : t.sorts
 }
 
 /** The name of thing `id` of `kind`, or null when there is no such thing. */

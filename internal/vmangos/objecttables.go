@@ -184,6 +184,13 @@ func lootListSQL(table string) string {
 		") ORDER BY ABS(ChanceOrQuestChance) DESC SEPARATOR ', ' LIMIT 6)) AS name, 0 AS ord FROM " + table + " GROUP BY entry"
 }
 
+// scriptListSQL names each id of a script table (gossip_scripts, quest_start_scripts…) by its
+// command count and its first commands' comments.
+func scriptListSQL(table string) string {
+	return "SELECT id, CONCAT_WS(': ', " + countSQL("*", "command") + ", GROUP_CONCAT(DISTINCT NULLIF(comments, '') ORDER BY delay SEPARATOR '; ' LIMIT 3)) AS name, 0 AS ord " +
+		"FROM " + table + " GROUP BY id"
+}
+
 // worldRowsSQL selects the rows of kind as `id`, `name` and `ord` (the order of an id's rows; the
 // first names it): "gossip" (a gossip menu by its first text), "page" (page_text), "text"
 // (broadcast_text), "event" (event_scripts, by its command count), "loot"
@@ -192,7 +199,9 @@ func lootListSQL(table string) string {
 // npc_trainer_template, by their items and spells), "equipment" (creature_equip_template, by its
 // weapons), "creature loot", "pickpocket loot" and "skinning loot" (by their drops), "spell list"
 // (creature_spells, by its name and spells), "gossip script" (gossip_scripts, by its command count
-// and comments) and "map point" (points_of_interest, by its name).
+// and comments) and "map point" (points_of_interest, by its name); and the quest editor's (#704)
+// "quest start script" and "quest end script" (quest_start_scripts and quest_end_scripts, as
+// gossip scripts) and "exclusive group" (the quests sharing an ExclusiveGroup, by their titles).
 func worldRowsSQL(kind string) (string, error) {
 	switch kind {
 	case "gossip":
@@ -235,10 +244,16 @@ func worldRowsSQL(kind string) (string, error) {
 		}
 		return "SELECT entry AS id, CONCAT_WS(': ', NULLIF(name, ''), NULLIF(CONCAT_WS(', ', " + strings.Join(spells, ", ") + "), '')) AS name, 0 AS ord FROM creature_spells", nil
 	case "gossip script":
-		return "SELECT id, CONCAT_WS(': ', " + countSQL("*", "command") + ", GROUP_CONCAT(DISTINCT NULLIF(comments, '') ORDER BY delay SEPARATOR '; ' LIMIT 3)) AS name, 0 AS ord " +
-			"FROM gossip_scripts GROUP BY id", nil
+		return scriptListSQL("gossip_scripts"), nil
 	case "map point":
 		return "SELECT entry AS id, icon_name AS name, 0 AS ord FROM points_of_interest", nil
+	case "quest start script":
+		return scriptListSQL("quest_start_scripts"), nil
+	case "quest end script":
+		return scriptListSQL("quest_end_scripts"), nil
+	case "exclusive group":
+		return "SELECT ExclusiveGroup AS id, CONCAT(" + countSQL("DISTINCT entry", "quest") + ", ': ', GROUP_CONCAT(DISTINCT CONCAT(Title, ' (', entry, ')') ORDER BY entry SEPARATOR ', ' LIMIT 6)) AS name, 0 AS ord " +
+			"FROM quest_template WHERE ExclusiveGroup <> 0 GROUP BY ExclusiveGroup", nil
 	}
 	return "", fmt.Errorf("no world rows of kind %q", kind)
 }
@@ -374,6 +389,7 @@ func WorldRefNames(serverRoot, kind string, ids []int) (map[int]string, error) {
 var worldRefByText = map[string]bool{
 	"gossip": true, "page": true, "text": true, "disenchant": true, "vendor": true, "trainer": true, "equipment": true,
 	"creature loot": true, "pickpocket loot": true, "skinning loot": true, "spell list": true, "gossip script": true, "map point": true,
+	"quest start script": true, "quest end script": true, "exclusive group": true,
 }
 
 // worldRefMatch is the WHERE of a search for text: the rows numbered text, and for the kinds named

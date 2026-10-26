@@ -18,6 +18,7 @@
 		lockName,
 		objectTableList,
 		objectTables,
+		questTableList,
 		questTables,
 		reactionText,
 		refName,
@@ -46,7 +47,9 @@
 	// offered when Find opens. `options` beside `ref` name special values (a gossip menu's −1). The
 	// spell editor's (#703) add global cooldown categories (named by their spells) and icons (with
 	// their pictures), listed whole, and visuals, named by the spells that use them and found by
-	// taking the visual of a spell.
+	// taking the visual of a spell. The quest editor's (#704) add mail templates (by their letter's
+	// first line), listed whole, and start and end scripts and exclusive groups (by the quests in
+	// them), searched; `owner` names what an own list belongs to ("this quest's own").
 
 	interface Props {
 		f: CreatureField
@@ -57,8 +60,10 @@
 		entry?: number
 		/** Hide the label (a caller that labels the field itself). */
 		bare?: boolean
+		/** What the record is, for `own` ("this creature's own"). */
+		owner?: string
 	}
-	let { f, value, changed, onset, entry = 0, bare = false }: Props = $props()
+	let { f, value, changed, onset, entry = 0, bare = false, owner = 'creature' }: Props = $props()
 
 	const ref = $derived(f.ref ?? 'item')
 	/** A special value's name (`options`), shown instead of a lookup. */
@@ -199,9 +204,7 @@
 					.slice(0, 300)
 					.map((f) => ({ kind: k, id: f.id, name: f.name || 'Unnamed', sub: `${f.id} · ${reactionText(f)}`, full: factionTemplateName(f) }))
 		}
-		const t = await questTables()
-		const list = k === 'faction' ? t.factions : k === 'skill' ? t.skills : t.sorts
-		return list
+		return questTableList(await questTables(), k)
 			.filter((r) => like(r.name, r.id, q))
 			.slice(0, LIMIT)
 			.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
@@ -220,6 +223,7 @@
 			k === 'faction template' ||
 			k === 'skill' ||
 			k === 'sort' ||
+			k === 'mail template' ||
 			k === 'global category' ||
 			k === 'spell icon' ||
 			(OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) ||
@@ -288,7 +292,7 @@
 					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell' || target.kind === 'spell icon'}<SpellIcon icon={shown.icon ?? ''} />{/if}
 					<span style:color={target.kind === 'item' ? (QUALITY_VARS[shown.quality ?? 1] ?? QUALITY_VARS[1]) : undefined}>{shown.name}</span>
 					{#if kinds[1]}<span class="dim">({SIDE_NAMES[target.kind]})</span>{/if}
-					{#if isOwn(target.id)}<span class="dim own">(this creature's own)</span>{/if}
+					{#if isOwn(target.id)}<span class="dim own">(this {owner}'s own)</span>{/if}
 				{:else if target && shown}
 					<span class="missing">No {target.kind} {target.id}</span>
 				{:else if target}
@@ -333,7 +337,7 @@
 							<button onclick={() => pick(h)}>
 								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell' || h.kind === 'spell icon'}<SpellIcon icon={h.icon ?? ''} />{/if}
 								<span class="hit" style:color={h.kind === 'item' ? (QUALITY_VARS[h.quality ?? 1] ?? QUALITY_VARS[1]) : undefined}>{h.name}</span>
-								<span class="dim">{h.sub}{isOwn(h.id) ? " · this creature's own" : ''}</span>
+								<span class="dim">{h.sub}{isOwn(h.id) ? ` · this ${owner}'s own` : ''}</span>
 							</button>
 						</li>
 					{:else}

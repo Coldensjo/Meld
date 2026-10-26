@@ -254,6 +254,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   Conditions are named in Go by what they test (`vmangos.conditionText`, after VMaNGOS'
   `Conditions.h`, with factions, skills and zones from the client), so `WorldRefNames` and
   `SearchWorldRefs` take the client folder for `'condition'` as for `'enchantment'`.
+  The quest editor's (#704) point map is a `'map'` ref, its condition a `'condition'`, its mail
+  template a `'mail template'` (MailTemplate.dbc, read once with the other quest tables through
+  `App.QuestTables`, named by the letter's first line since 1.12's table has no subject), its start
+  and end scripts world rows (`'quest start script'`, `'quest end script'`, named as gossip scripts
+  are, `own: 'entry'`; `TemplateFields`' `owner` prop says "this quest's own"), and its exclusive
+  group an `'exclusive group'` row (the quests sharing that ExclusiveGroup, so a new group is still
+  a typed number). The three reputation values offer the ranks in a datalist with the rank as the
+  note (`REP_RANKS`, `repText`), and RewRepSpilloverMask is a tick list (bit i stops faction i + 1's
+  spillover, `Player::RewardReputation`). PointOpt stays a number: VMaNGOS only passes it on.
   The spell editor's fields (`lib/world/spellFields.ts`, #703) put the masks on two tabs: Needs
   (forms by `1 << (form - 1)`, target flags, creature types by `1 << (type - 1)`, the item class with
   its subclasses' tick list, which follows the class, and the slots; the aura states, spell focus and

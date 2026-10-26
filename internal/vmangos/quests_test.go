@@ -221,6 +221,14 @@ func TestQuestsLive(t *testing.T) {
 	if !has(tables.Sorts, 61, "Warlock") || !has(tables.Skills, 164, "Blacksmithing") || !has(tables.Factions, 72, "Stormwind") {
 		t.Fatalf("tables: %d sorts, %d skills, %d factions", len(tables.Sorts), len(tables.Skills), len(tables.Factions))
 	}
+	// MailTemplate 84 is a letter (#704), named by its body's first line.
+	mail := false
+	for _, m := range tables.MailTemplates {
+		mail = mail || (m.ID == 84 && strings.HasPrefix(m.Name, "Thank you for visiting me, $N."))
+	}
+	if !mail {
+		t.Fatalf("no mail template 84 among %d", len(tables.MailTemplates))
+	}
 	db, err := worldDatabase(dir)
 	if err != nil {
 		t.Fatal(err)

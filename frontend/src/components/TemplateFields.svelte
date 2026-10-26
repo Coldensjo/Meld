@@ -28,8 +28,10 @@
 		codes?: boolean
 		/** The record's entry, which a field's `own` list is numbered by (#700). */
 		entry?: number
+		/** What the record is, as a field's `own` list names it ("this quest's own"). */
+		owner?: string
 	}
-	let { fields, values, columns, changes, onset, cols = 3, codes = false, entry = 0 }: Props = $props()
+	let { fields, values, columns, changes, onset, cols = 3, codes = false, entry = 0, owner = 'creature' }: Props = $props()
 
 	/** Inserts a `$` code at the text area's caret, through onset so the change is counted. */
 	function addCode(e: MouseEvent, col: string, code: string) {
@@ -60,7 +62,7 @@
 		{@const c = columns.get(f.col)}
 		{@const changed = changes[f.col] !== undefined}
 		{#if f.ref}
-			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} {entry} />
+			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} {entry} {owner} />
 		{:else if f.spells}
 			<AuraField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
 		{:else if f.long}
@@ -123,7 +125,7 @@
 					value={value(f)}
 					oninput={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).value)}
 				/>{#if f.suggest}<datalist id="suggest-{f.col}"
-						>{#each f.suggest as v (v)}<option value={v}></option>{/each}</datalist
+						>{#each f.suggest as v (typeof v === 'string' ? v : v[0])}{#if typeof v === 'string'}<option value={v}></option>{:else}<option value={v[0]}>{v[1]}</option>{/if}{/each}</datalist
 					>{/if}</label
 			>
 		{/if}

@@ -683,6 +683,9 @@ type QuestTables struct {
 	Sorts    []NamedID `json:"sorts"`
 	Skills   []NamedID `json:"skills"`
 	Factions []NamedID `json:"factions"`
+	// MailTemplates are MailTemplate.dbc's letters (#704), by their body's first line (1.12's
+	// table has no subject).
+	MailTemplates []NamedID `json:"mailTemplates"`
 }
 
 // questDBC is what the quest editor reads from the client's QuestSort, SkillLine and Faction
@@ -724,7 +727,8 @@ func readNamed(b []byte, nameField int, keep func(t *dbcTable, r int) bool) ([]N
 }
 
 // loadQuestDBC reads the quest editor's client tables (1.12 layouts: QuestSort's name is field 1,
-// SkillLine's field 3, Faction's field 19 with its reputation index, -1 for none, in field 1).
+// SkillLine's field 3, Faction's field 19 with its reputation index, -1 for none, in field 1,
+// MailTemplate's body field 1, named by its first line).
 func loadQuestDBC(dataDir string) (*questDBC, error) {
 	questDBCs.Lock()
 	defer questDBCs.Unlock()
@@ -746,6 +750,7 @@ func loadQuestDBC(dataDir string) (*questDBC, error) {
 		{"sort", "QuestSort", 1, &d.tables.Sorts, nil},
 		{"skill", "SkillLine", 3, &d.tables.Skills, nil},
 		{"faction", "Faction", 19, &d.tables.Factions, func(t *dbcTable, r int) bool { return int32(t.u32(r, 1)) >= 0 }},
+		{"mail template", "MailTemplate", 1, &d.tables.MailTemplates, nil},
 	} {
 		b, err := set.ReadFile(`DBFilesClient\` + t.file + `.dbc`)
 		if err != nil {
@@ -755,10 +760,25 @@ func loadQuestDBC(dataDir string) (*questDBC, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s.dbc: %w", t.file, err)
 		}
+		if t.kind == "mail template" {
+			list, names = firstLines(list, names)
+		}
 		*t.list, d.names[t.kind] = list, names
 	}
 	questDBCs.by[dataDir] = d
 	return d, nil
+}
+
+// firstLines names a table's rows of long text (a letter's body) by their first line, as a picker
+// shows them.
+func firstLines(list []NamedID, names map[int]string) ([]NamedID, map[int]string) {
+	for i := range list {
+		list[i].Name = firstLine(list[i].Name)
+	}
+	for id, n := range names {
+		names[id] = firstLine(n)
+	}
+	return list, names
 }
 
 // LoadQuestTables reads the client's quest sorts, skills and reputation factions.

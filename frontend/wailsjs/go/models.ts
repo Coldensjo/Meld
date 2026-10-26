@@ -2792,6 +2792,7 @@ export namespace vmangos {
 	    sorts: NamedID[];
 	    skills: NamedID[];
 	    factions: NamedID[];
+	    mailTemplates: NamedID[];
 	
 	    static createFrom(source: any = {}) {
 	        return new QuestTables(source);
@@ -2802,6 +2803,7 @@ export namespace vmangos {
 	        this.sorts = this.convertValues(source["sorts"], NamedID);
 	        this.skills = this.convertValues(source["skills"], NamedID);
 	        this.factions = this.convertValues(source["factions"], NamedID);
+	        this.mailTemplates = this.convertValues(source["mailTemplates"], NamedID);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -514,6 +514,21 @@ each kind) and `go test ./internal/vmangos/ -run TestSpellCategoryNames`.
 - An aura's misc value counts only when the effect applies the aura (`AURA_EFFECTS`: apply aura,
   the persistent and the area auras); a Damage effect with a leftover aura number keeps the number box.
 
+## The quest editor's pickers (#704, probe `quest-pickers`)
+
+Checks: Call of Water (96) names its start script by its commands "(this quest's own)" and, on
+Requirements, its exclusive group by its quests; Zamek's Distraction (1191) its end script and its
+condition (20227) by what it tests; The Family and the Fishing Pole (1141) its mail template (87) by
+the letter's first line, whose Find lists the letters whole and a pick puts its ID in (changed);
+Avast Ye, Scallywag (1036) reads its reputation objective (3000) as Friendly with the eight ranks in
+the datalist; A New Threat (170) ticks no spillover from factions 1 and 2; a point map typed as 1
+reads Kalimdor (no quest in VMaNGOS' database has a point map). `bun run probe quest-pickers`
+(nothing written). Unit tests: `bun test tests/questFields.test.ts`, `go test ./internal/vmangos/
+-run TestWorldRefSQL`, `TestQuestsLive` (mail template 84) and `TestCreatureListRefsLive` with
+`VMANGOS_DIR` (the scripts and a group named).
+- Trap: a picker's name reads "None" until a typed value lands, so wait for the expected name, not
+  for any name.
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

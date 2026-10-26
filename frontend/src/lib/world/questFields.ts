@@ -59,6 +59,38 @@ const QUEST_TYPES: Array<[number, string]> = [
 	[84, 'Escort'],
 ]
 
+/** The reputation ranks by the value each starts at (VMaNGOS' ReputationMgr::PointsInRank). */
+export const REP_RANKS: Array<[number, string]> = [
+	[-42000, 'Hated'],
+	[-6000, 'Hostile'],
+	[-3000, 'Unfriendly'],
+	[0, 'Neutral'],
+	[3000, 'Friendly'],
+	[9000, 'Honored'],
+	[21000, 'Revered'],
+	[42000, 'Exalted'],
+]
+
+/** A reputation value as its rank and how far into it, such as "Honored + 500". */
+export function repText(v: string): string {
+	if (v.trim() === '') return ''
+	const n = Number(v)
+	if (!Number.isFinite(n)) return ''
+	let rank = REP_RANKS[0]
+	for (const r of REP_RANKS) if (n >= r[0]) rank = r
+	const over = n - rank[0]
+	return over > 0 ? `${rank[1]} + ${over}` : rank[1]
+}
+
+/** The ranks for a reputation value's datalist: a rank picked, any number typed. */
+const REP_SUGGEST: Array<[string, string]> = REP_RANKS.map(([v, n]) => [String(v), n])
+
+/** A reputation value: the ranks offered, the rank shown (#704). */
+const rep = (col: string, label: string): CreatureField => ({ col, label, suggest: REP_SUGGEST, note: repText, hint: 'Pick a rank or type a number' })
+
+/** RewRepSpilloverMask: bit i stops reputation faction i + 1's reward spilling over to its allies (Player::RewardReputation). */
+const SPILLOVER_MASK: Array<[number, string]> = [1, 2, 3, 4, 5].map((i) => [1 << (i - 1), `No spillover from faction ${i}`] as [number, string])
+
 /** Copper as gold, silver and copper. */
 export function moneyText(v: string): string {
 	const n = Number(v) || 0
@@ -152,10 +184,7 @@ export const QUEST_TABS: QuestTab[] = [
 			{ title: 'Items gathered along the way', fields: pairs(4, 'ReqSourceId', 'ReqSourceCount', 'item', 'Item', 'Count', 'Items the quest needs that are not handed in (such as a container)') },
 			{
 				title: 'Reputation to reach',
-				fields: [
-					{ col: 'RepObjectiveFaction', label: 'Faction', ref: 'faction' },
-					{ col: 'RepObjectiveValue', label: 'Reputation', hint: '3000 is Friendly, 9000 Honored, 21000 Revered, 42000 Exalted' },
-				],
+				fields: [{ col: 'RepObjectiveFaction', label: 'Faction', ref: 'faction' }, rep('RepObjectiveValue', 'Reputation')],
 			},
 			{
 				title: 'Given at the start',
@@ -195,13 +224,13 @@ export const QUEST_TABS: QuestTab[] = [
 						{ col: `RewRepFaction${i}`, label: `Faction ${i}`, ref: 'faction' as const },
 						{ col: `RewRepValue${i}`, label: 'Reputation' },
 					]),
-					{ col: 'RewRepSpilloverMask', label: 'Spillover mask' },
+					{ col: 'RewRepSpilloverMask', label: "Spillover (the faction's allies gain a share too)", flags: SPILLOVER_MASK },
 				],
 			},
 			{
 				title: 'Mail afterwards',
 				fields: [
-					{ col: 'RewMailTemplateId', label: 'Mail template' },
+					{ col: 'RewMailTemplateId', label: 'Mail template', ref: 'mail template', wide: true, hint: "A letter of the client's MailTemplate.dbc, by its first line" },
 					{ col: 'RewMailDelaySecs', label: 'Delay (s)', note: timeText },
 					{ col: 'RewMailMoney', label: 'Mail money', money: true },
 				],
@@ -220,10 +249,10 @@ export const QUEST_TABS: QuestTab[] = [
 					{ col: 'RequiredSkill', label: 'Skill', ref: 'skill' },
 					{ col: 'RequiredSkillValue', label: 'Skill level' },
 					{ col: 'RequiredMinRepFaction', label: 'Reputation at least with', ref: 'faction' },
-					{ col: 'RequiredMinRepValue', label: 'At least' },
+					rep('RequiredMinRepValue', 'At least'),
 					{ col: 'RequiredMaxRepFaction', label: 'Reputation below with', ref: 'faction' },
-					{ col: 'RequiredMaxRepValue', label: 'Below' },
-					{ col: 'RequiredCondition', label: 'Condition', hint: 'A row of the conditions table' },
+					rep('RequiredMaxRepValue', 'Below'),
+					{ col: 'RequiredCondition', label: 'Condition', ref: 'condition', wide: true, hint: 'A row of the conditions table, by what it tests' },
 				],
 			},
 			{
@@ -233,7 +262,13 @@ export const QUEST_TABS: QuestTab[] = [
 					{ col: 'NextQuestId', label: 'Opens quest', ref: 'quest', wide: true, hint: 'Done, this one makes that one available; negative: while on this one' },
 					{ col: 'NextQuestInChain', label: 'Next in the chain', ref: 'quest', wide: true, hint: 'Offered at once on turn-in' },
 					{ col: 'BreadcrumbForQuestId', label: 'Leads to quest', ref: 'quest', wide: true, hint: 'A breadcrumb: it points the player to that quest' },
-					{ col: 'ExclusiveGroup', label: 'Exclusive group', hint: 'Quests sharing a positive group: only one can be done; negative: all must be done' },
+					{
+						col: 'ExclusiveGroup',
+						label: 'Exclusive group',
+						ref: 'exclusive group',
+						wide: true,
+						hint: 'Quests sharing a positive group: only one can be done; negative: all must be done. A number you choose (often a quest of the group); the name lists the quests that share it',
+					},
 				],
 			},
 		],
@@ -263,7 +298,7 @@ export const QUEST_TABS: QuestTab[] = [
 			{
 				title: 'Point on the map',
 				fields: [
-					{ col: 'PointMapId', label: 'Map' },
+					{ col: 'PointMapId', label: 'Map', ref: 'map' },
 					{ col: 'PointX', label: 'X' },
 					{ col: 'PointY', label: 'Y' },
 					{ col: 'PointOpt', label: 'Icon' },
@@ -272,8 +307,8 @@ export const QUEST_TABS: QuestTab[] = [
 			{
 				title: 'Scripts',
 				fields: [
-					{ col: 'StartScript', label: 'When accepted', hint: 'An ID of quest_start_scripts' },
-					{ col: 'CompleteScript', label: 'When handed in', hint: 'An ID of quest_end_scripts' },
+					{ col: 'StartScript', label: 'When accepted', ref: 'quest start script', own: 'entry', wide: true, hint: "An ID of quest_start_scripts, usually the quest's own entry" },
+					{ col: 'CompleteScript', label: 'When handed in', ref: 'quest end script', own: 'entry', wide: true, hint: "An ID of quest_end_scripts, usually the quest's own entry" },
 				],
 			},
 		],

@@ -1,7 +1,7 @@
 // Run with: bun test tests/questFields.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { moneyText, questTabs, tabOfColumn } from '../src/lib/world/questFields.ts'
+import { moneyText, questTabs, repText, tabOfColumn } from '../src/lib/world/questFields.ts'
 
 // quest_template's columns on VMaNGOS (SHOW COLUMNS, without entry and patch), 2026-10.
 const COLUMNS = [
@@ -172,6 +172,32 @@ test('the reference columns name what they point at', () => {
 	assert.equal(fields.get('OfferRewardEmote4')?.ref, 'emote')
 	assert.equal(fields.get('NextQuestInChain')?.ref, 'quest')
 	assert.equal(fields.get('Details')?.long, true)
+	// The ids #704 gave a picker, a tick list or ranks.
+	assert.equal(fields.get('PointMapId')?.ref, 'map')
+	assert.equal(fields.get('RewMailTemplateId')?.ref, 'mail template')
+	assert.equal(fields.get('RequiredCondition')?.ref, 'condition')
+	assert.equal(fields.get('StartScript')?.ref, 'quest start script')
+	assert.equal(fields.get('CompleteScript')?.ref, 'quest end script')
+	assert.equal(fields.get('StartScript')?.own, 'entry')
+	assert.equal(fields.get('ExclusiveGroup')?.ref, 'exclusive group')
+	assert.deepEqual(
+		fields.get('RewRepSpilloverMask')?.flags?.map(([bit]) => bit),
+		[1, 2, 4, 8, 16],
+	)
+	for (const col of ['RepObjectiveValue', 'RequiredMinRepValue', 'RequiredMaxRepValue'])
+		assert.ok(
+			fields.get(col)?.suggest?.some((v) => Array.isArray(v) && v[1] === 'Exalted'),
+			col,
+		)
+})
+
+test('a reputation value reads as its rank', () => {
+	assert.equal(repText('0'), 'Neutral')
+	assert.equal(repText('9500'), 'Honored + 500')
+	assert.equal(repText('-3000'), 'Unfriendly')
+	assert.equal(repText('-42999'), 'Hated')
+	assert.equal(repText('42999'), 'Exalted + 999')
+	assert.equal(repText(''), '')
 })
 
 test('copper reads as gold, silver and copper', () => {
