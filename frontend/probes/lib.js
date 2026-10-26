@@ -204,6 +204,10 @@ const P = {
 		const end = performance.now() + timeout
 		for (;;) {
 			const v = fn()
+			if (v && typeof v.then === 'function') {
+				window.__probeStep = null
+				throw new Error(`P.until: the condition returned a Promise (${what}), which is always truthy; await inside the probe instead`)
+			}
 			if (v) {
 				window.__probeStep = null
 				return v
