@@ -115,8 +115,9 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
   ring, arrow and knob, and a selected spawn's ring and arrow, each one step that Undo and Redo
   restore, with the snap and angle maths. The test puts the handles itself (`place`), as
   `Engine.updateSelectionVisuals` would, so a spawn needs no drawn model there. The probe `gizmo-undo`
-  (`bun run probe gizmo-undo`, about 7 s) runs the model and group drags through the Engine in the
-  live app, where a spawn's gizmo is left out since it needs a drawn spawn model.
+  (`bun run probe gizmo-undo`, about 7 s) runs the model, group and spawn drags through the Engine in the
+  live app; the spawn is a creature of the world database (so it needs the database), its cone standing in
+  for a model not yet loaded, which is enough for `SpawnLayer.boundsOf` to show the gizmo.
 - Trap: the hole walls draw on a canvas when made, so the test's `ctx.holeWalls` is made on first use
   inside `withCanvas`, which stands a `document` in and takes it away again (`uiScale.test.ts` checks the
   code without one).
