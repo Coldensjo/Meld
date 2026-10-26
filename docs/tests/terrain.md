@@ -566,6 +566,7 @@ creature's way round obstacles.
 Checks: File › World View (from a region) and the Start dialog's World View button open a map's world
 view, which streams the client's tiles and their models around the camera and lets go of the far
 ones; Edit Here opens the block around the camera in a region tab, the camera kept.
+- Probe `perf-world-flight` (#742, a benchmark, left out of `--all`; about 140 s): flies 120 frames east at 8 yd a frame, 100 yd over Elwynn's ground, and prints the frame CPU (mean, p50, p90, p99, max), the far shadow redraws (`farRedraws`, `farCauses`: the `Engine.shadowKey` parts that changed since the last far redraw, `objects+textures` for models and textures landing, `fit` when none did, so the fit moved), their frame CPU against the other frames', the far pass's calls and ms, the tiles landed and `worldStats()` at the end. Each frame is followed by `P.drawn()`: skipping it only moves the stall into the GPU backlog. Run it before and after a change to the stream or the shadows; 2026-10-26 after fb785d4: 4 far redraws in 120 frames (3 for a scene change, 1 fit), far frames 22 ms against 10, far pass 2,062 calls and 5.9 ms.
 - Probe `world-view` (`bun run probe world-view`, about 90 s with the models): opens Azeroth's world view at the
   Elwynn block 31-33 x 48-50, waits for the tiles within the reach to load (`engine.worldStats()`:
   loaded, loading, queued, failed and the map's tile count), checks the camera looks at the block's
