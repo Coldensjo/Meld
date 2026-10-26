@@ -386,6 +386,7 @@ export namespace main {
 	    iconAdded: string;
 	    visual: number;
 	    visualAdded: boolean;
+	    refused?: vmangos.ColumnError;
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellSaved(source);
@@ -397,7 +398,58 @@ export namespace main {
 	        this.iconAdded = source["iconAdded"];
 	        this.visual = source["visual"];
 	        this.visualAdded = source["visualAdded"];
+	        this.refused = this.convertValues(source["refused"], vmangos.ColumnError);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TemplateSaved {
+	    sql: string;
+	    refused?: vmangos.ColumnError;
+	
+	    static createFrom(source: any = {}) {
+	        return new TemplateSaved(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sql = source["sql"];
+	        this.refused = this.convertValues(source["refused"], vmangos.ColumnError);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class WorldMapResult {
 	    row: vmangos.WorldMapRow;
@@ -1071,6 +1123,20 @@ export namespace vmangos {
 	        this.mana = source["mana"];
 	        this.meleeDamage = source["meleeDamage"];
 	        this.armor = source["armor"];
+	    }
+	}
+	export class ColumnError {
+	    column: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ColumnError(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.column = source["column"];
+	        this.message = source["message"];
 	    }
 	}
 	export class CreatureSpell {

@@ -263,7 +263,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   fields, `before` says what was open), `load` (a read overtaken by another opening or a close is
   dropped), `leave(go)` (runs `go` now or after Discard them), `close`, `discard` (`onrevert`, then
   `ondiscard` for tabs with their own Save), `reopen` (an import rewrote the open row) and `save`
-  (the Saving bar; a refused value's column, `refusedColumn`, goes to the editor to show its tab).
+  (the Saving bar; a refused value's column goes to the editor to show its tab: Go refuses a value
+  with a `vmangos.ColumnError`, which `SaveQuest`, `SaveItem` and `SaveSpell` return as their
+  result's `refused` with a nil error, since Wails passes a returned error as its message only, and
+  `checkRefused` throws it as a `RefusedError` carrying the column, #597).
   `components/EditorFrame.svelte` draws the frame: header (title and actions snippets, then Close),
   the editor's own bars, the Discard bar, error and note, and Esc (a field first, then the editor's
   `back()` steps, the Discard bar, then close; `blocked` while the quest editor or a right-click menu

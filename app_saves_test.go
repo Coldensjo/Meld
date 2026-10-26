@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -66,5 +68,21 @@ func TestSaveAfterDatabaseSaysWhatWasWritten(t *testing.T) {
 	}
 	if len(scripts) != 1 || !strings.Contains(scripts[0], "9001") {
 		t.Fatalf("with a server: scripts %q, want the trigger's SQL", scripts)
+	}
+}
+
+// TestTemplateSavedHandsOverTheRefusedColumn checks that a refused value comes back as the result's
+// Refused, with no error (Wails would pass the page only the message), and any other failure as the
+// error (#597).
+func TestTemplateSavedHandsOverTheRefusedColumn(t *testing.T) {
+	r, err := templateSaved("", fmt.Errorf("saving: %w", &vmangos.ColumnError{Column: "QuestLevel", Message: "QuestLevel must be from 0 to 255, not 300"}))
+	if err != nil || r.Refused == nil || r.Refused.Column != "QuestLevel" || r.Refused.Message != "saving: QuestLevel must be from 0 to 255, not 300" {
+		t.Errorf("refused: %+v, %v", r, err)
+	}
+	if r, err := templateSaved("", errors.New("the world database is down")); err == nil || r.Refused != nil {
+		t.Errorf("a plain failure: %+v, %v", r, err)
+	}
+	if r, err := templateSaved("UPDATE", nil); err != nil || r.SQL != "UPDATE" || r.Refused != nil {
+		t.Errorf("saved: %+v, %v", r, err)
 	}
 }

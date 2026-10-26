@@ -175,13 +175,13 @@ func spellField(c TemplateColumn, v string, high bool) (uint32, error) {
 	if c.Kind == "float" {
 		f, err := strconv.ParseFloat(v, 32)
 		if err != nil {
-			return 0, fmt.Errorf("%s must be a number, not %q", c.Name, v)
+			return 0, refuse(c.Name, "%s must be a number, not %q", c.Name, v)
 		}
 		return math.Float32bits(float32(f)), nil
 	}
 	n, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("%s must be a whole number, not %q", c.Name, v)
+		return 0, refuse(c.Name, "%s must be a whole number, not %q", c.Name, v)
 	}
 	if high {
 		return uint32(uint64(n) >> 32), nil
@@ -338,7 +338,7 @@ func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[stri
 		return SpellSave{}, err
 	}
 	if v, ok := values["name"]; ok && strings.TrimSpace(v) == "" {
-		return SpellSave{}, errors.New("a spell needs a name")
+		return SpellSave{}, refuse("name", "a spell needs a name")
 	}
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {

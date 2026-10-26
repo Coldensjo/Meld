@@ -1,7 +1,6 @@
 package vmangos
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -33,7 +32,7 @@ func SaveItem(serverRoot string, entry, patch int, values map[string]string) (st
 		return "", err
 	}
 	if v, ok := values["name"]; ok && strings.TrimSpace(v) == "" {
-		return "", errors.New("an item needs a name")
+		return "", refuse("name", "an item needs a name")
 	}
 	sql, err := templateUpdateSQL(itemTable, cols, entry, patch, values)
 	if err != nil || sql == "" {

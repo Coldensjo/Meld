@@ -58,31 +58,36 @@ func TestCheckQuest(t *testing.T) {
 		row     map[string]string
 		changed map[string]string
 		want    string
+		col     string
 	}{
-		{row("Title", " "), ch("Title"), "needs a title"},
-		{row("Method", "3"), ch("Method"), "Method is 3"},
-		{row("SpecialFlags", "4"), ch("SpecialFlags"), "SpecialFlags is 4"},
-		{row("RequiredClasses", "32"), ch("RequiredClasses"), "no playable class"},
-		{row("RequiredRaces", "256"), ch("RequiredRaces"), "no playable race"},
-		{row("MinLevel", "10", "MaxLevel", "5"), ch("MaxLevel"), "below MinLevel"},
-		{row("ReqItemId1", "2589", "ReqItemCount1", "0"), ch("ReqItemId1"), "give it a count"},
-		{row("ReqItemId2", "0", "ReqItemCount2", "3"), ch("ReqItemCount2"), "names no item"},
-		{row("ReqItemId1", "99999", "ReqItemCount1", "1"), ch("ReqItemId1"), "ReqItemId1 names item 99999, which the world database doesn't have"},
-		{row("ReqCreatureOrGOId1", "-6", "ReqCreatureOrGOCount1", "1"), ch("ReqCreatureOrGOId1"), "names object 6"},
-		{row("ReqCreatureOrGOId1", "1731", "ReqCreatureOrGOCount1", "1"), ch("ReqCreatureOrGOId1"), "names creature 1731"},
-		{row("NextQuestInChain", "8"), ch("NextQuestInChain"), "names quest 8"},
-		{row("ZoneOrSort", "-12"), ch("ZoneOrSort"), "names sort 12, which the client doesn't have"},
-		{row("RewChoiceItemId1", "0", "RewChoiceItemId2", "2589", "RewChoiceItemCount2", "1"), ch("RewChoiceItemId2"), "no gap"},
-		{row("RewRepFaction1", "72", "RewRepValue1", "0"), ch("RewRepFaction1"), "give it an amount"},
-		{row("RewRepFaction2", "0", "RewRepValue2", "100"), ch("RewRepValue2"), "names no faction"},
-		{row("RepObjectiveFaction", "0", "RepObjectiveValue", "100"), ch("RepObjectiveValue"), "names no faction"},
-		{row("RequiredMinRepValue", "3000", "RequiredMaxRepValue", "3000", "RequiredMinRepFaction", "72", "RequiredMaxRepFaction", "72"), ch("RequiredMaxRepValue"), "not above"},
-		{row("RequiredMinRepValue", "50000", "RequiredMinRepFaction", "72"), ch("RequiredMinRepValue"), "most reputation"},
+		{row("Title", " "), ch("Title"), "needs a title", "Title"},
+		{row("Method", "3"), ch("Method"), "Method is 3", "Method"},
+		{row("SpecialFlags", "4"), ch("SpecialFlags"), "SpecialFlags is 4", "SpecialFlags"},
+		{row("RequiredClasses", "32"), ch("RequiredClasses"), "no playable class", "RequiredClasses"},
+		{row("RequiredRaces", "256"), ch("RequiredRaces"), "no playable race", "RequiredRaces"},
+		{row("MinLevel", "10", "MaxLevel", "5"), ch("MaxLevel"), "below MinLevel", "MaxLevel"},
+		{row("ReqItemId1", "2589", "ReqItemCount1", "0"), ch("ReqItemId1"), "give it a count", "ReqItemId1"},
+		{row("ReqItemId2", "0", "ReqItemCount2", "3"), ch("ReqItemCount2"), "names no item", "ReqItemCount2"},
+		{row("ReqItemId1", "99999", "ReqItemCount1", "1"), ch("ReqItemId1"), "ReqItemId1 names item 99999, which the world database doesn't have", "ReqItemId1"},
+		{row("ReqCreatureOrGOId1", "-6", "ReqCreatureOrGOCount1", "1"), ch("ReqCreatureOrGOId1"), "names object 6", "ReqCreatureOrGOId1"},
+		{row("ReqCreatureOrGOId1", "1731", "ReqCreatureOrGOCount1", "1"), ch("ReqCreatureOrGOId1"), "names creature 1731", "ReqCreatureOrGOId1"},
+		{row("NextQuestInChain", "8"), ch("NextQuestInChain"), "names quest 8", "NextQuestInChain"},
+		{row("ZoneOrSort", "-12"), ch("ZoneOrSort"), "names sort 12, which the client doesn't have", "ZoneOrSort"},
+		{row("RewChoiceItemId1", "0", "RewChoiceItemId2", "2589", "RewChoiceItemCount2", "1"), ch("RewChoiceItemId2"), "no gap", "RewChoiceItemId1"},
+		{row("RewRepFaction1", "72", "RewRepValue1", "0"), ch("RewRepFaction1"), "give it an amount", "RewRepFaction1"},
+		{row("RewRepFaction2", "0", "RewRepValue2", "100"), ch("RewRepValue2"), "names no faction", "RewRepValue2"},
+		{row("RepObjectiveFaction", "0", "RepObjectiveValue", "100"), ch("RepObjectiveValue"), "names no faction", "RepObjectiveValue"},
+		{row("RequiredMinRepValue", "3000", "RequiredMaxRepValue", "3000", "RequiredMinRepFaction", "72", "RequiredMaxRepFaction", "72"), ch("RequiredMaxRepValue"), "not above", "RequiredMaxRepValue"},
+		{row("RequiredMinRepValue", "50000", "RequiredMinRepFaction", "72"), ch("RequiredMinRepValue"), "most reputation", "RequiredMinRepValue"},
 	}
 	for i, c := range bad {
 		err := checkQuest(c.row, c.changed, known)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("bad %d: %v, want %q", i, err, c.want)
+		}
+		// The editor opens the tab of the column the refusal names (#597).
+		if r := Refused(err); r == nil || r.Column != c.col || r.Message != err.Error() {
+			t.Errorf("bad %d: refused %+v, want column %s", i, r, c.col)
 		}
 	}
 	// Every problem is told, a line each.

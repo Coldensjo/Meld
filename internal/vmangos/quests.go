@@ -72,9 +72,9 @@ func countRule(id, count, what string) questRule {
 	return questRule{[]string{id, count}, func(v func(string) int64) error {
 		switch {
 		case v(id) != 0 && v(count) <= 0:
-			return fmt.Errorf("%s names %s %d but %s is %d: give it a count", id, what, v(id), count, v(count))
+			return refuse(id, "%s names %s %d but %s is %d: give it a count", id, what, v(id), count, v(count))
 		case v(id) == 0 && v(count) != 0:
-			return fmt.Errorf("%s is %d but %s names no %s", count, v(count), id, what)
+			return refuse(count, "%s is %d but %s names no %s", count, v(count), id, what)
 		}
 		return nil
 	}}
@@ -86,9 +86,9 @@ func repValueRule(faction, value string, needValue bool) questRule {
 	return questRule{[]string{faction, value}, func(v func(string) int64) error {
 		switch {
 		case v(faction) == 0 && v(value) != 0:
-			return fmt.Errorf("%s is %d but %s names no faction", value, v(value), faction)
+			return refuse(value, "%s is %d but %s names no faction", value, v(value), faction)
 		case needValue && v(faction) != 0 && v(value) == 0:
-			return fmt.Errorf("%s names faction %d but %s is 0: give it an amount", faction, v(faction), value)
+			return refuse(faction, "%s names faction %d but %s is 0: give it an amount", faction, v(faction), value)
 		}
 		return nil
 	}}
@@ -108,41 +108,41 @@ var questRules = func() []questRule {
 	rules := []questRule{
 		{[]string{"Method"}, func(v func(string) int64) error {
 			if m := v("Method"); m > 2 {
-				return fmt.Errorf("Method is %d: it must be 0 (completes itself), 1 (disabled) or 2 (normal)", m)
+				return refuse("Method", "Method is %d: it must be 0 (completes itself), 1 (disabled) or 2 (normal)", m)
 			}
 			return nil
 		}},
 		{[]string{"SpecialFlags"}, func(v func(string) int64) error {
 			if f := v("SpecialFlags"); f&^questSpecialFlagsDB != 0 {
-				return fmt.Errorf("SpecialFlags is %d: the database may only set 1 (repeatable) and 2 (exploration or event)", f)
+				return refuse("SpecialFlags", "SpecialFlags is %d: the database may only set 1 (repeatable) and 2 (exploration or event)", f)
 			}
 			return nil
 		}},
 		{[]string{"RequiredClasses"}, func(v func(string) int64) error {
 			if c := v("RequiredClasses"); c != 0 && c&classMaskPlayable == 0 {
-				return fmt.Errorf("RequiredClasses is %d, which has no playable class: the server would allow every class", c)
+				return refuse("RequiredClasses", "RequiredClasses is %d, which has no playable class: the server would allow every class", c)
 			}
 			return nil
 		}},
 		{[]string{"RequiredRaces"}, func(v func(string) int64) error {
 			if r := v("RequiredRaces"); r != 0 && r&raceMaskPlayable == 0 {
-				return fmt.Errorf("RequiredRaces is %d, which has no playable race: the server would allow every race", r)
+				return refuse("RequiredRaces", "RequiredRaces is %d, which has no playable race: the server would allow every race", r)
 			}
 			return nil
 		}},
 		{[]string{"MinLevel", "MaxLevel"}, func(v func(string) int64) error {
 			if hi := v("MaxLevel"); hi != 0 && hi < v("MinLevel") {
-				return fmt.Errorf("MaxLevel %d is below MinLevel %d: no one could take the quest", hi, v("MinLevel"))
+				return refuse("MaxLevel", "MaxLevel %d is below MinLevel %d: no one could take the quest", hi, v("MinLevel"))
 			}
 			return nil
 		}},
 		{[]string{"RequiredMinRepValue", "RequiredMaxRepValue"}, func(v func(string) int64) error {
 			lo, hi := v("RequiredMinRepValue"), v("RequiredMaxRepValue")
 			if lo > reputationCap {
-				return fmt.Errorf("RequiredMinRepValue is %d, more than the most reputation a player can have (%d)", lo, reputationCap)
+				return refuse("RequiredMinRepValue", "RequiredMinRepValue is %d, more than the most reputation a player can have (%d)", lo, reputationCap)
 			}
 			if lo != 0 && hi != 0 && hi <= lo {
-				return fmt.Errorf("RequiredMaxRepValue %d is not above RequiredMinRepValue %d: no one could take the quest", hi, lo)
+				return refuse("RequiredMaxRepValue", "RequiredMaxRepValue %d is not above RequiredMinRepValue %d: no one could take the quest", hi, lo)
 			}
 			return nil
 		}},
@@ -154,7 +154,7 @@ var questRules = func() []questRule {
 				case v(c) == 0 && gap == "":
 					gap = c
 				case v(c) != 0 && gap != "":
-					return fmt.Errorf("%s is empty but %s isn't: the choices must have no gap (the 1.12.1 client crashes on one)", gap, c)
+					return refuse(gap, "%s is empty but %s isn't: the choices must have no gap (the 1.12.1 client crashes on one)", gap, c)
 				}
 			}
 			return nil
@@ -223,7 +223,7 @@ func checkQuest(row, changed map[string]string, known questKnown) error {
 	}
 	var problems []error
 	if _, ok := changed["Title"]; ok && strings.TrimSpace(row["Title"]) == "" {
-		problems = append(problems, errors.New("the quest needs a title"))
+		problems = append(problems, refuse("Title", "the quest needs a title"))
 	}
 	for _, r := range questRules {
 		for _, c := range r.cols {
@@ -271,7 +271,7 @@ func checkQuest(row, changed map[string]string, known questKnown) error {
 		}
 		for _, u := range uses[kind] {
 			if !have[u.id] {
-				problems = append(problems, fmt.Errorf("%s names %s %d, which %s", u.col, kind, u.id, missingWhere(kind)))
+				problems = append(problems, refuse(u.col, "%s names %s %d, which %s", u.col, kind, u.id, missingWhere(kind)))
 			}
 		}
 	}

@@ -219,19 +219,38 @@ func (a *App) ReadQuest(entry int) (vmangos.TemplateRecord, error) {
 	return vmangos.ReadQuest(server, entry)
 }
 
+// TemplateSaved is what a template's Save did: the SQL it ran, or the value it refused (Refused, with
+// a nil error), whose column the editor opens the tab of (#597).
+type TemplateSaved struct {
+	SQL     string               `json:"sql"`
+	Refused *vmangos.ColumnError `json:"refused,omitempty"`
+}
+
+// templateSaved is the result of a Save that ran sql or failed with err: a refused value goes in
+// Refused, any other failure stays the error.
+func templateSaved(sql string, err error) (TemplateSaved, error) {
+	if r := vmangos.Refused(err); r != nil {
+		return TemplateSaved{Refused: r}, nil
+	}
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return TemplateSaved{SQL: sql}, nil
+}
+
 // SaveQuest writes a quest's changed values (by column) into the world database once they pass the
-// server's rules and what they name exists, and returns the SQL it ran.
-func (a *App) SaveQuest(entry, patch int, values map[string]string) (string, error) {
+// server's rules and what they name exists, and returns the SQL it ran, or the value it refused.
+func (a *App) SaveQuest(entry, patch int, values map[string]string) (TemplateSaved, error) {
 	server, dataDir, err := a.serverForWrite()
 	if err != nil {
-		return "", err
+		return TemplateSaved{}, err
 	}
 	sql, err := vmangos.SaveQuest(server, dataDir, entry, patch, values)
 	if err == nil {
 		a.stale.AddQuest(uint32(entry))
 		a.forgetStale()
 	}
-	return sql, err
+	return templateSaved(sql, err)
 }
 
 // CreateQuest adds a quest titled title, a copy of quest base (or a blank level 1 quest for 0), and

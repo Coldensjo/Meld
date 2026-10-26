@@ -1,6 +1,8 @@
 package vmangos
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -240,6 +242,18 @@ func TestEditorSavesRefuseOutOfRangeValues(t *testing.T) {
 		if err == nil || sql != "" || err.Error() != c.want {
 			t.Errorf("%s: %q, %v, want the error %q", c.name, sql, err, c.want)
 		}
+		if r := Refused(err); r == nil || r.Column != c.col {
+			t.Errorf("%s: refused %+v, want column %s", c.name, r, c.col)
+		}
+	}
+	// Only a refused value is one: a failure that names no column stays a plain error.
+	if Refused(nil) != nil || Refused(fmt.Errorf("the world database is down")) != nil {
+		t.Error("an error that refuses no value gave a column")
+	}
+	// The first refusal's column, the whole message.
+	err := fmt.Errorf("saving: %w", errors.Join(errors.New("the server said no"), refuse("MinLevel", "MinLevel is wrong"), refuse("MaxLevel", "MaxLevel too")))
+	if r := Refused(err); r == nil || r.Column != "MinLevel" || r.Message != err.Error() {
+		t.Errorf("joined: %+v", r)
 	}
 }
 

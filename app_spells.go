@@ -68,12 +68,14 @@ func (a *App) ReadSpell(entry int) (vmangos.SpellRecord, error) {
 }
 
 // SpellSaved is what SaveSpell wrote: the SQL it ran, the icon it added to SpellIcon.dbc ("" for
-// none), and the spell's visual and whether the composer's was added as new rows.
+// none), and the spell's visual and whether the composer's was added as new rows; or the value it
+// refused (Refused, with a nil error and nothing written), as TemplateSaved has it.
 type SpellSaved struct {
-	SQL         string `json:"sql"`
-	IconAdded   string `json:"iconAdded"`
-	Visual      int    `json:"visual"`
-	VisualAdded bool   `json:"visualAdded"`
+	SQL         string               `json:"sql"`
+	IconAdded   string               `json:"iconAdded"`
+	Visual      int                  `json:"visual"`
+	VisualAdded bool                 `json:"visualAdded"`
+	Refused     *vmangos.ColumnError `json:"refused,omitempty"`
 }
 
 // SaveSpell writes a spell's changed values (by column), icon (a name under Interface\Icons, "" to
@@ -87,6 +89,9 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string,
 		return SpellSaved{}, err
 	}
 	plan, err := vmangos.PlanSpellSave(server, dataDir, entry, build, values, icon, visual)
+	if r := vmangos.Refused(err); r != nil {
+		return SpellSaved{Refused: r}, nil
+	}
 	if err != nil {
 		return SpellSaved{}, err
 	}

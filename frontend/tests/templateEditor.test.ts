@@ -1,6 +1,6 @@
 import './runes.ts'
 import { describe, expect, test } from 'bun:test'
-import { TemplateEditor, refusedColumn, tabChangeCounts } from '../src/lib/ui/templateEditor.svelte.ts'
+import { TemplateEditor, checkRefused, tabChangeCounts } from '../src/lib/ui/templateEditor.svelte.ts'
 
 type Target = { entry: number }
 type Row = { entry: number; values: Record<string, string> }
@@ -165,7 +165,7 @@ describe('TemplateEditor', () => {
 		const ok = await ed.save(
 			'Saving',
 			async () => {
-				throw new Error('RequiredLevel must be at most 60')
+				checkRefused({ sql: '', refused: { column: 'RequiredLevel', message: 'RequiredLevel must be at most 60' } })
 			},
 			(c) => (col = c),
 		)
@@ -178,9 +178,23 @@ describe('TemplateEditor', () => {
 	})
 })
 
-test('refusedColumn takes the first word after Error:', () => {
-	expect(refusedColumn('Error: MinLevel is above QuestLevel')).toBe('MinLevel')
-	expect(refusedColumn('name is empty')).toBe('name')
+test('a failure that refuses no value names no column', async () => {
+	const { ed } = editor({})
+	let col: string | null = null
+	expect(
+		await ed.save(
+			'Saving',
+			async () => Promise.reject(new Error('MinLevel the database is down')),
+			(c) => (col = c),
+		),
+	).toBe(false)
+	expect(ed.error).toBe('Error: MinLevel the database is down')
+	expect(col).toBe(null)
+})
+
+test('checkRefused passes a result that refuses nothing', () => {
+	const r: { sql: string; refused?: { column: string; message: string } } = { sql: 'UPDATE' }
+	expect(checkRefused(r)).toBe(r)
 })
 
 test('tabChangeCounts counts the changed fields of each tab', () => {

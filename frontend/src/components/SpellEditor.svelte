@@ -4,7 +4,7 @@
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/backend'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
-	import { TemplateEditor, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
+	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { effectSummary, spellTabs, spellTooltip } from '../lib/world/spellFields'
 	import { forgetName, forgetSpellTables, spellTables } from '../lib/wow/refNames'
@@ -106,7 +106,7 @@
 			'Saving the spell',
 			async () => {
 				const n = changeCount
-				const r = await SaveSpell(rec.entry, rec.build, changes, pendingIcon, pendingVisual as vmangos.VisualDesign)
+				const r = checkRefused(await SaveSpell(rec.entry, rec.build, changes, pendingIcon, pendingVisual as vmangos.VisualDesign))
 				pendingIcon = ''
 				pendingVisual = null
 				// Its icon or category may be new: the pickers read the tables again.

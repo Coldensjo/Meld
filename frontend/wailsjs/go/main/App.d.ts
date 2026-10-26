@@ -310,7 +310,7 @@ export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
 export function SaveImageDialog(arg1:string,arg2:string):Promise<string>;
 
-export function SaveItem(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
+export function SaveItem(arg1:number,arg2:number,arg3:Record<string, string>):Promise<main.TemplateSaved>;
 
 export function SaveLights(arg1:vmangos.LightsEdit):Promise<string>;
 
@@ -332,7 +332,7 @@ export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 
 export function SavePrefs(arg1:string):Promise<void>;
 
-export function SaveQuest(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
+export function SaveQuest(arg1:number,arg2:number,arg3:Record<string, string>):Promise<main.TemplateSaved>;
 
 export function SaveQuestGivers(arg1:number,arg2:vmangos.QuestGivers,arg3:Array<number>):Promise<string>;
 

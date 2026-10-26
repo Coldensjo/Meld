@@ -142,6 +142,32 @@ func sqlQuote(s string) string {
 	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`, "\x00", `\0`, "\n", `\n`, "\r", `\r`).Replace(s) + "'"
 }
 
+// ColumnError is a Save refused for a value: Column names the column the editor shows (to open the
+// tab it is on), Message says why. The editors read Column rather than guess it from the message
+// (#597); the save bindings hand it to the page as their result's Refused, since Wails passes a
+// returned error to the page as its message only.
+type ColumnError struct {
+	Column  string `json:"column"`
+	Message string `json:"message"`
+}
+
+func (e *ColumnError) Error() string { return e.Message }
+
+// refuse is a ColumnError for column, its message formatted as fmt.Sprintf does.
+func refuse(column, format string, args ...any) error {
+	return &ColumnError{Column: column, Message: fmt.Sprintf(format, args...)}
+}
+
+// Refused is the first value err refuses, its Message the whole of err (every problem a Save found),
+// or nil when err refuses none.
+func Refused(err error) *ColumnError {
+	var ce *ColumnError
+	if !errors.As(err, &ce) {
+		return nil
+	}
+	return &ColumnError{Column: ce.Column, Message: err.Error()}
+}
+
 // sqlValue checks a value typed into the editor against its column and returns it as SQL.
 func sqlValue(c TemplateColumn, v string) (string, error) {
 	v = strings.TrimSpace(v)
@@ -152,24 +178,24 @@ func sqlValue(c TemplateColumn, v string) (string, error) {
 	case "int", "uint":
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			return "", fmt.Errorf("%s must be a whole number, not %q", c.Name, v)
+			return "", refuse(c.Name, "%s must be a whole number, not %q", c.Name, v)
 		}
 		if c.Kind == "uint" && n < 0 {
-			return "", fmt.Errorf("%s can't be negative", c.Name)
+			return "", refuse(c.Name, "%s can't be negative", c.Name)
 		}
 		if (c.Min != 0 || c.Max != 0) && (n < c.Min || n > c.Max) {
-			return "", fmt.Errorf("%s must be from %d to %d, not %d", c.Name, c.Min, c.Max, n)
+			return "", refuse(c.Name, "%s must be from %d to %d, not %d", c.Name, c.Min, c.Max, n)
 		}
 		return strconv.FormatInt(n, 10), nil
 	case "float":
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
-			return "", fmt.Errorf("%s must be a number, not %q", c.Name, v)
+			return "", refuse(c.Name, "%s must be a number, not %q", c.Name, v)
 		}
 		return num(f), nil
 	}
 	if c.MaxLen > 0 && len(v) > c.MaxLen {
-		return "", fmt.Errorf("%s is longer than %d characters", c.Name, c.MaxLen)
+		return "", refuse(c.Name, "%s is longer than %d characters", c.Name, c.MaxLen)
 	}
 	return sqlQuote(v), nil
 }

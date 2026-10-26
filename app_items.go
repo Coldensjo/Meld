@@ -55,18 +55,18 @@ func (a *App) ReadItemTemplate(entry int) (vmangos.TemplateRecord, error) {
 }
 
 // SaveItem writes an item template's changed values (by column) into the world database and
-// returns the SQL it ran.
-func (a *App) SaveItem(entry, patch int, values map[string]string) (string, error) {
+// returns the SQL it ran, or the value it refused.
+func (a *App) SaveItem(entry, patch int, values map[string]string) (TemplateSaved, error) {
 	server, _, err := a.serverForWrite()
 	if err != nil {
-		return "", err
+		return TemplateSaved{}, err
 	}
 	sql, err := vmangos.SaveItem(server, entry, patch, values)
 	if err == nil {
 		a.stale.AddItem(uint32(entry))
 		a.forgetStale()
 	}
-	return sql, err
+	return templateSaved(sql, err)
 }
 
 // CreateItem adds an item named name, a copy of item base (or a plain junk item for 0), and returns

@@ -4,7 +4,7 @@
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/backend'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
-	import { TemplateEditor, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
+	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { forgetItemIcons, forgetItemRow, itemTooltipNames } from '../lib/wow/items'
@@ -116,7 +116,7 @@
 					pendingVisual = -1
 				}
 				const n = changeCount
-				if (n > 0) await SaveItem(r.entry, r.patch, ed.changes)
+				if (n > 0) checkRefused(await SaveItem(r.entry, r.patch, ed.changes))
 				ed.markSaved()
 				forgetItems([r.entry])
 				forgetLooks()

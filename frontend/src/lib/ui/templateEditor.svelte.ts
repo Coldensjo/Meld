@@ -194,8 +194,8 @@ export class TemplateEditor<T, R extends TemplateRow> implements EditorFlow {
 
 	/**
 	 * Runs an editor's Save: `write` stores what changed, with `label` on the Saving bar meanwhile. A
-	 * failure lands in `error`, and `refused` gets the column a refused value names (Go's errors start
-	 * with it), to show the tab it is on. Returns whether it saved.
+	 * failure lands in `error`, and for a refused value (`write` threw a RefusedError, `checkRefused`)
+	 * `refused` gets its column, to show the tab it is on. Returns whether it saved.
 	 */
 	async save(label: string, write: () => Promise<void>, refused?: (column: string) => void): Promise<boolean> {
 		this.saving = true
@@ -207,7 +207,7 @@ export class TemplateEditor<T, R extends TemplateRow> implements EditorFlow {
 			return true
 		} catch (err) {
 			this.error = String(err)
-			refused?.(refusedColumn(this.error))
+			if (err instanceof RefusedError) refused?.(err.column)
 			return false
 		} finally {
 			this.saving = false
@@ -216,9 +216,22 @@ export class TemplateEditor<T, R extends TemplateRow> implements EditorFlow {
 	}
 }
 
-/** The column a Save error names: Go refuses a value with "<column> ...", which the binding prefixes with "Error: ". */
-export function refusedColumn(error: string): string {
-	return error.replace(/^Error:\s*/, '').split(/\s/)[0]
+/** A value a Save refused: `column` is the column Go named for it (vmangos.ColumnError, #597). Its text reads as a plain Error's. */
+export class RefusedError extends Error {
+	readonly column: string
+	constructor(column: string, message: string) {
+		super(message)
+		this.column = column
+	}
+}
+
+/**
+ * Throws the value a save binding refused (its result's `refused`; Wails passes a returned error as
+ * its message only, so Go hands the column over in the result), and returns the result otherwise.
+ */
+export function checkRefused<T extends { refused?: { column: string; message: string } }>(result: T): T {
+	if (result.refused) throw new RefusedError(result.refused.column, result.refused.message)
+	return result
 }
 
 /** How many of `changes` each tab's fields hold, for the tabs' labels. */

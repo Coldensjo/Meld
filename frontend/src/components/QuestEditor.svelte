@@ -2,7 +2,7 @@
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
-	import { TemplateEditor, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
+	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { questTabs, tabOfColumn } from '../lib/world/questFields'
 	import { forgetName } from '../lib/wow/refNames'
 	import EditorFrame from './EditorFrame.svelte'
@@ -66,7 +66,7 @@
 				const done: string[] = []
 				const n = changeCount
 				if (n > 0) {
-					await SaveQuest(r.entry, r.patch, changes)
+					checkRefused(await SaveQuest(r.entry, r.patch, changes))
 					ed.markSaved()
 					forgetName('quest', r.entry)
 					done.push(`${n} ${n === 1 ? 'value' : 'values'}`)
