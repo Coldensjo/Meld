@@ -199,21 +199,13 @@ func missingItem(db worldDB, ids []int) (string, error) {
 	if len(ids) == 0 {
 		return "", nil
 	}
-	list := make([]string, len(ids))
-	for i, id := range ids {
-		list[i] = strconv.Itoa(id)
-	}
-	raw, err := runSQL(db, "SELECT DISTINCT `entry` FROM `item_template` WHERE `entry` IN ("+strings.Join(list, ",")+")")
+	known, err := knownEntries(db, itemTable, ids)
 	if err != nil {
 		return "", err
 	}
-	known := map[string]bool{}
-	for _, l := range strings.Fields(string(raw)) {
-		known[l] = true
-	}
-	for _, id := range list {
+	for _, id := range ids {
 		if !known[id] {
-			return id, nil
+			return strconv.Itoa(id), nil
 		}
 	}
 	return "", nil

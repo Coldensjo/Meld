@@ -136,24 +136,17 @@ func SaveVendor(serverRoot string, entry int, items []VendorItem) (string, error
 	if err := ensureDatabase(db, serverRoot); err != nil {
 		return "", err
 	}
-	if len(items) > 0 {
-		ids := make([]string, len(items))
-		for i, it := range items {
-			ids[i] = strconv.Itoa(it.Item)
-		}
-		raw, err := runSQL(db, "SELECT DISTINCT `entry` FROM `item_template` WHERE `entry` IN ("+strings.Join(ids, ",")+")")
-		if err != nil {
-			return "", err
-		}
-		known := map[int]bool{}
-		for _, l := range strings.Fields(string(raw)) {
-			n, _ := strconv.Atoi(l)
-			known[n] = true
-		}
-		for _, it := range items {
-			if !known[it.Item] {
-				return "", fmt.Errorf("the world database has no item %d", it.Item)
-			}
+	ids := make([]int, len(items))
+	for i, it := range items {
+		ids[i] = it.Item
+	}
+	known, err := knownEntries(db, itemTable, ids)
+	if err != nil {
+		return "", err
+	}
+	for _, it := range items {
+		if !known[it.Item] {
+			return "", fmt.Errorf("the world database has no item %d", it.Item)
 		}
 	}
 	sql, err := vendorSQL(entry, items)
@@ -204,54 +197,13 @@ func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
 // ReadItem reads item template entry's newest patch row, every column by name (the columns differ
 // between VMaNGOS versions), for the Shop tab's tooltips.
 func ReadItem(serverRoot string, entry int) (map[string]string, error) {
-	db, err := worldDatabase(serverRoot)
+	rec, err := ReadItemTemplate(serverRoot, entry)
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureDatabase(db, serverRoot); err != nil {
-		return nil, err
-	}
-	raw, err := runSQL(db, "SHOW COLUMNS FROM item_template")
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		if f := strings.Split(line, "\t"); len(f) > 0 && f[0] != "" {
-			names = append(names, f[0])
-		}
-	}
-	if len(names) == 0 {
-		return nil, fmt.Errorf("the world database has no item_template")
-	}
-	quoted := make([]string, len(names))
-	for i, n := range names {
-		quoted[i] = "`" + n + "`"
-	}
-	raw, err = runSQL(db, fmt.Sprintf("SELECT %s FROM item_template WHERE entry = %d ORDER BY patch DESC LIMIT 1", strings.Join(quoted, ", "), entry))
-	if err != nil {
-		return nil, err
-	}
-	return parseItemRow(names, raw, entry)
-}
-
-// parseItemRow reads ReadItem's row: the values in the columns' order, a tab between them.
-func parseItemRow(names []string, raw []byte, entry int) (map[string]string, error) {
-	// Only the line end: empty last columns leave trailing tabs that are fields.
-	line := strings.TrimRight(string(raw), "\r\n")
-	f := strings.Split(line, "\t")
-	if line == "" || len(f) != len(names) {
-		return nil, fmt.Errorf("the world database has no item %d", entry)
-	}
-	out := make(map[string]string, len(names))
-	for i, n := range names {
-		v := f[i]
-		if v == "NULL" {
-			v = ""
-		}
-		out[n] = unescapeBatch(v)
-	}
-	return out, nil
+	rec.Values["entry"] = strconv.Itoa(rec.Entry)
+	rec.Values["patch"] = strconv.Itoa(rec.Patch)
+	return rec.Values, nil
 }
 
 // itemIcons is ItemDisplayInfo.dbc's icon name by display, read once per client data folder.

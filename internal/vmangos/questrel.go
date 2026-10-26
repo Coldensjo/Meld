@@ -151,23 +151,17 @@ func saveQuestRelations(serverRoot, kind string, entry int, q QuestLists) (strin
 	if err != nil {
 		return "", err
 	}
-	var ids []string
+	var ids []int
 	for _, r := range append(append([]QuestRef{}, q.Starts...), q.Ends...) {
-		ids = append(ids, strconv.Itoa(r.Quest))
+		ids = append(ids, r.Quest)
 	}
-	if len(ids) > 0 {
-		raw, err := runSQL(db, "SELECT DISTINCT `entry` FROM `quest_template` WHERE `entry` IN ("+strings.Join(ids, ",")+")")
-		if err != nil {
-			return "", err
-		}
-		known := map[string]bool{}
-		for _, l := range strings.Fields(string(raw)) {
-			known[l] = true
-		}
-		for _, id := range ids {
-			if !known[id] {
-				return "", fmt.Errorf("the world database has no quest %s", id)
-			}
+	known, err := knownEntries(db, questTable, ids)
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		if !known[id] {
+			return "", fmt.Errorf("the world database has no quest %d", id)
 		}
 	}
 	if kind == "object" {

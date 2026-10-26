@@ -220,31 +220,45 @@ func readTemplate(serverRoot, table, what string, entry int) (TemplateRecord, er
 	if err != nil {
 		return TemplateRecord{}, err
 	}
+	patch, values, err := readKeyedRow(db, table, "patch", "", cols, what, entry)
+	if err != nil {
+		return TemplateRecord{}, err
+	}
+	return TemplateRecord{Entry: entry, Patch: patch, Columns: cols, Values: values}, nil
+}
+
+// readKeyedRow reads the row of entry in table with the highest key (`patch` or `build`), among
+// those cond (an SQL condition, "" for all) lets through: its key and the columns cols by name,
+// NULL in a nullable column as "". what names the kind in the error for a missing entry.
+func readKeyedRow(db worldDB, table, key, cond string, cols []TemplateColumn, what string, entry int) (int, map[string]string, error) {
 	names := make([]string, len(cols))
 	for i, c := range cols {
 		names[i] = "`" + c.Name + "`"
 	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT `patch`, %s FROM %s WHERE entry = %d ORDER BY patch DESC LIMIT 1",
-		strings.Join(names, ", "), table, entry))
+	if cond != "" {
+		cond = " AND " + cond
+	}
+	raw, err := runSQL(db, fmt.Sprintf("SELECT `%s`, %s FROM `%s` WHERE `entry` = %d%s ORDER BY `%s` DESC LIMIT 1",
+		key, strings.Join(names, ", "), table, entry, cond, key))
 	if err != nil {
-		return TemplateRecord{}, err
+		return 0, nil, err
 	}
 	// Only the line end: empty last columns leave trailing tabs that are fields.
 	line := strings.TrimRight(string(raw), "\r\n")
 	f := strings.Split(line, "\t")
 	if line == "" || len(f) != len(cols)+1 {
-		return TemplateRecord{}, fmt.Errorf("the world database has no %s %d", what, entry)
+		return 0, nil, fmt.Errorf("the world database has no %s %d", what, entry)
 	}
-	rec := TemplateRecord{Entry: entry, Columns: cols, Values: make(map[string]string, len(cols))}
-	rec.Patch, _ = strconv.Atoi(f[0])
+	k, _ := strconv.Atoi(f[0])
+	values := make(map[string]string, len(cols))
 	for i, c := range cols {
 		v := f[i+1]
 		if v == "NULL" && c.Nullable {
 			v = ""
 		}
-		rec.Values[c.Name] = unescapeBatch(v)
+		values[c.Name] = unescapeBatch(v)
 	}
-	return rec, nil
+	return k, values, nil
 }
 
 // ReadCreature reads creature template entry: its newest patch's row.

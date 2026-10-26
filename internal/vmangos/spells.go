@@ -112,30 +112,7 @@ type SpellRecord struct {
 
 // readSpellRow reads the row of spell entry the server uses.
 func readSpellRow(db worldDB, cols []TemplateColumn, entry int) (int, map[string]string, error) {
-	names := make([]string, len(cols))
-	for i, c := range cols {
-		names[i] = "`" + c.Name + "`"
-	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT `build`, %s FROM `spell_template` WHERE `entry` = %d AND `build` <= %d ORDER BY `build` DESC LIMIT 1",
-		strings.Join(names, ", "), entry, spellBuild))
-	if err != nil {
-		return 0, nil, err
-	}
-	line := strings.TrimRight(string(raw), "\r\n")
-	f := strings.Split(line, "\t")
-	if line == "" || len(f) != len(cols)+1 {
-		return 0, nil, fmt.Errorf("the world database has no spell %d", entry)
-	}
-	build, _ := strconv.Atoi(f[0])
-	values := make(map[string]string, len(cols))
-	for i, c := range cols {
-		v := f[i+1]
-		if v == "NULL" && c.Nullable {
-			v = ""
-		}
-		values[c.Name] = unescapeBatch(v)
-	}
-	return build, values, nil
+	return readKeyedRow(db, "spell_template", "build", fmt.Sprintf("`build` <= %d", spellBuild), cols, "spell", entry)
 }
 
 // ReadSpell reads spell entry: the spell_template row the server uses.

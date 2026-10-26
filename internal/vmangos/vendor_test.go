@@ -38,14 +38,30 @@ func TestParseVendorItems(t *testing.T) {
 	}
 }
 
-func TestParseItemRow(t *testing.T) {
-	names := []string{"entry", "name", "description", "armor"}
-	got, err := parseItemRow(names, []byte("2361\tBattleworn Hammer\t\t0\n"), 2361)
-	if err != nil || got["name"] != "Battleworn Hammer" || got["description"] != "" || got["armor"] != "0" {
-		t.Fatalf("got %v, %v", got, err)
+func TestReadKeyedRow(t *testing.T) {
+	old := runSQL
+	defer func() { runSQL = old }()
+	var query string
+	reply := "3\tBattleworn Hammer\t\tNULL\tNULL\n"
+	runSQL = func(_ worldDB, sql string) ([]byte, error) {
+		query = sql
+		return []byte(reply), nil
 	}
-	if _, err := parseItemRow(names, []byte(""), 9); err == nil {
-		t.Fatal("no row should be an error")
+	cols := []TemplateColumn{{Name: "name"}, {Name: "description"}, {Name: "armor"}, {Name: "spellid_1", Nullable: true}}
+	key, got, err := readKeyedRow(worldDB{}, itemTable, "patch", "", cols, "item", 2361)
+	if err != nil || key != 3 || got["name"] != "Battleworn Hammer" || got["description"] != "" || got["armor"] != "NULL" || got["spellid_1"] != "" {
+		t.Fatalf("got %d %v, %v", key, got, err)
+	}
+	if query != "SELECT `patch`, `name`, `description`, `armor`, `spellid_1` FROM `item_template` WHERE `entry` = 2361 ORDER BY `patch` DESC LIMIT 1" {
+		t.Fatalf("query %q", query)
+	}
+	if _, _, err := readKeyedRow(worldDB{}, "spell_template", "build", "`build` <= 5875", cols, "spell", 133); err != nil ||
+		query != "SELECT `build`, `name`, `description`, `armor`, `spellid_1` FROM `spell_template` WHERE `entry` = 133 AND `build` <= 5875 ORDER BY `build` DESC LIMIT 1" {
+		t.Fatalf("spell query %q, %v", query, err)
+	}
+	reply = ""
+	if _, _, err := readKeyedRow(worldDB{}, itemTable, "patch", "", cols, "item", 9); err == nil || err.Error() != "the world database has no item 9" {
+		t.Fatalf("no row: %v", err)
 	}
 }
 
