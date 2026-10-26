@@ -1,7 +1,7 @@
-// The options bar keeps one row at 1400 px (#254): the brush's Size and Strength sit on it next to the tool's modes, what doesn't fit wraps under More, which opens the bar over the viewport with every control in view; Esc closes it, and Tab onto a clipped control opens it. The Sculpt bar fits one row in every mode, with no More (#715), and its Brush button opens the panel of its other settings, which Esc closes.
+// The options bar keeps one row at 1400 px (#254): the brush's Size and Strength sit on it next to the tool's modes, what doesn't fit wraps under More, which opens the bar over the viewport with every control in view; Esc closes it, and Tab onto a clipped control opens it. The Sculpt, Water, Doodad and Paint bars fit one row in every mode, with no More (#715, #734), and their panel button (Sculpt's Brush) opens the panel of their other settings, which Esc closes.
 // touches: frontend/src/components/OptionsBar.svelte
 const e = P.e
-const { editor } = await P.state()
+const { editor, prefs } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')
 const root = () => document.querySelector('[data-ui="OptionsBar"]')
 const bar = () => root().querySelector('.options')
@@ -34,8 +34,48 @@ for (const m of SCULPT_MODES) {
 	const hiddenN = [...bar().children].filter(visible).length - firstRow().length
 	if (hiddenN || more()) fits.push({ mode: m, hidden: hiddenN })
 }
+// So does every mode of Water, Doodad and Paint, with their switches that add controls on (#734).
+const spawnEntries = prefs.spawnBrush.entries
+prefs.spawnBrush.entries = [
+	{ entry: 1, name: 'Kobold Vermin', weight: 50 },
+	{ entry: 2, name: 'Defias Thug', weight: 50 },
+]
+const OTHER_MODES = [
+	['water paint', { tool: 'water', waterMode: 'paint' }],
+	['water dig', { tool: 'water', waterMode: 'dig' }],
+	['water shore', { tool: 'water', waterMode: 'shore' }],
+	['doodad models', { tool: 'doodad', doodadMode: 'models' }],
+	['doodad creatures', { tool: 'doodad', doodadMode: 'creatures' }],
+	['paint texture', { tool: 'paint', paintMode: 'texture' }],
+	['paint spray', { tool: 'paint', paintMode: 'texture', paintSpray: true }],
+	['paint swap', { tool: 'paint', paintMode: 'swap', paintSpray: false }],
+	['paint mask', { tool: 'paint', paintMode: 'mask' }],
+	['paint mask by slope', { tool: 'paint', paintMode: 'mask' }, () => (editor.maskSelect.by = 'slope')],
+]
+editor.water.lock = true
+editor.followGround = true
+for (const [m, set, extra] of OTHER_MODES) {
+	Object.assign(editor, set)
+	extra?.()
+	await P.frames(3)
+	const hiddenN = [...bar().children].filter(visible).length - firstRow().length
+	if (hiddenN || more() || !root().querySelector('.brushbtn')) fits.push({ mode: m, hidden: hiddenN })
+}
+editor.maskSelect.by = 'brush'
+editor.water.lock = false
+editor.followGround = false
+// The Water bar's panel holds its overrides and opacity, and Esc closes it too.
+Object.assign(editor, { tool: 'water', waterMode: 'paint' })
+await P.frames(3)
+root().querySelector('.brushbtn').click()
+await P.frames(3)
+const wpanel = root().querySelector('.brushpanel')
+const waterPanelOk = !!wpanel?.querySelector('[aria-label="Opacity"]')
+wpanel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+await P.frames(2)
+const waterPanelCloses = !root().querySelector('.brushpanel')
 // The Brush button opens its panel below the bar, inside the window, and Esc closes it.
-Object.assign(editor, { sculptMode: 'flatten' })
+Object.assign(editor, { tool: 'sculpt', sculptMode: 'flatten' })
 await P.frames(3)
 root().querySelector('.brushbtn').click()
 await P.frames(3)
@@ -78,8 +118,9 @@ for (const [name, set, keep] of cases) {
 	}
 	results.push({ name, ok: kept && counted && opened && rowStays, kept, hidden: hiddenN, counted, opened, rowStays })
 }
-// Tab onto a clipped control (the water tool's last button) opens the bar.
-Object.assign(editor, { tool: 'water', waterMode: 'paint' })
+// Tab onto a clipped control opens the bar: a spawn brush of many creatures is too wide for the row.
+prefs.spawnBrush.entries = Array.from({ length: 14 }, (_, i) => ({ entry: 100 + i, name: `Creature number ${i}`, weight: 10 }))
+Object.assign(editor, { tool: 'doodad', doodadMode: 'creatures' })
 await P.frames(3)
 const last = [...bar().querySelectorAll('button, input, select')].filter((c) => !firstRow().some((f) => f.contains(c))).pop()
 last?.focus()
@@ -87,4 +128,17 @@ last?.focus()
 if (last && !document.hasFocus()) last.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
 await P.frames(2)
 const focusOpens = !!last && bar().classList.contains('open')
-return { ok: results.every((r) => r.ok) && focusOpens && !fits.length && panelOk && panelCloses, focusOpens, sculptOverflow: fits, panelOk, panelCloses, results, width: root().clientWidth }
+bar().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+prefs.spawnBrush.entries = spawnEntries
+await P.frames(2)
+return {
+	ok: results.every((r) => r.ok) && focusOpens && !fits.length && panelOk && panelCloses && waterPanelOk && waterPanelCloses,
+	focusOpens,
+	overflow: fits,
+	panelOk,
+	panelCloses,
+	waterPanelOk,
+	waterPanelCloses,
+	results,
+	width: root().clientWidth,
+}

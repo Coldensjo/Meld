@@ -76,10 +76,31 @@
 	const mapData = $derived(editor.tool === 'mapdata')
 	// The spawn brush (#171) takes only the brush's size.
 	const spawnBrushing = $derived(editor.tool === 'doodad' && editor.doodadMode === 'creatures')
-	// Tools with modes show the brush's size and strength right after them (sizeStrength).
-	// The Sculpt bar's sliders are narrower, so its row fits (#715).
-	const sliderW = $derived(editor.tool === 'sculpt' ? 70 : 90)
+	// Tools with modes show the brush's size, strength and falloff right after them (sizeStrength).
+	// Their sliders are narrower, so the row fits (#715, #734).
 	const sizeAfterModes = $derived(editor.tool === 'sculpt' || editor.tool === 'paint' || editor.tool === 'water' || editor.tool === 'doodad')
+	const sliderW = $derived(sizeAfterModes ? 70 : 90)
+	const falloffOnBar = $derived(sizeAfterModes && !vertexMode && !paintingWater && !spawnBrushing && !(editor.tool === 'paint' && !usesBrush))
+	// The settings panel under the bar (settingsPanel) holds what these tools set once and leave alone,
+	// so the controls used while working fit on one row (#715, #734). Its button names what it holds.
+	const hasPanel = $derived(sizeAfterModes && !vertexMode)
+	const sculptPainting = $derived(editor.tool === 'sculpt' && !holeMode && editor.sculptPaint !== 'off')
+	const spraying = $derived(editor.tool === 'paint' && editor.paintMode === 'texture' && editor.paintSpray)
+	const panelLabel = $derived(
+		editor.tool === 'doodad' ? (spawnBrushing ? 'Spawns' : 'Placement') : paintingWater ? 'Water' : editor.tool === 'paint' && editor.paintMode === 'mask' ? 'Mask' : `Brush${sculptPainting ? ' · Paint' : spraying ? ' · Spray' : ''}`,
+	)
+	const panelTitle = $derived.by(() => {
+		if (editor.tool === 'sculpt')
+			return `The brush's other settings: edit limit, image, shape and falloff curve${holeMode ? '' : ', and painting while sculpting'}${
+				editor.sculptMode === 'flatten' ? ", and Flatten's target, direction and angled plane" : editor.sculptMode === 'terrace' ? ", and Terrace's offset" : ''
+			}`
+		if (editor.tool === 'water')
+			return paintingWater ? "The water brush's other settings: angled surface, overrides, opacity, which layers are drawn, and Crop water and Regen opacity" : "The brush's other settings: edit limit, shape and falloff curve"
+		if (editor.tool === 'doodad')
+			return spawnBrushing ? "The spawn brush's other settings: movement, facing, respawn time, levels, slope, water and rules" : 'Where the brush places models: falloff curve, ground rotation, slope, the sea and props'
+		if (editor.paintMode === 'mask') return "The mask's other settings: Modify mask and its step, and the brush's shape and falloff curve while painting the mask"
+		return `The brush's other settings: shape and falloff curve${editor.paintMode === 'texture' ? ', image, spray, and the unpaintable chunks' : ''}`
+	})
 
 	/** The client's zones for the Map data tool's picker, read when the tool is first opened. */
 	let areas = $state<vmangos.Area[]>([])
@@ -179,9 +200,7 @@
 			changes.disconnect()
 		}
 	})
-	// The Sculpt bar's Brush button opens a panel under it with the settings set once and left alone
-	// (edit limit, image, shape, falloff curve, Flatten's target, painting while sculpting), so the
-	// controls used while working fit on one row (#715). The panel sits outside the clipped bar.
+	// The panel button (brushbtn) opens the settings panel under the bar; it sits outside the clipped bar.
 	let brushOpen = $state(false)
 	let brushBtn = $state<HTMLButtonElement>()
 	let brushPanel = $state<HTMLDivElement>()
@@ -198,9 +217,13 @@
 			if (keyboard) brushPanel.querySelector<HTMLElement>('button, input, select')?.focus()
 		})
 	}
-	// A new tool starts with the bar and the panel closed.
+	// A new tool, or a new mode of a tool whose panel holds other settings per mode, starts with the bar
+	// and the panel closed.
 	$effect(() => {
 		void editor.tool
+		void editor.waterMode
+		void editor.doodadMode
+		void editor.paintMode
 		open = false
 		brushOpen = false
 	})
@@ -273,7 +296,18 @@
 				title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : editor.tool === 'sculpt' ? 'How fast the ground moves: up to ten times the normal speed, for big mountains' : undefined}
 			/>
 		{/if}
+		{#if falloffOnBar}
+			<OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} width={sliderW} />
+		{/if}
 	{/if}
+{/snippet}
+
+{#snippet falloffCurve()}
+	<select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
+		{#each FALLOFF_CURVES as c (c.id)}
+			<option value={c.id}>{c.name}</option>
+		{/each}
+	</select>
 {/snippet}
 
 {#snippet brushShape()}
@@ -315,9 +349,6 @@
 				{/each}
 			</div>
 			{@render sizeStrength()}
-			{#if !vertexMode}
-				<OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} width={70} />
-			{/if}
 			{#if editor.sculptMode === 'flatten'}
 				<label class="check" title="Level every stroke to the locked height instead of the height where it starts; Alt+click locks the point under the cursor"
 					><input type="checkbox" bind:checked={editor.flattenLock.on} /> Lock</label
@@ -391,22 +422,6 @@
 					<OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={60} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
 				{/if}
 			{/if}
-			{#if !vertexMode}
-				<div class="divider"></div>
-				<button
-					class="brushbtn"
-					class:active={brushOpen}
-					class:painting={!holeMode && editor.sculptPaint !== 'off'}
-					bind:this={brushBtn}
-					onclick={toggleBrush}
-					aria-expanded={brushOpen}
-					title="The brush's other settings: edit limit, image, shape and falloff curve{holeMode ? '' : ', and painting while sculpting'}{editor.sculptMode === 'flatten'
-						? ", and Flatten's target, direction and angled plane"
-						: editor.sculptMode === 'terrace'
-							? ", and Terrace's offset"
-							: ''}">Brush{!holeMode && editor.sculptPaint !== 'off' ? ' · Paint' : ''} {brushOpen ? '▴' : '▾'}</button
-				>
-			{/if}
 		{:else if editor.tool === 'paint' || editor.tool === 'road'}
 			{#if editor.tool === 'paint'}
 				<div class="seg">
@@ -447,19 +462,6 @@
 					<label class="check" title="Only what is joined to the click; off, everything on the map that matches"><input type="checkbox" bind:checked={ms.contiguous} /> Contiguous</label>
 					<OptSlider label="Feather" bind:value={ms.feather} min={0} max={20} step={0.5} digits={1} width={60} title="Soften the selection's edge over this many yards" />
 				{/if}
-				<div class="divider"></div>
-				<select class="curve" value="" onchange={modifyMask} title="Change the whole mask (also in the Terrain menu)" aria-label="Modify mask">
-					<option value="" disabled>Modify mask…</option>
-					<option value="grow" disabled={!ui.maskActive}>Grow by {ms.step} yd</option>
-					<option value="shrink" disabled={!ui.maskActive}>Shrink by {ms.step} yd</option>
-					<option value="feather" disabled={!ui.maskActive}>Feather over {ms.step} yd</option>
-					<option value="invert">Invert</option>
-					<option value="clear" disabled={!ui.maskActive}>Clear</option>
-				</select>
-				<OptSlider label="By" bind:value={ms.step} min={0.5} max={32} step={0.5} digits={1} width={50} title="How many yards Grow, Shrink and Feather change the mask by" />
-			{/if}
-			{#if editor.tool === 'paint' && editor.paintMode === 'texture' && !editor.paintSpray}
-				{@render imageBrush()}
 			{/if}
 			<button
 				class="chip"
@@ -612,45 +614,10 @@
 				{#if editor.water.lock}
 					<OptSlider label="Height" bind:value={editor.water.lockPos.y} min={-200} max={400} step={0.1} digits={1} width={80} title="The locked surface height (Alt+click picks it)" />
 				{/if}
-				<label class="check" title="Tilt the surface for flowing rivers"><input type="checkbox" bind:checked={editor.water.angled} /> Angled</label>
-				{#if editor.water.angled}
-					<OptSlider label="Angle" bind:value={editor.water.angle} min={0} max={89} step={0.5} digits={1} width={60} title="How steeply the surface rises, in degrees" />
-					<OptSlider
-						label="Direction"
-						bind:value={editor.water.orientation}
-						min={0}
-						max={360}
-						step={1}
-						digits={0}
-						width={60}
-						title="Direction the surface rises toward, in degrees (0 is east, 90 south). It pivots on the locked point."
-					/>
-				{/if}
-				<label class="check" title="Water already there takes the brush's height too"><input type="checkbox" bind:checked={editor.water.overrideHeight} /> Override height</label>
-				<label class="check" title="Painting replaces other liquids under the brush; off, it adds to whichever is there"><input type="checkbox" bind:checked={editor.water.overrideId} /> Override type</label>
-				<select class="curve" bind:value={editor.water.opacity} title="How quickly the water turns opaque with depth" aria-label="Opacity">
-					<option value="auto">Opacity: auto</option>
-					<option value="river">Opacity: river</option>
-					<option value="ocean">Opacity: ocean</option>
-					<option value="custom">Opacity: custom</option>
-				</select>
-				{#if editor.water.opacity === 'custom'}
-					<OptSlider label="Factor" bind:value={editor.water.customOpacity} min={0} max={1} step={0.001} digits={3} width={60} title="Depth factor: (depth + 1) × factor is the opacity" />
-				{/if}
 				<label class="check" title="The brush stops on liquid surfaces (and the sea), not just the ground"><input type="checkbox" bind:checked={editor.water.onLiquids} /> On liquids</label>
-				<label class="check" title="Draw every liquid layer of each chunk; off, only the current layer, so one under another can be seen"><input type="checkbox" bind:checked={editor.water.allLayers} /> All layers</label>
-				{#if !editor.water.allLayers}
-					<label class="check" title="The layer drawn in each chunk, counted from 0 in the chunk's own order (a chunk holds a layer per liquid)"
-						>Layer <input class="num" type="number" min="0" max="7" step="1" bind:value={editor.water.layer} /></label
-					>
-				{/if}
-				<button onclick={() => engineRef.current?.cropWater()} title="Remove the liquid that lies under the ground, in the selected area or the whole map">Crop water</button>
-				<button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
 			{:else}
 				<span class="chip" title="The map's sea level, set in File > Map Properties"><span class="dim">Sea level:</span> {editor.waterEnabled ? editor.waterLevel.toFixed(1) : 'off'}</span>
-				{@render editLimit()}
 			{/if}
-			<div class="divider"></div>
 		{:else if editor.tool === 'place'}
 			<span class="chip" title={editor.prefab}>
 				<span class="dim">Model:</span>
@@ -727,24 +694,6 @@
 			{/each}
 			<OptSlider label="Per 100×100 yd" bind:value={sb.density} min={1} max={60} step={1} digits={0} width={60} title="How many creatures the brush fills 100 by 100 yards of ground with" />
 			<OptSlider label="Spacing" bind:value={sb.spacing} min={0} max={40} step={0.5} digits={1} width={60} title="No two creatures closer than this many yards (social aggro)" />
-			<select class="curve" bind:value={sb.movement} title="How the creatures move" aria-label="Movement">
-				<option value="random">Wander</option>
-				<option value="stay">Stay</option>
-			</select>
-			{#if sb.movement === 'random'}
-				<OptSlider label="Radius" bind:value={sb.wander} min={0} max={40} step={0.5} digits={1} width={50} title="How far each creature wanders from its spawn point, in yards" />
-			{/if}
-			<OptSlider label="Respawn s" bind:value={sb.respawnSecs} min={10} max={3600} step={10} digits={0} width={60} title="Respawn time in seconds" />
-			<OptSlider label="Level" bind:value={sb.levelMin} min={0} max={63} step={1} digits={0} width={40} title="Lowest level, or 0 for the template's own range" />
-			<OptSlider label="to" bind:value={sb.levelMax} min={0} max={63} step={1} digits={0} width={40} title="Highest level, or 0 for the template's own range" />
-			<select class="curve" bind:value={sb.facing} title="Which way each creature faces" aria-label="Facing">
-				<option value="random">Face anywhere</option>
-				<option value="centre">Face the centre</option>
-			</select>
-			<OptSlider label="Max slope" bind:value={sb.maxSlope} min={0} max={90} step={1} digits={0} width={50} title="No creature on ground steeper than this many degrees (90 allows any)" />
-			<label class="check" title="No creature in the sea or a painted liquid"><input type="checkbox" bind:checked={sb.avoidWater} /> Keep out of water</label>
-			<button class:active={!rulesEmpty(sb.rules)} onclick={() => (ui.dialog = 'spawnRules')} title="Only on or never on some textures, within a height range, off holes">Rules…</button>
-			<div class="divider"></div>
 		{:else if editor.tool === 'doodad'}
 			<select
 				class="curve"
@@ -763,16 +712,6 @@
 				{activeDoodadBrush() ? 'Edit brush…' : 'New brush…'}
 			</button>
 			<label class="check"><input type="checkbox" bind:checked={editor.doodad.randomRot} /> Random rotation</label>
-			<label class="check" title="Tilt placed models to the slope under them (instead of each model's random tilt)"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
-			{#if editor.followGround}
-				<label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
-			{/if}
-			<label class="check" title="Put nothing on ground under the sea level"><input type="checkbox" bind:checked={editor.doodad.avoidWater} /> Keep out of the sea</label>
-			<OptSlider label="Max slope" bind:value={editor.doodad.maxSlope} min={0} max={90} step={1} digits={0} width={60} title="Put nothing on ground steeper than this many degrees (90 allows any slope)" />
-			<label class="check" title="Let placements land on props under the brush, attached to them as the Place tool attaches (a model on a prop keeps its random tilt)"
-				><input type="checkbox" bind:checked={editor.doodad.onProps} /> On props</label
-			>
-			<div class="divider"></div>
 		{:else if editor.tool === 'select'}
 			{#if ui.pasting}
 				{#if engineRef.current?.pastingModels()}
@@ -872,21 +811,15 @@
 			{/if}
 		{/if}
 
-		<!-- The Sculpt tool keeps its shape, falloff and curve in its Brush panel (#715). -->
-		{#if usesBrush && editor.tool !== 'sculpt' && editor.tool !== 'place' && editor.tool !== 'doodad' && !paintingWater && !mapData}
-			{@render brushShape()}
-		{/if}
-		{#if usesBrush}
-			{#if !sizeAfterModes}
-				{@render sizeStrength()}
+		<!-- The tools with modes keep their shape and falloff curve in the settings panel (#715, #734). -->
+		{#if usesBrush && !sizeAfterModes}
+			{#if editor.tool !== 'place' && !mapData}
+				{@render brushShape()}
 			{/if}
-			{#if editor.tool !== 'sculpt' && editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !mapData && !spawnBrushing}
+			{@render sizeStrength()}
+			{#if editor.tool !== 'road' && editor.tool !== 'place' && !mapData}
 				<OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
-				<select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
-					{#each FALLOFF_CURVES as c (c.id)}
-						<option value={c.id}>{c.name}</option>
-					{/each}
-				</select>
+				{@render falloffCurve()}
 			{/if}
 		{/if}
 		{#if editor.tool === 'clear'}
@@ -940,19 +873,162 @@
 			{/if}
 		{/if}
 		{#if editor.tool === 'paint' && editor.paintMode === 'texture'}
-			<label class="check" title="Spray random dabs over the brush instead of painting it solid (T)"><input type="checkbox" bind:checked={editor.paintSpray} /> Spray</label>
-			<label class="check" title="Tint red the chunks that already hold four other textures, where this texture can't be painted"><input type="checkbox" bind:checked={prefs.showUnpaintable} /> Show unpaintable chunks</label>
-			{#if editor.paintSpray}
-				<OptSlider label="Dab size" bind:value={editor.spray.size} min={1} max={40} step={0.5} digits={1} width={60} title="Size of each spray dab" />
-				<OptSlider label="Pressure" bind:value={editor.spray.pressure} min={0} max={10} step={0.1} digits={1} width={60} title="How densely the dabs land" />
-				<label class="check" title="Also paint the brush's solid centre (inside the falloff)"><input type="checkbox" bind:checked={editor.spray.inner} /> Inner radius</label>
-			{/if}
+			<label class="check" title="Spray random dabs over the brush instead of painting it solid (T); its dab size and pressure are in the Brush panel"><input type="checkbox" bind:checked={editor.paintSpray} /> Spray</label>
+		{/if}
+		{#if hasPanel}
+			<div class="divider"></div>
+			<button class="brushbtn" class:active={brushOpen} class:painting={sculptPainting || spraying} bind:this={brushBtn} onclick={toggleBrush} aria-expanded={brushOpen} title={panelTitle}>{panelLabel} {brushOpen ? '▴' : '▾'}</button>
 		{/if}
 	</div>
 	{#if hidden > 0 || open}
 		<button class="more" class:active={open} onclick={() => (open = !open)} aria-expanded={open} title="Show the {hidden} controls that don't fit on the bar (Tab reaches them too; Esc or a click elsewhere closes it)"
 			>More ({hidden}) {open ? '▴' : '▾'}</button
 		>
+	{/if}
+	{#if brushOpen && hasPanel && editor.tool !== 'sculpt'}
+		<div class="brushpanel" bind:this={brushPanel} style:left="{brushLeft}px" role="group" aria-label="{panelLabel} settings">
+			{#if editor.tool === 'water' && paintingWater}
+				<div class="row">
+					<span class="dim head">Surface</span>
+					<label class="check" title="Tilt the surface for flowing rivers"><input type="checkbox" bind:checked={editor.water.angled} /> Angled</label>
+					{#if editor.water.angled}
+						<OptSlider label="Angle" bind:value={editor.water.angle} min={0} max={89} step={0.5} digits={1} width={60} title="How steeply the surface rises, in degrees" />
+						<OptSlider
+							label="Direction"
+							bind:value={editor.water.orientation}
+							min={0}
+							max={360}
+							step={1}
+							digits={0}
+							width={60}
+							title="Direction the surface rises toward, in degrees (0 is east, 90 south). It pivots on the locked point."
+						/>
+					{/if}
+				</div>
+				<div class="row">
+					<span class="dim head">Override</span>
+					<label class="check" title="Water already there takes the brush's height too"><input type="checkbox" bind:checked={editor.water.overrideHeight} /> Height</label>
+					<label class="check" title="Painting replaces other liquids under the brush; off, it adds to whichever is there"><input type="checkbox" bind:checked={editor.water.overrideId} /> Type</label>
+				</div>
+				<div class="row">
+					<span class="dim head">Opacity</span>
+					<select class="curve" bind:value={editor.water.opacity} title="How quickly the water turns opaque with depth" aria-label="Opacity">
+						<option value="auto">Auto</option>
+						<option value="river">River</option>
+						<option value="ocean">Ocean</option>
+						<option value="custom">Custom</option>
+					</select>
+					{#if editor.water.opacity === 'custom'}
+						<OptSlider label="Factor" bind:value={editor.water.customOpacity} min={0} max={1} step={0.001} digits={3} width={60} title="Depth factor: (depth + 1) × factor is the opacity" />
+					{/if}
+					<button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
+				</div>
+				<div class="row">
+					<span class="dim head">Layers</span>
+					<label class="check" title="Draw every liquid layer of each chunk; off, only the current layer, so one under another can be seen"><input type="checkbox" bind:checked={editor.water.allLayers} /> All layers</label>
+					{#if !editor.water.allLayers}
+						<label class="check" title="The layer drawn in each chunk, counted from 0 in the chunk's own order (a chunk holds a layer per liquid)"
+							>Layer <input class="num" type="number" min="0" max="7" step="1" bind:value={editor.water.layer} /></label
+						>
+					{/if}
+					<button onclick={() => engineRef.current?.cropWater()} title="Remove the liquid that lies under the ground, in the selected area or the whole map">Crop water</button>
+				</div>
+			{:else if editor.tool === 'water'}
+				<div class="row">
+					<span class="dim head">Brush</span>
+					{@render editLimit()}
+					{@render falloffCurve()}
+					{@render brushShape()}
+				</div>
+			{:else if spawnBrushing}
+				{@const sb = prefs.spawnBrush}
+				<div class="row">
+					<span class="dim head">Spawn</span>
+					<select class="curve" bind:value={sb.movement} title="How the creatures move" aria-label="Movement">
+						<option value="random">Wander</option>
+						<option value="stay">Stay</option>
+					</select>
+					{#if sb.movement === 'random'}
+						<OptSlider label="Radius" bind:value={sb.wander} min={0} max={40} step={0.5} digits={1} width={50} title="How far each creature wanders from its spawn point, in yards" />
+					{/if}
+					<select class="curve" bind:value={sb.facing} title="Which way each creature faces" aria-label="Facing">
+						<option value="random">Face anywhere</option>
+						<option value="centre">Face the centre</option>
+					</select>
+					<OptSlider label="Respawn s" bind:value={sb.respawnSecs} min={10} max={3600} step={10} digits={0} width={60} title="Respawn time in seconds" />
+				</div>
+				<div class="row">
+					<span class="dim head">Level</span>
+					<OptSlider label="From" bind:value={sb.levelMin} min={0} max={63} step={1} digits={0} width={40} title="Lowest level, or 0 for the template's own range" />
+					<OptSlider label="to" bind:value={sb.levelMax} min={0} max={63} step={1} digits={0} width={40} title="Highest level, or 0 for the template's own range" />
+				</div>
+				<div class="row">
+					<span class="dim head">Ground</span>
+					<OptSlider label="Max slope" bind:value={sb.maxSlope} min={0} max={90} step={1} digits={0} width={50} title="No creature on ground steeper than this many degrees (90 allows any)" />
+					<label class="check" title="No creature in the sea or a painted liquid"><input type="checkbox" bind:checked={sb.avoidWater} /> Keep out of water</label>
+					<button class:active={!rulesEmpty(sb.rules)} onclick={() => (ui.dialog = 'spawnRules')} title="Only on or never on some textures, within a height range, off holes">Rules…</button>
+				</div>
+			{:else if editor.tool === 'doodad'}
+				<div class="row">
+					<span class="dim head">Brush</span>
+					{@render falloffCurve()}
+				</div>
+				<div class="row">
+					<span class="dim head">Ground</span>
+					<label class="check" title="Tilt placed models to the slope under them (instead of each model's random tilt)"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
+					{#if editor.followGround}
+						<label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
+					{/if}
+					<OptSlider label="Max slope" bind:value={editor.doodad.maxSlope} min={0} max={90} step={1} digits={0} width={60} title="Put nothing on ground steeper than this many degrees (90 allows any slope)" />
+				</div>
+				<div class="row">
+					<span class="dim head"></span>
+					<label class="check" title="Put nothing on ground under the sea level"><input type="checkbox" bind:checked={editor.doodad.avoidWater} /> Keep out of the sea</label>
+					<label class="check" title="Let placements land on props under the brush, attached to them as the Place tool attaches (a model on a prop keeps its random tilt)"
+						><input type="checkbox" bind:checked={editor.doodad.onProps} /> On props</label
+					>
+				</div>
+			{:else if editor.tool === 'paint'}
+				{#if usesBrush}
+					<div class="row">
+						<span class="dim head">Brush</span>
+						{#if editor.paintMode === 'texture' && !editor.paintSpray}
+							{@render imageBrush()}
+						{/if}
+						{@render falloffCurve()}
+						{@render brushShape()}
+					</div>
+				{/if}
+				{#if spraying}
+					<div class="row">
+						<span class="dim head">Spray</span>
+						<OptSlider label="Dab size" bind:value={editor.spray.size} min={1} max={40} step={0.5} digits={1} width={60} title="Size of each spray dab" />
+						<OptSlider label="Pressure" bind:value={editor.spray.pressure} min={0} max={10} step={0.1} digits={1} width={60} title="How densely the dabs land" />
+						<label class="check" title="Also paint the brush's solid centre (inside the falloff)"><input type="checkbox" bind:checked={editor.spray.inner} /> Inner radius</label>
+					</div>
+				{/if}
+				{#if editor.paintMode === 'texture'}
+					<div class="row">
+						<span class="dim head">Show</span>
+						<label class="check" title="Tint red the chunks that already hold four other textures, where this texture can't be painted"><input type="checkbox" bind:checked={prefs.showUnpaintable} /> Unpaintable chunks</label>
+					</div>
+				{:else if editor.paintMode === 'mask'}
+					{@const ms = editor.maskSelect}
+					<div class="row">
+						<span class="dim head">Mask</span>
+						<select class="curve" value="" onchange={modifyMask} title="Change the whole mask (also in the Terrain menu)" aria-label="Modify mask">
+							<option value="" disabled>Modify mask…</option>
+							<option value="grow" disabled={!ui.maskActive}>Grow by {ms.step} yd</option>
+							<option value="shrink" disabled={!ui.maskActive}>Shrink by {ms.step} yd</option>
+							<option value="feather" disabled={!ui.maskActive}>Feather over {ms.step} yd</option>
+							<option value="invert">Invert</option>
+							<option value="clear" disabled={!ui.maskActive}>Clear</option>
+						</select>
+						<OptSlider label="By" bind:value={ms.step} min={0.5} max={32} step={0.5} digits={1} width={50} title="How many yards Grow, Shrink and Feather change the mask by" />
+					</div>
+				{/if}
+			{/if}
+		</div>
 	{/if}
 	{#if brushOpen && editor.tool === 'sculpt' && !vertexMode}
 		<div class="brushpanel" bind:this={brushPanel} style:left="{brushLeft}px" role="group" aria-label="Brush settings">
@@ -962,11 +1038,7 @@
 					{@render editLimit()}
 					{@render imageBrush()}
 				{/if}
-				<select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
-					{#each FALLOFF_CURVES as c (c.id)}
-						<option value={c.id}>{c.name}</option>
-					{/each}
-				</select>
+				{@render falloffCurve()}
 				{#if !holeMode}
 					{@render brushShape()}
 				{/if}
@@ -1093,7 +1165,7 @@
 		border-bottom: 1px solid var(--border);
 		box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
 	}
-	/* The Sculpt tool's Brush panel: rows of controls under its button, over the viewport. */
+	/* The settings panel (Sculpt's Brush, Water, Placement, Spawns): rows of controls under its button, over the viewport. */
 	.brushpanel {
 		position: absolute;
 		top: 34px;
@@ -1114,7 +1186,7 @@
 		gap: 10px;
 	}
 	.brushpanel .head {
-		width: 44px;
+		width: 56px;
 	}
 	.brushbtn.painting {
 		color: var(--accent-text);

@@ -19,7 +19,12 @@ The window layout, the asset browser and the dock panels and floating windows.
     named by their tooltips and `aria-label`), narrower sliders, and a Brush button that opens a panel
     under the bar (`.brushpanel`, outside the clipped `.options`) with the settings set once: edit
     limit, image, falloff curve, shape, Flatten's target, direction and angled plane, Terrace's offset
-    and painting while sculpting (the button reads "Brush · Paint" while that is on). `OptSlider`'s
+    and painting while sculpting (the button reads "Brush · Paint" while that is on). The Water, Doodad
+    and Paint bars fit the same way (#734): the panel is one for all four tools (`hasPanel`, its button
+    `.brushbtn` last on the bar, named by `panelLabel`: Water, Placement, Spawns, Mask or Brush), with
+    a branch per tool and mode; their Size, Strength and Falloff come from `sizeStrength` at
+    `sliderW` 70, and the falloff curve and shape move into the panel. A spawn brush with many
+    creatures still overflows under More. `OptSlider`'s
     number box hides its spin arrows to stay 46 px wide. It holds controls only: a sentence of
     help for the tool goes in `ToolHint.svelte` (a branch per tool and mode, with `<kbd>` markup),
     which `StatusBar` shows in its message slot while `ui.status` is 'Ready'; a status message takes
