@@ -44,6 +44,7 @@ test-full:
 # Regenerates frontend/wailsjs from the bound Go methods (never edit it by hand); stage only the files that changed.
 bindings:
 	$(WAILS) generate module -tags $(LINUX_TAGS)
+	@rm -f Meld.exe Meld
 
 # Fails when a bound method (func (a *App) X in the root *.go files) has no export in wailsjs/go/main/App.d.ts, or the reverse: run `make bindings`. Needs no wails.
 bindings-check:
