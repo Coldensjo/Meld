@@ -6,7 +6,14 @@ import type { ToolId } from '../state/editor.svelte'
 export const TOOLS: Array<{ id: ToolId; name: string; desc: string; key: string; letter?: string; icon: string }> = [
 	{ id: 'select', name: 'Select', desc: 'Click a model, or drag on the ground to select an area and the models in it. Alt+click picks a model or texture.', key: '1', letter: 'V', icon: 'M5 3l14 8-6 2-2 6z' },
 	{ id: 'sculpt', name: 'Sculpt Terrain', desc: 'Raise, lower, smooth, flatten or roughen the ground under the brush.', key: '2', icon: 'M2 20l6-10 4 6 3-4 7 8z' },
-	{ id: 'paint', name: 'Paint Textures', desc: 'Paint the picked ground texture, or a mask to fill with one. Each chunk holds up to four textures.', key: '3', letter: 'B', icon: 'M4 20c3 0 4-2 4-4l9-11 3 3-11 9c-2 0-4 1-5 3zM14 6l3 3' },
+	{
+		id: 'paint',
+		name: 'Paint Textures',
+		desc: 'Paint the picked ground texture, or a mask to fill with one. Each chunk holds up to four textures.',
+		key: '3',
+		letter: 'B',
+		icon: 'M3 3h14v5H3zM17 5.5h3.5v5H12v3M10.5 13.5v3h3v-3M4 17h16v5H4zM12 17v5M4 19.5h16',
+	},
 	{ id: 'road', name: 'Roads', desc: 'Paint a texture with a hard edge and level the ground across it.', key: '4', icon: 'M8 21L10 3M16 21L14 3M12 5v2M12 11v2M12 17v2' },
 	{
 		id: 'path',
@@ -18,7 +25,7 @@ export const TOOLS: Array<{ id: ToolId; name: string; desc: string; key: string;
 	{ id: 'water', name: 'Water', desc: 'Paint lakes and rivers of water, ocean, magma or slime, or dig lakes and raise shores around the sea.', key: '5', icon: 'M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z' },
 	{ id: 'place', name: 'Place Objects', desc: 'Place the model picked in the asset browser on the ground or on another model.', key: '6', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
 	{ id: 'clear', name: 'Clear', desc: 'Erase models, or paint out heights, liquids or holes in the brush.', key: '7', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
-	{ id: 'doodad', name: 'Doodad Brush', desc: 'Scatter a brush of weighted models over the ground (Ctrl erases them).', key: '8', icon: 'M3 21c0-3.5 1.2-6 3.5-6S10 16.5 10 18.5 7.5 22 3 21zM9 15l9-9M13 3h.01M19 3h.01M21 9h.01M16 7h.01' },
+	{ id: 'doodad', name: 'Doodad Brush', desc: 'Scatter a brush of weighted models over the ground (Ctrl erases them).', key: '8', icon: 'M7 3l4 7H3zM7 10v4M17 8l3.5 6h-7zM17 14v3M3 21l2-3h5l2 3zM15 21h6' },
 	{ id: 'stamp', name: 'Stamp', desc: 'One stroke applies a stack of sculpt and paint brushes together (Edit stack in the options bar).', key: '0', icon: 'M7 3h10v5l-3 3v3h5v3H5v-3h5v-3L7 8zM4 21h16' },
 	{
 		id: 'mapdata',
