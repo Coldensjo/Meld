@@ -295,21 +295,28 @@ func (s Session) logIn() {
 
 // close asks a program to exit, the way closing its window does, and waits for it to go.
 func (s Session) close(image string) error {
-	_ = s.Run.Run("", "taskkill", []string{"/IM", image}, nil)
+	s.kill(image, false)
 	if !waitFor(func() bool { return !s.Run.Running(image) }, exitWait) {
 		return fmt.Errorf("%s did not close: close it and export again", image)
 	}
 	return nil
 }
 
+// kill asks a program to exit (force: kills it), through taskkill or, off Windows, pkill. Its error
+// is ignored: the wait for the program to go says whether it went.
+func (s Session) kill(image string, force bool) {
+	name, args := vmangos.StopCommand(s.Run, image, force)
+	_ = s.Run.Run("", name, args, nil)
+}
+
 // closeAuth closes the auth server. It has no window, so a graceful close can't reach it, and it keeps
 // no state that a forced stop could lose. It's given a short graceful try, then forced.
 func (s Session) closeAuth() error {
-	_ = s.Run.Run("", "taskkill", []string{"/IM", authImage}, nil)
+	s.kill(authImage, false)
 	if waitFor(func() bool { return !s.Run.Running(authImage) }, authGrace) {
 		return nil
 	}
-	_ = s.Run.Run("", "taskkill", []string{"/F", "/IM", authImage}, nil)
+	s.kill(authImage, true)
 	if !waitFor(func() bool { return !s.Run.Running(authImage) }, exitWait) {
 		return fmt.Errorf("%s did not close: close it and export again", authImage)
 	}

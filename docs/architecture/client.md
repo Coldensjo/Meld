@@ -96,8 +96,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     so the sun, sky and shadows never reach the inside of a cave or building.
 
 - **Server tooling is Windows-only** (#483): `vmangos.OSRunner` finds and stops the server's programs
-  with `tasklist` and `taskkill` and runs its Windows extractors. Off Windows its `Running` answers no
-  (logged once), and `vmangos.Supported(runner)` returns `ErrNeedsWindows`, which `UpdateServerMaps`,
+  with `tasklist` and `taskkill` and runs its Windows extractors. Off Windows its `Running` reads
+  `/proc/*/comm` for the image name without `.exe` (a native Benilla) or with it (Wine), cut to comm's
+  15 characters, and `vmangos.StopCommand` gives `pkill` for the game's close (#730), so a patch write
+  there still waits for a running game; without a `/proc` (macOS) nothing runs. `vmangos.Supported(runner)` returns `ErrNeedsWindows`, which `UpdateServerMaps`,
   `game.Session`'s server stop and `App.PlayHere` return instead of "not running"; `ensureDatabase`
   starts the server folder's mariadbd only on Windows. A test's fake runner is always supported, and
   tests set `hostOS` to check the guard on any machine.

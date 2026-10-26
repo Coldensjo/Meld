@@ -4,14 +4,12 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	stdlog "log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -37,9 +35,6 @@ var ErrNeedsWindows = errors.New("managing the VMaNGOS server needs Windows: Mel
 // hostOS is runtime.GOOS; tests change it to check the guard on any machine.
 var hostOS = runtime.GOOS
 
-// offWindowsOnce logs the first time OSRunner is asked about a program off Windows.
-var offWindowsOnce sync.Once
-
 // Supported returns ErrNeedsWindows when r is this machine's runner (or nil, which means it) and this
 // machine isn't Windows, and nil otherwise; a test's fake runner is always supported.
 func Supported(r Runner) error {
@@ -49,14 +44,12 @@ func Supported(r Runner) error {
 	return nil
 }
 
-// Running asks Windows' task list for the image name. Off Windows it reports nothing running, and logs
-// once that it can't tell.
+// Running asks Windows' task list for the image name. Off Windows it reads the process table, matching
+// the name without ".exe" (a native build such as Benilla's) or with it (under Wine), so a patch write
+// still waits for a running game there (#730); the servers stay Windows-only (Supported).
 func (OSRunner) Running(image string) bool {
 	if hostOS != "windows" {
-		offWindowsOnce.Do(func() {
-			stdlog.Printf("vmangos: can't tell whether %s or any server program runs: %v", image, ErrNeedsWindows)
-		})
-		return false
+		return runningOffWindows(image)
 	}
 	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq "+image, "/NH")
 	hideConsole(cmd)
