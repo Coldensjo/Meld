@@ -34,6 +34,8 @@ Liquids, the sea and how both are drawn and exported.
     second) plus `(sun sheen + 0.25) · frame alpha`, the ripple. The light is the client's where the
     camera is (Client Lighting) or Azeroth's default (LightParams 12: bands 0, 1, 9 and 14 to 17 by
     hour). Magma and slime are their frame, opaque and unlit.
+  - The world view (#15) draws the client's liquids of each streamed tile with the same material
+    (`world/worldLiquid.ts`, `WorldStream.water`; terrain.md, the world view).
   - **A WMO's liquids** (#287, Benilla's `wmo_group_liquid_mesh` and `liquid.wgsl`, MIT/Apache): Go
     reads each group's MLIQ (`internal/wow/wmoliquid.go`: `GroupLiquid`, `LiquidSurface`): two
     triangles a tile whose nibble isn't 0xf, one class for the surface (MOGP groupLiquid at 0x34, or

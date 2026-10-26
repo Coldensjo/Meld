@@ -8,6 +8,9 @@ import { WorldHorizon } from '../../../wailsjs/go/main/App'
 import { horizonMesh, packHorizon, type HorizonTile } from './horizonMesh'
 import { parsePaint, PAINT_DROP, PAINT_REACH } from './worldPaint'
 import { WorldPainter, type PaintedTile } from './WorldPainter'
+import { liquidMesh, parseLiquids, type TileLiquid } from './worldLiquid'
+import { liquidType } from '../water/liquids'
+import { KIND_INDEX, liquidLayerMaterial, wantLiquid } from '../water/liquidMaterial'
 
 /** How many tiles are read at once. */
 const LOADS = 3
@@ -41,6 +44,10 @@ interface StreamTile {
 	paintGen: number
 	/** The stride the mesh is drawn at (groundStride). */
 	stride: GroundStride
+	/** The tile's liquid layers (MCLQ), read with its ground. */
+	liquids: TileLiquid[] | null
+	/** Its liquids drawn at the ground's stride, null for none. */
+	liquidMesh: THREE.Mesh | null
 	/** A read is under way; `loads` counts them. */
 	loading: boolean
 	/** The read failed, so it is not tried again this session. */
@@ -62,6 +69,26 @@ function geometryOf(ground: TileGround, stride: GroundStride): THREE.BufferGeome
 	return g
 }
 
+/** The shader's kind of a tile's liquid type, whose frames are asked for as it is drawn. */
+function liquidKind(type: number): number {
+	const kind = liquidType(type).kind
+	wantLiquid(kind)
+	return KIND_INDEX[kind]
+}
+
+/** The geometry of a tile's liquids at `stride` (liquidMesh), in the tile's own frame; null for none. */
+function liquidGeometryOf(liquids: readonly TileLiquid[], stride: GroundStride): THREE.BufferGeometry | null {
+	const m = liquidMesh(liquids, stride, liquidKind)
+	if (!m) return null
+	const g = new THREE.BufferGeometry()
+	g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
+	g.setAttribute('depth', new THREE.BufferAttribute(m.depth, 1))
+	g.setAttribute('kind', new THREE.BufferAttribute(m.kind, 1))
+	g.setIndex(new THREE.BufferAttribute(m.index, 1))
+	g.computeBoundingSphere()
+	return g
+}
+
 /**
  * The world view's ground (#15): the client's tiles of one map within the reach of the camera, read
  * one at a time nearest first (`/wow/ground`, the heights and holes; the minimap image as the
@@ -73,10 +100,14 @@ function geometryOf(ground: TileGround, stride: GroundStride): THREE.BufferGeome
  * own `ObjectLayer`, so they are drawn, culled, lit and animated as a region's are. The tiles are the
  * client's as it reads them now, Meld's patch included; nothing here edits them: a block is edited in
  * a region tab (io/region.ts `editWorldHere`). Past the ground it draws, and where a tile is still
- * being read, the map's WDL horizon stands in, as a region's far horizon does (`HorizonLayer`).
+ * being read, the map's WDL horizon stands in, as a region's far horizon does (`HorizonLayer`). Each
+ * tile's liquids (`/wow/groundliquids`, its MCLQ layers) are read with its ground and drawn in `water`
+ * with a region's liquid material, at the ground's stride (`liquidMesh`).
  */
 export class WorldStream {
 	readonly group = new THREE.Group()
+	/** The loaded tiles' liquids, beside `group` so View › Water shows them as a region's (`LiquidRenderer`). */
+	readonly water = new THREE.Group()
 	/** The map's tiles with an ADT, by tileKey; null until /wow/tiles answers. */
 	private tiles: Map<number, StreamTile> | null = null
 	private have = new Set<number>()
@@ -130,6 +161,9 @@ export class WorldStream {
 	) {
 		this.painter = new WorldPainter(terrainMaterial)
 		this.group.name = 'world'
+		this.water.name = 'world liquids'
+		// Drawn after the terrain and models, as a region's liquids.
+		this.water.renderOrder = 10
 		this.horizon.name = 'world horizon'
 		this.horizon.frustumCulled = false
 		this.horizon.visible = false
@@ -162,6 +196,8 @@ export class WorldStream {
 						paintFailed: false,
 						paintGen: 0,
 						stride: 1,
+						liquids: null,
+						liquidMesh: null,
 						loading: false,
 						failed: false,
 						gen: 0,
@@ -208,6 +244,7 @@ export class WorldStream {
 					t.stride = groundStride(d)
 					t.mesh.geometry.dispose()
 					t.mesh.geometry = geometryOf(t.ground, t.stride)
+					this.drawLiquids(t)
 				}
 			}
 			this.horizonDirty = true
@@ -324,7 +361,7 @@ export class WorldStream {
 	 * count, the models placed, the tiles drawn at each stride ("1", "2", "4"), the horizon's tiles
 	 * drawn, and the paint: tiles drawn in their texture layers, their layers being read or waiting
 	 * to be (`painting`, the reads and the queue), read but their textures still loading
-	 * (`paintWaiting`), and failed.
+	 * (`paintWaiting`), and failed; and the tiles whose liquids are drawn (`wet`) with their triangles.
 	 */
 	stats(): {
 		loaded: number
@@ -339,11 +376,15 @@ export class WorldStream {
 		painting: number
 		paintWaiting: number
 		paintFailed: number
+		wet: number
+		liquidTriangles: number
 	} {
 		let loaded = 0
 		let failed = 0
 		let painted = 0
 		let paintFailed = 0
+		let wet = 0
+		let liquidTriangles = 0
 		const strides: Record<GroundStride, number> = { 1: 0, 2: 0, 4: 0 }
 		for (const t of this.tiles?.values() ?? []) {
 			if (t.mesh) {
@@ -353,6 +394,10 @@ export class WorldStream {
 			}
 			if (t.failed) failed++
 			if (t.paintFailed) paintFailed++
+			if (t.liquidMesh) {
+				wet++
+				liquidTriangles += (t.liquidMesh.geometry.index?.count ?? 0) / 3
+			}
 		}
 		const painting = this.paintLoads + this.paintQueue.filter((t) => t.mesh && !t.paint && !t.painting && !t.paintFailed).length + (this.paintDirty ? 1 : 0)
 		const queued = this.queue.filter((k) => {
@@ -372,6 +417,8 @@ export class WorldStream {
 			painting,
 			paintWaiting: this.waiting.size,
 			paintFailed,
+			wet,
+			liquidTriangles,
 		}
 	}
 
@@ -391,11 +438,22 @@ export class WorldStream {
 					console.warn(`the models of tile ${this.mapName} ${t.x}_${t.y} not read`, err)
 					return []
 				})
+			// So are the liquids; a tile whose liquids fail shows its ground dry.
+			const liquids = fetch(`/wow/groundliquids?${query}`)
+				.then(async (r) => {
+					if (!r.ok) throw new Error((await r.text()).trim() || `${r.status}`)
+					return parseLiquids(await r.arrayBuffer())
+				})
+				.catch((err): TileLiquid[] => {
+					console.warn(`the liquids of tile ${this.mapName} ${t.x}_${t.y} not read`, err)
+					return []
+				})
 			const res = await fetch(`/wow/ground?${query}`)
 			if (!res.ok) throw new Error((await res.text()).trim() || `${res.status}`)
 			const ground = parseGround(await res.arrayBuffer())
 			const image = t.file ? await fetchImage(t.file).catch(() => null) : null
 			const placed = await models
+			const wet = await liquids
 			// Let go of while it was read (the camera moved off, or the tab closed).
 			if (this.disposed || t.gen !== gen) return
 			t.ground = ground
@@ -403,6 +461,8 @@ export class WorldStream {
 			t.stride = groundStride(tileDistance(this.eyeX, this.eyeZ, t.x, t.y))
 			t.mesh = this.meshOf(t, ground, image)
 			this.group.add(t.mesh)
+			t.liquids = wet
+			this.drawLiquids(t)
 			this.horizonDirty = true
 			this.paintDirty = true
 			this.models.add(t.key, placed, (m) => this.place(m))
@@ -475,6 +535,29 @@ export class WorldStream {
 		return mesh
 	}
 
+	/** (Re)draws tile `t`'s liquids at its stride, or takes them away when it has none. */
+	private drawLiquids(t: StreamTile) {
+		const g = t.liquids?.length ? liquidGeometryOf(t.liquids, t.stride) : null
+		if (t.liquidMesh) {
+			t.liquidMesh.geometry.dispose()
+			if (g) {
+				t.liquidMesh.geometry = g
+				return
+			}
+			this.water.remove(t.liquidMesh)
+			t.liquidMesh = null
+		}
+		if (!g) return
+		const mesh = new THREE.Mesh(g, liquidLayerMaterial())
+		mesh.name = `world liquids ${t.x}_${t.y}`
+		mesh.renderOrder = 10
+		mesh.position.set(t.x * TILE_YARDS, 0, t.y * TILE_YARDS)
+		mesh.matrixAutoUpdate = false
+		mesh.updateMatrix()
+		t.liquidMesh = mesh
+		this.water.add(mesh)
+	}
+
 	/** Places one of a tile's models in the document's layer, at its height in the client. */
 	private place(m: TileModel): number {
 		return this.objects.add({
@@ -494,6 +577,12 @@ export class WorldStream {
 		t.gen++
 		t.loading = false
 		t.ground = null
+		t.liquids = null
+		if (t.liquidMesh) {
+			this.water.remove(t.liquidMesh)
+			t.liquidMesh.geometry.dispose()
+			t.liquidMesh = null
+		}
 		this.dropPaint(t)
 		t.paintFailed = false
 		this.models.drop(t.key, (id) => {

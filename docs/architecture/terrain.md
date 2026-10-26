@@ -310,6 +310,14 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   once its textures have loaded (`waiting`), so no grey shows, and the painted ground takes the
   models' shadows (`receiveShadow`). Past `PAINT_DROP`, half a tile further, a tile goes back to its
   minimap image and lets go of its paint. No rock on slopes (`cliffAuto` 0), no texture looks yet.
+  Each tile's liquids come beside its ground from `/wow/groundliquids` (`wow.Client.GroundLiquids`,
+  `EncodeLiquids`: its MCLQ layers as `adt.ParseLiquids` reads them for a region) and are drawn in
+  `WorldStream.water` (beside `group`, so View › Water shows them; the frame sets its `visible`, so a
+  probe hides the meshes) with a region's liquid material (`liquidLayerMaterial`), a mesh a tile
+  (`liquidMesh` in `world/worldLiquid.ts`), at the ground's stride: at 2 or 4, a block of cells the
+  layer covers whole is one quad from its corners, so open sea far off costs a sixteenth, and a
+  block with a dry cell keeps its cells (a sloping river can show a hairline at such a seam, far off
+  in the fog).
   Each tile's models come beside its ground from `/wow/groundmodels` (`wow.Client.GroundModels`,
   `TileModel`: the placements in the map's editor coordinates, named by `adt.ModelType` and turned by
   `adt.Placement.EditorTurn`, which the region reader uses too) and go into the document's own
@@ -339,8 +347,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the session keep a world tab. Far buildings draw their LOD in a few calls (#691), and the scene
   pass leaves out the models that only the far shadow cascade's box (up to 5,000 yd across) holds,
   which the shadows still draw (objects.md, the instance batch). The models and textures landing
-  redraw the far shadow map at most once every 30 frames (lighting.md). Not yet streamed: liquids, and
-  editing in the world view itself.
+  redraw the far shadow map at most once every 30 frames (lighting.md). Not yet: editing in the world
+  view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

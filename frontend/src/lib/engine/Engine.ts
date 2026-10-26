@@ -2469,6 +2469,7 @@ export class Engine {
 		d.terrain.material.wireframe = p.wireframe
 		d.water.mesh.visible = p.showWater && editor.waterEnabled
 		d.liquidRenderer.group.visible = p.showWater
+		if (d.world) d.world.water.visible = p.showWater
 		// The WMOs' liquids (#287) share one material.
 		wmoLiquidMaterial().visible = p.showWater
 		d.objects.group.visible = p.showObjects
@@ -2575,11 +2576,11 @@ export class Engine {
 		if (stash && this.doc && this.doc !== d) {
 			this.stashActive()
 			this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.groundEffects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
-			if (this.doc.world) this.scene.remove(this.doc.world.group)
+			if (this.doc.world) this.scene.remove(this.doc.world.group, this.doc.world.water)
 		}
 		this.doc = d
 		this.scene.add(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
-		if (d.world) this.scene.add(d.world.group)
+		if (d.world) this.scene.add(d.world.group, d.world.water)
 		const m = d.meta
 		editor.mapName = m.mapName
 		editor.filePath = m.filePath
@@ -3421,7 +3422,7 @@ export class Engine {
 		this.documents.splice(i, 1)
 		if (d === this.doc) {
 			this.scene.remove(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
-			if (d.world) this.scene.remove(d.world.group)
+			if (d.world) this.scene.remove(d.world.group, d.world.water)
 			const next = this.documents[Math.min(i, this.documents.length - 1)]
 			// Keep at least one map open. The closed doc isn't stashed.
 			if (next) {

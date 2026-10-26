@@ -1,5 +1,5 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, the near ones (within PAINT_REACH) in their own texture layers once those load and the rest in the minimap's colour, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, while the models and textures landing redraw the far shadow map at most once every 30 frames (its fit moving still redraws it at once), and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
-// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/WorldPainter.ts, frontend/src/lib/world/worldPaint.ts, frontend/src/lib/terrain/TerrainMaterial.ts, frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, the near ones (within PAINT_REACH) in their own texture layers once those load and the rest in the minimap's colour, with the map's WDL horizon past them, with their liquids (MCLQ, drawn: the view at a lake differs with them hidden), with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, while the models and textures landing redraw the far shadow map at most once every 30 frames (its fit moving still redraws it at once), and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner) and the same paint and liquids as the world view drew there, and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/WorldPainter.ts, frontend/src/lib/world/worldPaint.ts, frontend/src/lib/terrain/TerrainMaterial.ts, frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, frontend/src/lib/world/worldLiquid.ts, frontend/src/lib/water/liquidMaterial.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/region.ts')
@@ -131,6 +131,44 @@ for (const t of worldDoc.world.tiles.values()) {
 		else unnamed++
 }
 const placedOnce = worldDoc.objects.objects.size === uids.size + unnamed && e.worldStats().models === worldDoc.objects.objects.size
+// The tiles' liquids (MCLQ) are drawn: Elwynn has lakes and rivers near the block, and looking down at
+// the loaded one nearest the eye, the view with the liquids hidden differs. (The frame sets the group's
+// `visible` from View › Water, so the probe hides the tiles' meshes.)
+const liquids = { wet: e.worldStats().wet, triangles: e.worldStats().liquidTriangles, at: '', drawn: 0 }
+{
+	let best = null
+	for (const t of worldDoc.world.tiles.values()) {
+		if (!t.liquidMesh) continue
+		const d = tileDistance(eye.x, eye.z, t.x, t.y)
+		if (!best || d < best.d) best = { t, d }
+	}
+	const l = best?.t.liquids.find((q) => q.cells.some((on) => on))
+	if (l) {
+		const cell = l.cells.indexOf(1)
+		const r = Math.floor(cell / 8)
+		const q = cell % 8
+		const C = T / 128
+		const at = { x: best.t.x * T + (l.indexX * 8 + q + 0.5) * C, y: l.heights[r * 9 + q], z: best.t.y * T + (l.indexY * 8 + r + 0.5) * C }
+		liquids.at = `${best.t.x}_${best.t.y} chunk ${l.indexX},${l.indexY} cell ${cell}`
+		await P.lookAt(at, { pitch: 0.9, back: 60 })
+		await P.until(
+			() => {
+				const s = e.worldStats()
+				return s && !s.loading && !s.queued && !s.painting && !s.paintWaiting ? s : null
+			},
+			120000,
+			'the tiles around the lake',
+		)
+		await P.settle()
+		const wet = await P.shot()
+		const meshes = worldDoc.world.water.children
+		for (const m of meshes) m.visible = false
+		const dry = await P.shot()
+		for (const m of meshes) m.visible = true
+		liquids.drawn = +P.diff(wet, dry).off.toFixed(3)
+		P.save(wet, 'liquids')
+	}
+}
 // A Sculpt click does nothing in a world view.
 editor.tool = 'sculpt'
 await P.frames(2)
@@ -285,6 +323,35 @@ const regionPaint = { tiles: 0, chunks: 0, slotsOff: 0, texelsOff: 0 }
 			}
 	}
 }
+// The world view's liquids are the region's: on every tile of the block, each chunk has as many layers,
+// in the same order, covering the same cells at the same heights and depths as the region read.
+const regionLiquids = { tiles: 0, layers: 0, off: 0 }
+{
+	const map = e.doc.liquids
+	for (const t of worldDoc.world.tiles.values()) {
+		if (!t.liquids || t.x < r.x || t.y < r.y || t.x >= r.x + r.size || t.y >= r.y + r.size) continue
+		regionLiquids.tiles++
+		const byChunk = new Map()
+		for (const l of t.liquids) byChunk.set(l.indexY * 16 + l.indexX, [...(byChunk.get(l.indexY * 16 + l.indexX) ?? []), l])
+		for (let cy = 0; cy < 16; cy++)
+			for (let cx = 0; cx < 16; cx++) {
+				const mine = byChunk.get(cy * 16 + cx) ?? []
+				const theirs = map.layers(((t.y - r.y) * 16 + cy) * map.side + (t.x - r.x) * 16 + cx)
+				if (mine.length !== theirs.length) {
+					regionLiquids.off++
+					continue
+				}
+				mine.forEach((l, k) => {
+					regionLiquids.layers++
+					const o = theirs[k]
+					let same = true
+					for (let i = 0; i < 64; i++) if (!!l.cells[i] !== !!o.cells[i]) same = false
+					for (let i = 0; i < 81; i++) if (Math.abs(l.heights[i] - o.heights[i]) > 1e-3 || Math.round(o.depth[i] * 255) !== l.depth[i]) same = false
+					if (!same) regionLiquids.off++
+				})
+			}
+	}
+}
 // And back to the world tab, the camera where the region had it.
 openWorldView(e)
 await P.frames(3)
@@ -317,6 +384,8 @@ const out = {
 	regionCam: +regionCam.toFixed(2),
 	buildings: `${matched}/${checked}`,
 	regionPaint,
+	liquids,
+	regionLiquids,
 	backToWorld,
 	worldCam: +worldCam.toFixed(2),
 }
@@ -359,6 +428,11 @@ out.ok =
 	regionPaint.chunks > 0 &&
 	regionPaint.slotsOff === 0 &&
 	regionPaint.texelsOff === 0 &&
+	liquids.wet > 0 &&
+	liquids.drawn > 0.01 &&
+	regionLiquids.tiles > 0 &&
+	regionLiquids.layers > 0 &&
+	regionLiquids.off === 0 &&
 	backToWorld &&
 	worldCam < 0.5
 return out

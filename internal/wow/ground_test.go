@@ -161,3 +161,42 @@ func TestTilePaintReadsABuiltTile(t *testing.T) {
 		t.Fatal("the slots and weights are not after the names")
 	}
 }
+
+// A tile's liquids encode as the world view reads them (world/worldLiquid.ts): each layer's chunk,
+// type, heights, depths and cells, in the order ParseLiquids reads them.
+func TestEncodeLiquidsOfABuiltTile(t *testing.T) {
+	outer := make([]float32, GroundSide*GroundSide)
+	lake := adt.Liquid{Type: adt.LiquidWater}
+	for v := range lake.Heights {
+		lake.Heights[v] = 2 + float32(v%9)*0.25
+		lake.Depth[v] = byte(v)
+	}
+	lake.Cells[0], lake.Cells[9] = true, true
+	root, err := adt.BuildTile(outer, adt.Ring{}, adt.Changes{TileX: 30, TileY: 40, Liquids: map[int][]adt.Liquid{3*16 + 7: {lake}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	layers, err := adt.ParseLiquids(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(layers) != 1 {
+		t.Fatalf("%d layers", len(layers))
+	}
+	b := EncodeLiquids(layers)
+	if string(b[:4]) != "LIQD" || binary.LittleEndian.Uint16(b[4:]) != 1 || len(b) != 6+LiquidLayerSize {
+		t.Fatalf("reply %q, %d bytes", b[:4], len(b))
+	}
+	l := b[6:]
+	if l[0] != 7 || l[1] != 3 || l[2] != adt.LiquidWater {
+		t.Fatalf("chunk (%d, %d) type %d", l[0], l[1], l[2])
+	}
+	if h := math.Float32frombits(binary.LittleEndian.Uint32(l[4+10*4:])); h != lake.Heights[10] {
+		t.Fatalf("vertex 10 at %v, want %v", h, lake.Heights[10])
+	}
+	depth := l[4+liquidVerts*4:]
+	cells := depth[liquidVerts:]
+	if depth[10] != 10 || cells[0] != 1 || cells[9] != 1 || cells[1] != 0 {
+		t.Fatalf("depth %d, cells %v", depth[10], cells[:10])
+	}
+}

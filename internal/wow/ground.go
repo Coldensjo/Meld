@@ -255,3 +255,58 @@ func (c *Client) GroundModels(mapName string, x, y int) ([]byte, error) {
 		return json.Marshal(models)
 	})
 }
+
+// LiquidLayerSize is the bytes of one layer in EncodeLiquids' reply: the chunk's place, the type and a
+// pad byte, the 81 surface heights (float32), the 81 depths and the 64 cells (1 where covered).
+const LiquidLayerSize = 4 + liquidVerts*4 + liquidVerts + adt.CellsPerChunk*adt.CellsPerChunk
+
+// liquidVerts is the 9x9 vertices of a liquid layer.
+const liquidVerts = len(adt.Liquid{}.Heights)
+
+// EncodeLiquids is the /wow/groundliquids reply: "LIQD", a uint16 count of layers, then each layer as
+// LiquidLayerSize bytes (little-endian): indexX, indexY, type, 0, the heights, the depths, the cells.
+func EncodeLiquids(layers []adt.Liquid) []byte {
+	out := make([]byte, 6+len(layers)*LiquidLayerSize)
+	copy(out, "LIQD")
+	binary.LittleEndian.PutUint16(out[4:], uint16(len(layers)))
+	at := 6
+	for _, l := range layers {
+		out[at], out[at+1], out[at+2] = byte(l.IndexX), byte(l.IndexY), byte(l.Type)
+		at += 4
+		for _, h := range l.Heights {
+			binary.LittleEndian.PutUint32(out[at:], math.Float32bits(h))
+			at += 4
+		}
+		at += copy(out[at:], l.Depth[:])
+		for _, on := range l.Cells {
+			if on {
+				out[at] = 1
+			}
+			at++
+		}
+	}
+	return out
+}
+
+// GroundLiquids is tile (x, y)'s liquids (MCLQ, adt.ParseLiquids: each chunk's layers as the client
+// stores them) as EncodeLiquids writes them, read through Meld's patch as Ground is.
+func (c *Client) GroundLiquids(mapName string, x, y int) ([]byte, error) {
+	path, err := tilePath(mapName, x, y)
+	if err != nil {
+		return nil, err
+	}
+	return c.cached("groundliquids:"+strings.ToLower(path), func() ([]byte, error) {
+		raw, err := c.read(path)
+		if err != nil {
+			return nil, err
+		}
+		layers, err := adt.ParseLiquids(raw)
+		if err != nil {
+			return nil, fmt.Errorf("tile %d_%d: %w", x, y, err)
+		}
+		if len(layers) > math.MaxUint16 {
+			return nil, fmt.Errorf("tile %d_%d: %d liquid layers", x, y, len(layers))
+		}
+		return EncodeLiquids(layers), nil
+	})
+}

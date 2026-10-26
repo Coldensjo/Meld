@@ -707,6 +707,18 @@ func (c *Client) Handler() http.Handler {
 		b, err := c.GroundPaint(q.Get("map"), x, y)
 		blob(w, b, err)
 	})
+	// The same tile's liquids for the world view (EncodeLiquids); 404 for no tile.
+	mux.HandleFunc("/wow/groundliquids", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		x, errX := strconv.Atoi(q.Get("x"))
+		y, errY := strconv.Atoi(q.Get("y"))
+		if errX != nil || errY != nil {
+			http.Error(w, "x and y must be tile numbers", http.StatusBadRequest)
+			return
+		}
+		b, err := c.GroundLiquids(q.Get("map"), x, y)
+		blob(w, b, err)
+	})
 	// The same tile's models for the world view: a JSON list of TileModel; 404 for no tile.
 	mux.HandleFunc("/wow/groundmodels", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
