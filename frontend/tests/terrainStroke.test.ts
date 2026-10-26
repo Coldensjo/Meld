@@ -316,3 +316,48 @@ test('a heights step keeps the vertices that changed, not the whole reserved rec
 	assert.equal(t.heights[30 * V + 30], 12)
 	assert.equal(t.heights[31 * V + 31], 8)
 })
+
+test('a stroke leaves the ground of a tile the map leaves out of its square as it was (#737), and undo keeps to the rest', () => {
+	const t = fakeTerrain()
+	// The east half (cells 8 and up) is left out. The vertex column 8 touches a present cell, so it is kept.
+	const off = (cx: number) => cx >= 8
+	Object.assign(t, {
+		tileMask: new Uint8Array([1, 0]),
+		tileOff: (cx: number) => off(cx),
+		vertexOff: (vx: number) => off(vx - 1) && off(vx),
+		texelOff: (tx: number) => off(Math.floor(tx / 4)),
+	})
+	const s = new TerrainStroke(asTerrain(t), 'Test', { heights: true, splat: true, mask: true, holes: true })
+	const start = snapshot(t)
+	const hr = { x0: 5, z0: 3, x1: 12, z1: 5 }
+	s.reserveHeights(hr)
+	for (let z = hr.z0; z <= hr.z1; z++) for (let x = hr.x0; x <= hr.x1; x++) t.heights[z * VERTS + x] = 99
+	s.touchHeights(hr)
+	const tr = { x0: 20, z0: 4, x1: 50, z1: 6 }
+	s.reserveTexels(tr)
+	for (let z = tr.z0; z <= tr.z1; z++)
+		for (let x = tr.x0; x <= tr.x1; x++) {
+			t.weights[(z * RES + x) * SLOTS] = 0
+			t.mask[z * RES + x] = 200
+		}
+	s.touchSplat(tr)
+	s.touchMask(tr)
+	const cmd = s.finish()!
+	for (let z = hr.z0; z <= hr.z1; z++) {
+		for (let x = hr.x0; x <= hr.x1; x++) {
+			assert.equal(t.heights[z * VERTS + x], x <= 8 ? 99 : 10, `vertex ${x},${z}`)
+		}
+	}
+	for (let z = tr.z0; z <= tr.z1; z++) {
+		for (let x = tr.x0; x <= tr.x1; x++) {
+			const off32 = x >= 32
+			assert.equal(t.mask[z * RES + x], off32 ? 0 : 200)
+			assert.equal(t.weights[(z * RES + x) * SLOTS], off32 ? 255 : 0)
+		}
+	}
+	cmd.undo()
+	const after = snapshot(t)
+	assert.deepEqual(after.heights, start.heights)
+	assert.deepEqual(after.weights, start.weights)
+	assert.deepEqual(after.mask, start.mask)
+})

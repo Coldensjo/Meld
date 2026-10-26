@@ -572,6 +572,22 @@ export class Terrain {
 		return m[Math.floor(cz / TILE_CELLS) * n + Math.floor(cx / TILE_CELLS)] === 0
 	}
 
+	/** Whether height vertex (vx, vz) touches no cell of a present tile: a vertex on the edge with a present tile is kept. */
+	vertexOff(vx: number, vz: number): boolean {
+		const n = this.size
+		for (let cz = vz - 1; cz <= vz; cz++) {
+			for (let cx = vx - 1; cx <= vx; cx++) {
+				if (cx >= 0 && cz >= 0 && cx < n && cz < n && !this.tileOff(cx, cz)) return false
+			}
+		}
+		return true
+	}
+
+	/** Whether splat texel (tx, tz) lies in a cell on a tile left out of the map. */
+	texelOff(tx: number, tz: number): boolean {
+		return this.tileOff(Math.floor(tx / SPLAT_PER_CELL), Math.floor(tz / SPLAT_PER_CELL))
+	}
+
 	/** Whether world position (x, z) is on the map but on a tile left out of it (`tileMask`). */
 	isOff(x: number, z: number): boolean {
 		if (!this.tileMask) return false

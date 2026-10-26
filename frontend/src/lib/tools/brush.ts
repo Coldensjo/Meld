@@ -231,6 +231,23 @@ export class TerrainStroke {
 		// Each layer keeps only the cells that differ, block by block (#444): a whole-mask step that
 		// changes a corner of the mask keeps that corner, not two copies of the mask.
 		let bytes = 0
+		// A tile the map leaves out of its square keeps its ground (#737): put back what the stroke wrote there
+		// (a vertex shared with a present tile stays), so the diff holds nothing of it and undo keeps to the stroke.
+		if (t.tileMask) {
+			if (this.hBefore && this.hRect) this.hBefore.restore(this.hRect, (x, z) => t.vertexOff(x, z))
+			if (this.wBefore && this.sRect) this.wBefore.restore(this.sRect, (x, z) => t.texelOff(x, z))
+			if (this.slotsBefore) {
+				const side = t.paintChunksPerSide
+				const per = t.size / side
+				for (let c = 0; c < side * side; c++) {
+					if (!t.tileOff(((c % side) * per) | 0, Math.floor(c / side) * per)) continue
+					for (let k = 0; k < SLOTS; k++) t.chunkSlots[c * SLOTS + k] = this.slotsBefore[c * SLOTS + k]
+				}
+			}
+			if (this.wBefore && this.sRect) t.markSplatDirty(this.sRect)
+			if (this.mBefore && this.mRect) this.mBefore.restore(this.mRect, (x, z) => t.texelOff(x, z))
+			if (this.holesBefore && this.holesRect) this.holesBefore.restore(this.holesRect, (x, z) => t.tileOff(x, z))
+		}
 		if (this.hBefore && this.hRect) {
 			const r = this.hRect
 			const patch = this.hBefore.diff(r)

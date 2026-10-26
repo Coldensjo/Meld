@@ -456,7 +456,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   outside), and so does Write Minimap Tiles. A tile left out (`Terrain.tileMask`, `setTileMask`)
   draws none of its render chunks (each lies in one tile) and `Terrain.isHole` is true on it, so it
   is never picked (`isOff` keeps the Hole mode's solid ray off it too), grows no tufts and takes no
-  model; its ground stays in the file. A brush near its edge can still reach into it, unseen (#737). The
+  model; its ground stays in the file. `TerrainStroke.finish` puts back what a stroke wrote there (heights of vertices touching no present tile, paint, mask, holes, chunk slots) before it diffs, so a brush or whole-map pass near its edge leaves it as it was and undo keeps to the stroke (#737). The
   presets' coast follows the shape (`CoastShape`: a distance field to the tiles left out, so the sea
   fills their edges); a whole square keeps the old round coast. Map Properties shows the same grid:
   a tile of the square added or taken away is one undo step (`Engine.setWorldTiles`); a tile past

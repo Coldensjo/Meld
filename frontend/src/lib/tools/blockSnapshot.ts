@@ -188,6 +188,35 @@ export class BlockSnapshot<T extends Grid> {
 		return patch
 	}
 
+	/**
+	 * Puts back, in the live array, the saved values of the cells under `rect` for which `off(x, z)` is true.
+	 * Blocks never saved were never written. Call it before diff, so those cells count as unchanged.
+	 */
+	restore(rect: SnapRect, off: (x: number, z: number) => boolean) {
+		const r = this.clip(rect)
+		if (!r) return
+		const b = this.block
+		const ch = this.channels
+		const W = this.width
+		for (const [key, saved] of this.blocks) {
+			const bx = key % this.cols
+			const bz = (key - bx) / this.cols
+			const bw = Math.min(b, W - bx * b)
+			const x0 = Math.max(r.x0, bx * b)
+			const z0 = Math.max(r.z0, bz * b)
+			const x1 = Math.min(r.x1, bx * b + bw - 1)
+			const z1 = Math.min(r.z1, bz * b + Math.min(b, this.height - bz * b) - 1)
+			for (let z = z0; z <= z1; z++) {
+				for (let x = x0; x <= x1; x++) {
+					if (!off(x, z)) continue
+					const s = ((z - bz * b) * bw + x - bx * b) * ch
+					const g = (z * W + x) * ch
+					for (let k = 0; k < ch; k++) this.src[g + k] = saved[s + k]
+				}
+			}
+		}
+	}
+
 	/** Drops the saved blocks. */
 	clear() {
 		this.blocks.clear()
