@@ -1,7 +1,7 @@
 package vmangos
 
 import (
-	"os"
+	"Meld/internal/testclient"
 	"strconv"
 	"strings"
 	"testing"
@@ -59,10 +59,7 @@ func TestMatchConditions(t *testing.T) {
 // TestCreatureListRefsLive names a row of each of the creature editor's list kinds (#700) and
 // searches each by a word, against the running world database (VMANGOS_DIR).
 func TestCreatureListRefsLive(t *testing.T) {
-	dir := os.Getenv("VMANGOS_DIR")
-	if dir == "" {
-		t.Skip("VMANGOS_DIR not set")
-	}
+	dir := testclient.ServerDir(t)
 	db, err := worldDatabase(dir)
 	if err != nil {
 		t.Fatal(err)
