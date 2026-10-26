@@ -325,7 +325,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   holding it, the camera moved by the block's corner; the world tab stays. Scenes (`map.world`) and
   the session keep a world tab. Far buildings draw their LOD in a few calls (#691), and the scene
   pass leaves out the models that only the far shadow cascade's box (up to 5,000 yd across) holds,
-  which the shadows still draw (objects.md, the instance batch). Not yet streamed: liquids, the
+  which the shadows still draw (objects.md, the instance batch). The models and textures landing
+  redraw the far shadow map at most once every 30 frames (lighting.md). Not yet streamed: liquids, the
   texture layers (the minimap stands in), and editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way

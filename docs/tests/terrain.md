@@ -583,7 +583,10 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   and the check fails), that the scene line names `world`, that flying four tiles east loads
   the tiles there and drops the ones behind, with the models only they used (`released`: no batch
   left without objects, the types gone, and of those not used elsewhere how many the registry still
-  keeps, through `isKept` in `models/assets.ts`, which must be 0), then Edit Here (a project lent in the state) and File ›
+  keeps, through `isKept` in `models/assets.ts`, which must be 0; `farRedraws`: while the tiles
+  there stream in and 32 frames after, the far shadow map's redraws for a scene change, none within
+  30 frames of the last far redraw, `early` must be 0: with `WORLD_FAR_FRAMES` at 1 it was 10 in 41
+  frames), then Edit Here (a project lent in the state) and File ›
   World View back, the camera where it was each way, and that every building of the region stands
   where the world view has it, the block's corner apart. It reports `perf` with the models and
   without (not checked): at the Elwynn view, reach 3, about 26,000 models, 4,500 draw calls, 3.4M

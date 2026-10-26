@@ -1,5 +1,5 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
-// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, while the models and textures landing redraw the far shadow map at most once every 30 frames (its fit moving still redraws it at once), and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/region.ts')
@@ -133,6 +133,33 @@ const lookOnly = !pickedAll && !pickedType && !pasting && !commandsOff.history &
 const scene = await window.__sceneText()
 // Four tiles east: the tiles there load, the ones far behind go.
 const typesBefore = new Set(worldDoc.objects.batches.keys())
+// While they stream in, the models and textures landing redraw the far shadow map at most once every
+// WORLD_FAR_FRAMES (30) frames; only its fit moving redraws it sooner (Engine.markShadows).
+const sm = e.renderer.shadowMap
+const smRender = sm.render
+let farNow = false
+sm.render = function (...args) {
+	farNow ||= e.env.far.shadow.needsUpdate
+	return smRender.apply(this, args)
+}
+const frameOf = e.frame
+const farRedraws = { scene: 0, fit: 0, early: 0, frames: 0 }
+let sinceFar = Infinity
+e.frame = function () {
+	const fc = e.env.cascades[1]
+	const fit = `${fc.extent} ${fc.center.x} ${fc.center.z}`
+	farNow = false
+	frameOf.call(this)
+	farRedraws.frames++
+	sinceFar++
+	if (!farNow) return
+	if (fit !== `${fc.extent} ${fc.center.x} ${fc.center.z}`) farRedraws.fit++
+	else {
+		farRedraws.scene++
+		if (sinceFar < 30) farRedraws.early++
+	}
+	sinceFar = 0
+}
 c.setView(c.target.x + 4 * T, c.target.y, c.target.z, c.yaw, c.pitch, c.distance)
 const east = { x: c.target.x, z: c.target.z }
 await P.until(
@@ -143,6 +170,10 @@ await P.until(
 	120000,
 	'the tiles four tiles east',
 )
+// The redraw held back for what landed comes once its frames are up.
+await P.frames(32)
+delete e.frame
+sm.render = smRender
 const moved = e.worldStats()
 const westDropped = Number.isNaN(e.doc.world.heightAt(mid.x - 2 * T, mid.z))
 // What the dropped tiles alone used goes with them: no batch is left without objects, and the models
@@ -211,6 +242,7 @@ const out = {
 	commandsOff,
 	sceneNamesWorld: scene.includes('"world":{"mapName":"Azeroth"}'),
 	moved,
+	farRedraws,
 	westDropped,
 	released,
 	region: `${r.x},${r.y} ${r.size}`,
@@ -241,6 +273,8 @@ out.ok =
 	moved.loaded <= first.tiles &&
 	moved.loaded <= wantedTiles(east.x, east.z, keepReach(reach) + T, e.worldTiles()).length &&
 	westDropped &&
+	farRedraws.early === 0 &&
+	farRedraws.scene > 0 &&
 	released.empty === 0 &&
 	released.gone > 0 &&
 	released.stillKept === 0 &&

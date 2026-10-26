@@ -192,6 +192,8 @@ const WORLD_SIDE = MAP_TILES * TILE_YARDS
 const WORLD_MAX_DISTANCE = 2000
 /** The cells a side of a world view's hidden stand-in terrain, which nothing reads but the tools' picking. */
 const WORLD_STAND_IN = 8
+/** The fewest frames between two redraws of a world view's far shadow map for a scene change (`markShadows`). */
+const WORLD_FAR_FRAMES = 30
 /** How far off the ground a world view opened without a view looks from, in yards. */
 const WORLD_FOCUS_DISTANCE = 400
 
@@ -2351,6 +2353,12 @@ export class Engine {
 	 * the only change is a pose or a moving material (a cut-out's texture, a fade) of a model drawn in
 	 * its box, only the moving models are drawn again, over a copy of the rest (`PosedShadows`, #346). A
 	 * still view with nothing moving in the near box redraws neither.
+	 *
+	 * In a world view the scene changes all the time while tiles stream in (a tile's models placed, a
+	 * texture of theirs bound), so there a scene change redraws the far map at most once every
+	 * WORLD_FAR_FRAMES frames (#15), which caps what it adds to a frame on average: a flight east through
+	 * Elwynn redrew it on 13 frames in 120, each about 2,000 calls and 12 ms of CPU, all but one for a
+	 * model or texture landing. A far map a few frames late shows a far model's shadow late, in the fog.
 	 */
 	private markShadows() {
 		const env = this.env
@@ -2359,8 +2367,16 @@ export class Engine {
 		this.shadowFits = 0
 		this.nearPosed = false
 		if (!env.key.castShadow) return
+		const swapped = this.objects !== this.shadowObjects
 		const scene = this.shadowSceneChanged()
-		if (scene || this.prefsChanged || fits & SHADOW_FAR) env.far.shadow.needsUpdate = true
+		if (scene) this.farStale = true
+		this.farAge++
+		const held = !!this.doc.world && !swapped && this.farAge < WORLD_FAR_FRAMES
+		if (this.prefsChanged || fits & SHADOW_FAR || (this.farStale && !held)) {
+			env.far.shadow.needsUpdate = true
+			this.farStale = false
+			this.farAge = 0
+		}
 		const view = !this.viewProj.equals(this.shadowViewProj)
 		if (view) this.shadowViewProj.copy(this.viewProj)
 		if (scene || view || this.prefsChanged || fits & SHADOW_NEAR) {
@@ -2399,6 +2415,9 @@ export class Engine {
 	private shadowFar = new THREE.Vector3()
 	private shadowObjects: ObjectLayer | null = null
 	private shadowKey = [-1, -1, -1, -1, -1]
+	/** The far shadow map waits on a scene change (`markShadows`), and the frames since it was last redrawn. */
+	private farStale = false
+	private farAge = Infinity
 	/** The fits `fitShadows` changed since the last `markShadows` (SHADOW_NEAR, SHADOW_FAR bits). */
 	private shadowFits = 0
 	/** A model posed, or a moving material changed, this frame shows in the near cascade's map. */

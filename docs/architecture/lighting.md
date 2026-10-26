@@ -60,6 +60,10 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   the cull's frustums, so it puts `shadow.matrix` back afterwards (#366); anything else that updates
   a shadow's matrices outside its draw must do the same, or the shadows slide under the day cycle. Keep the near box inside the far one (the 90% bound) if either
   cascade's sizes change: `cascadeShadow` blends into the far map at the near map's edge.
+- In a world view a scene change (a model placed, a texture bound) redraws the far map at most once
+  every `WORLD_FAR_FRAMES` (30) frames (`Engine.markShadows`, #15): streaming tiles change the scene on
+  most frames, and each far redraw there is about 2,000 calls and 5 ms of shadow pass. A held change
+  is drawn once the frames are up; a far fit moving, a preference or a tab switch still redraws at once.
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
   for the shadows to read.
