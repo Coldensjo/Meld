@@ -23,7 +23,7 @@ import {
 	type LiquidClipCell,
 } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
-import { resetLiquidFrames, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
+import { resetLiquidFrames, setLiquidFailHandler, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
 import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscScale } from '../wow/dayNight'
 import { MAP_TILES, TILE_CELLS, TILE_CHUNKS, TILE_YARDS } from '../wow/format'
@@ -679,6 +679,8 @@ export class Engine {
 		this.rooms.navs.onFail = (path, err) => setStatus(`Building rooms: ${path} didn't load, so the camera passes through its walls (tried again in ${RETRY_MS / 1000} s): ${err instanceof Error ? err.message : err}`, 8000)
 		// A palette texture the client could not serve stays grey: say so, and ask again on a reconnect (#544).
 		setPaletteFailHandler((path, err) => setStatus(`Paint texture ${path} didn't load, so its layer stays grey: ${err instanceof Error ? err.message : err}`, 8000))
+		// A liquid frame that failed leaves its water black; asked again on a reconnect (#726).
+		setLiquidFailHandler((path, err) => setStatus(`Liquid frame ${path} didn't load, so that liquid draws black: ${err instanceof Error ? err.message : err}`, 8000))
 		// A model whose collision failed is left out of the walkable ground; the status line counts them.
 		this.nav.collisions.onFail = (path, err) => logLine(`Walkable ground: the collision of ${path} didn't load: ${err instanceof Error ? err.message : err}`)
 

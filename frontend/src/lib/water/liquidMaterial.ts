@@ -325,18 +325,34 @@ const shared = {
 const frames: Record<LiquidClass, THREE.Texture[]> = { river: [], ocean: [], magma: [], slime: [] }
 const requested = new Set<LiquidClass>()
 
+let failHandler: ((path: string, err: unknown) => void) | null = null
+/** Frame paths already reported, so a failing frame is said once until the frames are asked for again (#726). */
+const reported = new Set<string>()
+
+/** Called once for each liquid frame that fails to load (the Engine says so in the status line and the log). */
+export function setLiquidFailHandler(fn: ((path: string, err: unknown) => void) | null) {
+	failHandler = fn
+}
+
+function reportFailed(path: string, err: unknown) {
+	if (reported.has(path)) return
+	reported.add(path)
+	failHandler?.(path, err)
+}
+
 function requestFrames(kind: LiquidClass) {
 	if (requested.has(kind)) return
 	requested.add(kind)
 	const t = LIQUID_TYPES.find((l) => l.kind === kind)!
 	const loaded: Array<THREE.Texture | null> = new Array(t.frames).fill(null)
 	for (let i = 0; i < t.frames; i++) {
-		loadTexture(t.texture.replace('%d', String(i + 1)))
+		const path = t.texture.replace('%d', String(i + 1))
+		loadTexture(path)
 			.then((tex) => {
 				loaded[i] = tex
 				frames[kind] = loaded.filter((f): f is THREE.Texture => f !== null)
 			})
-			.catch(() => {})
+			.catch((err) => reportFailed(path, err))
 	}
 }
 
@@ -351,6 +367,7 @@ export function wantLiquid(kind: LiquidClass) {
 /** Lets the liquids load their frames again (after the client folder changed). */
 export function resetLiquidFrames() {
 	requested.clear()
+	reported.clear()
 	for (const k of KINDS) frames[k] = []
 }
 
