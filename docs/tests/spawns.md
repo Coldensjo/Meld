@@ -570,7 +570,10 @@ Import or New item.
   over the looks; the search for the Battleworn Hammer finds display 8690, whose tile previews it on
   hover (the item's display_id unchanged), is picked by a click and applied by Change look, back on
   the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a
-  second Change icon view; Revert.
+  second Change icon view; Revert; "sword" sorted by Item level, high to low (#677), lists 100
+  results with `ilvl N` on the right and falling levels (100 first), then Name again shows entries;
+  the probe puts the user's sort prefs back. `TestItemOrder` (the whitelisted ORDER BY) and, with
+  the world database, `TestSearchItemsSortedFromDatabase`.
 - New item from a kind: the probe opens New item…, picks Weapon › "Bow · Ranged (bow) (124)" and reads
   its explanation (it makes nothing). `TestUsualItemValues` (a tie takes the lower, delay and
   durability the middle, the INSERT); with `VMANGOS_DIR`, `TestItemKindsLive` (117 kinds; a bow:

@@ -622,6 +622,9 @@ export const prefs = $state({
 	prefabDir: '',
 	/** How a placed prefab varies (#170): `on`, each root turned up to `turn` degrees, scaled by up to `scale`, dropped with the chance `drop`. */
 	prefabVary: { on: false, turn: 15, scale: 0.1, drop: 0 },
+	/** The Item Editor's search order (#677): a key of `vmangos.itemSorts` (name, entry, quality, itemLevel, requiredLevel), and whether it runs high to low. */
+	itemSort: 'name',
+	itemSortDesc: false,
 	/** The tabs open at the last close, reopened at the next start (io/session.ts). */
 	session: { tabs: [] as SessionTab[], active: 0 },
 })

@@ -42,6 +42,9 @@ type ItemRef struct {
 	Name      string `json:"name"`
 	Quality   int    `json:"quality"`
 	DisplayID int    `json:"displayId"`
+	// ItemLevel and RequiredLevel are filled in by SearchItems only.
+	ItemLevel     int `json:"itemLevel,omitempty"`
+	RequiredLevel int `json:"requiredLevel,omitempty"`
 }
 
 // itemNamesJoin joins each row's item to the newest patch of its item_template row, as `it`.
@@ -151,6 +154,42 @@ func SaveVendor(serverRoot string, entry int, items []VendorItem) (string, error
 // SearchItems lists the item templates whose name has text in it, or whose entry is text, by
 // name, at most limit of them.
 func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
+	return SearchItemsSorted(serverRoot, text, "name", false, limit)
+}
+
+// itemSorts maps the sort keys SearchItemsSorted takes to their item_template columns.
+var itemSorts = map[string]string{
+	"name":          "i.name",
+	"entry":         "i.entry",
+	"quality":       "i.quality",
+	"itemLevel":     "i.item_level",
+	"requiredLevel": "i.required_level",
+}
+
+// itemOrder builds SearchItemsSorted's ORDER BY clause from a whitelisted key (an unknown one
+// sorts by name), with the name and the entry breaking ties.
+func itemOrder(sort string, desc bool) string {
+	col, ok := itemSorts[sort]
+	if !ok {
+		col = "i.name"
+	}
+	dir := ""
+	if desc {
+		dir = " DESC"
+	}
+	order := col + dir
+	if col != "i.name" && col != "i.entry" {
+		order += ", i.name"
+	}
+	if col != "i.entry" {
+		order += ", i.entry"
+	}
+	return order
+}
+
+// SearchItemsSorted is SearchItems with the matches ordered by sort (a key of itemSorts) before
+// the limit, so a broad search gives the best or highest items, not only the first by name.
+func SearchItemsSorted(serverRoot, text, sort string, desc bool, limit int) ([]ItemRef, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, nil
@@ -166,15 +205,15 @@ func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
 	if n, err := strconv.Atoi(text); err == nil {
 		match = fmt.Sprintf("(%s OR i.entry = %d)", match, n)
 	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT i.entry, i.name, i.quality, i.display_id FROM item_template i JOIN "+
+	raw, err := runSQL(db, fmt.Sprintf("SELECT i.entry, i.name, i.quality, i.display_id, i.item_level, i.required_level FROM item_template i JOIN "+
 		"(SELECT entry, MAX(patch) AS patch FROM item_template GROUP BY entry) n ON n.entry = i.entry AND n.patch = i.patch "+
-		"WHERE %s ORDER BY i.name, i.entry LIMIT %d", match, max(limit, 1)))
+		"WHERE %s ORDER BY %s LIMIT %d", match, itemOrder(sort, desc), max(limit, 1)))
 	if err != nil {
 		return nil, err
 	}
 	var out []ItemRef
-	for _, f := range batchRows(raw, 4) {
-		out = append(out, ItemRef{Entry: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3)})
+	for _, f := range batchRows(raw, 6) {
+		out = append(out, ItemRef{Entry: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3), ItemLevel: f.num(4), RequiredLevel: f.num(5)})
 	}
 	return out, nil
 }

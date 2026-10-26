@@ -710,6 +710,10 @@ export function SearchItems(arg1) {
   return window['go']['main']['App']['SearchItems'](arg1);
 }
 
+export function SearchItemsSorted(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SearchItemsSorted'](arg1, arg2, arg3);
+}
+
 export function SearchQuests(arg1) {
   return window['go']['main']['App']['SearchQuests'](arg1);
 }

@@ -18,6 +18,16 @@ func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	return vmangos.SearchItems(server, text, 100)
 }
 
+// SearchItemsSorted is SearchItems ordered by sort ("name", "entry", "quality", "itemLevel" or
+// "requiredLevel"), descending when desc, for the Item Editor's sortable list.
+func (a *App) SearchItemsSorted(text, sort string, desc bool) ([]vmangos.ItemRef, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchItemsSorted(server, text, sort, desc, 100)
+}
+
 // ReadItem reads an item template's row, every column by name, for the Shop tab's tooltips.
 func (a *App) ReadItem(entry int) (map[string]string, error) {
 	server, _, err := a.serverAndData()

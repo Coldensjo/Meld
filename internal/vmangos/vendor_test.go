@@ -101,3 +101,53 @@ func TestSpellTextsFromClient(t *testing.T) {
 		t.Fatalf("texts %v", texts)
 	}
 }
+
+// TestItemOrder checks the Item Editor's sort keys: each maps to its column, descending adds
+// DESC to the key only, ties break by name and entry, and an unknown key falls back to the name.
+func TestItemOrder(t *testing.T) {
+	for _, c := range []struct {
+		sort string
+		desc bool
+		want string
+	}{
+		{"name", false, "i.name, i.entry"},
+		{"name", true, "i.name DESC, i.entry"},
+		{"entry", true, "i.entry DESC"},
+		{"quality", true, "i.quality DESC, i.name, i.entry"},
+		{"itemLevel", false, "i.item_level, i.name, i.entry"},
+		{"requiredLevel", true, "i.required_level DESC, i.name, i.entry"},
+		{"1; DROP TABLE item_template", false, "i.name, i.entry"},
+	} {
+		if got := itemOrder(c.sort, c.desc); got != c.want {
+			t.Errorf("itemOrder(%q, %v) = %q, want %q", c.sort, c.desc, got, c.want)
+		}
+	}
+}
+
+// TestSearchItemsSortedFromDatabase checks the order of a broad search in the world database: by
+// item level descending the levels never rise, and the first is at least the name order's highest.
+func TestSearchItemsSortedFromDatabase(t *testing.T) {
+	server := testclient.ServerDir(t)
+	byLevel, err := SearchItemsSorted(server, "sword", "itemLevel", true, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName, err := SearchItems(server, "sword", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byLevel) < 10 || len(byName) < 10 {
+		t.Fatalf("%d and %d swords", len(byLevel), len(byName))
+	}
+	for i := 1; i < len(byLevel); i++ {
+		if byLevel[i].ItemLevel > byLevel[i-1].ItemLevel {
+			t.Fatalf("item %d (level %d) after %d (level %d)", byLevel[i].Entry, byLevel[i].ItemLevel, byLevel[i-1].Entry, byLevel[i-1].ItemLevel)
+		}
+	}
+	for _, r := range byName {
+		if r.ItemLevel > byLevel[0].ItemLevel {
+			t.Fatalf("%s (level %d) is above the first by level, %s (%d)", r.Name, r.ItemLevel, byLevel[0].Name, byLevel[0].ItemLevel)
+		}
+	}
+	t.Logf("highest sword: %s, level %d", byLevel[0].Name, byLevel[0].ItemLevel)
+}

@@ -1,6 +1,6 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, a level past 255 is an unsaved edit (Go refuses it, a Go test; Save is never pressed), a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355); nothing written.
-// touches: frontend/src/components/ItemEditor.svelte, frontend/src/components/ItemTooltip.svelte, frontend/src/components/ItemTooltipBox.svelte, frontend/src/lib/wow/itemTooltip.ts, frontend/src/lib/world/itemFields.ts, internal/vmangos/items.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
-const { ui } = await P.state()
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, a level past 255 is an unsaved edit (Go refuses it, a Go test; Save is never pressed), a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355), and "sword" sorted by item level high to low (#677) lists the levels falling, with the level on the right, then by name again; nothing written.
+// touches: frontend/src/components/ItemEditor.svelte, frontend/src/components/ItemTooltip.svelte, frontend/src/components/ItemTooltipBox.svelte, frontend/src/lib/wow/itemTooltip.ts, frontend/src/lib/world/itemFields.ts, internal/vmangos/items.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts, internal/vmangos/vendor.go, app_items.go
+const { ui, prefs } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
@@ -205,6 +205,21 @@ const setBlock = {
 	bonuses: setTip.filter((l) => /^\(\d\) Set: /.test(l)),
 	headerColor: [...root().querySelectorAll('.tooltip .line')].find((l) => l.textContent.startsWith('Defias Leather ('))?.style.color ?? '',
 }
+
+// The search's order (#677): "sword" by item level, high to low, then back to the user's order.
+const was = { sort: prefs.itemSort, desc: prefs.itemSortDesc }
+const results = () => [...root().querySelectorAll('[aria-label="Items found"] button')].map((b) => b.querySelector('.dim')?.textContent.trim() ?? '')
+type(root().querySelector('aside input[type=search]'), 'sword')
+choose(root().querySelector('[aria-label="Sort items by"]'), 'itemLevel')
+if (!prefs.itemSortDesc) root().querySelector('[aria-label="Sort direction"]').click()
+await P.until(() => results().length > 10 && results().every((t) => t.startsWith('ilvl ')), WAIT, 'the swords by item level')
+const levels = results().map((t) => Number(t.slice(5)))
+const sorted = { count: levels.length, first: levels.slice(0, 5), falling: levels.every((l, i) => i === 0 || l <= levels[i - 1]), arrow: root().querySelector('[aria-label="Sort direction"]').textContent.trim() }
+choose(root().querySelector('[aria-label="Sort items by"]'), 'name')
+await P.until(() => results().length > 10 && !results()[0].startsWith('ilvl '), WAIT, 'the swords by name')
+sorted.byName = /^\d+$/.test(results()[0])
+prefs.itemSort = was.sort
+prefs.itemSortDesc = was.desc
 ui.itemEditor = null
 await P.frames(1)
 
@@ -271,5 +286,9 @@ const ok =
 	setBlock.bonuses.length >= 2 &&
 	setBlock.bonuses[0].startsWith('(2) Set: ') &&
 	!setBlock.bonuses.some((l) => l.includes('spell ')) &&
-	setBlock.headerColor === 'rgb(255, 210, 0)'
-return { ok, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+	setBlock.headerColor === 'rgb(255, 210, 0)' &&
+	sorted.falling &&
+	sorted.first[0] >= 60 &&
+	sorted.arrow === '↓' &&
+	sorted.byName
+return { ok, sorted, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

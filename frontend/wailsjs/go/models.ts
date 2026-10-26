@@ -1838,6 +1838,8 @@ export namespace vmangos {
 	    name: string;
 	    quality: number;
 	    displayId: number;
+	    itemLevel?: number;
+	    requiredLevel?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ItemRef(source);
@@ -1849,6 +1851,8 @@ export namespace vmangos {
 	        this.name = source["name"];
 	        this.quality = source["quality"];
 	        this.displayId = source["displayId"];
+	        this.itemLevel = source["itemLevel"];
+	        this.requiredLevel = source["requiredLevel"];
 	    }
 	}
 	export class ItemSetBonus {

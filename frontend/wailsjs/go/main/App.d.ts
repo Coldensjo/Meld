@@ -362,6 +362,8 @@ export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTempl
 
 export function SearchItems(arg1:string):Promise<Array<vmangos.ItemRef>>;
 
+export function SearchItemsSorted(arg1:string,arg2:string,arg3:boolean):Promise<Array<vmangos.ItemRef>>;
+
 export function SearchQuests(arg1:string):Promise<Array<vmangos.QuestRef>>;
 
 export function SearchSpells(arg1:string):Promise<Array<vmangos.SpellRef>>;

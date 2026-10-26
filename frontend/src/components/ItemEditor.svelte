@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
+	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItemsSorted } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
@@ -133,8 +133,20 @@
 	let searching = $state(false)
 	let searchVersion = $state(0)
 	let timer = 0
+	/** The search's orders (#677), done in SQL before its limit of 100, so a broad search gives the highest items, not the first by name. */
+	const SORTS: [string, string][] = [
+		['name', 'Name'],
+		['entry', 'Entry'],
+		['quality', 'Quality'],
+		['itemLevel', 'Item level'],
+		['requiredLevel', 'Required level'],
+	]
+	/** The number a result shows on the right: its entry, or the level it is sorted by. */
+	const sideNumber = (i: vmangos.ItemRef) => (prefs.itemSort === 'itemLevel' ? `ilvl ${i.itemLevel ?? 0}` : prefs.itemSort === 'requiredLevel' ? `lvl ${i.requiredLevel ?? 0}` : String(i.entry))
 	$effect(() => {
 		const q = query.trim()
+		const sort = prefs.itemSort
+		const desc = prefs.itemSortDesc
 		void searchVersion
 		clearTimeout(timer)
 		if (!q) {
@@ -144,8 +156,8 @@
 		timer = window.setTimeout(async () => {
 			searching = true
 			try {
-				const r = await SearchItems(q)
-				if (q === query.trim()) found = r ?? []
+				const r = await SearchItemsSorted(q, sort, desc)
+				if (q === query.trim() && sort === prefs.itemSort && desc === prefs.itemSortDesc) found = r ?? []
 			} catch (err) {
 				ed.error = String(err)
 			} finally {
@@ -488,13 +500,21 @@
 			<aside>
 				<button class="new" class:active={isNew} onclick={startNew}>New item…</button>
 				<input type="search" placeholder="Item name or entry" bind:value={query} aria-label="Find an item" />
+				<div class="sort">
+					<select bind:value={prefs.itemSort} aria-label="Sort items by" title="Sort the items found by">
+						{#each SORTS as [key, label] (key)}<option value={key}>{label}</option>{/each}
+					</select>
+					<button onclick={() => (prefs.itemSortDesc = !prefs.itemSortDesc)} aria-label="Sort direction" title={prefs.itemSortDesc ? 'High to low: click for low to high' : 'Low to high: click for high to low'}
+						>{prefs.itemSortDesc ? '↓' : '↑'}</button
+					>
+				</div>
 				<ul class="found" aria-label="Items found">
 					{#each found as i (i.entry)}
 						<li>
 							<button class:on={i.entry === target.entry} onclick={() => open(i.entry)} oncontextmenu={(e) => resultMenu(e, i)} title="Right-click to copy the command that gives it in the game">
 								<ItemIcon displayId={i.displayId} />
 								<span class="name" style:color={i.entry === target.entry ? undefined : QUALITY_VARS[i.quality]}>{i.name || '(no name)'}</span>
-								<span class="dim">{i.entry}</span>
+								<span class="dim" title="Item {i.entry}">{sideNumber(i)}</span>
 							</button>
 						</li>
 					{:else}
@@ -666,6 +686,14 @@
 		padding: 12px;
 		border-right: 1px solid var(--border);
 		background: var(--panel);
+	}
+	.sort {
+		display: flex;
+		gap: 4px;
+	}
+	.sort select {
+		flex: 1;
+		min-width: 0;
 	}
 	.found {
 		list-style: none;

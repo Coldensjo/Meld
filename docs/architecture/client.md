@@ -450,7 +450,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   read their lists again.
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
-  (`SearchItems`); a result's right-click opens `ui.contextMenu` (z-index 180, over the editor, whose
+  (`SearchItemsSorted`, ordered in SQL before its limit of 100 by name, entry, quality, item level
+  or required level, up or down: `prefs.itemSort` and `itemSortDesc`, #677; a level order shows the
+  level on the right instead of the entry; the other item searches keep `SearchItems`, by name); a result's right-click opens `ui.contextMenu` (z-index 180, over the editor, whose
   Esc then leaves it to the menu) with Open and Copy `.additem <entry>`, the GM command that gives the
   item to the player selected or to yourself (`ClipboardSetText`); New item starts from a kind of item, a blank junk item or a copy of the open one: a kind is a
   (class, subclass, inventory type) group the world database has at least 3 of (`ListItemKinds` in
