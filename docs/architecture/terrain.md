@@ -346,8 +346,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the session keep a world tab. Far buildings draw their LOD in a few calls (#691), and the scene
   pass leaves out the models that only the far shadow cascade's box (up to 5,000 yd across) holds,
   which the shadows still draw (objects.md, the instance batch). The models and textures landing
-  redraw the far shadow map at most once every 30 frames (lighting.md). Not yet: editing in the world
-  view itself.
+  redraw the far shadow map at most once every 30 frames (lighting.md). The minimap of a world tab is
+  the map's client overview cut to the square of its tiles (`worldExtent` in `world/worldMinimap.ts`),
+  the stand-in's heights hidden, with Edit Here's block outlined; a click flies the camera there
+  (`Engine.lookAtGround`, which looks again once the tile there has loaded). Save Minimap Image
+  refuses. Not yet: editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

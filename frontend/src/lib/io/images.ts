@@ -180,6 +180,8 @@ export function writeMinimapTiles(engine: Engine) {
  * client's overview of the block), with the tile borders, at a few pixels a cell for a small map.
  */
 export function saveMinimapImage(engine: Engine) {
+	// A world view's terrain is a hidden stand-in; its menu item is greyed out, and its key (#15) refuses.
+	if (engine.refuseInWorld()) return
 	return guarded('Save minimap image', async () => {
 		const t = engine.terrain
 		const size = t.size

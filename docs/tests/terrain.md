@@ -700,6 +700,13 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%);
   with the ground's strides, 2.45M triangles, the bare ground's 687k down to 143k; the horizon adds
   about 180k triangles and no draw call worth counting.
+- Probe `world-minimap` (about 12 s): in Azeroth's world view the minimap is the overview cut to the
+  map's tiles' square (`worldExtent`, `bun test tests/worldMinimap.test.ts`), the heights canvas hidden,
+  the marker on the camera and Edit Here's block outlined; a click on a tile some way off moves the
+  camera's look point there, on the ground once that tile loads (flying, the target is the eye: the
+  probe takes the view's offset back off); Ctrl+Shift+P refuses. Trap: a synthetic click's
+  `clientX` is whole pixels, a sixth of a tile on this minimap, so the probe works out the point from
+  the pixel it clicked.
 - `bun test tests/selectObjects.test.ts`: a look-only layer (the world view's streamed models) selects nothing.
 - `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
 - `bun test tests/worldLiquid.test.ts` and `go test ./internal/wow/ -run EncodeLiquids`: a tile's

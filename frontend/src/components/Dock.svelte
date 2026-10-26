@@ -2,7 +2,7 @@
 	import DockPanel from './DockPanel.svelte'
 	import LayersPanel from './LayersPanel.svelte'
 	import MinimapView from './MinimapView.svelte'
-	import { prefs, ui } from '../lib/state/editor.svelte'
+	import { editor, prefs, ui } from '../lib/state/editor.svelte'
 	import { toCss } from '../lib/ui/uiScale'
 	import { keysOf } from '../lib/ui/commands'
 	import { detachMinimap } from '../lib/ui/minimap'
@@ -37,7 +37,10 @@
 		<!-- The minimap attached above Layers (#749); its ⇱ detaches it into the floating MinimapWindow. -->
 		<DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Minimap' }]} onclose={() => (ui.minimap = false)} closeTitle="Close the minimap ({keysOf('minimap')})" closeLabel="Close the minimap">
 			{#snippet actions()}
-				<label class="opt" title="The map's Light.dbc light zones: full inside the solid ring, fading out to the dashed one"><input type="checkbox" bind:checked={prefs.minimapLights} /> Light zones</label>
+				<!-- A world view's minimap (#15) has no light zones. -->
+				{#if !editor.worldMap}
+					<label class="opt" title="The map's Light.dbc light zones: full inside the solid ring, fading out to the dashed one"><input type="checkbox" bind:checked={prefs.minimapLights} /> Light zones</label>
+				{/if}
 				<button class="detach" onclick={detachMinimap} title="Detach into a floating window" aria-label="Detach the minimap">⇱</button>
 			{/snippet}
 			<div class="minimap" role="region" aria-label="Minimap">

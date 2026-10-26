@@ -135,7 +135,8 @@ The window layout, the asset browser and the dock panels and floating windows.
     (M, Camera › Minimap) shows it in either; `lib/ui/minimap.ts` holds the toggle, attach (⇥) and
     detach (⇱), and shows a hidden dock when the minimap is attached. `DockPanel`'s `actions` snippet
     puts the Light zones box and ⇱ on its header. The dock panel stays square at the dock's width, at
-    most 40 % of the window's height.
+    most 40 % of the window's height. In a world tab (#15) it shows the map's overview in tiles
+    instead of the stand-in's heights, with no light zones (terrain.md, the world view).
   - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
     like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
     calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when

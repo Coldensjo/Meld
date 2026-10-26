@@ -695,7 +695,7 @@ the same scene, the report before and after.
 - The .wmap snapshot round trip and every readable version (#431)
 - The unknown state of holes, liquids and chunk data across a save (#525, #644, #663, probe `unknown-flags`)
 - Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
-- The world view: streamed tiles and Edit Here (#15, probe `world-view`), and a flight through it (probe `perf-world-flight`, #742)
+- The world view: streamed tiles and Edit Here (#15, probe `world-view`), its minimap (probe `world-minimap`), and a flight through it (probe `perf-world-flight`, #742)
 
 ### Tools and placing models (`docs/tests/tools.md`)
 

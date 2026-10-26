@@ -11,8 +11,11 @@
 {#if ui.minimap && !prefs.minimapDocked}
 	<aside class="minimap" aria-label="Minimap">
 		<header>
-			<span class="title">Minimap{editor.region ? ` · ${editor.region}` : ''}</span>
-			<label class="opt" title="The map's Light.dbc light zones: full inside the solid ring, fading out to the dashed one"><input type="checkbox" bind:checked={prefs.minimapLights} /> Light zones</label>
+			<span class="title">Minimap{editor.region || editor.worldMap ? ` · ${editor.region || `${editor.worldMap} world`}` : ''}</span>
+			<!-- A world view's minimap (#15) has no light zones. -->
+			{#if !editor.worldMap}
+				<label class="opt" title="The map's Light.dbc light zones: full inside the solid ring, fading out to the dashed one"><input type="checkbox" bind:checked={prefs.minimapLights} /> Light zones</label>
+			{/if}
 			<button class="icon" onclick={attachMinimap} title="Attach to the dock, above Layers" aria-label="Attach the minimap to the dock">⇥</button>
 			<button class="icon" onclick={() => (ui.minimap = false)} title="Close ({keysOf('minimap')})" aria-label="Close the minimap">✕</button>
 		</header>
@@ -49,6 +52,7 @@
 		overflow: hidden;
 	}
 	.title {
+		flex: 1;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		min-width: 0;

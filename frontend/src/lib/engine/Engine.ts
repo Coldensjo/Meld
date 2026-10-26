@@ -2776,12 +2776,23 @@ export class Engine {
 		if (view) {
 			c.setView(view.target.x, view.target.y, view.target.z, view.yaw, view.pitch, view.distance)
 			this.worldFocus = null
-		} else this.worldFocus = { doc: d.id, x: at.x, z: at.z }
+		} else this.worldFocus = { doc: d.id, x: at.x, z: at.z, distance: WORLD_FOCUS_DISTANCE }
 		return d
 	}
 
 	/** A world view's ground point to look at once its tile has loaded (`openWorld` without a view). */
-	private worldFocus: { doc: number; x: number; z: number } | null = null
+	private worldFocus: { doc: number; x: number; z: number; distance: number } | null = null
+
+	/**
+	 * Looks at the ground point (x, z) from the camera's distance (the minimap's click). In a world view
+	 * whose tile there isn't loaded yet, it looks again once it is, so the camera stands on its ground.
+	 */
+	lookAtGround(x: number, z: number) {
+		const c = this.controller
+		c.focus(x, z)
+		const world = this.doc.world
+		this.worldFocus = world && Number.isNaN(world.heightAt(x, z)) ? { doc: this.doc.id, x, z, distance: c.distance } : null
+	}
 
 	/** Streams the active world view's tiles around the camera, and looks at `worldFocus` once it can. */
 	private updateWorld() {
@@ -2798,7 +2809,7 @@ export class Engine {
 		const f = this.worldFocus
 		if (f && f.doc === this.doc.id && !Number.isNaN(world.heightAt(f.x, f.z))) {
 			this.worldFocus = null
-			this.controller.focus(f.x, f.z, WORLD_FOCUS_DISTANCE)
+			this.controller.focus(f.x, f.z, f.distance)
 		}
 	}
 
