@@ -1,4 +1,4 @@
-// The spell editor's tick lists, selects and pickers (#703): Execute (5308) on the Needs tab ticks Battle and Berserker stance, its target aura state reads "Health under 20%", its item class Weapon with the weapon subclasses as a tick list, and on the Flags tab its attributes tick "Is an ability"; Mongoose Bite (1495) needs the Defense aura state; Smelt Copper (2657) names its spell focus; Fireball (133) names its global cooldown category by its spells; Hearthstone (8690) its cooldown category; Eye of Kilrogg (126) its active icon, whose Find lists the client's icons by name with their pictures and puts a picked one's ID in; the misc value follows the effect: Summon Voidwalker (697) names its creature, Frost Ward (6143) ticks Frost, Arcane Intellect (1459) selects Intellect; on Fireball, picking Weapon as the item class turns the subclasses into a tick list and ticking Daggers is a changed value, which Revert drops; nothing saved; takes about 15 s.
+// The spell editor's tick lists, selects and pickers (#703): Execute (5308) on the Needs tab ticks Battle and Berserker stance, its target aura state reads "Health under 20%", its item class Weapon with the weapon subclasses as a tick list, and on the Flags tab its attributes tick "Is an ability"; Mongoose Bite (1495) needs the Defense aura state; Smelt Copper (2657) names its spell focus; Fireball (133) names its global cooldown category by its spells; Hearthstone (8690) its cooldown category; Eye of Kilrogg (126) its active icon, whose Find lists the client's icons by name with their pictures and puts a picked one's ID in; the misc value follows the effect: Summon Voidwalker (697) names its creature, Frost Ward (6143) ticks Frost, Arcane Intellect (1459) selects Intellect, Enchant Bracer - Minor Agility (7779) names its enchantment (#709); on Fireball, picking Weapon as the item class turns the subclasses into a tick list and ticking Daggers is a changed value, which Revert drops; nothing saved; takes about 15 s.
 // touches: frontend/src/components/RefField.svelte, frontend/src/components/TemplateFields.svelte, frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/lib/wow/refNames.ts, internal/vmangos/spelltables.go, internal/vmangos/itemtables.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -74,6 +74,10 @@ got.schools = ticks('Schools')
 await open(1459, 'Effect 1')
 got.stat = chosen('Stat')
 
+await open(7779, 'Effect 1')
+await P.until(() => named('Enchantment'), WAIT, 'the enchantment name')
+got.enchant = text('Enchantment')
+
 await open(133, 'Spell')
 await P.until(() => named('Global cooldown category'), WAIT, 'the global cooldown category')
 got.global = text('Global cooldown category')
@@ -119,6 +123,7 @@ const ok =
 	/Voidwalker/.test(got.summon) &&
 	JSON.stringify(got.schools) === JSON.stringify(['Frost']) &&
 	got.stat === 'Intellect' &&
+	/Agility/.test(got.enchant) &&
 	got.global.length > 3 &&
 	!got.global.startsWith('No ') &&
 	got.noClassSubclasses === null &&

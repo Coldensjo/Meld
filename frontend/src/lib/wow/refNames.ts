@@ -16,10 +16,10 @@ export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'fac
 export type ObjectTableKind = 'lock' | 'lock type' | 'language' | 'page material' | 'spell focus' | 'cinematic' | 'taxi path' | 'auction house'
 
 /**
- * What the spell editor's columns name besides those (#703): a global cooldown category and an icon
+ * What the spell editor's columns name besides those (#703): a global cooldown category, an icon and an item enchantment (#709)
  * (SpellTables, read once), and a visual, named by the spells that use it (SpellsWithVisual).
  */
-export type SpellTableKind = 'global category' | 'spell icon' | 'spell visual'
+export type SpellTableKind = 'global category' | 'spell icon' | 'spell visual' | 'item enchantment'
 
 /** The client tables the item editor's columns name (#701), read once (itemTables). */
 export type ItemTableKind = 'item set' | 'spell category' | 'map'
@@ -237,7 +237,7 @@ let splTables: Promise<vmangos.SpellTables> | null = null
 /** The client's spell tables (cast times, ranges… and the global cooldown categories and icons), read once. */
 export function spellTables(): Promise<vmangos.SpellTables> {
 	if (!splTables) {
-		splTables = SpellTables().then((t) => ({ ...t, globalCategories: t.globalCategories ?? [], icons: t.icons ?? [] }) as vmangos.SpellTables)
+		splTables = SpellTables().then((t) => ({ ...t, globalCategories: t.globalCategories ?? [], icons: t.icons ?? [], enchantments: t.enchantments ?? [] }) as vmangos.SpellTables)
 		splTables.catch(() => (splTables = null))
 	}
 	return splTables
@@ -342,6 +342,12 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 		case 'global category':
 			p = spellTables().then((t) => {
 				const r = t.globalCategories.find((x) => x.id === id)
+				return r ? { name: r.name } : null
+			})
+			break
+		case 'item enchantment':
+			p = spellTables().then((t) => {
+				const r = t.enchantments.find((x) => x.id === id)
 				return r ? { name: r.name } : null
 			})
 			break

@@ -121,6 +121,7 @@ test('a misc value gets the picker its effect or aura implies', () => {
 	assert.equal(misc({ effect1: '103' }).ref, 'faction')
 	assert.equal(misc({ effect1: '44' }).ref, 'skill')
 	assert.equal(misc({ effect1: '33' }).ref, 'lock type')
+	for (const e of ['53', '54', '92']) assert.equal(misc({ effect1: e }).ref, 'item enchantment')
 	assert.equal(misc({ effect1: '30' }).label, 'Power')
 	assert.equal(misc({ effect1: '108' }).label, 'Mechanic')
 	// An aura's misc value counts only when the effect applies the aura.

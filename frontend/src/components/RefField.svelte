@@ -159,6 +159,11 @@
 					.filter((r) => like(r.name, r.id, q))
 					.slice(0, 300)
 					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
+			case 'item enchantment':
+				return (await spellTables()).enchantments
+					.filter((r) => like(r.name, r.id, q))
+					.slice(0, 300)
+					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
 			case 'spell icon':
 				// Each hit decodes its picture: fewer than the other lists.
 				return (await spellTables()).icons
@@ -225,6 +230,7 @@
 			k === 'sort' ||
 			k === 'mail template' ||
 			k === 'global category' ||
+			k === 'item enchantment' ||
 			k === 'spell icon' ||
 			(OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) ||
 			(ITEM_TABLE_KINDS as readonly NameKind[]).includes(k)

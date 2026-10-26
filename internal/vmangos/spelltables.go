@@ -33,6 +33,26 @@ type SpellTables struct {
 	Radii            []SpellOption `json:"radii"`
 	GlobalCategories []NamedID     `json:"globalCategories"`
 	Icons            []NamedID     `json:"icons"`
+	// Enchantments are SpellItemEnchantment.dbc's rows, which an Enchant item effect's misc value
+	// names (#709), each by its name ("+5 Agility", "Fiery Weapon").
+	Enchantments []NamedID `json:"enchantments"`
+}
+
+// spellEnchantmentNames reads SpellItemEnchantment.dbc (1.12: ID, 3 effect types, 3 least and
+// 3 most amounts, 3 spell or stat ids, then the name in 8 locales and a mask), naming each row by its
+// English name, or "Unnamed" when it has none.
+func spellEnchantmentNames(t *dbcTable) []NamedID {
+	const fName = 13
+	out := make([]NamedID, 0, t.records)
+	for r := 0; r < t.records; r++ {
+		name := t.str(r, fName)
+		if name == "" {
+			name = "Unnamed"
+		}
+		out = append(out, NamedID{ID: int(t.u32(r, 0)), Name: name})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
 }
 
 var spellTables struct {
@@ -123,6 +143,11 @@ func ReadSpellTables(dataDir string) (SpellTables, error) {
 		return SpellOption{Label: yards(t.f32(r, 1)), Value: float64(t.f32(r, 1))}
 	}); err != nil {
 		return SpellTables{}, err
+	}
+	if b, err := set.ReadFile(`DBFilesClient\SpellItemEnchantment.dbc`); err == nil {
+		if t, err := parseDBC(b); err == nil && t.fields > 13 {
+			out.Enchantments = spellEnchantmentNames(t)
+		}
 	}
 	spellData.Lock()
 	err = loadSpellData(dataDir)

@@ -280,7 +280,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   picker, a power, dispel, mechanic, stat, form or modifier select, or a school, mechanic or creature
   type tick list, by the effect and (for the aura effects) the aura, after VMaNGOS'
   `SpellEffects.cpp` and `SpellAuras.cpp`; anything else stays a number. Its new ref kinds are
-  `'global category'` and `'spell icon'` (read once with the cast times through `App.SpellTables`,
+  `'global category'`, `'spell icon'` and `'item enchantment'` (SpellItemEnchantment.dbc's names, an Enchant item effect's misc value; read once with the cast times through `App.SpellTables`,
   `refNames.spellTables`, which the editor drops after a Save), `'spell visual'` (named by the spells
   using it, found by taking another spell's) and `'lock type'` (`ObjectTables`' lock types).
 - **The editors' shared frame** (#576): the creature, game object, quest, item and spell editors

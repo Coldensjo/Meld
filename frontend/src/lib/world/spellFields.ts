@@ -451,6 +451,10 @@ export function miscField(n: number, v: Record<string, string>): CreatureField {
 		case 44:
 		case 118:
 			return as('Skill', { ref: 'skill' })
+		case 53:
+		case 54:
+		case 92:
+			return as('Enchantment', { ref: 'item enchantment', hint: 'The enchantment it puts on the item (SpellItemEnchantment.dbc)' })
 		case 61:
 			return as('Event', { ref: 'event', hint: 'The event script it starts (event_scripts)' })
 		case 103:

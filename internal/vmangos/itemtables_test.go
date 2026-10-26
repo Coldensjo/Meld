@@ -96,3 +96,19 @@ func TestLoadItemTablesClient(t *testing.T) {
 	}
 	t.Logf("set %+v, category %+v, map %+v", tt.Sets[0], tt.SpellCategories[0], tt.Maps[0])
 }
+
+func TestSpellEnchantmentNames(t *testing.T) {
+	row := func(id int, name string) []any {
+		r := make([]any, 14)
+		for i := range r {
+			r[i] = 0
+		}
+		r[0], r[13] = id, name
+		return r
+	}
+	tbl := testDBC(t, 14, row(7, "+5 Agility"), row(2, ""), row(3, "Fiery Weapon"))
+	got := spellEnchantmentNames(tbl)
+	if len(got) != 3 || got[0].ID != 2 || got[0].Name != "Unnamed" || got[1].ID != 3 || got[2].Name != "+5 Agility" {
+		t.Fatalf("enchantments = %+v", got)
+	}
+}
