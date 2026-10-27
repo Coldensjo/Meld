@@ -43,8 +43,10 @@ let touching = null
 let smoke = false
 const names = []
 for (let i = 0; i < args.length; i++) {
-	if (args[i] === '--shot') shotDir = args[++i]
-	else if (args[i] === '--profile') profiling = true
+	if (args[i] === '--shot') {
+		shotDir = args[++i]
+		if (!shotDir || shotDir.startsWith('--')) fail('--shot needs a folder to save the pictures in, e.g. --shot out')
+	} else if (args[i] === '--profile') profiling = true
 	else if (args[i] === '--smoke') smoke = true
 	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
 	else names.push(args[i])
