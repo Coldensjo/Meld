@@ -1,4 +1,4 @@
-// The asset browser's preview and the Preview window (CreaturePreview) draw the model again, with no WebGL errors, after their own WebGL context is lost and restored (#213), and a closed Preview's released context stays lost.
+// The asset browser's preview and the Preview window (CreaturePreview) draw the model again, with no WebGL errors (staleDeletes counts the harmless deletes of the lost context's buffers apart), after their own WebGL context is lost and restored (#213), and a closed Preview's released context stays lost.
 // touches: frontend/src/components/AssetPreview.svelte, frontend/src/components/CreaturePreview.svelte, frontend/src/components/ModelPreviewWindow.svelte, frontend/src/lib/ui/previewRenderer.ts
 await P.scene(P.BENCH)
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -7,8 +7,21 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 // frame (read in a microtask, the same task, before the drawing buffer is cleared).
 function watch(canvas) {
 	const gl = canvas.getContext('webgl2')
-	const w = { gl, draws: 0, errs: [], lit: -1 }
+	const w = { gl, draws: 0, errs: [], staleDeletes: 0, lit: -1 }
 	let pending = false
+	// A geometry drawn before the loss and disposed after the restore (a particle batch growing, ParticleLayer's
+	// Batch.reserve) has three's old buffer manager delete a buffer of the lost context: Chrome flags
+	// INVALID_OPERATION for it and deletes nothing, which is harmless. Those are counted apart, not as the draws'
+	// errors; on the real GPU the batch still grows after the restore and hit this every time (#779).
+	for (const k of ['deleteBuffer', 'deleteVertexArray', 'deleteTexture', 'deleteFramebuffer', 'deleteRenderbuffer', 'deleteProgram', 'deleteShader']) {
+		const del = gl[k].bind(gl)
+		gl[k] = (obj) => {
+			const before = gl.getError()
+			if (before !== 0) w.errs.push(before)
+			del(obj)
+			if (gl.getError() === gl.INVALID_OPERATION) w.staleDeletes++
+		}
+	}
 	const draw = gl.drawElements.bind(gl)
 	gl.drawElements = (...a) => {
 		w.draws++
@@ -47,10 +60,11 @@ async function loseAndRestore(name, canvas) {
 	w.draws = 0
 	w.lit = -1
 	w.errs.length = 0
+	w.staleDeletes = 0
 	ext.restoreContext()
 	await P.until(() => w.draws > 20 && w.lit >= 0, 180_000, `${name}: its draws after the restore`)
 	await wait(1000)
-	const r = { lost, restored: !w.gl.isContextLost(), litBefore: +before.toFixed(3), litAfter: +w.lit.toFixed(3), errs: w.errs.slice(0, 5) }
+	const r = { lost, restored: !w.gl.isContextLost(), litBefore: +before.toFixed(3), litAfter: +w.lit.toFixed(3), errs: w.errs.slice(0, 5), staleDeletes: w.staleDeletes }
 	// The model turns, so its drawn share moves a little between shots.
 	r.ok = r.lost && r.restored && r.errs.length === 0 && r.litAfter > 0.01 && Math.abs(r.litAfter - r.litBefore) < 0.1
 	return r

@@ -119,15 +119,14 @@
 	})
 
 	// A map still on the built-in colour palette gets the default WoW tileset set as
-	// soon as a client is available.
+	// soon as a client is available. Setting the palette leaves the map's dirty flag alone: putting back
+	// the flag read before the await wiped an edit made meanwhile (#779, the autosave probe's first copy).
 	const isDefaultPalette = (palette: string[]) => palette.every((p) => LAYERS.some((l) => l.swatch === p))
 	$effect(() => {
 		if (!wow.loaded || !isDefaultPalette(editor.palette)) return
-		const wasDirty = editor.dirty
 		defaultLayerTextures().then((t) => {
 			if (!isDefaultPalette(editor.palette)) return
 			editor.palette = t
-			editor.dirty = wasDirty
 		})
 	})
 

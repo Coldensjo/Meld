@@ -305,6 +305,13 @@ their own context is lost and restored, with no WebGL errors, and a closed Previ
   the previews only skip their frame while lost. The probe passed before that change too. `getError`
   returns CONTEXT_LOST_WEBGL (0x9242) once after a loss, which is not a draw's error: read it off
   before counting.
+- Trap (#779): a geometry drawn before the loss and disposed after the restore has three's old
+  buffer manager delete a buffer of the lost context, and Chrome flags INVALID_OPERATION (1282) for
+  it, which the next draw's `getError` read as its own. The Preview window's particle batch grows
+  (`Batch.reserve` in `ParticleLayer.ts`) after the restore on the real GPU every time, and seldom
+  on SwiftShader, whose 20 draws before the loss take long enough for it to reach full size. The
+  probe wraps the context's `delete*` calls and counts those errors as `staleDeletes`, apart from
+  the draws' `errs`. Under `PROBE_GPU=1` the Preview window shows about 3.
 
 ## WMO culling by group (#198, #215)
 Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view or the near shadow

@@ -42,6 +42,11 @@ Go tests cover the alive file going stale). In the dev page:
   the whole map before #637, and the gap is a pause of the page with no script running (a
   long-animation-frame observer lists none), not a part call. With the native `toBase64` (Chrome,
   WebView2) and the bridge warmed, parts gave 33-44 ms against 286-321 ms for one call.
+  "The first autosave wrote 0 copies" with the tab not dirty (#779) was App.svelte's default-palette
+  effect putting back the dirty flag it read before its `defaultLayerTextures` await, which wiped the
+  probe's edit made a frame after `newDocument`. It showed only when another probe ran first in the
+  same Chrome (`activate-same attach-follow autosave` under `PROBE_GPU=1` failed every time), never
+  with `autosave` alone: the race is between the palette's fetch and the probe's edit.
 - Traps: the page's session is the Go process's, so a page reload never offers its own copies, and two
   dev pages on one `wails dev` share the session (their doc ids can collide). `preview_click` on the
   dialog's buttons does nothing in a hidden preview tab; click through `preview_evaluate`. Delete the
