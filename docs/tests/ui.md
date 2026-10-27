@@ -409,7 +409,9 @@ selector finds it in the dock and in the window).
   a hidden dock, detach and attach, M hides it in either place, and a new Small Mountains world
   (the start map's size) drawn with its ground. Trap (#749): a new map's `Terrain` starts its own
   `heightsVersion`, so two maps of one size both stand at 1 after the first upload; a cache key of
-  size and version kept the old map's picture (all water) over the new world.
+  size and version kept the old map's picture (all water) over the new world. Trap (#757): a fresh
+  canvas is 300 wide (the HTML default) until the first 2 Hz refresh draws it, so wait for
+  `width === terrain.size`, not `width > 0`, or the read races the refresh (it failed after #750).
 - The marker moves on the click itself (#129), not at the next 2 Hz refresh: dispatch a `click` with
   `clientX`/`clientY` on `.minimap .map`, wait one frame, and `.minimap circle`'s `cx`/`cy` have moved.
 - A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a

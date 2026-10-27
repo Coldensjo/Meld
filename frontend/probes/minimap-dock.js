@@ -21,7 +21,8 @@ prefs.dockHidden = true
 await P.frames(3)
 press()
 await P.until(() => docked(), 5000, 'the minimap in the dock')
-await P.until(() => P.e && docked().querySelector('canvas').width > 0, 5000, 'the minimap drawn')
+// A fresh canvas is 300 wide (the HTML default) until the first 2 Hz stats refresh draws the heights into it, so wait for the map's size, not any width (#757).
+await P.until(() => P.e && docked().querySelector('canvas').width === P.e.terrain.size, 5000, 'the minimap drawn').catch(() => null)
 r.dockShown = !prefs.dockHidden
 const panels = [...document.querySelectorAll('[data-ui="Dock"] .panel .tab')].map((t) => t.textContent.trim())
 r.panels = panels
