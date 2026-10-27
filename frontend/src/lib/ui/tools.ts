@@ -12,7 +12,7 @@ export const TOOLS: Array<{ id: ToolId; name: string; desc: string; key: string;
 		desc: 'Paint the picked ground texture, or a mask to fill with one. Each chunk holds up to four textures.',
 		key: '3',
 		letter: 'B',
-		icon: 'M3 3h14v5H3zM17 5.5h3.5v5H12v3M10.5 13.5v3h3v-3M4 17h16v5H4zM12 17v5M4 19.5h16',
+		icon: 'M6.5 2.5h12A1.5 1.5 0 0 1 20 4v2a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 5 6V4a1.5 1.5 0 0 1 1.5-1.5zM20 5h2M5 5H4.5A2 2 0 0 0 2.5 7v2.5l9 2.3a1 1 0 0 1 .8 1V14M10.6 15.4a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v5.1a1 1 0 0 1-1 1h-1.2a1 1 0 0 1-1-1z',
 	},
 	{ id: 'road', name: 'Roads', desc: 'Paint a texture with a hard edge and level the ground across it.', key: '4', icon: 'M8 21L10 3M16 21L14 3M12 5v2M12 11v2M12 17v2' },
 	{
