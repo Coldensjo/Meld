@@ -2085,7 +2085,6 @@ export class Engine {
 	/** The client's map list being read, once asked for. */
 	private mapIdsLoading: Promise<void> | null = null
 
-	/** The open map's Map.dbc ID: a map made for the client's own, a region's by its folder; null while unknown, when the list cannot be read or the folder is not in it. */
 	/** Reads the client's map list (folder to map ID) once. */
 	private loadMapIds(): Promise<void> {
 		if (this.mapIds) return Promise.resolve()
@@ -2151,15 +2150,22 @@ export class Engine {
 		return false
 	}
 
+	/**
+	 * The open map's Map.dbc ID: a map made for the client's own, a region's or a world view's (#754) by
+	 * its folder; 0 for a map of Meld's own not yet in the client; null while the client's map list is
+	 * read, when it cannot be read or the folder is not in it.
+	 */
 	private openMapId(): number | null {
-		const m = this.doc.meta
+		const d = this.doc
+		const m = d.meta
 		if (m.vmangos) return m.vmangos.mapId
-		if (!m.region) return 0
+		const folder = m.region?.mapName ?? d.world?.mapName
+		if (folder === undefined) return 0
 		if (!this.mapIds) {
 			if (performance.now() - this.mapIdsFailedAt > 10000) void this.loadMapIds()
 			return null
 		}
-		return this.mapIds.get(m.region.mapName.toLowerCase()) ?? null
+		return this.mapIds.get(folder.toLowerCase()) ?? null
 	}
 
 	/**

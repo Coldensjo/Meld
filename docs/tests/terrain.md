@@ -715,6 +715,10 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   Trap: aim at a cell's middle, not its edge: the cursor lands a few hundredths of a yard off, which
   on an edge reads the next cell and a different blend of layers.
   `bun test tests/worldDetail.test.ts` covers `worldCellDetail` (chunk, cell, hole, shares, liquids).
+- Probe `world-map-id` (about 5 s): a world tab's map ID (#754) is its own map's, by its folder:
+  Kalimdor's world view answers `openMapId` with 1 and Client Lighting reads Kalimdor's lights
+  (`clientLightsMap`), Azeroth's answers 0. Trap: every other world-view probe opens Azeroth's, where
+  0 is right by luck; and `P.until` waits on a falsy answer, so the probe wraps the 0 in an array.
 - `bun test tests/selectObjects.test.ts`: a look-only layer (the world view's streamed models) selects nothing.
 - `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
 - `bun test tests/worldLiquid.test.ts` and `go test ./internal/wow/ -run EncodeLiquids`: a tile's
