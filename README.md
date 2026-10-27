@@ -35,17 +35,22 @@ make test            # Go and frontend unit tests
 make check           # go vet + golangci-lint + svelte-check/tsc
 ```
 
-On first start, pick your WoW 1.12 client folder in Preferences.
+On first start, pick your WoW 1.12 client folder under Edit › Preferences… › Folders.
 
 ## Documentation
 
 The docs are also published as a site: <https://coldensjo.github.io/Meld/>.
 
-- [Manual](docs/MANUAL.md): every tool, menu, shortcut and format (also Help › Manual in the app).
+- [Getting started](docs/getting-started.md): client setup, your first edits and a saved working copy.
+- [Manual](docs/MANUAL.md): tools, camera controls and menus (also Help › Manual in the app).
+- [Saving, compiling and playing](docs/guides/saving-and-compiling.md): working files, client patches,
+  server updates and recovery precautions.
+- [Troubleshooting](docs/troubleshooting.md): missing assets, pending writes, crashes and bug reports.
 - [Benilla](docs/BENILLA.md): using the open-source Benilla client as Meld's game client.
+- [Development](docs/development.md): prerequisites, building Meld and working on the documentation.
 - [Testing](docs/TESTS.md): how to test and verify changes.
-- [Architecture](docs/architecture/): how the code is laid out, one file an area (indexed in CLAUDE.md).
-- [Design](docs/DESIGN.md): goals, rules and priorities.
+- [Architecture](docs/architecture/index.md): code boundaries and detailed subsystem references.
+- [Engineering notebooks](docs/reference/index.md): retained investigations and the original design draft.
 
 ## Credits
 

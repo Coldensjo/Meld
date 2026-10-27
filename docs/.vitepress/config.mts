@@ -34,17 +34,28 @@ const config: UserConfig<DefaultTheme.Config> = {
 	},
 	themeConfig: {
 		nav: [
+			{ text: 'Get started', link: '/getting-started' },
 			{ text: 'Manual', link: '/MANUAL' },
-			{ text: 'Architecture', link: '/architecture/terrain' },
+			{ text: 'Development', link: '/development' },
 			{ text: 'Testing', link: '/TESTS' },
 		],
 		sidebar: [
 			{
 				text: 'Using Meld',
 				items: [
+					{ text: 'Getting started', link: '/getting-started' },
 					{ text: 'Manual', link: '/MANUAL' },
+					{ text: 'Saving, compiling and playing', link: '/guides/saving-and-compiling' },
+					{ text: 'Troubleshooting', link: '/troubleshooting' },
 					{ text: 'Benilla as the game client', link: '/BENILLA' },
-					{ text: 'Design', link: '/DESIGN' },
+				],
+			},
+			{
+				text: 'Contributing',
+				items: [
+					{ text: 'Building and development', link: '/development' },
+					{ text: 'Architecture overview', link: '/architecture/' },
+					{ text: 'Testing guide', link: '/TESTS' },
 				],
 			},
 			{
@@ -62,10 +73,9 @@ const config: UserConfig<DefaultTheme.Config> = {
 				],
 			},
 			{
-				text: 'Testing',
+				text: 'Regression checks',
 				collapsed: true,
 				items: [
-					{ text: 'Methods', link: '/TESTS' },
 					{ text: 'Terrain, water and map data', link: '/tests/terrain' },
 					{ text: 'Tools and placing models', link: '/tests/tools' },
 					{ text: 'Rendering', link: '/tests/rendering' },
@@ -73,6 +83,17 @@ const config: UserConfig<DefaultTheme.Config> = {
 					{ text: 'Creatures and the database', link: '/tests/spawns' },
 					{ text: 'Export, the client and the game', link: '/tests/client' },
 					{ text: 'Scripting', link: '/tests/scripting' },
+				],
+			},
+			{
+				text: 'Engineering notebooks',
+				collapsed: true,
+				items: [
+					{ text: 'How to use these notes', link: '/reference/' },
+					{ text: 'Testing investigations', link: '/reference/testing-notes' },
+					{ text: 'Benilla integration', link: '/reference/benilla-notes' },
+					{ text: 'Earlier feature inventory', link: '/reference/editor-notes' },
+					{ text: 'Design draft', link: '/DESIGN' },
 				],
 			},
 		],
