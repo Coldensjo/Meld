@@ -1,4 +1,4 @@
-// A new world's water (#759): in the Start dialog's New world, the water row has Sea level, Lakes and Liquid (greyed out until Lakes is ticked); ticking Lakes with Magma puts magma's orange into the Rolling hills picture; Create world makes a Medium (3×3) Rolling hills world with the sea at 5 yd whose liquids are magma layers only, each covered cell's surface above the sea, over ground below it (a basin) and at its lake's rim, sand painted along the shores, and `exportInput` sending them with the sea at 5. Saves a view with `--shot`. Nothing written.
+// A new world's water (#759): in the Start dialog's New world, the water row has Sea level, Lakes and Liquid (greyed out until Lakes is ticked); ticking Lakes with Magma puts magma's orange into the Rolling hills picture; Create world makes a Medium (3×3) Rolling hills world with the sea at 5 yd whose liquids are magma layers only, each covered cell's surface above the sea, over ground below it (a basin) and at its lake's rim, sand painted along the shores, and `exportInput` sending them with the sea at 5; ground within 20 yd of a lake lies within 1.6 yd over its level (beaches round the lakes, #772). Saves a view with `--shot`. Nothing written.
 // touches: frontend/src/components/NewMapDialog.svelte, frontend/src/lib/water/lakes.ts, frontend/src/lib/terrain/presets.ts, frontend/src/lib/terrain/Terrain.ts
 const { ui, editor } = await P.state()
 const r = {}
@@ -88,6 +88,29 @@ try {
 	r.sandyLakeChunks = `${sandy}/${lakeChunks}`
 	r.sandShare = sandy / lakeChunks
 	const input = P.e.exportInput()
+	// Beaches round the lakes (#772): ground within 20 yd of a lake's rim lies within 1.6 yd over its level.
+	let beachMax = 0
+	const { findLakes, LAKE_RULES } = await import('/src/lib/water/lakes.ts')
+	const levelAt = findLakes(t.heights, t.verts, t.cellSize, { ...LAKE_RULES, sea: editor.waterLevel })
+	const reach = Math.ceil(20 / t.cellSize)
+	// Each dry vertex within 20 yd of a lake against the highest lake level near it (a hill beside a low lake lies over the low one).
+	const near = new Float32Array(levelAt.length).fill(-Infinity)
+	for (let v = 0; v < levelAt.length; v++) {
+		if (Number.isNaN(levelAt[v])) continue
+		const x = v % t.verts
+		const z = (v - x) / t.verts
+		for (let dz = -reach; dz <= reach; dz++) {
+			for (let dx = -reach; dx <= reach; dx++) {
+				const nx = x + dx
+				const nz = z + dz
+				if (nx < 0 || nz < 0 || nx >= t.verts || nz >= t.verts || dx * dx + dz * dz > reach * reach) continue
+				const u = nz * t.verts + nx
+				if (Number.isNaN(levelAt[u]) && levelAt[v] > near[u]) near[u] = levelAt[v]
+			}
+		}
+	}
+	for (let u = 0; u < near.length; u++) if (near[u] > -Infinity && t.heights[u] - near[u] > beachMax) beachMax = t.heights[u] - near[u]
+	r.beachMax = beachMax
 	r.export = { waterLevel: input.waterLevel, layers: [...input.liquids.entries()].length }
 	// A view over the biggest lake's first cell.
 	const [first] = [...liquids.entries()]
@@ -121,6 +144,7 @@ const ok =
 	r.lowSurface === 0 &&
 	r.dryUnder === 0 &&
 	r.sandShare > 0.5 &&
+	r.beachMax < 1.6 &&
 	r.export.waterLevel === 5 &&
 	r.export.layers > 0
 return { ok, ...r }

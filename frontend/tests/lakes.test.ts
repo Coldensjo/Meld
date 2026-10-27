@@ -2,6 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LAKE_RULES, fillLakes, findLakes, shoreLevels } from '../src/lib/water/lakes.ts'
+import { shapeLakeBeaches } from '../src/lib/terrain/beach.ts'
 import { LIQUID_CELLS, LIQUID_MAGMA, LIQUID_VERTS, LiquidMap } from '../src/lib/water/liquids.ts'
 
 const V = 33
@@ -109,4 +110,29 @@ test('the shore levels reach a little past the lake', () => {
 	assert.ok(Number.isNaN(level[16 * V + 27]))
 	assert.equal(shores[16 * V + 27], 20)
 	assert.ok(Number.isNaN(shores[16 * V + 31]))
+})
+
+test('beaches lay the land round a lake flat, lowering it only and keeping the basin and its level (#772)', () => {
+	// The bowl in a steep hill: the rim at 20 yd, the ground rising 4 yd a vertex beyond it.
+	const r = (x: number, z: number) => Math.hypot(x - 16, z - 16)
+	// A channel along the row z = 16 to the map's edge lets the lake spill at 20.
+	const steep = () => field((x, z) => 20 + (r(x, z) < 5 ? r(x, z) - 5 : z === 16 && x < 16 ? 0 : (r(x, z) - 5) * 4))
+	const before = steep()
+	const h = steep()
+	shapeLakeBeaches(h, V, CS, 0, 0)
+	assert.deepEqual(h, before, 'no width, no change')
+	shapeLakeBeaches(h, V, CS, 0, 40)
+	let lowered = 0
+	for (let i = 0; i < h.length; i++) {
+		assert.ok(h[i] <= before[i], 'land is only lowered')
+		if (h[i] < before[i]) lowered++
+	}
+	assert.ok(lowered > 40)
+	// Ten yards from the lake's edge the ground lies within BEACH_RISE of the level; the basin is as it was.
+	const x = 16 + 5 + 3
+	assert.ok(h[16 * V + x] - 20 < 1.6 && h[16 * V + x] >= 20, `${h[16 * V + x]}`)
+	assert.equal(h[16 * V + 16], before[16 * V + 16])
+	// The lake is still found at its level.
+	const level = findLakes(h, V, CS, { ...LAKE_RULES, sea: 0 })
+	assert.equal(level[16 * V + 16], 20)
 })

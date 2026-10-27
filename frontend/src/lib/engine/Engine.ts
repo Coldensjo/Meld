@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { CoastShape, presetById, snowLine, type ShapeOptions, type WorldWater } from '../terrain/presets'
-import { sandBand } from '../terrain/beach'
+import { sandBand, shapeLakeBeaches } from '../terrain/beach'
 import { hasBeaches, type ImageGround } from '../terrain/generate'
 import { fillLakes, shoreLevels } from '../water/lakes'
 import { planWater, riverPoints, riverWidth, type River } from '../water/rivers'
@@ -2702,8 +2702,11 @@ export class Engine {
 		if (water && (water.lakes || rivers > 0)) {
 			const t = d.terrain
 			const sea = d.meta.waterEnabled ? d.meta.waterLevel : null
+			// The lakes get beaches as the sea does (#772), on the ground before it is planned.
+			const beach = !image && hasBeaches(kind) ? (opts?.beach ?? 0) : 0
+			if (water.lakes) shapeLakeBeaches(t.heights, t.verts, t.cellSize, sea, beach)
 			const plan = planWater(t.heights, t.verts, t.cellSize, sea, !!water.lakes, rivers)
-			if (plan.lakes && fillLakes(d.liquids, t, plan.lakes, water.lakes ?? water.rivers?.liquid ?? 1)) shores = shoreLevels(plan.lakes, t.verts)
+			if (plan.lakes && fillLakes(d.liquids, t, plan.lakes, water.lakes ?? water.rivers?.liquid ?? 1)) shores = shoreLevels(plan.lakes, t.verts, 2 + Math.ceil(beach / t.cellSize))
 			if (plan.rivers.length) shores = this.layRivers(d, plan.rivers, plan.lakes, sea, water.rivers?.liquid ?? 1, shores)
 		}
 		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores, sandBand(!image && hasBeaches(kind) ? (opts?.beach ?? 0) : 0), seed)

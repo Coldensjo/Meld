@@ -3,7 +3,7 @@ import { TILE_YARDS } from '../wow/format'
 import { LIQUID_MAGMA, LIQUID_SLIME, LIQUID_WATER } from '../water/liquids'
 import { planWater } from '../water/rivers'
 import { squaredDistance } from './distance'
-import { BEACH_SAND, SAND_BAND, shapeBeaches } from './beach'
+import { BEACH_SAND, SAND_BAND, shapeBeaches, shapeLakeBeaches } from './beach'
 
 // The starting shapes a new world can have. Every preset but Flat land and Canyon is an island: the
 // ground falls away to the sea towards the map's edge, so a world is bounded by water, which the client
@@ -316,6 +316,8 @@ export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed:
 	// The beaches as generate.ts lays them (Open sea has no coast).
 	const beach = p.water && id !== 'ocean' ? (o.beach ?? 0) : 0
 	if (beach > 0) shapeBeaches(h, s, (o.tiles * TILE_YARDS) / px, sea, beach)
+	// And round the lakes (#772), as Engine.newDocument lays them.
+	if (beach > 0 && water?.lakes) shapeLakeBeaches(h, s, (o.tiles * TILE_YARDS) / px, p.water ? sea : null, beach)
 	drawHeights(canvas, h, px, p.water ? sea : null, o.tiles, o.shape, water, beach > 0 ? BEACH_SAND : SAND_BAND)
 }
 

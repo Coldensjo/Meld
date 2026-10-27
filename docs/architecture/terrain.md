@@ -500,7 +500,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   only lowers land and raises seabed, so the coast stays where it was. `autoPaint`'s `sand` band
   (`sandBand`: 2 yd with beaches, 1.2 without) covers the strip, and the trees (#758) keep 2 yd over
   the sea, so they stay off it. The pictures lay the same beaches (`drawPresetPreview`). Lakes have
-  no beaches yet. Land (0 to 1, 0.5 the old coast) moves where `coast` starts to fall off (and, for Archipelago, the threshold of its `where` mask): a small island at 0, land up to the edges at 1; Canyon, Open sea and Flat ignore it. Other callers of `newDocument` (the benchmark maps, probes) get no erosion. `snowLine` keeps
+  beaches too (#772): when Lakes is on, `shapeLakeBeaches` finds the lakes, then per lake level lowers the
+  land (only) by the same `beachHeight` from its distance to that level's lake, before `planWater`
+  finds them again on the new ground; the shore sand reaches the beach's width (`shoreLevels`' reach)
+  and rises `sandBand` over the lake. Rivers' own lakes (Lakes off) get none. Land (0 to 1, 0.5 the old coast) moves where `coast` starts to fall off (and, for Archipelago, the threshold of its `where` mask): a small island at 0, land up to the edges at 1; Canyon, Open sea and Flat ignore it. Other callers of `newDocument` (the benchmark maps, probes) get no erosion. `snowLine` keeps
   snow to ground over 110 yd above the water, so hilltops stay green.
   **From a heightmap** (#745): the card after the presets asks for a PNG (`OpenHeightmapDialog`,
   `ReadHeightmap`, as Terrain > Import Heightmap, #44) and swaps the sliders for Black at and White at

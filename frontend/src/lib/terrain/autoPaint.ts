@@ -92,7 +92,7 @@ export function autoPaintRoles(p: AutoPaintInput): { weights: Uint8Array; chunkS
 			if (p.waterEnabled) over(w, SAND, Math.min(1, Math.max(0, (waterLevel + sand - y) / SAND_BAND)))
 			if (shores) {
 				const lake = shores[Math.round(z / cellSize) * verts + Math.round(x / cellSize)]
-				if (y < lake + 1.2) over(w, SAND, Math.min(1, Math.max(0, (lake + 1.2 - y) / 1.2)))
+				if (y < lake + sand) over(w, SAND, Math.min(1, Math.max(0, (lake + sand - y) / SAND_BAND)))
 			}
 			over(w, SNOW, Math.min(1, Math.max(0, (y - snow) / 6)))
 			over(w, ROCK, smoothstep(0.62, 0.9, slope))
