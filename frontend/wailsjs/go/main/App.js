@@ -898,6 +898,10 @@ export function WriteWorldMap(arg1) {
   return window['go']['main']['App']['WriteWorldMap'](arg1);
 }
 
+export function ZoneDoodads(arg1, arg2) {
+  return window['go']['main']['App']['ZoneDoodads'](arg1, arg2);
+}
+
 export function ZoneSounds() {
   return window['go']['main']['App']['ZoneSounds']();
 }

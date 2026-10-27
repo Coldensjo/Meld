@@ -23,9 +23,22 @@ const alphaStep = 2
 // seabed is not the zone's look (Tanaris's coast is a third Wetlands dirt). The list is by share,
 // largest first.
 func ReadZoneTextures(dataDir, mapDir string, z Zone) ([]TextureUse, error) {
-	set, err := mpq.OpenDataDir(dataDir)
+	cover := map[string]float64{}
+	err := eachZoneTile(dataDir, mapDir, z, func(root []byte, bigAlpha bool, in map[uint32]bool) error {
+		return addTileCover(cover, root, bigAlpha, in)
+	})
 	if err != nil {
 		return nil, err
+	}
+	return sharesOf(cover), nil
+}
+
+// eachZoneTile calls fn with the root file of every tile in the zone's rectangle, whether the map's
+// alpha maps are big, and the zone's areas (the zone and its subzones).
+func eachZoneTile(dataDir, mapDir string, z Zone, fn func(root []byte, bigAlpha bool, in map[uint32]bool) error) error {
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return err
 	}
 	defer set.Close()
 	in := map[uint32]bool{z.AreaID: true}
@@ -38,19 +51,18 @@ func ReadZoneTextures(dataDir, mapDir string, z Zone) ([]TextureUse, error) {
 	if wdt, err := set.ReadFile(fmt.Sprintf(`World\Maps\%s\%s.wdt`, mapDir, mapDir)); err == nil {
 		bigAlpha = adt.ReadBigAlpha(wdt)
 	}
-	cover := map[string]float64{}
 	for y := z.Y0; y < z.Y1; y++ {
 		for x := z.X0; x < z.X1; x++ {
 			root, err := set.ReadFile(adt.TilePath(mapDir, x, y, ""))
 			if err != nil {
 				continue
 			}
-			if err := addTileCover(cover, root, bigAlpha, in); err != nil {
-				return nil, fmt.Errorf("tile %d,%d: %w", x, y, err)
+			if err := fn(root, bigAlpha, in); err != nil {
+				return fmt.Errorf("tile %d,%d: %w", x, y, err)
 			}
 		}
 	}
-	return sharesOf(cover), nil
+	return nil
 }
 
 // zoneAreas is the area and every area below it (subzones, and theirs).
@@ -78,9 +90,25 @@ func addTileCover(cover map[string]float64, root []byte, bigAlpha bool, in map[u
 	if err != nil {
 		return err
 	}
-	liquids, err := adt.ParseLiquids(root)
+	wet, err := wetCells(root)
 	if err != nil {
 		return err
+	}
+	for i, c := range textures.Chunks {
+		if i >= len(terrain.Chunks) || !in[terrain.Chunks[i].AreaID] || len(c.Layers) == 0 {
+			continue
+		}
+		ch := terrain.Chunks[i]
+		addChunkCover(cover, c, wet[[2]int{ch.IndexX, ch.IndexY}])
+	}
+	return nil
+}
+
+// wetCells is the cells under a liquid of each chunk of the tile that has one, by the chunk's place.
+func wetCells(root []byte) (map[[2]int]*[cellCount]bool, error) {
+	liquids, err := adt.ParseLiquids(root)
+	if err != nil {
+		return nil, err
 	}
 	wet := map[[2]int]*[cellCount]bool{}
 	for _, l := range liquids {
@@ -92,14 +120,7 @@ func addTileCover(cover map[string]float64, root []byte, bigAlpha bool, in map[u
 			wet[k][c] = wet[k][c] || on
 		}
 	}
-	for i, c := range textures.Chunks {
-		if i >= len(terrain.Chunks) || !in[terrain.Chunks[i].AreaID] || len(c.Layers) == 0 {
-			continue
-		}
-		ch := terrain.Chunks[i]
-		addChunkCover(cover, c, wet[[2]int{ch.IndexX, ch.IndexY}])
-	}
-	return nil
+	return wet, nil
 }
 
 // cellCount is a chunk's cells, 8 by 8.

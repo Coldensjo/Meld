@@ -94,6 +94,16 @@ func (a *App) ZoneTextures(mapDir string, zone vmangos.Zone) ([]vmangos.TextureU
 	return vmangos.ReadZoneTextures(dataDir, mapDir, zone)
 }
 
+// ZoneDoodads lists the models a zone's own tiles place on its dry ground, by count, and that
+// ground's area, for the trees, bushes and rocks the New world page scatters (#758).
+func (a *App) ZoneDoodads(mapDir string, zone vmangos.Zone) (vmangos.ZoneDoodadList, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ZoneDoodadList{}, err
+	}
+	return vmangos.ReadZoneDoodads(dataDir, mapDir, zone)
+}
+
 // WMODoodadSets names a WMO's doodad sets, by index (set 0 is the global set), for the Inspector's
 // doodad set choice.
 func (a *App) WMODoodadSets(path string) ([]string, error) {

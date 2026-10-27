@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
-import { CoastShape, presetById, type ShapeOptions } from '../terrain/presets'
+import { CoastShape, presetById, snowLine, type ShapeOptions } from '../terrain/presets'
+import { fbm } from './noise'
+import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import type { ImageGround } from '../terrain/generate'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
@@ -4132,6 +4134,33 @@ export class Engine {
 		}
 		const n = this.doodadTool.fill(this.ctx, brush, area, mask)
 		setStatus(n ? `Placed ${n} models of "${brush.name}".` : `"${brush.name}" found no room there: its rules or spacing ruled out every spot.`, 6000)
+	}
+
+	/**
+	 * A new world's trees, bushes and rocks (#758): a zone's scatter (wow/zoneTrees.ts) filled over the
+	 * whole map, `amount` times as thickly as the zone is covered, through the doodad brush's fill and
+	 * its rules: on dry ground above the beach, off steep slopes, below the snow line, the plants in
+	 * clumps. The models must be loaded first, since the spacing reads their size. One undo step each.
+	 * Returns how many were placed.
+	 */
+	scatterWorld(s: ZoneScatter, amount: number, seed: number): number {
+		const t = this.terrain
+		if (amount <= 0) return 0
+		let maxH = -Infinity
+		for (let i = 0; i < t.heights.length; i++) maxH = Math.max(maxH, t.heights[i])
+		const sea = editor.waterEnabled ? editor.waterLevel : null
+		const base = sea ?? 0
+		worldRules(s, sea === null ? -1e5 : 2, snowLine(editor.waterLevel, maxH) - 10 - base)
+		const area = { x0: 0, z0: 0, x1: t.size, z1: t.size }
+		const yd2 = t.worldSize * t.worldSize
+		// Plants grow in clumps: woods and clearings over a few hundred yards.
+		const clumps = (x: number, z: number) => (t.isOff(x, z) ? 0 : THREE.MathUtils.smoothstep(fbm(x * 0.006, z * 0.006, 3, seed + 7), 0.38, 0.62))
+		const open = (x: number, z: number) => (t.isOff(x, z) ? 0 : 1)
+		let n = 0
+		// The clumps keep about half the points, so twice as many are tried.
+		if (s.plants) n += this.doodadTool.fill(this.ctx, s.plants, area, null, { attempts: Math.round(((s.plantDensity * yd2) / 1e4) * amount * 2), keep: clumps, own: true, label: 'Scatter trees' })
+		if (s.rocks) n += this.doodadTool.fill(this.ctx, s.rocks, area, null, { attempts: Math.round(((s.rockDensity * yd2) / 1e4) * amount), keep: open, own: true, label: 'Scatter rocks' })
+		return n
 	}
 
 	// ---------------------------------------------------------------- selected area / clipboard

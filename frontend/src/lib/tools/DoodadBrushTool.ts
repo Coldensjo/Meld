@@ -41,6 +41,18 @@ const RAY_TOP = 10000
 /** Most models the preview shows (and the press puts down first): a quarter second of the brush, at least one. */
 const MAX_PREVIEW = 32
 
+/** How `DoodadBrushTool.fill` runs, besides the area and mask. */
+export interface FillOptions {
+	/** How many points it tries; by default as many as the brush's strength makes over the area. */
+	attempts?: number
+	/** The chance (0 to 1) a point at (x, z) is tried, for clumps; every point when missing. */
+	keep?: (x: number, z: number) => number
+	/** The brush's rules alone, with a random turn each: the options bar's Max slope, Avoid water, Random rotation and Follow ground don't apply. */
+	own?: boolean
+	/** The undo step's name. */
+	label?: string
+}
+
 /** One placement drawn ahead of time, relative to the brush centre. */
 interface Planned {
 	dx: number
@@ -113,6 +125,9 @@ export class DoodadBrushTool implements Tool {
 	private spun = 0
 	/** The spacing check while a fill runs (`fill`), in place of `near`. */
 	private grid: SpacingGrid | null = null
+	private fillLabel = 'Fill with doodad brush'
+	/** While a fill with its own rules runs (`FillOptions.own`): the options bar's settings don't apply. */
+	private own = false
 	/** The ground under a placement, as the brush's rules see it. */
 	private ground = new ToolGround()
 	private ghosts = new GhostPool()
@@ -225,7 +240,7 @@ export class DoodadBrushTool implements Tool {
 		// A stroke ends where it began, even if the mode was switched under it.
 		this.spawns?.onUp(ctx)
 		const objects = this.objects
-		if (objects && this.placed?.length) ctx.history.push(addedCommand(objects, this.placed, this.grid ? 'Fill with doodad brush' : 'Doodad brush'))
+		if (objects && this.placed?.length) ctx.history.push(addedCommand(objects, this.placed, this.grid ? this.fillLabel : 'Doodad brush'))
 		if (objects && this.erased?.length) ctx.history.push(removedCommand(objects, this.erased, 'Erase doodads'))
 		this.placed = this.erased = this.objects = null
 		this.placedIds.clear()
@@ -310,7 +325,7 @@ export class DoodadBrushTool implements Tool {
 			dz: 0,
 			entry: i,
 			scale,
-			rotY: editor.doodad.randomRot ? Math.random() * Math.PI * 2 : 0,
+			rotY: this.own || editor.doodad.randomRot ? Math.random() * Math.PI * 2 : 0,
 			tiltX: lim > 0 ? (Math.random() * 2 - 1) * lim : 0,
 			tiltZ: lim > 0 ? (Math.random() * 2 - 1) * lim : 0,
 			size: this.footprint(e.type, scale),
@@ -387,10 +402,12 @@ export class DoodadBrushTool implements Tool {
 		if (!t.contains(x, z)) return false
 		const rules = brush.rules
 		if (t.isHole(x, z) && (rules?.avoidHoles ?? true)) return false
-		const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
-		if (t.heightAt(x, z) < sea) return false
-		const max = editor.doodad.maxSlope
-		if (max < 90 && groundSlopeDeg((px, pz) => t.heightAt(px, pz), x, z, t.cellSize) > max) return false
+		if (!this.own) {
+			const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
+			if (t.heightAt(x, z) < sea) return false
+			const max = editor.doodad.maxSlope
+			if (max < 90 && groundSlopeDeg((px, pz) => t.heightAt(px, pz), x, z, t.cellSize) > max) return false
+		}
 		if (!rules) return true
 		this.ground.at(ctx, x, z)
 		return rulesAllow(rules, this.ground)
@@ -402,11 +419,12 @@ export class DoodadBrushTool implements Tool {
 	 * toward the slope on top of its own random tilt. Returns false when the ground has no say.
 	 */
 	private groundTilt(t: ToolContext['terrain'], x: number, z: number, p: Planned, align: number | undefined): boolean {
-		const amount = editor.followGround ? 1 : (align ?? 0)
+		const follow = editor.followGround && !this.own
+		const amount = follow ? 1 : (align ?? 0)
 		if (amount <= 0) return false
 		groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
 		tiltToNormal(this.normal.x, this.normal.y, this.normal.z, p.rotY, this.tilt)
-		if (editor.followGround) return true
+		if (follow) return true
 		this.tilt.tiltX = this.tilt.tiltX * amount + p.tiltX
 		this.tilt.tiltZ = this.tilt.tiltZ * amount + p.tiltZ
 		return true
@@ -520,8 +538,9 @@ export class DoodadBrushTool implements Tool {
 	 * at once, as many attempts as holding the brush there at its strength would make, each point
 	 * uniform in the area (with the mask, kept by the mask's value there), within the brush's rules and
 	 * spacing. Lands on the ground only (not on props). One undo step. Returns how many were placed.
+	 * `opts` set the attempts, a keep chance by place and the brush's rules alone (a new world's trees, #758).
 	 */
-	fill(ctx: ToolContext, brush: DoodadBrush, area: { x0: number; z0: number; x1: number; z1: number }, mask: Uint8Array | null): number {
+	fill(ctx: ToolContext, brush: DoodadBrush, area: { x0: number; z0: number; x1: number; z1: number }, mask: Uint8Array | null, opts: FillOptions = {}): number {
 		if (!brush.entries.length) return 0
 		const t = ctx.terrain
 		const cs = t.cellSize
@@ -537,6 +556,8 @@ export class DoodadBrushTool implements Tool {
 		this.placedIds.clear()
 		this.stacking = false
 		this.grid = new SpacingGrid()
+		this.own = !!opts.own
+		this.fillLabel = opts.label ?? 'Fill with doodad brush'
 		// What already stands in or near the area keeps the new models away.
 		const pad = 8 * Math.max(1, brush.spacing)
 		for (const o of ctx.objects.objects.values()) {
@@ -545,7 +566,8 @@ export class DoodadBrushTool implements Tool {
 		}
 		try {
 			const at = new THREE.Vector3()
-			let attempts = fillAttempts(w * h, editor.brush.strength)
+			let attempts = opts.attempts ?? fillAttempts(w * h, editor.brush.strength)
+			const keep = opts.keep
 			while (attempts-- > 0) {
 				const x = wx0 + Math.random() * w
 				const z = wz0 + Math.random() * h
@@ -554,6 +576,7 @@ export class DoodadBrushTool implements Tool {
 					const tz = Math.min(R - 1, Math.floor(z / ts))
 					if (Math.random() * 255 >= mask[tz * R + tx]) continue
 				}
+				if (keep && Math.random() >= keep(x, z)) continue
 				const p = this.draw(brush)
 				if (!p) continue
 				this.place(ctx, brush, at.set(x, 0, z), p)
@@ -564,6 +587,7 @@ export class DoodadBrushTool implements Tool {
 		} finally {
 			this.grid = null
 			this.placed = null
+			this.own = false
 		}
 	}
 

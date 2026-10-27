@@ -457,6 +457,8 @@ export function WriteTextFile(arg1:string,arg2:string):Promise<void>;
 
 export function WriteWorldMap(arg1:vmangos.WorldMapSpec):Promise<main.WorldMapResult>;
 
+export function ZoneDoodads(arg1:string,arg2:vmangos.Zone):Promise<vmangos.ZoneDoodadList>;
+
 export function ZoneSounds():Promise<vmangos.ZoneSoundTables>;
 
 export function ZoneTextures(arg1:string,arg2:vmangos.Zone):Promise<Array<vmangos.TextureUse>>;

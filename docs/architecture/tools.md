@@ -92,7 +92,8 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   placement rules (`PlacementRules`, `rulesAllow`, the TOML's `[rules]`: slope and height ranges, on
   and not-on textures, liquids, holes) and each model an `align` toward the slope; Terrain › Fill
   Selection / Fill Mask with Doodad Brush runs it over a whole area as one undo step
-  (`DoodadBrushTool.fill`, spaced through a `SpacingGrid`).
+  (`DoodadBrushTool.fill`, spaced through a `SpacingGrid`; its `FillOptions` let a new world's trees,
+  #758, set the attempts, a keep chance by place and the brush's rules alone).
   Its Creatures mode (`editor.doodadMode`, #171) hands the input to the spawn brush
   (`tools/SpawnBrushTool.ts`, `tools/spawnBrush.ts`, `prefs.spawnBrush`): creature templates with weights,
   picked in the browser's Creatures tab, filled to a density (creatures per 100 by 100 yd) and spacing,

@@ -169,6 +169,20 @@ the ground and sand roles; then Default again shows no pictures. About 35 s.
 - The Go change needs `make dev` to have rebuilt the app (it watches the Go files); a probe run
   against a stale one fails on `ZoneTextures` missing from `window.go.main.App`.
 
+## A new world with a zone's trees (#758, probe `new-world-trees`)
+
+Checks: the New world page's Trees and rocks. `go test ./internal/vmangos -run 'PlacementCell|DoodadList'`
+tests finding the chunk and cell under a placement (and not a neighbour tile's chunk) and the counts;
+`TestRealZoneDoodads` (with the client, `make test-full`) logs Duskwood's, Tanaris's and Elwynn's most
+placed models and their density (Duskwood about 30 models per 100x100 yd, Tanaris 6, Elwynn 20, every
+kind). `frontend/tests/zoneTrees.test.ts` checks the sorting by path (trees, bushes, rocks, and the
+fences, tombs and props left out) and the brushes. In the live app, `bun run probe new-world-trees
+--shot <dir>` makes a Small Island with Duskwood's textures and trees: every model a tree, bush or rock,
+none in the sea or on the beach, on too steep a slope or above the snow line, two undo steps; then one
+with None and no models. Logs how long Create world took (about 3.5 s). About 90 s.
+
+- `new-world-pack` also scatters Tanaris's trees now, since the trees follow the pack by default.
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are

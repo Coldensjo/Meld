@@ -512,6 +512,22 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   rock, sand to dirt). The palette is in role order, so `autoPaint`'s default `roleTex` and Map
   Properties' regenerate paint with the pack too; nothing new is saved in the map. Reading a large
   zone takes about 3 s, the Create button waiting.
+  **Trees and rocks** (#758, the owner's answer on #733: the pack's zone by default, a model set
+  instead): `ZoneDoodads` (`internal/vmangos/zonedoodads.go` `ReadZoneDoodads`) counts the M2
+  placements of the zone's tiles by path, kept to those on a chunk of the zone (`placementCell`: the
+  chunk under the MDDF position, checked by its corner since a tile also lists its neighbours'
+  models) on a cell no liquid covers, once each by unique ID, with the zone's dry area in square yards.
+  `wow/zoneTrees.ts` sorts them by path (`doodadKind`: tree, bush, rock; fences, tombs, camp props and
+  critters left out) into two doodad brushes, plants and rocks, the eight most placed of each weighted
+  by count with the zone's scale range (kept to 0.4 to 2.5), and a density per 10,000 square yards; a
+  model set (`setScatter`) gives its doodads even weights and a light wood's density. Create world
+  reads it (about half a second; Default uses Elwynn Forest's), loads the models (the spacing reads
+  their size), makes the world and calls `Engine.scatterWorld`, which runs `DoodadBrushTool.fill` over
+  the whole map with `FillOptions` (the attempts from the density and the page's Density, a keep
+  chance from fbm for the plants' clumps, `own` so the options bar's Max slope, Avoid water, Random
+  rotation and Follow ground don't apply) and the brushes' rules: dry ground 2 yd above the sea, at
+  most 30° for plants and 45° for rocks, 10 yd under the snow line. Each brush is one undo step
+  (Scatter trees, Scatter rocks). A Small Island of Duskwood gets about 300 models.
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'

@@ -3,9 +3,11 @@
 	import MapPicker from './MapPicker.svelte'
 	import TileGrid from './TileGrid.svelte'
 	import type { TileBlock as Block } from '../lib/io/regionGrow'
-	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
+	import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
 	import { defaultLayerTextures } from '../lib/wow/defaults'
 	import { packPalette } from '../lib/wow/texturePack'
+	import { setScatter, zoneScatter, type ZoneScatter } from '../lib/wow/zoneTrees'
+	import { loadAsset } from '../lib/models/assets'
 	import PaletteTile from './PaletteTile.svelte'
 	import { LAYERS } from '../lib/terrain/layers'
 	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawHeights, drawPresetPreview, presetById, type PresetId, type ShapeOptions } from '../lib/terrain/presets'
@@ -16,7 +18,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { openWorldView, openWowBuilding, openWowRegion } from '../lib/io/region'
-	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap, ZoneTextures } from '../../wailsjs/go/main/App'
+	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap, ZoneDoodads, ZoneTextures } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
 	// Every map Meld makes is a map for the 1.12 client and the VMaNGOS server. It starts
@@ -197,6 +199,31 @@
 			})
 	}
 
+	// --- Trees (#758): the pack's zone's trees, bushes and rocks, or a model set's, over the new world ---
+	/** Where the trees come from: 'zone' for the texture pack's zone (Elwynn's with the Default pack), 'none', or a model set's name. */
+	let treeSource = $state('zone')
+	/** How thickly, as a multiple of the zone's own cover. */
+	let treeAmount = $state(1)
+	/** Each read zone's scatter by area ID (null: the zone places none). */
+	const scatters: Record<number, Promise<ZoneScatter | null>> = {}
+	let creating = $state('')
+	/** The zone whose trees a world gets: the pack's, else Elwynn Forest's. */
+	const treeZone = $derived(packArea ? zones.find((z) => z.AreaID === packArea) : zones.find((z) => z.Name === 'Elwynn Forest' && maps.find((m) => m.ID === z.MapID)?.Dir === 'Azeroth'))
+	/** A zone's scatter, read from its tiles once. */
+	function zoneScatterOf(z: vmangos.Zone): Promise<ZoneScatter | null> {
+		const dir = maps.find((m) => m.ID === z.MapID)?.Dir
+		if (!dir) return Promise.resolve(null)
+		scatters[z.AreaID] ??= ZoneDoodads(dir, z).then((list) => zoneScatter(list.doodads ?? [], list.landArea))
+		return scatters[z.AreaID]
+	}
+	/** The scatter the world gets, or null for none. */
+	async function pickedScatter(): Promise<ZoneScatter | null> {
+		if (treeSource === 'none' || !wow.loaded || treeAmount <= 0) return null
+		if (treeSource === 'zone') return treeZone ? zoneScatterOf(treeZone) : null
+		const set = prefs.modelSets.find((x) => x.name === treeSource)
+		return set ? setScatter(set.models) : null
+	}
+
 	// --- a part of a continent ----------------------------------------------------------------------
 	const MAX_TILES = 8
 	let block = $state<Block | null>({ x: 31, y: 48, size: 3 })
@@ -219,7 +246,24 @@
 	}
 
 	async function create() {
-		if (!nameOk || !mapIdOk || !imageOk) return
+		if (!nameOk || !mapIdOk || !imageOk || creating) return
+		let scatter: ZoneScatter | null = null
+		let treeError = ''
+		try {
+			creating = 'Reading the trees…'
+			scatter = await pickedScatter()
+			if (scatter) {
+				// The spacing reads each model's size, so they load before the fill.
+				creating = 'Loading the trees…'
+				const types = [...(scatter.plants?.entries ?? []), ...(scatter.rocks?.entries ?? [])].map((e) => e.type)
+				await Promise.all(types.map((t) => loadAsset(t)))
+			}
+		} catch (err) {
+			treeError = `No trees: ${err}`
+			scatter = null
+		} finally {
+			creating = ''
+		}
 		const palette = wow.loaded ? (pack ?? (await defaultLayerTextures())) : LAYERS.map((l) => l.swatch)
 		const ref: VmangosRef = { dir: name.trim(), mapId }
 		if (square.x) ref.tileX = square.x
@@ -228,6 +272,8 @@
 		const ground = fromImage && image ? { img: image, min: imageLook.min, max: imageLook.max, sea: imageLook.sea } : undefined
 		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref, ground ? { erosion: imageLook.erosion } : { ...look }, ground)
 		editor.palette = palette
+		if (scatter) engineRef.current?.scatterWorld(scatter, treeAmount, seed)
+		if (treeError) setStatus(treeError, 8000)
 		editor.dirty = false
 		engineRef.current?.refreshTabs()
 		close()
@@ -384,6 +430,27 @@
 					</div>
 				</div>
 			{/if}
+			{#if hasBackend()}
+				<div class="row trees">
+					<label class="field" title="Trees, bushes and rocks over the land: the ones the texture pack's zone places most (Elwynn Forest's with the Default textures), or the models of one of your sets from the asset browser">
+						<span>Trees and rocks</span>
+						<select bind:value={treeSource} disabled={!wow.loaded}>
+							<option value="zone">{treeZone ? `${treeZone.Name}'s` : "The zone's"}</option>
+							{#if prefs.modelSets.length}
+								<optgroup label="Model sets">
+									{#each prefs.modelSets as set (set.name)}<option value={set.name}>{set.name}</option>{/each}
+								</optgroup>
+							{/if}
+							<option value="none">None</option>
+						</select>
+					</label>
+					<label class="field slider" title="How thickly they stand: 1× is as thick as the zone itself (a model set: a light wood)">
+						<span>Density <b>{treeAmount.toFixed(2).replace(/0$/, '')}×</b></span>
+						<input type="range" min="0.25" max="3" step="0.25" bind:value={treeAmount} disabled={!wow.loaded || treeSource === 'none'} />
+					</label>
+					{#if creating}<span class="dim">{creating}</span>{/if}
+				</div>
+			{/if}
 			<div class="row bottom">
 				<label class="field seed">
 					<span>Seed</span>
@@ -452,7 +519,7 @@
 	{#snippet actions()}
 		{#if mode === 'new'}
 			<button onclick={close}>Cancel</button>
-			<button class="active" disabled={!nameOk || !mapIdOk || !imageOk || !!packReading} onclick={create}>Create world</button>
+			<button class="active" disabled={!nameOk || !mapIdOk || !imageOk || !!packReading || !!creating} onclick={create}>Create world</button>
 		{:else}
 			<span class="dim grow"
 				>{building
@@ -627,7 +694,8 @@
 		align-self: flex-end;
 		padding-bottom: 4px;
 	}
-	.row.pack {
+	.row.pack,
+	.row.trees {
 		align-items: flex-end;
 	}
 	.packtiles {
