@@ -53,6 +53,10 @@ Before commit (all of them):
 - `make check`
 - `make build-windows` (on Linux, `make build-linux`)
 - the probes that touch the change, again
+- for a rendering item (`area:view`, `area:water`, or a change to a shader or to what the 3D view draws), the probes
+  that touch it again with `PROBE_GPU=1` (the machine's GPU instead of SwiftShader, docs/TESTS.md, "On the
+  real GPU"): SwiftShader hid the cause of #747. Only pass/fail counts there; timings and the bench baseline
+  stay SwiftShader's. Say in the closing comment which ran on the GPU.
 
 Cannot run here: the Linux build (`make build-linux`), on Windows. Workers say so in the closing
 comment.
@@ -71,7 +75,8 @@ minutes a run plus fix items (#439).
 - Skip it all when the range changed only Markdown files (`git diff --name-only <start>..HEAD` lists
   only `.md` files), since no probe can catch a doc edit; say so in the report.
 - Every run: `make probe-smoke` (#398) and `cd frontend && bun run probe --touching <start>..HEAD`
-  (#397), then `cd frontend && bun run probe bench` as the draw-count guard (#429), and `make test-full`
+  (#397), then `PROBE_GPU=1 bun run probe --touching <start>..HEAD` once more when the range touched rendering code
+  (pass/fail only, #753), then `cd frontend && bun run probe bench` as the draw-count guard (#429), and `make test-full`
   (#401) once, so the client-dependent Go tests run at least once a run.
 - The full `make probe` (about 30 minutes: start it in the background and read its log) only on the
   first loop run of each calendar day (the run log says whether one already ran today), whatever files
