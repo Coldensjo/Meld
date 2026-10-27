@@ -12,7 +12,9 @@ const NO = 255
 
 /** Tile (10, 20), flat, with every cell solid, unpainted and dry. */
 function tile(): WorldTileData {
-	return { x: 10, y: 20, ground: { heights: new Float32Array(GROUND_SIDE * GROUND_SIDE), holes: new Uint8Array(GROUND_CELLS * GROUND_CELLS) }, paint: null, liquids: null }
+	const cells = GROUND_CELLS * GROUND_CELLS
+	const ground = { heights: new Float32Array(GROUND_SIDE * GROUND_SIDE), holes: new Uint8Array(cells), noEffect: new Uint8Array(cells), areas: new Uint32Array(256), impassable: new Uint8Array(256) }
+	return { x: 10, y: 20, ground, paint: null, liquids: null }
 }
 
 /** The world point in the middle of tile (10, 20)'s cell (cx, cy). */
@@ -24,6 +26,16 @@ test('worldCellDetail names the chunk and cell in the tile, and its hole', () =>
 	const d = worldCellDetail(t, ...at(27, 19))
 	assert.deepEqual([d.chunkX, d.chunkY, d.cellX, d.cellY, d.hole], [3, 2, 27, 19, true])
 	assert.equal(worldCellDetail(t, ...at(28, 19)).hole, false)
+	assert.deepEqual([d.noTufts, d.area, d.impassable], [false, 0, false])
+	// Chunk (3, 2)'s zone and flag, and cell (27, 19)'s no-tufts bit.
+	t.ground.areas[2 * 16 + 3] = 1519
+	t.ground.impassable[2 * 16 + 3] = 1
+	t.ground.noEffect[19 * GROUND_CELLS + 27] = 1
+	const f = worldCellDetail(t, ...at(27, 19))
+	assert.deepEqual([f.noTufts, f.area, f.impassable], [true, 1519, true])
+	const g = worldCellDetail(t, ...at(28, 19))
+	assert.deepEqual([g.noTufts, g.area, g.impassable], [false, 1519, true])
+	assert.equal(worldCellDetail(t, ...at(32, 19)).area, 0)
 	// Unpainted: no textures to tell, rather than none.
 	assert.equal(d.textures, null)
 	assert.deepEqual(d.liquids, [])

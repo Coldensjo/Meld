@@ -14,20 +14,41 @@ export const GROUND_SIDE = GROUND_CELLS + 1
 /** A cell's side in yards (Terrain's CELL_SIZE; that module needs the runes state, which the tests lack). */
 const CELL_SIZE = TILE_YARDS / GROUND_CELLS
 
-/** One tile's ground: its outer heights (row by row, rows running south) and a byte a cell, 1 for a hole. */
+/** The chunks a side of a client tile. */
+const GROUND_CHUNKS = 16
+
+/**
+ * One tile's ground: its outer heights (row by row, rows running south); a byte a cell for a hole and
+ * for the no-tufts bit (the chunk's noEffectDoodad bit), 1 where set; and a value a chunk (16x16, row
+ * by row) for its AreaTable ID and its impassable flag (1 where set).
+ */
 export interface TileGround {
 	heights: Float32Array
 	holes: Uint8Array
+	noEffect: Uint8Array
+	areas: Uint32Array
+	impassable: Uint8Array
 }
 
-/** Reads a /wow/ground reply: "GRND", GROUND_SIDE² float32 heights, then GROUND_CELLS² hole bytes. */
+/**
+ * Reads a /wow/ground reply: "GRND", GROUND_SIDE² float32 heights, GROUND_CELLS² hole bytes, 256 uint32
+ * area IDs, 256 impassable bytes, then GROUND_CELLS² no-tufts bytes (wow.EncodeGround).
+ */
 export function parseGround(buf: ArrayBuffer): TileGround {
 	const n = GROUND_SIDE * GROUND_SIDE
 	const cells = GROUND_CELLS * GROUND_CELLS
+	const chunks = GROUND_CHUNKS * GROUND_CHUNKS
 	const head = new Uint8Array(buf, 0, Math.min(4, buf.byteLength))
-	if (String.fromCharCode(...head) !== 'GRND' || buf.byteLength !== 4 + n * 4 + cells) throw new Error(`not a tile's ground (${buf.byteLength} bytes)`)
-	// The heights start at byte 4, which a Float32Array may view directly.
-	return { heights: new Float32Array(buf, 4, n), holes: new Uint8Array(buf, 4 + n * 4, cells) }
+	if (String.fromCharCode(...head) !== 'GRND' || buf.byteLength !== 4 + n * 4 + cells + chunks * 5 + cells) throw new Error(`not a tile's ground (${buf.byteLength} bytes)`)
+	// The heights start at byte 4 and the areas after the holes, both 4-byte offsets a typed array may view directly.
+	const areas = 4 + n * 4 + cells
+	return {
+		heights: new Float32Array(buf, 4, n),
+		holes: new Uint8Array(buf, 4 + n * 4, cells),
+		areas: new Uint32Array(buf, areas, chunks),
+		impassable: new Uint8Array(buf, areas + chunks * 4, chunks),
+		noEffect: new Uint8Array(buf, areas + chunks * 5, cells),
+	}
 }
 
 /** How far a skirt hangs below the stray of its edge: past the WDL horizon's heights, which are whole yards cut toward 0. */

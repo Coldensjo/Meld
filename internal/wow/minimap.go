@@ -244,8 +244,8 @@ func (c *Client) drawTileRelief(out *image.NRGBA, mapName string, t MapTile) {
 	flat := color.NRGBA{90, 96, 104, 255}
 	var h []float32
 	if raw, err := c.read(adt.TilePath(mapName, t.X, t.Y, "")); err == nil {
-		if heights, _, err := TileGround(raw); err == nil {
-			h = heights
+		if g, err := TileGround(raw); err == nil {
+			h = g.Heights
 		}
 	}
 	at := func(x, y int) float32 {

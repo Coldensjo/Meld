@@ -6345,8 +6345,8 @@ export class Engine {
 
 	/**
 	 * The Detail info readout of a world view (#15) at its ground point `p`, from what the stream holds
-	 * of the tile there: its texture layers only once read (near the camera); no zone or chunk flags,
-	 * which the stream doesn't read. The cell is on the whole map, as a region's is on its block.
+	 * of the tile there: its texture layers only once read (near the camera). The cell is on the whole
+	 * map, as a region's is on its block.
 	 */
 	private worldDetailInfo(p: THREE.Vector3 | null): DetailInfo | null {
 		const world = this.doc.world
@@ -6368,9 +6368,9 @@ export class Engine {
 			height: world.heightAt(p.x, p.z),
 			slope: groundSlopeDeg((x, z) => world.heightAt(x, z), p.x, p.z, TILE_YARDS / TILE_CELLS),
 			hole: d.hole,
-			noTufts: false,
-			impassable: false,
-			area: '',
+			noTufts: d.noTufts,
+			impassable: d.impassable,
+			area: d.area ? `${areaName(d.area)} (${d.area})` : '',
 			room: this.roomName(),
 			textures: (d.textures ?? []).map((x) => this.detailTexture(x.path, x.weight, tables)),
 			liquids: d.liquids.map((l) => `${liquidType(l.type).name} at ${l.height.toFixed(1)}`),

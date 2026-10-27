@@ -1,5 +1,5 @@
-// View › Detail info in a world view (#15): in Azeroth's world view at Elwynn, with the cursor on the streamed ground at a painted spot and at a lake's cell, the readout and the status bar's cursor name the streamed ground (not the hidden stand-in): the tile, chunk and map cell under the cursor, its height, and its texture layers and liquids; then after Edit Here, with the same view of the region, the region's own readout at the same spot has the same tile, chunk, height, hole, texture layers (names and shares) and liquids, and its cell is the world's less the block's corner.
-// touches: frontend/src/lib/world/worldDetail.ts, frontend/src/lib/world/WorldStream.ts, frontend/src/components/Viewport.svelte
+// View › Detail info in a world view (#15): in Azeroth's world view at Elwynn, with the cursor on the streamed ground at a painted spot and at a lake's cell, the readout and the status bar's cursor name the streamed ground (not the hidden stand-in): the tile, chunk and map cell under the cursor, its height, its zone (#755), and its texture layers and liquids; then after Edit Here, with the same view of the region, the region's own readout at the same spot has the same tile, chunk, height, hole, zone, impassable flag, no-tufts bit, texture layers (names and shares) and liquids, and its cell is the world's less the block's corner.
+// touches: frontend/src/lib/world/worldDetail.ts, frontend/src/lib/world/worldGround.ts, internal/wow/ground.go, frontend/src/lib/world/WorldStream.ts, frontend/src/components/Viewport.svelte
 const { ui, editor, prefs } = await P.state()
 const { stats } = await P.app('/src/lib/state/editor.svelte.ts')
 const e = P.e
@@ -57,7 +57,7 @@ const r = { spots: spots.map((s) => s.name), world }
 const g = world.ground
 const gx = Math.floor(spots[0].x / CELL)
 const gz = Math.floor(spots[0].z / CELL)
-r.groundOk = g.tile === '32, 49' && g.chunk === `${Math.floor((gx % 128) / 8)}, ${Math.floor((gz % 128) / 8)}` && g.cell === `${gx}, ${gz}` && Math.abs(g.height - spots[0].ground) < 0.05 && g.textures.length > 0
+r.groundOk = g.tile === '32, 49' && g.chunk === `${Math.floor((gx % 128) / 8)}, ${Math.floor((gz % 128) / 8)}` && g.cell === `${gx}, ${gz}` && Math.abs(g.height - spots[0].ground) < 0.05 && g.textures.length > 0 && /\(\d+\)$/.test(g.area)
 r.lakeOk = !!world.lake && world.lake.liquids.length > 0
 r.shown = !!document.querySelector('[data-ui="DetailInfo"]')
 
@@ -84,6 +84,9 @@ for (const s of spots) {
 		cell: reg.cell === `${wx - b.x * 128}, ${wz - b.y * 128}`,
 		height: Math.abs(reg.height - w.height) < 0.05,
 		hole: reg.hole === w.hole,
+		area: reg.area === w.area,
+		impassable: reg.impassable === w.impassable,
+		noTufts: reg.noTufts === w.noTufts,
 		textures: JSON.stringify(reg.textures.map((x) => [x.name, x.weight])) === JSON.stringify(w.textures.map((x) => [x.name, x.weight])),
 		liquids: JSON.stringify(reg.liquids) === JSON.stringify(w.liquids),
 	}

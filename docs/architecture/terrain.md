@@ -282,8 +282,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   Start dialog's World View button (at the picked block's middle) open `Engine.openWorld`, a
   `MapDocument` whose `world` is a `world/WorldStream.ts`. It draws the client's tiles of the whole
   map in the map's editor coordinates (tile (x, y) at x·TILE_YARDS, y·TILE_YARDS, as `editorPoint`
-  has them), read one at a time from `/wow/ground` (`wow.Client.Ground`: the 129x129 outer heights and
-  a hole byte a cell, read through Meld's patch) with the tile's minimap image as its colour, lit
+  has them), read one at a time from `/wow/ground` (`wow.Client.Ground`: the 129x129 outer heights,
+  a hole byte a cell, each chunk's area ID and impassable flag and a no-tufts byte a cell, read
+  through Meld's patch) with the tile's minimap image as its colour, lit
   Lambert, within `streamReach` of the eye (3 tiles at the default view distance, 1 to 6), nearest
   first, three reads at a time, and dropped a tile past that (`keepReach`). A tile is drawn at a
   stride for its distance (`groundStride`: every sample within half a tile, every second within a
@@ -354,8 +355,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`Engine.worldCursor`, a march of the ray at the 2 Hz stats only, since the frame's pick aims at the
   stand-in and setting `hit` would draw the brush on the painted tiles' shared uniforms), through
   `WorldStream.tileAt` and `worldCellDetail` (`world/worldDetail.ts`): tile, chunk, the cell on the
-  whole map, height, slope, hole, the texture layers once the tile's paint is read (`paintIn`) and the
-  liquids. The stream doesn't read the zone or the chunk flags, so those don't show. Not yet: editing
+  whole map, height, slope, hole, no tufts, the zone and the impassable flag (#755), the texture layers
+  once the tile's paint is read (`paintIn`) and the liquids. `Viewport.svelte` reads the area table
+  (`loadAreas`) while Detail info is on, so the zone has its name without the Map data tool. Not yet: editing
   in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way

@@ -9,10 +9,17 @@
 	import PerfOverlay from './PerfOverlay.svelte'
 	import LoadingBar from './LoadingBar.svelte'
 	import { editor, prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
+	import { loadAreas } from '../lib/wow/areas'
 
 	let container: HTMLDivElement
 	let canvas: HTMLCanvasElement
 	let error = $state('')
+
+	// Detail info names a chunk's zone (#755), which needs the client's area table; a world view has no
+	// Map data tool to have read it. The readout refreshes at 2 Hz, so the names show once it is read.
+	$effect(() => {
+		if (prefs.detailInfo) void loadAreas()
+	})
 
 	onMount(() => {
 		let engine: Engine

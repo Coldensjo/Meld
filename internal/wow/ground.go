@@ -20,16 +20,34 @@ const GroundSide = adt.ChunksPerTile*adt.CellsPerChunk + 1
 // groundCells is the cells a side of a tile.
 const groundCells = GroundSide - 1
 
-// TileGround reads a tile's ground: its outer height samples, GroundSide x GroundSide, row by row
-// (rows run south, samples east), in absolute yards, and its holes, a byte a cell (1 for a hole) in
-// the same order. A chunk the tile lacks leaves its samples at 0.
-func TileGround(root []byte) (heights []float32, holes []byte, err error) {
+// Ground is a tile's ground as the world view reads it. Heights is its outer height samples,
+// GroundSide x GroundSide, row by row (rows run south, samples east), in absolute yards. Holes and
+// NoEffect are a byte a cell in the same order, groundCells squared: 1 for a hole, and 1 where the
+// chunk's noEffectDoodad bit says no ground effect grows (the "no tufts" bit). Areas and Impassable
+// are a value a chunk, 16x16 chunks row by row: its AreaTable ID, and 1 where its header flags it
+// impassable. A chunk the tile lacks leaves its samples, area and bits at 0.
+type Ground struct {
+	Heights    []float32
+	Holes      []byte
+	NoEffect   []byte
+	Areas      []uint32
+	Impassable []byte
+}
+
+// TileGround reads a tile's ground (Ground).
+func TileGround(root []byte) (Ground, error) {
 	ter, err := adt.ParseTerrain(root)
 	if err != nil {
-		return nil, nil, err
+		return Ground{}, err
 	}
-	heights = make([]float32, GroundSide*GroundSide)
-	holes = make([]byte, groundCells*groundCells)
+	const chunks = adt.ChunksPerTile * adt.ChunksPerTile
+	g := Ground{
+		Heights:    make([]float32, GroundSide*GroundSide),
+		Holes:      make([]byte, groundCells*groundCells),
+		NoEffect:   make([]byte, groundCells*groundCells),
+		Areas:      make([]uint32, chunks),
+		Impassable: make([]byte, chunks),
+	}
 	for _, ch := range ter.Chunks {
 		if ch.IndexX < 0 || ch.IndexY < 0 || ch.IndexX >= adt.ChunksPerTile || ch.IndexY >= adt.ChunksPerTile {
 			continue
@@ -39,28 +57,47 @@ func TileGround(root []byte) (heights []float32, holes []byte, err error) {
 			for q := 0; q <= adt.CellsPerChunk; q++ {
 				x := ch.IndexX*adt.CellsPerChunk + q
 				y := ch.IndexY*adt.CellsPerChunk + r
-				heights[y*GroundSide+x] = ch.Heights[r*17+q]
+				g.Heights[y*GroundSide+x] = ch.Heights[r*17+q]
 			}
 		}
-		for r, bits := range ch.Holes {
+		for r := 0; r < adt.CellsPerChunk; r++ {
+			row := (ch.IndexY*adt.CellsPerChunk+r)*groundCells + ch.IndexX*adt.CellsPerChunk
 			for q := 0; q < adt.CellsPerChunk; q++ {
-				if bits&(1<<q) != 0 {
-					holes[(ch.IndexY*adt.CellsPerChunk+r)*groundCells+ch.IndexX*adt.CellsPerChunk+q] = 1
+				if ch.Holes[r]&(1<<q) != 0 {
+					g.Holes[row+q] = 1
+				}
+				if ch.NoEffect[r]&(1<<q) != 0 {
+					g.NoEffect[row+q] = 1
 				}
 			}
 		}
+		c := ch.IndexY*adt.ChunksPerTile + ch.IndexX
+		g.Areas[c] = ch.AreaID
+		if ch.Impassable() {
+			g.Impassable[c] = 1
+		}
 	}
-	return heights, holes, nil
+	return g, nil
 }
 
-// EncodeGround is the /wow/ground reply: "GRND", the heights as little-endian float32, then the holes.
-func EncodeGround(heights []float32, holes []byte) []byte {
-	out := make([]byte, 4+len(heights)*4+len(holes))
+// EncodeGround is the /wow/ground reply: "GRND", the heights as little-endian float32, the holes,
+// the chunks' area IDs as little-endian uint32 (at a 4-byte offset, since the holes are a multiple
+// of 4 bytes), the chunks' impassable bytes, then the no-effect bytes.
+func EncodeGround(g Ground) []byte {
+	out := make([]byte, 4+len(g.Heights)*4+len(g.Holes)+len(g.Areas)*4+len(g.Impassable)+len(g.NoEffect))
 	copy(out, "GRND")
-	for i, h := range heights {
-		binary.LittleEndian.PutUint32(out[4+i*4:], math.Float32bits(h))
+	at := 4
+	for _, h := range g.Heights {
+		binary.LittleEndian.PutUint32(out[at:], math.Float32bits(h))
+		at += 4
 	}
-	copy(out[4+len(heights)*4:], holes)
+	at += copy(out[at:], g.Holes)
+	for _, a := range g.Areas {
+		binary.LittleEndian.PutUint32(out[at:], a)
+		at += 4
+	}
+	at += copy(out[at:], g.Impassable)
+	copy(out[at:], g.NoEffect)
 	return out
 }
 
@@ -87,11 +124,11 @@ func (c *Client) Ground(mapName string, x, y int) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		h, holes, err := TileGround(raw)
+		g, err := TileGround(raw)
 		if err != nil {
 			return nil, fmt.Errorf("tile %d_%d: %w", x, y, err)
 		}
-		return EncodeGround(h, holes), nil
+		return EncodeGround(g), nil
 	})
 }
 

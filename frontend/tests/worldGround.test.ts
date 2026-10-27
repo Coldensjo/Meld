@@ -5,15 +5,20 @@ import { tileKey } from '../src/lib/io/mapTiles.ts'
 import { TILE_SIZE as TILE_YARDS } from '../src/lib/io/portCoords.ts'
 import { GROUND_CELLS, GROUND_SIDE, groundHeight, groundMesh, groundStride, keepReach, marchGround, parseGround, streamReach, tileDistance, TileModelShare, wantedTiles, type TileModel } from '../src/lib/world/worldGround.ts'
 
-/** A /wow/ground reply (wow.EncodeGround) for heights f(x, y) and the hole cells listed. */
+/** A /wow/ground reply (wow.EncodeGround) for heights f(x, y) and the hole cells listed, with chunk (3, 2) in area 1519, impassable, and no tufts on cell (30, 17). */
 function reply(f: (x: number, y: number) => number, holes: Array<[number, number]> = []): ArrayBuffer {
 	const n = GROUND_SIDE * GROUND_SIDE
-	const buf = new ArrayBuffer(4 + n * 4 + GROUND_CELLS * GROUND_CELLS)
+	const cells = GROUND_CELLS * GROUND_CELLS
+	const buf = new ArrayBuffer(4 + n * 4 + cells + 256 * 5 + cells)
 	new Uint8Array(buf, 0, 4).set([...'GRND'].map((c) => c.charCodeAt(0)))
 	const v = new DataView(buf)
 	for (let y = 0; y < GROUND_SIDE; y++) for (let x = 0; x < GROUND_SIDE; x++) v.setFloat32(4 + (y * GROUND_SIDE + x) * 4, f(x, y), true)
 	const h = new Uint8Array(buf, 4 + n * 4)
 	for (const [x, y] of holes) h[y * GROUND_CELLS + x] = 1
+	const areas = 4 + n * 4 + cells
+	v.setUint32(areas + (2 * 16 + 3) * 4, 1519, true)
+	new Uint8Array(buf)[areas + 256 * 4 + 2 * 16 + 3] = 1
+	new Uint8Array(buf)[areas + 256 * 5 + 17 * GROUND_CELLS + 30] = 1
 	return buf
 }
 
@@ -23,6 +28,21 @@ test('a ground reply reads back as its heights and holes, and a bad one is refus
 	assert.equal(g.holes[7 * GROUND_CELLS + 5], 1)
 	assert.equal(
 		g.holes.reduce((a, b) => a + b, 0),
+		1,
+	)
+	assert.equal(g.areas[2 * 16 + 3], 1519)
+	assert.equal(
+		g.areas.reduce((a, b) => a + b, 0),
+		1519,
+	)
+	assert.equal(g.impassable[2 * 16 + 3], 1)
+	assert.equal(
+		g.impassable.reduce((a, b) => a + b, 0),
+		1,
+	)
+	assert.equal(g.noEffect[17 * GROUND_CELLS + 30], 1)
+	assert.equal(
+		g.noEffect.reduce((a, b) => a + b, 0),
 		1,
 	)
 	assert.throws(() => parseGround(new ArrayBuffer(12)))

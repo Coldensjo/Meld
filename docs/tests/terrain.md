@@ -708,13 +708,15 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   `clientX` is whole pixels, a sixth of a tile on this minimap, so the probe works out the point from
   the pixel it clicked.
 - Probe `world-detail` (about 30 to 60 s): View › Detail info in Azeroth's world view at a painted
-  spot and at a lake's cell names the streamed ground (tile, chunk, map cell, height, texture layers,
-  liquids), and after Edit Here the region's readout at the same spots has the same tile, chunk,
-  height, hole, layers and liquids, its cell the world's less the block's corner. The cursor is
+  spot and at a lake's cell names the streamed ground (tile, chunk, map cell, height, zone, texture
+  layers, liquids), and after Edit Here the region's readout at the same spots has the same tile,
+  chunk, height, hole, zone, impassable flag, no-tufts bit (#755), layers and liquids, its cell the world's less the block's corner. The cursor is
   `P.pointer` after a `pointerenter` on the canvas; the readout is `stats.detail`, refreshed at 2 Hz.
   Trap: aim at a cell's middle, not its edge: the cursor lands a few hundredths of a yard off, which
   on an edge reads the next cell and a different blend of layers.
-  `bun test tests/worldDetail.test.ts` covers `worldCellDetail` (chunk, cell, hole, shares, liquids).
+  `bun test tests/worldDetail.test.ts` covers `worldCellDetail` (chunk, cell, hole, zone, flags, shares, liquids). In the
+  dev page the zone reads `Area 18 (18)`: without the desktop app's bindings there is no area table
+  to name it, in the region's readout too.
 - Probe `world-map-id` (about 5 s): a world tab's map ID (#754) is its own map's, by its folder:
   Kalimdor's world view answers `openMapId` with 1 and Client Lighting reads Kalimdor's lights
   (`clientLightsMap`), Azeroth's answers 0. Trap: every other world-view probe opens Azeroth's, where
@@ -737,7 +739,7 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
 - `go test ./internal/wow/ -run TestTile`: a tile `adt.BuildTile` makes reads back as its
   heights and holes, laid out as the frontend reads them, and as its models in the map's editor
   coordinates and turn.
-- By hand: `curl "localhost:34115/wow/ground?map=Azeroth&x=32&y=48"` gives 82952 bytes; a tile the
+- By hand: `curl "localhost:34115/wow/ground?map=Azeroth&x=32&y=48"` gives 100616 bytes; a tile the
   map lacks is a 404. `/wow/groundmodels` with the same query lists the tile's models as JSON.
 - The client has a few models twice at one spot under two IDs (an Elwynn haystack, 18883 and 18884):
   check that a model is placed once by its ID, not by its spot.

@@ -683,7 +683,7 @@ func (c *Client) Handler() http.Handler {
 		}
 		writeJSON(w, tiles)
 	})
-	// One tile's ground for the world view (#15): its heights and holes (EncodeGround); 404 for no tile.
+	// One tile's ground for the world view (#15): its heights, holes, zones and chunk flags (EncodeGround); 404 for no tile.
 	mux.HandleFunc("/wow/ground", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		x, errX := strconv.Atoi(q.Get("x"))

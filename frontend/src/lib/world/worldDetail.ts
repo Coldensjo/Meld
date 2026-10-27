@@ -29,6 +29,11 @@ export interface WorldCellDetail {
 	cellX: number
 	cellY: number
 	hole: boolean
+	/** The cell's no-tufts bit: no ground effect grows there. */
+	noTufts: boolean
+	/** The chunk's AreaTable ID (0 for none) and its impassable flag. */
+	area: number
+	impassable: boolean
 	/** The chunk's texture layers by slot, with the share each takes of the cell (0 to 1); null when the tile's paint isn't read. */
 	textures: Array<{ path: string; weight: number }> | null
 	/** The liquid layers covering the cell, with their surface height at the cell's north-west corner. */
@@ -65,5 +70,7 @@ export function worldCellDetail(t: WorldTileData, x: number, z: number): WorldCe
 		if (l.indexX !== chunkX || l.indexY !== chunkY || !l.cells[ly * CHUNK_CELLS + lx]) continue
 		liquids.push({ type: l.type, height: l.heights[ly * LIQUID_VERTS + lx] })
 	}
-	return { chunkX, chunkY, cellX, cellY, hole: t.ground.holes[cellY * GROUND_CELLS + cellX] !== 0, textures, liquids }
+	const cell = cellY * GROUND_CELLS + cellX
+	const g = t.ground
+	return { chunkX, chunkY, cellX, cellY, hole: g.holes[cell] !== 0, noTufts: g.noEffect[cell] !== 0, area: g.areas[chunk], impassable: g.impassable[chunk] !== 0, textures, liquids }
 }

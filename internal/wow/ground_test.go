@@ -19,14 +19,18 @@ func TestTileGroundReadsABuiltTile(t *testing.T) {
 	}
 	// One 2x2-cell hole block in chunk (3, 2): block (1, 2) of its 4x4 bitmap, cells 2-3 x 4-5.
 	bits := uint16(1 << (2*4 + 1))
-	root, err := adt.BuildTile(outer, adt.Ring{}, adt.Changes{TileX: 30, TileY: 40, Headers: map[int]adt.ChunkHeader{2*16 + 3: {Holes: &bits}}})
+	// Chunk (3, 2) also takes area 1519, the impassable flag and no tufts on cells (1, 6) and (7, 0).
+	impassable := true
+	noEffect := []uint8{1 << 7, 0, 0, 0, 0, 0, 1 << 1, 0}
+	root, err := adt.BuildTile(outer, adt.Ring{}, adt.Changes{TileX: 30, TileY: 40, Headers: map[int]adt.ChunkHeader{2*16 + 3: {Holes: &bits, AreaID: 1519, Impassable: &impassable, NoEffect: noEffect}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, holes, err := TileGround(root)
+	g, err := TileGround(root)
 	if err != nil {
 		t.Fatal(err)
 	}
+	h, holes := g.Heights, g.Holes
 	if len(h) != GroundSide*GroundSide || len(holes) != groundCells*groundCells {
 		t.Fatalf("%d heights and %d hole cells", len(h), len(holes))
 	}
@@ -44,8 +48,23 @@ func TestTileGroundReadsABuiltTile(t *testing.T) {
 			t.Fatalf("cell (%d, %d): hole %d", i%groundCells, i/groundCells, v)
 		}
 	}
-	b := EncodeGround(h, holes)
-	if string(b[:4]) != "GRND" || len(b) != 4+len(h)*4+len(holes) {
+	const chunk = 2*16 + 3
+	if len(g.Areas) != 256 || len(g.Impassable) != 256 || len(g.NoEffect) != len(holes) {
+		t.Fatalf("%d areas, %d impassable, %d no-effect cells", len(g.Areas), len(g.Impassable), len(g.NoEffect))
+	}
+	for i := range g.Areas {
+		if (g.Areas[i] == 1519) != (i == chunk) || (g.Impassable[i] == 1) != (i == chunk) {
+			t.Fatalf("chunk %d: area %d, impassable %d", i, g.Areas[i], g.Impassable[i])
+		}
+	}
+	tufts := map[int]bool{(2*8+6)*groundCells + 3*8 + 1: true, (2*8+0)*groundCells + 3*8 + 7: true}
+	for i, v := range g.NoEffect {
+		if (v == 1) != tufts[i] {
+			t.Fatalf("cell (%d, %d): no effect %d", i%groundCells, i/groundCells, v)
+		}
+	}
+	b := EncodeGround(g)
+	if string(b[:4]) != "GRND" || len(b) != 4+len(h)*4+len(holes)+256*4+256+len(holes) {
 		t.Fatalf("reply %q, %d bytes", b[:4], len(b))
 	}
 	at := GroundSide*7 + 5
@@ -54,6 +73,10 @@ func TestTileGroundReadsABuiltTile(t *testing.T) {
 	}
 	if b[4+len(h)*4+(2*8+4)*groundCells+3*8+2] != 1 {
 		t.Fatal("encoded holes are not after the heights")
+	}
+	areas := 4 + len(h)*4 + len(holes)
+	if areas%4 != 0 || binary.LittleEndian.Uint32(b[areas+chunk*4:]) != 1519 || b[areas+256*4+chunk] != 1 || b[areas+256*5+(2*8+6)*groundCells+3*8+1] != 1 {
+		t.Fatal("encoded areas, flags or no-effect bits are not after the holes")
 	}
 }
 
