@@ -448,4 +448,6 @@ export function WriteWorldMap(arg1:vmangos.WorldMapSpec):Promise<main.WorldMapRe
 
 export function ZoneSounds():Promise<vmangos.ZoneSoundTables>;
 
+export function ZoneTextures(arg1:string,arg2:vmangos.Zone):Promise<Array<vmangos.TextureUse>>;
+
 export function ZoneWeather():Promise<main.ZoneWeatherList>;

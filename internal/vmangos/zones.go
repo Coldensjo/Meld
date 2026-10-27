@@ -12,11 +12,13 @@ import (
 // client's WorldMapArea.dbc. X0/Y0 are the top-left tile and X1/Y1 one past the bottom-right.
 type Zone struct {
 	MapID uint32
-	Name  string
-	X0    int
-	Y0    int
-	X1    int
-	Y1    int
+	// AreaID is the zone's AreaTable.dbc ID.
+	AreaID uint32
+	Name   string
+	X0     int
+	Y0     int
+	X1     int
+	Y1     int
 }
 
 // TileYards is the width of a tile in yards.
@@ -45,12 +47,13 @@ func ReadZones(dbc []byte, names map[uint32]string) ([]Zone, error) {
 		}
 		left, right, top, bottom := f32(r, 4), f32(r, 5), f32(r, 6), f32(r, 7)
 		z := Zone{
-			MapID: t.u32(r, 1),
-			Name:  names[area],
-			X0:    zoneTile(math.Floor(col(left))),
-			X1:    zoneTile(math.Ceil(col(right))),
-			Y0:    zoneTile(math.Floor(row(top))),
-			Y1:    zoneTile(math.Ceil(row(bottom))),
+			MapID:  t.u32(r, 1),
+			AreaID: area,
+			Name:   names[area],
+			X0:     zoneTile(math.Floor(col(left))),
+			X1:     zoneTile(math.Ceil(col(right))),
+			Y0:     zoneTile(math.Floor(row(top))),
+			Y1:     zoneTile(math.Ceil(row(bottom))),
 		}
 		if z.Name == "" {
 			z.Name = t.str(r, 3)

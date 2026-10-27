@@ -3828,6 +3828,20 @@ export namespace vmangos {
 		}
 	}
 	
+	export class TextureUse {
+	    path: string;
+	    share: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TextureUse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.share = source["share"];
+	    }
+	}
 	
 	
 	export class VendorItem {
@@ -4122,6 +4136,7 @@ export namespace vmangos {
 	
 	export class Zone {
 	    MapID: number;
+	    AreaID: number;
 	    Name: string;
 	    X0: number;
 	    Y0: number;
@@ -4135,6 +4150,7 @@ export namespace vmangos {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.MapID = source["MapID"];
+	        this.AreaID = source["AreaID"];
 	        this.Name = source["Name"];
 	        this.X0 = source["X0"];
 	        this.Y0 = source["Y0"];

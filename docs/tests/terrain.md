@@ -155,6 +155,20 @@ corners at -40 under a sea at 0. About 25 s.
   imports too; a stubbed `ReadHeightmap` returns `{ side, heights }` with heights from -1024 (black) to
   1024 (white), as `internal/heightmap` decodes them.
 
+## A new world painted with a zone's textures (#733, probe `new-world-pack`)
+
+Checks: the New world page's Ground textures. `go test ./internal/vmangos -run 'ChunkCover|ZoneAreas'`
+tests the shares (a layer's alpha of what the layers above leave, cells under a liquid left out) and
+the subzones; `TestRealZoneTextures` (with the client, `make test-full`) reads Tanaris and Duskwood and
+logs their shares, the list `frontend/tests/texturePack.test.ts` sorts into roles (Tanaris: sand
+ground, more sand as the lush patches, rock for the peaks; Duskwood: dirt ground, grass patches,
+cobblestones). In the live app, `bun run probe new-world-pack --shot <dir>` picks Tanaris, waits for
+the eight pictures (about 3 s), makes a Small Island and checks its palette and that the ground uses
+the ground and sand roles; then Default again shows no pictures. About 35 s.
+
+- The Go change needs `make dev` to have rebuilt the app (it watches the Go files); a probe run
+  against a stale one fails on `ZoneTextures` missing from `window.go.main.App`.
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are

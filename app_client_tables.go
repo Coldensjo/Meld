@@ -84,6 +84,16 @@ func (a *App) MapZones() ([]vmangos.Zone, error) {
 	return vmangos.LoadZones(dataDir)
 }
 
+// ZoneTextures lists the ground textures a zone's own tiles use, by share of its ground, for the New
+// world page's texture packs (#733). mapDir is the zone's map folder (Map.dbc's directory).
+func (a *App) ZoneTextures(mapDir string, zone vmangos.Zone) ([]vmangos.TextureUse, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadZoneTextures(dataDir, mapDir, zone)
+}
+
 // WMODoodadSets names a WMO's doodad sets, by index (set 0 is the global set), for the Inspector's
 // doodad set choice.
 func (a *App) WMODoodadSets(path string) ([]string, error) {

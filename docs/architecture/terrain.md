@@ -500,6 +500,18 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   over the whole square (tiles left out are masked as for a preset, not avoided), then the same erosion,
   from ground above the sea (everywhere without one). The sea is the water level 0, or none (Flat
   land's -2); the card's picture is `drawHeights`, the presets' painter.
+  **Ground textures** (#733, the owner's answers: a zone's own textures, not a tileset folder's):
+  the page's select lists `MapZones` by map; a pick calls `ZoneTextures` (`internal/vmangos`
+  `ReadZoneTextures`), which reads every tile of the zone's WorldMapArea rectangle and adds up, for
+  the chunks whose area is the zone or a subzone of it, each texture's visible share (a layer's alpha
+  of what the layers above leave, every second texel each way), leaving out cells under a liquid
+  (Tanaris's seabed is a third Wetlands dirt). `wow/texturePack.ts` `packPalette` sorts those into the
+  eight roles by file name (`kindOf`; textures under 1% are details and never a role): the main
+  ground is the most used that isn't rock, snow or road, lush is the next grass or, in a zone without
+  (a desert), more of the main ground's kind, and a role with none falls back to a near one (snow to
+  rock, sand to dirt). The palette is in role order, so `autoPaint`'s default `roleTex` and Map
+  Properties' regenerate paint with the pack too; nothing new is saved in the map. Reading a large
+  zone takes about 3 s, the Create button waiting.
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'

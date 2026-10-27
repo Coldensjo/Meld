@@ -882,6 +882,10 @@ export function ZoneSounds() {
   return window['go']['main']['App']['ZoneSounds']();
 }
 
+export function ZoneTextures(arg1, arg2) {
+  return window['go']['main']['App']['ZoneTextures'](arg1, arg2);
+}
+
 export function ZoneWeather() {
   return window['go']['main']['App']['ZoneWeather']();
 }

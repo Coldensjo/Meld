@@ -5,6 +5,8 @@
 	import type { TileBlock as Block } from '../lib/io/regionGrow'
 	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
 	import { defaultLayerTextures } from '../lib/wow/defaults'
+	import { packPalette } from '../lib/wow/texturePack'
+	import PaletteTile from './PaletteTile.svelte'
 	import { LAYERS } from '../lib/terrain/layers'
 	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawHeights, drawPresetPreview, presetById, type PresetId, type ShapeOptions } from '../lib/terrain/presets'
 	import { imageRatios } from '../lib/io/heightmapImport'
@@ -14,7 +16,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { openWorldView, openWowBuilding, openWowRegion } from '../lib/io/region'
-	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap } from '../../wailsjs/go/main/App'
+	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap, ZoneTextures } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
 	// Every map Meld makes is a map for the 1.12 client and the VMaNGOS server. It starts
@@ -157,6 +159,44 @@
 	}
 	const continentZones = $derived(continent ? zones.filter((z) => z.MapID === continent!.ID) : [])
 
+	// --- Ground textures (#733): a zone's own textures paint the new world ---------------------------
+	/** The zone whose textures paint the world, by its area ID; 0 for the default palette (Elwynn's). */
+	let packArea = $state(0)
+	/** Each read zone's palette by area ID (null: the zone has no ground), and the zone being read. */
+	let packs = $state<Record<number, string[] | null>>({})
+	let packReading = $state(0)
+	let packError = $state('')
+	/** The zones by map, a group per map, each zone once. */
+	const packGroups = $derived.by(() => {
+		const seen = new Set<number>()
+		const groups: { name: string; zones: vmangos.Zone[] }[] = []
+		for (const z of [...zones].sort((a, b) => a.MapID - b.MapID || a.Name.localeCompare(b.Name))) {
+			const map = maps.find((m) => m.ID === z.MapID)
+			if (seen.has(z.AreaID) || !map) continue
+			seen.add(z.AreaID)
+			if (groups.at(-1)?.name !== map.Name) groups.push({ name: map.Name, zones: [] })
+			groups.at(-1)!.zones.push(z)
+		}
+		return groups
+	})
+	const pack = $derived(packArea ? packs[packArea] : undefined)
+	/** Picks a zone's textures, reading them from its tiles the first time. */
+	function pickPack(area: number) {
+		packArea = area
+		packError = ''
+		if (!area || area in packs) return
+		const z = zones.find((x) => x.AreaID === area)
+		const dir = z && maps.find((m) => m.ID === z.MapID)?.Dir
+		if (!z || !dir) return
+		packReading = area
+		ZoneTextures(dir, z)
+			.then((uses) => (packs[area] = packPalette(uses)))
+			.catch((err) => (packError = String(err)))
+			.finally(() => {
+				if (packReading === area) packReading = 0
+			})
+	}
+
 	// --- a part of a continent ----------------------------------------------------------------------
 	const MAX_TILES = 8
 	let block = $state<Block | null>({ x: 31, y: 48, size: 3 })
@@ -180,7 +220,7 @@
 
 	async function create() {
 		if (!nameOk || !mapIdOk || !imageOk) return
-		const palette = wow.loaded ? await defaultLayerTextures() : LAYERS.map((l) => l.swatch)
+		const palette = wow.loaded ? (pack ?? (await defaultLayerTextures())) : LAYERS.map((l) => l.swatch)
 		const ref: VmangosRef = { dir: name.trim(), mapId }
 		if (square.x) ref.tileX = square.x
 		if (square.y) ref.tileY = square.y
@@ -314,6 +354,36 @@
 					<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
 				</div>
 			{/if}
+			{#if hasBackend()}
+				<div class="row pack">
+					<label class="field" title="Paint the world with the ground textures a zone of the client uses most: its main ground, rock on the slopes, sand at the shore, snow on the peaks">
+						<span>Ground textures</span>
+						<select value={packArea} onchange={(e) => pickPack(+e.currentTarget.value)} disabled={!wow.loaded || !zones.length}>
+							<option value={0}>Default (Elwynn Forest)</option>
+							{#each packGroups as g (g.name)}
+								<optgroup label={g.name}>
+									{#each g.zones as z (z.AreaID)}<option value={z.AreaID}>{z.Name}</option>{/each}
+								</optgroup>
+							{/each}
+						</select>
+					</label>
+					<div class="packtiles">
+						{#if packReading && packReading === packArea}
+							<span class="dim">Reading the zone's tiles…</span>
+						{:else if packError}
+							<span class="warn">{packError}</span>
+						{:else if pack}
+							{#each pack as p, i (i)}
+								<div class="packtile">
+									<PaletteTile thumbKey={'tex:' + p} label="" title="{LAYERS[i].name}: {p}" size={40} showLabel={false} onclick={() => {}} />
+								</div>
+							{/each}
+						{:else if pack === null}
+							<span class="warn">That zone has no ground of its own: the default textures are used.</span>
+						{/if}
+					</div>
+				</div>
+			{/if}
 			<div class="row bottom">
 				<label class="field seed">
 					<span>Seed</span>
@@ -382,7 +452,7 @@
 	{#snippet actions()}
 		{#if mode === 'new'}
 			<button onclick={close}>Cancel</button>
-			<button class="active" disabled={!nameOk || !mapIdOk || !imageOk} onclick={create}>Create world</button>
+			<button class="active" disabled={!nameOk || !mapIdOk || !imageOk || !!packReading} onclick={create}>Create world</button>
 		{:else}
 			<span class="dim grow"
 				>{building
@@ -556,6 +626,26 @@
 		color: var(--text-dim);
 		align-self: flex-end;
 		padding-bottom: 4px;
+	}
+	.row.pack {
+		align-items: flex-end;
+	}
+	.packtiles {
+		display: flex;
+		gap: 4px;
+		align-items: center;
+		min-height: 42px;
+	}
+	.packtile {
+		width: 40px;
+		height: 40px;
+		border: 1px solid var(--border-soft);
+	}
+	.packtile :global(.tile) {
+		padding: 0;
+		border: none;
+		background: transparent;
+		pointer-events: none;
 	}
 	.seedrow {
 		display: flex;
