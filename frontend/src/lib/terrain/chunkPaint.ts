@@ -230,9 +230,10 @@ export function addWeight(w: Uint8Array, base: number, k: number, amount: number
  * the SLOTS roles with the most weight in it, and each texel's weights are redistributed over them.
  * fill(x, z, out) writes the `roles` weights of texel (x, z), each on a 0-255 scale, into out. It's
  * called once per texel, a chunk at a time, so the whole map's weights never sit in memory at once.
- * res is the splat's texels a side and side the paint chunks a side.
+ * res is the splat's texels a side and side the paint chunks a side. A chunk keeps at most `keep`
+ * roles, and none whose share of the chunk's weight is under `minShare`.
  */
-export function packRoles(side: number, res: number, roles: number, fill: (x: number, z: number, out: Float32Array) => void): { weights: Uint8Array; chunkSlots: Uint8Array } {
+export function packRoles(side: number, res: number, roles: number, fill: (x: number, z: number, out: Float32Array) => void, keep = SLOTS, minShare = 0): { weights: Uint8Array; chunkSlots: Uint8Array } {
 	const chunks = side * side
 	const per = res / side
 	const weights = new Uint8Array(res * res * SLOTS)
@@ -255,10 +256,12 @@ export function packRoles(side: number, res: number, roles: number, fill: (x: nu
 				}
 			}
 		}
+		let all = 0
+		for (let r = 0; r < roles; r++) all += totals[r]
 		const picked = Array.from({ length: roles }, (_, r) => r)
-			.filter((r) => totals[r] > 0)
+			.filter((r) => totals[r] > 0 && totals[r] >= all * minShare)
 			.sort((a, b) => totals[b] - totals[a])
-			.slice(0, SLOTS)
+			.slice(0, Math.min(SLOTS, keep))
 		// A chunk nothing was painted in still needs a texture: the first palette entry.
 		if (picked.length === 0) chunkSlots[c * SLOTS] = 0
 		picked.forEach((r, k) => (chunkSlots[c * SLOTS + k] = r))

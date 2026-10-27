@@ -534,6 +534,18 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   rock, sand to dirt). The palette is in role order, so `autoPaint`'s default `roleTex` and Map
   Properties' regenerate paint with the pack too; nothing new is saved in the map. Reading a large
   zone takes about 3 s, the Create button waiting.
+  **The paint's rules** (#771, `terrain/autoPaint.ts` `autoPaintRoles`, called by `Terrain.autoPaint`
+  for a new world, Paint > Auto-paint and the benchmark maps): planned as the client's zones are, each
+  rule a layer over the ones before at its own alpha. The base ground everywhere; lush over it from a
+  low noise (a wave of `VARIATION_YARDS`, 260 yd, so patches a hundred yards and more across with soft
+  edges), placed by the world's seed (`newDocument` passes it; other callers 0); dirt on slopes of 0.4
+  to 0.6 measured over 12 yd each way (a band round the rock's foot); sand on the shores; snow over
+  `snowLine`; rock last, on slopes of 0.62 to 0.9 measured over 6 yd (a texel's own slope flickers on
+  every bump, which cut the rock and dirt into specks). `packRoles` then keeps at most three textures
+  in a chunk (`AUTO_PAINT_ROLES`), none under 4% of it. The old rule, 30 yd noise blobs flipping
+  between grass, lush and dirt per texel, gave runs of one texture along a row of 24 to 30 yd; these
+  give 47 to 72 on hills and mountains, 30 on a rugged island (`tests/autoPaint.test.ts`). The
+  pictures (`drawHeights`) draw rock by slope, sand and snow, without the lush and dirt.
   **Trees and rocks** (#758, the owner's answer on #733: the pack's zone by default, a model set
   instead): `ZoneDoodads` (`internal/vmangos/zonedoodads.go` `ReadZoneDoodads`) counts the M2
   placements of the zone's tiles by path, kept to those on a chunk of the zone (`placementCell`: the

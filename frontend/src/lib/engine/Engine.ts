@@ -2701,7 +2701,7 @@ export class Engine {
 			const level = findLakes(t.heights, t.verts, t.cellSize, { ...LAKE_RULES, sea: d.meta.waterEnabled ? d.meta.waterLevel : null })
 			if (fillLakes(d.liquids, t, level, water.lakes)) shores = shoreLevels(level, t.verts)
 		}
-		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores, sandBand(!image && hasBeaches(kind) ? (opts?.beach ?? 0) : 0))
+		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores, sandBand(!image && hasBeaches(kind) ? (opts?.beach ?? 0) : 0), seed)
 		setup?.(d)
 		d.meta.roles = guessRoles(d.meta.palette)
 		this.documents.push(d)
