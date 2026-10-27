@@ -109,7 +109,7 @@ function liquidGeometryOf(liquids: readonly TileLiquid[], stride: GroundStride):
  */
 export class WorldStream {
 	readonly group = new THREE.Group()
-	/** The loaded tiles' liquids, beside `group` so View › Water shows them as a region's (`LiquidRenderer`). */
+	/** The loaded tiles' liquids, beside `group` so Show › Water shows them as a region's (`LiquidRenderer`). */
 	readonly water = new THREE.Group()
 	/** The map's tiles with an ADT, by tileKey; null until /wow/tiles answers. */
 	private tiles: Map<number, StreamTile> | null = null

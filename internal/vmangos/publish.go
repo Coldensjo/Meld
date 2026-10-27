@@ -133,7 +133,7 @@ type PublishPlan struct {
 	// Run runs programs; OSRunner in the app, a fake in tests.
 	Run Runner
 	// SkipMoveMaps leaves the server's movement maps (mmaps) alone after the map data is rebuilt
-	// (Preferences › Build movement maps on compile, off).
+	// (Edit › Preferences › Compile and export › Build movement maps on compile, off).
 	SkipMoveMaps bool
 }
 

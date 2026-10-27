@@ -103,7 +103,7 @@
 	bindKeymap(() => prefs.keymap)
 	$effect(() => syncKeymap())
 
-	// Preferences › Interface size (#372): the whole page zoomed, before the engine reads the pref for its pixel ratio.
+	// Preferences › General › Interface size (#372): the whole page zoomed, before the engine reads the pref for its pixel ratio.
 	$effect(() => applyUiScale(prefs.uiScale))
 
 	// Object.keys on the reactive prefs reads every key (the session too), so the keys are listed once, untracked.
@@ -131,7 +131,7 @@
 		})
 	})
 
-	// Preferences › Theme (#49): app.css's light tokens apply under data-theme="light"; System follows
+	// Preferences › General › Theme (#49): app.css's light tokens apply under data-theme="light"; System follows
 	// the desktop and changes with it.
 	$effect(() => {
 		const theme = prefs.theme

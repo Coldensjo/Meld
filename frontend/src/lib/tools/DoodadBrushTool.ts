@@ -534,7 +534,7 @@ export class DoodadBrushTool implements Tool {
 	}
 
 	/**
-	 * Terrain › Fill Selection / Fill Mask with Doodad Brush (#169): runs the brush over the whole area
+	 * Paint › Fill Selection / Fill Mask with Doodad Brush (#169): runs the brush over the whole area
 	 * at once, as many attempts as holding the brush there at its strength would make, each point
 	 * uniform in the area (with the mask, kept by the mask's value there), within the brush's rules and
 	 * spacing. Lands on the ground only (not on props). One undo step. Returns how many were placed.

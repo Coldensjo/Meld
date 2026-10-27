@@ -3,7 +3,7 @@ import { hasBackend } from '../io/backend'
 // Display settings that live outside the renderer's per-frame state (#24): full screen, and whether
 // the WebGL context is made with anti-aliasing, which only a new context can change.
 
-/** Where Graphics › Anti-aliasing is mirrored, so the next start reads it before the prefs load. */
+/** Where Preferences › Graphics › Anti-aliasing is mirrored, so the next start reads it before the prefs load. */
 const ANTIALIAS_KEY = 'meld.antialias'
 
 /** Whether the renderer is made with anti-aliasing (on unless the author turned it off). */
@@ -15,7 +15,7 @@ export function antialiasAtStart(): boolean {
 	}
 }
 
-/** Keeps Graphics › Anti-aliasing for the next start. */
+/** Keeps Preferences › Graphics › Anti-aliasing for the next start. */
 export function rememberAntialias(on: boolean) {
 	try {
 		localStorage.setItem(ANTIALIAS_KEY, on ? 'on' : 'off')

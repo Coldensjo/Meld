@@ -19,7 +19,7 @@
 		type ShortcutId,
 	} from '../lib/ui/commands'
 
-	// Preferences › Hotkey Manager (#396): every row of the shortcut table with its keys. A command's or
+	// Preferences › Camera and input › Hotkey Manager (#396): every row of the shortcut table with its keys. A command's or
 	// a camera movement's key is changed with a click and a press, cleared with its ×, or reset; a key
 	// taken from another row leaves it there. The bindings are the `keymap` pref (only the changed
 	// rows), which the key handler, the camera, the menus and the Shortcuts dialog all read.

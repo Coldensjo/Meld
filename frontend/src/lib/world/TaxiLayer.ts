@@ -3,7 +3,7 @@ import { editorPoint } from '../io/portCoords'
 import { rayNearSegment, routeLines, type Vec3 } from './taxiRoute'
 
 // Flight paths (#180): the open map's flight stops (TaxiNodes.dbc) and the routes from or to them
-// (TaxiPath.dbc, through TaxiPathNode.dbc's points), drawn while View › Flight paths is on or the
+// (TaxiPath.dbc, through TaxiPathNode.dbc's points), drawn while Show › Flight paths is on or the
 // Flight Paths window edits them. The stops are posts topped by a marker coloured by who can fly
 // from them; the routes are the curves a flight flies, red where they run under the ground. The
 // picked route is drawn over everything with a marker on each point (the picked one yellow) and a

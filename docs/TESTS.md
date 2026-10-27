@@ -742,6 +742,7 @@ the same scene, the report before and after.
 - The same header on every tab (#651)
 - Model sets (the asset browser's Sets tab, #124)
 - Menu heights (#122)
+- Preferences dialog (#752, probe `preferences`)
 - Dock panel (Layers) and the Inspector
 - Hide panels (Tab)
 - Hide the dock (#653)

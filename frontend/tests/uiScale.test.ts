@@ -1,5 +1,5 @@
 // Run with: bun test tests/uiScale.test.ts
-// Preferences › Interface size (#372): the stored scale is kept in range and the steps follow the offered sizes.
+// Preferences › General › Interface size (#372): the stored scale is kept in range and the steps follow the offered sizes.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { clampUiScale, stepUiScale, UI_SCALE_MAX, UI_SCALE_MIN, applyUiScale, toCss, uiZoom } from '../src/lib/ui/uiScale'

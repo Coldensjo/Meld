@@ -1026,7 +1026,7 @@
 					{@const ms = editor.maskSelect}
 					<div class="row">
 						<span class="dim head">Mask</span>
-						<select class="curve" value="" onchange={modifyMask} title="Change the whole mask (also in the Terrain menu)" aria-label="Modify mask">
+						<select class="curve" value="" onchange={modifyMask} title="Change the whole mask (also in the Paint menu)" aria-label="Modify mask">
 							<option value="" disabled>Modify mask…</option>
 							<option value="grow" disabled={!ui.maskActive}>Grow by {ms.step} yd</option>
 							<option value="shrink" disabled={!ui.maskActive}>Shrink by {ms.step} yd</option>

@@ -42,13 +42,13 @@ export interface TaxiHost {
 const NO_PICK: TaxiPick = { stop: null, route: null, point: -1 }
 
 /**
- * The flight paths over the map (#180), out of Engine (#556): View › Flight paths' read of the open
+ * The flight paths over the map (#180), out of Engine (#556): Show › Flight paths' read of the open
  * map's stops and routes, and the Flight Paths window's editing in the viewport (a press on a stop or
  * a route point, its drag, a drawn point) and a route's fly-along preview. Engine forwards the public
  * names the window calls.
  */
 export class TaxiEditing {
-	/** The open map's flight stops and routes, drawn with View › Flight paths or while the Flight Paths window edits them. */
+	/** The open map's flight stops and routes, drawn with Show › Flight paths or while the Flight Paths window edits them. */
 	readonly layer = new TaxiLayer()
 	/** The client's stops and routes of the open map, read once per document. */
 	private overlay: DocOverlay<MapDocument, vmangos.TaxiNetwork>
@@ -81,7 +81,7 @@ export class TaxiEditing {
 				const reg = doc.meta.region
 				this.layer.set(n?.nodes ?? [], n?.routes ?? [], reg?.x ?? 0, reg?.y ?? 0, NO_PICK, this.ground)
 			},
-			failed: (err) => setStatus(`View › Flight paths: the map's flight paths could not be read: ${err instanceof Error ? err.message : err}`, 8000),
+			failed: (err) => setStatus(`Show › Flight paths: the map's flight paths could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 		})
 	}
 
@@ -103,7 +103,7 @@ export class TaxiEditing {
 		this.layer.set(stops, routes, r?.x ?? 0, r?.y ?? 0, pick, this.ground)
 	}
 
-	/** The Flight Paths window closed: View › Flight paths reads the map's stops again (they may have been saved). */
+	/** The Flight Paths window closed: Show › Flight paths reads the map's stops again (they may have been saved). */
 	endEdit() {
 		this.hooks = null
 		this.drag = null
@@ -112,7 +112,7 @@ export class TaxiEditing {
 		this.stopFlight()
 	}
 
-	/** Shows the stops and routes while asked for (`shown`, View › Flight paths) or edited, reading the open map's once per document. */
+	/** Shows the stops and routes while asked for (`shown`, Show › Flight paths) or edited, reading the open map's once per document. */
 	update(shown: boolean, topDown: boolean) {
 		const on = this.hooks !== null || shown
 		this.layer.group.visible = on && !topDown

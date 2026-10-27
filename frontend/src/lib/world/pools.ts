@@ -14,7 +14,7 @@ export const NO_POOL: SpawnFields = { pool: 0, poolLimit: 0, poolName: '', poolC
 const keyOf = (s: vmangos.WorldSpawn) => `${s.kind}/${s.guid}`
 const isObject = (s: vmangos.WorldSpawn) => s.kind === 'object'
 
-/** The pool a spawn shows under in View › Spawn pools: its mother pool when it has one, else its own; 0 for none. */
+/** The pool a spawn shows under in Show › Spawn pools: its mother pool when it has one, else its own; 0 for none. */
 export const topPool = (s: vmangos.WorldSpawn) => (s.pool ? s.motherPool || s.pool : 0)
 
 /** The spawns of `spawns` in pool `pool` of the kind of `like` (creature or game object). */
@@ -138,13 +138,13 @@ export function chanceProblem(spawns: readonly vmangos.WorldSpawn[], s: vmangos.
 	return Math.abs(sum - 100) > 1e-3 ? `Every member has a chance, and they add up to ${Math.round(sum * 100) / 100}%; the server wants 100%.` : ''
 }
 
-/** A pool's colour in View › Spawn pools, the same for a pool in every region: a hue from its number. */
+/** A pool's colour in Show › Spawn pools, the same for a pool in every region: a hue from its number. */
 export function poolHue(pool: number): number {
 	// The golden angle spreads neighbouring numbers far apart on the colour wheel.
 	return (pool * 0.618033988749895) % 1
 }
 
-/** A pool of the region as the View › Spawn pools legend lists it. */
+/** A pool of the region as the Show › Spawn pools legend lists it. */
 export interface PoolEntry {
 	pool: number
 	name: string

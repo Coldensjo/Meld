@@ -9,7 +9,7 @@ import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { compileRegion, regionName, regionUncompiled } from './compile'
 
-/** Reads which game client Meld uses into ui.gameClient (Game › Game Client). */
+/** Reads which game client Meld uses into ui.gameClient (Edit › Preferences › Game). */
 export async function refreshGameClient() {
 	if (!hasBackend()) return
 	try {
@@ -35,7 +35,7 @@ export async function setGameClient(client: 'wow' | 'benilla') {
 }
 
 /**
- * Sets how the game's window opens when Meld starts it (Game › Game Window): the game's own
+ * Sets how the game's window opens when Meld starts it (Edit › Preferences › Game): the game's own
  * setting, windowed or fullscreen, at `resolution`. Meld writes it into the game's own settings
  * (Benilla's config.toml, Wow.exe's Config.wtf) each time it starts the game.
  */
@@ -59,7 +59,7 @@ export async function chooseBenillaFolder() {
 		if (!dir) return
 		await SetBenillaPath(dir)
 		const info = await GameClient()
-		setStatus(info.benillaBuilt ? `Benilla folder: ${dir}. Pick Game › Benilla to use it.` : `Benilla folder: ${dir}, but it isn't built: run cargo build --release -p benilla there.`, 8000)
+		setStatus(info.benillaBuilt ? `Benilla folder: ${dir}. Pick Benilla as the game client in Edit › Preferences › Game to use it.` : `Benilla folder: ${dir}, but it isn't built: run cargo build --release -p benilla there.`, 8000)
 	} catch (e) {
 		setStatus(`${e}`, 8000)
 	}

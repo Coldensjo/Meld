@@ -48,7 +48,7 @@ export async function sceneText(engine: Engine): Promise<string> {
 	return PREFIX + JSON.stringify(scene)
 }
 
-/** F9 (Import/Export › Copy Position as Teleport Command): the GM command to the point under the cursor, onto the clipboard. */
+/** F9 (Game › Copy Position as Teleport Command): the GM command to the point under the cursor, onto the clipboard. */
 export async function copyTeleport(engine: Engine) {
 	const r = await engine.teleportAtCursor()
 	if ('error' in r) return setStatus(r.error, 6000)

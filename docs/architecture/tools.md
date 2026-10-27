@@ -90,7 +90,7 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through Import/Export › Import /
   Export Doodad Brush and the `SaveBrushDialog`/`OpenBrushDialog` bindings. A brush may carry
   placement rules (`PlacementRules`, `rulesAllow`, the TOML's `[rules]`: slope and height ranges, on
-  and not-on textures, liquids, holes) and each model an `align` toward the slope; Terrain › Fill
+  and not-on textures, liquids, holes) and each model an `align` toward the slope; Paint › Fill
   Selection / Fill Mask with Doodad Brush runs it over a whole area as one undo step
   (`DoodadBrushTool.fill`, spaced through a `SpacingGrid`; its `FillOptions` let a new world's trees,
   #758, set the attempts, a keep chance by place and the brush's rules alone).

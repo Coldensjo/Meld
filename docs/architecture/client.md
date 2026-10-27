@@ -167,7 +167,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   its pools in the region, as the pool's limit does (`MotherSize` counts pools), and its limit is
   edited the same way (`motherLimitChanges`). The SQL (`motherSQL`, #261) upserts the pool's
   `pool_pool` row (chance 0; a pool can't be its own mother) or deletes it, and writes a changed
-  mother limit to its `pool_template` rows. Pools by entry (`pool_gameobject_template`) are not read. View › Spawn pools (`prefs.showPools`)
+  mother limit to its `pool_template` rows. Pools by entry (`pool_gameobject_template`) are not read. Show › Spawn pools (`prefs.showPools`)
   draws a ring and a post round every pooled spawn in its top pool's colour (the mother pool's, else
   its own; `poolHue`, `world/SpawnLinks.ts`) and `PoolLegend.svelte` lists the region's pools with
   "limit of size".
@@ -197,11 +197,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - **Waypoints**: `WorldSpawn.waypoints` is a creature's main path (`creature_movement`,
   `path_id` 0), or its template's (`creature_movement_template`, `pathFromTemplate`) when it walks
   waypoints without its own. `world/SpawnPaths.ts` draws the selected creature's path (and all
-  paths with View › All creature paths) with pickable point markers. With `ui.pathEdit` on, the
+  paths with Show › All creature paths) with pickable point markers. With `ui.pathEdit` on, the
   Select tool adds points on the ground after `editor.selectedWaypoint`, drags them, and Delete
   removes one. Paths are replaced immutably (`withPoint`), so undo can keep the old array. A
   changed path is saved as the spawn's own `creature_movement` rows.
-- **Spawn names** (`world/SpawnLabels.ts`, View › Names over creatures and objects, `prefs.spawnNames`):
+- **Spawn names** (`world/SpawnLabels.ts`, Show › Names over creatures and objects, `prefs.spawnNames`):
   DOM labels over the canvas for the 48 nearest spawns the cull drew (`SpawnLayer.forEachDrawn`), with
   the name in the kind's colour, the subname and a creature's level and rank, picked four times a second
   and left out where the ground or a building hides them (`Engine.sightBlocked`, `ObjectLayer.wmoBlocks`).
@@ -335,7 +335,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   follows the save. A list a script switches to (`creature_ai_scripts`) is not counted as shared.
 - **Area triggers and teleporters** (#141, #306): `world/areaTriggers.ts` `AreaTriggerLayer` draws the
   open map's AreaTrigger.dbc volumes (`AreaTriggers` binding, with the world database's names and
-  `areatrigger_teleport` rows) while View › Area triggers is on or the Portals dialog edits them, and
+  `areatrigger_teleport` rows) while Show › Area triggers is on or the Portals dialog edits them, and
   keeps what it drew, so `Engine.openContextMenu` can pick a trigger with `world/teleport.ts`
   `pickTrigger` (only while drawn; one the camera is inside is skipped). `triggerWins` settles it
   against `pickNearest`'s hit: a placed model wins only in front of the trigger (a dungeon portal
@@ -381,7 +381,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   whole, reusing its old point IDs. `components/FlightPathsWindow.svelte` (World › Flight Paths,
   `ui.flightPaths`) is a floating window, not a dialog, so the map stays in reach, and a form saved
   with Save, not undo steps (as Zones and Portals, decision #83). It hands its stops and routes to
-  `Engine.showTaxi` with `TaxiHooks`; `world/TaxiLayer.ts` draws them (also for View › Flight paths,
+  `Engine.showTaxi` with `TaxiHooks`; `world/TaxiLayer.ts` draws them (also for Show › Flight paths,
   `prefs.showFlightPaths`, read once per tab through `engine/docOverlay.ts` `DocOverlay`, as the area
   triggers are; a failed read warns in the console and says so in the status line, `failed`) and picks markers, and `engine/TaxiEditing.ts` (the viewport's half of the window,
   which Engine forwards `showTaxi`, `flyTaxi` and the pointer events to) `press` takes a left press before the

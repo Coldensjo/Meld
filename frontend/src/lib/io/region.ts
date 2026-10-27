@@ -131,7 +131,7 @@ async function regionViewPaint(view: vmangos.RegionView) {
 }
 
 /**
- * Terrain › Restore the Client's Paint (#645): puts the active region's paint, in the selected area or
+ * Paint › Restore the Client's Paint (#645): puts the active region's paint, in the selected area or
  * everywhere, back to the client's own as its tiles have it without Meld's patch, as one undo step.
  * Compiles before #526 left the patch's chunks at half the alpha resolution, which a region read from
  * the patch keeps for good; after this, the next compile writes the client's alpha maps there again.

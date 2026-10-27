@@ -45,7 +45,7 @@
 	color-scheme: dark;
 }
 
-/* Preferences › Theme › Light (#49), or System on a light desktop: the same tokens, light. */
+/* Preferences › General › Theme › Light (#49), or System on a light desktop: the same tokens, light. */
 :root[data-theme='light'] {
 	--bg: #f0f0f0;
 	--panel: #e3e3e3;

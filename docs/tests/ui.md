@@ -169,7 +169,27 @@ the `.menubar .dropdown`'s height and whether `scrollHeight > clientHeight`, and
 item is about 31 px tall, so a menu of 20 items with headers is near 700 px: keep a menu under about
 18 rows, or it passes a 768 px tall window (the dropdown then scrolls rather than running off). A
 script that compares the `label:` strings of `MenuBar.svelte` before and after a move (`git show
-HEAD:...`, sorted) proves no item was lost.
+HEAD:...`, sorted) proves no item was lost. The `preferences` probe measures every menu's
+`scrollHeight` and fails one over 720 px (#752; Terrain and View had grown to about 1200 px, and
+View was 723 px until the Performance overlay moved to Help). The `radios(...)` lists don't show
+in that `label:` comparison: check their options by hand.
+
+## Preferences dialog (#752, probe `preferences`)
+
+Checks: Edit › Preferences… (Ctrl+,) opens the dialog of the settings set once, and none of them is
+left in a menu. `bun run probe preferences` (about 30 s, no client needed) opens it with Ctrl+,,
+reads its six pages and the rows of General and Folders (`[data-pref]`, each row's id), checks the
+Folders page shows `wow.path`, types `mmaps` in the search (only `buildMoveMaps`, five pages
+greyed), clicks `#pref-invertY` twice and changes `#pref-autosave` (both write their pref, and are
+put back), closes it with Esc, then opens every menu: no Preferences menu, Edit's Preferences… shows
+`Ctrl+,`, none of a list of moved labels is in any menu, Game › Game Settings… opens the dialog on
+the Game page, and every menu is under 720 px.
+- To look at it: a scratch probe that sets `ui.prefsPage` and `ui.dialog = 'preferences'`, run with
+  `--shot <dir>` (a path to a `.js` outside `probes/` works).
+- Trap: the probe writes the real config (the prefs save on change), so it puts each value back;
+  a new check in it must do the same.
+- The choice lists show a value none of their options holds (Camera › Faster leaves the camera
+  speed at 125 %) as an extra first option, so the select never shows a wrong choice.
 
 ## Dock panel (Layers) and the Inspector
 
@@ -222,9 +242,9 @@ Probe: `bun run probe hide-dock` (canvas width before, hidden, with Tab and show
 
 ## Toolbar on the right (#654)
 
-Checks: Preferences › Toolbar on the right (`prefs.toolbarSide`) puts the toolbar at the window's right
-edge, after the dock, and back. In the dev page, click the Preferences menu item, then the radio
-"Toolbar on the right": `.toolbar`'s left is the `.dock`'s right, and its left border is set. Hover a
+Checks: Preferences › General › Toolbar side, Right (`prefs.toolbarSide`) puts the toolbar at the window's right
+edge, after the dock, and back. In the dev page, open Edit › Preferences (Ctrl+,) and pick Right in
+Toolbar side (`#pref-toolbarSide`): `.toolbar`'s left is the `.dock`'s right, and its left border is set. Hover a
 toolbar button (`pointerenter`, wait 450 ms): the `.tip` ends left of the toolbar. Hide panels still
 fills the window. The pref saves to the real config from the dev page: set it back to the left.
 
@@ -323,7 +343,7 @@ The same menu ends with Unselect (#288) before Delete: it clears the selection (
 ## Previews draw only while something moves (#589)
 
 Checks: `AssetPreview` and `CreaturePreview` (over `lib/ui/previewRenderer.ts`) stop their frame
-loop when nothing moves, and keep to Graphics › FPS limit while drawing.
+loop when nothing moves, and keep to Preferences › Graphics › FPS limit while drawing.
 - Probe: `bun run probe preview-idle` (about 30 s, no map needed). It counts each preview canvas's
   frames by wrapping its context's `drawElements` and `drawArrays` (the draws of one task are one
   frame) over 2 s windows: the asset preview spinning a hovered tile's model, settled after its 6 s
@@ -381,7 +401,7 @@ plane is edge-on), the ring and knob can.
 
 Checks: Help › Log… lists every status message with its time (`appLog.lines` in
 `editor.svelte.ts`, the last 500), the Go side's progress lines (they arrive as status messages),
-and with Preferences › Log file loading (`prefs.logFileLoading`) every client file read
+and with Preferences › General › Log file loading (`prefs.logFileLoading`) every client file read
 (`fetchBinary` in `wow/api.ts`: kind, path, time, or the error). In the dev page:
 `ed.prefs.logFileLoading = true`, place a model, then `ed.appLog.lines.slice(-3)` shows the
 `model` and `texture` lines; `ed.ui.dialog = 'log'` opens the window, which stays scrolled to
@@ -590,7 +610,7 @@ Checks: the menus, App's key handler and Help › Keyboard Shortcuts use the one
 
 ## Hotkey Manager (#396, probe `hotkey-manager`)
 
-Checks: Preferences › Hotkey Manager rebinds a command or a camera key, and everything that shows or
+Checks: Preferences › Camera and input › Hotkey Manager rebinds a command or a camera key, and everything that shows or
 reads the key follows.
 - `cd frontend && bun test tests/shortcuts.test.ts` ("rebinding"): the defaults are the keys bound
   before the keymap, chord text round-trips, a keymap moves a command and the camera
@@ -605,7 +625,7 @@ reads the key follows.
   Shortcuts dialog the new keys, the camera flies on I and not W, and Reset all puts every default
   back. The probe page runs with `?nosave`, so the owner's keymap is never touched; it sets
   `prefs.keymap = {}` at the start and end.
-- Preferences › Q / E Fly Up and Down (#725) is only a keymap rewrite (`setFlyOnQE`, checked state `flyOnQE`): Q joins Fly up, E joins Fly down, the turns lose them; off gives them back. Tested in `tests/shortcuts.test.ts` ("Q/E fly switch"). Fly up/down only act with Follow the Ground off, as Space does.
+- Preferences › Camera and input › Q / E fly up and down (#725) is only a keymap rewrite (`setFlyOnQE`, checked state `flyOnQE`): Q joins Fly up, E joins Fly down, the turns lose them; off gives them back. Tested in `tests/shortcuts.test.ts` ("Q/E fly switch"). Fly up/down only act with Follow the Ground off, as Space does.
 - Not in the probe: a reload keeping the keys (the page doesn't save). In `make dev`'s window, rebind
   a key, restart, and check `%AppData%\Meld\config.json` holds `"keymap"` with only that row.
 - Trap: a synthetic keydown on the capture button must be dispatched on the button itself (it
@@ -613,11 +633,11 @@ reads the key follows.
 
 ## Interface size (#372, probe `ui-scale`)
 
-Checks: Preferences › Interface size zooms the whole UI and everything still lines up.
+Checks: Preferences › General › Interface size zooms the whole UI and everything still lines up.
 - `bun run probe ui-scale` sets 150 % and checks the root's `zoom` and `--ui-zoom`, that the app
   fills the window without running past it, that the canvas's buffer matches its size on screen
   (sharp), that the window's own hit test finds the canvas inside its rect and a pointer at a share
-  of the rect gives the engine that share, that the Preferences menu fits and lists the sizes, that
+  of the rect gives the engine that share, that the tallest menu (View) fits, that the Preferences dialog fits and its Interface size lists the sizes, that
   a right-click menu opened at window px (300, 200) has its corner there, and Ctrl+= / Ctrl+- /
   Ctrl+0. Run `menu-keys`, `dialog-focus`, `zones-fit` and `hide-panels` with it.
 - To look at it: a scratch probe that sets `prefs.uiScale = 1.5` and opens a dialog, run with

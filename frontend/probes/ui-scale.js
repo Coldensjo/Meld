@@ -1,4 +1,4 @@
-// Preferences › Interface size (#372): at 150 % the page is zoomed and still fits the window, the menus fit, the 3D canvas keeps one pixel per screen pixel, the pointer maps onto the canvas, the right-click menu opens under the pointer, and Ctrl+= / Ctrl+- / Ctrl+0 step the size.
+// Preferences › General › Interface size (#372): at 150 % the page is zoomed and still fits the window, the menus fit, the 3D canvas keeps one pixel per screen pixel, the pointer maps onto the canvas, the right-click menu opens under the pointer, and Ctrl+= / Ctrl+- / Ctrl+0 step the size.
 // touches: frontend/src/lib/ui/uiScale.ts, frontend/src/components/Dock.svelte, frontend/src/components/Viewport.svelte
 const { prefs, ui } = await P.state()
 const r = {}
@@ -32,15 +32,23 @@ await P.frames(1)
 r.ndc = [+P.e.ndc.x.toFixed(3), +P.e.ndc.y.toFixed(3)]
 r.pointerMaps = near(P.e.ndc.x, -0.5, 0.01) && near(P.e.ndc.y, -0.5, 0.01) && r.hitTest
 
-// The longest menu (Preferences) fits the window.
-const title = [...document.querySelectorAll('.menubar .menu > .title')].find((b) => b.textContent.trim() === 'Preferences')
+// The tallest menu (View) fits the window, and the Preferences dialog (Edit › Preferences, #752) fits it and lists the sizes.
+const title = [...document.querySelectorAll('.menubar .menu > .title')].find((b) => b.textContent.trim() === 'View')
 title.click()
 await P.frames(2)
 const drop = document.querySelector('.menubar .dropdown')
 const dr = drop?.getBoundingClientRect()
 r.menuFits = !!dr && dr.bottom <= innerHeight + 1
-r.menuHasSize = !!drop && [...drop.querySelectorAll('[role^="menuitem"]')].some((b) => b.textContent.includes('150 %'))
 title.click()
+await P.frames(2)
+ui.prefsPage = 'general'
+ui.dialog = 'preferences'
+await P.frames(3)
+const prefsDlg = document.querySelector('[role="dialog"]')
+const pr = prefsDlg?.getBoundingClientRect()
+r.prefsFits = !!pr && pr.top >= -1 && pr.bottom <= innerHeight + 1 && pr.right <= innerWidth + 1
+r.menuHasSize = [...(document.querySelector('#pref-uiScale')?.options ?? [])].some((o) => o.textContent.includes('150 %'))
+ui.dialog = null
 await P.frames(2)
 
 // The right-click menu's corner sits at the pointer's window position.
@@ -78,5 +86,5 @@ await P.frames(2)
 r.unzoomed = root.style.zoom === ''
 
 prefs.uiScale = 1
-r.ok = r.zoomed && r.appFits && r.sharp && r.pointerMaps && r.menuFits && r.menuHasSize && r.contextAtPointer && r.ctrlPlus && r.ctrlMinus && r.ctrlZero && r.unzoomed && r.logShare && r.dockShare
+r.ok = r.zoomed && r.appFits && r.sharp && r.pointerMaps && r.menuFits && r.prefsFits && r.menuHasSize && r.contextAtPointer && r.ctrlPlus && r.ctrlMinus && r.ctrlZero && r.unzoomed && r.logShare && r.dockShare
 return r

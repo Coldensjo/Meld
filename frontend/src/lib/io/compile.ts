@@ -177,12 +177,12 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 				await compileServer(engine, region, name)
 				return
 			}
-			// Preferences › Check the Map before Compile (#195): errors stop the compile and open the list.
+			// Edit › Preferences › Compile and export › Check the map before compile (#195): errors stop the compile and open the list.
 			if (prefs.checkBeforeCompile) {
 				const errors = (await engine.checkMap()).findings.filter((f) => f.severity === 'error').length
 				if (errors) {
 					ui.checkMap = true
-					setStatus(`Compile stopped: the map check found ${errors} ${errors === 1 ? 'error' : 'errors'}. Fix them, or turn off Preferences › Check the Map before Compile.`, 10000)
+					setStatus(`Compile stopped: the map check found ${errors} ${errors === 1 ? 'error' : 'errors'}. Fix them, or turn off Check the map before compile in Edit › Preferences › Compile and export.`, 10000)
 					return
 				}
 			}
@@ -218,7 +218,7 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 				return
 			}
 			if (!server) {
-				setStatus(`${wrote} No VMaNGOS server folder is set (Game menu), so the server was left alone.${spawnNote()}`, 10000)
+				setStatus(`${wrote} No VMaNGOS server folder is set (Edit › Preferences › Folders), so the server was left alone.${spawnNote()}`, 10000)
 				return
 			}
 			if (!rebuildable || spawns.failed) {
@@ -235,7 +235,7 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 /** Compile to Server: the region's tiles rebuilt from the client's patch, which must hold its edits. */
 async function compileServer(engine: Engine, region: RegionBlock, name: string) {
 	if (!(await VmangosPath())) {
-		setStatus('Set the VMaNGOS server folder first (Game menu), then Compile to Server.', 8000)
+		setStatus('Set the VMaNGOS server folder first (Edit › Preferences › Folders), then Compile to Server.', 8000)
 		return
 	}
 	if (await regionUncompiled(engine)) {

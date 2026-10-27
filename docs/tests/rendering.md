@@ -181,7 +181,7 @@ e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cel
 ```
 
 - A WMO whose bottom floats more than 4 yards above the ground (a bridge) bares nothing.
-- The density is View › Sparse / Normal / Full tufts; the layer rebuilds within a quarter second.
+- The density is Graphics › Sparse / Normal / Full tufts; the layer rebuilds within a quarter second.
 - The scatter itself (`scatterChunk`, `BlizzardRandomizer`) is tested against vectors printed by
   Benilla's own Rust (`ground_effects.rs`): copy `GROUND_EFFECT_NOISE`, `BlizzardRandomizer` and the
   pass loop into a scratch `.rs` with a `main` that prints them, and build it with
@@ -227,7 +227,7 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   fade). In its hall (group 2) the flood draws 2, 3, 5 and 10 looking along it and fewer facing a
   wall; in a closed bedroom (9) only 9. A WMO mesh must carry the `wmoRoom` attribute (Go's
   `"rooms":true` header); a page loaded before a Go change keeps the old assets, so reload it.
-- Trap: with View › Layers › Objects off (the owner's prefs may have it so) the probe finds no room
+- Trap: with Show › Objects off (the owner's prefs may have it so) the probe finds no room
   and `e.rooms.wmoIds` stays empty (#142); set `e.objects.group.visible = true` for the probe. Hiding
   it again must drop the room and the gate (`e.cullView.gate` null, terrain chunks drawn).
 - Trap: the inn placed with `yOff: 0` on rough ground can have its floor under the terrain, and the
@@ -524,7 +524,7 @@ hole in the ground still shows its dark earth, not the sky dome.
   too, so don't expect every pixel to differ.
 - How it was found: toggling the gate (`e.rooms.current = null`, `e.rooms.outside = () => []`), the
   group cull (`WmoGroupCull.enabled`), double-sided and plain materials on the batch changed nothing,
-  and View › Buildings off turned the whole view the disc's colour: the colour was the plane's (`(0.05,
+  and Show › Buildings off turned the whole view the disc's colour: the colour was the plane's (`(0.05,
   0.042, 0.035)`, the sea off). A flat grey area where models should be: hide `e.water.floor` first.
 - Hole: a flat map with a hole cut (`setHoleInSelection`), seen from above, shows the dark earth
   through it as before. The sea (an archipelago map) looks the same before and after.

@@ -1,4 +1,4 @@
-// The walkable-ground preview's navmesh tiles (View › Walkable ground, #175), built in the browser
+// The walkable-ground preview's navmesh tiles (Show › Walkable ground, #175), built in the browser
 // with recast-navigation-js (MIT, Recast and Detour in WASM) the way VMaNGOS's MoveMapGenerator
 // builds the server's movement maps (contrib/mmap/src/TileWorker.cpp): 80-voxel tiles of 0.2667 yd,
 // its agent, and its areas: ground up to the player's 52° and steep slope up to 75° on the terrain

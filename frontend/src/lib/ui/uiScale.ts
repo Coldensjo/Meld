@@ -1,4 +1,4 @@
-// Preferences › Interface size (#372): the whole UI scaled by CSS `zoom` on the root element, since
+// Preferences › General › Interface size (#372): the whole UI scaled by CSS `zoom` on the root element, since
 // every size in the app is in px and the Wails window has no page zoom of its own.
 //
 // Under the standardized `zoom` (Chromium 128+, the spec): pointer coordinates (`clientX`) and

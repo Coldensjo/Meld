@@ -9,7 +9,7 @@ import { uiZoom } from './uiScale'
 // (CreaturePreview). Each has a WebGL context of its own, so the main scene is untouched. Its frames
 // run only while something moves: the view's `step` says whether its model spins, animates or has
 // particles, and the loop stops when it doesn't; a drag, a wheel, a resize, a restored context or a
-// shown page wakes it again. Graphics › FPS limit caps it as it caps the viewport.
+// shown page wakes it again. Preferences › Graphics › FPS limit caps it as it caps the viewport.
 
 /** Radians a second a spinning model turns (0.004 a frame at 60 Hz, as the previews turned before). */
 export const PREVIEW_SPIN = 0.24
@@ -119,7 +119,7 @@ export class PreviewRenderer {
 		const r = this.renderer
 		const c = this.canvas
 		if (!r || !c || this.contextLost || document.hidden) return false
-		// Graphics › FPS limit (#24): a frame waits for its interval.
+		// Preferences › Graphics › FPS limit (#24): a frame waits for its interval.
 		if (!frameDue(now, this.last, prefs.fpsLimit ?? 0)) return true
 		const w = c.clientWidth
 		const h = c.clientHeight

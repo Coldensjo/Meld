@@ -54,7 +54,7 @@ export class SpawnLinks {
 
 	/**
 	 * Rebuilds what changed since the last call: the spawns (the layer's version), the selected spawn
-	 * (a new copy whenever it is selected or edited) or the View › Spawn pools choice. Cheap when
+	 * (a new copy whenever it is selected or edited) or the Show › Spawn pools choice. Cheap when
 	 * nothing did; call once per frame.
 	 */
 	update(layer: SpawnLayer, selected: vmangos.WorldSpawn | null, showPools: boolean) {

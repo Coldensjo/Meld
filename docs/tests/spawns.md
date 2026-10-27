@@ -83,7 +83,7 @@ ground above a cave or in the air.
   floor: the spawn's `y` equals the floor's height, not the ground's (`__engine.terrain.heightAt(x, z)`).
   Brush a few with the Doodad tool's Creatures mode; none land on the ground overhead.
 - Trap: from above the ground, the grass over a cave is still the ground (only an underground camera or
-  View › Layers › Terrain off looks through it).
+  Show › Terrain off looks through it).
 - Trap: the brush's Max slope and Avoid water rules still read the terrain at the point, the ground
   above a cave.
 
@@ -191,7 +191,7 @@ up, and takes about 6 s.
 
 ## Names over spawns (#125)
 
-Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (View › Names over creatures
+Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (Show › Names over creatures
 and objects, `prefs.spawnNames`). In the dev page (GPU Chrome, as in "Minimap window (M)"), load
 Azeroth 32_48, wait for the spawns (`e.doc.spawnLayer.spawns.length` is 347 with the server's
 database up), then stand the camera at Deputy Willem:
@@ -275,7 +275,7 @@ page logs `SpawnScripts is not a function`.
 ## World event spawns (#143)
 
 Checks: spawns of a world event (`WorldSpawn.events`, from `game_event_creature`/`_gameobject`) are
-left out of `SpawnLayer`'s batches unless View › World events shows their event (`prefs.shownEvents`).
+left out of `SpawnLayer`'s batches unless Show › World events shows their event (`prefs.shownEvents`).
 - Go against the real database: Azeroth 32_49 (Goldshire) has spawns of events 2 (Winter Veil),
   4 (Darkmoon Faire Elwynn), 12 and 28; 32_48 of 28 and 78. A throwaway test calling
   `ReadSpawns("C:/WoW/vmangos", "C:/WoW/client/Data", "Azeroth", 32, 49, 1)` lists them.
@@ -391,7 +391,7 @@ server's names and teleports, draws them, and saves them to the client's patch a
   runs past it. Trap: a grid track of plain `1fr` grows to its widest child (the destination map
   select with long map names pushed the form 117 px past the dialog); use `minmax(0, 1fr)` and give
   the select `width: 100%`.
-- Teleport to destination (#306): probe `teleport-trigger`. With View › Area triggers on, a
+- Teleport to destination (#306): probe `teleport-trigger`. With Show › Area triggers on, a
   right-click on trigger 78 selects it (`__engine.triggerLayer.selected`) and its menu's Teleport to
   destination opens `DeadminesInstance 31_31 3` with the camera on the areatrigger_teleport spot
   (-14.6, -385.5, 62.5); `SpawnTeleports('object', 176296, 0)` (Portal to Stormwind, type 22)

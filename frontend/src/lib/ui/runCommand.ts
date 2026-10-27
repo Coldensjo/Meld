@@ -61,6 +61,7 @@ const RUN: Record<Exclude<CommandId, `tool:${string}`>, Run> = {
 	minimapImage: (e) => saveMinimapImage(e),
 	perfOverlay: () => (prefs.perfOverlay = !prefs.perfOverlay),
 	help: () => (ui.dialog = 'help'),
+	preferences: () => (ui.dialog = 'preferences'),
 	undo: (e) => {
 		const c = e.undo()
 		if (c) setStatus(`Undo: ${c.label}`)

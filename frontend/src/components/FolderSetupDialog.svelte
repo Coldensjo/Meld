@@ -7,7 +7,7 @@
 	import { onMount } from 'svelte'
 
 	// Shown at the start while the client or the server folder is unset (#689). Skip closes it for this
-	// launch; "Don't ask again" stops it for good. Settings keeps the same two choosers. A project
+	// launch; "Don't ask again" stops it for good. Edit › Preferences › Folders keeps the same choosers. A project
 	// (File › Project…) names its own client folder, which this one does not change.
 
 	interface Props {
@@ -26,7 +26,7 @@
 </script>
 
 <Modal title="Set up your folders" width={520} {onclose}>
-	<p class="dim">Meld reads the game's models and textures from your WoW 1.12 client, and edits a VMaNGOS server's spawns and database. Both are optional; you can set them later under Settings.</p>
+	<p class="dim">Meld reads the game's models and textures from your WoW 1.12 client, and edits a VMaNGOS server's spawns and database. Both are optional; you can set them later in Edit › Preferences.</p>
 	<div class="row">
 		<div>
 			<strong>WoW client folder</strong>

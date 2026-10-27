@@ -278,7 +278,7 @@ test('inside a hidden building, or with the Objects layer hidden, the camera is 
 	rooms.update(layer, eye, noGround)
 	assert.equal(groupOf(rooms), 0, 'shown again, the room again')
 
-	// View › Layers › Objects off.
+	// Show › Objects off.
 	layer.group.visible = false
 	rooms.update(layer, eye, noGround)
 	assert.equal(rooms.current, null)

@@ -170,7 +170,7 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     model, spawn, terrain chunk or emitter must meet a doorway's narrowed frustum, and a sealed room
     shows none, as in the client. What stands in a room the flood reached passes anyway (#156,
     `world/roomAdmit.ts`: its room by the camera's down-ray from its sphere's centre, cached per
-    position), so the creatures and models in the camera's room stay drawn. Spawns are left out of the gate while View › Creatures and objects through
+    position), so the creatures and models in the camera's room stay drawn. Spawns are left out of the gate while Show › Creatures and objects through
     walls is on (`prefs.spawnsThroughWalls`, the default, #150). The liquids, the sea and the grass tufts are gated too (#119: `LiquidRenderer.gate`,
     `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set). The weather
     preview has its own windows (#244, `RoomFlood.skyWindows`): the doorways onto any group with 0x8,

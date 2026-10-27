@@ -5,7 +5,7 @@
 	import { selectSpawn } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 
-	// View › Spawn pools (#172): the region's pools in the colours of their rings on the map, each with
+	// Show › Spawn pools (#172): the region's pools in the colours of their rings on the map, each with
 	// how many the server spawns at a time, so how many copper veins a zone shows at once reads at a
 	// glance. A click selects a spawn of the pool.
 

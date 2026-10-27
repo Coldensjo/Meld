@@ -1,4 +1,4 @@
-// View › Performance overlay (#179): where a frame's time goes. `Engine.frame()` calls `mark` after
+// Help › Performance overlay (#179): where a frame's time goes. `Engine.frame()` calls `mark` after
 // each subsystem, which books the time since the previous mark to that subsystem, so the sections
 // add up to the frame's CPU time without nesting. Everything is summed into preallocated arrays and
 // read out once a second (`take`), so the meter allocates nothing per frame, and with `on` false a

@@ -115,7 +115,7 @@ func (a *App) SetGameClient(client string) error {
 	defer a.cfgMu.Unlock()
 	if client == "benilla" {
 		if a.cfg.BenillaPath == "" {
-			return errors.New("choose the Benilla folder first (Settings › Benilla Folder…)")
+			return errors.New("choose the Benilla folder first (Edit › Preferences › Folders)")
 		}
 		if _, err := os.Stat(game.BenillaExe(a.cfg.BenillaPath)); err != nil {
 			return fmt.Errorf("Benilla isn't built in %s: run cargo build --release -p benilla there", a.cfg.BenillaPath)

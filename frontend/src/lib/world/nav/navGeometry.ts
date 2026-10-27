@@ -1,4 +1,4 @@
-// What one navmesh tile is built from (View › Walkable ground, #175): the terrain's triangles under
+// What one navmesh tile is built from (Show › Walkable ground, #175): the terrain's triangles under
 // the tile's box, four a cell about its middle as the server's map has them (a region's middle at the
 // client's inner height until the cell is sculpted, cellLift, #284, #380; a half-cell hole keeps its other triangle as the
 // ground draws it, holes.ts), and the collision faces of the placed

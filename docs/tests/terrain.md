@@ -320,7 +320,7 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   2843) for a Spawn guids taken error; put a creature at an `elwynncliffrock02` M2's origin plus 0.3 yd
   for Spawns inside models; raise a border vertex (`e.terrain.heights[64] += 3`) for a Region edge seam
   error. Unedited, the block's border matches the client's tiles exactly and none of its 347 spawns is
-  inside a model. With Preferences › Check the Map before Compile on, File › Compile to Client
+  inside a model. With Preferences › Compile and export › Check the map before compile on, File › Compile to Client
   (or Compile All) then stops with "Compile stopped: … 2 errors" and opens the window, before anything is written.
 - The bindings alone: `await go.main.App.RegionEdges('Azeroth', 32, 48, 1)` (four 129-height rows)
   and `await go.main.App.CheckSpawnIDs({ creatureGuids: [1], objectGuids: [], creatureEntries: [999999], objectEntries: [] })`.
@@ -644,8 +644,8 @@ then leaves the client's own alone (the holes cut since are added to the client'
 
 ## Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
 
-Checks: View › Walkable ground builds the server's navmesh around the camera's target from the
-terrain and the placed models' collision, rebuilds it after an edit, and View › Test a Path finds a
+Checks: Show › Walkable ground builds the server's navmesh around the camera's target from the
+terrain and the placed models' collision, rebuilds it after an edit, and Show › Test a Path finds a
 creature's way round obstacles.
 - Unit: `tests/navmesh.test.ts` (slope areas, the tile gatherer, a navmesh round a wall with the real
   WASM in node, a few ms a tile; #239: the span layout `navFilters.ts` reads, a 1.5 yd model fence
@@ -685,7 +685,7 @@ creature's way round obstacles.
   14.5 ms for the abbey's worst) and `refreshModels`. Unit: `tests/navmesh.test.ts` (a job's copies
   and `runTileJob` against a main-thread build, byte for byte). Trap: Bun has no `window`, so the
   unit tests always take the main-thread path; only the probe runs the workers.
-- Server mode (#240, View › Server's mmaps): `bun run probe walkable-server` (about 45 s) in the
+- Server mode (#240, Show › Server's mmaps): `bun run probe walkable-server` (about 45 s) in the
   benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k
   triangles, 2 s), checks the drawn vertices lie on the ground (within 1.5 yd, 0.8 at the probe's spot: a wrong
   transform puts them a mirror away), walks four paths round and through the abbey over it and over

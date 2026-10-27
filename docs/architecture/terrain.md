@@ -101,8 +101,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `holesUnknown`) sends holes only for the chunks that have one, with `holesAdd`, which Go ORs into
   the chunk's own bitmap (`adt.ChunkHeader.HolesAdd`), so the client's holes are never filled (#663).
 
-- **Walkable ground** (#175): Terrain › Climb (`prefs.climbView`, Shift+F2) tints each triangle
-  steeper than `prefs.climbAngle` in the terrain shader (`climbCos`). View › Walkable ground
+- **Walkable ground** (#175): View › Climb (`prefs.climbView`, Shift+F2) tints each triangle
+  steeper than `prefs.climbAngle` in the terrain shader (`climbCos`). Show › Walkable ground
   (`prefs.navView`) draws the navmesh VMaNGOS's MoveMapGenerator would build, around the camera's
   target (`world/nav/`):
   - `navBuild.ts` runs Recast per 21.3 yd tile through recast-navigation-js (MIT, WASM, imported on
@@ -204,11 +204,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     budget then pays only for gathering. A job whose inputs a settled change made stale is dropped
     when it returns (`tile.job`); without workers (Bun's tests) or after one fails, the build runs
     on the main thread as before. `Engine.updateNav` calls it only while the view is on and
-    `clear()`s it (frees the WASM navmesh and stops the workers) when it goes off. View › Test a Path arms `Engine.navPick`:
+    `clear()`s it (frees the WASM navmesh and stops the workers) when it goes off. Show › Test a Path arms `Engine.navPick`:
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
     drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's
     `PathInfo::createFilter`), or where only a swimming one gets there, that one's, said so.
-  - View › Server's mmaps (`prefs.navServer`, #240) shows the navmesh the world server loads instead,
+  - Show › Server's mmaps (`prefs.navServer`, #240) shows the navmesh the world server loads instead,
     for comparing the two: `Engine.updateNav` hands `NavPreview.update` the open map's ID and first
     client tile (`ServerSource`), and the view asks `/wow/navtile` (`App.serveNavTile`, routed in
     `main.go`; `vmangos.NavTile` in `internal/vmangos/mmaps.go`) for each client tile within `RANGE`
@@ -265,7 +265,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   ramp from 52.5 to 70 yd multiplied into the alpha, cut out at 128/255, so grass is gone by 61.1 yd).
   It builds them within `reach` of the camera (`tuftReach`: that depth out to the view's side edge,
   set by the Engine from the camera), rebuilt when the camera moves half a chunk or
-  `Terrain.heightVersion`/`paintVersion` change (View › Ground effects, `prefs.showGroundEffects`).
+  `Terrain.heightVersion`/`paintVersion` change (Show › Ground effects, `prefs.showGroundEffects`).
   A map's own effect per texture (`editor.textureEffects`, World › Ground Effects…, saved as the map
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer
   (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK
@@ -274,7 +274,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the map file since version 5) and, with the cells under the map's root WMOs (`blockedCells` in
   `GroundEffectLayer.ts`), skipped when drawing and sent on export. A map that holds its chunk data
   sends them as `HeaderSpec.NoEffect`, which replaces the chunk's bits (so a cell the Map data tool
-  cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
+  cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. Graphics › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
   the client's Ground Clutter stop (`frillDensity` 16, 32, 48 cells a chunk). A GroundEffectTexture
   slot names a GroundEffectDoodad by its internal ID (field 1), not its row ID.
 - **The world view** (#15, the owner's decision of 2026-10-15: streaming is a second kind of
@@ -313,7 +313,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   minimap image and lets go of its paint. No rock on slopes (`cliffAuto` 0), no texture looks yet.
   Each tile's liquids come beside its ground from `/wow/groundliquids` (`wow.Client.GroundLiquids`,
   `EncodeLiquids`: its MCLQ layers as `adt.ParseLiquids` reads them for a region) and are drawn in
-  `WorldStream.water` (beside `group`, so View › Water shows them, through `applyLayerVisibility`) with a region's liquid material (`liquidLayerMaterial`), a mesh a tile
+  `WorldStream.water` (beside `group`, so Show › Water shows them, through `applyLayerVisibility`) with a region's liquid material (`liquidLayerMaterial`), a mesh a tile
   (`liquidMesh` in `world/worldLiquid.ts`), at the ground's stride: at 2 or 4, a block of cells the
   layer covers whole is one quad from its corners, so open sea far off costs a sixteenth, and a
   block with a dry cell keeps its cells (a sloping river can show a hairline at such a seam, far off
@@ -336,7 +336,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   The camera's ground is the stream's (`heightAt`), keeping its height where nothing is loaded. The
   document's terrain is an 8-cell hidden stand-in: the tools' clicks and keys are off in it
   (pointerdown, `handleToolKey`), the commands on the map's own ground and models refuse
-  (`Engine.refuseInWorld`, called first by Select All, paste, the Terrain menu's actions, Remove
+  (`Engine.refuseInWorld`, called first by Select All, paste, the Terrain and Paint menus' actions, Remove
   Duplicate Models and the baked shadows) and the menus grey them out with the map's dialogs, imports
   and exports and Compile (`editing` in `MenuBar.svelte`), its `objects` are `lookOnly` (so
   `selectObjects` selects none of the streamed models, and nothing that acts on a selection, delete,
@@ -375,7 +375,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `RegionEdit` (`regionEdit`: heights, models, paint and chunk headers, liquids) and `SaveRegion`
   writes the tiles that differ from the patch's copies; Server rebuilds the server's map data of the
   region's tiles from the patch (`UpdateRegionServer`), then their movement maps (mmaps, #173,
-  `buildMoveMaps`, unless Preferences › Build movement maps on compile is off), and refuses while the region has edits the
+  `buildMoveMaps`, unless Preferences › Compile and export › Build movement maps on compile is off), and refuses while the region has edits the
   patch lacks; All does both, the server only for the tiles the client compile wrote. Server and All
   also write the region's spawn edits into the world database (#342, `compileSpawns`, the same
   `writeSpawns` as Save Spawns, which stays for spawn-only changes) before the rebuild; the world
@@ -412,7 +412,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   painted texel and the client's textures sets `ClientAlpha`, so `rebuildChunk` keeps its MCLY records
   (bar a sent effect or look flags), MCAL bytes and predominant map as they are (#526). A chunk a
   compile before #526 already wrote at half resolution reads back that way, so it stays so until the
-  user runs Terrain › Restore the Client's Paint (#645, `restoreClientPaint` in `io/region.ts`): the
+  user runs Paint › Restore the Client's Paint (#645, `restoreClientPaint` in `io/region.ts`): the
   `LoadBaseRegionPaint` binding (`vmangos.ReadBaseRegionPaint`) reads the block's layers and alpha
   without Meld's patch, `tilePaint` turns them into weights, and `Engine.restoreClientPaint`
   (`terrain/restorePaint.ts`) writes the selected area's chunks, or all of them, back with the

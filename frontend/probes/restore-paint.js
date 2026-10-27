@@ -1,4 +1,4 @@
-// Terrain › Restore the Client's Paint (#645): in a throwaway client, a spot of an Azeroth 31_50 chunk (a tile not in
+// Paint › Restore the Client's Paint (#645): in a throwaway client, a spot of an Azeroth 31_50 chunk (a tile not in
 // Meld's patch) is painted and compiled, so the patch holds that chunk rewritten. The region is opened again from the
 // patch, the painted chunk selected and restored: one undo step, which undo takes back and redo puts again. Compiled
 // once more, every chunk's layers and alpha bytes are the client's own, as they were before the first compile. The

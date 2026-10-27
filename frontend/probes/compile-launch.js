@@ -1,6 +1,6 @@
 // File › Compile to Client / Compile to Server / Compile All and Launch's check for edits the client lacks (#214).
 // Opens Azeroth 31_50 (1x1) and checks: the File menu has the three compile entries (and not the old
-// Compile Region to Client), Preferences no longer has Update the Server Maps after Compile; the region
+// Compile Region to Client), no menu has Update the Server Maps after Compile (Preferences was a menu until #752); the region
 // as opened counts as compiled, a history step that changes no compile input (as a spawn edit is)
 // doesn't change that, a raised vertex does and its undo takes it back; Launch with the raised vertex
 // opens the Compile and Launch dialog instead of starting the game; growing the region (#318) with the
@@ -25,11 +25,12 @@ const menuLabels = async (name) => {
 	return labels
 }
 const file = await menuLabels('File')
-const preferences = await menuLabels('Preferences')
+const everyLabel = []
+for (const t of document.querySelectorAll('.menubar .menu > .title')) everyLabel.push(...(await menuLabels(t.textContent.trim())))
 const menu = {
 	compile: file.filter((l) => l.startsWith('Compile')),
 	oldEntry: file.includes('Compile Region to Client'),
-	oldPref: preferences.includes('Update the Server Maps after Compile'),
+	oldPref: everyLabel.includes('Update the Server Maps after Compile'),
 }
 
 regionIo.openWowRegion(P.e, 'Azeroth', 31, 50, 1)

@@ -3,7 +3,7 @@ import { editorPoint } from '../io/portCoords'
 
 // Area triggers (#141): the client's AreaTrigger.dbc volumes of the open map, which tell the server a
 // player walked in (a dungeon portal teleports them). Drawn as wire spheres and boxes, the selected
-// one brighter, while View › Area triggers is on or the Portals dialog is open.
+// one brighter, while Show › Area triggers is on or the Portals dialog is open.
 
 /** A trigger's volume in the server's coordinates (vmangos.AreaTrigger's geometry). */
 export interface TriggerShape {

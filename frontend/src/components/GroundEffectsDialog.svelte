@@ -138,7 +138,7 @@
 		zone or the tile the camera is over.
 	</p>
 	{#if !wow.loaded}
-		<p class="dim">Select your WoW client folder first (Settings menu).</p>
+		<p class="dim">Select your WoW client folder first (Edit › Preferences › Folders).</p>
 	{:else if !tables}
 		<p class="dim">Reading the client's ground effects… the first time for a client reads every tile and takes a minute or two.</p>
 		<button onclick={() => void loadGroundEffectTables().then(() => tablesVersion++)}>Read now</button>
@@ -168,7 +168,7 @@
 				{/each}
 			</div>
 		{/if}
-		<p class="dim">A choice marked in blue is this scope's own and is saved with the map. Tufts show in the editor (View › Ground effects) and in the client after an export.</p>
+		<p class="dim">A choice marked in blue is this scope's own and is saved with the map. Tufts show in the editor (Show › Ground effects) and in the client after an export.</p>
 		{#if hasBackend()}
 			{#if making}
 				<div class="section">New effect</div>

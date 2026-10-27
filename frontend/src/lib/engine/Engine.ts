@@ -498,7 +498,7 @@ export class Engine {
 	private groupBoxes = new GroupBoxes()
 	/** The creatures' waypoint paths, for the active region. */
 	readonly paths = new SpawnPaths()
-	/** The selected creature's formation and, with View › Spawn pools, the pooled spawns' rings (#172). */
+	/** The selected creature's formation and, with Show › Spawn pools, the pooled spawns' rings (#172). */
 	readonly links = new SpawnLinks()
 	/** The other spawns of the selected spawn's pool, outlined in the pool colour (#172). */
 	private poolOutline = new SelectionOutline({ color: new THREE.Color(0.3, 0.75, 1) })
@@ -882,7 +882,7 @@ export class Engine {
 		let last = -Infinity
 		const loop = (now: number) => {
 			this.raf = requestAnimationFrame(loop)
-			// Graphics › FPS limit (#24): a frame waits for its interval; the timer's next delta covers the skipped ones.
+			// Preferences › Graphics › FPS limit (#24): a frame waits for its interval; the timer's next delta covers the skipped ones.
 			if (!frameDue(now, last, this.prefs?.fpsLimit ?? 0)) return
 			last = now
 			if (!this.contextLost) this.frame()
@@ -1180,7 +1180,7 @@ export class Engine {
 				if (e.button !== 0) return
 				// A world view is looked at, not edited (#15): Edit Here opens a block for the tools.
 				if (this.doc.world) return
-				// The path test (View › Test a Path) takes the clicks before any tool.
+				// The path test (Show › Test a Path) takes the clicks before any tool.
 				if (this.navPick) {
 					const s = this.surfaceHit()
 					if (s) this.navPathPoint(s.point)
@@ -1855,12 +1855,12 @@ export class Engine {
 	private moonOut = [0, 1, 0]
 	private clientSky: ClientSky = { colors: this.lightOut.colors, skyAt: BAND.skyTop * 3, fogAt: BAND.fog * 3, sunAt: BAND.sun * 3, warp: 0, sunDir: this.celestialOut, moonDir: this.moonOut, sunScale: 1, starAlpha: 0 }
 	/** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
-	/** The open map's area triggers (#141), drawn with View › Area triggers or while the Portals dialog edits them. */
+	/** The open map's area triggers (#141), drawn with Show › Area triggers or while the Portals dialog edits them. */
 	readonly triggerLayer = new AreaTriggerLayer()
 
 	// ---------------------------------------------------------------- flight paths (#180)
 
-	/** View › Flight paths and the Flight Paths window's editing in the viewport (TaxiEditing.ts). */
+	/** Show › Flight paths and the Flight Paths window's editing in the viewport (TaxiEditing.ts). */
 	readonly taxi: TaxiEditing
 	/** The flight stops and routes drawn over the map (the probes read it). */
 	get taxiLayer() {
@@ -1872,7 +1872,7 @@ export class Engine {
 		this.taxi.show(stops, routes, pick, hooks)
 	}
 
-	/** The Flight Paths window closed: View › Flight paths reads the map's stops again (they may have been saved). */
+	/** The Flight Paths window closed: Show › Flight paths reads the map's stops again (they may have been saved). */
 	endTaxiEdit() {
 		this.taxi.endEdit()
 	}
@@ -1889,15 +1889,15 @@ export class Engine {
 
 	// ---------------------------------------------------------------- walkable ground (#175)
 
-	/** View › Walkable ground: the server's navmesh around the camera, built while the view is on. */
+	/** Show › Walkable ground: the server's navmesh around the camera, built while the view is on. */
 	readonly nav = new NavPreview()
 	private navOn = false
-	/** View › Test a Path is waiting for its clicks. */
+	/** Show › Test a Path is waiting for its clicks. */
 	private navPick = false
 	private navStatusAt = 0
 	/** The progress line last shown while building, '' when none is up. */
 	private navStatus = ''
-	/** View › Server's mmaps (#240): the open map the server's tiles are read for, reused each frame. */
+	/** Show › Server's mmaps (#240): the open map the server's tiles are read for, reused each frame. */
 	private navSource: ServerSource = { mapId: 0, tileX: 0, tileY: 0 }
 
 	/** Builds the walkable-ground view's tiles while it is on, and frees them when it goes off. */
@@ -1979,7 +1979,7 @@ export class Engine {
 			.finally(() => (t.innerPending = false))
 	}
 
-	/** View › Test a Path: the next two clicks in the viewport are the path's start and end. */
+	/** Show › Test a Path: the next two clicks in the viewport are the path's start and end. */
 	startPathTest() {
 		this.navPick = true
 		this.navStatus = '' // no build line over the test's own
@@ -2019,7 +2019,7 @@ export class Engine {
 			const o = this.serverTiles(doc)
 			this.triggerLayer.set(r?.triggers ?? [], o.x, o.y, null)
 		},
-		failed: (err) => setStatus(`View › Area triggers: the map's area triggers could not be read: ${err instanceof Error ? err.message : err}`, 8000),
+		failed: (err) => setStatus(`Show › Area triggers: the map's area triggers could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 	})
 
 	/** Draws the Portals dialog's triggers, `selected` highlighted, until endTriggerEdit. */
@@ -2029,7 +2029,7 @@ export class Engine {
 		this.triggerLayer.set(list, o.x, o.y, selected)
 	}
 
-	/** The Portals dialog closed: View › Area triggers reads the map's triggers again (they may have been saved). */
+	/** The Portals dialog closed: Show › Area triggers reads the map's triggers again (they may have been saved). */
 	endTriggerEdit() {
 		this.triggers.edited = false
 		this.triggers.reset()
@@ -4132,7 +4132,7 @@ export class Engine {
 	}
 
 	/**
-	 * Terrain › Fill Selection / Fill Mask with Doodad Brush (#169): scatters the active doodad brush over
+	 * Paint › Fill Selection / Fill Mask with Doodad Brush (#169): scatters the active doodad brush over
 	 * the selected area, or over the paint mask (thinned by its value), as one undo step.
 	 */
 	fillWithDoodadBrush(useMask: boolean) {

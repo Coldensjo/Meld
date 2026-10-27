@@ -454,7 +454,7 @@ export const prefs = $state({
 	clientLighting: false,
 	/** Lighting › Baked Shadows: a region's ground darkened where the client's tiles bake shadow (MCSH), as the game draws it. */
 	bakedShadows: true,
-	/** Import/Export › Minimap Tiles with All Models: the trees too, not only the buildings the client's own tiles show. */
+	/** Preferences › Compile and export › Minimap tiles with all models: the trees too, not only the buildings the client's own tiles show. */
 	minimapAllModels: false,
 	/** View › Far Horizon: past an open region, the map's coarse WDL ground in the fog colour, as the client draws it. */
 	showHorizon: true,
@@ -462,19 +462,19 @@ export const prefs = $state({
 	showBoxes: false,
 	/** View › Hover outline (#641): a faint stroke round the model or spawn a Select click would pick. */
 	hoverOutline: true,
-	/** View › Area triggers: draw the map's AreaTrigger.dbc volumes (dungeon portals and the like, #141). */
+	/** Show › Area triggers: draw the map's AreaTrigger.dbc volumes (dungeon portals and the like, #141). */
 	showAreaTriggers: false,
-	/** View › Flight paths: draw the map's flight stops and the routes from them (TaxiNodes.dbc and TaxiPath.dbc, #180). */
+	/** Show › Flight paths: draw the map's flight stops and the routes from them (TaxiNodes.dbc and TaxiPath.dbc, #180). */
 	showFlightPaths: false,
-	/** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's Terrain › Climb). */
+	/** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's View › Climb). */
 	climbView: false,
 	/**
-	 * View › Walkable ground (#175): the navmesh the server's MoveMapGenerator would build, drawn over
+	 * Show › Walkable ground (#175): the navmesh the server's MoveMapGenerator would build, drawn over
 	 * the ground around the camera (world/nav/NavPreview.ts).
 	 */
 	navView: false,
 	/**
-	 * View › Server's mmaps (#240): the walkable-ground view shows the navmesh the world server loaded,
+	 * Show › Server's mmaps (#240): the walkable-ground view shows the navmesh the world server loaded,
 	 * read from its movement maps (data/mmaps), instead of building one in the browser.
 	 */
 	navServer: false,
@@ -493,7 +493,7 @@ export const prefs = $state({
 	showObjects: true,
 	/** Camera › Locked cursor (#19, Noggit Red's): a brush stays on its ground point while the camera moves; only the mouse moves it. */
 	lockedCursor: false,
-	/** Graphics › FPS limit (#24): frames a second at most, 0 for the screen's rate. */
+	/** Preferences › Graphics › FPS limit (#24): frames a second at most, 0 for the screen's rate. */
 	fpsLimit: 0,
 	/** Help › Benchmark maps' size (#322): how many times its default count a benchmark map places (BENCH_SCALES). */
 	benchScale: 1,
@@ -503,13 +503,13 @@ export const prefs = $state({
 	fitGround: { margin: 0.2, falloff: 6, mode: 'both' as FitMode, holes: false, reach: 4 },
 	/** The Place tool's Fit ground (#207): a model placed on open ground has the ground fitted under it with `fitGround`'s settings. */
 	placeFitGround: false,
-	/** Preferences › Autosave (#177): minutes between recovery copies of the maps with unsaved changes, 0 for none. */
+	/** Preferences › General › Autosave (#177): minutes between recovery copies of the maps with unsaved changes, 0 for none. */
 	autosaveMinutes: 3,
-	/** Preferences › Theme (#49): the editor's colours, or the desktop's light or dark setting. */
+	/** Preferences › General › Theme (#49): the editor's colours, or the desktop's light or dark setting. */
 	theme: 'dark' as 'dark' | 'light' | 'system',
-	/** Graphics › Anti-aliasing (#24), mirrored to localStorage by display.ts and applied at the next start. */
+	/** Preferences › Graphics › Anti-aliasing (#24), mirrored to localStorage by display.ts and applied at the next start. */
 	antialias: true,
-	/** View › Layers › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */
+	/** Show › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */
 	showDoodads: true,
 	showBuildings: true,
 	/** The creatures and game objects the world database places in a region, by kind. */
@@ -524,11 +524,11 @@ export const prefs = $state({
 	shownEvents: [] as number[],
 	/** Draw every creature's waypoint path, not only the selected one's. */
 	showAllPaths: false,
-	/** View › Spawn pools (#172): a ring in its pool's colour round every pooled spawn, and the region's pools drawn in the viewport legend. */
+	/** Show › Spawn pools (#172): a ring in its pool's colour round every pooled spawn, and the region's pools drawn in the viewport legend. */
 	showPools: false,
 	/** Names over the creatures and game objects, with a creature's level and rank (#125). */
 	spawnNames: true,
-	/** View › Names seen as Alliance or Horde (#134): a creature's name is red, yellow or green by how its faction treats that side. */
+	/** Show › Names seen as Alliance or Horde (#134): a creature's name is red, yellow or green by how its faction treats that side. */
 	namesSide: 'alliance' as 'alliance' | 'horde',
 	/**
 	 * Creatures and game objects stay drawn with the camera in a building, where the rest of the world
@@ -593,11 +593,11 @@ export const prefs = $state({
 	browserTile: 112,
 	/** The names under the asset browser's tiles and in its preview (#655); off, the tiles are only pictures. */
 	browserNames: true,
-	/** The toolbar's icon size in px (Preferences › Toolbar), from TOOLBAR_ICON_MIN to TOOLBAR_ICON_MAX (#128). */
+	/** The toolbar's icon size in px (Preferences › General › Toolbar icons), from TOOLBAR_ICON_MIN to TOOLBAR_ICON_MAX (#128). */
 	toolbarIcon: 22,
 	/** Preferences › Toolbar on the left or the right of the window (#654). */
 	toolbarSide: 'left' as 'left' | 'right',
-	/** Preferences › Interface size (#372): the whole UI scaled by this factor (CSS zoom, lib/ui/uiScale.ts), 1 to 2. */
+	/** Preferences › General › Interface size (#372): the whole UI scaled by this factor (CSS zoom, lib/ui/uiScale.ts), 1 to 2. */
 	uiScale: 1,
 	/** The start dialog that offers the client and server folders (#689): "Don't ask again" stops it. */
 	skipFolderSetup: false,
@@ -608,7 +608,7 @@ export const prefs = $state({
 	recentAssets: [] as string[],
 	/** The favourite assets (catalog keys), starred with a right-click in the asset browser, shown first there. */
 	favoriteAssets: [] as string[],
-	/** Preferences › Hotkey Manager (#396): the shortcut rows the user rebound, row id → its keys (lib/ui/commands.ts `Keymap`). Only changed rows; replace it, never edit it in place. */
+	/** Preferences › Camera and input › Hotkey Manager (#396): the shortcut rows the user rebound, row id → its keys (lib/ui/commands.ts `Keymap`). Only changed rows; replace it, never edit it in place. */
 	keymap: {} as Record<string, string[]>,
 	/** The author's model sets (wow/modelSets.ts), shown in the asset browser's Sets tab, and the name of the one shown. */
 	modelSets: [] as ModelSet[],
@@ -657,6 +657,9 @@ export interface ProjectInfo {
 	path: string
 	clientPath: string
 }
+
+/** The Preferences dialog's pages (components/PreferencesDialog.svelte, #752). */
+export type PrefsPage = 'general' | 'folders' | 'camera' | 'graphics' | 'compile' | 'game'
 
 export const ui = $state({
 	status: 'Ready',
@@ -710,7 +713,10 @@ export const ui = $state({
 		| 'compileBeforeLaunch'
 		| 'project'
 		| 'folderSetup'
+		| 'preferences'
 		| null,
+	/** The page the Preferences dialog (Edit › Preferences…, #752) shows; kept between openings. */
+	prefsPage: 'general' as PrefsPage,
 	/** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
 	hidePanels: false,
 	/** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */
@@ -812,9 +818,9 @@ export const ui = $state({
 	iconsTool: null as { icon: string } | null,
 	/** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
 	brushEditor: false,
-	/** The game Meld closes and opens around an export (Game › Game Client): Wow.exe or Benilla. */
+	/** The game Meld closes and opens around an export (Preferences › Game): Wow.exe or Benilla. */
 	gameClient: 'wow' as 'wow' | 'benilla',
-	/** How the game's window opens when Meld starts it (Game › Game Window): '' the game's own setting. */
+	/** How the game's window opens when Meld starts it (Preferences › Game): '' the game's own setting. */
 	gameWindow: '' as '' | 'windowed' | 'fullscreen',
 	gameResolution: '1280x720',
 	/** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */

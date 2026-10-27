@@ -1,4 +1,4 @@
-// Graphics › FPS limit (#24): the render loop skips rAF frames until the limit's interval has passed.
+// Preferences › Graphics › FPS limit (#24): the render loop skips rAF frames until the limit's interval has passed.
 
 /**
  * Whether a frame is due under an FPS limit: `last` is when the last one was drawn and `now` the

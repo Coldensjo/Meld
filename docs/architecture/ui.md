@@ -6,7 +6,7 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
   - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the
     document tab) over the `AssetBrowser`, which has its own area along the bottom.
-  - Preferences › Toolbar on the left / on the right (`prefs.toolbarSide`, #654) moves the toolbar to
+  - Preferences › General › Toolbar side (`prefs.toolbarSide`, #654) moves the toolbar to
     the window's right edge, after the dock. `App.svelte` swaps the `.main` grid's columns
     (`.toolbar-right`); the DOM order stays, so the tab order and the probes don't change. The
     toolbar's border and its hover description (#130) flip with it: the tip is placed by the
@@ -85,7 +85,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     orbit target up and down the model (#662: scaled by the distance, held to the bounds the view
     sets with `setPanRange` when it fits a model), and a frame loop that runs only while the
     view's `step` says something moves (a spin, an animation, particles, a moving texture), wakes on
-    input, a resize, a restored context or a shown page, and keeps to Graphics › FPS limit. The asset
+    input, a resize, a restored context or a shown page, and keeps to Preferences › Graphics › FPS limit. The asset
     preview spins a newly shown model for 6 s and while the pointer is over it, then stops drawing.
   - `ui.palette` follows the tool (textures while painting) and the browser follows it. Its
     height, collapsed state, tile size and recent picks are `prefs`, and so are the tab
@@ -153,7 +153,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     `deleteTextureInChunks` (`removeSlot` in `chunkPaint.ts`: the layer's weight goes to each texel's
     strongest other texture; a chunk whose last texture goes is empty, drawn black and exported
     with no layers). All are one undo step. Nothing else goes in this panel. Auto-paint, Fill mask
-    and the "Replace Texture Everywhere" dialog are in the Terrain menu.
+    and the "Replace Texture Everywhere" dialog are in the Paint menu.
   - `editor.palette` is the map's list of textures (WoW tileset paths or `#rrggbb` colours, up to
     255). `Engine.useTexture(path)` adds one and makes it the paint texture.
   - **Properties** (`PropertiesPanel.svelte`) is no longer a dock panel: the floating Inspector shows
@@ -201,6 +201,20 @@ The window layout, the asset browser and the dock panels and floating windows.
   every other dialog, so it sits over the dialog or editor that asked; Cancel, Esc and a click
   outside answer false. A dialog whose close asks (Zones, Portals, Lights) passes its async `close`
   to `Modal onclose`, so Esc and the backdrop ask too.
+- **The menus and Preferences** (#122, #752): top-level menus, never flyouts (#122, the owner's
+  choice), each under about 720 px tall so it fits a 768 px window (probe `preferences` measures
+  them): File, Edit, Models, Terrain (shaping, baked shadows, the tile clean-up), Paint (textures,
+  the paint mask, the doodad-brush fills), Tools, World, Import/Export, View (the editor's aids:
+  grid, overlays, panels, climb and contours), Show (what of the world is drawn: the layers, the
+  spawns, triggers, flight paths and the navmesh), Graphics, Lighting, Camera, Bookmarks, Game
+  (launch, teleport commands, login) and Help (with the performance overlay beside its report).
+  The settings set once live in the Preferences dialog (`components/PreferencesDialog.svelte`,
+  `ui.dialog = 'preferences'`, Edit › Preferences… or Ctrl+, the `preferences` command; Game ›
+  Game Settings… opens it on `ui.prefsPage = 'game'`): pages General, Folders, Camera and input,
+  Graphics, Compile and export and Game, and a search over every page's labels and descriptions.
+  Its settings are a data list (`check`, `choice`, `button`, `folder`) writing the same `prefs`
+  keys or Go settings the menu items did. A setting changed while editing stays in a menu; a new
+  set-once setting goes in the dialog, not a menu.
 - **Menus from the keyboard** (#370): the menu bar (`MenuBar.svelte`, `role="menubar"`, titles with
   `aria-haspopup` and `aria-expanded`) and the right-click menu (`ContextMenu.svelte`) follow the
   WAI-ARIA menu pattern. Opening a menu (click, Enter, Space or Down on a title; Up opens on the last
@@ -235,7 +249,7 @@ The window layout, the asset browser and the dock panels and floating windows.
   Keyboard Shortcuts lists `shortcutSections()`. A new shortcut is a row there plus its runner; a
   menu never types a shortcut string (`tests/shortcuts.test.ts` fails on one). The tool keys come
   from `TOOLS` (`lib/ui/tools.ts`).
-- **Rebinding** (#396, Preferences › Hotkey Manager, `components/HotkeyManager.svelte`): the table's
+- **Rebinding** (#396, Preferences › Camera and input › Hotkey Manager, `components/HotkeyManager.svelte`): the table's
   `chords` (commands, matched on `e.key`) and `codes` (the camera's movement rows, `camForward`…,
   matched on `e.code` as CameraController always did) are the defaults; the `keymap` pref holds only
   the rows the user changed (row id → chord texts such as `ctrl+shift+z`, or key codes; an empty list

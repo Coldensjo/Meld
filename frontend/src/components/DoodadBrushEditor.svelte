@@ -208,7 +208,7 @@
 					</nav>
 				</div>
 				{#if !wow.loaded}
-					<div class="empty dim">Select your WoW client folder (Settings menu) to browse its models.</div>
+					<div class="empty dim">Select your WoW client folder (Edit › Preferences › Folders) to browse its models.</div>
 				{:else}
 					<div class="picker">
 						<nav class="facets">
@@ -319,7 +319,7 @@
 						<div class="section">Where it places <span class="dim">· besides the options bar's Max slope and Avoid water</span></div>
 						<PlacementRulesForm value={brush.rules} make={rules} />
 						<p class="dim hint">
-							In the world: drag to scatter, Ctrl+drag to erase the brush's models. Size, Strength and Falloff are in the options bar. Terrain › Fill Selection (or Mask) with Doodad Brush covers a whole area at once.
+							In the world: drag to scatter, Ctrl+drag to erase the brush's models. Size, Strength and Falloff are in the options bar. Paint › Fill Selection (or Mask) with Doodad Brush covers a whole area at once.
 						</p>
 					</div>
 				{:else}

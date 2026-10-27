@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// The collision a placed model brings to the walkable-ground preview (View › Walkable ground, #175):
+// The collision a placed model brings to the walkable-ground preview (Show › Walkable ground, #175):
 // the faces the server's movement maps are built from. An M2's is its collision hull, the MD20
 // header's bounding vertices (0xF4) and triangles (0xEC), far smaller than the render mesh and
 // without the leaves and grass that have none; a WMO's is what VMaNGOS's vmap extractor takes

@@ -1,4 +1,4 @@
-// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, moving it builds again only the tiles it meets (#509), so does a small sculpt and hole (#620), a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
+// Show › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, moving it builds again only the tiles it meets (#509), so does a small sculpt and hole (#620), a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
 // touches: frontend/src/lib/world/nav/*
 const e = P.e
 const { prefs } = await P.state()
@@ -39,7 +39,7 @@ const buildMs = Math.round(performance.now() - t0)
 const tris = triangles()
 const straight = path(at(-30, 0), at(30, 0))
 
-// View › Test a Path through the viewport: two clicks on the ground, the walk in the status bar.
+// Show › Test a Path through the viewport: two clicks on the ground, the walk in the status bar.
 const { ui } = await P.state()
 e.startPathTest()
 for (const dx of [-80, 80]) await P.click(0.5 + dx / e.renderer.domElement.clientWidth, 0.6)

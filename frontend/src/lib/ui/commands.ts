@@ -58,6 +58,7 @@ const GENERAL = [
 	{ id: 'minimapImage', group: 'File', desc: 'Save the minimap as an image', chords: [ctrl('p', true)] },
 	{ id: 'perfOverlay', group: 'File', desc: 'Performance overlay on / off: where the frame time goes', chords: [ctrl('m', true)] },
 	{ id: 'help', group: 'File', desc: 'Help', chords: [key('f1')] },
+	{ id: 'preferences', group: 'File', desc: 'Preferences (Edit › Preferences…)', chords: [ctrl(',')] },
 	{ id: 'undo', group: 'File', desc: 'Undo', chords: [ctrl('z')] },
 	{ id: 'redo', group: 'File', desc: 'Redo', chords: [ctrl('y'), ctrl('z', true)] },
 	{ id: 'copy', group: 'File', desc: 'Copy the selected models (or area)', chords: [ctrl('c')] },

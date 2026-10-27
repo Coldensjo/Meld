@@ -1,4 +1,4 @@
-// View › Walkable ground (#175): the server's navmesh as VMaNGOS would build it, drawn over the
+// Show › Walkable ground (#175): the server's navmesh as VMaNGOS would build it, drawn over the
 // ground around the camera, and a path test between two clicked points. Tiles (navBuild.ts) are
 // built nearest first within RANGE of the camera's target, a few each frame within BUDGET_MS, and
 // built again QUIET_MS after the ground or the models stop changing: only those a changed model (#509)

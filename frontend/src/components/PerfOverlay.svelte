@@ -2,7 +2,7 @@
 	import { CPU_SECTIONS, GPU_PASSES } from '../lib/engine/perfMeter'
 	import { stats } from '../lib/state/editor.svelte'
 
-	// View › Performance overlay (#179): where the frame's time goes, averaged over the last second
+	// Help › Performance overlay (#179): where the frame's time goes, averaged over the last second
 	// (`stats.perf`, written once a second by `Engine.publishPerf`). The pointer goes through it.
 
 	const r = $derived(stats.perf)

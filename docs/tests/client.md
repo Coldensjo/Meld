@@ -162,7 +162,7 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
 Checks: after the map data is replaced, `buildMoveMaps` (`publish.go`) runs `run\Extractors\MoveMapGenerator.exe`
 in `data`, one run a compiled tile (`<id> --silent --threads N --configInputPath ... --offMeshInput ... --tile x,y`),
 or one run for the whole map with its own `MMM.mmap` and `MMM*.mmtile` removed first (the generator skips a
-tile whose file exists). A failed run is only logged; Preferences › Build movement maps on compile
+tile whose file exists). A failed run is only logged; Preferences › Compile and export › Build movement maps on compile
 (`prefs.buildMoveMaps`, read in Go by `App.buildMoveMaps`) turns it off. `mmap.enabled` stays 0 in mangosd.conf
 (the owner's choice on #173), so the server doesn't load them yet.
 - Go: `TestPublishServerBuildsMoveMaps` (order after the assembler, the `--tile` arguments, the whole-map
@@ -261,7 +261,7 @@ editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
   already wrote at half resolution reads back degraded and stays so; test on a tile not in the patch.
 
 ## Restore the Client's Paint (#645)
-Checks: Terrain › Restore the Client's Paint puts a region's chunks (the selected area's, or all) back
+Checks: Paint › Restore the Client's Paint puts a region's chunks (the selected area's, or all) back
 to the client's paint without Meld's patch, as one undo step, so the next compile writes the client's
 own alpha bytes there again.
 - Probe `restore-paint` (`bun run probe restore-paint`, about 10 s): in the throwaway client, paints a

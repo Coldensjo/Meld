@@ -552,7 +552,7 @@ export class ObjectLayer {
 		return out
 	}
 
-	/** View › Layers › Doodads and Buildings off (#43): every m2: or wmo: object is left out. */
+	/** Show › Doodads and Buildings off (#43): every m2: or wmo: object is left out. */
 	private hideDoodads = false
 	private hideBuildings = false
 

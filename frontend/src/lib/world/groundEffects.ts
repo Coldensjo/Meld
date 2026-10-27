@@ -115,7 +115,7 @@ export function cellTexture(weights: Uint8Array, chunkSlots: Uint8Array, splatRe
 }
 
 /**
- * The View menu's density, as the client's Ground Clutter slider stops (`SetWorldDetail` writes
+ * The Graphics menu's density, as the client's Ground Clutter slider stops (`SetWorldDetail` writes
  * `frillDensity` 16, 32 or 48): how many cells of a chunk grow tufts, drawn with repeats.
  */
 export type DensityLevel = 'sparse' | 'normal' | 'full'

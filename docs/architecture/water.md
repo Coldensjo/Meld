@@ -48,7 +48,7 @@ Liquids, the sea and how both are drawn and exported.
     under `WMO`, patched with the room gate): magma and slime their frame; an interior pool the body
     colour plus the frame, unlit; an exterior one (Stormwind's canals) the lit deep river colour plus
     the frame and the sheen; the opacity the vertex's byte between the light's shallow and deep
-    alphas. It casts no shadow, is never picked, follows View › Water, and is never exported (the WMO
+    alphas. It casts no shadow, is never picked, follows Show › Water, and is never exported (the WMO
     is the client's).
   - Go: `adt.Liquid` is one layer. `ParseLiquids` reads every MCLQ layer, and `Changes.Liquids`
     rewrites chunks in the client's flag order (`internal/adt/water.go`). The client reads one MCLQ

@@ -58,7 +58,7 @@ test('the cell grows the slot that weighs most over its texels', () => {
 	assert.equal(cellTexture(w, slots, res, 2, 5, 5), NO_TEXTURE)
 })
 
-test("the View menu's densities are the client's Ground Clutter stops", () => {
+test("the Graphics menu's densities are the client's Ground Clutter stops", () => {
 	assert.equal(frillDensity('sparse'), 16)
 	assert.equal(frillDensity('normal'), 32)
 	assert.equal(frillDensity('full'), 48)

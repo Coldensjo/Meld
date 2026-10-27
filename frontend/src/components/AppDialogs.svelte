@@ -24,6 +24,7 @@
 	import ErodeDialog from './ErodeDialog.svelte'
 	import SmoothAreaDialog from './SmoothAreaDialog.svelte'
 	import HotkeyManager from './HotkeyManager.svelte'
+	import PreferencesDialog from './PreferencesDialog.svelte'
 	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
 	import { EquipmentFor } from '../../wailsjs/go/main/App'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -89,7 +90,7 @@
 		[
 			'Getting started',
 			[
-				'Preferences › WoW client folder points Meld at your 1.12 client. Its doodads, buildings and tileset textures then fill the asset browser along the bottom; nothing is copied out of it.',
+				`Edit › Preferences (${keysOf('preferences')}), on its Folders page, points Meld at your 1.12 client. Its doodads, buildings and tileset textures then fill the asset browser along the bottom; nothing is copied out of it. The other settings you set once (the theme, interface size, autosave, camera feel, tablet and game window) are there too.`,
 				`File › New World (${keysOf('newMap')}) makes a world of a few tiles from a preset, and File › Open Part of Azeroth opens a square of tiles of a continent with its ground, textures, models and water.`,
 				`Save (${keysOf('save')}) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server's files. A part of Azeroth goes back into the game with File › Compile to Client (its tiles in the client's patch), Compile to Server (the server's map data, built from those tiles) or Compile All (both); Launch asks first when the open region has edits the client lacks.`,
 			],
@@ -164,7 +165,7 @@
 			{#each appLog.lines as l, i (i)}
 				<div><span class="time">{l.time}</span>{l.text}</div>
 			{:else}
-				<p class="dim">Nothing yet. Status messages, the progress of exports and (with Preferences › Log file loading) every file read from the client appear here.</p>
+				<p class="dim">Nothing yet. Status messages, the progress of exports and (with Log file loading, below or in Edit › Preferences) every file read from the client appear here.</p>
 			{/each}
 		</div>
 		{#snippet actions()}
@@ -360,6 +361,8 @@
 	<ProjectDialog onclose={close} />
 {:else if ui.dialog === 'folderSetup'}
 	<FolderSetupDialog onclose={close} />
+{:else if ui.dialog === 'preferences'}
+	<PreferencesDialog onclose={close} />
 {/if}
 
 <!-- Over every other dialog and editor, so it can ask for the one that is open (#581). -->

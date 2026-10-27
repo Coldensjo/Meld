@@ -231,7 +231,7 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) (err error) {
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
 	if server == "" {
-		return errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+		return errors.New("set the VMaNGOS server folder first (Edit › Preferences › Folders)")
 	}
 	if mapID < 0 {
 		return errors.New("only a continent of the client updates this way")
@@ -295,7 +295,7 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) (err error) {
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
 	if server == "" {
-		return errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+		return errors.New("set the VMaNGOS server folder first (Edit › Preferences › Folders)")
 	}
 	started = true
 	go func() {

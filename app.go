@@ -203,7 +203,7 @@ func (a *App) LoadPrefs() string {
 	return string(a.cfg.Prefs)
 }
 
-// buildMoveMaps is Preferences › Build movement maps on compile (the frontend's buildMoveMaps pref, #173),
+// buildMoveMaps is Edit › Preferences › Compile and export › Build movement maps on compile (the frontend's buildMoveMaps pref, #173),
 // on unless saved off: a compile to the server then rebuilds the mmaps of the tiles it rebuilt.
 func (a *App) buildMoveMaps() bool {
 	a.cfgMu.Lock()
@@ -300,7 +300,7 @@ func (a *App) serverAndData() (string, string, error) {
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
 	if server == "" {
-		return "", "", errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+		return "", "", errors.New("set the VMaNGOS server folder first (Edit › Preferences › Folders)")
 	}
 	dataDir, err := a.clientDataDir()
 	return server, dataDir, err

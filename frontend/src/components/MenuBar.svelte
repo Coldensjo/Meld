@@ -4,7 +4,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { compileRegion, exportSpawnSql } from '../lib/io/compile'
-	import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportPortCoords } from '../lib/io/game'
+	import { launchGame, playHere, exportPortCoords } from '../lib/io/game'
 	import { exportAlphamap, importAlphamap, exportHeightmap, exportNormalMap, writeMinimapTiles } from '../lib/io/images'
 	import { exportDoodadBrush, exportObjectList, importDoodadBrushes, importObjectList } from '../lib/io/lists'
 	import { requestRevert } from '../lib/io/mapio'
@@ -12,22 +12,18 @@
 	import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
 	import { growableSides, type Side } from '../lib/io/regionGrow'
 	import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
-	import { chooseWowFolder } from '../lib/wow/api'
 	import { openProject } from '../lib/io/project'
 	import type { ProjectInfo } from '../lib/state/editor.svelte'
 	import { copyPerfReport, copyScene, pasteScene } from '../lib/io/scene'
 	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
-	import { ClearThumbnailCache, GameEvents } from '../../wailsjs/go/main/App'
+	import { GameEvents } from '../../wailsjs/go/main/App'
 	import { quitNow } from '../lib/io/session'
 	import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
-	import { rememberAntialias } from '../lib/engine/display'
 	import { MANUAL_URL } from './AppDialogs.svelte'
-	import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
-	import { UI_SCALES } from '../lib/ui/uiScale'
 	import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../lib/state/graphicsPresets'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
 	import { tick } from 'svelte'
-	import { flyOnQE, keysOf, setFlyOnQE, type CommandId } from '../lib/ui/commands'
+	import { keysOf, type CommandId } from '../lib/ui/commands'
 	import { runCommand } from '../lib/ui/runCommand'
 	import { CAMERA_VIEWS, cameraView, setCameraView, type CameraView } from '../lib/ui/cameraView'
 
@@ -88,15 +84,6 @@
 		else if (hasBackend()) quitNow()
 	}
 
-	async function clearThumbs() {
-		try {
-			await ClearThumbnailCache()
-			setStatus('Thumbnail cache cleared. Thumbnails will re-render as you browse (after restart for ones already shown).')
-		} catch (e) {
-			setStatus(`Could not clear cache: ${e}`)
-		}
-	}
-
 	/** The sides a region can grow toward, for the File menu. */
 	const SIDES: Array<[Side, string]> = [
 		['n', 'north'],
@@ -107,8 +94,6 @@
 
 	/** The climb view's steepest walkable slopes, in degrees: 49 is Noggit Red's default. */
 	const CLIMB_ANGLES = [40, 45, 49, 55, 60]
-	// The game window sizes Preferences › Game Window offers (gxResolution).
-	const GAME_RESOLUTIONS = ['1280x720', '1600x900', '1920x1080', '2560x1440']
 
 	// The Graphics › Quality preset all of whose values the prefs hold now, or null (#203).
 	const graphicsPreset = $derived(presetOf(prefs))
@@ -123,7 +108,8 @@
 
 	// Rebuilt reactively so checkmarks and enabled states stay current. Each menu is kept short enough
 	// to fit the screen (#122): the actions on the selected models, the terrain and the world's tables
-	// have menus of their own, as do the imports and exports, the view and the game.
+	// have menus of their own, as do the imports and exports, the view and the game. The settings set
+	// once are in Edit › Preferences (#752), not in a menu.
 	const menus = $derived<Array<{ name: string; items: Item[] }>>([
 		{
 			name: 'File',
@@ -201,6 +187,9 @@
 					{ kind: 'action', label: 'Cut Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(true)) },
 					{ kind: 'action', label: 'Fill Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(false)) },
 				]),
+				{ kind: 'sep' },
+				// The settings set once (#752): folders, theme, camera feel, compile options, the game's window.
+				{ kind: 'action', label: 'Preferences…', ...cmd('preferences') },
 			],
 		},
 		{
@@ -230,37 +219,6 @@
 			name: 'Terrain',
 			items: editing([
 				...(looking ? [{ kind: 'header' as const, label: 'A world view: File › Edit Here to edit' }] : []),
-				{ kind: 'header', label: 'Clean up the tile under the camera' },
-				{ kind: 'action', label: 'Clear Height', run: withEngine((e) => e.cleanUpTile('height')) },
-				{ kind: 'action', label: 'Clear Textures', run: withEngine((e) => e.cleanUpTile('textures')) },
-				{ kind: 'action', label: 'Clear Textures and Set Base (paint texture)', run: withEngine((e) => e.cleanUpTile('setBase')) },
-				{ kind: 'action', label: 'Remove Texture Duplicates', run: withEngine((e) => e.cleanUpTile('textureDuplicates')) },
-				{ kind: 'action', label: 'Clear Models', run: withEngine((e) => e.cleanUpTile('models')) },
-				{ kind: 'action', label: 'Remove Duplicate Models on the Tile', run: withEngine((e) => e.cleanUpTile('duplicateModels')) },
-				{ kind: 'action', label: 'Clear Baked Shadows', run: withEngine((e) => e.cleanUpTile('shadows')) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: editor.selection ? 'Remove Empty Texture Layers in Selection' : 'Remove Empty Texture Layers', run: withEngine((e) => e.removeEmptyLayers()) },
-				// The client's own paint back, read without Meld's patch, for chunks an early compile left blocky (#645).
-				{
-					kind: 'action',
-					label: editor.selection ? "Restore the Client's Paint in Selection" : "Restore the Client's Paint",
-					disabled: !hasBackend() || ui.busy || !editor.regionBlock,
-					run: withEngine((e) => restoreClientPaint(e)),
-				},
-				{ kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
-				{ kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
-				{ kind: 'action', label: 'Fill Selection with Doodad Brush', disabled: !editor.selection, run: withEngine((e) => e.fillWithDoodadBrush(false)) },
-				{ kind: 'action', label: 'Fill Mask with Doodad Brush', disabled: !ui.maskActive, run: withEngine((e) => e.fillWithDoodadBrush(true)) },
-				{ kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
-				{ kind: 'sep' },
-				{ kind: 'header', label: 'Paint mask' },
-				{ kind: 'action', label: 'Mask the Selection', disabled: !editor.selection, run: withEngine((e) => e.maskFromSelection()) },
-				{ kind: 'action', label: `Grow Mask by ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('grow')) },
-				{ kind: 'action', label: `Shrink Mask by ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('shrink')) },
-				{ kind: 'action', label: `Feather Mask over ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('feather')) },
-				{ kind: 'action', label: 'Invert Mask', run: withEngine((e) => e.invertMask()) },
-				{ kind: 'action', label: 'Clear Mask', disabled: !ui.maskActive, run: withEngine((e) => e.clearMask()) },
-				{ kind: 'sep' },
 				{
 					kind: 'action',
 					label: editor.selection ? 'Smooth Selection…' : 'Smooth the Map…',
@@ -284,30 +242,44 @@
 				{ kind: 'action', label: editor.selection ? 'Bake Shadows from the Ground in Selection' : 'Bake Shadows from the Ground Only', run: withEngine((e) => e.bakeShadows(true)) },
 				{ kind: 'action', label: editor.selection ? 'Clear Shadows in Selection' : 'Clear Shadows', run: withEngine((e) => e.clearShadows()) },
 				{ kind: 'sep' },
-				{ kind: 'check', label: 'Climb (ground too steep to walk up)', checked: prefs.climbView, ...toggle('climbView') },
-				{ kind: 'check', label: 'Height contours', checked: prefs.showContours, toggle: () => (prefs.showContours = !prefs.showContours) },
-				...radios(
-					[
-						['Contours every 4 yards', 4],
-						['Contours every 10 yards', 10],
-						['Contours every 25 yards', 25],
-					],
-					() => prefs.contourStep,
-					(v) => {
-						prefs.contourStep = v
-						prefs.showContours = true
-					},
-				),
-				...radios(
-					CLIMB_ANGLES.map((a): [string, number] => [`Steepest walkable slope ${a}°`, a]),
-					() => prefs.climbAngle,
-					(v) => {
-						prefs.climbAngle = v
-						prefs.climbView = true
-					},
-				),
-				{ kind: 'sep' },
+				{ kind: 'header', label: 'Clean up the tile under the camera' },
+				{ kind: 'action', label: 'Clear Height', run: withEngine((e) => e.cleanUpTile('height')) },
+				{ kind: 'action', label: 'Clear Textures', run: withEngine((e) => e.cleanUpTile('textures')) },
+				{ kind: 'action', label: 'Clear Textures and Set Base (paint texture)', run: withEngine((e) => e.cleanUpTile('setBase')) },
+				{ kind: 'action', label: 'Remove Texture Duplicates', run: withEngine((e) => e.cleanUpTile('textureDuplicates')) },
+				{ kind: 'action', label: 'Clear Models', run: withEngine((e) => e.cleanUpTile('models')) },
+				{ kind: 'action', label: 'Remove Duplicate Models on the Tile', run: withEngine((e) => e.cleanUpTile('duplicateModels')) },
+				{ kind: 'action', label: 'Clear Baked Shadows', run: withEngine((e) => e.cleanUpTile('shadows')) },
+			]),
+		},
+		{
+			// The textures, the paint mask and the doodad-brush fills, out of Terrain so each fits the screen (#752).
+			name: 'Paint',
+			items: editing([
+				...(looking ? [{ kind: 'header' as const, label: 'A world view: File › Edit Here to edit' }] : []),
+				{ kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
+				{ kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
+				{ kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
+				{ kind: 'action', label: editor.selection ? 'Remove Empty Texture Layers in Selection' : 'Remove Empty Texture Layers', run: withEngine((e) => e.removeEmptyLayers()) },
+				// The client's own paint back, read without Meld's patch, for chunks an early compile left blocky (#645).
+				{
+					kind: 'action',
+					label: editor.selection ? "Restore the Client's Paint in Selection" : "Restore the Client's Paint",
+					disabled: !hasBackend() || ui.busy || !editor.regionBlock,
+					run: withEngine((e) => restoreClientPaint(e)),
+				},
 				{ kind: 'check', label: 'Map Textures (quick palette)', checked: ui.texturePalette, toggle: () => (ui.texturePalette = !ui.texturePalette) },
+				{ kind: 'sep' },
+				{ kind: 'header', label: 'Paint mask' },
+				{ kind: 'action', label: 'Mask the Selection', disabled: !editor.selection, run: withEngine((e) => e.maskFromSelection()) },
+				{ kind: 'action', label: `Grow Mask by ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('grow')) },
+				{ kind: 'action', label: `Shrink Mask by ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('shrink')) },
+				{ kind: 'action', label: `Feather Mask over ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('feather')) },
+				{ kind: 'action', label: 'Invert Mask', run: withEngine((e) => e.invertMask()) },
+				{ kind: 'action', label: 'Clear Mask', disabled: !ui.maskActive, run: withEngine((e) => e.clearMask()) },
+				{ kind: 'sep' },
+				{ kind: 'action', label: 'Fill Selection with Doodad Brush', disabled: !editor.selection, run: withEngine((e) => e.fillWithDoodadBrush(false)) },
+				{ kind: 'action', label: 'Fill Mask with Doodad Brush', disabled: !ui.maskActive, run: withEngine((e) => e.fillWithDoodadBrush(true)) },
 			]),
 		},
 		{
@@ -351,14 +323,10 @@
 					{ kind: 'sep' },
 					{ kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
 					{ kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
-					{ kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
-				]),
-				{ kind: 'action', label: 'Copy Position as Teleport Command', ...cmd('teleport') },
-				...editing([
+					{ kind: 'sep' },
 					{ kind: 'action', label: 'Save Minimap Image…', disabled: !hasBackend() || ui.busy, ...cmd('minimapImage') },
 					{ kind: 'action', label: 'Write Minimap Tiles to the Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => writeMinimapTiles(e)) },
 				]),
-				{ kind: 'check', label: 'Minimap Tiles with All Models (trees too)', checked: prefs.minimapAllModels, toggle: () => (prefs.minimapAllModels = !prefs.minimapAllModels) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Import Doodad Brushes…', disabled: !hasBackend() || ui.busy, run: () => importDoodadBrushes() },
 				{
@@ -373,6 +341,7 @@
 			],
 		},
 		{
+			// The editor's own aids over the map; what of the world is drawn is in Show (#752).
 			name: 'View',
 			items: [
 				{ kind: 'check', label: 'Show grid', checked: editor.grid, ...toggle('grid') },
@@ -381,6 +350,72 @@
 				{ kind: 'check', label: 'Far Horizon (the map around a region)', checked: prefs.showHorizon, toggle: () => (prefs.showHorizon = !prefs.showHorizon) },
 				{ kind: 'check', label: 'Bounding boxes (one per model)', checked: prefs.showBoxes, toggle: () => (prefs.showBoxes = !prefs.showBoxes) },
 				{ kind: 'check', label: 'Hover outline (what a click would select)', checked: prefs.hoverOutline, toggle: () => (prefs.hoverOutline = !prefs.hoverOutline) },
+				{ kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
+				{ kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
+				{ kind: 'sep' },
+				{ kind: 'check', label: 'Hide panels', checked: ui.hidePanels, ...toggle('hidePanels') },
+				{
+					kind: 'check',
+					label: 'Layers panel (the right dock)',
+					checked: !prefs.dockHidden,
+					toggle: () => {
+						prefs.dockHidden = !prefs.dockHidden
+						if (prefs.dockHidden) ui.replaceSlot = null
+					},
+				},
+				{ kind: 'sep' },
+				// The ground's slope and height, moved from Terrain (#752): views of the ground, not edits.
+				{ kind: 'check', label: 'Climb (ground too steep to walk up)', checked: prefs.climbView, ...toggle('climbView') },
+				...radios(
+					CLIMB_ANGLES.map((a): [string, number] => [`Steepest walkable slope ${a}°`, a]),
+					() => prefs.climbAngle,
+					(v) => {
+						prefs.climbAngle = v
+						prefs.climbView = true
+					},
+				),
+				{ kind: 'check', label: 'Height contours', checked: prefs.showContours, toggle: () => (prefs.showContours = !prefs.showContours) },
+				...radios(
+					[
+						['Contours every 4 yards', 4],
+						['Contours every 10 yards', 10],
+						['Contours every 25 yards', 25],
+					],
+					() => prefs.contourStep,
+					(v) => {
+						prefs.contourStep = v
+						prefs.showContours = true
+					},
+				),
+			],
+		},
+		{
+			// What of the world the view draws: the layers, the spawns, the triggers, routes and navmesh (#752).
+			name: 'Show',
+			items: [
+				{ kind: 'check', label: 'Terrain', checked: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain) },
+				{ kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },
+				{ kind: 'check', label: 'Objects (doodads and buildings)', checked: prefs.showObjects, toggle: () => (prefs.showObjects = !prefs.showObjects) },
+				{ kind: 'check', label: 'Doodads (of the objects)', checked: prefs.showDoodads, toggle: () => (prefs.showDoodads = !prefs.showDoodads) },
+				{ kind: 'check', label: 'Buildings (of the objects)', checked: prefs.showBuildings, toggle: () => (prefs.showBuildings = !prefs.showBuildings) },
+				{ kind: 'check', label: 'Ground effects (grass tufts)', checked: prefs.showGroundEffects, toggle: () => (prefs.showGroundEffects = !prefs.showGroundEffects) },
+				{ kind: 'sep' },
+				{ kind: 'check', label: 'Monsters', checked: prefs.showMonsters, toggle: () => (prefs.showMonsters = !prefs.showMonsters) },
+				{ kind: 'check', label: 'NPCs', checked: prefs.showNpcs, toggle: () => (prefs.showNpcs = !prefs.showNpcs) },
+				{ kind: 'check', label: 'Game objects', checked: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects) },
+				{ kind: 'check', label: 'All creature paths', checked: prefs.showAllPaths, toggle: () => (prefs.showAllPaths = !prefs.showAllPaths) },
+				{ kind: 'check', label: 'Spawn pools', checked: prefs.showPools, toggle: () => (prefs.showPools = !prefs.showPools) },
+				{ kind: 'check', label: 'Names over creatures and objects', checked: prefs.spawnNames, toggle: () => (prefs.spawnNames = !prefs.spawnNames) },
+				...radios<typeof prefs.namesSide>(
+					[
+						['Name colours as the Alliance sees them', 'alliance'],
+						['Name colours as the Horde sees them', 'horde'],
+					],
+					() => prefs.namesSide,
+					(v) => (prefs.namesSide = v),
+				),
+				{ kind: 'check', label: 'Creatures and objects through walls', checked: prefs.spawnsThroughWalls, toggle: () => (prefs.spawnsThroughWalls = !prefs.spawnsThroughWalls) },
+				{ kind: 'sep' },
 				{ kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },
 				{ kind: 'check', label: 'Flight paths (stops and routes)', checked: prefs.showFlightPaths, toggle: () => (prefs.showFlightPaths = !prefs.showFlightPaths) },
 				{ kind: 'check', label: "Walkable ground (the server's navmesh)", checked: prefs.navView, toggle: () => (prefs.navView = !prefs.navView) },
@@ -401,50 +436,6 @@
 						e.startPathTest()
 					}),
 				},
-				{ kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
-				{ kind: 'check', label: 'Performance overlay (where the frame time goes)', checked: prefs.perfOverlay, ...toggle('perfOverlay') },
-				{ kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
-				{ kind: 'check', label: 'Hide panels', checked: ui.hidePanels, ...toggle('hidePanels') },
-				{
-					kind: 'check',
-					label: 'Layers panel (the right dock)',
-					checked: !prefs.dockHidden,
-					toggle: () => {
-						prefs.dockHidden = !prefs.dockHidden
-						if (prefs.dockHidden) ui.replaceSlot = null
-					},
-				},
-				{ kind: 'header', label: 'Layers' },
-				{ kind: 'check', label: 'Terrain', checked: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain) },
-				{ kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },
-				{ kind: 'check', label: 'Objects (doodads and buildings)', checked: prefs.showObjects, toggle: () => (prefs.showObjects = !prefs.showObjects) },
-				{ kind: 'check', label: 'Doodads (of the objects)', checked: prefs.showDoodads, toggle: () => (prefs.showDoodads = !prefs.showDoodads) },
-				{ kind: 'check', label: 'Buildings (of the objects)', checked: prefs.showBuildings, toggle: () => (prefs.showBuildings = !prefs.showBuildings) },
-				{ kind: 'check', label: 'Ground effects (grass tufts)', checked: prefs.showGroundEffects, toggle: () => (prefs.showGroundEffects = !prefs.showGroundEffects) },
-				...radios<typeof prefs.groundEffectDensity>(
-					[
-						["Sparse tufts (the game's Low)", 'sparse'],
-						['Normal tufts (Medium)', 'normal'],
-						['Full tufts (High)', 'full'],
-					],
-					() => prefs.groundEffectDensity,
-					(v) => (prefs.groundEffectDensity = v),
-				),
-				{ kind: 'check', label: 'Monsters', checked: prefs.showMonsters, toggle: () => (prefs.showMonsters = !prefs.showMonsters) },
-				{ kind: 'check', label: 'NPCs', checked: prefs.showNpcs, toggle: () => (prefs.showNpcs = !prefs.showNpcs) },
-				{ kind: 'check', label: 'Game objects', checked: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects) },
-				{ kind: 'check', label: 'All creature paths', checked: prefs.showAllPaths, toggle: () => (prefs.showAllPaths = !prefs.showAllPaths) },
-				{ kind: 'check', label: 'Spawn pools', checked: prefs.showPools, toggle: () => (prefs.showPools = !prefs.showPools) },
-				{ kind: 'check', label: 'Names over creatures and objects', checked: prefs.spawnNames, toggle: () => (prefs.spawnNames = !prefs.spawnNames) },
-				...radios<typeof prefs.namesSide>(
-					[
-						['Name colours as the Alliance sees them', 'alliance'],
-						['Name colours as the Horde sees them', 'horde'],
-					],
-					() => prefs.namesSide,
-					(v) => (prefs.namesSide = v),
-				),
-				{ kind: 'check', label: 'Creatures and objects through walls', checked: prefs.spawnsThroughWalls, toggle: () => (prefs.spawnsThroughWalls = !prefs.spawnsThroughWalls) },
 				...(regionEvents.length
 					? ([
 							{ kind: 'header', label: 'World events (their spawns)' },
@@ -484,31 +475,20 @@
 					() => prefs.viewDistance,
 					(v) => (prefs.viewDistance = v),
 				),
+				{ kind: 'header', label: 'Ground effects (grass tufts)' },
+				...radios<typeof prefs.groundEffectDensity>(
+					[
+						["Sparse tufts (the game's Low)", 'sparse'],
+						['Normal tufts (Medium)', 'normal'],
+						['Full tufts (High)', 'full'],
+					],
+					() => prefs.groundEffectDensity,
+					(v) => (prefs.groundEffectDensity = v),
+				),
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Particles', checked: prefs.particles, toggle: () => (prefs.particles = !prefs.particles) },
 				{ kind: 'check', label: 'Prop animations', checked: prefs.animations, toggle: () => (prefs.animations = !prefs.animations) },
 				{ kind: 'check', label: 'Skip models too small to see', checked: prefs.cullSmallModels, toggle: () => (prefs.cullSmallModels = !prefs.cullSmallModels) },
-				{
-					kind: 'check',
-					label: 'Anti-aliasing (after a restart)',
-					checked: prefs.antialias,
-					toggle: () => {
-						prefs.antialias = !prefs.antialias
-						rememberAntialias(prefs.antialias)
-						setStatus('Anti-aliasing changes the next time Meld starts.', 4000)
-					},
-				},
-				{ kind: 'header', label: 'FPS limit' },
-				...radios(
-					[
-						["None (the screen's rate)", 0],
-						['30', 30],
-						['60', 60],
-						['120', 120],
-					],
-					() => prefs.fpsLimit,
-					(v) => (prefs.fpsLimit = v),
-				),
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Full Screen', ...cmd('fullScreen') },
 			],
@@ -603,118 +583,20 @@
 			items: [
 				{ kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', disabled: !hasBackend() || !wow.loaded, run: () => launchGame(engineRef.current) },
 				{ kind: 'action', label: 'Play Here', disabled: !hasBackend() || !wow.loaded, run: () => playHere(engineRef.current) },
-				{ kind: 'action', label: 'Game Login…', disabled: !hasBackend(), run: () => (ui.dialog = 'gameLogin') },
-				{ kind: 'header', label: 'Game client' },
-				...radios<'wow' | 'benilla'>(
-					[
-						['World of Warcraft (Wow.exe)', 'wow'],
-						['Benilla', 'benilla'],
-					],
-					() => ui.gameClient,
-					(v) => void setGameClient(v),
-				),
-				{ kind: 'action', label: 'Benilla Folder…', disabled: !hasBackend(), run: chooseBenillaFolder },
-				{ kind: 'header', label: 'Game window (when Meld starts it)' },
-				...radios<'' | 'windowed' | 'fullscreen'>(
-					[
-						["The Game's Own Setting", ''],
-						['Windowed', 'windowed'],
-						['Fullscreen', 'fullscreen'],
-					],
-					() => ui.gameWindow,
-					(v) => void setGameWindow(v),
-				),
-				...(ui.gameWindow === ''
-					? []
-					: radios<string>(
-							GAME_RESOLUTIONS.map((r) => [r.replace('x', ' × '), r]),
-							() => ui.gameResolution,
-							(v) => void setGameWindow(ui.gameWindow, v),
-						)),
-			],
-		},
-		{
-			name: 'Preferences',
-			items: [
-				{ kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
-				{ kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
-				{ kind: 'action', label: 'Hotkey Manager…', run: () => (ui.dialog = 'hotkeys') },
-				{ kind: 'check', label: 'Q / E Fly Up and Down (instead of turning)', checked: flyOnQE(prefs.keymap), toggle: () => (prefs.keymap = setFlyOnQE(prefs.keymap, !flyOnQE(prefs.keymap))) },
-				{ kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
-				{ kind: 'check', label: 'Check the Map before Compile (stop on errors)', checked: prefs.checkBeforeCompile, toggle: () => (prefs.checkBeforeCompile = !prefs.checkBeforeCompile) },
-				{ kind: 'check', label: 'Build movement maps on compile (server mmaps)', checked: prefs.buildMoveMaps, toggle: () => (prefs.buildMoveMaps = !prefs.buildMoveMaps) },
-				{ kind: 'header', label: 'Autosave unsaved maps' },
-				...radios(
-					[
-						['Every minute', 1],
-						['Every 3 minutes', 3],
-						['Every 10 minutes', 10],
-						['Off', 0],
-					],
-					() => prefs.autosaveMinutes,
-					(v) => (prefs.autosaveMinutes = v),
-				),
-				{ kind: 'header', label: 'Theme' },
-				...radios<typeof prefs.theme>(
-					[
-						['Dark', 'dark'],
-						['Light', 'light'],
-						['System (follow the desktop)', 'system'],
-					],
-					() => prefs.theme,
-					(v) => (prefs.theme = v),
-				),
-				{ kind: 'header', label: 'Camera speed' },
-				...radios(
-					[
-						['Slow', 0.5],
-						['Normal', 1],
-						['Fast', 2],
-					],
-					() => prefs.cameraSpeed,
-					(v) => (prefs.cameraSpeed = v),
-				),
-				{ kind: 'header', label: 'Mouse sensitivity' },
-				...radios(
-					[
-						['Low', 0.6],
-						['Normal', 1],
-						['High', 1.6],
-					],
-					() => prefs.mouseSensitivity,
-					(v) => (prefs.mouseSensitivity = v),
-				),
-				{ kind: 'header', label: 'Interface size (Ctrl+= / Ctrl+- / Ctrl+0)' },
-				...radios(
-					UI_SCALES.map((s) => [`${Math.round(s * 100)} %`, s] as [string, number]),
-					() => prefs.uiScale,
-					(v) => (prefs.uiScale = v),
-				),
-				{ kind: 'header', label: 'Toolbar' },
-				...radios(
-					[
-						['Small', TOOLBAR_ICON_MIN],
-						['Normal', 22],
-						['Large', 30],
-						['Larger', 36],
-						['Largest', TOOLBAR_ICON_MAX],
-					],
-					() => prefs.toolbarIcon,
-					(v) => (prefs.toolbarIcon = v),
-				),
-				...radios<typeof prefs.toolbarSide>(
-					[
-						['Toolbar on the left', 'left'],
-						['Toolbar on the right', 'right'],
-					],
-					() => prefs.toolbarSide,
-					(v) => (prefs.toolbarSide = v),
-				),
 				{ kind: 'sep' },
-				{ kind: 'check', label: 'Invert camera Y', checked: prefs.invertY, toggle: () => (prefs.invertY = !prefs.invertY) },
-				{ kind: 'check', label: 'Tablet support (pen pressure)', checked: prefs.tabletSupport, toggle: () => (prefs.tabletSupport = !prefs.tabletSupport) },
-				{ kind: 'check', label: 'Pen pressure sizes the brush (with Tablet support)', checked: prefs.tabletRadius, toggle: () => (prefs.tabletRadius = !prefs.tabletRadius) },
-				{ kind: 'check', label: 'Log file loading (every client file read, in Help › Log)', checked: prefs.logFileLoading, toggle: () => (prefs.logFileLoading = !prefs.logFileLoading) },
+				{ kind: 'action', label: 'Copy Position as Teleport Command', ...cmd('teleport') },
+				...editing([{ kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) }]),
+				{ kind: 'sep' },
+				{ kind: 'action', label: 'Game Login…', disabled: !hasBackend(), run: () => (ui.dialog = 'gameLogin') },
+				// The game client and its window are set once, in Preferences (#752).
+				{
+					kind: 'action',
+					label: 'Game Settings…',
+					run: () => {
+						ui.prefsPage = 'game'
+						ui.dialog = 'preferences'
+					},
+				},
 			],
 		},
 		{
@@ -727,6 +609,8 @@
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
 				{ kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },
+				// Beside the report it explains, out of View so View fits the screen (#752).
+				{ kind: 'check', label: 'Performance overlay (where the frame time goes)', checked: prefs.perfOverlay, ...toggle('perfOverlay') },
 				{ kind: 'action', label: 'Copy Performance Report', run: withEngine(copyPerfReport) },
 				{ kind: 'header', label: 'Benchmark maps' },
 				...BENCH_MAPS.map((m) => ({ kind: 'action' as const, label: m.label, disabled: !hasBackend() || ui.busy, run: withEngine((e) => openBenchMap(e, m.kind, prefs.benchScale)) })),

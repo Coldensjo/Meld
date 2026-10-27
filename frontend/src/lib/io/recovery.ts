@@ -8,7 +8,7 @@ import { fromMapData, toMapData } from './mapData'
 import { reloadSpawns } from './region'
 import { bytesToBase64, SLICE_BYTES } from './base64'
 
-// Autosave (#177): every few minutes (Preferences › Autosave), each map with unsaved changes is
+// Autosave (#177): every few minutes (Preferences › General › Autosave), each map with unsaved changes is
 // copied into the recovery folder of the user cache (`internal/recovery`), and the copy goes once the
 // map is saved, reverted or closed. A quit through File › Quit drops this session's copies; a crash,
 // or closing the window on unsaved maps, leaves them, and the next start offers them back.
