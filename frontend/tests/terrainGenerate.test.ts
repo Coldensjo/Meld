@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CoastShape, presetHeight, snowLine, type PresetId } from '../src/lib/terrain/presets.ts'
 import { generateHeights, imageGroundHeights } from '../src/lib/terrain/generate.ts'
+import { BEACH_RISE, beachHeight } from '../src/lib/terrain/beach.ts'
 
 const CELL = 1600 / 3 / 128
 const TILE = 1600 / 3
@@ -214,4 +215,54 @@ test('a world from a heightmap stretches the image over the map between its blac
 	const eroded = new Float32Array(out.length)
 	imageGroundHeights(eroded, size, CELL, { img, min: -40, max: 200, sea: true }, 1, 3)
 	assert.ok(eroded.some((v, i) => Math.abs(v - out[i]) > 1e-3))
+})
+
+test('beaches lay a nearly flat strip along the sea, wherever the sea level is, and leave the coast where it was (#766)', () => {
+	// The shelf function: flat near the water, the land's own height far inland, never raised; the seabed only raised.
+	assert.equal(beachHeight(40, 10, 40), BEACH_RISE * 0.25)
+	assert.equal(beachHeight(40, 80, 40), 40)
+	assert.equal(beachHeight(0.2, 10, 40), 0.2)
+	assert.equal(beachHeight(-20, 10, 40), -0.75)
+	assert.equal(beachHeight(-0.1, 10, 40), -0.1)
+	assert.equal(beachHeight(30, 10, 0), 30)
+	const size = 256
+	const V = size + 1
+	/** Island ground at sea level `sea` with beaches `beach` yards wide, and the spread of heights within 20 yd inland of its coast. */
+	const strip = (sea: number, beach: number) => {
+		const out = new Float32Array(V * V)
+		generateHeights(out, size, CELL, 'island', 11, null, { erosion: 0, beach }, sea)
+		let lo = Infinity
+		let hi = -Infinity
+		let wet = 0
+		const reach = Math.ceil(20 / CELL)
+		for (let z = reach; z < V - reach; z++) {
+			for (let x = reach; x < V - reach; x++) {
+				const i = z * V + x
+				if (out[i] < sea) {
+					wet++
+					continue
+				}
+				let near = false
+				for (let dz = -reach; dz <= reach && !near; dz++) for (let dx = -reach; dx <= reach && !near; dx++) if (dx * dx + dz * dz <= reach * reach && out[i + dz * V + dx] < sea) near = true
+				if (!near) continue
+				lo = Math.min(lo, out[i] - sea)
+				hi = Math.max(hi, out[i] - sea)
+			}
+		}
+		return { lo, hi, wet }
+	}
+	for (const sea of [0, 12]) {
+		const flat = strip(sea, 40)
+		assert.ok(flat.lo >= 0 && flat.hi <= BEACH_RISE, `sea ${sea}: beach ${flat.lo}..${flat.hi}`)
+		const none = strip(sea, 0)
+		assert.ok(none.hi > 4, `sea ${sea}: no beach ${none.hi}`)
+		// Only land is lowered and only seabed raised, so the same vertices are under the sea.
+		assert.equal(flat.wet, none.wet, `sea ${sea}`)
+	}
+	// Canyon has no coast: no beaches.
+	const a = new Float32Array(65 * 65)
+	const b = new Float32Array(65 * 65)
+	generateHeights(a, 64, CELL, 'canyon', 3, null, { erosion: 0 })
+	generateHeights(b, 64, CELL, 'canyon', 3, null, { erosion: 0, beach: 60 })
+	assert.deepEqual(a, b)
 })

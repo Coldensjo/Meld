@@ -45,7 +45,7 @@
 	})
 	let preset = $state<PresetId>('island')
 	let seed = $state(Math.floor(Math.random() * 100000))
-	/** Height, Roughness, Erosion and Sea depth (#744). */
+	/** Height, Roughness, Erosion, Land and Sea depth (#744), and Beaches (#766). */
 	let look = $state<ShapeOptions>({ ...DEFAULT_SHAPE })
 	/** Only the island presets have a coast for Land to move. */
 	const landApplies = $derived(presetById(preset).water && preset !== 'ocean')
@@ -120,9 +120,9 @@
 	}
 	const sizeShown = $derived(mask ? 0 : square.size)
 
-	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness, Sea depth or the water change. */
+	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness, Sea depth, Beaches or the water change. */
 	function preview(canvas: HTMLCanvasElement, id: PresetId) {
-		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land }, worldWater))
+		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land, beach: look.beach }, worldWater))
 	}
 
 	// --- the client's maps and zones, read once --------------------------------------------------
@@ -410,6 +410,10 @@
 					<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
 						<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>
 						<input type="range" min="0.2" max="3" step="0.1" bind:value={look.seaDepth} disabled={!presetById(preset).water} />
+					</label>
+					<label class="field slider" title={landApplies ? 'How wide the beaches are: a stretch of nearly flat sand along the sea, whatever the height of the land behind it' : 'This preset has no coast'}>
+						<span>Beaches <b>{look.beach ? `${look.beach} yd` : 'none'}</b></span>
+						<input type="range" min="0" max="100" step="5" bind:value={look.beach} disabled={!landApplies} />
 					</label>
 					<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
 				</div>

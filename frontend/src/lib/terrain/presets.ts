@@ -2,6 +2,8 @@ import { fbm, ridged } from '../engine/noise'
 import { TILE_YARDS } from '../wow/format'
 import { LIQUID_MAGMA, LIQUID_SLIME } from '../water/liquids'
 import { LAKE_RULES, findLakes } from '../water/lakes'
+import { squaredDistance } from './distance'
+import { BEACH_SAND, SAND_BAND, shapeBeaches } from './beach'
 
 // The starting shapes a new world can have. Every preset but Flat land and Canyon is an island: the
 // ground falls away to the sea towards the map's edge, so a world is bounded by water, which the client
@@ -107,50 +109,6 @@ export class CoastShape {
 	}
 }
 
-/** The squared distance of each sample of `f` (0 the sea, a large number land) to the nearest sea sample: Felzenszwalb and Huttenlocher's transform, rows then columns. */
-function squaredDistance(f: Float64Array, side: number): Float64Array {
-	const out = new Float64Array(f)
-	const line = new Float64Array(side)
-	const res = new Float64Array(side)
-	const v = new Int32Array(side)
-	const z = new Float64Array(side + 1)
-	const pass = (get: (k: number) => number, set: (k: number, x: number) => void) => {
-		for (let k = 0; k < side; k++) line[k] = get(k)
-		let n = 0
-		v[0] = 0
-		z[0] = -Infinity
-		z[1] = Infinity
-		for (let q = 1; q < side; q++) {
-			let s = (line[q] + q * q - (line[v[n]] + v[n] * v[n])) / (2 * q - 2 * v[n])
-			while (s <= z[n]) {
-				n--
-				s = (line[q] + q * q - (line[v[n]] + v[n] * v[n])) / (2 * q - 2 * v[n])
-			}
-			n++
-			v[n] = q
-			z[n] = s
-			z[n + 1] = Infinity
-		}
-		n = 0
-		for (let q = 0; q < side; q++) {
-			while (z[n + 1] < q) n++
-			res[q] = (q - v[n]) * (q - v[n]) + line[v[n]]
-		}
-		for (let k = 0; k < side; k++) set(k, res[k])
-	}
-	for (let j = 0; j < side; j++)
-		pass(
-			(k) => out[j * side + k],
-			(k, x) => (out[j * side + k] = x),
-		)
-	for (let i = 0; i < side; i++)
-		pass(
-			(k) => out[k * side + i],
-			(k, x) => (out[k * side + i] = x),
-		)
-	return out
-}
-
 /**
  * How much of the land stands at (u, v) in 0..1 of the map: 1 well inside, 0 at the edge, with a
  * ragged coastline. Every island preset multiplies its land by this. With a `shape`, the edge is its
@@ -205,10 +163,12 @@ export interface ShapeOptions {
 	erosion: number
 	seaDepth: number
 	land: number
+	/** How wide the beaches along the sea are, in yards (0 none, beach.ts, #766). */
+	beach: number
 }
 
 /** The New world page's defaults. */
-export const DEFAULT_SHAPE: ShapeOptions = { relief: 1, roughness: 1, erosion: 0.5, seaDepth: 1, land: 0.5 }
+export const DEFAULT_SHAPE: ShapeOptions = { relief: 1, roughness: 1, erosion: 0.5, seaDepth: 1, land: 0.5, beach: 40 }
 
 /** How a map is shaped by `presetHeight`, beyond its preset and seed. */
 export interface HeightOptions {
@@ -221,6 +181,8 @@ export interface HeightOptions {
 	seaDepth?: number
 	/** How much of the map is land, 0 to 1 (`ShapeOptions.land`); a Canyon's walls and the ocean ignore it. */
 	land?: number
+	/** How wide the beaches are in the pictures (`ShapeOptions.beach`); `presetHeight` ignores it. */
+	beach?: number
 	/** Leaves a Canyon's walls out, for `generateHeights` to lay them on after erosion (`canyonWall`). */
 	noWall?: boolean
 }
@@ -350,7 +312,11 @@ export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed:
 	const h = new Float32Array(s * s)
 	for (let y = 0; y <= px; y++) for (let x = 0; x <= px; x++) h[y * s + x] = presetHeight(id, x / px, y / px, seed, o)
 	const p = presetById(id)
-	drawHeights(canvas, h, px, p.water ? (water?.sea ?? p.waterLevel) : null, o.tiles, o.shape, water?.lakes)
+	const sea = water?.sea ?? p.waterLevel
+	// The beaches as generate.ts lays them (Open sea has no coast).
+	const beach = p.water && id !== 'ocean' ? (o.beach ?? 0) : 0
+	if (beach > 0) shapeBeaches(h, s, (o.tiles * TILE_YARDS) / px, sea, beach)
+	drawHeights(canvas, h, px, p.water ? sea : null, o.tiles, o.shape, water?.lakes, beach > 0 ? BEACH_SAND : SAND_BAND)
 }
 
 /** The New world page's water (#759): the sea's level, and the lakes' liquid when they are on; for its pictures and `Engine.newDocument`. */
@@ -368,9 +334,10 @@ function lakeColour(id: number): [number, number, number] {
 /**
  * Paints heights `h` ((px+1)² yards, over a map of `tiles` a side) as `drawPresetPreview` does: the sea
  * below `sea` (null for none), with `lakes` (a LiquidType.dbc ID) the basins' lakes of that liquid
- * (`findLakes`), and with `shape` the tiles left out dark. Also the From a heightmap card's (#745).
+ * (`findLakes`), and with `shape` the tiles left out dark, sand up to `sand` yards over the sea as
+ * `autoPaint` lays it. Also the From a heightmap card's (#745).
  */
-export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, sea: number | null, tiles: number, shape?: CoastShape | null, lakes?: number | null) {
+export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, sea: number | null, tiles: number, shape?: CoastShape | null, lakes?: number | null, sand = SAND_BAND) {
 	canvas.width = canvas.height = px
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return
@@ -400,7 +367,7 @@ export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: numb
 				const dx = h[y * s + x + 1] - v
 				const dz = h[(y + 1) * s + x] - v
 				const slope = Math.hypot(dx, dz) / cell
-				if (v < level + 1.2 && water) [r, g, b] = [196, 182, 128]
+				if (v < level + sand && water) [r, g, b] = [196, 182, 128]
 				else if (v > snow) [r, g, b] = [230, 232, 236]
 				else if (slope > 0.55) [r, g, b] = [120, 108, 92]
 				else {

@@ -2,7 +2,8 @@
 // gravity run over it (erosion.ts), which carve the valleys, gullies and scree that make noise read as
 // real ground. Kept free of three.js so it can be tested on its own.
 import { Eroder, talusSlope } from './erosion'
-import { canyonWall, presetHeight, type CoastShape, type PresetId, type ShapeOptions } from './presets'
+import { canyonWall, presetById, presetHeight, type CoastShape, type PresetId, type ShapeOptions } from './presets'
+import { shapeBeaches } from './beach'
 import { TILE_YARDS } from '../wow/format'
 import { imageRatios } from '../io/heightmapImport'
 
@@ -15,9 +16,10 @@ const TALUS_DEG = 42
 /**
  * Fills `out`, the (size+1)² heights of a map of `size` cells of `cellSize` yards, with preset `kind`
  * from `seed`, its coast following `shape`'s tiles when given, shaped by `o` (presets.ts
- * `ShapeOptions`; what is left out is that of a plain preset: relief and roughness 1, no erosion).
+ * `ShapeOptions`; what is left out is that of a plain preset: relief and roughness 1, no erosion, no
+ * beaches), with its sea at `sea` yards, which its beaches follow (beach.ts, #766).
  */
-export function generateHeights(out: Float32Array, size: number, cellSize: number, kind: PresetId, seed: number, shape?: CoastShape | null, o: Partial<ShapeOptions> = {}) {
+export function generateHeights(out: Float32Array, size: number, cellSize: number, kind: PresetId, seed: number, shape?: CoastShape | null, o: Partial<ShapeOptions> = {}, sea = 0) {
 	const V = size + 1
 	const erosion = Math.min(1, Math.max(0, o.erosion ?? 0))
 	// A Canyon's walls go on after the erosion: its gullies would cut ramps a player could climb out by.
@@ -25,6 +27,8 @@ export function generateHeights(out: Float32Array, size: number, cellSize: numbe
 	const h = { tiles: (size * cellSize) / TILE_YARDS, shape, relief: o.relief, roughness: o.roughness, seaDepth: o.seaDepth, land: o.land, noWall: walls }
 	for (let z = 0; z < V; z++) for (let x = 0; x < V; x++) out[z * V + x] = presetHeight(kind, x / size, z / size, seed, h)
 	if (erosion > 0 && kind !== 'ocean' && kind !== 'flat') erode(out, V, cellSize, erosion, seed)
+	// After the erosion, whose drops would cut gullies across the flat strip.
+	if (hasBeaches(kind)) shapeBeaches(out, V, cellSize, sea, o.beach ?? 0)
 	if (walls) for (let z = 0; z < V; z++) for (let x = 0; x < V; x++) out[z * V + x] += canyonWall(x / size, z / size, seed, h)
 }
 
@@ -93,3 +97,6 @@ function soften(hs: Float32Array, V: number) {
 		}
 	}
 }
+
+/** Whether a preset's coast takes beaches: every island preset; not Open sea, Flat land or Canyon, which have no coast. */
+export const hasBeaches = (kind: PresetId) => kind !== 'ocean' && presetById(kind).water

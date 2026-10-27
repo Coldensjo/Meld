@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { CoastShape, presetById, snowLine, type ShapeOptions, type WorldWater } from '../terrain/presets'
+import { sandBand } from '../terrain/beach'
+import { hasBeaches, type ImageGround } from '../terrain/generate'
 import { LAKE_RULES, fillLakes, findLakes, shoreLevels } from '../water/lakes'
 import { fbm } from './noise'
 import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
-import type { ImageGround } from '../terrain/generate'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
 import type { Command } from '../state/history'
@@ -2687,8 +2688,9 @@ export class Engine {
 			d.meta.waterLevel = image.sea ? 0 : presetById('flat').waterLevel
 			d.meta.waterEnabled = image.sea
 		} else {
-			d.terrain.generate(kind, seed, shape, opts)
 			const preset = presetById(kind)
+			// The beaches (#766) follow the sea at the page's level.
+			d.terrain.generate(kind, seed, shape, opts, preset.water ? (water?.sea ?? preset.waterLevel) : preset.waterLevel)
 			d.meta.waterLevel = preset.waterLevel
 			d.meta.waterEnabled = preset.water
 		}
@@ -2699,7 +2701,7 @@ export class Engine {
 			const level = findLakes(t.heights, t.verts, t.cellSize, { ...LAKE_RULES, sea: d.meta.waterEnabled ? d.meta.waterLevel : null })
 			if (fillLakes(d.liquids, t, level, water.lakes)) shores = shoreLevels(level, t.verts)
 		}
-		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores)
+		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores, sandBand(!image && hasBeaches(kind) ? (opts?.beach ?? 0) : 0))
 		setup?.(d)
 		d.meta.roles = guessRoles(d.meta.palette)
 		this.documents.push(d)

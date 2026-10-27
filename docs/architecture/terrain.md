@@ -490,7 +490,17 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `Terrain.generate`, which calls `terrain/generate.ts` `generateHeights`: the preset, then droplet and
   thermal erosion (terrain/erosion.ts) from land only, then a half 3x3 blur against the spikes drops
   leave at cliff feet; a Canyon's walls go on after the erosion, whose gullies would cut ramps through
-  them. Land (0 to 1, 0.5 the old coast) moves where `coast` starts to fall off (and, for Archipelago, the threshold of its `where` mask): a small island at 0, land up to the edges at 1; Canyon, Open sea and Flat ignore it. Other callers of `newDocument` (the benchmark maps, probes) get no erosion. `snowLine` keeps
+  them. **Beaches** (#766, the page's Beaches slider, `ShapeOptions.beach`, 40 yd by default, 0 none):
+  `terrain/beach.ts` `shapeBeaches` runs last in `generateHeights` (after the erosion, whose drops
+  would cut gullies across it), for the island presets only (`hasBeaches`: not Open sea, Flat land or
+  Canyon, nor a heightmap world). Two distance transforms (`terrain/distance.ts`) give each vertex its
+  yards to the sea (or, under it, to the land), keyed on the page's Sea level (`Terrain.generate`'s
+  `sea`), not 0; `beachHeight` lowers the land to a slope rising `BEACH_RISE` (1.5 yd) over the width,
+  back to its own height by 1.6 widths, and raises the seabed to a shelf 3 yd down over the width. It
+  only lowers land and raises seabed, so the coast stays where it was. `autoPaint`'s `sand` band
+  (`sandBand`: 2 yd with beaches, 1.2 without) covers the strip, and the trees (#758) keep 2 yd over
+  the sea, so they stay off it. The pictures lay the same beaches (`drawPresetPreview`). Lakes have
+  no beaches yet. Land (0 to 1, 0.5 the old coast) moves where `coast` starts to fall off (and, for Archipelago, the threshold of its `where` mask): a small island at 0, land up to the edges at 1; Canyon, Open sea and Flat ignore it. Other callers of `newDocument` (the benchmark maps, probes) get no erosion. `snowLine` keeps
   snow to ground over 110 yd above the water, so hilltops stay green.
   **From a heightmap** (#745): the card after the presets asks for a PNG (`OpenHeightmapDialog`,
   `ReadHeightmap`, as Terrain > Import Heightmap, #44) and swaps the sliders for Black at and White at

@@ -117,7 +117,7 @@ Roughen (more bend than before), each hard-edged and with the falloff, checking 
 square changes and undo and redo are exact under the mode's label; and it opens the dialog, checks
 Mode lists the five and that picking Flatten shows its target and names the button.
 
-## A new world's ground: presets in yards, erosion at creation, Canyon and the seabed (#744, probe `new-world-shape`)
+## A new world's ground: presets in yards, erosion at creation, Canyon, the seabed and beaches (#744, #766, probe `new-world-shape`)
 
 Checks: the New world page's presets and sliders. `presetHeight` (`terrain/presets.ts`) and
 `generateHeights` (`terrain/generate.ts`) have unit tests in `terrainGenerate.test.ts`: the presets'
@@ -128,7 +128,10 @@ a Canyon no one can walk out of: a flood fill from the middle over vertices whos
 50 degrees (the server's `walkableSlopeAngle`) never reaches the map's edge, for 1 and 2 tiles, with
 and without erosion, at Height 0.4 and Roughness 2. In the live app, `bun run probe new-world-shape
 --shot <dir>` makes Large Mountains, Rolling hills and Canyon worlds through the dialog and saves a
-view over each.
+view over each, then a Small Island at the default Beaches (#766): the land within 20 yd of the sea
+no more than 1.6 yd over it and sand in every paint chunk there, with a view along its coast
+(`island-beach`). The beaches have a unit test in `terrainGenerate.test.ts` (`beachHeight`, and an
+Island's strip at sea level 0 and 12 under 1.5 yd with the same vertices under the sea as without).
 
 - To judge how a preset looks without the app, a Bun script can call `generateHeights` for a map
   and write a hillshade (the gradient towards the north-west, coloured by height and slope as

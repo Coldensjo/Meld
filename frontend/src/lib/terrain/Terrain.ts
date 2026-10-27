@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { fbm } from '../engine/noise'
 import { snowLine as snowLineOf, type CoastShape, type PresetId, type ShapeOptions } from './presets'
+import { SAND_BAND } from './beach'
 import { generateHeights, imageGroundHeights, type ImageGround } from './generate'
 import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
@@ -643,10 +644,11 @@ export class Terrain {
 
 	/**
 	 * Procedural starting terrain from a preset (see presets.ts and generate.ts), its coast following
-	 * `shape`'s tiles when given, shaped by `opts` (relief, roughness, erosion; none erodes by default).
+	 * `shape`'s tiles when given, shaped by `opts` (relief, roughness, erosion, beaches; none erodes by
+	 * default), with the sea at `sea` yards for its beaches.
 	 */
-	generate(kind: GenerateKind, seed: number, shape?: CoastShape | null, opts?: Partial<ShapeOptions>) {
-		generateHeights(this.heights, this.size, this.cellSize, kind, seed, shape, opts)
+	generate(kind: GenerateKind, seed: number, shape?: CoastShape | null, opts?: Partial<ShapeOptions>, sea = 0) {
+		generateHeights(this.heights, this.size, this.cellSize, kind, seed, shape, opts, sea)
 		this.markAllDirty()
 	}
 
@@ -660,9 +662,10 @@ export class Terrain {
 	 * Paint sand/grass/rock/snow based on height and slope. Role r of the procedural layers is
 	 * palette entry roleTex[r]. Each paint chunk keeps the four roles that fit it best. `shores`, when
 	 * given, is the lake level near each vertex (`shoreLevels`, water/lakes.ts, #759; NaN away from
-	 * any): the lakes' shores take the sand as the sea's do.
+	 * any): the lakes' shores take the sand as the sea's do. `sand` is how many yards over the sea the
+	 * sand goes (`sandBand`, terrain/beach.ts): higher on a new world with beaches, to cover them (#766).
 	 */
-	autoPaint(waterLevel: number, waterEnabled: boolean, roleTex: number[] = [0, 1, 2, 3, 4, 5, 6, 7], shores?: Float32Array | null) {
+	autoPaint(waterLevel: number, waterEnabled: boolean, roleTex: number[] = [0, 1, 2, 3, 4, 5, 6, 7], shores?: Float32Array | null, sand = SAND_BAND) {
 		const R = this.splatRes
 		const roles = LAYER_COUNT
 		const w = new Float32Array(roles)
@@ -679,8 +682,8 @@ export class Terrain {
 			const n = fbm(x * 0.03, z * 0.03, 3, 99)
 			w[n > 0.55 ? 1 : 0] = 1
 			if (n > 0.62) w[2] = 0.4
-			if (waterEnabled && y < waterLevel + 1.2) {
-				const t = THREE.MathUtils.clamp((waterLevel + 1.2 - y) / 1.2, 0, 1)
+			if (waterEnabled && y < waterLevel + sand) {
+				const t = THREE.MathUtils.clamp((waterLevel + sand - y) / SAND_BAND, 0, 1)
 				w[4] += t * 3
 			}
 			if (shores) {
