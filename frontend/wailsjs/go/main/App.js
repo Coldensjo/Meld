@@ -106,6 +106,10 @@ export function DeleteQuest(arg1) {
   return window['go']['main']['App']['DeleteQuest'](arg1);
 }
 
+export function DeleteScript(arg1) {
+  return window['go']['main']['App']['DeleteScript'](arg1);
+}
+
 export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
@@ -268,6 +272,10 @@ export function ListPrefabs(arg1) {
 
 export function ListRecovery() {
   return window['go']['main']['App']['ListRecovery']();
+}
+
+export function ListScripts() {
+  return window['go']['main']['App']['ListScripts']();
 }
 
 export function ListSpells(arg1, arg2, arg3, arg4) {
@@ -682,6 +690,10 @@ export function SaveSceneMap(arg1) {
   return window['go']['main']['App']['SaveSceneMap'](arg1);
 }
 
+export function SaveScript(arg1, arg2) {
+  return window['go']['main']['App']['SaveScript'](arg1, arg2);
+}
+
 export function SaveSpell(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SaveSpell'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -704,6 +716,10 @@ export function SaveVendor(arg1, arg2) {
 
 export function ScriptCommands(arg1, arg2) {
   return window['go']['main']['App']['ScriptCommands'](arg1, arg2);
+}
+
+export function ScriptsFolder() {
+  return window['go']['main']['App']['ScriptsFolder']();
 }
 
 export function SearchCreatures(arg1) {

@@ -35,7 +35,35 @@ SOFTWARE.
 
 The water code (`liquids.ts` and its MCLQ export) follows the behaviour of noggit3, which is
 GPL-licensed. It was reimplemented from that behaviour, not copied, and contains none of noggit3's
-code. The same goes for the other behaviours ported from Noggit Red.
+code. The same goes for the other behaviours ported from Noggit Red, the Lua script API among them:
+Meld's matches the names and behaviour of Noggit Red's, and holds none of its code.
+
+## Lua
+
+The script engine runs Lua 5.4, compiled to WebAssembly by the wasmoon library (listed below), which
+bundles it. Lua is licensed under the MIT license:
+
+```
+Copyright (C) 1994-2024 Lua.org, PUC-Rio.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
 
 ## Libraries
 
@@ -54,12 +82,14 @@ Compiled into the app's frontend bundle (`frontend/dist`, embedded in the binary
 | @recast-navigation/core | 0.43.1 | MIT |
 | @recast-navigation/generators | 0.43.1 | MIT |
 | @recast-navigation/wasm | 0.43.1 | MIT |
+| @types/emscripten | 1.39.10 | MIT |
 | meshoptimizer | 1.3.0 | MIT |
 | recast-navigation | 0.43.1 | MIT |
 | simplex-noise | 4.0.3 | MIT |
 | smol-toml | 1.9.1 | BSD-3-Clause |
 | three | 0.186.1 | MIT |
 | three-mesh-bvh | 0.9.16 | MIT |
+| wasmoon | 1.16.0 | MIT |
 
 ### @recast-navigation/core 0.43.1
 
@@ -137,6 +167,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+### @types/emscripten 1.39.10
+
+```
+MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
 ```
 
 ### meshoptimizer 1.3.0
@@ -278,6 +334,32 @@ THE SOFTWARE.
 MIT License
 
 Copyright (c) 2018 Garrett Johnson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### wasmoon 1.16.0
+
+```
+MIT License
+
+Copyright (c) 2023 Gabriel Francisco
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

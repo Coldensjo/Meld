@@ -208,6 +208,7 @@ The test docs are kept to the same rule (see "Testing notes"): a check worth rep
 | `docs/architecture/lighting.md` | Shaders, the sky and time of day, shadow cascades, client lighting and clouds |
 | `docs/architecture/ui.md` | The window layout, the asset browser (search, tabs, sets, prefabs, thumbnails), the dock, the Inspector, History and Map Properties |
 | `docs/architecture/client.md` | The `/wow/*` endpoints, coordinates, the asset registry, WMO doodad sets, and spawns: looks, editing, waypoints, names and the creature editor |
+| `docs/architecture/scripting.md` | The Lua engine (wasmoon), Noggit Red's script API, the script host and its undo step, the scripts folder and the Scripts window |
 
 ## Rules that cut across the code
 

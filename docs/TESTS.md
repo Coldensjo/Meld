@@ -836,3 +836,7 @@ the same scene, the report before and after.
 - The binary replies against their parsers (#520, the wire fixtures)
 - The format constants and the axis swap on both sides (#538, the format fixture)
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
+
+### Scripting (`docs/tests/scripting.md`)
+
+- Lua scripts: the API, undo and the Scripts window (#28, probe `lua-script`)

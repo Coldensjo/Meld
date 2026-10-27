@@ -3,6 +3,7 @@
 import {vmangos} from '../models';
 import {main} from '../models';
 import {recovery} from '../models';
+import {scripts} from '../models';
 import {mapfile} from '../models';
 import {wow} from '../models';
 import {config} from '../models';
@@ -59,6 +60,8 @@ export function CreateSpell(arg1:number,arg2:string,arg3:string):Promise<number>
 export function DeleteConditionText(arg1:number,arg2:number):Promise<vmangos.GreetingSaved>;
 
 export function DeleteQuest(arg1:number):Promise<string>;
+
+export function DeleteScript(arg1:string):Promise<void>;
 
 export function DropRecovery(arg1:string):Promise<void>;
 
@@ -141,6 +144,8 @@ export function ListObjectTemplates():Promise<Array<vmangos.ObjectTemplate>>;
 export function ListPrefabs(arg1:string):Promise<Array<main.PrefabFile>>;
 
 export function ListRecovery():Promise<Array<recovery.Info>>;
+
+export function ListScripts():Promise<Array<scripts.File>>;
 
 export function ListSpells(arg1:string,arg2:number,arg3:string,arg4:number):Promise<vmangos.SpellList>;
 
@@ -348,6 +353,8 @@ export function SaveSQLDialog(arg1:string):Promise<string>;
 
 export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
 
+export function SaveScript(arg1:string,arg2:string):Promise<string>;
+
 export function SaveSpell(arg1:number,arg2:number,arg3:Record<string, string>,arg4:string,arg5:vmangos.VisualDesign):Promise<main.SpellSaved>;
 
 export function SaveTaxi(arg1:vmangos.TaxiEdit):Promise<main.AreaSaveResult>;
@@ -359,6 +366,8 @@ export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 export function SaveVendor(arg1:number,arg2:Array<vmangos.VendorItem>):Promise<string>;
 
 export function ScriptCommands(arg1:string,arg2:number):Promise<Array<vmangos.ScriptCommand>>;
+
+export function ScriptsFolder():Promise<string>;
 
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
 

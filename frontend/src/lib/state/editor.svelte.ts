@@ -815,6 +815,8 @@ export const ui = $state({
 	texturePalette: false,
 	/** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */
 	history: false,
+	/** The floating Scripts window (components/ScriptWindow.svelte, #28, Tools › Scripts…): Lua scripts to write and run on the map. */
+	scripts: false,
 	/** Bumped whenever the active map's undo stack changes or another map's becomes active, so the History window re-reads it. */
 	historyVersion: 0,
 	/** Bumped when a prefab is saved, so the Prefabs tab reads its folder again. */

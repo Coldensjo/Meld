@@ -76,6 +76,8 @@ import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
 import { addedCommand, removedCommand } from '../world/objectCommands'
+import { EngineScriptHost } from './ScriptRun'
+import type { ScriptResult } from '../script/scriptApi'
 import { HoleWalls } from '../tools/HoleWalls'
 import { stepTilt } from '../world/placement'
 import { ClearTool } from '../tools/ClearTool'
@@ -5296,6 +5298,58 @@ export class Engine {
 
 	/** Whether Terrain › Smooth Selection is running (smoothArea). */
 	private smoothing = false
+
+	/**
+	 * Runs a Lua script (#28, Tools › Scripts…) on the active map: Noggit Red's script API over its
+	 * terrain and models (script/prelude.ts, ScriptRun.ts), `print` going to `print`. Everything it changed,
+	 * up to an error too, is one undo step named after it. Null when it could not start (a world view, or
+	 * a script already running).
+	 */
+	async runScript(code: string, name: string, print: (text: string) => void): Promise<ScriptResult | null> {
+		if (this.refuseInWorld()) return null
+		if (this.scripting) {
+			setStatus('A script is still running.')
+			return null
+		}
+		this.scripting = true
+		try {
+			const doc = this.doc
+			const m = doc.meta
+			const folder = m.region?.mapName
+			if (!m.vmangos && folder !== undefined) await this.loadMapIds()
+			const mapId = m.vmangos ? m.vmangos.mapId : folder !== undefined ? (this.mapIds?.get(folder.toLowerCase()) ?? -1) : -1
+			const { runScript } = await import('../script/luaRun')
+			if (this.doc !== doc) return null
+			const c = this.controller
+			const s = editor.selection
+			const host = new EngineScriptHost(
+				doc.terrain,
+				doc.objects,
+				{
+					print,
+					camera: () => {
+						const p = this.persp.position
+						return { x: p.x, y: p.y, z: p.z, pitch: THREE.MathUtils.radToDeg(c.pitch), yaw: THREE.MathUtils.radToDeg(c.yaw) }
+					},
+					target: () => ({ x: c.target.x, y: c.target.y, z: c.target.z }),
+					mapId,
+					areaAt: (x, z) => this.areaAt(x, z),
+					area: s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : null,
+				},
+				`Script ${name}`,
+			)
+			const result = await runScript(code, name, host)
+			const cmd = host.finish(`Script ${name}`)
+			if (cmd) doc.history.push(cmd)
+			this.syncSelection()
+			return result
+		} finally {
+			this.scripting = false
+		}
+	}
+
+	/** Whether a script is running (runScript). */
+	private scripting = false
 
 	/** The rectangle the top-down camera frames while renderTopDown draws it, or null. */
 	private minimapShot: { cx: number; cz: number; halfX: number; halfZ: number; top: number } | null = null

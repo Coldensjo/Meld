@@ -30,6 +30,7 @@
 	import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
 	import Inspector from './components/Inspector.svelte'
 	import HistoryWindow from './components/HistoryWindow.svelte'
+	import ScriptWindow from './components/ScriptWindow.svelte'
 	import FlightPathsWindow from './components/FlightPathsWindow.svelte'
 	import CheckMapWindow from './components/CheckMapWindow.svelte'
 	import TexturePaletteWindow from './components/TexturePaletteWindow.svelte'
@@ -287,6 +288,7 @@
 
 <Inspector />
 <HistoryWindow />
+<ScriptWindow />
 {#if ui.flightPaths}<FlightPathsWindow />{/if}
 <CheckMapWindow />
 <TexturePaletteWindow />

@@ -120,6 +120,14 @@ Also included:
 - **Models**: duplicate, group, hide, delete, ground and replace the selected models; the Inspector.
 - **Terrain**: clean up the tile under the camera, auto-paint, replace a texture everywhere, climb view.
 - **World**: Doodad Brushes, Ground Effects, Texture Looks, Zones, Lights.
+- **Tools**: the creature, game object, quest, item and spell editors, Icons, and **Scripts (Lua)**: a
+  window to write Lua scripts and run them on the open map, with Noggit Red's script API (`vec`,
+  `select_origin`, `sel:verts()` and `vert:set_height`, `sel:models()`, `add_m2`, `add_wmo`,
+  `random_from_seed`, the math functions) plus `target_pos()` (where the camera looks) and
+  `selected_area()` (the Select tool's area). What a script prints shows under it, and everything one
+  run changes is one undo step. Scripts are `.lua` files in the scripts folder
+  (`%AppData%\Meld\scripts` or `~/.config/Meld/scripts`); Ctrl+Enter runs, Ctrl+S saves. Script
+  brushes, noise, images and texture layers are not in Meld yet.
 - **Import/Export**: heightmaps, watermaps, normal maps, alphamaps, object lists, doodad brushes,
   port coordinates, minimap image.
 - **View**: grid, chunk lines, a reference image (a plan of your own laid over the map to trace, and turned into heights, zones, textures or the mask), far horizon, walkable ground (the server's navmesh, built by Meld or read from the server's own mmaps) and a path test, layers (terrain, water, objects, tufts, spawns), hide panels.

@@ -861,6 +861,25 @@ export namespace sandbox {
 
 }
 
+export namespace scripts {
+	
+	export class File {
+	    name: string;
+	    text: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new File(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.text = source["text"];
+	    }
+	}
+
+}
+
 export namespace vmangos {
 	
 	export class AILine {

@@ -58,6 +58,7 @@ const config: UserConfig<DefaultTheme.Config> = {
 					{ text: 'Lighting and sky', link: '/architecture/lighting' },
 					{ text: 'UI', link: '/architecture/ui' },
 					{ text: 'The client and spawns', link: '/architecture/client' },
+					{ text: 'Scripting', link: '/architecture/scripting' },
 				],
 			},
 			{
@@ -71,6 +72,7 @@ const config: UserConfig<DefaultTheme.Config> = {
 					{ text: 'UI and the window', link: '/tests/ui' },
 					{ text: 'Creatures and the database', link: '/tests/spawns' },
 					{ text: 'Export, the client and the game', link: '/tests/client' },
+					{ text: 'Scripting', link: '/tests/scripting' },
 				],
 			},
 		],
