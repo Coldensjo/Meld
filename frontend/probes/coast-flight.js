@@ -1,4 +1,4 @@
-// The coast holds still while the camera flies (#747): on a Large Island made on the New world page, seen from 1200 yd, six shots with the camera stepped 0.37 yd along the coast's normal (a frame of flight, under a pixel there), and the pixels whose brightness jumps by over 25 between shots at least twice counted, with the sea as drawn (a grid of cells about a tile wide, Water.ts) and as the one quad it was. On a real GPU (`PROBE_GPU=1`, D3D11 through ANGLE) the quad's depth wobbled from frame to frame and the whole shoreline swapped sea and land: 544 such pixels against 1 to 4 with a grid; SwiftShader draws both steady, so there the probe only checks the grid's count stays low. The clock is held, so the sea's frame stays put. About 15 s on the GPU. Saves the coast and its flips for each with `--shot`.
+// The coast holds still while the camera flies (#747): on a Large Island made on the New world page, seen from 1200 yd with its trees hidden, six shots with the camera stepped 0.37 yd along the coast's normal (a frame of flight, under a pixel there), and the pixels whose brightness jumps by over 25 between shots at least twice counted, with the sea as drawn (a grid of cells about a tile wide, Water.ts) and as the one quad it was. On a real GPU (`PROBE_GPU=1`, D3D11 through ANGLE) the quad's depth wobbled from frame to frame and the whole shoreline swapped sea and land: 544 such pixels against 1 to 4 with a grid; SwiftShader draws both steady, so there the probe only checks the grid's count stays low. Then the same steeply down from 2000 yd (#767): there the beach is within the depth buffer's error of the sea over yards of shore, and on the GPU the two took turns along the whole coast (245 pixels, 0 since the sea fades out within that error). The clock is held, so the sea's frame stays put. About 15 s on the GPU. Saves the coast and its flips for each with `--shot`.
 // touches: frontend/src/lib/water/Water.ts, frontend/src/lib/water/liquidMaterial.ts
 const e = P.e
 const gl = e.renderer.getContext()
@@ -47,11 +47,13 @@ e.timer.setTimescale(0)
 /** The coast and the land behind it; the ridges' skyline above moves with the camera and is left out. */
 const VIEW = { x0: 0, x1: 1, y0: 0.3, y1: 0.8 }
 
-/** Six shots a step of flight apart; the count of pixels that jump by over 25 at least twice. */
-const fly = async (label) => {
+/** Six shots a step of flight apart (a frame of flight, scaled with the distance); the count of pixels that jump by over 25 at least twice. */
+const fly = async (label, pitch = PITCH, dist = DIST) => {
+	e.controller.setView(cx, 0, w * 0.5, -Math.PI / 2, pitch, dist)
+	await P.frames(10)
 	const shots = []
 	for (let i = 0; i < 6; i++) {
-		e.controller.setView(cx + i * 0.37, 0, w * 0.5, -Math.PI / 2, PITCH, DIST)
+		e.controller.setView(cx + i * 0.37 * (dist / DIST), 0, w * 0.5, -Math.PI / 2, pitch, dist)
 		await P.frames(2)
 		shots.push(await P.shot())
 	}
@@ -77,17 +79,31 @@ const fly = async (label) => {
 const water = e.water
 const grid = water.mesh.geometry
 const r = { gpu, coast: cx, cells: Math.round(Math.sqrt(grid.attributes.position.count)) - 1 }
+// The trees the New world page scatters (3a74272) are hidden: their edges flip as the camera moves and drowned the coast's count.
+e.objects.group.visible = false
 r.grid = await fly('grid')
-// The sea as it was before #747: one quad the same size.
+// Looking steeply down from 2000 yd, where the beach lies within the depth buffer's error of the sea over
+// yards of shore: on a real GPU they took turns all along the coast (#767, 245 pixels) until the sea
+// faded out within that error of the ground (liquidMaterial.ts, the SEA branch).
+r.steep = await fly('steep', 1.2, 2000)
+// With no fade by the ground: a large negative margin puts it far under the ground. The steep view
+// shows #767's flicker again (only about 11 pixels here, since the probes' 4x MSAA hides most of it:
+// 245 without, #768), and the sea as it was before #747 (one quad the same size) its wobble, which
+// shows the probe still sees a depth fault; the fade hides the quad's wobble too.
+const steps = water.material.uniforms.depthSteps
+const keep = steps.value
+steps.value = -1000
 const quad = new grid.constructor(w * 10, w * 10)
 quad.rotateX(-Math.PI / 2)
-water.mesh.geometry = quad
 try {
+	r.steepUnfaded = await fly('steep-unfaded', 1.2, 2000)
+	water.mesh.geometry = quad
 	r.quad = await fly('quad')
 } finally {
 	water.mesh.geometry = grid
+	steps.value = keep
 	quad.dispose()
 }
-// The grid's coast stays still; on a real GPU the quad's flickered, which shows the probe still sees it.
-r.ok = r.grid < 40 && (swiftShader || r.quad > 200)
+// The coast stays still; on a real GPU the unfaded quad's wobbled.
+r.ok = r.grid < 40 && r.steep < 40 && (swiftShader || r.quad > 200)
 return r

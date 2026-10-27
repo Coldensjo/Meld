@@ -503,8 +503,17 @@ shoreline the ground and the sea took turns in front. Built as a grid of cells a
 yd, takes six shots with the camera stepped 0.37 yd apart and counts the pixels whose brightness jumps
 by over 25 at least twice, with the sea as drawn and as the old quad: 1 against 551 on an RTX 5080.
 
+- Then the same steeply down from 2000 yd (pitch 1.2), for #767: there the beach lies within the depth
+  buffer's error of the sea over yards of shore, and the two took turns along the whole coast until the
+  sea faded out within that error (`depthSteps` in `liquidMaterial.ts`). It fails on the `steep` count.
+  The probe sets `depthSteps` to -1000 (no fade) for `steepUnfaded` and the quad: the fade hides the
+  quad's wobble too. The probes' 4x MSAA hides most of #767 (11 pixels unfaded, against 245 with
+  anti-aliasing off, which the owner uses; #768 is the way to run a probe without it). From a low pitch
+  the count is the sea's ripples and the trees, not the coast: look at the `--shot` flips image.
+- The trees the New world page scatters are hidden (`e.objects.group.visible = false`): their edges
+  flipped and drowned the coast's count (51 on SwiftShader).
 - Only a real GPU shows it: on SwiftShader both counted 2 to 3. Without `PROBE_GPU=1` the probe only
-  checks the grid's count stays low.
+  checks the coast's counts stay low.
 - Hide the sea through its material (`water.material.visible = false`): the Engine sets
   `water.mesh.visible` again every frame.
 - Turning the shadows pref off before a run of shots (5 frames settled) made about 14,000 pixels jump,

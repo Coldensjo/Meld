@@ -29,6 +29,8 @@ const RIVER_DEPTH_FULL = 42
 const WATER_SHININESS = 6
 /** Yards past the map's edge over which the sea's ground falls from the edge's height to deep (#748), about a tile. */
 const SEA_FADE = 533
+/** How many depth-buffer steps above the ground the sea starts to show (#767): the GPU's depth wobbles by more than one as the camera moves. */
+const SEA_DEPTH_STEPS = 4
 /** A texture repeats every four cells, as noggit's liquid uv (vertex index / 4). */
 const UV_SCALE = 1 / (4 * (TILE_YARDS / 128))
 
@@ -124,6 +126,9 @@ varying vec3 vBody;
 attribute float depth;
 attribute float kind;
 #endif
+#ifdef SEA
+varying float vNear;
+#endif
 void main() {
 #ifdef WMO
   vec4 lp = vec4(position, 1.0);
@@ -142,6 +147,8 @@ void main() {
 #ifdef SEA
   vDepth = 0.0;
   vKind = 1.0;
+  // The camera's near plane, read back from a perspective projection; 0 for the top-down view's orthographic one.
+  vNear = isOrthographic ? 0.0 : projectionMatrix[3][2] / (projectionMatrix[2][2] - 1.0);
 #else
   vDepth = depth;
   vKind = kind;
@@ -186,15 +193,19 @@ uniform sampler2D groundTex;
 uniform float groundCell;
 uniform float groundVerts;
 uniform float seaOpacity;
+uniform float depthSteps;
+varying float vNear;
 #endif
 varying vec3 vWorldPos;
 varying float vDepth;
 varying float vKind;
 
 #ifdef SEA
-// The ground under the sea, bilinear between the four vertices around the point. Past the map it carries
-// on from the edge's height and falls to deep, where the swatch is at its last row, over ${SEA_FADE} yd
-// (#748): a step straight to deep at the edge drew the map's square as a pale rectangle in a dark sea.
+// The ground under the sea, on the terrain's own triangles: each cell is cut along a diagonal that
+// alternates with the cell's x+z (writeCellIndex, terrain/holes.ts), so the waterline the sea finds is
+// the one drawn (#767). Past the map it carries on from the edge's height and falls to deep, where the
+// swatch is at its last row, over ${SEA_FADE} yd (#748): a step straight to deep at the edge drew the
+// map's square as a pale rectangle in a dark sea.
 float groundAt(vec2 p, float deep) {
   vec2 g = p / groundCell;
   vec2 gc = clamp(g, vec2(0.0), vec2(groundVerts - 1.0));
@@ -204,7 +215,14 @@ float groundAt(vec2 p, float deep) {
   float b = texelFetch(groundTex, ivec2(i) + ivec2(1, 0), 0).r;
   float c = texelFetch(groundTex, ivec2(i) + ivec2(0, 1), 0).r;
   float d = texelFetch(groundTex, ivec2(i) + ivec2(1, 1), 0).r;
-  float h = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  float h;
+  if (mod(i.x + i.y, 2.0) > 0.5) {
+    // Cut from (1, 0) to (0, 1).
+    h = f.x + f.y < 1.0 ? a + (b - a) * f.x + (c - a) * f.y : d + (c - d) * (1.0 - f.x) + (b - d) * (1.0 - f.y);
+  } else {
+    // Cut from (0, 0) to (1, 1).
+    h = f.x > f.y ? a + (b - a) * f.x + (d - b) * f.y : a + (c - a) * f.y + (d - c) * f.x;
+  }
   float past = length(g - gc) * groundCell;
   return past > 0.0 ? mix(h, min(h, deep), smoothstep(0.0, ${SEA_FADE}.0, past)) : h;
 }
@@ -261,7 +279,16 @@ void main() {
   vec2 uv = vWorldPos.xz * uvScale;
   float depth = vDepth;
 #ifdef SEA
-  depth = clamp((vWorldPos.y - groundAt(vWorldPos.xz, vWorldPos.y + 1.0 - 1.0 / seaOpacity) + 1.0) * seaOpacity, 0.0, 1.0);
+  float under = vWorldPos.y - groundAt(vWorldPos.xz, vWorldPos.y + 1.0 - 1.0 / seaOpacity);
+  depth = clamp((under + 1.0) * seaOpacity, 0.0, 1.0);
+  // Where the ground lies within the depth buffer's error of the surface, the depth test can't tell
+  // which is in front, and on a real GPU the answer changes as the camera moves: the beach and the sea
+  // took turns along the whole coast seen from far off (#767). The sea fades out there, so either
+  // answer looks the same. A 24-bit depth step at view depth z is z^2 / (near * 2^24); depthSteps
+  // of them, then a pixel's worth of fade.
+  float vz = -(viewMatrix * vec4(vWorldPos, 1.0)).z;
+  float fuzz = vNear > 0.0 ? depthSteps * vz * vz / (vNear * 16777216.0) : 0.0;
+  float shore = smoothstep(fuzz, fuzz + max(fwidth(under) * 1.5, 0.05), under);
 #endif
   vec3 col;
   float alpha;
@@ -283,6 +310,9 @@ void main() {
     col = pow(clamp(waterLit * sw.rgb + detail + (sheen + 0.25) * frame.a, 0.0, 1.0), vec3(2.2));
     alpha = sw.a;
   }
+#ifdef SEA
+  alpha *= shore;
+#endif
   if (cursorRadius > 0.0) {
     float fw = length(fwidth(vWorldPos.xz));
     float ring = smoothstep(0.0, fw * 1.5, abs(length(vWorldPos.xz - cursorPos.xz) - cursorRadius));
@@ -490,6 +520,7 @@ export function seaMaterial(ground: THREE.Texture, verts: number, cell: number):
 			groundVerts: { value: verts },
 			groundCell: { value: cell },
 			seaOpacity: { value: OCEAN_OPACITY },
+			depthSteps: { value: SEA_DEPTH_STEPS },
 		},
 		vertexShader: vertex,
 		fragmentShader: fragment,
