@@ -12,6 +12,7 @@
 	import { LAYERS } from '../lib/terrain/layers'
 	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawHeights, drawPresetPreview, presetById, type PresetId, type ShapeOptions, type WorldWater } from '../lib/terrain/presets'
 	import { LIQUID_MAGMA, LIQUID_SLIME, LIQUID_WATER } from '../lib/water/liquids'
+	import { MAX_RIVERS } from '../lib/water/rivers'
 	import { imageRatios } from '../lib/io/heightmapImport'
 	import { guarded } from '../lib/io/backend'
 	import { boundingSquare, gridTile, maskBytes, maskOf } from '../lib/terrain/tileMask'
@@ -62,9 +63,10 @@
 	const imageOk = $derived(!fromImage || (!!image && Number.isFinite(imageLook.min) && Number.isFinite(imageLook.max) && imageLook.max > imageLook.min))
 	/**
 	 * The water (#759, the owner's choice in #733): the sea's level, and lakes filled in the land's basins
-	 * up to their rims (water/lakes.ts) of water, slime or magma. The sea itself stays the client's ocean.
+	 * up to their rims (water/lakes.ts) of water, slime or magma, and rivers of the same from the high
+	 * ground down to the sea or a lake (water/rivers.ts, #763). The sea itself stays the client's ocean.
 	 */
-	let water = $state({ sea: 0, lakes: false, liquid: LIQUID_WATER })
+	let water = $state({ sea: 0, lakes: false, rivers: 0, liquid: LIQUID_WATER })
 	const LAKE_LIQUIDS = [
 		{ id: LIQUID_WATER, name: 'Water' },
 		{ id: LIQUID_SLIME, name: 'Slime' },
@@ -72,7 +74,7 @@
 	]
 	/** Whether the world has a sea for Sea level to move: the preset's, or the image's Sea. */
 	const seaOn = $derived(fromImage ? imageLook.sea : presetById(preset).water)
-	const worldWater = $derived<WorldWater>({ sea: water.sea, lakes: water.lakes ? water.liquid : null })
+	const worldWater = $derived<WorldWater>({ sea: water.sea, lakes: water.lakes ? water.liquid : null, rivers: water.rivers ? { count: water.rivers, liquid: water.liquid } : null })
 	/** Asks for a heightmap PNG and picks it; cancelling keeps the one before. */
 	function pickImage() {
 		return guarded('Read heightmap', async () => {
@@ -95,7 +97,7 @@
 			const { min, max, sea } = imageLook
 			const h = new Float32Array(r.length)
 			for (let i = 0; i < r.length; i++) h[i] = min + r[i] * (max - min)
-			drawHeights(canvas, h, px, sea ? water.sea : null, square.size, shape, worldWater.lakes)
+			drawHeights(canvas, h, px, sea ? water.sea : null, square.size, shape, worldWater)
 		})
 	}
 
@@ -426,9 +428,16 @@
 				<label class="check" title="Fill the land's basins above the sea with lakes, each up to its rim, with sand along their shores">
 					<input type="checkbox" bind:checked={water.lakes} /> Lakes
 				</label>
-				<label class="field liquid" title="What the lakes hold. The sea stays the ocean.">
-					<span>Lakes of</span>
-					<select bind:value={water.liquid} disabled={!water.lakes}>
+				<label
+					class="field slider"
+					title="Rivers from the high ground down to the sea or a lake, the biggest first, each carved and filled as the Path tool's River and left as a path to edit. A river into or out of a lake fills that lake too."
+				>
+					<span>Rivers <b>{water.rivers || 'none'}</b></span>
+					<input type="range" min="0" max={MAX_RIVERS} step="1" bind:value={water.rivers} />
+				</label>
+				<label class="field liquid" title="What the lakes and rivers hold. The sea stays the ocean.">
+					<span>Liquid</span>
+					<select bind:value={water.liquid} disabled={!water.lakes && !water.rivers}>
 						{#each LAKE_LIQUIDS as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 					</select>
 				</label>

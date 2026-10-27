@@ -201,6 +201,25 @@ ground lower than it, sand in every lake chunk, and `exportInput` sending the la
 - `findLakes` drops a basin covering more than `maxShare` (12%) of the map, so a test grid of a few
   dozen vertices needs a larger share (`tests/lakes.test.ts` uses 0.5).
 
+## A new world's rivers (#763, probe `new-world-rivers`)
+
+Checks: the New world page's Rivers slider. `frontend/tests/rivers.test.ts` checks the routing
+(`water/rivers.ts`): a river runs down a valley from the high ground to the sea, the biggest comes
+first and rivers keep their spacing, flat ground and a walled-in map get none, the control points,
+and `planWater` filling only the lake a river runs into when Lakes is off. In the live app,
+`bun run probe new-world-rivers --shot <dir>` sets Rivers to 4 with Magma (orange in the Rolling
+hills picture with no lakes) and makes a Medium Rolling hills world (seed 4242): up to 4 River paths
+of magma, each falling at least 8 yd to a mouth at or over the sea, the ground carved under them,
+only magma layers and none under the sea, the surface the same on both sides of every chunk edge
+(601 edges, the trap `fillRiver` already handles), sand in nearly every river chunk, no scattered
+model standing in a liquid, and `exportInput` sending the layers. About 30 s.
+
+- The routing needs valleys steeper across than along: on a plain tilted plane every column drains
+  straight down the slope and no stream gathers water, so a test grid's valley sides must be steeper
+  than its floor.
+- The rivers come from the generated (eroded) heights; the pictures route the uneroded preset at 96
+  pixels, so they show where rivers run, not exactly the world's.
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are

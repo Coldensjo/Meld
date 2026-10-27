@@ -512,8 +512,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   land's -2); the card's picture is `drawHeights`, the presets' painter.
   **Water** (#759, the owner's choice in #733): the page's last look row has Sea level (-30 to 60 yd,
   for a preset with a sea or an image with Sea ticked; it moves the sea plane, not the ground, and
-  `autoPaint`'s sand and `snowLine` follow it), Lakes and Lakes of (water, slime or magma; the sea
-  stays the ocean). They go to `newVmangosDocument` as `WorldWater`. Lakes are `water/lakes.ts`:
+  `autoPaint`'s sand and `snowLine` follow it), Lakes, Rivers (0 to `MAX_RIVERS`, 8) and Liquid
+  (water, slime or magma, for both; the sea stays the ocean). They go to `newVmangosDocument` as `WorldWater`. Lakes are `water/lakes.ts`:
   `findLakes` priority-floods the heights from the map's edge (Barnes et al. 2014) so every basin
   takes its spill height, and keeps a basin as a lake when its level is above the sea, it is at least
   `LAKE_RULES.minDepth` deep and `minArea` big, and it covers at most `maxShare` of the map (a
@@ -521,7 +521,24 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   writes them as the water brush's layers (every cell with a wet corner, the corners at the level,
   depth by the brush's rule), and `shoreLevels` feeds `autoPaint`'s `shores`, the sand round them.
   The pictures draw the sea at its level and the lakes in their liquid's colour (`drawHeights`'
-  `lakes`). Rivers are left for later.
+  `liquids`).
+  **Rivers** (#763) are `water/rivers.ts`, from the same flood (`priorityFlood` returns each vertex's
+  `down`, the vertex the flood reached it from, which routes water over flats and out of pits, and the
+  pop `order`): `findRivers` sums the drainage down that tree (flow accumulation), takes as mouths the
+  dry vertices draining into the sea or a lake (or off the edge of a map with no sea), the most
+  drainage first, and follows each upstream along its largest branch until the branch drains under
+  `RIVER_RULES.sourceArea`, or meets a lake (the river then runs out of it), a basin at least
+  `minDepth` deep, or another river's `spacing`. A river shorter than `minLength` or falling less than
+  `minDrop` is dropped; its surface is the flooded ground, never under the sea, falling all the way.
+  `planWater` plans both: every lake with Lakes, else only the lakes a river runs into or out of.
+  `Engine.layRivers` lays each as a River path (`riverPoints`: a point every 24 yd, smoothed off the
+  grid's stair steps; width from the drainage, `riverWidth`), kept in the map's paths for the Path
+  tool, through `pathApply.ts` `layRiver`: the Path tool's carve and fill without an undo step, except
+  that ground under the sea or a lake is never raised (the bank's rise would dam the mouth) and dry
+  ground at most 2.5 yd. The banks join the lakes' `shores`, so `autoPaint` lays sand along them.
+  Applying such a path again in the Path tool raises its banks without that limit. Canyon and Flat
+  land get none (no way down to a sea or a lake), and Lakeland few (its drainage splits between
+  basins). The pictures draw the rivers' vertices in their liquid's colour.
   **Ground textures** (#733, the owner's answers: a zone's own textures, not a tileset folder's):
   the page's select lists `MapZones` by map; a pick calls `ZoneTextures` (`internal/vmangos`
   `ReadZoneTextures`), which reads every tile of the zone's WorldMapArea rectangle and adds up, for

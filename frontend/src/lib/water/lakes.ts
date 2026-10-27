@@ -21,12 +21,22 @@ export interface LakeRules {
 export const LAKE_RULES: Omit<LakeRules, 'sea'> = { minDepth: 2, minArea: 400, maxShare: 0.12 }
 
 /**
- * The lakes of heights `h` (`V` vertices a side, `cellSize` yards apart): each vertex's lake surface,
- * NaN where it holds no lake. A lake's vertices all take one level, its spill height.
+ * The priority flood of heights `h` (`V` vertices a side) from the map's edge: `filled`, each vertex's
+ * lowest level water must reach to flow from it off the map; `down`, the vertex it drains to (the one
+ * the flood reached it from, -1 at the edge), which routes water across flats and out of pits; and
+ * `order`, the vertices in the order the flood took them, each after the one it drains to (#763).
  */
-export function findLakes(h: Float32Array, V: number, cellSize: number, rules: LakeRules): Float32Array {
+export interface Flood {
+	filled: Float32Array
+	down: Int32Array
+	order: Int32Array
+}
+
+export function priorityFlood(h: Float32Array, V: number): Flood {
 	const n = V * V
 	const filled = new Float32Array(n)
+	const down = new Int32Array(n).fill(-1)
+	const order = new Int32Array(n)
 	const done = new Uint8Array(n)
 	const heap = new MinHeap(n)
 	// The edge drains off the map.
@@ -38,8 +48,10 @@ export function findLakes(h: Float32Array, V: number, cellSize: number, rules: L
 			heap.push(v, h[v])
 		}
 	}
+	let taken = 0
 	while (heap.size) {
 		const v = heap.pop()
+		order[taken++] = v
 		const x = v % V
 		const z = (v - x) / V
 		const level = filled[v]
@@ -51,9 +63,21 @@ export function findLakes(h: Float32Array, V: number, cellSize: number, rules: L
 			if (done[u]) continue
 			done[u] = 1
 			filled[u] = Math.max(h[u], level)
+			down[u] = v
 			heap.push(u, filled[u])
 		}
 	}
+	return { filled, down, order }
+}
+
+/**
+ * The lakes of heights `h` (`V` vertices a side, `cellSize` yards apart): each vertex's lake surface,
+ * NaN where it holds no lake. A lake's vertices all take one level, its spill height. `flood` is
+ * `priorityFlood`'s of the same heights, when the caller has it already.
+ */
+export function findLakes(h: Float32Array, V: number, cellSize: number, rules: LakeRules, flood: Flood = priorityFlood(h, V)): Float32Array {
+	const n = V * V
+	const filled = flood.filled
 	// Each basin: its wet vertices, kept as a lake when deep, big and small enough.
 	const out = new Float32Array(n).fill(NaN)
 	const seen = new Uint8Array(n)

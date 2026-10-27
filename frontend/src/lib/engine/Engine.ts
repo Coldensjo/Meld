@@ -3,7 +3,9 @@ import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { CoastShape, presetById, snowLine, type ShapeOptions, type WorldWater } from '../terrain/presets'
 import { sandBand } from '../terrain/beach'
 import { hasBeaches, type ImageGround } from '../terrain/generate'
-import { LAKE_RULES, fillLakes, findLakes, shoreLevels } from '../water/lakes'
+import { fillLakes, shoreLevels } from '../water/lakes'
+import { planWater, riverPoints, riverWidth, type River } from '../water/rivers'
+import { layRiver } from '../tools/pathApply'
 import { fbm } from './noise'
 import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
@@ -50,7 +52,7 @@ import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { editWholeMask, modifyMask } from '../tools/maskWand'
 import { ChunkDataStroke } from '../tools/chunkDataStroke'
-import { copyPaths, type MapPath } from '../terrain/paths'
+import { copyPaths, newPath, RIVER_BANK, type MapPath } from '../terrain/paths'
 import { PathTool } from '../tools/PathTool'
 import {
 	areasFromImage,
@@ -2696,10 +2698,13 @@ export class Engine {
 		}
 		if (d.meta.waterEnabled && water?.sea !== undefined) d.meta.waterLevel = water.sea
 		let shores: Float32Array | null = null
-		if (water?.lakes) {
+		const rivers = water?.rivers?.count ?? 0
+		if (water && (water.lakes || rivers > 0)) {
 			const t = d.terrain
-			const level = findLakes(t.heights, t.verts, t.cellSize, { ...LAKE_RULES, sea: d.meta.waterEnabled ? d.meta.waterLevel : null })
-			if (fillLakes(d.liquids, t, level, water.lakes)) shores = shoreLevels(level, t.verts)
+			const sea = d.meta.waterEnabled ? d.meta.waterLevel : null
+			const plan = planWater(t.heights, t.verts, t.cellSize, sea, !!water.lakes, rivers)
+			if (plan.lakes && fillLakes(d.liquids, t, plan.lakes, water.lakes ?? water.rivers?.liquid ?? 1)) shores = shoreLevels(plan.lakes, t.verts)
+			if (plan.rivers.length) shores = this.layRivers(d, plan.rivers, plan.lakes, sea, water.rivers?.liquid ?? 1, shores)
 		}
 		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores, sandBand(!image && hasBeaches(kind) ? (opts?.beach ?? 0) : 0), seed)
 		setup?.(d)
@@ -2707,6 +2712,40 @@ export class Engine {
 		this.documents.push(d)
 		this.activate(d)
 		return d
+	}
+
+	/**
+	 * Lays a new world's rivers (#763) into `d` as River paths (the Path tool's, so they stay editable),
+	 * carved and filled with `liquid`; the ground under the sea or `lakes` is never raised, so a river's
+	 * banks don't dam its mouth. Returns `shores` with the rivers' banks added, for the sand.
+	 */
+	private layRivers(d: MapDocument, rivers: River[], lakes: Float32Array | null, sea: number | null, liquid: number, shores: Float32Array | null): Float32Array {
+		const t = d.terrain
+		const V = t.verts
+		const cs = t.cellSize
+		const level = new Float32Array(V * V).fill(NaN)
+		// Dry ground may rise as far as a shallow pit on the way is deep, and the bank above it.
+		const raise = (v: number) => ((sea !== null && t.heights[v] < sea) || (lakes && !Number.isNaN(lakes[v])) ? 0 : 2 + RIVER_BANK)
+		const at = (u: number) => Math.min(V - 1, Math.max(0, Math.round(u / cs)))
+		let reach = 2
+		for (const r of rivers) {
+			const path = newPath(d.meta.paths, 'river', '')
+			path.points = riverPoints(r, V, cs)
+			path.width = riverWidth(r.area)
+			path.depth = Math.min(4, 1.5 + path.width / 5)
+			path.falloff = path.width / 2
+			path.liquid = liquid
+			d.meta.paths.push(path)
+			const { sm } = layRiver({ terrain: t, objects: d.objects, liquids: d.liquids }, path, raise)
+			for (let i = 0; i < sm.n; i++) {
+				const v = at(sm.z[i]) * V + at(sm.x[i])
+				if (!(level[v] >= sm.y[i])) level[v] = sm.y[i]
+			}
+			reach = Math.max(reach, Math.ceil(path.width / 2 / cs) + 1)
+		}
+		const banks = shoreLevels(level, V, reach)
+		if (shores) for (let v = 0; v < banks.length; v++) if (!Number.isNaN(shores[v]) && !(banks[v] >= shores[v])) banks[v] = shores[v]
+		return banks
 	}
 
 	private uniqueName(base: string) {

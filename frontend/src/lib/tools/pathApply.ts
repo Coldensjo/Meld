@@ -243,9 +243,10 @@ function levelRoad(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightEd
 /**
  * A river's bed: within half the width the ground takes `riverBed`'s profile under the curve's
  * (downhill) surface, `depth` deep in the middle and a little above the surface at the banks, and
- * beyond them it blends back over the falloff from the bank's height.
+ * beyond them it blends back over the falloff from the bank's height. With `raise`, no vertex v rises
+ * more than `raise(v)` yards (a new world's rivers, `layRiver`).
  */
-function carveRiver(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightEdit) {
+function carveRiver(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightEdit, raise?: (v: number) => number) {
 	const half = path.width / 2
 	const field = pathField(sm, t.cellSize, 0, half + path.falloff, t.size)
 	if (!field) return
@@ -259,9 +260,23 @@ function carveRiver(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightE
 			if (w <= 0) continue
 			const v = (field.z0 + j) * V + field.x0 + i
 			heights.reserve(v)
-			h[v] += (riverBed(d, half, field.height[k], path.depth) - h[v]) * w
+			let to = (riverBed(d, half, field.height[k], path.depth) - h[v]) * w
+			if (raise && to > 0) to = Math.min(to, raise(v))
+			h[v] += to
 		}
 	}
+}
+
+/**
+ * Lays a new world's river (#763, water/rivers.ts) along `path` as `applyPath` lays a River, without
+ * an undo step: no ground is raised more than `raise(v)` yards (0 under the sea or a lake, so the
+ * banks don't dam the mouth). Returns its samples, whose heights are the surface, and the cells filled.
+ */
+export function layRiver(m: PathTargets, path: MapPath, raise: (v: number) => number): { sm: PathSamples; cells: number } {
+	const sm = samplePath(path.points, SAMPLE_STEP)
+	downhill(sm)
+	carveRiver(m.terrain, sm, path, new HeightEdit(m.terrain), raise)
+	return { sm, cells: fillRiver(m, sm, path).cells }
 }
 
 /**

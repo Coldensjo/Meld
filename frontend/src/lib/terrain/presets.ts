@@ -1,7 +1,7 @@
 import { fbm, ridged } from '../engine/noise'
 import { TILE_YARDS } from '../wow/format'
-import { LIQUID_MAGMA, LIQUID_SLIME } from '../water/liquids'
-import { LAKE_RULES, findLakes } from '../water/lakes'
+import { LIQUID_MAGMA, LIQUID_SLIME, LIQUID_WATER } from '../water/liquids'
+import { planWater } from '../water/rivers'
 import { squaredDistance } from './distance'
 import { BEACH_SAND, SAND_BAND, shapeBeaches } from './beach'
 
@@ -316,7 +316,7 @@ export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed:
 	// The beaches as generate.ts lays them (Open sea has no coast).
 	const beach = p.water && id !== 'ocean' ? (o.beach ?? 0) : 0
 	if (beach > 0) shapeBeaches(h, s, (o.tiles * TILE_YARDS) / px, sea, beach)
-	drawHeights(canvas, h, px, p.water ? sea : null, o.tiles, o.shape, water?.lakes, beach > 0 ? BEACH_SAND : SAND_BAND)
+	drawHeights(canvas, h, px, p.water ? sea : null, o.tiles, o.shape, water, beach > 0 ? BEACH_SAND : SAND_BAND)
 }
 
 /** The New world page's water (#759): the sea's level, and the lakes' liquid when they are on; for its pictures and `Engine.newDocument`. */
@@ -324,6 +324,8 @@ export interface WorldWater {
 	sea?: number
 	/** LiquidType.dbc ID of the lakes, or null for none. */
 	lakes?: number | null
+	/** How many rivers at most (water/rivers.ts, #763) and their liquid, or null for none. */
+	rivers?: { count: number; liquid: number } | null
 }
 
 /** A lake's colour in a picture by its liquid: magma, slime, else water. */
@@ -333,11 +335,11 @@ function lakeColour(id: number): [number, number, number] {
 
 /**
  * Paints heights `h` ((px+1)² yards, over a map of `tiles` a side) as `drawPresetPreview` does: the sea
- * below `sea` (null for none), with `lakes` (a LiquidType.dbc ID) the basins' lakes of that liquid
- * (`findLakes`), and with `shape` the tiles left out dark, sand up to `sand` yards over the sea as
+ * below `sea` (null for none), with `liquids.lakes` (a LiquidType.dbc ID) the basins' lakes of that
+ * liquid and with `liquids.rivers` the rivers (`planWater`, with the lakes they run into or out of), and with `shape` the tiles left out dark, sand up to `sand` yards over the sea as
  * `autoPaint` lays it. Also the From a heightmap card's (#745).
  */
-export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, sea: number | null, tiles: number, shape?: CoastShape | null, lakes?: number | null, sand = SAND_BAND) {
+export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, sea: number | null, tiles: number, shape?: CoastShape | null, liquids?: WorldWater, sand = SAND_BAND) {
 	canvas.width = canvas.height = px
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return
@@ -350,14 +352,19 @@ export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: numb
 	const snow = snowLine(level, maxH)
 	// Yards a pixel, for the slope.
 	const cell = (tiles * TILE_YARDS) / px
-	const lake = lakes ? findLakes(h, s, cell, { ...LAKE_RULES, sea }) : null
-	const lakeRgb = lakes ? lakeColour(lakes) : null
+	const lakes = liquids?.lakes
+	const rivers = liquids?.rivers?.count ?? 0
+	const plan = lakes || rivers > 0 ? planWater(h, s, cell, sea, !!lakes, rivers) : null
+	const lake = plan?.lakes
+	const lakeRgb = lakeColour(lakes ?? liquids?.rivers?.liquid ?? LIQUID_WATER)
+	const river = new Uint8Array(plan?.rivers.length ? s * s : 0)
+	for (const r of plan?.rivers ?? []) for (const v of r.verts) river[v] = 1
 	for (let y = 0; y < px; y++) {
 		for (let x = 0; x < px; x++) {
 			const v = h[y * s + x]
 			let r: number, g: number, b: number
 			if (shape && !shape.present((x + 0.5) / px, (y + 0.5) / px)) [r, g, b] = [24, 26, 30]
-			else if (lake && lakeRgb && !Number.isNaN(lake[y * s + x])) [r, g, b] = lakeRgb
+			else if ((lake && !Number.isNaN(lake[y * s + x])) || river[y * s + x]) [r, g, b] = lakeRgb
 			else if (water && v < level) {
 				const d = Math.min(1, (level - v) / 90)
 				r = 70 - d * 50
