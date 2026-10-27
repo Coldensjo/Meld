@@ -129,6 +129,7 @@ const shapes: Record<string, Check> = {
 	recentAssets: arr(str),
 	favoriteAssets: arr(str),
 	keymap: (v) => isObj(v) && Object.values(v).every(arr(str)),
+	scriptBrushTags: (v) => isObj(v) && Object.values(v).every((t) => isObj(t) && Object.values(t).every((x) => num(x) || str(x) || bool(x))),
 }
 
 /** Whether `v` has the nested shape the preference `key` needs; true for a key with no nested data. */

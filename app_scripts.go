@@ -36,3 +36,28 @@ func (a *App) DeleteScript(name string) error {
 	}
 	return scripts.Delete(dir, name)
 }
+
+// ScriptImage is a PNG read for a script's load_png (#29): its size, and where the page fetches its
+// RGBA pixels from (a handoff, since a 4096-square image is 64 MB of pixels).
+type ScriptImage struct {
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	URL    string `json:"url"`
+}
+
+// LoadScriptImage reads a PNG for a script: a path relative to the scripts folder, or a whole one.
+func (a *App) LoadScriptImage(path string) (ScriptImage, error) {
+	dir, err := scripts.Dir()
+	if err != nil {
+		return ScriptImage{}, err
+	}
+	file, err := scripts.ImagePath(dir, path)
+	if err != nil {
+		return ScriptImage{}, err
+	}
+	w, h, pix, err := scripts.LoadPNG(file)
+	if err != nil {
+		return ScriptImage{}, err
+	}
+	return ScriptImage{Width: w, Height: h, URL: a.handoffs.Put(pix)}, nil
+}

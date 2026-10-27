@@ -1,5 +1,6 @@
 <script lang="ts">
 	import OptSlider from './OptSlider.svelte'
+	import ScriptBrushBar from './ScriptBrushBar.svelte'
 	import { TOOLS } from './Toolbar.svelte'
 	import { MAX_BRUSH_RADIUS, editor, prefs, setStatus, stats, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -675,6 +676,9 @@
 			</select>
 			<button onclick={() => (ui.dialog = 'stack')} title="Edit the stack's brushes: their order, modes, textures and what they take from the stack">{activeBrushStack() ? 'Edit stack…' : 'New stack…'}</button>
 			<OptSlider label="Turn" bind:value={editor.brushImage.rotation} min={0} max={360} step={1} digits={0} width={60} title="The stack's turn for the image brush, which its brushes take unless they have their own" />
+			<div class="divider"></div>
+		{:else if editor.tool === 'script'}
+			<ScriptBrushBar />
 			<div class="divider"></div>
 		{:else if editor.tool === 'doodad'}
 			<div class="seg" title="Paint models with a doodad brush, or creatures with the spawn brush">

@@ -22,7 +22,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp' | 'path'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp' | 'path' | 'script'
 /**
  * What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID), the
  * impassable flag, or the cells that grow no ground effect doodads.
@@ -621,6 +621,12 @@ export const prefs = $state({
 	brushStacks: [] as BrushStack[],
 	brushStack: '',
 	doodadBrush: '',
+	/**
+	 * The Script Brush tool (#29): the scripts folder's file it loads, and its brushes' setting (tag) values,
+	 * by `file/brush` and then the tag's label. Replace an inner record, never edit it in place.
+	 */
+	scriptBrush: '',
+	scriptBrushTags: {} as Record<string, Record<string, number | string | boolean>>,
 	/** The folder of the user's own greyscale images that shape the image brushes (editor.brushImage). */
 	brushImageDir: '',
 	/** The folder the author's prefabs are kept in (#170), listed by the asset browser's Prefabs tab. */

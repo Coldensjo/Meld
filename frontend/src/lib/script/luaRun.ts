@@ -6,4 +6,4 @@ import { setLuaWasmUrl } from './scriptApi'
 
 setLuaWasmUrl(wasmUrl)
 
-export { runScript } from './scriptApi'
+export { openScript, runScript } from './scriptApi'

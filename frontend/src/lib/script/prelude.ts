@@ -6,8 +6,9 @@
 //
 // Heights: `sel:verts()` reads the selection's vertex block once; `vert:set_height` writes into that copy,
 // and the block goes back to the map on `sel:apply()`, before any model call (a model's height is read
-// against the ground), before another block is read, and when the script ends. The prelude ends by
-// loading and running the script (`H.code()`), so a script is one chunk under one time limit.
+// against the ground), before another block is read, and when the script (or a brush event) ends. The
+// prelude ends by loading and running the script (`H.code()`), so a script is one chunk under one time
+// limit; a script that made brushes keeps its state, and each brush event calls `__meld_event`.
 
 export const PRELUDE = String.raw`
 local H = __host
@@ -114,9 +115,14 @@ function random_from_time()
 	return random_from_seed(tostring(H.now()))
 end
 
--- The terrain: a grid of vertices cell yards apart, verts a side.
-local info = H.terrain()
-local V, CELL = info.verts, info.cell
+-- The terrain: a grid of vertices cell yards apart, verts a side (read again for each brush event, as the
+-- map painted may be another).
+local V, CELL
+local function read_terrain()
+	local info = H.terrain()
+	V, CELL = info.verts, info.cell
+end
+read_terrain()
 
 -- Vertex blocks read by sel:verts() with edits not yet written back.
 local pending = {}
@@ -240,7 +246,6 @@ end
 function sel_mt:apply() flush() end
 sel_mt.tex = missing('selection:tex')
 sel_mt.chunks = missing('selection:chunks')
-sel_mt.make_noise = missing('selection:make_noise')
 
 function select_between(a, b) return selection(a, b) end
 function select_origin(o, xr, zr)
@@ -268,13 +273,13 @@ function cam_yaw() return H.camera().yaw end
 function get_map_id() return H.map_id() end
 function get_area_id(p) need_vec(p, 'get_area_id') return H.area_id(p.x, p.z) end
 
--- Keys and buttons held: a script run from the Scripts window runs once, with none held.
-function holding_alt() return false end
-function holding_shift() return false end
-function holding_ctrl() return false end
-function holding_space() return false end
-function holding_left_mouse() return false end
-function holding_right_mouse() return false end
+-- Keys and buttons held: what a brush event was sent with; none for a script run from the Scripts window.
+function holding_alt() return H.holding('alt') end
+function holding_shift() return H.holding('shift') end
+function holding_ctrl() return H.holding('ctrl') end
+function holding_space() return H.holding('space') end
+function holding_left_mouse() return H.holding('left') end
+function holding_right_mouse() return H.holding('right') end
 
 -- Meld's own: the spot the camera looks at, and the area the Select tool selected (nil for none).
 function target_pos() local t = H.target() return vec(t.x, t.y, t.z) end
@@ -284,11 +289,154 @@ function selected_area()
 	return selection(vec(a.x0, 0, a.z0), vec(a.x1, 0, a.z1))
 end
 
--- Not in Meld yet: script brushes, noise, images, files and chunk textures.
-brush = missing('brush (script brushes)')
-make_noise = missing('make_noise')
-create_image = missing('create_image')
-load_png = missing('load_png')
+-- Noise maps (#29): a grid of values over whole yards from (sx, sz), kept on the JavaScript side
+-- (scriptNoise.ts) and freed when Lua collects the map.
+local noise_mt = {}
+noise_mt.__index = noise_mt
+noise_mt.__gc = function(m) H.noise_free(m._id) end
+local function noisemap(sx, sz, w, h, freq, algo, seed)
+	sx, sz, w, h = mfloor(sx), mfloor(sz), mfloor(w), mfloor(h)
+	local id = H.noise_make(sx, sz, w, h, tonumber(freq) or 1, tostring(algo), tostring(seed))
+	if type(id) == 'string' then error('make_noise: ' .. id, 3) end
+	return setmetatable({ _id = id, _sx = sx, _sz = sz, _w = w, _h = h }, noise_mt)
+end
+local function noise_out(m, what, x, z)
+	error(string.format('%s: noise coordinates out of bounds: x=%d z=%d width=%d height=%d', what, x, z, m._w, m._h), 3)
+end
+function noise_mt:get(p)
+	need_vec(p, 'noisemap:get')
+	local x, z = round(p.x) - self._sx, round(p.z) - self._sz
+	local v = H.noise_get(self._id, x, z)
+	if v == nil then noise_out(self, 'noisemap:get', x, z) end
+	return v
+end
+function noise_mt:is_highest(p, r)
+	need_vec(p, 'noisemap:is_highest')
+	local res = H.noise_highest(self._id, round(p.x) - self._sx, round(p.z) - self._sz, mfloor(r or 0))
+	if type(res) == 'string' then error('noisemap:is_highest: ' .. res, 2) end
+	return res
+end
+function noise_mt:set(x, z, v)
+	if not H.noise_set(self._id, x, z, v) then noise_out(self, 'noisemap:set', x, z) end
+end
+function noise_mt:width() return self._w end
+function noise_mt:height() return self._h end
+function noise_mt:start() return vec(self._sx, 0, self._sz) end
+function make_noise(sx, sz, w, h, freq, algo, seed) local m = noisemap(sx, sz, w, h, freq, algo, seed) return m end
+-- Padded by 2 yards all round, as Noggit Red pads it, so rounding never reads past its edge.
+function sel_mt:make_noise(freq, algo, seed)
+	local m = noisemap(mfloor(self._min.x) - 2, mfloor(self._min.z) - 2, mceil(self._size.x) + 4, mceil(self._size.z) + 4, freq, algo, seed)
+	return m
+end
+
+-- Images (#29): RGBA pixels kept on the JavaScript side, channels read and written as 0..1.
+local image_mt = {}
+image_mt.__index = image_mt
+image_mt.__gc = function(m) H.image_free(m._id) end
+local function wrap_image(id, w, h) return setmetatable({ _id = id, _w = w, _h = h }, image_mt) end
+local function channel(img, x, y, c, what)
+	local v = H.image_get(img._id, x, y, c)
+	if v == nil then error(string.format('%s: image coordinates out of bounds: x=%s y=%s width=%d height=%d', what, tostring(x), tostring(y), img._w, img._h), 3) end
+	return v
+end
+function image_mt:get_pixel(x, y) return channel(self, x, y, -1, 'image:get_pixel') end
+function image_mt:get_red(x, y) return channel(self, x, y, 0, 'image:get_red') end
+function image_mt:get_green(x, y) return channel(self, x, y, 1, 'image:get_green') end
+function image_mt:get_blue(x, y) return channel(self, x, y, 2, 'image:get_blue') end
+function image_mt:get_alpha(x, y) return channel(self, x, y, 3, 'image:get_alpha') end
+function image_mt:set_pixel_floats(x, y, r, g, b, a)
+	if not H.image_set(self._id, x, y, r or 0, g or 0, b or 0, a or 1) then channel(self, x, y, 0, 'image:set_pixel_floats') end
+end
+-- The pixel packed as get_pixel gives it: red in the top byte, alpha in the bottom one.
+function image_mt:set_pixel(x, y, v)
+	v = mfloor(v or 0)
+	local r, g, b, a = (v >> 24) & 255, (v >> 16) & 255, (v >> 8) & 255, v & 255
+	if not H.image_set(self._id, x, y, r / 255, g / 255, b / 255, a / 255) then channel(self, x, y, 0, 'image:set_pixel') end
+end
+function image_mt:gradient_scale(rel)
+	if type(rel) ~= 'number' or rel < 0 or rel >= 1 then error('image:gradient_scale: relative image coordinate out of bounds: ' .. tostring(rel) .. ' (should be >= 0 and < 1)', 2) end
+	return channel(self, mfloor(rel * self._w), 0, 0, 'image:gradient_scale')
+end
+function image_mt:width() return self._w end
+function image_mt:height() return self._h end
+image_mt.save = missing('image:save (writing files, #761)')
+function create_image(w, h)
+	w, h = mfloor(tonumber(w) or 0), mfloor(tonumber(h) or 0)
+	local id = H.image_new(w, h)
+	if type(id) == 'string' then error('create_image: ' .. id, 2) end
+	return wrap_image(id, w, h)
+end
+-- A path relative to the scripts folder, or a whole one. The app reads the file, so the script waits for it.
+function load_png(path)
+	local r = H.image_load(tostring(path)):await()
+	if type(r) == 'string' then error(r, 2) end
+	return wrap_image(r.id, r.w, r.h)
+end
+
+-- Script brushes (#29): brush(name) makes a brush for the Script Brush tool, with tags (its settings,
+-- whose values the tool's options bar sets) and on_left_click, on_left_hold and on_left_release (and
+-- the right ones) called as a stroke goes. The app keeps this Lua state while the brush is loaded.
+local brushes = {}
+local brush_mt = {}
+brush_mt.__index = brush_mt
+local tag_mt = {}
+tag_mt.__index = tag_mt
+function tag_mt:get() return H.tag(self._b, self._t) end
+local function tag(b, kind, label, low, high, def, digits, values)
+	local t = H.add_tag(b._i, kind, tostring(label or ''), tonumber(low) or 0, tonumber(high) or 0, def, tonumber(digits) or 0, values or '')
+	return setmetatable({ _b = b._i, _t = t }, tag_mt)
+end
+function brush_mt:add_int_tag(item, low, high, def) return tag(self, 'int', item, low, high, tonumber(def) or tonumber(low) or 0, 0) end
+function brush_mt:add_real_tag(item, low, high, def, zeros) return tag(self, 'real', item, low, high, tonumber(def) or tonumber(low) or 0, zeros or 2) end
+function brush_mt:add_string_tag(item, def) return tag(self, 'string', item, 0, 0, def == nil and '' or tostring(def)) end
+function brush_mt:add_bool_tag(item, def) return tag(self, 'bool', item, 0, 0, def == true) end
+function brush_mt:add_string_list_tag(item, ...)
+	local vs = { ... }
+	for k, v in ipairs(vs) do vs[k] = tostring(v) end
+	return tag(self, 'list', item, 0, 0, vs[1] or '', 0, concat(vs, string.char(31)))
+end
+function brush_mt:add_null_tag() tag(self, 'null', '', 0, 0, '') end
+function brush_mt:add_description(text) tag(self, 'description', text, 0, 0, '') end
+function brush_mt:set_name(name)
+	self._name = tostring(name)
+	H.brush_name(self._i, self._name)
+end
+function brush_mt:get_name() return self._name end
+function brush(name)
+	name = tostring(name)
+	local i = H.add_brush(name)
+	local b = setmetatable({ _i = i, _name = name }, brush_mt)
+	brushes[i] = b
+	return b
+end
+
+local evt_mt = {}
+evt_mt.__index = evt_mt
+function evt_mt:pos() return copy(self._p) end
+function evt_mt:outer_radius() return self._o end
+function evt_mt:inner_radius() return self._in end
+function evt_mt:dt() return self._dt end
+function evt_mt:set_outer_radius(v)
+	self._o = tonumber(v) or self._o
+	H.set_radius(self._o, self._in)
+end
+function evt_mt:set_inner_radius(v)
+	self._in = tonumber(v) or self._in
+	H.set_radius(self._o, self._in)
+end
+local EVENTS = { 'left_click', 'left_hold', 'left_release', 'right_click', 'right_hold', 'right_release' }
+
+-- Called by the app for each event of a stroke (ScriptSession.event); i counts brushes from 0.
+function __meld_event(i, kind, x, y, z, outer, inner, dt)
+	local b = brushes[i]
+	local f = b and rawget(b, 'on_' .. kind)
+	if not f then return end
+	read_terrain()
+	f(b, setmetatable({ _p = vec(x, y, z), _o = outer, _in = inner, _dt = dt }, evt_mt))
+	flush()
+end
+
+-- Not in Meld yet: files and chunk textures.
 get_chunk = missing('get_chunk')
 write_file = missing('write_file')
 append_file = missing('append_file')
@@ -300,4 +448,12 @@ local chunk, err = load(H.code(), '=' .. H.name(), 't')
 if not chunk then error(err, 0) end
 chunk()
 flush()
+-- Which events each brush handles, for the tool.
+for i, b in pairs(brushes) do
+	local list = {}
+	for _, k in ipairs(EVENTS) do
+		if rawget(b, 'on_' .. k) then list[#list + 1] = k end
+	end
+	H.brush_handles(i, concat(list, ','))
+end
 `

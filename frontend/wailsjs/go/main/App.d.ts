@@ -165,6 +165,8 @@ export function LoadRecovery(arg1:string):Promise<mapfile.MapData>;
 
 export function LoadRegion(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionView>;
 
+export function LoadScriptImage(arg1:string):Promise<main.ScriptImage>;
+
 export function LoadSpawns(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.WorldSpawn>>;
 
 export function LoadingScreens():Promise<Array<vmangos.LoadingScreen>>;

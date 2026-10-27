@@ -26,3 +26,25 @@ await __engine.runScript('print(camera_pos(), #select_origin(target_pos(), 50):m
 - The probe's loop check waits out the whole 10 s limit, so the probe takes about 20 s.
 - Lua's integers print without `.0` (`90`), floats with it (`90.0`); a number that crossed from
   JavaScript prints as either, so compare with a pattern that takes both.
+
+## Script brushes, noise and images (#29, probe `script-brush`)
+
+Checks: `tests/luaScript.test.ts` covers the brush registry and tags (kinds, defaults kept to the
+range), events with the position, radius, keys and tag values, an error at the handler's line, a
+brush event reading the terrain of the host it is sent with, the event time limit, noise maps (the
+grid, out-of-bounds errors, the FRACTAL fallback for encoded trees, `is_highest`, freed by Lua's
+collector, every algorithm about -1..1) and images (`create_image`, the packed pixel, `load_png`
+waiting for the host in a run and in an event). `internal/scripts` tests `ImagePath` and `LoadPNG`.
+The probe `script-brush` loads a brush through `Engine.runScript` on a flat map, checks the options
+bar's controls, strokes it with `P.stroke('script', ...)` (click, holds, release, a noise map, a model
+placed), checks the one undo step, a handler's error, and `load_png` of a missing file and of a PNG
+written to the throwaway client's scratch folder (`P.sandboxClient`, `P.sandboxFile`).
+
+- A stroke's events run on a promise chain: after `P.stroke`, wait for
+  `await __engine.scriptBrushes.settled()` before reading the map or the history.
+- Noggit Red's own example brushes (`C:\WoW\noggit-red\scripts`) are GPL: never copy them into the
+  repo or a test. To try one, save it in the scripts folder and pick it in the Script Brush tool's
+  options bar; `height_noise.lua` (the FRACTAL fallback), `prop_placer.lua` (set a Prop 1 model path)
+  and `clean.lua` (Ctrl and Alt; its Shift part needs chunks, #760) run.
+- After adding a binding, `wails dev` may not rebuild the Go side (#387): the probe's `load_png` then
+  fails with "LoadScriptImage is not a function"; stop `Meld-dev.exe` and the `bun` processes and rerun.

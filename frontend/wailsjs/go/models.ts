@@ -367,6 +367,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ScriptImage {
+	    width: number;
+	    height: number;
+	    url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptImage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.url = source["url"];
+	    }
+	}
 	export class SoundsSaved {
 	    changed: boolean;
 	    waiting: boolean;

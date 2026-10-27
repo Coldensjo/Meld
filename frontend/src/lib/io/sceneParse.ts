@@ -60,7 +60,7 @@ export interface Scene {
 }
 
 /** Every ToolId; the compiler checks each entry is one, a test checks the list against the tools. */
-export const TOOL_IDS: readonly ToolId[] = ['select', 'sculpt', 'paint', 'road', 'water', 'place', 'clear', 'doodad', 'mapdata', 'stamp', 'path']
+export const TOOL_IDS: readonly ToolId[] = ['select', 'sculpt', 'paint', 'road', 'water', 'place', 'clear', 'doodad', 'mapdata', 'stamp', 'path', 'script']
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)

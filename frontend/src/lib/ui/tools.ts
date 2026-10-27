@@ -28,6 +28,13 @@ export const TOOLS: Array<{ id: ToolId; name: string; desc: string; key: string;
 	{ id: 'doodad', name: 'Doodad Brush', desc: 'Scatter a brush of weighted models over the ground (Ctrl erases them).', key: '8', icon: 'M7 3l4 7H3zM7 10v4M17 8l3.5 6h-7zM17 14v3M3 21l2-3h5l2 3zM15 21h6' },
 	{ id: 'stamp', name: 'Stamp', desc: 'One stroke applies a stack of sculpt and paint brushes together (Edit stack in the options bar).', key: '0', icon: 'M7 3h10v5l-3 3v3h5v3H5v-3h5v-3L7 8zM4 21h16' },
 	{
+		id: 'script',
+		name: 'Script Brush',
+		desc: "Paint with a Lua brush script from the scripts folder, Noggit Red's script brushes: its settings show in the options bar, and each click, hold and release runs it. Tools › Scripts writes them.",
+		key: 'Y',
+		icon: 'M4 20c2.5 0 4-1.2 4-3.5L16 8.5 13.5 6l-8 8c-2 .3-1.5 3.5-1.5 6zM14.5 5l2-2L19 5.5l-2 2M15 14l-2.5 2.5L15 19M19 14l2.5 2.5L19 19',
+	},
+	{
 		id: 'mapdata',
 		name: 'Map Data',
 		desc: 'Paint the zone each chunk belongs to (Alt+click picks the one under the cursor), mark chunks impassable, or cells that grow no grass tufts.',

@@ -840,3 +840,4 @@ the same scene, the report before and after.
 ### Scripting (`docs/tests/scripting.md`)
 
 - Lua scripts: the API, undo and the Scripts window (#28, probe `lua-script`)
+- Script brushes, noise and images (#29, probe `script-brush`)

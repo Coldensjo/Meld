@@ -1,9 +1,12 @@
 // The Lua scripting engine (#28): runs a script under wasmoon (Lua 5.4 compiled to WebAssembly, MIT; the
 // Lua Noggit Red itself builds against) with Noggit Red's script API (prelude.ts) over a `ScriptHost`,
 // which the Engine gives for the active map (engine/ScriptRun.ts) and the tests give over plain arrays.
-// Each run gets a fresh Lua state with the base, table, string and math libraries, and a time limit.
-import { LuaFactory, LuaLibraries } from 'wasmoon'
+// Each script gets a fresh Lua state with the base, table, string and math libraries, and a time limit.
+// A script that makes brushes (`brush(name)`, #29) keeps its state as a `ScriptSession`, whose brushes
+// the Script Brush tool calls on each click, hold and release, each event under the same time limit.
+import { LuaFactory, LuaLibraries, type LuaEngine } from 'wasmoon'
 import { PRELUDE } from './prelude'
+import { noiseAlgorithm, noiseGrid, seedOf } from './scriptNoise'
 
 /** A model as the script sees it: rotation in degrees (y the yaw, as Noggit Red gives it), position in yards. */
 export interface ScriptModel {
@@ -17,6 +20,13 @@ export interface ScriptModel {
 	ry: number
 	rz: number
 	scale: number
+}
+
+/** An image's pixels, RGBA a byte each, row by row from the top. */
+export interface ScriptImage {
+	width: number
+	height: number
+	data: Uint8Array
 }
 
 /**
@@ -44,9 +54,11 @@ export interface ScriptHost {
 	areaId(x: number, z: number): number
 	/** The area the Select tool selected, as a rect in yards, or null. */
 	area(): { x0: number; z0: number; x1: number; z1: number } | null
+	/** Reads a PNG for `load_png` (#29): the image, or why not. Missing where no files can be read. */
+	loadImage?(path: string): Promise<ScriptImage | string>
 }
 
-/** How long a script may run before it is stopped, in milliseconds. */
+/** How long a script may run before it is stopped, in milliseconds; each brush event gets as long. */
 export const SCRIPT_TIMEOUT = 10_000
 
 let factory: LuaFactory | null = null
@@ -70,45 +82,334 @@ export interface ScriptResult {
 	ms: number
 }
 
-/** Runs `code` (a file named `name`) against `host`. Never throws: an error comes back in the result. */
-export async function runScript(code: string, name: string, host: ScriptHost, timeout = SCRIPT_TIMEOUT): Promise<ScriptResult> {
+/** A setting of a script brush, which its panel shows as a control (Noggit Red's tags). */
+export type TagSpec =
+	| { kind: 'int' | 'real'; label: string; low: number; high: number; def: number; digits: number }
+	| { kind: 'string'; label: string; def: string }
+	| { kind: 'bool'; label: string; def: boolean }
+	| { kind: 'list'; label: string; values: string[]; def: string }
+	/** An empty row (add_null_tag). */
+	| { kind: 'null'; label: '' }
+	/** A line of text (add_description). */
+	| { kind: 'description'; label: string }
+
+export type TagValue = number | string | boolean
+
+/** What a brush is told: the click, the hold of each frame after it, and the release. */
+export const BRUSH_EVENTS = ['left_click', 'left_hold', 'left_release', 'right_click', 'right_hold', 'right_release'] as const
+export type BrushEventKind = (typeof BRUSH_EVENTS)[number]
+
+/** A brush a script made with `brush(name)`: its settings and the events it handles. */
+export interface BrushSpec {
+	name: string
+	tags: TagSpec[]
+	handles: BrushEventKind[]
+}
+
+/** One brush event: where, the brush's radius (inner as a part of the outer, 0 to 1) and the seconds since the last. */
+export interface BrushEvent {
+	x: number
+	y: number
+	z: number
+	outer: number
+	inner: number
+	dt: number
+}
+
+/** The keys and buttons held, for `holding_*`. */
+export interface BrushKeys {
+	alt: boolean
+	shift: boolean
+	ctrl: boolean
+	space: boolean
+	left: boolean
+	right: boolean
+}
+
+const NO_KEYS: BrushKeys = { alt: false, shift: false, ctrl: false, space: false, left: false, right: false }
+
+/** The most pixels an image may have (create_image, load_png): 4096 by 4096. */
+export const MAX_IMAGE_PIXELS = 4096 * 4096
+
+/**
+ * A Lua state with the script API loaded and a script run in it. A one-off run closes it at once
+ * (`runScript`); a script that made brushes keeps it, and the Script Brush tool sends its events
+ * (`event`) with the host of the map being painted. Noise maps and images live here, on the JavaScript
+ * side, and the Lua side frees them when it collects them.
+ */
+export class ScriptSession {
+	/** The editor the script reaches; the Script Brush tool sets the active map's for each stroke. */
+	host: ScriptHost
+	/** The keys held, for the next event. */
+	keys: BrushKeys = NO_KEYS
+	/** Called when an event sets the brush's radius (`evt:set_outer_radius`, `evt:set_inner_radius`). */
+	onRadius: ((outer: number, inner: number) => void) | null = null
+	readonly brushes: BrushSpec[] = []
+	/** Each brush's tag values, by tag index. */
+	readonly values: TagValue[][] = []
+	private noises = new Map<number, { w: number; h: number; data: Float32Array }>()
+	private images = new Map<number, ScriptImage>()
+	private nextId = 1
+	private closed = false
+	private fallbackNoted = false
+
+	constructor(
+		private lua: LuaEngine,
+		readonly name: string,
+		host: ScriptHost,
+		private timeout: number,
+	) {
+		this.host = host
+	}
+
+	/** Runs the prelude and the script. */
+	async load(code: string, start: number): Promise<ScriptResult> {
+		const g = this.lua.global
+		try {
+			for (const lib of [LuaLibraries.Base, LuaLibraries.Table, LuaLibraries.String, LuaLibraries.Math]) g.loadLibrary(lib)
+			g.set('__host', this.hostTable(code))
+			await this.runChunk(PRELUDE, [])
+			return { ok: true, ms: performance.now() - start }
+		} catch (e) {
+			return this.failure(e, start)
+		}
+	}
+
+	/** Sends brush `brush` an event; the brush's handler for it runs, if it has one. Never throws. */
+	async event(brush: number, kind: BrushEventKind, e: BrushEvent): Promise<ScriptResult> {
+		const start = performance.now()
+		if (this.closed) return { ok: false, error: `${this.name}: the brush was unloaded`, ms: 0 }
+		if (!this.brushes[brush]?.handles.includes(kind)) return { ok: true, ms: 0 }
+		try {
+			await this.runChunk('return __meld_event(...)', [brush, kind, e.x, e.y, e.z, e.outer, e.inner, e.dt])
+			return { ok: true, ms: performance.now() - start }
+		} catch (err) {
+			return this.failure(err, start)
+		}
+	}
+
+	/** Sets a tag's value, as the brush's panel changes it. */
+	setTag(brush: number, tag: number, v: TagValue) {
+		const vs = this.values[brush]
+		if (vs && tag < vs.length) vs[tag] = v
+	}
+
+	close() {
+		if (this.closed) return
+		this.closed = true
+		this.lua.global.close()
+		this.noises.clear()
+		this.images.clear()
+	}
+
+	/** Noise maps and images held for the Lua side (the tests check they are freed). */
+	get held(): number {
+		return this.noises.size + this.images.size
+	}
+
+	/** Loads `code` into a new Lua thread and runs it with `args`, under the time limit. */
+	private async runChunk(code: string, args: unknown[]) {
+		const g = this.lua.global
+		const top = g.getTop()
+		try {
+			const thread = g.newThread()
+			thread.loadString(code, '=meld')
+			for (const a of args) thread.pushValue(a)
+			await thread.run(args.length, { timeout: this.timeout })
+		} finally {
+			// newThread leaves the thread on the main stack: drop it, so a brush's events don't pile up there.
+			if (!this.closed) g.setTop(top)
+		}
+	}
+
+	private failure(e: unknown, start: number): ScriptResult {
+		const msg = e instanceof Error ? e.message : String(e)
+		const error = /thread timeout exceeded/.test(msg) ? `${this.name}: stopped after ${this.timeout / 1000} s (an endless loop?)` : scriptTrace(msg, this.name)
+		return { ok: false, error, ms: performance.now() - start }
+	}
+
+	/** The functions the prelude calls (`__host`), each reaching the current host. */
+	private hostTable(code: string) {
+		// wasmoon can't push null: a JS function that returns nothing returns undefined.
+		const orNil = <T>(v: T | null): T | undefined => (v === null ? undefined : v)
+		const h = () => this.host
+		return {
+			code: () => code,
+			name: () => this.name,
+			print: (s: string) => h().print(s),
+			now: () => Date.now(),
+			terrain: () => h().terrain(),
+			heights: (x0: number, z0: number, x1: number, z1: number) => h().heights(x0, z0, x1, z1),
+			set_heights: (x0: number, z0: number, w: number, hh: number, hs: unknown) => h().setHeights(x0, z0, w, hh, numbers(hs, w * hh)),
+			models: (x0: number, z0: number, x1: number, z1: number) => h().models(x0, z0, x1, z1),
+			add_model: (kind: string, file: string, x: number, y: number, z: number, rx: number, ry: number, rz: number, scale: number) => h().addModel(kind === 'wmo' ? 'wmo' : 'm2', file, x, y, z, rx, ry, rz, scale),
+			set_model: (id: number, x: number, y: number, z: number, rx: number, ry: number, rz: number, scale: number) => h().setModel(id, x, y, z, rx, ry, rz, scale),
+			remove_model: (id: number) => h().removeModel(id),
+			replace_model: (id: number, file: string) => h().replaceModel(id, file),
+			camera: () => h().camera(),
+			target: () => h().target(),
+			map_id: () => h().mapId(),
+			area_id: (x: number, z: number) => h().areaId(x, z),
+			area: () => orNil(h().area()),
+			holding: (k: string) => !!this.keys[k as keyof BrushKeys],
+			// Brushes and their tags (#29).
+			add_brush: (name: string) => {
+				this.brushes.push({ name, tags: [], handles: [] })
+				this.values.push([])
+				return this.brushes.length - 1
+			},
+			brush_name: (b: number, name: string) => {
+				if (this.brushes[b]) this.brushes[b].name = name
+			},
+			brush_handles: (b: number, list: string) => {
+				if (this.brushes[b]) this.brushes[b].handles = BRUSH_EVENTS.filter((k) => list.split(',').includes(k))
+			},
+			add_tag: (b: number, kind: string, label: string, low: number, high: number, def: TagValue, digits: number, values: string) => {
+				const spec = tagSpec(kind, label, low, high, def, digits, values)
+				const br = this.brushes[b]
+				br.tags.push(spec)
+				this.values[b].push('def' in spec ? spec.def : '')
+				return br.tags.length - 1
+			},
+			tag: (b: number, t: number) => this.values[b]?.[t],
+			set_radius: (outer: number, inner: number) => this.onRadius?.(outer, inner),
+			// Noise maps (make_noise).
+			noise_make: (sx: number, sy: number, w: number, hh: number, freq: number, algorithm: string, seed: string) => {
+				if (!(w > 0 && hh > 0) || w * hh > MAX_IMAGE_PIXELS) return `invalid noise map size: width=${w} height=${hh}`
+				const algo = noiseAlgorithm(algorithm)
+				if (typeof algo === 'string') return algo
+				if (algo.fallback && !this.fallbackNoted) {
+					this.fallbackNoted = true
+					h().print("make_noise: FastNoise2's encoded node trees can't be read in Meld; FRACTAL noise is used instead.")
+				}
+				const id = this.nextId++
+				this.noises.set(id, { w, h: hh, data: noiseGrid(algo.name, sx, sy, w, hh, freq, seedOf(seed)) })
+				return id
+			},
+			noise_get: (id: number, x: number, y: number) => {
+				const m = this.noises.get(id)
+				if (!m || !(x >= 0 && x < m.w && y >= 0 && y < m.h)) return undefined
+				return m.data[(y | 0) * m.w + (x | 0)]
+			},
+			noise_set: (id: number, x: number, y: number, v: number) => {
+				const m = this.noises.get(id)
+				if (!m || !(x >= 0 && x < m.w && y >= 0 && y < m.h)) return false
+				m.data[(y | 0) * m.w + (x | 0)] = v
+				return true
+			},
+			// Noggit Red's check: no point from x - r to x + r - 1 (and so for y) is higher.
+			noise_highest: (id: number, x: number, y: number, r: number) => {
+				const m = this.noises.get(id)
+				if (!m) return 'the noise map was freed'
+				const out = (px: number, py: number) => `noise coordinates out of bounds: x=${px} y=${py} width=${m.w} height=${m.h}`
+				if (!(x >= 0 && x < m.w && y >= 0 && y < m.h)) return out(x, y)
+				const own = m.data[y * m.w + x]
+				for (let xc = x - r; xc < x + r; xc++) {
+					for (let yc = y - r; yc < y + r; yc++) {
+						if (xc === x && yc === y) continue
+						if (!(xc >= 0 && xc < m.w && yc >= 0 && yc < m.h)) return out(xc, yc)
+						if (m.data[yc * m.w + xc] > own) return false
+					}
+				}
+				return true
+			},
+			noise_free: (id: number) => void this.noises.delete(id),
+			// Images (create_image, load_png).
+			image_new: (w: number, hh: number) => {
+				if (!(w > 0 && hh > 0) || w * hh > MAX_IMAGE_PIXELS) return `invalid image size: x=${w} y=${hh}`
+				return this.keepImage({ width: w | 0, height: hh | 0, data: new Uint8Array((w | 0) * (hh | 0) * 4) })
+			},
+			image_load: async (path: string) => {
+				const load = h().loadImage
+				if (!load) return 'load_png: images can only be read in the desktop app'
+				const img = await load.call(h(), path)
+				if (typeof img === 'string') return `load_png: ${img}`
+				if (img.width * img.height > MAX_IMAGE_PIXELS) return `load_png: ${path} is ${img.width}×${img.height}, over 4096×4096`
+				return { id: this.keepImage(img), w: img.width, h: img.height }
+			},
+			// The pixel packed as Noggit Red packs it (red in the top byte), or a channel (0 red to 3 alpha) in 0..1.
+			image_get: (id: number, x: number, y: number, c: number) => {
+				const at = this.pixel(id, x, y)
+				if (at < 0) return undefined
+				const d = this.images.get(id)!.data
+				if (c >= 0) return d[at + c] / 255
+				return ((d[at] << 24) | (d[at + 1] << 16) | (d[at + 2] << 8) | d[at + 3]) >>> 0
+			},
+			image_set: (id: number, x: number, y: number, r: number, g: number, b: number, a: number) => {
+				const at = this.pixel(id, x, y)
+				if (at < 0) return false
+				const d = this.images.get(id)!.data
+				const byte = (v: number) => Math.max(0, Math.min(255, Math.trunc(v * 255)))
+				d[at] = byte(r)
+				d[at + 1] = byte(g)
+				d[at + 2] = byte(b)
+				d[at + 3] = byte(a)
+				return true
+			},
+			image_free: (id: number) => void this.images.delete(id),
+		}
+	}
+
+	private keepImage(img: ScriptImage): number {
+		const id = this.nextId++
+		this.images.set(id, img)
+		return id
+	}
+
+	/** The byte offset of pixel (x, y) of image `id`, or -1 off the image. */
+	private pixel(id: number, x: number, y: number): number {
+		const img = this.images.get(id)
+		if (!img || !(x >= 0 && x < img.width && y >= 0 && y < img.height)) return -1
+		return ((y | 0) * img.width + (x | 0)) * 4
+	}
+}
+
+/** A tag as the prelude gives it, its default kept to its kind and range. */
+function tagSpec(kind: string, label: string, low: number, high: number, def: TagValue, digits: number, values: string): TagSpec {
+	switch (kind) {
+		case 'int':
+		case 'real': {
+			const lo = Math.min(low, high)
+			const hi = Math.max(low, high)
+			const d = typeof def === 'number' && Number.isFinite(def) ? Math.min(hi, Math.max(lo, def)) : lo
+			return { kind, label, low: lo, high: hi, def: kind === 'int' ? Math.round(d) : d, digits: kind === 'int' ? 0 : Math.max(0, Math.min(6, digits | 0)) }
+		}
+		case 'bool':
+			return { kind, label, def: def === true }
+		case 'list': {
+			const vs = values ? values.split('\x1f') : []
+			return { kind, label, values: vs, def: vs[0] ?? '' }
+		}
+		case 'null':
+			return { kind: 'null', label: '' }
+		case 'description':
+			return { kind: 'description', label }
+		default:
+			return { kind: 'string', label, def: typeof def === 'string' ? def : String(def ?? '') }
+	}
+}
+
+/**
+ * Runs `code` (a file named `name`) in a fresh Lua state against `host`. Never throws: an error comes
+ * back in the result. A script that made brushes comes back with its session, kept open for the
+ * Script Brush tool; any other closes at once.
+ */
+export async function openScript(code: string, name: string, host: ScriptHost, timeout = SCRIPT_TIMEOUT): Promise<{ result: ScriptResult; session: ScriptSession | null }> {
 	const start = performance.now()
 	factory ??= new LuaFactory(wasmUrl)
 	const lua = await factory.createEngine({ openStandardLibs: false, enableProxy: false })
-	try {
-		for (const lib of [LuaLibraries.Base, LuaLibraries.Table, LuaLibraries.String, LuaLibraries.Math]) lua.global.loadLibrary(lib)
-		// wasmoon can't push null: a JS function that returns nothing returns undefined.
-		const orNil = <T>(v: T | null): T | undefined => (v === null ? undefined : v)
-		lua.global.set('__host', {
-			code: () => code,
-			name: () => name,
-			print: (s: string) => host.print(s),
-			now: () => Date.now(),
-			terrain: () => host.terrain(),
-			heights: (x0: number, z0: number, x1: number, z1: number) => host.heights(x0, z0, x1, z1),
-			set_heights: (x0: number, z0: number, w: number, h: number, hs: unknown) => host.setHeights(x0, z0, w, h, numbers(hs, w * h)),
-			models: (x0: number, z0: number, x1: number, z1: number) => host.models(x0, z0, x1, z1),
-			add_model: (kind: string, file: string, x: number, y: number, z: number, rx: number, ry: number, rz: number, scale: number) => host.addModel(kind === 'wmo' ? 'wmo' : 'm2', file, x, y, z, rx, ry, rz, scale),
-			set_model: (id: number, x: number, y: number, z: number, rx: number, ry: number, rz: number, scale: number) => host.setModel(id, x, y, z, rx, ry, rz, scale),
-			remove_model: (id: number) => host.removeModel(id),
-			replace_model: (id: number, file: string) => host.replaceModel(id, file),
-			camera: () => host.camera(),
-			target: () => host.target(),
-			map_id: () => host.mapId(),
-			area_id: (x: number, z: number) => host.areaId(x, z),
-			area: () => orNil(host.area()),
-		})
-		const thread = lua.global.newThread()
-		thread.loadString(PRELUDE, '=meld')
-		await thread.run(0, { timeout })
-		return { ok: true, ms: performance.now() - start }
-	} catch (e) {
-		const msg = e instanceof Error ? e.message : String(e)
-		const error = /thread timeout exceeded/.test(msg) ? `${name}: stopped after ${timeout / 1000} s (an endless loop?)` : scriptTrace(msg, name)
-		return { ok: false, error, ms: performance.now() - start }
-	} finally {
-		lua.global.close()
-	}
+	const session = new ScriptSession(lua, name, host, timeout)
+	const result = await session.load(code, start)
+	if (result.ok && session.brushes.length) return { result, session }
+	session.close()
+	return { result, session: null }
+}
+
+/** Runs `code` once against `host` and closes its state, brushes or not. Never throws. */
+export async function runScript(code: string, name: string, host: ScriptHost, timeout = SCRIPT_TIMEOUT): Promise<ScriptResult> {
+	const { result, session } = await openScript(code, name, host, timeout)
+	session?.close()
+	return result
 }
 
 /**

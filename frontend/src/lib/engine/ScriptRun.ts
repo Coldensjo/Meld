@@ -6,7 +6,7 @@ import { TerrainStroke } from '../tools/brush'
 import { groupTransformCommand } from '../tools/ObjectTools'
 import { addedCommand, removedCommand } from '../world/objectCommands'
 import { clampScale } from '../world/placement'
-import type { ScriptHost, ScriptModel } from '../script/scriptApi'
+import type { ScriptHost, ScriptImage, ScriptModel } from '../script/scriptApi'
 
 // The script API's host for the active map (#28): what a Lua script reads and writes of its terrain and
 // models, with every change gathered into one undo step (`finish`). Rotations cross as Noggit Red gives
@@ -22,6 +22,8 @@ export interface ScriptView {
 	areaAt(x: number, z: number): number
 	/** The Select tool's area as a vertex rect, or null. */
 	area: { x0: number; z0: number; x1: number; z1: number } | null
+	/** Reads a PNG for load_png (io/scriptFiles.ts). */
+	loadImage(path: string): Promise<ScriptImage | string>
 }
 
 const DEG = 180 / Math.PI
@@ -185,6 +187,10 @@ export class EngineScriptHost implements ScriptHost {
 		const a = this.view.area
 		const cs = this.ground.cellSize
 		return a ? { x0: a.x0 * cs, z0: a.z0 * cs, x1: a.x1 * cs, z1: a.z1 * cs } : null
+	}
+
+	loadImage(path: string): Promise<ScriptImage | string> {
+		return this.view.loadImage(path)
 	}
 
 	/** Whether the script changed anything. */

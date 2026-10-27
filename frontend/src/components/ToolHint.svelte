@@ -3,6 +3,7 @@
 	// These sentences used to sit in the options bar and pushed its controls off the screen.
 	import { editor, prefs, stats, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
+	import { scriptBrush } from '../lib/script/scriptBrush.svelte'
 
 	const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 </script>
@@ -28,6 +29,9 @@
 	{:else}
 		Click to add a point (on the curve inserts one) · drag a point to move it, <kbd>Shift</kbd>+drag to raise it · <kbd>Del</kbd> deletes the point · <kbd>Enter</kbd> applies · <kbd>Esc</kbd> starts a new path
 	{/if}
+{:else if editor.tool === 'script'}
+	{scriptBrush.name ? 'Each click, hold and release runs the brush script' : 'Pick a brush script in the options bar, or Run one in Tools › Scripts'} · <kbd>Shift</kbd>, <kbd>Ctrl</kbd>, <kbd>Alt</kbd> and <kbd>Space</kbd> reach it as holding_*()
+	· one stroke is one undo step
 {:else if editor.tool === 'stamp'}
 	The size and strength are the stack's: its brushes take them unless they have their own.
 {:else if editor.tool === 'doodad' && editor.doodadMode === 'creatures'}

@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { DeleteScript, ListScripts, SaveScript, ScriptsFolder } from '../../wailsjs/go/main/App'
-	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+	import { clearScriptLog, scriptLog, scriptSay } from '../lib/script/scriptBrush.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { askConfirm } from '../lib/state/confirm'
 	import { hasBackend } from '../lib/io/backend'
 
 	// The floating Scripts window (#28, Tools › Scripts): Lua scripts kept as .lua files in the scripts
 	// folder (internal/scripts), written here and run once on the active map (Engine.runScript) with
-	// Noggit Red's script API (lib/script/prelude.ts). What a script prints shows below it. It stays
-	// mounted while closed, so an unsaved script survives closing the window.
+	// Noggit Red's script API (lib/script/prelude.ts). What a script prints shows below it (scriptLog, which a
+	// brush's strokes print into too). Running a script that makes brushes (#29) loads it into the Script
+	// Brush tool instead. It stays mounted while closed, so an unsaved script survives closing the window.
 
 	const STARTER = `-- Raises a round hill where the camera looks, 30 yards across and 10 high.
 -- Every edit a run makes is one undo step. Ctrl+Enter runs, Ctrl+S saves.
@@ -27,11 +29,6 @@ sel:apply()
 print("Raised a hill at", center)
 `
 
-	interface Line {
-		text: string
-		kind: 'out' | 'err' | 'info'
-	}
-
 	let files = $state<{ name: string; text: string }[]>([])
 	/** The file the editor holds, or null for a script not saved yet. */
 	let current = $state<string | null>(null)
@@ -39,7 +36,6 @@ print("Raised a hill at", center)
 	let code = $state(STARTER)
 	/** The text as last loaded or saved, to tell unsaved changes. */
 	let saved = $state(STARTER)
-	let output = $state<Line[]>([])
 	let running = $state(false)
 	let folder = $state('')
 	let outEl = $state<HTMLDivElement>()
@@ -75,7 +71,7 @@ print("Raised a hill at", center)
 		current = f.name
 		name = baseName(f.name)
 		code = saved = f.text
-		output = []
+		clearScriptLog()
 	}
 
 	async function newScript() {
@@ -83,7 +79,7 @@ print("Raised a hill at", center)
 		current = null
 		name = 'untitled'
 		code = saved = STARTER
-		output = []
+		clearScriptLog()
 		await tick()
 		area?.focus()
 	}
@@ -118,28 +114,36 @@ print("Raised a hill at", center)
 		}
 	}
 
-	function say(text: string, kind: Line['kind']) {
-		output.push({ text, kind })
-		// The newest lines only: a print in a loop over every vertex must not grow the page without end.
-		if (output.length > 500) output.splice(0, output.length - 500)
+	// The newest line stays in view.
+	$effect(() => {
+		void scriptLog.lines.length
 		void tick().then(() => outEl?.scrollTo({ top: outEl.scrollHeight }))
-	}
+	})
 
 	async function run() {
 		const e = engineRef.current
 		if (!e || running) return
 		running = true
-		output = []
+		clearScriptLog()
 		let printed = 0
 		try {
-			const r = await e.runScript(code, name || 'script', (s) => {
-				printed++
-				say(s, 'out')
-			})
+			// A saved script loads as a brush under its file, so the options bar can reload it and keep its settings.
+			const r = await e.runScript(
+				code,
+				name || 'script',
+				(s) => {
+					printed++
+					scriptSay(s, 'out')
+				},
+				current && !dirty ? current : '',
+			)
 			if (!r) return
-			if (r.ok) say(`Ran in ${r.ms.toFixed(0)} ms.`, 'info')
-			else say(r.error ?? 'The script failed.', 'err')
-			setStatus(r.ok ? `Ran ${name}${printed ? '' : ' (no output)'}.` : `${name} failed: see the Scripts window.`, 4000)
+			if (!r.ok) scriptSay(r.error ?? 'The script failed.', 'err')
+			else if (r.brushes.length) {
+				editor.tool = 'script'
+				scriptSay(`Loaded ${r.brushes.join(', ')} into the Script Brush tool (Y): paint with ${r.brushes.length > 1 ? 'them' : 'it'} on the map.`, 'info')
+			} else scriptSay(`Ran in ${r.ms.toFixed(0)} ms.`, 'info')
+			setStatus(!r.ok ? `${name} failed: see the Scripts window.` : r.brushes.length ? `Loaded the brush script ${name}.` : `Ran ${name}${printed ? '' : ' (no output)'}.`, 4000)
 		} finally {
 			running = false
 		}
@@ -192,7 +196,7 @@ print("Raised a hill at", center)
 				</div>
 				<textarea bind:this={area} bind:value={code} onkeydown={onKey} spellcheck="false" aria-label="Script"></textarea>
 				<div class="output" bind:this={outEl} aria-label="Script output">
-					{#each output as l, i (i)}<div class={l.kind}>{l.text}</div>{/each}
+					{#each scriptLog.lines as l, i (i)}<div class={l.kind}>{l.text}</div>{/each}
 				</div>
 				{#if folder}<p class="where" title={folder}>Kept in {folder}</p>{/if}
 			</section>

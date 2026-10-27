@@ -17,6 +17,7 @@ Everything Meld does, tool by tool. For building it, see the [README](https://gi
 | Clear | `7` | Erase models, or paint in the brush: heights, liquids or holes. |
 | Doodad brush | `8` | Scatter a brush of weighted models over the ground; `Ctrl` erases them. |
 | Stamp | `0` | One stroke applies a stack of sculpt and paint brushes together. |
+| Script brush | `Y` | Paints with a Lua brush script (Noggit Red's script brushes): pick a `.lua` file of the scripts folder that calls `brush("name")` in the options bar (or Run it in Tools › Scripts), and its settings (tags) show beside the size and falloff. The click, each frame the button is held and the release run the brush's `on_left_click`, `on_left_hold` and `on_left_release`; `Shift`, `Ctrl`, `Alt` and `Space` reach it as `holding_shift()` and so on. One stroke is one undo step. The right mouse button moves the camera, so `on_right_*` never runs. Noggit Red's own brushes run where they use what Meld has (heights, models, noise, images), such as its height noise and prop placer. |
 | Map data | `9` | Paints the zone (AreaTable.dbc) each chunk belongs to, shown as a colour per zone; Set or Clear, `Alt`+click takes the zone under the cursor. It also marks chunks impassable and cells that grow no grass tufts. The export writes it into the tiles' chunk headers. |
 
 ### Layout
@@ -126,8 +127,11 @@ Also included:
   `random_from_seed`, the math functions) plus `target_pos()` (where the camera looks) and
   `selected_area()` (the Select tool's area). What a script prints shows under it, and everything one
   run changes is one undo step. Scripts are `.lua` files in the scripts folder
-  (`%AppData%\Meld\scripts` or `~/.config/Meld/scripts`); Ctrl+Enter runs, Ctrl+S saves. Script
-  brushes, noise, images and texture layers are not in Meld yet.
+  (`%AppData%\Meld\scripts` or `~/.config/Meld/scripts`); Ctrl+Enter runs, Ctrl+S saves. A script that
+  calls `brush()` loads into the Script brush tool instead. `make_noise` and `sel:make_noise` give noise
+  maps (SIMPLEX, PERLIN, VALUE, FRACTAL, CELLULAR, WHITE; FastNoise2's encoded trees fall back to
+  FRACTAL), `create_image` and `load_png` images (a path relative to the scripts folder, or a whole one).
+  Texture layers, vertex colours, water, holes and files are not in Meld yet.
 - **Import/Export**: heightmaps, watermaps, normal maps, alphamaps, object lists, doodad brushes,
   port coordinates, minimap image.
 - **View**: grid, chunk lines, a reference image (a plan of your own laid over the map to trace, and turned into heights, zones, textures or the mask), far horizon, walkable ground (the server's navmesh, built by Meld or read from the server's own mmaps) and a path test, layers (terrain, water, objects, tufts, spawns), hide panels.
