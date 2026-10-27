@@ -314,6 +314,8 @@
 <style>
 	.app {
 		display: grid;
+		/* A bare grid's column is auto: a long status line (nowrap) widened it past the window and pushed the dock and canvas aside (#770). */
+		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: auto auto 1fr auto;
 		height: 100%;
 	}

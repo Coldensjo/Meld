@@ -194,6 +194,7 @@ ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]);
   `pointermove`s, `pointerup`, `pointerId: 1`, `button: 0`) on the `.label` span; the value moves
   by pixels × step and `ui.canUndo` turns true on release.
 - Probe: `bun run probe layers-panel` (hover, selection, delete and undo; the panel has no timer and re-reads on `ui.historyVersion`, `editor.hoverChunk` and `editor.selection`, #585).
+- A long status line must not push the dock aside (#770): `.app` is a bare grid, whose auto column a nowrap status line widened to thousands of pixels, so the dock sat off-screen with its Replace and X buttons. Probe: `bun run probe dock-nav-toggle` (a long `ui.status` while View > Server's mmaps toggles; the status is set right before each measure, since the engine overwrites it within a frame).
 - Trap: texture thumbnails stay blank in a hidden extension tab, since they render on the main
   renderer's rAF loop. The rows, names and coverage still show.
 - The map's facts and world settings are not in the dock: `ui.dialog = 'mapProps'` opens the
