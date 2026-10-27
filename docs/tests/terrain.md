@@ -707,6 +707,14 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   probe takes the view's offset back off); Ctrl+Shift+P refuses. Trap: a synthetic click's
   `clientX` is whole pixels, a sixth of a tile on this minimap, so the probe works out the point from
   the pixel it clicked.
+- Probe `world-detail` (about 30 to 60 s): View › Detail info in Azeroth's world view at a painted
+  spot and at a lake's cell names the streamed ground (tile, chunk, map cell, height, texture layers,
+  liquids), and after Edit Here the region's readout at the same spots has the same tile, chunk,
+  height, hole, layers and liquids, its cell the world's less the block's corner. The cursor is
+  `P.pointer` after a `pointerenter` on the canvas; the readout is `stats.detail`, refreshed at 2 Hz.
+  Trap: aim at a cell's middle, not its edge: the cursor lands a few hundredths of a yard off, which
+  on an edge reads the next cell and a different blend of layers.
+  `bun test tests/worldDetail.test.ts` covers `worldCellDetail` (chunk, cell, hole, shares, liquids).
 - `bun test tests/selectObjects.test.ts`: a look-only layer (the world view's streamed models) selects nothing.
 - `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
 - `bun test tests/worldLiquid.test.ts` and `go test ./internal/wow/ -run EncodeLiquids`: a tile's

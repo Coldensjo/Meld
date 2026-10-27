@@ -37,6 +37,7 @@ import { Environment, SHADOW_FAR, SHADOW_NEAR, type ClientSky } from './Environm
 import { HorizonLayer } from '../world/HorizonLayer'
 import { WorldStream } from '../world/WorldStream'
 import { marchGround, streamReach } from '../world/worldGround'
+import { worldCellDetail } from '../world/worldDetail'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { BrushTool, PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
@@ -1356,8 +1357,11 @@ export class Engine {
 			stats.drawCalls = calls
 			stats.triangles = triangles
 			stats.objects = this.objects.objects.size
-			stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
-			stats.detail = this.prefs?.detailInfo ? this.detailInfo() : null
+			// A world view's pick aims at its hidden stand-in, so its streamed ground under the cursor is found here.
+			const world = this.doc.world
+			const at = world ? this.worldCursor() : this.hit
+			stats.cursor = at ? { x: at.x, y: at.y, z: at.z } : null
+			stats.detail = !this.prefs?.detailInfo ? null : world ? this.worldDetailInfo(at) : this.detailInfo()
 			const hoverArea = editor.tool === 'mapdata' ? this.hoverArea() : ''
 			if (stats.hoverArea !== hoverArea) stats.hoverArea = hoverArea
 			const c = this.controller
@@ -6287,9 +6291,7 @@ export class Engine {
 		for (let k = 0; k < SLOTS; k++) {
 			const idx = t.chunkSlots[chunk * SLOTS + k]
 			if (idx === NO_TEXTURE) continue
-			const path = editor.palette[idx] ?? ''
-			const name = path.startsWith('#') ? path : path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
-			textures.push({ name, weight: Math.round((sums[k] / (SPLAT_PER_CELL * SPLAT_PER_CELL * 255)) * 100), effect: effectFor(path, editor.textureEffects, tables) })
+			textures.push(this.detailTexture(editor.palette[idx] ?? '', sums[k] / (SPLAT_PER_CELL * SPLAT_PER_CELL * 255), tables))
 		}
 		const lc = (cz % CHUNK_CELLS) * CHUNK_CELLS + (cx % CHUNK_CELLS)
 		const liquids = this.doc.liquids
@@ -6314,6 +6316,58 @@ export class Engine {
 			room: this.roomName(),
 			textures,
 			liquids,
+			models,
+		}
+	}
+
+	/** A texture layer of the Detail info readout: its short name, its share (0 to 1) as a percent, and its ground effect. */
+	private detailTexture(path: string, share: number, tables: ReturnType<typeof groundEffectTables>): DetailInfo['textures'][number] {
+		const name = path.startsWith('#') ? path : path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+		return { name, weight: Math.round(share * 100), effect: effectFor(path, editor.textureEffects, tables) }
+	}
+
+	private worldCursorAt = new THREE.Vector3()
+
+	/** A world view's streamed ground under the cursor (#15), or null off it. Marches the ray, so it runs with the 2 Hz stats only. */
+	private worldCursor(): THREE.Vector3 | null {
+		if (!this.pointerInside) return null
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		const r = this.raycaster.ray
+		const d = marchGround(this.worldHeight, r.origin.x, r.origin.y, r.origin.z, r.direction.x, r.direction.y, r.direction.z, 4000, 2)
+		return d < 0 ? null : r.at(d, this.worldCursorAt)
+	}
+
+	/**
+	 * The Detail info readout of a world view (#15) at its ground point `p`, from what the stream holds
+	 * of the tile there: its texture layers only once read (near the camera); no zone or chunk flags,
+	 * which the stream doesn't read. The cell is on the whole map, as a region's is on its block.
+	 */
+	private worldDetailInfo(p: THREE.Vector3 | null): DetailInfo | null {
+		const world = this.doc.world
+		const t = p && world ? world.tileAt(p.x, p.z) : null
+		if (!p || !world || !t) return null
+		const d = worldCellDetail(t, p.x, p.z)
+		const tables = groundEffectTables()
+		const gx = t.x * TILE_CHUNKS + d.chunkX
+		const gz = t.y * TILE_CHUNKS + d.chunkY
+		const chunkYards = TILE_YARDS / TILE_CHUNKS
+		let models = 0
+		for (const o of this.objects.objects.values()) {
+			if (o.parent === undefined && Math.floor(o.x / chunkYards) === gx && Math.floor(o.z / chunkYards) === gz) models++
+		}
+		return {
+			tile: `${t.x}, ${t.y}`,
+			chunk: `${d.chunkX}, ${d.chunkY}`,
+			cell: `${t.x * TILE_CELLS + d.cellX}, ${t.y * TILE_CELLS + d.cellY}`,
+			height: world.heightAt(p.x, p.z),
+			slope: groundSlopeDeg((x, z) => world.heightAt(x, z), p.x, p.z, TILE_YARDS / TILE_CELLS),
+			hole: d.hole,
+			noTufts: false,
+			impassable: false,
+			area: '',
+			room: this.roomName(),
+			textures: (d.textures ?? []).map((x) => this.detailTexture(x.path, x.weight, tables)),
+			liquids: d.liquids.map((l) => `${liquidType(l.type).name} at ${l.height.toFixed(1)}`),
 			models,
 		}
 	}

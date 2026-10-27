@@ -6,11 +6,12 @@ import { groundHeight, groundMesh, groundStride, keepReach, parseGround, tileDis
 import type { ObjectLayer } from './ObjectLayer'
 import { WorldHorizon } from '../../../wailsjs/go/main/App'
 import { horizonMesh, packHorizon, type HorizonTile } from './horizonMesh'
-import { parsePaint, PAINT_DROP, PAINT_REACH } from './worldPaint'
+import { parsePaint, PAINT_DROP, PAINT_REACH, type TilePaintIn } from './worldPaint'
 import { WorldPainter, type PaintedTile } from './WorldPainter'
 import { liquidMesh, parseLiquids, type TileLiquid } from './worldLiquid'
 import { liquidType } from '../water/liquids'
 import { KIND_INDEX, liquidLayerMaterial, wantLiquid } from '../water/liquidMaterial'
+import type { WorldTileData } from './worldDetail'
 
 /** How many tiles are read at once. */
 const LOADS = 3
@@ -36,6 +37,8 @@ interface StreamTile {
 	colour: THREE.MeshLambertMaterial | null
 	/** The tile's texture layers, read; drawn once its textures have loaded (`waiting`). */
 	paint: PaintedTile | null
+	/** The texture layers as read, for View › Detail info (their weights are the paint's own texture's bytes). */
+	paintIn: TilePaintIn | null
 	/** Its texture layers are being read. */
 	painting: boolean
 	/** Its texture layers could not be read or had no room in the palette: not tried again until the tile is let go of. */
@@ -192,6 +195,7 @@ export class WorldStream {
 						mesh: null,
 						colour: null,
 						paint: null,
+						paintIn: null,
 						painting: false,
 						paintFailed: false,
 						paintGen: 0,
@@ -356,6 +360,16 @@ export class WorldStream {
 		return groundHeight(g, (x / TILE_YARDS - tx) * GROUND_CELLS, (z / TILE_YARDS - ty) * GROUND_CELLS)
 	}
 
+	/** The loaded tile under the world point (x, z), with what has been read of it, or null for none. */
+	tileAt(x: number, z: number): WorldTileData | null {
+		const tx = Math.floor(x / TILE_YARDS)
+		const ty = Math.floor(z / TILE_YARDS)
+		if (tx < 0 || ty < 0 || tx > 63 || ty > 63) return null
+		const t = this.tiles?.get(tileKey(tx, ty))
+		if (!t?.ground) return null
+		return { x: t.x, y: t.y, ground: t.ground, paint: t.paintIn, liquids: t.liquids }
+	}
+
 	/**
 	 * What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's
 	 * count, the models placed, the tiles drawn at each stride ("1", "2", "4"), the horizon's tiles
@@ -489,6 +503,7 @@ export class WorldStream {
 			const painted = this.painter.paint(t.x, t.y, p)
 			if (!painted) throw new Error("the world view's palette is full")
 			t.paint = painted
+			t.paintIn = p
 			this.waiting.add(t)
 		} catch (err) {
 			if (t.paintGen === gen) t.paintFailed = true
@@ -511,6 +526,7 @@ export class WorldStream {
 		}
 		this.painter.drop(t.paint)
 		t.paint = null
+		t.paintIn = null
 	}
 
 	private meshOf(t: StreamTile, ground: TileGround, image: { width: number; height: number; pixels: Uint8Array } | null) {

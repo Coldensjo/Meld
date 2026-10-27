@@ -350,7 +350,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the map's client overview cut to the square of its tiles (`worldExtent` in `world/worldMinimap.ts`),
   the stand-in's heights hidden, with Edit Here's block outlined; a click flies the camera there
   (`Engine.lookAtGround`, which looks again once the tile there has loaded). Save Minimap Image
-  refuses. Not yet: editing in the world view itself.
+  refuses. View › Detail info and the status bar's cursor read the streamed ground under the cursor
+  (`Engine.worldCursor`, a march of the ray at the 2 Hz stats only, since the frame's pick aims at the
+  stand-in and setting `hit` would draw the brush on the painted tiles' shared uniforms), through
+  `WorldStream.tileAt` and `worldCellDetail` (`world/worldDetail.ts`): tile, chunk, the cell on the
+  whole map, height, slope, hole, the texture layers once the tile's paint is read (`paintIn`) and the
+  liquids. The stream doesn't read the zone or the chunk flags, so those don't show. Not yet: editing
+  in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
