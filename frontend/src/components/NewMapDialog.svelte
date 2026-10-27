@@ -10,7 +10,8 @@
 	import { loadAsset } from '../lib/models/assets'
 	import PaletteTile from './PaletteTile.svelte'
 	import { LAYERS } from '../lib/terrain/layers'
-	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawHeights, drawPresetPreview, presetById, type PresetId, type ShapeOptions } from '../lib/terrain/presets'
+	import { CoastShape, DEFAULT_SHAPE, PRESETS, drawHeights, drawPresetPreview, presetById, type PresetId, type ShapeOptions, type WorldWater } from '../lib/terrain/presets'
+	import { LIQUID_MAGMA, LIQUID_SLIME, LIQUID_WATER } from '../lib/water/liquids'
 	import { imageRatios } from '../lib/io/heightmapImport'
 	import { guarded } from '../lib/io/backend'
 	import { boundingSquare, gridTile, maskBytes, maskOf } from '../lib/terrain/tileMask'
@@ -59,6 +60,19 @@
 	 */
 	let imageLook = $state({ min: -40, max: 240, sea: true, erosion: 0 })
 	const imageOk = $derived(!fromImage || (!!image && Number.isFinite(imageLook.min) && Number.isFinite(imageLook.max) && imageLook.max > imageLook.min))
+	/**
+	 * The water (#759, the owner's choice in #733): the sea's level, and lakes filled in the land's basins
+	 * up to their rims (water/lakes.ts) of water, slime or magma. The sea itself stays the client's ocean.
+	 */
+	let water = $state({ sea: 0, lakes: false, liquid: LIQUID_WATER })
+	const LAKE_LIQUIDS = [
+		{ id: LIQUID_WATER, name: 'Water' },
+		{ id: LIQUID_SLIME, name: 'Slime' },
+		{ id: LIQUID_MAGMA, name: 'Magma' },
+	]
+	/** Whether the world has a sea for Sea level to move: the preset's, or the image's Sea. */
+	const seaOn = $derived(fromImage ? imageLook.sea : presetById(preset).water)
+	const worldWater = $derived<WorldWater>({ sea: water.sea, lakes: water.lakes ? water.liquid : null })
 	/** Asks for a heightmap PNG and picks it; cancelling keeps the one before. */
 	function pickImage() {
 		return guarded('Read heightmap', async () => {
@@ -81,7 +95,7 @@
 			const { min, max, sea } = imageLook
 			const h = new Float32Array(r.length)
 			for (let i = 0; i < r.length; i++) h[i] = min + r[i] * (max - min)
-			drawHeights(canvas, h, px, sea, square.size, shape)
+			drawHeights(canvas, h, px, sea ? water.sea : null, square.size, shape, worldWater.lakes)
 		})
 	}
 
@@ -106,9 +120,9 @@
 	}
 	const sizeShown = $derived(mask ? 0 : square.size)
 
-	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness or Sea depth change. */
+	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness, Sea depth or the water change. */
 	function preview(canvas: HTMLCanvasElement, id: PresetId) {
-		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land }))
+		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land }, worldWater))
 	}
 
 	// --- the client's maps and zones, read once --------------------------------------------------
@@ -270,7 +284,7 @@
 		if (square.y) ref.tileY = square.y
 		if (mask) ref.tiles = mask
 		const ground = fromImage && image ? { img: image, min: imageLook.min, max: imageLook.max, sea: imageLook.sea } : undefined
-		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref, ground ? { erosion: imageLook.erosion } : { ...look }, ground)
+		engineRef.current?.newVmangosDocument(square.size, preset, seed, ref, ground ? { erosion: imageLook.erosion } : { ...look }, ground, { ...worldWater })
 		editor.palette = palette
 		if (scatter) engineRef.current?.scatterWorld(scatter, treeAmount, seed)
 		if (treeError) setStatus(treeError, 8000)
@@ -366,8 +380,8 @@
 						<span>White at (yd)</span>
 						<input type="number" step="any" bind:value={imageLook.max} />
 					</label>
-					<label class="check" title="Sea at 0 yd over the ground below it: set Black below 0 for a coast">
-						<input type="checkbox" bind:checked={imageLook.sea} /> Sea at 0 yd
+					<label class="check" title="The sea over the ground below Sea level: set Black below it for a coast">
+						<input type="checkbox" bind:checked={imageLook.sea} /> Sea
 					</label>
 					<label class="field slider" title="How much water and gravity carve the ground once it is made. None to start with, since Gaea and World Machine erode their terrain already.">
 						<span>Erosion <b>{imageLook.erosion ? `${Math.round(imageLook.erosion * 100)}%` : 'none'}</b></span>
@@ -400,6 +414,21 @@
 					<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
 				</div>
 			{/if}
+			<div class="row look water">
+				<label class="field slider" title={seaOn ? 'The height of the sea: higher floods the low ground and moves the coast and the beaches inland' : 'This world has no sea'}>
+					<span>Sea level <b>{water.sea} yd</b></span>
+					<input type="range" min="-30" max="60" step="1" bind:value={water.sea} disabled={!seaOn} />
+				</label>
+				<label class="check" title="Fill the land's basins above the sea with lakes, each up to its rim, with sand along their shores">
+					<input type="checkbox" bind:checked={water.lakes} /> Lakes
+				</label>
+				<label class="field liquid" title="What the lakes hold. The sea stays the ocean.">
+					<span>Lakes of</span>
+					<select bind:value={water.liquid} disabled={!water.lakes}>
+						{#each LAKE_LIQUIDS as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+					</select>
+				</label>
+			</div>
 			{#if hasBackend()}
 				<div class="row pack">
 					<label class="field" title="Paint the world with the ground textures a zone of the client uses most: its main ground, rock on the slopes, sand at the shore, snow on the peaks">
@@ -595,6 +624,9 @@
 	}
 	.row.look {
 		align-items: flex-end;
+	}
+	.row.water .slider {
+		flex: 0 1 240px;
 	}
 	.slider {
 		flex: 1;

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
-import { CoastShape, presetById, snowLine, type ShapeOptions } from '../terrain/presets'
+import { CoastShape, presetById, snowLine, type ShapeOptions, type WorldWater } from '../terrain/presets'
+import { LAKE_RULES, fillLakes, findLakes, shoreLevels } from '../water/lakes'
 import { fbm } from './noise'
 import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import type { ImageGround } from '../terrain/generate'
@@ -2675,9 +2676,10 @@ export class Engine {
 
 	/**
 	 * Create a new map in its own tab. `setup` fills it before the tab opens (the benchmark maps, #322),
-	 * since opening copies its `meta` into `editor`.
+	 * since opening copies its `meta` into `editor`. `water` is the New world page's (#759): the sea at its
+	 * level when the preset (or the image) has one, and lakes of its liquid filled in the land's basins.
 	 */
-	newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void, shape?: CoastShape | null, opts?: Partial<ShapeOptions>, image?: ImageGround) {
+	newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void, shape?: CoastShape | null, opts?: Partial<ShapeOptions>, image?: ImageGround, water?: WorldWater) {
 		const d = new MapDocument(size, this.uniqueName(name))
 		if (image) {
 			// From a heightmap (#745): the sea at 0 when asked, else none, as Flat land's.
@@ -2690,7 +2692,14 @@ export class Engine {
 			d.meta.waterLevel = preset.waterLevel
 			d.meta.waterEnabled = preset.water
 		}
-		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled)
+		if (d.meta.waterEnabled && water?.sea !== undefined) d.meta.waterLevel = water.sea
+		let shores: Float32Array | null = null
+		if (water?.lakes) {
+			const t = d.terrain
+			const level = findLakes(t.heights, t.verts, t.cellSize, { ...LAKE_RULES, sea: d.meta.waterEnabled ? d.meta.waterLevel : null })
+			if (fillLakes(d.liquids, t, level, water.lakes)) shores = shoreLevels(level, t.verts)
+		}
+		d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled, undefined, shores)
 		setup?.(d)
 		d.meta.roles = guessRoles(d.meta.palette)
 		this.documents.push(d)
@@ -3005,11 +3014,12 @@ export class Engine {
 	 * any new map, then marked with its folder and map ID, and its place and tiles on the client's grid
 	 * (`ref.tileX`, `tileY`, `tiles`, #46): a preset's coast follows the tiles, and those left out are hidden.
 	 * `opts` are the New world page's Height, Roughness and Erosion (#744); `image`, when given, is the ground
-	 * instead of the preset (From a heightmap, #745), eroded at `opts.erosion`.
+	 * instead of the preset (From a heightmap, #745), eroded at `opts.erosion`; `water` the sea level and
+	 * lakes (#759).
 	 */
-	newVmangosDocument(tiles: number, kind: GenerateKind, seed: number, ref: VmangosRef, opts?: Partial<ShapeOptions>, image?: ImageGround): MapDocument {
+	newVmangosDocument(tiles: number, kind: GenerateKind, seed: number, ref: VmangosRef, opts?: Partial<ShapeOptions>, image?: ImageGround, water?: WorldWater): MapDocument {
 		const mask = maskBytes(ref.tiles, tiles)
-		const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir, (doc) => doc.terrain.setTileMask(mask), mask ? new CoastShape(mask, tiles) : null, opts, image)
+		const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir, (doc) => doc.terrain.setTileMask(mask), mask ? new CoastShape(mask, tiles) : null, opts, image, water)
 		d.meta.vmangos = { ...ref }
 		if (!mask) delete d.meta.vmangos.tiles
 		return d

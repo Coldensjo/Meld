@@ -658,9 +658,11 @@ export class Terrain {
 
 	/**
 	 * Paint sand/grass/rock/snow based on height and slope. Role r of the procedural layers is
-	 * palette entry roleTex[r]. Each paint chunk keeps the four roles that fit it best.
+	 * palette entry roleTex[r]. Each paint chunk keeps the four roles that fit it best. `shores`, when
+	 * given, is the lake level near each vertex (`shoreLevels`, water/lakes.ts, #759; NaN away from
+	 * any): the lakes' shores take the sand as the sea's do.
 	 */
-	autoPaint(waterLevel: number, waterEnabled: boolean, roleTex: number[] = [0, 1, 2, 3, 4, 5, 6, 7]) {
+	autoPaint(waterLevel: number, waterEnabled: boolean, roleTex: number[] = [0, 1, 2, 3, 4, 5, 6, 7], shores?: Float32Array | null) {
 		const R = this.splatRes
 		const roles = LAYER_COUNT
 		const w = new Float32Array(roles)
@@ -680,6 +682,10 @@ export class Terrain {
 			if (waterEnabled && y < waterLevel + 1.2) {
 				const t = THREE.MathUtils.clamp((waterLevel + 1.2 - y) / 1.2, 0, 1)
 				w[4] += t * 3
+			}
+			if (shores) {
+				const lake = shores[Math.round(z / this.cellSize) * this.verts + Math.round(x / this.cellSize)]
+				if (y < lake + 1.2) w[4] += THREE.MathUtils.clamp((lake + 1.2 - y) / 1.2, 0, 1) * 3
 			}
 			if (y > snowLine) w[5] += THREE.MathUtils.clamp((y - snowLine) / 6, 0, 1) * 4
 			if (slope > 0.7) w[3] += THREE.MathUtils.clamp((slope - 0.7) * 3, 0, 4)

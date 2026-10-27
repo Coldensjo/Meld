@@ -183,6 +183,21 @@ with None and no models. Logs how long Create world took (about 3.5 s). About 90
 
 - `new-world-pack` also scatters Tanaris's trees now, since the trees follow the pack by default.
 
+## A new world's sea level and lakes (#759, probe `new-world-lakes`)
+
+Checks: the New world page's water row. `frontend/tests/lakes.test.ts` checks the basin fill
+(`water/lakes.ts`): a bowl fills to its rim, a slope holds none, a basin under the sea is the sea's,
+a puddle and a basin covering most of the map stay dry, the layers `fillLakes` writes, and the shore
+levels. In the live app, `bun run probe new-world-lakes --shot <dir>` ticks Lakes with Magma (the
+Rolling hills picture turns orange in its basins), sets Sea level to 5 and makes a Medium Rolling
+hills world: the sea at 5, only magma layers, every covered cell's surface above the sea and over
+ground lower than it, sand in every lake chunk, and `exportInput` sending the layers. About 40 s.
+
+- The lakes come from the generated heights, so a change to a preset or to erosion moves them; the
+  probe asks only for more than 50 covered cells (seed 4242 gives two lakes, 3787 cells).
+- `findLakes` drops a basin covering more than `maxShare` (12%) of the map, so a test grid of a few
+  dozen vertices needs a larger share (`tests/lakes.test.ts` uses 0.5).
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are

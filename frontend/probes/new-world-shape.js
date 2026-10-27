@@ -50,7 +50,7 @@ const view = async (t, name) => {
 }
 
 let d = await open()
-const sliders = [...d.querySelectorAll('.slider')]
+const sliders = [...d.querySelectorAll('.row.look:not(.water) .slider')]
 r.sliders = sliders.map((l) => l.querySelector('span').textContent.trim())
 // Height redraws the pictures.
 const card = [...d.querySelectorAll('.preset')].find((b) => b.textContent.includes('Mountains')).querySelector('canvas')

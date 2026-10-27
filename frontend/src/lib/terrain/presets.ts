@@ -1,5 +1,7 @@
 import { fbm, ridged } from '../engine/noise'
 import { TILE_YARDS } from '../wow/format'
+import { LIQUID_MAGMA, LIQUID_SLIME } from '../water/liquids'
+import { LAKE_RULES, findLakes } from '../water/lakes'
 
 // The starting shapes a new world can have. Every preset but Flat land and Canyon is an island: the
 // ground falls away to the sea towards the map's edge, so a world is bounded by water, which the client
@@ -343,18 +345,32 @@ export function snowLine(waterLevel: number, maxH: number): number {
  * to rock (by slope, as `autoPaint` does) and snow, lit from the north-west. `px` pixels a side. With
  * `o.shape`, over its square, the tiles left out dark. Erosion isn't drawn: it is too slow to run here.
  */
-export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed: number, px: number, o: HeightOptions) {
+export function drawPresetPreview(canvas: HTMLCanvasElement, id: PresetId, seed: number, px: number, o: HeightOptions, water?: WorldWater) {
 	const s = px + 1
 	const h = new Float32Array(s * s)
 	for (let y = 0; y <= px; y++) for (let x = 0; x <= px; x++) h[y * s + x] = presetHeight(id, x / px, y / px, seed, o)
-	drawHeights(canvas, h, px, presetById(id).water, o.tiles, o.shape)
+	const p = presetById(id)
+	drawHeights(canvas, h, px, p.water ? (water?.sea ?? p.waterLevel) : null, o.tiles, o.shape, water?.lakes)
+}
+
+/** The New world page's water (#759): the sea's level, and the lakes' liquid when they are on; for its pictures and `Engine.newDocument`. */
+export interface WorldWater {
+	sea?: number
+	/** LiquidType.dbc ID of the lakes, or null for none. */
+	lakes?: number | null
+}
+
+/** A lake's colour in a picture by its liquid: magma, slime, else water. */
+function lakeColour(id: number): [number, number, number] {
+	return id === LIQUID_MAGMA ? [222, 92, 30] : id === LIQUID_SLIME ? [112, 172, 58] : [78, 148, 196]
 }
 
 /**
  * Paints heights `h` ((px+1)² yards, over a map of `tiles` a side) as `drawPresetPreview` does: the sea
- * below 0 when `water`, and with `shape` the tiles left out dark. Also the From a heightmap card's (#745).
+ * below `sea` (null for none), with `lakes` (a LiquidType.dbc ID) the basins' lakes of that liquid
+ * (`findLakes`), and with `shape` the tiles left out dark. Also the From a heightmap card's (#745).
  */
-export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, water: boolean, tiles: number, shape?: CoastShape | null) {
+export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: number, sea: number | null, tiles: number, shape?: CoastShape | null, lakes?: number | null) {
 	canvas.width = canvas.height = px
 	const ctx = canvas.getContext('2d')
 	if (!ctx) return
@@ -362,16 +378,21 @@ export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: numb
 	const s = px + 1
 	let maxH = 0
 	for (const v of h) maxH = Math.max(maxH, v)
-	const snow = snowLine(0, maxH)
+	const level = sea ?? 0
+	const water = sea !== null
+	const snow = snowLine(level, maxH)
 	// Yards a pixel, for the slope.
 	const cell = (tiles * TILE_YARDS) / px
+	const lake = lakes ? findLakes(h, s, cell, { ...LAKE_RULES, sea }) : null
+	const lakeRgb = lakes ? lakeColour(lakes) : null
 	for (let y = 0; y < px; y++) {
 		for (let x = 0; x < px; x++) {
 			const v = h[y * s + x]
 			let r: number, g: number, b: number
 			if (shape && !shape.present((x + 0.5) / px, (y + 0.5) / px)) [r, g, b] = [24, 26, 30]
-			else if (water && v < 0) {
-				const d = Math.min(1, -v / 90)
+			else if (lake && lakeRgb && !Number.isNaN(lake[y * s + x])) [r, g, b] = lakeRgb
+			else if (water && v < level) {
+				const d = Math.min(1, (level - v) / 90)
 				r = 70 - d * 50
 				g = 140 - d * 80
 				b = 190 - d * 70
@@ -379,7 +400,7 @@ export function drawHeights(canvas: HTMLCanvasElement, h: Float32Array, px: numb
 				const dx = h[y * s + x + 1] - v
 				const dz = h[(y + 1) * s + x] - v
 				const slope = Math.hypot(dx, dz) / cell
-				if (v < 1.2 && water) [r, g, b] = [196, 182, 128]
+				if (v < level + 1.2 && water) [r, g, b] = [196, 182, 128]
 				else if (v > snow) [r, g, b] = [230, 232, 236]
 				else if (slope > 0.55) [r, g, b] = [120, 108, 92]
 				else {

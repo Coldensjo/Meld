@@ -494,12 +494,24 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   snow to ground over 110 yd above the water, so hilltops stay green.
   **From a heightmap** (#745): the card after the presets asks for a PNG (`OpenHeightmapDialog`,
   `ReadHeightmap`, as Terrain > Import Heightmap, #44) and swaps the sliders for Black at and White at
-  (yards), Sea at 0 yd and its own Erosion, none to start (Gaea and World Machine erode already; the
+  (yards), Sea and its own Erosion, none to start (Gaea and World Machine erode already; the
   loop's choice, see the issue). `Engine.newVmangosDocument`'s `image` (`ImageGround`) goes to
   `Terrain.generateFromImage`, `generate.ts` `imageGroundHeights`: `imageRatios` stretches the image
   over the whole square (tiles left out are masked as for a preset, not avoided), then the same erosion,
   from ground above the sea (everywhere without one). The sea is the water level 0, or none (Flat
   land's -2); the card's picture is `drawHeights`, the presets' painter.
+  **Water** (#759, the owner's choice in #733): the page's last look row has Sea level (-30 to 60 yd,
+  for a preset with a sea or an image with Sea ticked; it moves the sea plane, not the ground, and
+  `autoPaint`'s sand and `snowLine` follow it), Lakes and Lakes of (water, slime or magma; the sea
+  stays the ocean). They go to `newVmangosDocument` as `WorldWater`. Lakes are `water/lakes.ts`:
+  `findLakes` priority-floods the heights from the map's edge (Barnes et al. 2014) so every basin
+  takes its spill height, and keeps a basin as a lake when its level is above the sea, it is at least
+  `LAKE_RULES.minDepth` deep and `minArea` big, and it covers at most `maxShare` of the map (a
+  Canyon's whole floor is one basin, so a Canyon gets no lake but its small hollows). `fillLakes`
+  writes them as the water brush's layers (every cell with a wet corner, the corners at the level,
+  depth by the brush's rule), and `shoreLevels` feeds `autoPaint`'s `shores`, the sand round them.
+  The pictures draw the sea at its level and the lakes in their liquid's colour (`drawHeights`'
+  `lakes`). Rivers are left for later.
   **Ground textures** (#733, the owner's answers: a zone's own textures, not a tileset folder's):
   the page's select lists `MapZones` by map; a pick calls `ZoneTextures` (`internal/vmangos`
   `ReadZoneTextures`), which reads every tile of the zone's WorldMapArea rectangle and adds up, for
