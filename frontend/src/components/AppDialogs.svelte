@@ -115,7 +115,7 @@
 		[
 			'Camera and view',
 			[
-				`Right-drag looks around, ${keysOf('camForward')} ${keysOf('camLeft')} ${keysOf('camBack')} ${keysOf('camRight')} fly, ${keysOf('camUp')} and ${keysOf('camDown')} go up and down, the wheel sets the speed; ${keysOf('followGround')} follows the ground, so the camera orbits a point on it. ${keysOf('focus')} focuses the selection.`,
+				`Right-drag looks around, ${keysOf('camForward')} ${keysOf('camLeft')} ${keysOf('camBack')} ${keysOf('camRight')} fly, ${keysOf('camUp')} and ${keysOf('camDown')} go up and down, the wheel sets the speed. The Camera menu has four views: Orbit View (${keysOf('orbitView')}, the default) rides the ground and orbits a point on it, Flying View (${keysOf('flyingView')}) flies freely, into caves too, Walking View (${keysOf('walkingView')}) walks the map at a player's height and Top-down View (${keysOf('topDown')}) looks straight down; ${keysOf('followGround')} switches Orbit and Flying. ${keysOf('focus')} focuses the selection.`,
 				'Lighting has the time of day, shadows and fog, and View the grid and chunk lines and the layers to show. Tab hides every panel but the menu bar. Hold F8 to name the part of the UI under the cursor for a bug report.',
 			],
 		],

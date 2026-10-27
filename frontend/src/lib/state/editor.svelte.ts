@@ -542,8 +542,11 @@ export const prefs = $state({
 	cameraSpeed: 1,
 	mouseSensitivity: 1,
 	invertY: false,
-	/** The camera's target rides the ground and the camera stays above it; off, the camera flies anywhere (caves included). */
-	cameraFollowGround: false,
+	/**
+	 * Orbit View (true, the default, #750): the camera's target rides the ground and the camera stays above
+	 * it; false is Flying View, where the camera flies anywhere (caves included). `lib/ui/cameraView.ts`.
+	 */
+	cameraFollowGround: true,
 	/** The flying camera stays at least 3 yards above the ground (camera collision); off, it enters caves. */
 	cameraCollision: false,
 	/** A pen's pressure scales sculpt speed and paint strength (a mouse is unchanged). */
@@ -774,7 +777,7 @@ export const ui = $state({
 	 * its set, `helper:`, or a spawn's dressed type), its name and its scale; null while closed.
 	 */
 	modelPreview: null as { title: string; type: string; scale: number } | null,
-	/** Camera › Walk (#21): the FPS camera, 3 yd above the ground; off returns to the camera it started from. */
+	/** Camera › Walking View (#21, #750): the FPS camera, 3 yd above the ground; off returns to the camera it started from. */
 	walkCamera: false,
 	/**
 	 * Lighting › Weather Preview (#185): the client's rain, snow or sandstorm around the camera at a

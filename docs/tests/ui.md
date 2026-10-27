@@ -349,9 +349,25 @@ and down the model, held to its bounds; the left drag still turns and the wheel 
 - By eye, in a visible window: a tall model (a Stormwind tower, a large creature) zoomed in on its
   middle; a right-drag down slides it down to show the top, the same way in both previews.
 
+## Camera views (#750, probe `camera-views`)
+
+Checks: Camera › Orbit View (F2, the default), Flying View (F3), Walking View (F4) and Top-down View
+(U) are one radio group, read from and set through `prefs.cameraFollowGround`, `ui.walkCamera` and
+`ui.topDown` (`lib/ui/cameraView.ts`); T switches Orbit and Flying, and while walking or top-down it
+changes only the camera that view returns to.
+- `cd frontend && bun test tests/cameraView.test.ts`: each view from every start reads back as
+  itself, Orbit and Flying end a walk and the top-down view, Walking and Top-down toggle back to the
+  view under them, Orbit is the default pref.
+- `bun run probe camera-views` (about 20 s, a flat map): each radio item and each key sets the
+  controller's `followGround` and `walk`, `ui.topDown` and the ortho camera, and the menu marks one
+  view.
+- Trap: the runner starts every probe in Flying View (`P.flyingStart`), not the app's default, so
+  check the default in the unit test, not a probe. A radio click leaves the menu open, so a probe that
+  clicks the title again closes it.
+
 ## Top-down view (U)
 
-Checks: U (or Camera › Top-down View) draws the map straight down with an orthographic camera
+Checks: U (or Camera › Top-down View, one of the four views of #750) draws the map straight down with an orthographic camera
 over the controller's target; the wheel zooms, WASD and a middle drag pan, Q/E and a right drag
 turn the map, and every tool picks and paints as in 3D (the ray goes straight down). Fog is off
 while it is on. In the dev page: `ed.ui.topDown = true; e.frame()`, then `e.camera.isOrthographicCamera`

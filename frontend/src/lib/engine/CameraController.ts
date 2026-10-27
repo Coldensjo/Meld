@@ -17,13 +17,14 @@ const nativeLook = navigator.userAgent.includes('Windows')
 const WALK_SPEED = 7
 
 /**
- * The camera, in one of two modes.
+ * The camera, in one of two modes (with `walk` and `topDown` below, the Camera menu's four views,
+ * `lib/ui/cameraView.ts`, #750).
  *
- * Flying (the default) is first person: `target` is the camera's own position, RMB drag looks
+ * Flying View is first person: `target` is the camera's own position, RMB drag looks
  * around, W/S fly the way the camera looks, A/D strafe, Space/X go up and down, and the wheel sets
  * the speed. Nothing snaps to the ground, so caves and cellars can be entered.
  *
- * With `followGround` on it is a third-person orbit camera: the target rides the terrain (or the
+ * With `followGround` on (Orbit View, the app's default through `prefs.cameraFollowGround`) it is a third-person orbit camera: the target rides the terrain (or the
  * water), RMB orbits, MMB pans, the wheel zooms, and the camera stays above the ground, which suits
  * sculpting from above.
  */

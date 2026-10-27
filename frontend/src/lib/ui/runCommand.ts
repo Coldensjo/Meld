@@ -13,6 +13,7 @@ import { saveOrPublish } from '../io/publish'
 import { requestClose } from '../../components/DocTabs.svelte'
 import { keyHint, keysOf, type CommandId } from './commands'
 import { toggleMinimap } from './minimap'
+import { setCameraView, switchOrbitFlying, toggleCameraView } from './cameraView'
 
 /** The day cycle's speeds, a day in so many minutes, slowest first; 0 is paused. */
 const CYCLE_MINUTES = [40, 20, 10, 5, 2, 1]
@@ -79,19 +80,12 @@ const RUN: Record<Exclude<CommandId, `tool:${string}`>, Run> = {
 	bookmark: (e) => e.addBookmark(),
 	cameraFaster: () => stepCameraSpeed(true),
 	cameraSlower: () => stepCameraSpeed(false),
-	followGround: () => {
-		prefs.cameraFollowGround = !prefs.cameraFollowGround
-		setStatus(
-			prefs.cameraFollowGround
-				? `Camera follows the ground${keyHint('followGround', 'to fly freely')}.`
-				: `Camera flies freely: ${keysOf('camForward')} goes where you look, ${keysOf('camUp')}/${keysOf('camDown')} up and down${keyHint('followGround', 'to follow the ground')}.`,
-			3000,
-		)
-	},
-	topDown: () => {
-		ui.topDown = !ui.topDown
-		setStatus(ui.topDown ? `Top-down view: the wheel zooms, the turn keys or a right drag turn the map${keyHint('topDown', 'for the 3D view')}.` : '3D view.', 3000)
-	},
+	// The camera's views (#750); T switches between Orbit and Flying, as Follow the Ground did.
+	followGround: () => switchOrbitFlying(),
+	orbitView: () => setCameraView('orbit'),
+	flyingView: () => setCameraView('flying'),
+	walkingView: () => toggleCameraView('walking'),
+	topDown: () => toggleCameraView('topDown'),
 	minimap: () => toggleMinimap(),
 	focus: (e) => e.focusSelected(),
 	climbView: () => {

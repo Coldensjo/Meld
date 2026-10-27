@@ -63,6 +63,17 @@ const P = {
 		return import(url ?? path)
 	},
 
+	/**
+	 * The runner calls this before every probe: Flying View, the camera the probes were written for (the
+	 * app's default before #750, which made Orbit View the default). A probe that wants Orbit View sets
+	 * `cameraFollowGround: true` (its scene's prefs, as `P.BENCH` does, or the pref itself).
+	 */
+	async flyingStart() {
+		const { prefs } = await P.state()
+		prefs.cameraFollowGround = false
+		await P.frames(1)
+	},
+
 	/** Loads a scene: a `Meld scene {...}` line, or its object. Its view is a flying camera unless the scene sets `cameraFollowGround` (see `lookAt`). */
 	async scene(s) {
 		await window.__loadScene(typeof s === 'string' ? s : 'Meld scene ' + JSON.stringify(s))

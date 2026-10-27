@@ -29,6 +29,7 @@
 	import { tick } from 'svelte'
 	import { flyOnQE, keysOf, setFlyOnQE, type CommandId } from '../lib/ui/commands'
 	import { runCommand } from '../lib/ui/runCommand'
+	import { CAMERA_VIEWS, cameraView, setCameraView, type CameraView } from '../lib/ui/cameraView'
 
 	/** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
 	function openUrl(url: string) {
@@ -48,13 +49,15 @@
 	type Item =
 		| { kind: 'action'; label: string; shortcut?: string; disabled?: boolean; run: () => unknown }
 		| { kind: 'check'; label: string; shortcut?: string; checked: boolean; toggle: () => void }
-		| { kind: 'radio'; label: string; checked: boolean; select: () => void }
+		| { kind: 'radio'; label: string; shortcut?: string; checked: boolean; select: () => void }
 		| { kind: 'header'; label: string }
 		| { kind: 'sep' }
 
 	/** A menu item's shortcut text and action from the shortcut table, so the item and its key do the same (#583). */
 	const cmd = (id: CommandId) => ({ shortcut: keysOf(id), run: () => runCommand(id) })
 	const toggle = (id: CommandId) => ({ shortcut: keysOf(id), toggle: () => void runCommand(id) })
+	/** The command of each camera view, for its shortcut text. */
+	const VIEW_COMMAND: Record<CameraView, CommandId> = { orbit: 'orbitView', flying: 'flyingView', walking: 'walkingView', topDown: 'topDown' }
 
 	const withEngine = (fn: (e: NonNullable<typeof engineRef.current>) => unknown) => () => {
 		if (engineRef.current) fn(engineRef.current)
@@ -572,18 +575,11 @@
 			name: 'Camera',
 			items: [
 				{ kind: 'action', label: 'Turn Around (180°)', run: withEngine((e) => e.turnCameraAround()) },
-				{ kind: 'check', label: 'Follow the Ground', checked: prefs.cameraFollowGround, ...toggle('followGround') },
+				{ kind: 'sep' },
+				// The four views (#750), each a command of its own; T still switches Orbit and Flying.
+				...CAMERA_VIEWS.map((v): Item => ({ kind: 'radio', label: v.label, shortcut: keysOf(VIEW_COMMAND[v.id]), checked: cameraView() === v.id, select: () => setCameraView(v.id) })),
+				{ kind: 'sep' },
 				{ kind: 'check', label: 'Camera Collision (stay 3 yards above the ground and off walls)', checked: prefs.cameraCollision, toggle: () => (prefs.cameraCollision = !prefs.cameraCollision) },
-				{ kind: 'check', label: 'Top-down View (2D)', checked: ui.topDown, ...toggle('topDown') },
-				{
-					kind: 'check',
-					label: 'Walk (FPS camera, 3 yards above the ground)',
-					checked: ui.walkCamera,
-					toggle: () => {
-						ui.walkCamera = !ui.walkCamera
-						setStatus(ui.walkCamera ? 'Walking: W A S D move at a run (Shift faster), the mouse looks around. Camera › Walk again returns to your camera.' : 'Back to your camera.', 4000)
-					},
-				},
 				{ kind: 'check', label: 'Minimap', checked: ui.minimap, ...toggle('minimap') },
 				{ kind: 'check', label: 'Locked Cursor (a brush stays put while the camera moves)', checked: prefs.lockedCursor, toggle: () => (prefs.lockedCursor = !prefs.lockedCursor) },
 				{ kind: 'sep' },

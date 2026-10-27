@@ -459,7 +459,7 @@ async function main() {
 			const probeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'PERF_WINDOWS' || k.startsWith('PROBE_')))
 			// bench-baseline.json (#429) reaches the page the same way, for `bench`'s guard.
 			const benchBaseline = readFileSync(join(here, 'bench-baseline.json'), 'utf8')
-			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;return await (async () => {\n`
+			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;await P.flyingStart();\nreturn await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
 				const value = await evaluate(`${prefix}${body}\n})()\n})()`)

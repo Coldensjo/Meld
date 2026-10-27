@@ -211,6 +211,13 @@ The window layout, the asset browser and the dock panels and floating windows.
   map's hotkeys (App.svelte `onKeyDown`, on `window`) don't fire while a menu holds the focus. Keep
   each dropdown right after its title in the DOM: `dialogFocus` finds the title as the menu's
   previous sibling.
+- **Camera views** (#750): the Camera menu's radio group Orbit View (F2, the default), Flying View
+  (F3), Walking View (F4) and Top-down View (U), from `lib/ui/cameraView.ts`. A view has no state of
+  its own: it is read from `prefs.cameraFollowGround` (Orbit or Flying, so a saved value and an old
+  scene keep their meaning), `ui.walkCamera` and `ui.topDown`, and picking one sets the three
+  (`withView`). Walking keeps Follow the Ground for the camera the walk returns to (`setWalk`), and
+  Top-down keeps both, so U and F4 again go back to the view under them. T (`followGround`) switches
+  Orbit and Flying; while walking or top-down it changes only the camera that view returns to.
 - **Copy id** (#681): anything with an id has a right-click that copies it, as plain text, and its
   name where it has one: spawns (entry and guid), area triggers and a region's models (their unique
   ID; Copy path too) in the viewport, the asset tiles (Copy path), the creature and object tiles, and

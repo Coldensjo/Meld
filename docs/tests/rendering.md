@@ -626,7 +626,7 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   probe's start, 7.5 yd under it 14 yd away), so a check of the camera's height there must measure from
   `rooms.floorAt`, not `terrain.heightAt`. A view set by `setSceneView`
   or `focus` is a jump and is not collided, so an eye placed inside a wall stays there until it moves.
-- Camera › Walk on the WMO floor (#312): `bun run probe walk-wmo` (about 60 s, most of it loading the
+- Camera › Walking View on the WMO floor (#312): `bun run probe walk-wmo` (about 60 s, most of it loading the
   scene) starts the walk 1 yd over the probe's start and walks 20 yd each way along the street, one
   frame a 0.5 yd step: in rooms 49, 48 and 50 the eye stays 3 yd over `rooms.floorAt` while its height
   over the terrain runs from -0.5 to 8.7 yd. On the old code (eye 3 yd over the terrain) it is 3.5 yd

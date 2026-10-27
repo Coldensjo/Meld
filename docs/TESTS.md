@@ -631,9 +631,11 @@ the same scene, the report before and after.
   - **The rule for using them**: a change measured as faster on a stress map is kept only if
     `perf-everything` and `bench` (Northshire) are not slower. Give the stress map's numbers and those
     two, before and after, in the done comment.
-- Trap: a scene's `view` means an orbit (target, distance) only with Follow the Ground on; with the
-  default flying camera the target is where the camera stands. A hand-written scene or a probe that
-  places the camera by target and distance must set `cameraFollowGround: true` (#256).
+- Trap: a scene's `view` means an orbit (target, distance) only with Follow the Ground on (Orbit View);
+  in Flying View the target is where the camera stands. The app starts in Orbit View since #750, but the
+  probe runner starts every probe in Flying View (`P.flyingStart`, the camera the probes were written
+  for), so a hand-written scene or a probe that places the camera by target and distance must still set
+  `cameraFollowGround: true` (#256).
 
 ## Index of feature checks
 
@@ -750,6 +752,7 @@ the same scene, the report before and after.
 - Preview window (#197)
 - Previews draw only while something moves (#589)
 - Moving the view up and down in the previews (#662)
+- Camera views (#750, probe `camera-views`)
 - Top-down view (U)
 - Log window (and the session log file, #319, probe `session-log`)
 - Minimap window (M)
