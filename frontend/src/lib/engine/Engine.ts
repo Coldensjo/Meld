@@ -2040,9 +2040,11 @@ export class Engine {
 		if (!d) return null
 		if (d === this.doc) return this.playerSpot()
 		const m = d.meta
-		if (!m.vmangos && !m.region) return null
+		// A region's or a world view's (#756) map by its folder.
+		const folder = m.region?.mapName ?? d.world?.mapName
+		if (!m.vmangos && folder === undefined) return null
 		if (!m.vmangos) await this.loadMapIds()
-		const mapId = m.vmangos ? m.vmangos.mapId : this.mapIds?.get(m.region!.mapName.toLowerCase())
+		const mapId = m.vmangos ? m.vmangos.mapId : this.mapIds?.get(folder!.toLowerCase())
 		if (mapId === undefined) return null
 		const c = d.camera
 		if (!c) return null
@@ -3081,10 +3083,13 @@ export class Engine {
 	 * in the client. A region's map ID waits for the client's map list the first time.
 	 */
 	async teleportAtCursor(): Promise<{ command: string } | { error: string }> {
-		if (!this.hit) return { error: 'Point at the ground or a model to copy its position.' }
-		const at = this.hit.clone()
+		// A world view's pick aims at its hidden stand-in, so its streamed ground under the cursor is taken (#756).
+		const world = this.doc.world
+		const hit = world ? this.worldCursor() : this.hit
+		if (!hit) return { error: 'Point at the ground or a model to copy its position.' }
+		const at = hit.clone()
 		const m = this.doc.meta
-		if (!m.vmangos && !m.region) return { error: 'This map isn’t in the client yet, so it has no map ID: make it with File › New World… or open a part of Azeroth.' }
+		if (!m.vmangos && !m.region && !world) return { error: 'This map isn’t in the client yet, so it has no map ID: make it with File › New World… or open a part of Azeroth.' }
 		if (!m.vmangos) await this.loadMapIds()
 		const id = this.openMapId()
 		if (id === null) return { error: 'The client’s map list could not be read, so this map’s ID is unknown.' }
@@ -3099,14 +3104,21 @@ export class Engine {
 	 */
 	async playerSpot(): Promise<ServerSpot | null> {
 		const m = this.doc.meta
-		if (!m.vmangos && !m.region) return null
+		const world = this.doc.world
+		if (!m.vmangos && !m.region && !world) return null
 		if (!m.vmangos) await this.loadMapIds()
 		const id = this.openMapId()
 		if (id === null) return null
 		const c = this.controller
 		// From a little above an orbit target, so a floor just over the terrain is found, not a roof.
 		const from = c.followGround ? c.target.clone().setY(c.target.y + PLAYER_PROBE) : this.camera.position.clone()
-		const at = this.groundBelow(from) ?? from.clone().setY(this.terrain.heightAt(from.x, from.z))
+		let at: THREE.Vector3
+		if (world) {
+			// A world view stands on its streamed ground (#756): its terrain is the hidden stand-in and its
+			// streamed models are a look-only layer, so no floor is found; NaN where the tile is not loaded yet.
+			const g = world.heightAt(from.x, from.z)
+			at = from.clone().setY(Number.isNaN(g) ? c.target.y : g)
+		} else at = this.groundBelow(from) ?? from.clone().setY(this.terrain.heightAt(from.x, from.z))
 		at.y += PLAYER_LIFT
 		const t = this.serverTiles(this.doc)
 		return serverSpot(at, id, t.x, t.y, c.yaw)

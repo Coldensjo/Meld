@@ -357,7 +357,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `WorldStream.tileAt` and `worldCellDetail` (`world/worldDetail.ts`): tile, chunk, the cell on the
   whole map, height, slope, hole, no tufts, the zone and the impassable flag (#755), the texture layers
   once the tile's paint is read (`paintIn`) and the liquids. `Viewport.svelte` reads the area table
-  (`loadAreas`) while Detail info is on, so the zone has its name without the Map data tool. Not yet: editing
+  (`loadAreas`) while Detail info is on, so the zone has its name without the Map data tool. Copy
+  Teleport (`teleportAtCursor`) takes that streamed cursor too, and Launch and Play Here (`playerSpot`)
+  stand on the streamed ground (`WorldStream.heightAt`; the streamed models are look-only, so no floor),
+  on the map's own ID (`openMapId`, #754) in the whole map's frame (#756). Not yet: editing
   in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way

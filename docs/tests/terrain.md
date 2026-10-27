@@ -721,6 +721,10 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   Kalimdor's world view answers `openMapId` with 1 and Client Lighting reads Kalimdor's lights
   (`clientLightsMap`), Azeroth's answers 0. Trap: every other world-view probe opens Azeroth's, where
   0 is right by luck; and `P.until` waits on a falsy answer, so the probe wraps the 0 in an array.
+- Probe `world-teleport` (about 5 s): in Kalimdor's world view near Orgrimmar, Copy Teleport at the
+  cursor (`teleportAtCursor`) gives `.go xyz ... 1` at the streamed ground under the cursor, and
+  `playerSpot` and `spotOfDoc` stand on the streamed ground on map 1 (#756). The probe's camera flies,
+  so `playerSpot` stands below the eye, not the cursor.
 - `bun test tests/selectObjects.test.ts`: a look-only layer (the world view's streamed models) selects nothing.
 - `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
 - `bun test tests/worldLiquid.test.ts` and `go test ./internal/wow/ -run EncodeLiquids`: a tile's
