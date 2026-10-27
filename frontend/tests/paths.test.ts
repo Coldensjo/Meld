@@ -266,6 +266,29 @@ test('a river carves its bed and fills it with its liquid, whose surface slopes 
 	assert.ok(!liquids.empty)
 })
 
+test('a river applied with a sea never raises ground lying below it', () => {
+	const mk = (sea: number | null) => {
+		const t = fakeTerrain(64, 10)
+		const r = road(
+			[
+				[10, 20, 60],
+				[118, 20, 60],
+			],
+			{ kind: 'river', width: 12, falloff: 4, depth: 3, liquid: 1 },
+		)
+		applyPath({ terrain: t as unknown as Terrain, objects, liquids: new LiquidMap(64), sea }, r, -1)
+		return t.heights
+	}
+	assert.ok(
+		mk(null).some((v) => v > 10),
+		'without a sea the banks rise',
+	)
+	assert.ok(
+		mk(12).every((v) => v <= 10),
+		'ground below the sea stays down',
+	)
+})
+
 test('fence pieces split the curve into equal spans near the model length, each turned along its span', () => {
 	const sm = samplePath(
 		[

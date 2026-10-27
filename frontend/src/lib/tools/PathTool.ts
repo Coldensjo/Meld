@@ -376,7 +376,7 @@ export class PathTool implements Tool {
 			prev.live = false
 		}
 		const tex = path.texture ? paletteIndex(editor.palette, path.texture) : -1
-		const res = applyPath({ terrain: ctx.terrain, objects: ctx.objects, liquids: ctx.liquids }, path, tex, piece)
+		const res = applyPath({ terrain: ctx.terrain, objects: ctx.objects, liquids: ctx.liquids, sea: editor.waterEnabled ? editor.waterLevel : null }, path, tex, piece)
 		setStatus(res.message, 5000)
 		if (!res.cmd) {
 			if (prev && again) {

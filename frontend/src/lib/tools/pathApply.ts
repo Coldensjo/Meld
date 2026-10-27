@@ -159,6 +159,8 @@ export interface PathTargets {
 	terrain: Terrain
 	objects: ObjectLayer
 	liquids: LiquidMap
+	/** The sea's level, or null without one: a River's apply never raises ground lying below it, so its banks don't dam the mouth (#774). */
+	sea?: number | null
 }
 
 type Part = { undo(): void; redo(): void; bytes?: number }
@@ -184,7 +186,8 @@ export function applyPath(m: PathTargets, path: MapPath, tex: number, piece?: Fe
 	let note = ''
 	if (path.kind === 'river') {
 		downhill(sm)
-		carveRiver(t, sm, path, heights)
+		const sea = m.sea ?? null
+		carveRiver(t, sm, path, heights, sea === null ? undefined : (v) => (t.heights[v] < sea ? 0 : Infinity))
 		const liquid = fillRiver(m, sm, path)
 		if (liquid.cmd) parts.push(liquid.cmd)
 		if (!liquid.cells) note = ' It holds no liquid: the curve is narrower than a cell.'
