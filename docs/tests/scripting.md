@@ -45,6 +45,22 @@ written to the throwaway client's scratch folder (`P.sandboxClient`, `P.sandboxF
 - Noggit Red's own example brushes (`C:\WoW\noggit-red\scripts`) are GPL: never copy them into the
   repo or a test. To try one, save it in the scripts folder and pick it in the Script Brush tool's
   options bar; `height_noise.lua` (the FRACTAL fallback), `prop_placer.lua` (set a Prop 1 model path)
-  and `clean.lua` (Ctrl and Alt; its Shift part needs chunks, #760) run.
+  and `clean.lua` run (its Shift part clears and lays the chunks' textures, #760).
 - After adding a binding, `wails dev` may not rebuild the Go side (#387): the probe's `load_png` then
   fails with "LoadScriptImage is not a function"; stop `Meld-dev.exe` and the `bun` processes and rerun.
+
+## Chunks, texture layers, holes, zones and water (#760, probe `lua-chunks`)
+
+Checks: `tests/scriptGround.test.ts` runs scripts against the editor's own host (`EngineScriptHost`
+over a real 16-cell `Terrain`, `ObjectLayer` and `LiquidMap`): chunk layers added, found, removed and
+cleared (the palette growing), a full chunk's -1, an unpainted layer kept, texel alphas written by
+Noggit Red's rule, `get_tex` and `get_pos_2d`, `vert:set_alpha`, `procedures:paint_texture` (with a
+colon and a dot), holes by chunk and by vertex block, `set_water` and its removal, the zone and the
+impassable flag, the colour notes, the errors, and the one undo step. The probe `lua-chunks` runs one
+script on a flat map in the dev page through `Engine.runScript` and checks the editor's arrays, the
+redraw markers (`paintVersion`, `holesVersion`) and that undo and redo restore every array exactly.
+
+- A flat map's chunks already hold three textures: a script that wants a known layer order clears the
+  chunk first (`c:clear_textures()`), or `add_texture` lands on layer 3.
+- A texel's position is its corner, not its middle: `paint_texture` at the selection's middle fades a
+  little there (about 200 of 255 for a 4 yd radius on a 256-cell map).

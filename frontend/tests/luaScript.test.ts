@@ -11,7 +11,7 @@ function fakeHost(verts = 9, cell = 2) {
 	let heightWrites = 0
 	const host: ScriptHost = {
 		print: (s) => out.push(s),
-		terrain: () => ({ verts, cell }),
+		terrain: () => ({ verts, cell, tex: (verts - 1) * 4 }),
 		heights: (x0, z0, x1, z1) => {
 			const r: number[] = []
 			for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) r.push(heights[z * verts + x])
@@ -49,6 +49,20 @@ function fakeHost(verts = 9, cell = 2) {
 		mapId: () => 1,
 		areaId: () => 12,
 		area: () => null,
+		// Chunks, texels, holes and water are tested on the editor's host (tests/scriptGround.test.ts).
+		chunkTextures: () => [],
+		chunkAddTexture: () => -1,
+		chunkRemoveTexture: () => {},
+		chunkClearTextures: () => {},
+		chunkEffect: () => 0,
+		chunkSetHole: () => {},
+		chunkArea: () => 0,
+		chunkSetArea: () => {},
+		chunkSetImpassable: () => {},
+		alphas: (x0, z0, x1, z1) => new Array<number>((x1 - x0 + 1) * (z1 - z0 + 1) * 4).fill(0),
+		setAlphas: () => {},
+		setHole: () => {},
+		setWater: () => {},
 	}
 	return { host, heights, models, out, writes: () => heightWrites }
 }
@@ -135,8 +149,8 @@ describe('Lua scripts', () => {
 	})
 
 	test('what Meld lacks says so', async () => {
-		const r = await runScript('get_chunk(vec(0, 0, 0))', 'b', fakeHost().host)
-		expect(r.error).toContain('get_chunk is not in Meld yet')
+		const r = await runScript('write_file("a.txt", "b")', 'b', fakeHost().host)
+		expect(r.error).toContain('write_file is not in Meld yet')
 	})
 
 	test('an endless loop is stopped', async () => {

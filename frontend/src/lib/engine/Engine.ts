@@ -5386,6 +5386,7 @@ export class Engine {
 		return new EngineScriptHost(
 			doc.terrain,
 			doc.objects,
+			doc.liquids,
 			{
 				print,
 				camera: () => {
@@ -5397,6 +5398,15 @@ export class Engine {
 				areaAt: (x, z) => this.areaAt(x, z),
 				area: s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : null,
 				loadImage: loadScriptImage,
+				palette: () => editor.palette,
+				setPalette: (p) => (editor.palette = p),
+				effect: (tex, chunk) => {
+					const t = doc.terrain
+					const side = t.paintChunksPerSide
+					const gx = chunk % side
+					const gz = Math.floor(chunk / side)
+					return effectAt(editor.palette[tex] ?? '', editor.textureEffects, editor.scopedEffects, t.areaIds[chunk], Math.floor(gx / 16), Math.floor(gz / 16), groundEffectTables())
+				},
 			},
 			label,
 		)

@@ -843,3 +843,4 @@ the same scene, the report before and after.
 
 - Lua scripts: the API, undo and the Scripts window (#28, probe `lua-script`)
 - Script brushes, noise and images (#29, probe `script-brush`)
+- Chunks, texture layers, holes, zones and water (#760, probe `lua-chunks`)

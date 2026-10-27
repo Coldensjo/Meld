@@ -36,7 +36,8 @@ export interface ScriptImage {
  */
 export interface ScriptHost {
 	print(text: string): void
-	terrain(): { verts: number; cell: number }
+	/** The vertex grid (`verts` a side, `cell` yards apart) and the paint's texels a side (`tex`). */
+	terrain(): { verts: number; cell: number; tex: number }
 	/** The heights of the vertex rect (inclusive), row by row. */
 	heights(x0: number, z0: number, x1: number, z1: number): number[]
 	/** Writes `w` by `h` heights, row by row, from vertex (x0, z0). */
@@ -54,6 +55,28 @@ export interface ScriptHost {
 	areaId(x: number, z: number): number
 	/** The area the Select tool selected, as a rect in yards, or null. */
 	area(): { x0: number; z0: number; x1: number; z1: number } | null
+	// Chunks (#760): 8 by 8 cells, numbered row by row; a chunk's texture layers are its textures in
+	// order, the first the base. Texels are the paint's grid (`tex` a side).
+	/** The textures of chunk `c`'s layers, as the map's palette names them. */
+	chunkTextures(c: number): string[]
+	/** Adds a texture as chunk `c`'s top layer: its layer (the one it has, if it has it), -1 when the chunk has four, or why not. */
+	chunkAddTexture(c: number, file: string): number | string
+	chunkRemoveTexture(c: number, layer: number): void
+	chunkClearTextures(c: number): void
+	/** The ground effect ID layer `layer` of chunk `c` grows. */
+	chunkEffect(c: number, layer: number): number
+	chunkSetHole(c: number, hole: boolean): void
+	chunkArea(c: number): number
+	chunkSetArea(c: number, id: number): void
+	chunkSetImpassable(c: number, on: boolean): void
+	/** Four alphas (0..1) a texel of the texel rect (inclusive), row by row, by the texel's chunk's layers. */
+	alphas(x0: number, z0: number, x1: number, z1: number): number[]
+	/** Writes `w` by `h` texels' alphas as `alphas` gives them; the layers above the base keep theirs, the base takes the rest. */
+	setAlphas(x0: number, z0: number, w: number, h: number, a: number[]): void
+	/** Cuts (or fills) the hole block at vertex (vx, vz). */
+	setHole(vx: number, vz: number, hole: boolean): void
+	/** Puts liquid `type` (a LiquidType.dbc ID; 0 or less removes it) at vertex (vx, vz), its surface at `height`. */
+	setWater(vx: number, vz: number, type: number, height: number): void
 	/** Reads a PNG for `load_png` (#29): the image, or why not. Missing where no files can be read. */
 	loadImage?(path: string): Promise<ScriptImage | string>
 }
@@ -252,6 +275,20 @@ export class ScriptSession {
 			area_id: (x: number, z: number) => h().areaId(x, z),
 			area: () => orNil(h().area()),
 			holding: (k: string) => !!this.keys[k as keyof BrushKeys],
+			// Chunks, texels, holes and water (#760).
+			chunk_textures: (c: number) => h().chunkTextures(c),
+			chunk_add_texture: (c: number, file: string) => h().chunkAddTexture(c, file),
+			chunk_remove_texture: (c: number, layer: number) => h().chunkRemoveTexture(c, layer),
+			chunk_clear_textures: (c: number) => h().chunkClearTextures(c),
+			chunk_effect: (c: number, layer: number) => h().chunkEffect(c, layer),
+			chunk_set_hole: (c: number, hole: boolean) => h().chunkSetHole(c, hole),
+			chunk_area: (c: number) => h().chunkArea(c),
+			chunk_set_area: (c: number, id: number) => h().chunkSetArea(c, id),
+			chunk_set_impassable: (c: number, on: boolean) => h().chunkSetImpassable(c, on),
+			alphas: (x0: number, z0: number, x1: number, z1: number) => h().alphas(x0, z0, x1, z1),
+			set_alphas: (x0: number, z0: number, w: number, hh: number, a: unknown) => h().setAlphas(x0, z0, w, hh, numbers(a, w * hh * 4)),
+			set_hole: (vx: number, vz: number, hole: boolean) => h().setHole(vx, vz, hole),
+			set_water: (vx: number, vz: number, type: number, height: number) => h().setWater(vx, vz, type, height),
 			// Brushes and their tags (#29).
 			add_brush: (name: string) => {
 				this.brushes.push({ name, tags: [], handles: [] })

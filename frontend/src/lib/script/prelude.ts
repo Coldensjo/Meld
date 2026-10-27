@@ -115,22 +115,35 @@ function random_from_time()
 	return random_from_seed(tostring(H.now()))
 end
 
--- The terrain: a grid of vertices cell yards apart, verts a side (read again for each brush event, as the
--- map painted may be another).
-local V, CELL
+-- The terrain: a grid of vertices cell yards apart, verts a side, and the paint's texels, TEX a side, TS
+-- yards apart; chunks of CHUNK cells, CS a side (read again for each brush event, as the map painted may
+-- be another).
+local V, CELL, TEX, TS, CS
+local CHUNK = 8
 local function read_terrain()
 	local info = H.terrain()
-	V, CELL = info.verts, info.cell
+	V, CELL, TEX = info.verts, info.cell, info.tex
+	TS = CELL * (V - 1) / TEX
+	CS = (V - 1) // CHUNK
 end
 read_terrain()
 
--- Vertex blocks read by sel:verts() with edits not yet written back.
+-- Vertex blocks (sel:verts(), hs the heights) and texel blocks (sel:tex(), a four alphas a texel) with
+-- edits not yet written back.
 local pending = {}
 local function flush()
 	for b in pairs(pending) do
-		H.set_heights(b.x0, b.z0, b.w, b.h, b.hs)
+		if b.hs then H.set_heights(b.x0, b.z0, b.w, b.h, b.hs) else H.set_alphas(b.x0, b.z0, b.w, b.h, b.a) end
 		pending[b] = nil
 	end
+end
+
+-- What Meld can't keep, said once a run or brush rather than raised, so Noggit Red's scripts go on.
+local noted = {}
+local function note(text)
+	if noted[text] then return end
+	noted[text] = true
+	H.print(text)
 end
 
 local vert_mt = {}
@@ -142,12 +155,78 @@ function vert_mt:set_height(y)
 end
 function vert_mt:add_height(y) self:set_height(self._b.hs[self._k] + y) end
 function vert_mt:sub_height(y) self:set_height(self._b.hs[self._k] - y) end
-vert_mt.set_color = missing('vert:set_color')
-vert_mt.set_water = missing('vert:set_water')
-vert_mt.set_hole = missing('vert:set_hole')
-vert_mt.set_alpha = missing('vert:set_alpha')
-vert_mt.get_alpha = missing('vert:get_alpha')
-vert_mt.is_water_aligned = missing('vert:is_water_aligned')
+local function vert_block(x0, z0, x1, z1)
+	return { x0 = x0, z0 = z0, w = x1 - x0 + 1, h = z1 - z0 + 1, hs = H.heights(x0, z0, x1, z1) }
+end
+local function make_vert(b, xi, zi)
+	local vx, vz = b.x0 + xi, b.z0 + zi
+	return setmetatable({ _b = b, _k = zi * b.w + xi + 1, _vx = vx, _vz = vz, _x = vx * CELL, _z = vz * CELL }, vert_mt)
+end
+
+-- Texture layers: 0 the base, up to 3; a texel's layers are its chunk's.
+local function need_layer(i, what)
+	if type(i) ~= 'number' or i < 0 or i > 3 or i % 1 ~= 0 then error(what .. ': invalid texture layer: ' .. tostring(i), 3) end
+end
+local function tex_block(x0, z0, x1, z1)
+	return { x0 = x0, z0 = z0, w = x1 - x0 + 1, h = z1 - z0 + 1, a = H.alphas(x0, z0, x1, z1) }
+end
+-- The texels nearest a vertex: those whose middles are within half a cell of it.
+local function vert_texels(v)
+	local per = TEX // (V - 1)
+	local half = per // 2
+	return mmax(0, v._vx * per - half), mmax(0, v._vz * per - half), mmin(TEX - 1, v._vx * per + half - 1), mmin(TEX - 1, v._vz * per + half - 1)
+end
+function vert_mt:set_alpha(i, a)
+	need_layer(i, 'vert:set_alpha')
+	if i == 0 then return end
+	flush()
+	local x0, z0, x1, z1 = vert_texels(self)
+	local b = tex_block(x0, z0, x1, z1)
+	for k = 0, b.w * b.h - 1 do b.a[k * 4 + i + 1] = tonumber(a) or 0 end
+	H.set_alphas(b.x0, b.z0, b.w, b.h, b.a)
+end
+function vert_mt:get_alpha(i)
+	need_layer(i, 'vert:get_alpha')
+	if i == 0 then return 1 end
+	flush()
+	local x0, z0, x1, z1 = vert_texels(self)
+	local b = tex_block(x0, z0, x1, z1)
+	local n, sum = b.w * b.h, 0
+	for k = 0, n - 1 do sum = sum + b.a[k * 4 + i + 1] end
+	return n > 0 and sum / n or 0
+end
+-- Holes: the 2 by 2 cell block of the cell the vertex is the first corner of, as a 1.12 tile keeps them.
+function vert_mt:set_hole(on)
+	flush()
+	H.set_hole(self._vx, self._vz, on and true or false)
+end
+-- Every vertex of Meld's grid is a corner of the liquid's cells, so every one takes water.
+function vert_mt:is_water_aligned() return true end
+function vert_mt:set_water(kind, height)
+	flush()
+	H.set_water(self._vx, self._vz, tonumber(kind) or 0, tonumber(height) or self._b.hs[self._k])
+end
+-- 1.12 tiles have no vertex colours (MCCV came with later clients).
+function vert_mt:set_color() note('vert:set_color: 1.12 tiles have no vertex colours, so Meld keeps none.') end
+function vert_mt:get_color() return vec(1, 1, 1) end
+
+local tex_mt = {}
+tex_mt.__index = tex_mt
+function tex_mt:get_alpha(i)
+	need_layer(i, 'tex:get_alpha')
+	return self._b.a[self._k + i + 1]
+end
+function tex_mt:set_alpha(i, v)
+	need_layer(i, 'tex:set_alpha')
+	self._b.a[self._k + i + 1] = tonumber(v) or 0
+	pending[self._b] = true
+end
+-- The texel's corner, as Noggit Red gives it.
+function tex_mt:get_pos_2d() return vec(self._x, 0, self._z) end
+local function make_tex(b, xi, zi)
+	local tx, tz = b.x0 + xi, b.z0 + zi
+	return setmetatable({ _b = b, _k = (zi * b.w + xi) * 4, _x = tx * TS, _z = tz * TS }, tex_mt)
+end
 
 -- Models: m2 and wmo placements, rotations in degrees as Noggit Red gives them (y the yaw).
 local model_mt = {}
@@ -227,13 +306,37 @@ function sel_mt:verts()
 	local z1 = mmin(V - 1, mfloor(self._max.z / CELL + e))
 	local list = {}
 	if x0 > x1 or z0 > z1 then return list end
-	local w, h = x1 - x0 + 1, z1 - z0 + 1
-	local b = { x0 = x0, z0 = z0, w = w, h = h, hs = H.heights(x0, z0, x1, z1) }
-	for zi = 0, h - 1 do
-		for xi = 0, w - 1 do
-			local k = zi * w + xi + 1
-			list[k] = setmetatable({ _b = b, _k = k, _x = (x0 + xi) * CELL, _z = (z0 + zi) * CELL }, vert_mt)
-		end
+	local b = vert_block(x0, z0, x1, z1)
+	for zi = 0, b.h - 1 do
+		for xi = 0, b.w - 1 do list[#list + 1] = make_vert(b, xi, zi) end
+	end
+	return list
+end
+-- The texels whose corners lie in the selection, read as one block.
+function sel_mt:tex()
+	flush()
+	local e = 1e-6
+	local x0 = mmax(0, mceil(self._min.x / TS - e))
+	local z0 = mmax(0, mceil(self._min.z / TS - e))
+	local x1 = mmin(TEX - 1, mfloor(self._max.x / TS + e))
+	local z1 = mmin(TEX - 1, mfloor(self._max.z / TS + e))
+	local list = {}
+	if x0 > x1 or z0 > z1 then return list end
+	local b = tex_block(x0, z0, x1, z1)
+	for zi = 0, b.h - 1 do
+		for xi = 0, b.w - 1 do list[#list + 1] = make_tex(b, xi, zi) end
+	end
+	return list
+end
+local chunk_at
+-- The chunks the selection reaches.
+function sel_mt:chunks()
+	local span = CELL * CHUNK
+	local x0, z0 = mmax(0, mfloor(self._min.x / span)), mmax(0, mfloor(self._min.z / span))
+	local x1, z1 = mmin(CS - 1, mfloor(self._max.x / span)), mmin(CS - 1, mfloor(self._max.z / span))
+	local list = {}
+	for cz = z0, z1 do
+		for cx = x0, x1 do list[#list + 1] = chunk_at(cx, cz) end
 	end
 	return list
 end
@@ -244,14 +347,130 @@ function sel_mt:models()
 	return list
 end
 function sel_mt:apply() flush() end
-sel_mt.tex = missing('selection:tex')
-sel_mt.chunks = missing('selection:chunks')
 
 function select_between(a, b) return selection(a, b) end
 function select_origin(o, xr, zr)
 	need_vec(o, 'select_origin')
 	if not zr or zr <= 0 then zr = xr end
 	return selection(vec(o.x - xr, 0, o.z - zr), vec(o.x + xr, 0, o.z + zr))
+end
+
+-- Chunks (#760): 8 by 8 cells, an MCNK of the client's tile. Its texture layers are its paint's textures
+-- in order (0 the base, at most 4).
+local chunk_mt = {}
+chunk_mt.__index = chunk_mt
+chunk_at = function(cx, cz) return setmetatable({ _c = cz * CS + cx, _cx = cx, _cz = cz }, chunk_mt) end
+function get_chunk(p)
+	need_vec(p, 'get_chunk')
+	local span = CELL * CHUNK
+	local cx, cz = mfloor(p.x / span), mfloor(p.z / span)
+	if cx < 0 or cz < 0 or cx >= CS or cz >= CS then error(string.format('get_chunk: (%g, %g) is off the map', p.x, p.z), 2) end
+	return chunk_at(cx, cz)
+end
+local function need_index(i, what, name)
+	if type(i) ~= 'number' or i < 0 or i > 3 or i % 1 ~= 0 then error(what .. ': invalid ' .. name .. ' index, must be between 0-3', 3) end
+end
+-- After a change to the layers, the chunk's texel block (get_tex) is read again.
+local function relayer(self) self._tb = nil end
+function chunk_mt:get_texture_count() flush() return #H.chunk_textures(self._c) end
+function chunk_mt:get_texture(i)
+	need_index(i, 'chunk:get_texture', 'texture')
+	flush()
+	local list = H.chunk_textures(self._c)
+	if i >= #list then error('chunk:get_texture: texture index out of range', 2) end
+	return norm(list[i + 1])
+end
+-- effect: -2 (the default) leaves it, -1 clears it, 0 or more sets it. Returns the layer, -1 for a full chunk.
+function chunk_mt:add_texture(file, effect)
+	flush()
+	relayer(self)
+	local r = H.chunk_add_texture(self._c, tostring(file))
+	if type(r) == 'string' then error(r, 2) end
+	effect = tonumber(effect) or -2
+	if r >= 0 and effect >= -1 then self:set_effect(r, effect) end
+	return r
+end
+function chunk_mt:remove_texture(i)
+	need_index(i, 'chunk:remove_texture', 'texture')
+	flush()
+	relayer(self)
+	H.chunk_remove_texture(self._c, i)
+end
+function chunk_mt:clear_textures()
+	flush()
+	relayer(self)
+	H.chunk_clear_textures(self._c)
+end
+function chunk_mt:get_effect(i) return H.chunk_effect(self._c, tonumber(i) or 0) end
+-- Meld keeps a ground effect per texture (for the map, a zone or a tile), not per chunk layer.
+function chunk_mt:set_effect() note("chunk:set_effect: Meld keeps one ground effect per texture (Texture Properties), not per chunk layer, so the effect didn't change.") end
+function chunk_mt:set_hole(on)
+	flush()
+	H.chunk_set_hole(self._c, on and true or false)
+end
+function chunk_mt:clear_colors() note('chunk:clear_colors: 1.12 tiles have no vertex colours, so Meld keeps none.') end
+function chunk_mt:apply() flush() end
+chunk_mt.apply_all = chunk_mt.apply
+chunk_mt.apply_textures = chunk_mt.apply
+chunk_mt.apply_heightmap = chunk_mt.apply
+chunk_mt.apply_vertex_color = chunk_mt.apply
+function chunk_mt:set_impassable(on) H.chunk_set_impassable(self._c, on and true or false) end
+function chunk_mt:get_area_id() return H.chunk_area(self._c) end
+function chunk_mt:set_area_id(id) H.chunk_set_area(self._c, mfloor(tonumber(id) or 0)) end
+function chunk_mt:to_selection()
+	local span = CELL * CHUNK
+	return selection(vec(self._cx * span, 0, self._cz * span), vec((self._cx + 1) * span, 0, (self._cz + 1) * span))
+end
+-- Noggit Red's 64 by 64 texels a chunk: Meld's paint has fewer, so neighbouring indices share a texel.
+function chunk_mt:get_tex(i)
+	if type(i) ~= 'number' or i < 0 or i > 4095 then error('chunk:get_tex: index must be between 0-4095', 2) end
+	local per = TEX // CS
+	if not self._tb then
+		flush()
+		self._tb = tex_block(self._cx * per, self._cz * per, self._cx * per + per - 1, self._cz * per + per - 1)
+	end
+	return make_tex(self._tb, mfloor((i % 64) * per / 64), mfloor(mfloor(i / 64) * per / 64))
+end
+-- Noggit Red's 145 vertices a chunk, rows of 9 outer and 8 inner by turns: Meld's grid has only the
+-- outer ones, so an inner vertex is the corner before it.
+function chunk_mt:get_vert(i)
+	if type(i) ~= 'number' or i < 0 or i > 144 then error('chunk:get_vert: index must be between 0-144', 2) end
+	if not self._vb then
+		flush()
+		self._vb = vert_block(self._cx * CHUNK, self._cz * CHUNK, self._cx * CHUNK + CHUNK, self._cz * CHUNK + CHUNK)
+	end
+	i = mfloor(i)
+	local row, r = i // 17, i % 17
+	return make_vert(self._vb, r < 9 and r or r - 9, row)
+end
+
+-- Noggit Red's procedures: paint_texture adds an image's red, turned by angle degrees about the
+-- selection's middle and fading to its edge, to texture layer layer of the selection's texels.
+procedures = {}
+function procedures.paint_texture(a, ...)
+	-- Noggit Red's scripts call it as procedures:paint_texture(sel, ...).
+	if a == procedures then return procedures.paint_texture(...) end
+	local sel, img, layer, pressure, angle = a, ...
+	if type(sel) ~= 'table' or getmetatable(sel) ~= sel_mt then error('procedures:paint_texture: expected a selection', 2) end
+	need_layer(layer, 'procedures:paint_texture')
+	pressure, angle = tonumber(pressure) or 1, tonumber(angle) or 0
+	local center = sel:center()
+	local outer = (sel._max.x - sel._min.x) / 2
+	if outer <= 0 then return end
+	local w, h = img:width(), img:height()
+	local hw, hh = w / 2, h / 2
+	for _, t in ipairs(sel:tex()) do
+		local p = t:get_pos_2d()
+		local dist = dist_2d(p, center) / outer
+		p = rotate_2d(p, center, angle)
+		local rx, rz = (p.x - center.x) / outer, (p.z - center.z) / outer
+		if rx >= -1 and rx <= 1 and rz >= -1 and rz <= 1 then
+			local ix, iz = round(hw + hw * rx), round(hh + hh * rz)
+			if ix >= 0 and ix < w and iz >= 0 and iz < h then
+				t:set_alpha(layer, t:get_alpha(layer) + img:get_red(ix, iz) * pressure * (1 - dist))
+			end
+		end
+	end
 end
 
 local function add(kind, file, pos, scale, rot, what)
@@ -436,8 +655,7 @@ function __meld_event(i, kind, x, y, z, outer, inner, dt)
 	flush()
 end
 
--- Not in Meld yet: files and chunk textures.
-get_chunk = missing('get_chunk')
+-- Not in Meld yet: files (#761).
 write_file = missing('write_file')
 append_file = missing('append_file')
 read_file = missing('read_file')

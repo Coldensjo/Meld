@@ -43,9 +43,38 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   one undo step of it all (heights, moves, removals, additions, undone in reverse), named
   `Script <name>`, pushed even when the script failed half way, so its edits so far can be undone.
   `Engine.runScript` refuses in a world view (`refuseInWorld`) and while another script runs.
-- **Not in Meld yet** (each raises "... is not in Meld yet" at the script's line): chunks and texture
-  layers (`tex`, `vert:set_alpha`, #760), vertex colours (1.12 tiles have none), water and holes, and
-  the file functions with `image:save` (#761). The `holding_*` keys are false in a run from the window.
+- **Chunks, texture layers, holes, zones and water** (#760): `get_chunk(pos)` and `sel:chunks()` give
+  paint chunks (8 by 8 cells, an MCNK). A chunk's texture layers are its paint slots that hold a
+  texture, in slot order, the first the base (`EngineScriptHost.layers`); `add_texture` puts a texture
+  on top (adding it to the map's palette, undone with the step; the layer it has when the chunk has it
+  already, since a chunk holds a texture once in Meld; -1 when it has four), packing the layers down
+  first; a chunk's first texture covers it. `remove_texture` gives each texel's weight to its strongest
+  other layer. The host's `TerrainStroke` runs with `settle: false`: a layer a script added stays
+  while nothing is painted on it yet, for a later stroke to paint (Noggit Red's `clean.lua` then
+  `texture_brush.lua`). `get_texture` gives the path lower case with `/`, as `get_filename` does.
+  `get_effect` is the ground effect the export writes for the layer's texture there; `set_effect`
+  changes nothing and says so once (Meld keeps an effect per texture for the map, a zone or a tile,
+  not per chunk layer). `set_area_id` and `set_impassable` go through a `ChunkDataStroke`.
+- **Texels** (`sel:tex()`, `chunk:get_tex`) are the paint's grid, 4 a cell (Noggit Red's are 64 a
+  chunk, 8 a cell, so `get_tex(i)` maps two of its indices a side onto one of Meld's); a texel's
+  position is its corner. Alphas cross a block at a time as heights do (`alphas`, `set_alphas`, four a
+  texel by its chunk's layers) and go back on `apply` or `flush`. The write is Noggit Red's
+  `apply_alpha_changes`: the layers above the base keep their alphas (0..1, clamped) in order while
+  they fit in 255, the base takes the rest; a chunk with one texture or none takes no alpha.
+  `vert:set_alpha` and `get_alpha` work on the texels whose middles lie within half a cell of the
+  vertex (layer 0 is ignored, and reads 1). `procedures:paint_texture(sel, img, layer, pressure,
+  angle)` (or with a dot) is Noggit Red's: the image's red, turned about the selection's middle and
+  fading by distance, added to the layer.
+- **Holes**: `chunk:set_hole` cuts or fills the chunk's cells; `vert:set_hole` the 2 by 2 hole block of
+  the cell the vertex is the first corner of (a 1.12 tile keeps holes by those blocks). **Water**:
+  `vert:set_water(type, height)` is Noggit Red's (the water brush at the vertex, radius 1, locked at
+  the height, overriding the liquid there; a type of 0 or less removes it), through a `LiquidStroke`;
+  every vertex of Meld's grid is a corner of the liquid's cells, so `is_water_aligned` is true.
+  `chunk:get_vert(i)` maps Noggit Red's 145 vertices onto the chunk's 81 (an inner one is the corner
+  before it). **Vertex colours**: 1.12 tiles have none, so `set_color` and `clear_colors` do nothing and
+  say so once, and `get_color` gives `vec(1, 1, 1)`.
+- **Not in Meld yet** (each raises "... is not in Meld yet" at the script's line): the file functions
+  with `image:save` (#761). The `holding_*` keys are false in a run from the window.
 - **Sessions** (#29): `openScript` gives each script a `ScriptSession` (`scriptApi.ts`), the Lua state
   with the prelude and the script run in it. `runScript` closes it at once; `Engine.runScript` keeps it
   when the script made brushes and hands it to the Script Brush tool, closing the one before. The

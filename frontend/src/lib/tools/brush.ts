@@ -128,13 +128,20 @@ export class TerrainStroke {
 	private sRect: Rect | null = null
 	private mRect: Rect | null = null
 	private holesRect: Rect | null = null
+	/** Whether `finish` frees the slots the stroke's chunks no longer use (`settleSlots`). */
+	private settle: boolean
 
+	/**
+	 * `settle: false` keeps a chunk's empty texture layers: a script's `chunk:add_texture` adds a layer
+	 * with no weight yet, for a later stroke to paint (#760).
+	 */
 	constructor(
 		private terrain: Terrain,
 		private label: string,
-		opts: { heights?: boolean; splat?: boolean; mask?: boolean; holes?: boolean },
+		opts: { heights?: boolean; splat?: boolean; mask?: boolean; holes?: boolean; settle?: boolean },
 		private onHeightsChanged?: (r: Rect) => void,
 	) {
+		this.settle = opts.settle ?? true
 		const R = terrain.splatRes
 		if (opts.heights) this.hBefore = new BlockSnapshot(terrain.heights, terrain.verts, terrain.verts, 1, SNAPSHOT_BLOCK)
 		if (opts.splat) {
@@ -262,7 +269,7 @@ export class TerrainStroke {
 			})
 		}
 		if (this.wBefore && this.slotsBefore) {
-			this.settleSlots()
+			if (this.settle) this.settleSlots()
 			const slotsChanged = t.chunkSlots.some((v, i) => v !== this.slotsBefore![i])
 			const slotsBefore = slotsChanged ? this.slotsBefore : null
 			const slotsAfter = slotsChanged ? t.chunkSlots.slice() : null
