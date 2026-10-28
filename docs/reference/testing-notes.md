@@ -198,8 +198,10 @@ Its own tests (`cmd/meldtool/meldtool_test.go`, synthetic tiles and archives) ru
   patch changed. Trap, as above: a region save itself sets 0x8000 on some chunks, so diff a write
   against the same save without your change (`mpq cat -o` both), not against the client's tile.
 - `mpq ls [filter]` and `mpq cat [-o file] <path>`: the listed files (filter: a substring, any case,
-  `/` or `\`), and one file's bytes from the topmost archive that has it (or from the one `--client`
-  archive).
+  `/` or `\`; names a listfile has but no archive holds are left out, as the asset server does), and
+  one file's bytes from the topmost archive that has it (or from the one `--client` archive). This is
+  how to find a UI texture's path and read the XML or Lua that uses it (#698), since `/wow/list` takes
+  only fixed kinds.
 - `bindings [--json]`: the bound methods (`func (a *App) X` in the root package, the files this OS
   builds) with their signatures and file:line, read from the sources, no build or wails needed.
 
