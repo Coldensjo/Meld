@@ -14,8 +14,8 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   `tests/particles.test.ts` (kernels, ramps, integrator, quad writer, after Benilla's own tests).
 - In the app (the CDP route in `docs/TESTS.md`), place `World\Generic\PassiveDoodads\Lights\FreestandingTorch01.m2`
   and `World\Azeroth\Elwynn\PassiveDoodads\Waterfall\ElwynnTallWaterfall01.m2` (yOff -70: its emitter
-  is 94 yd up) on cleared ground. `__engine.particles.live` maps `<objectId>:<emitter>` to a pool
-  (`pool.count` live particles); `__engine.particles.batches` holds the draws (`floats / 36` quads).
+  is 94 yd up) on cleared ground. `__engine.debug.particles.live` maps `<objectId>:<emitter>` to a pool
+  (`pool.count` live particles); `__engine.debug.particles.batches` holds the draws (`floats / 36` quads).
   The torch burns with the flipbook flame and the waterfall throws a lit white spray (about 100
   particles).
 - Trap: an emitter out of view or beyond `RANGE` (300 yd) is frozen, so a pool with `acc` 0 and no
@@ -30,7 +30,7 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   so load the scene with `"prefs":{"animations":true}` (the owner's own prefs have animations off).
   `World\Dungeon\CavernsOfTime\PassiveDoodads\EnergyTrails\EnergyTrailHourglass.m2` placed on
   cleared ground sweeps two blue strips 60 to 160 yd up across the sky; from `distance: 260` both
-  trails hold about 95 edges (`__engine.particles.live.get('<id>:r0').trail.count`). Its bones are
+  trails hold about 95 edges (`__engine.debug.particles.live.get('<id>:r0').trail.count`). Its bones are
   linearly keyed, 9 keys in 16.7 s, so the strips run straight between keys, as the client draws them.
 - Spawns (#110): a spawn's pools and trails are keyed `s:<kind>/<guid>:<emitter>` (`:r<n>` for a
   ribbon). The Durotar region Kalimdor 41_33 (2x2) has 50 of them; its Copper Vein `object/112723`
@@ -44,7 +44,7 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   emitter (flags 0x3009, flat shockwave rings) births on the ground (ground height plus the birth
   size, about 0.5), not at the model's base. The fire and water rifts, `UndercityMonsterBirth.m2`,
   `G_GhostTrap.m2` and `G_ScourgeRuneCircleCrystal.m2` use the flag too.
-- Sorting (#118): an alpha batch (`__engine.particles.batches`, key `<texture>|alpha|...`) uploads its
+- Sorting (#118): an alpha batch (`__engine.debug.particles.batches`, key `<texture>|alpha|...`) uploads its
   quads back to front from the camera each frame. With Elwynn's tall waterfall placed as above, walk
   each batch's `data` (36 floats a quad; the centre is the mean of floats 0..2 and 18..20) and check
   the distances to `__engine.camera.position` never grow.
@@ -68,7 +68,7 @@ const g = await import('<the loaded wow/groundEffectTables.ts URL>')
 await g.loadGroundEffectTables()        // the first time for a client scans every tile: a minute or two
 g.groundEffectTables().textures['tileset\elwynn\elwynngrassbase.blp']   // an effect id
 // With Northshire open and the camera on the ground: a few frames, then
-__engine.doc.groundEffects.count       // thousands (the tufts drawn now)
+__engine.debug.doc.groundEffects.count       // thousands (the tufts drawn now)
 __engine.exportInput().effects          // the effect per palette index
 ```
 
@@ -86,7 +86,7 @@ __engine.exportInput().effects          // the effect per palette index
 - The fade (B-178): `tests/groundEffects.test.ts` pins Benilla's landmarks (plateau to 52.64 yd, cut-out
   at 61.11, zero at 69.86). In the app (CDP route), Northshire's meadow at x 150, z 300 with the map's
   objects hidden, `yaw: 2.2, pitch: 0.1, distance: 4`: the grass thins away toward the hills instead
-  of ending at a ring. `__engine.doc.groundEffects.reach` is the build radius; the headless viewport
+  of ending at a ring. `__engine.debug.doc.groundEffects.reach` is the build radius; the headless viewport
   is 1068x285 (aspect 3.75), which makes it about 133 yd and the tuft count about four times a 70 yd
   ring's, so count tufts in a normal window when judging the cost.
 
@@ -98,7 +98,7 @@ Checks: `water/liquidMaterial.ts` against the client's look. Northshire's stream
 river water up to depth byte 79: with the CDP route (`docs/TESTS.md`) load the region, then
 `e.setSceneView({ target: [340, 70.2, 283], yaw: 2.4, pitch: 0.35, distance: 45, hour: 13 })`. It
 should be teal with white ripple glints, as in the game; the old noggit-style shader drew it a flat
-olive. `__engine.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to 1 per vertex) to find
+olive. `__engine.debug.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to 1 per vertex) to find
 water elsewhere. For a before and after, `git stash push` the changed files, shoot, and `git stash
 pop`: the dev page reloads them.
 
@@ -266,8 +266,8 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   `e.doc.spawnLayer.forEachDrawn` counts 10 (Cameron, John, Dana among them); with
   `e.roomAdmit.admits = () => false` it counts 0.
 - Water and tufts (#119): with the inn placed in Durotar, outside it the region draws about 4400 tufts
-  (sum of `mesh.count` over `__engine.doc.groundEffects.batches`) and 59 liquid blocks
-  (`__engine.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
+  (sum of `mesh.count` over `__engine.debug.doc.groundEffects.batches`) and 59 liquid blocks
+  (`__engine.debug.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
   and they come back on leaving.
 
 ## Client Lighting's ground: per-vertex light and the sheen (#111)
@@ -300,7 +300,7 @@ cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
 - In the dev page (headless Chrome over CDP works, `docs/TESTS.md`): `const x = __engine.renderer.getContext().getExtension('WEBGL_lose_context'); x.loseContext()`,
   wait ~500 ms: `__engine.contextLost` is true, the status bar says the graphics card dropped the
   viewport, and `__engine.renderMinimapTile(0, 0, 'none', 16)` throws. Then `x.restoreContext()`, wait
-  ~1.5 s and step `__engine.frame()` a few times: the status says the viewport is back, the shot looks
+  ~1.5 s and step `__engine.debug.frame()` a few times: the status says the viewport is back, the shot looks
   as before, and `gl.getError()` stays 0 after each frame. Compare the mean of a small
   `renderMinimapTile` before and after (78.1 against 78.5 on a Stranglethorn region, 2026-10-16).
 - Trap: three rebuilds its state and re-uploads geometry and textures by itself on restore, but a
@@ -686,7 +686,7 @@ batches join a cube face or the near cascade).
   sun moved under 0.1° and is redrawn after a long pan or a larger sun move (#324). It counts the frames
   whose `markShadows` asked for a redraw. Trap: a new map's spawns and preferences arrive a few frames
   late and each redraws the maps once, so let it settle before counting.
-- A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a
+- A jump's cost (#129): wrap `__engine.debug.frame` to time each call, `controller.focus(x, z)` across a
   3x3 block (`region: { mapName: 'Azeroth', x: 31, y: 48, size: 3 }`, cells 384, world 768), and read
   the next five frames. Run Chrome on the GPU for this (`--use-angle=d3d11 --enable-gpu
   --ignore-gpu-blocklist` instead of the swiftshader flags); swiftshader's times say nothing. Wrapping
@@ -705,7 +705,7 @@ batches join a cube face or the near cascade).
   with a drawn instance in the cascade's box (`setNearCascade`, `world/shadowReach.ts`). Unit test
   `tests/shadowReach.test.ts`; in the app, `bun run probe perf-everything` (about 830 fewer calls than
   before, 2725 to 1895). To A/B it in one page, wrap every scene InstancedMesh that has its own
-  `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
+  `intersectsFrustum` as `(f) => f === __engine.debug.env.key.shadow.getFrustum() ? true : old(f)` (the old
   behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
   shadows (Help › Benchmark maps) for casters missing at the near box's edge.
 - The scene pass draws only what is in view (#15): a batch's `count` is its instances in the camera's
@@ -727,7 +727,7 @@ batches join a cube face or the near cascade).
   (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
 - The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
   sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
-  light follows the live sun. The probe steps `e.hour` by 0.0005 a frame with the clock frozen and
+  light follows the live sun. The probe steps the hour (`e.debug.setHour`) by 0.0005 a frame with the clock frozen and
   compares the matrix after each held frame with the one after the last redraw. Trap: a pixel diff
   barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
   own turn), so compare the matrix.

@@ -64,10 +64,10 @@ try {
 	button('Fly it')?.click()
 	await P.frames(1)
 	const flying = ui.taxiFlying
-	const from = e.persp.position.clone()
+	const from = e.debug.persp.position.clone()
 	const t0 = performance.now()
 	while (performance.now() - t0 < 1500) await P.frames(1)
-	const flew = e.persp.position.distanceTo(from)
+	const flew = e.debug.persp.position.distanceTo(from)
 	button('Stop')?.click()
 	await P.frames(2)
 	const back = Math.hypot(...e.sceneView().target.map((v, i) => v - view.target[i]))

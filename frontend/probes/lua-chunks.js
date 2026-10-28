@@ -66,7 +66,7 @@ const cell = (x, z) => t.holes[Math.floor(z / t.cellSize) * t.size + Math.floor(
 const c150 = chunkAt(150, 150)
 if (!cell(150, 150) || t.areaIds[c150] !== 12 || !(t.chunkFlags[c150] & 1)) bad.push('the chunk at 150 is not a hole of zone 12, impassable')
 if (!cell(200, 200)) bad.push('the vertex at 200 cut no hole')
-const lw = e.doc.liquids.layers(chunkAt(100, 100))
+const lw = e.debug.doc.liquids.layers(chunkAt(100, 100))
 r.water = lw.map((l) => ({ id: l.id, cells: l.cells.reduce((a, b) => a + b, 0) }))
 if (lw.length !== 1 || lw[0].id !== 1) bad.push('no water at 100')
 if (t.paintVersion === paint0) bad.push('the paint was not marked for redraw')

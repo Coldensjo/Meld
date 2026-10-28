@@ -120,7 +120,7 @@ IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe, pr
   and screenshot at once: the rows that came in should already be filled.
 - Traps: tiles only ask for thumbnails from an IntersectionObserver, which does not fire in a
   hidden tab (`document.hidden`), so a `javascript_tool` loop counting `.tile img` in a hidden tab
-  sees nothing finish however many `__engine.frame()` it drives; and `await`ing
+  sees nothing finish however many `__engine.debug.frame()` it drives; and `await`ing
   `requestAnimationFrame` there never returns (the eval times out after 45 s). Use the `computer`
   tool's scroll and screenshots, which keep the tab visible. Cold list timings for reference: the
   three `/wow/list` kinds about 40 ms each, `ListCreatureTemplates` about 0.3 s uncached (10k rows
@@ -368,7 +368,7 @@ No probe: the unit tests below, and a hand check in the dev page.
 Checks: `lib/wow/loadProgress.ts` (counters, unit test `loadProgress.test.ts`) fed by `fetchBinary`
 in `wow/api.ts`, drawn by `LoadingBar.svelte` (`[aria-label="Loading from the client"]`, label in
 `.label`) after a batch has run 400 ms. In the dev page over CDP: start `__loadScene` without awaiting
-it, sample the label every 200 ms while stepping `__engine.frame()`: it reads like "Loading 96 / 236 ·
+it, sample the label every 200 ms while stepping `__engine.debug.frame()`: it reads like "Loading 96 / 236 ·
 Textures · G_BARREL01.BLP", and is gone within ~200 ms of the reads ending. One `fetchImage` while
 idle must never show it. Trap: on a second run the reads come from cache and each batch ends before
 400 ms, so the bar rightly never shows; use a region not opened in that browser profile yet.
@@ -389,7 +389,7 @@ Hand check: in the dev page, as below; no probe covers it.
 Checks: the right-click menu's Preview (`ui.modelPreview`, `ModelPreviewWindow.svelte` over
 `CreaturePreview` with a `type` and `hq`). In the dev page on Northshire, project a model's position to
 the screen (`p.project(__engine.camera)`, then the canvas rect) and call
-`__engine.openContextMenu({ clientX, clientY })`: the menu lists Preview after Focus. Its window is
+`__engine.debug.openContextMenu({ clientX, clientY })`: the menu lists Preview after Focus. Its window is
 `[role="dialog"][aria-label="Model preview"]` (not `aria-label` alone: the asset browser's small
 preview has the same label). nsabbey.wmo reads "89.0 yd tall · 35,413 triangles" (the full model) once
 loaded; a spawn's (`spawnType(s)`) shows it dressed. Esc closes it and the map's selection stays.

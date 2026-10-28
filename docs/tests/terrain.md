@@ -93,9 +93,9 @@ const m = walls.minus.position; ray.origin.set(m.x, m.y + 30, m.z); walls.frame(
 No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: the Terrace mode (`terraceHeight`/`terraceLevel` in `tools/sculptShapes.ts`, unit tests in
-`sculptShapes.test.ts`). In the dev page, drive the tool directly: `s = __engine.tools.sculpt`, set
+`sculptShapes.test.ts`). In the dev page, drive the tool directly: `s = __engine.debug.tools.sculpt`, set
 `editor.sculptMode`, `editor.brush` and `editor.terrace` through the loaded `editor.svelte.ts`, then
-`s.onDown(__engine.ctx, v, new PointerEvent('pointerdown'))`, `s.tick(ctx, 0.05, v)` a few dozen times
+`s.onDown(__engine.debug.ctx, v, new PointerEvent('pointerdown'))`, `s.tick(ctx, 0.05, v)` a few dozen times
 and `s.onUp(...)`, with `v` a Vector3 on the ground (`__engine.controller.target.clone().set(...)`).
 Raise a hill (60 ticks, radius 40), then terrace it (step 6, sharpness 1, falloff 0, 80 ticks): every
 vertex near the centre lands on a multiple of 6, a `helper:post` added on the slope rides the new
@@ -263,8 +263,8 @@ No probe: the unit tests below, and a hand check in the dev page.
 Checks: Paint › Mask's Select by (`editor.maskSelect`, `tools/maskWand.ts`; the texel arithmetic is
 `terrain/maskSelect.ts`, unit tests in `maskSelect.test.ts`). In the dev page, on Northshire (Azeroth
 32_48, 1x1, `splatRes` 512), set `editor.tool = 'paint'`, `editor.paintMode = 'mask'` and
-`editor.maskSelect.by`, then click with `p = __engine.tools.paint`:
-`p.onDown(__engine.ctx, v, new PointerEvent('pointerdown', { shiftKey }))` and `p.onUp(__engine.ctx)`,
+`editor.maskSelect.by`, then click with `p = __engine.debug.tools.paint`:
+`p.onDown(__engine.debug.ctx, v, new PointerEvent('pointerdown', { shiftKey }))` and `p.onUp(__engine.debug.ctx)`,
 with `v` on the ground at x 150, z 300. Count the mask's texels at 128 or more. Texture, contiguous:
 about 52k texels; with `contiguous = false`, 83k; slope 30° to 90° over the whole map, added with
 Shift, about 137k in 45 ms. Each click is one undo step named after the pick ("Add to mask by slope"),
@@ -284,8 +284,8 @@ Probe: `terrain-cell-tex` (a shape's tint covers its cells, #394); the marching 
 Checks: free-form areas (`terrain/areaShape.ts`, `state/areaSelection.ts`; unit tests in
 `areaShape.test.ts`: the raster, bounds, edge distance, a clip's cells turning with it, a liquid paste
 inside a shape). In the dev page on Northshire, skip the pointer and close an outline directly:
-`s = __engine.tools.select; s.outline = { pts, op: 'replace' | 'add' | 'subtract', polygon: false };
-s.closeOutline(__engine.ctx)`, with `pts` a ring of world x, z pairs around (150, 300). Then
+`s = __engine.debug.tools.select; s.outline = { pts, op: 'replace' | 'add' | 'subtract', polygon: false };
+s.closeOutline(__engine.debug.ctx)`, with `pts` a ring of world x, z pairs around (150, 300). Then
 `editor.selection` is the bounds, `terrain.material.uniforms.selMode` is 3 after a frame, and
 `setHoleInSelection`, `holesInSelection`, `maskFromSelection`, `selectedChunks` and
 `resizeSelection(±1)` follow the cells. Copy and paste: clear the selected models first (Copy prefers
@@ -304,7 +304,7 @@ the shape's rim keeps the map's heights). One undo restores every height.
   own source instead: `(await (await fetch('/src/lib/engine/Engine.ts?t=…')).text()).match(/from "([^"]*editor\.svelte\.ts[^"]*)"/)`.
 - Trap: a probe that awaits `requestAnimationFrame`, or moves the camera through `setSceneView` and
   then awaits timers, wedged T3 Code's hidden preview tab twice (every later evaluate timed out). Step
-  with `__engine.frame()` and set `controller.target`, `pitch`, `distance` and `yaw` directly.
+  with `__engine.debug.frame()` and set `controller.target`, `pitch`, `distance` and `yaw` directly.
 - Comparing two renders (`selMode` forced to 0, then back, `renderer.render` and a 2D canvas
   `drawImage`) shows the tint over exactly the shape's cells; the probe found no outline pixels for a
   plain rect either, so judge the marching ants by eye in the app.
@@ -509,10 +509,10 @@ Hand check: in the dev page, as below; no probe covers it.
 
 Checks: with All layers off, the Water tool draws only layer number N of each chunk (as Noggit Red's
 Current layer does); other tools always draw every layer. In the dev page, import `editor` by the
-page's own URL (the import trap in `docs/TESTS.md`), put two layers in chunk 5 with `__engine.doc.liquids.set(5, [a, b])`
+page's own URL (the import trap in `docs/TESTS.md`), put two layers in chunk 5 with `__engine.debug.doc.liquids.set(5, [a, b])`
 (each `{ id, heights: Float32Array(81), depth: Float32Array(81), cells: Uint8Array(64).fill(1) }`),
 set `editor.tool = 'water'`, `editor.water.allLayers = false`, `editor.water.layer = 1`, call
-`__engine.frame()` and count the cells in `__engine.doc.liquidRenderer.group`'s meshes
+`__engine.debug.frame()` and count the cells in `__engine.debug.doc.liquidRenderer.group`'s meshes
 (`index.count / 6`): 64 rather than 128, and the mesh's `kind` attribute is the second layer's.
 
 The region save's side of the layers: `go test ./internal/vmangos/ -run TestRegionLiquidsRoundTrip`
@@ -598,7 +598,7 @@ export sends each chunk's MCSH as the client has it.
   tile and, with the client, Northshire's 256 chunks sent their own maps back read back with
   the same bytes and flags), plus `TestReadsVersion5WithoutShadows` and `TestNoShadowsStayNone` in mapfile.
 - Dev page: open Northshire with `__loadScene('Meld scene ' + JSON.stringify({v:1, map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}))`
-  (`v: 1` is required) and drive `__engine.frame()` until `__engine.terrain.shadow` is set: 512911 of
+  (`v: 1` is required) and drive `__engine.debug.frame()` until `__engine.terrain.shadow` is set: 512911 of
   its 1048576 texels are in shadow. `e.bakeShadows()` takes about 0.7 s and leaves 296654 (only the
   ground casts; Blizzard's maps also shadow under trees), and `e.history.undo()` gives back the
   client's exactly. The brush: `editor.tool = 'mapdata'`, `editor.mapDataMode = 'shadow'`,

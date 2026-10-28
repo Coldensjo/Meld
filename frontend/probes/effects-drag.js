@@ -18,7 +18,7 @@ await P.frames(3)
 const e = P.e
 const L = e.objects
 const fx = e.effects
-const parts = e.particles
+const parts = e.debug.particles
 const V3 = e.controller.target.constructor
 const M4 = e.camera.matrixWorld.constructor
 const at = new V3()
@@ -143,15 +143,15 @@ try {
 	const n = 20
 	const f0 = { x: c.x - 30, z: c.z }
 	const f1 = { x: c.x + 30, z: c.z }
-	const tool = e.tools.sculpt
-	tool.onDown(e.ctx, new V3(f0.x, e.terrain.heightAt(f0.x, f0.z), f0.z))
+	const tool = e.debug.tools.sculpt
+	tool.onDown(e.debug.ctx, new V3(f0.x, e.terrain.heightAt(f0.x, f0.z), f0.z))
 	for (let i = 1; i <= n; i++) {
 		const x = f0.x + ((f1.x - f0.x) * i) / n
-		tool.tick(e.ctx, 0.05, new V3(x, e.terrain.heightAt(x, c.z), c.z))
+		tool.tick(e.debug.ctx, 0.05, new V3(x, e.terrain.heightAt(x, c.z), c.z))
 		await P.frames(1)
 		if (dark()) sculptDark++
 	}
-	tool.onUp(e.ctx)
+	tool.onUp(e.debug.ctx)
 	await P.frames(1)
 	out.sculpt = { ...per(t.snap(), n + 1), darkFrames: sculptDark, redraws: [...redraws], shadowed: shadowed(), frames: n + 1 }
 	const sculpted = snapSources()

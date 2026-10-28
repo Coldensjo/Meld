@@ -4,7 +4,7 @@ const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
-const ctx = e.ctx
+const ctx = e.debug.ctx
 const V3 = e.controller.target.constructor
 const at = (x, z) => new V3(x, e.terrain.heightAt(x, z), z)
 const out = {}
@@ -18,7 +18,7 @@ editor.brush.radius = 20
 editor.brush.strength = 0.5
 prefs.doodadBrushes = [{ name: 'Probe', spacing: 1, entries: [{ type: 'helper:cube:1', weight: 1, scaleMin: 1, scaleMax: 1, sink: 0, tilt: 0, align: 0 }] }]
 prefs.doodadBrush = 'Probe'
-const doodad = e.tools.doodad
+const doodad = e.debug.tools.doodad
 const brush = prefs.doodadBrushes[0]
 doodad.ensurePlan(brush)
 const plan0 = doodad.plan
@@ -47,7 +47,7 @@ if (spawn) {
 } else bad.push('no spawn brush')
 
 // A pasted clip's ghosts: the landings stay while the anchor stays, and are worked out again when it moves.
-const sel = e.tools.select
+const sel = e.debug.tools.select
 const clip = { objects: [{ cid: 1, type: 'helper:cube:1', x: 0, z: 0, yOff: 0, rotY: 0, tiltX: 0, tiltZ: 0, scale: 1 }] }
 sel.pasteOnModel = true
 sel.updateGhosts(ctx, clip, at(50, 50))
@@ -66,7 +66,7 @@ editor.prefab = 'helper:cube:1'
 editor.placeScatter = true
 editor.brush.radius = 10
 editor.brush.strength = 1
-const place = e.tools.place
+const place = e.debug.tools.place
 const before = e.objects.objects.size
 place.onDown(ctx, at(128, 128), { clientX: 0, clientY: 0, shiftKey: false, ctrlKey: false, altKey: false, button: 0 })
 for (let i = 0; i < 60; i++) place.tick(ctx, 0.1, at(128 + i * 0.2, 128))
@@ -94,7 +94,7 @@ editor.tool = 'water'
 editor.waterMode = 'paint'
 await P.frames(1)
 editor.brush.radius = 20
-const water = e.tools.water
+const water = e.debug.tools.water
 water.onDown(ctx, at(128, 128), { ctrlKey: false })
 for (let i = 0; i < 10; i++) water.tick(ctx, 0.05, at(128 + i, 128))
 water.onUp(ctx)
@@ -103,7 +103,7 @@ if (!out.wetChunks) bad.push('water paint left no liquid')
 editor.tool = 'clear'
 editor.clearMode = 'liquids'
 await P.frames(1)
-const clear = e.tools.clear
+const clear = e.debug.tools.clear
 clear.onDown(ctx, at(128, 128))
 for (let i = 0; i < 10; i++) clear.tick(ctx, 0.05, at(128 + i, 128))
 clear.onUp(ctx)

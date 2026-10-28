@@ -114,7 +114,7 @@ const P = {
 	async contextMenu(x = 0.5, y = 0.5) {
 		const e = window.__engine
 		const r = e.renderer.domElement.getBoundingClientRect()
-		e.openContextMenu(new PointerEvent('pointerup', { clientX: r.left + x * r.width, clientY: r.top + y * r.height, button: 2 }))
+		e.debug.openContextMenu(new PointerEvent('pointerup', { clientX: r.left + x * r.width, clientY: r.top + y * r.height, button: 2 }))
 		const { ui } = await P.state()
 		return ui.contextMenu
 	},
@@ -193,7 +193,7 @@ const P = {
 			const t0 = performance.now()
 			await P.tick()
 			const t1 = performance.now()
-			window.__engine.frame()
+			window.__engine.debug.frame()
 			const t2 = performance.now()
 			if (t1 - t0 > s.tick) s.tick = t1 - t0
 			if (t2 - t1 > s.frame) {
@@ -287,7 +287,7 @@ const P = {
 		await P.tick()
 		const e = window.__engine
 		if (draw) draw()
-		else e.frame()
+		else e.debug.frame()
 		const gl = e.renderer.getContext()
 		const w = gl.drawingBufferWidth
 		const h = gl.drawingBufferHeight
@@ -446,7 +446,7 @@ const P = {
 	async whoDrew(x = 0.5, y = 0.5) {
 		await P.frames(1)
 		const e = window.__engine
-		const Color = e.env.state.horizon.constructor
+		const Color = e.debug.env.state.horizon.constructor
 		const meshes = []
 		const hidden = []
 		e.scene.traverse((o) => {
@@ -772,7 +772,7 @@ ${fs.slice(0, end)}
 	},
 
 	/**
-	 * A scripted brush stroke (#348): `tool` is an instance (`P.e.tools.sculpt`) or its name, `from` and
+	 * A scripted brush stroke (#348): `tool` is an instance (`P.e.debug.tools.sculpt`) or its name, `from` and
 	 * `to` are `{ x, z }` in editor coordinates. Presses on `from`, ticks `n` times (default 30, `dt`
 	 * 0.05) along the line with a frame after each stamp, releases on `to`, and steps a last frame.
 	 * Set `editor.tool`, the mode and `editor.brush` first (see `undo-sculpt`). Returns `{ tickMs, ticks }`,
@@ -780,20 +780,20 @@ ${fs.slice(0, end)}
 	 */
 	async stroke(tool, from, to, n = 30, dt = 0.05) {
 		const e = window.__engine
-		const t = typeof tool === 'string' ? e.tools[tool] : tool
+		const t = typeof tool === 'string' ? e.debug.tools[tool] : tool
 		if (!t) throw new Error(`P.stroke: no tool ${tool}`)
 		const V3 = e.controller.target.constructor
 		const at = (p) => new V3(p.x, e.terrain.heightAt(p.x, p.z), p.z)
 		let tickMs = 0
-		t.onDown(e.ctx, at(from))
+		t.onDown(e.debug.ctx, at(from))
 		for (let i = 1; i <= n; i++) {
 			const k = i / n
 			const t0 = performance.now()
-			t.tick(e.ctx, dt, at({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k }))
+			t.tick(e.debug.ctx, dt, at({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k }))
 			tickMs += performance.now() - t0
 			await P.frames(1)
 		}
-		t.onUp(e.ctx)
+		t.onUp(e.debug.ctx)
 		await P.frames(1)
 		return { tickMs: Math.round(tickMs * 10) / 10, ticks: n }
 	},

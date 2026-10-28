@@ -8,7 +8,7 @@ const { serverSpot, editorPoint } = await P.app('/src/lib/io/portCoords.ts')
 const T = 1600 / 3
 openWorldView(e, 'Kalimdor', { x: 39, y: 27, size: 3 })
 await P.until(() => (editor.worldMap === 'Kalimdor' ? true : null), 30000, "Kalimdor's world tab")
-const world = e.doc.world
+const world = e.debug.doc.world
 const s = { x: 40.3 * T, z: 28.6 * T }
 await P.until(() => (!Number.isNaN(world.heightAt(s.x, s.z)) ? true : null), 120000, 'the tile under the spot')
 const ground = world.heightAt(s.x, s.z)
@@ -30,7 +30,7 @@ r.spot = spot
 // The spot's own ground, where it says it stands: the streamed height there, half a yard up.
 const at = spot && editorPoint(spot)
 r.spotOk = !!spot && spot.map === 1 && Math.abs(spot.z - 0.5 - world.heightAt(at.x, at.z)) < 0.05
-const other = await e.spotOfDoc(e.doc.id)
+const other = await e.spotOfDoc(e.debug.doc.id)
 r.docOk = !!other && other.map === 1 && other.x === spot?.x && other.y === spot?.y
 r.ok = r.teleportOk && r.spotOk && r.docOk
 return r
