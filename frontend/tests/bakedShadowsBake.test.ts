@@ -1,5 +1,5 @@
 // Run with: bun test tests/bakedShadowsBake.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { SHADOW_PER_CELL, bakeShadows, chunkShadowBits, packShadowBits, unpackShadowBits } from '../src/lib/terrain/bakedShadows.ts'
 

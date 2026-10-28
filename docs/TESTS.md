@@ -45,6 +45,10 @@ bun test tests/history.test.ts
 Replace `TestName` with the test you intend to run. For setup and platform build commands, see
 [Building and development](development.md).
 
+The frontend tests use Bun's own runner, `bun:test`, in every file (`import { test } from 'bun:test'`), with
+assertions from `node:assert/strict` or `expect`; don't import `node:test` (#614,
+[testing notes](reference/testing-notes.md#unit-and-integration-tests)).
+
 ## Client and server integration tests
 
 The helper in `internal/testclient` looks for a client using `WOW_DIR`, then the `wowPath` in

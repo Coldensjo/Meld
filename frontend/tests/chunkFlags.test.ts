@@ -1,5 +1,5 @@
 // Run with: bun test tests/chunkFlags.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CHUNK_IMPASSABLE, areaColor, forEachSquare, squaresUnder, type GridRect } from '../src/lib/terrain/chunkFlags.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'

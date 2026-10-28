@@ -1,5 +1,5 @@
 // Run with: bun test tests/dayNight.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { Environment } from '../src/lib/engine/Environment.ts'

@@ -1,5 +1,5 @@
 // Run with: bun test tests/liquids.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { LiquidMap, OCEAN_OPACITY, RIVER_OPACITY, cropLiquids, decodeLiquids, encodeLiquids, liquidsFromAdt, liquidsToAdt, paintLiquid, raycastLiquids, regenOpacity, type LiquidBrush } from '../src/lib/water/liquids.ts'

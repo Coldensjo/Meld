@@ -1,5 +1,5 @@
 // Run with: bun test tests/brushStack.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { applyItem, freeStackName, newStackItem } from '../src/lib/tools/brushStack.ts'
 

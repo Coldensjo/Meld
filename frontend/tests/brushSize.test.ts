@@ -1,7 +1,7 @@
 // Run with: bun test tests/brushSize.test.ts
 // The feel of the bands (docs/tests/tools.md, "Brush size controls") may be retuned, so the steps are
 // checked as invariants; the clamp, the snap and the rounding guard stay exact.
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { dragFalloff, dragRadius, stepFalloff, stepRadius } from '../src/lib/tools/brushSize.ts'
 

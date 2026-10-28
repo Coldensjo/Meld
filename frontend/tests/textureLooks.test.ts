@@ -1,5 +1,5 @@
 // Run with: bun test tests/textureLooks.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { lookFlags, lookOf, looksByIndex } from '../src/lib/world/textureLooks.ts'
 import { mapToTiles } from '../src/lib/io/vmangosExport.ts'

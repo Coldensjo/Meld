@@ -1,5 +1,5 @@
 // Run with: bun test tests/zoneTrees.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { doodadKind, setScatter, worldRules, zoneScatter, type DoodadUse } from '../src/lib/wow/zoneTrees.ts'
 

@@ -1,5 +1,5 @@
 // Run with: bun test tests/wmoFlood.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { CALLBACK_PASS, EXTERIOR_LIT, RoomFlood } from '../src/lib/world/wmoFlood.ts'

@@ -1,5 +1,5 @@
 // Run with: bun test tests/liquidTypes.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { LIQUID_TYPES, kindOfDbcType, liquidType, setLiquidTypes, tileLiquidType } from '../src/lib/water/liquids.ts'
 

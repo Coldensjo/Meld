@@ -1,5 +1,5 @@
 // Run with: bun test tests/taxiRoute.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { airPoint, CRUISE_HEIGHT, defaultRoute, flightAt, flightSeconds, FLIGHT_SPEED, rayNearSegment, routeLines, segmentLengths, splinePoint } from '../src/lib/world/taxiRoute.ts'

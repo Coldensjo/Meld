@@ -1,5 +1,5 @@
 // Run with: bun test tests/chunkDataStroke.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { ChunkDataStroke } from '../src/lib/tools/chunkDataStroke.ts'
 import { CHUNK_IMPASSABLE } from '../src/lib/terrain/chunkFlags.ts'

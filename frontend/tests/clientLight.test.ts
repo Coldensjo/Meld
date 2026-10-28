@@ -1,5 +1,5 @@
 // Run with: bun test tests/clientLight.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { BAND, bandColor, bandFloat, lightAt, lightWeight, newLightAt, sceneFog, type ClientLights } from '../src/lib/wow/clientLight.ts'
 
