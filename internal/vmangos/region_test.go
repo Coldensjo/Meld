@@ -588,7 +588,8 @@ func TestRegionHeadersWritten(t *testing.T) {
 }
 
 // TestRegionHolesRoundTrip sends a real region's holes back as the editor does (every chunk's cell
-// rows in its header): every chunk must keep the hole bits the client has. It needs WOW_DIR set.
+// rows in its header): every chunk must keep the hole bits the client has. The block must hold holes
+// (the Deadmines' cave mouths), or the check means nothing. It needs WOW_DIR set.
 func TestRegionHolesRoundTrip(t *testing.T) {
 	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
@@ -602,7 +603,7 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 	}
 	perRow := ChunksPerTileSide * view.Size
 	var headers []HeaderSpec
-	holed := 0
+	holed, cells := 0, 0
 	for _, c := range view.Chunks {
 		rows := c.Holes
 		if rows == nil {
@@ -610,7 +611,17 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 		} else {
 			holed++
 		}
+		for _, row := range c.Holes {
+			for b := 0; b < 8; b++ {
+				if row&(1<<b) != 0 {
+					cells++
+				}
+			}
+		}
 		headers = append(headers, HeaderSpec{Chunk: c.IndexY*perRow + c.IndexX, Holes: rows})
+	}
+	if holed == 0 || cells == 0 {
+		t.Fatalf("no holes in Azeroth's tiles 31–32 × 49–50 (%d chunks, %d cells), but the Deadmines there have cave mouths", holed, cells)
 	}
 	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects, Headers: headers}
 	files, err := BuildRegion(dataDir, edit)
@@ -651,7 +662,7 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("%d chunks with holes kept", holed)
+	t.Logf("%d chunks with holes (%d hole cells) kept", holed, cells)
 }
 
 // TestRegionLiquidsUnchanged reads a real tile's liquids, as a region opens them, and hands them back:

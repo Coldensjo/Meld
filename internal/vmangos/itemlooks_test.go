@@ -79,14 +79,23 @@ func TestIconNames(t *testing.T) {
 	}
 }
 
-// TestItemLooksLive lists the client's item displays and icons. It needs WOW_DIR, and VMANGOS_DIR
-// (database running) for the displays' items.
+// TestItemLooksLive lists the client's item displays and icons, and checks ItemDisplayInfo.dbc's
+// field layout: the Battleworn Hammer's display (8690) names an icon, and a display the client lacks
+// is left out. It needs WOW_DIR, and VMANGOS_DIR (database running) for the displays' items.
 func TestItemLooksLive(t *testing.T) {
 	clientDir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(clientDir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	own, err := ItemIcons(dataDir, []int{8690, 99999999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(own) != 1 || !strings.HasPrefix(strings.ToLower(own[8690]), "inv_") {
+		t.Fatalf("icons %v", own)
+	}
+	t.Logf("display 8690: %s", own[8690])
 	server := testclient.ServerDirIfAny()
 	displays, err := ListItemDisplays(server, dataDir)
 	if err != nil || len(displays) < 10000 {
