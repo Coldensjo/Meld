@@ -30,6 +30,7 @@ features:
 - **New to Meld?** Follow [Getting started](getting-started.md), then keep the [manual](MANUAL.md) nearby.
 - **Ready to play a map?** Read [Saving, compiling and playing](guides/saving-and-compiling.md).
 - **Something went wrong?** Check [Troubleshooting](troubleshooting.md) before changing client files.
+- **Backing up or sharing settings?** Read [Settings, local data and backups](guides/settings-and-data.md).
 - **Working on Meld itself?** Start with [Development](development.md), [Architecture](architecture/index.md)
   and [Testing](TESTS.md).
 

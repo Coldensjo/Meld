@@ -1,5 +1,22 @@
 # UI
 
+## Check Map lifecycle
+
+The [manual checklist](../MANUAL.md#check-a-map-before-compiling) is the author entry point.
+`CheckMapWindow.svelte` scans when opened, retains the result and reruns only on Check again/reopen.
+Fixes dim an old finding; they do not recalculate the list. Fix all loops over findings, so Undo
+remains per applied fix. `Engine.focusFinding` focuses located findings and selects models/spawns;
+chunk targets do not establish an area selection. `fixFinding` dispatches delete, ground snap or
+chunk crop through the existing history commands.
+
+`check/run.ts:runMapChecks` yields between check groups, records unloaded model heights as unchecked
+and performs only the backend existence/edge/ID checks for which Engine supplies data. A failed
+spawn-ID query becomes an informational finding; missing texture/area lists or unread region edges
+are not a pass. `findings.ts:capped` truncates applicable check lists at 200 plus a summary note.
+`mapCheck.test.ts` verifies synthetic diagnostics, not UI focus/fix buttons or a real DB query.
+
+## Detailed UI reference
+
 The window layout, the asset browser and the dock panels and floating windows.
 
 - **UI layout** (Photoshop-like, `App.svelte`):

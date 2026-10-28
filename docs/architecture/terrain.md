@@ -1,6 +1,33 @@
 # Terrain and maps
 
+## Generation and scope contracts
+
+For practical steps, use the [manual](../MANUAL.md#start-with-generated-ground). Source contracts:
+`NewMapDialog.svelte` derives a bounding square, tile mask and `CoastShape`; `Engine.newVmangosDocument`
+calls `newDocument` on that square, supplying `setTileMask` as setup. `Terrain.generate` delegates to
+`generateHeights`: preset heights, optional seeded erosion, beaches, then Canyon wall restoration.
+`generateFromImage` instead resamples the image and optionally erodes it. Reproducibility requires
+the same implementation, dimensions, seed and options, not just the seed.
+
+`newDocument` plans/places lakes and River paths before creation-time auto-paint (including shore
+levels). `regenerateAutoPaint` later snapshots weights/slots for Undo and calls `autoPaint` with only
+current sea settings: it neither regenerates heights/liquids nor reapplies the original lake/river
+shore inputs. Neither operation uses an existing paint mask/area to clip its work. The paint mask
+is a separate, unsaved splat-texel array; world tile presence and area-selection cells are different
+structures. Do not describe all three as one mask.
+
+Synthetic coverage: `terrainGenerate.test.ts`, `tileMask.test.ts`, `maskSelect.test.ts` and
+`watermapImport.test.ts`. They verify arithmetic/selection rules, not native creation dialogs,
+worker/WebGL frames or game fidelity. The detailed reference below retains other subsystem
+contracts; this bounded review does not re-certify every historical implementation note.
+
+## Detailed terrain reference
+
 The ground, its paint and chunk data, the map file and the dialogs that make or describe a map.
+For source-checked user steps and non-undoable growth precautions, see
+[growth and terrain exchange](../MANUAL.md#grow-a-region-or-exchange-terrain-safely).
+Those steps cover region reload guards, square growth and height arithmetic, not all generator,
+mask/liquid, image codec or native/game rendering contracts.
 
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
   float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows). Blobs
