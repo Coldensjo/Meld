@@ -107,6 +107,9 @@ When adding a probe:
 3. Assert an observable outcome, including undo/redo when it edits a map.
 4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene.
 5. Record how to run it in the appropriate feature-check page below.
+6. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
+   `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints
+   `probe: <name> skipped: <reason>` and lists it under `skipped` in the summary line, apart from `passed`.
 
 For the helper API, profiling options and unusual browser failures, use the
 [testing notebook](reference/testing-notes.md#probes-bun-run-probe-checks-in-the-live-app-you-can-rerun).

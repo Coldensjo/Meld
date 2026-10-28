@@ -491,6 +491,7 @@ async function main() {
 	const runStart = Date.now()
 	const failedNames = []
 	const flakyNames = []
+	const skippedNames = []
 	for (const p of run) {
 		const t0 = Date.now()
 		const bootBefore = await devStarted()
@@ -572,10 +573,15 @@ async function main() {
 		}
 		if (!out.ok) failedNames.push(p.name)
 		else if (out.flaky) flakyNames.push(p.name)
+		// A probe whose data is missing here (the server's mmaps, #427) returns ok with `skipped`: counted apart, so it is not read as a pass.
+		if (out.ok && out.skipped) {
+			skippedNames.push(p.name)
+			console.error(`probe: ${p.name} skipped: ${out.skipped}`)
+		}
 		console.log(JSON.stringify(out))
 	}
 	const seconds = Math.round((Date.now() - runStart) / 100) / 10
-	console.log(JSON.stringify({ summary: true, run: run.length, passed: run.length - failedNames.length, failed: failedNames, flaky: flakyNames, seconds }))
+	console.log(JSON.stringify({ summary: true, run: run.length, passed: run.length - failedNames.length - skippedNames.length, failed: failedNames, skipped: skippedNames, flaky: flakyNames, seconds }))
 	ws.close()
 	cleanup()
 	process.exit(failedNames.length ? 1 : 0)
