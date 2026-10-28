@@ -677,7 +677,7 @@ mask/liquid, image codec or native/game rendering contracts.
   minimap's shot, any size; it runs `Engine.simulate` for the shot's ortho camera and draws only the
   shot, not a whole frame of the view, and keeps the map's highest ground until its heights change, #554), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
   zone's chunks grown to 3:2), the parchment look and the feathered paste over a zone the client already
-  maps; Go (`vmangos/worldmap.go`, `WriteWorldMap`) cuts the 1002x668 picture into twelve DXT1 tiles and
+  maps; Go (`WriteWorldMap` in `app_client_tables.go`, on `vmangos.WorldMapFiles`) cuts the 1002x668 picture into twelve DXT1 tiles and
   sets the WorldMapArea.dbc row, written into Meld's patch (or waiting for the game to close, #661). Exploration overlays
   (#219, Overlays: one per subzone): `io/worldMap.ts` `drawOverlays` draws each subzone painted in the
   drawn part (an area whose parent is the zone) into the overlay naming it, else the one whose art

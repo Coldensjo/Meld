@@ -249,6 +249,7 @@ internal/sessionlog/   Each session's status lines, kept in a file for bug repor
 internal/handoff/      Large binary replies of bound methods, fetched by the page in one GET
 internal/sandbox/      Throwaway copies of the client's Data folder for the probes
 internal/testclient/   Finds the client and server the client-dependent Go tests read
+internal/scripts/      The user's Lua scripts folder, and the PNG images scripts load
 cmd/meldtool/          Read-only inspector for .wmap files, tiles, MPQs and the bound methods
 benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)
 frontend/src/
@@ -265,6 +266,7 @@ frontend/src/
   lib/wow/             Client for the /wow/* endpoints (lists, textures, meshes)
   lib/ui/              Tool list, menu commands and keys, UI scale, virtual grids
   lib/check/           File › Check Map's checks
+  lib/script/          The Lua engine (wasmoon), Noggit Red's script API, script brushes
   lib/bench/           Generated benchmark maps
 frontend/tests/       Bun unit tests
 frontend/probes/      Checks in the live app (docs/TESTS.md)
