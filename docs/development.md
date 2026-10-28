@@ -90,8 +90,9 @@ make verify        # check, test and the build for the current OS
 ```
 
 `make check` checks formatting; `make format` rewrites source files. Do not run the latter over
-someone else's in-progress work. The root Go package's tests and some checks are skipped if
-`frontend/dist/index.html` has not been built, because the desktop package embeds it.
+someone else's in-progress work. The desktop package embeds `frontend/dist`, so `make test` and
+`make check` build the frontend first when `frontend/dist/index.html` is missing, and always run the
+root package's tests and checks.
 
 Read [Testing](TESTS.md) before running integration tests or live-app probes: a local configuration
 can make tests discover the real client and server, and some database-writing tests require explicit opt-in.
