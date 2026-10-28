@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clamp, num } from '../lib/ui/inputs'
 	import Modal from './Modal.svelte'
 	import { editor, prefs } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -14,8 +15,6 @@
 	let { onclose }: Props = $props()
 
 	const f = prefs.fitGround
-	const num = (e: Event) => parseFloat((e.target as HTMLInputElement).value)
-	const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo)
 	const MODES: Array<[FitMode, string]> = [
 		['both', 'Raise and lower'],
 		['lower', 'Only lower'],

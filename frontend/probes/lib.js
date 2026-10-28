@@ -33,6 +33,19 @@ const P = {
 		return await window.go.main.App.EndClientSandbox()
 	},
 
+	/**
+	 * Why the server's movement maps can't be read at client tile (x, y) of map `map` (/wow/navtile,
+	 * vmangos.NavTile), or '' when they can: no VMaNGOS folder is set, or its data/mmaps has no tile
+	 * there. A probe that needs them returns `{ ok: true, skipped: reason }` rather than failing as if the
+	 * navmesh were wrong (#427). A tile that is there but unreadable is not a skip: the probe fails on it.
+	 */
+	async noMmaps(map, x, y) {
+		const r = await fetch(`/wow/navtile?map=${map}&x=${x}&y=${y}`)
+		if (r.status === 412) return 'no VMaNGOS folder is set'
+		if (r.status !== 404) return ''
+		return `no mmaps at ${await window.go.main.App.VmangosPath()} (data/mmaps, map ${map} tile ${x}_${y})`
+	},
+
 	/** Writes bytes (a Uint8Array or a Blob) as a file of the throwaway client's scratch folder, for a binding that reads a file the user picked; returns its path. */
 	async sandboxFile(name, bytes) {
 		if (bytes instanceof Blob) bytes = new Uint8Array(await bytes.arrayBuffer())

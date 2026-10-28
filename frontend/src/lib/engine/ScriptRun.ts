@@ -12,6 +12,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { fillHoles, snapToBlocks } from '../terrain/holes'
 import { ChunkDataStroke } from '../tools/chunkDataStroke'
 import { autoOpacity, newLiquidBrush, paintLiquid, type LiquidMap } from '../water/liquids'
+import { chunkTileKey, withTileEffect, type ScopedEffects } from '../world/groundEffects'
 import { LiquidStroke } from '../water/liquidStroke'
 
 // The script API's host for the active map (#28): what a Lua script reads and writes of its terrain and
@@ -36,6 +37,9 @@ export interface ScriptView {
 	setPalette(p: string[]): void
 	/** The ground effect ID palette texture `tex` grows in paint chunk `chunk`, as the export writes it. */
 	effect(tex: number, chunk: number): number
+	/** The map's ground effect choices per zone and per tile (editor.scopedEffects), and setting them. */
+	scopedEffects(): ScopedEffects
+	setScopedEffects(s: ScopedEffects): void
 }
 
 const DEG = 180 / Math.PI
@@ -62,6 +66,8 @@ export class EngineScriptHost implements ScriptHost {
 	private chunkData: ChunkDataStroke | null = null
 	private water: LiquidStroke | null = null
 	private paletteBefore: string[] | null = null
+	/** The zone and tile effect choices before the script's first set_effect. */
+	private effectsBefore: ScopedEffects | null = null
 
 	constructor(
 		private ground: Terrain,
@@ -333,6 +339,21 @@ export class EngineScriptHost implements ScriptHost {
 		return this.view.effect(this.ground.chunkSlots[c * SLOTS + L[layer]], c)
 	}
 
+	/**
+	 * Sets the ground effect layer `layer` of chunk `c` grows (-1 or less for none) as the tile's choice for
+	 * its texture, the narrowest scope Meld keeps: every chunk of the tile with that texture takes it.
+	 */
+	chunkSetEffect(c: number, layer: number, id: number) {
+		if (!this.isChunk(c)) return
+		const L = this.layers(c)
+		if (!(layer >= 0 && layer < L.length)) return
+		const path = this.view.palette()[this.ground.chunkSlots[c * SLOTS + L[layer]]]
+		if (!path || path.startsWith('#')) return
+		const s = this.view.scopedEffects()
+		this.effectsBefore ??= JSON.parse(JSON.stringify(s)) as ScopedEffects
+		this.view.setScopedEffects(withTileEffect(s, chunkTileKey(c, this.ground.paintChunksPerSide), path, Math.max(0, Math.floor(id) || 0)))
+	}
+
 	/** Makes the cells of a rect (inclusive) holes or ground. */
 	private fillCells(r: { x0: number; z0: number; x1: number; z1: number }, hole: boolean) {
 		const t = this.ground
@@ -501,7 +522,7 @@ export class EngineScriptHost implements ScriptHost {
 
 	/** Whether the script changed anything. */
 	get changed(): boolean {
-		return this.heightsChanged || this.groundChanged || !!this.water || this.added.size > 0 || this.before.size > 0 || this.removed.size > 0
+		return this.heightsChanged || this.groundChanged || !!this.water || !!this.effectsBefore || this.added.size > 0 || this.before.size > 0 || this.removed.size > 0
 	}
 
 	/** Everything the run changed as one undo step (already applied), or null for nothing. */
@@ -513,6 +534,13 @@ export class EngineScriptHost implements ScriptHost {
 			const pAfter = [...this.view.palette()]
 			const view = this.view
 			parts.push({ label, undo: () => view.setPalette([...pBefore]), redo: () => view.setPalette([...pAfter]) })
+		}
+		const eBefore = this.effectsBefore
+		if (eBefore) {
+			const eAfter = JSON.stringify(this.view.scopedEffects())
+			const view = this.view
+			const before = JSON.stringify(eBefore)
+			parts.push({ label, undo: () => view.setScopedEffects(JSON.parse(before) as ScopedEffects), redo: () => view.setScopedEffects(JSON.parse(eAfter) as ScopedEffects) })
 		}
 		const terrain = this.heightsChanged || this.groundChanged ? this.stroke.finish() : null
 		if (terrain) parts.push(terrain)

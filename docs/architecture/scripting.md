@@ -60,9 +60,12 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   other layer. The host's `TerrainStroke` runs with `settle: false`: a layer a script added stays
   while nothing is painted on it yet, for a later stroke to paint (Noggit Red's `clean.lua` then
   `texture_brush.lua`). `get_texture` gives the path lower case with `/`, as `get_filename` does.
-  `get_effect` is the ground effect the export writes for the layer's texture there; `set_effect`
-  changes nothing and says so once (Meld keeps an effect per texture for the map, a zone or a tile,
-  not per chunk layer). `set_area_id` and `set_impassable` go through a `ChunkDataStroke`.
+  `get_effect` is the ground effect the export writes for the layer's texture there. Meld keeps an
+  effect per texture for the map, a zone or a tile, not per chunk layer, so `set_effect` (and
+  `add_texture`'s effect) sets the narrowest of them, the chunk's tile's choice for the layer's
+  texture (`editor.scopedEffects.tiles`, as the Ground Effects window's tile scope does; -1 sets none):
+  **every chunk of that tile with the texture takes it**, not only the one chunk (#764). The host keeps
+  the choices from before the first one and `finish` puts them in the run's undo step. `set_area_id` and `set_impassable` go through a `ChunkDataStroke`.
 - **Texels** (`sel:tex()`, `chunk:get_tex`) are the paint's grid, 4 a cell (Noggit Red's are 64 a
   chunk, 8 a cell, so `get_tex(i)` maps two of its indices a side onto one of Meld's); a texel's
   position is its corner. Alphas cross a block at a time as heights do (`alphas`, `set_alphas`, four a
@@ -110,8 +113,12 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   the step when the stroke ends. It reports to the Scripts output and status bar, not rollback.
   `holding_shift`, `holding_ctrl` (or Cmd) and `holding_alt` come from the pointer events, `holding_space`
   from the keyboard while the tool is active, and `holding_left_mouse` is true during the stroke. The
-  right mouse button is the camera's, so `on_right_*` never runs (the options bar says so for a brush
-  that only handles the right button).
+  right mouse button is the camera's, so the left button stands in for it (#762): a stroke sends
+  `right_click`, `right_hold` and `right_release` instead (with `holding_right_mouse` true and
+  `holding_left_mouse` false) when the options bar's **Right button** is on (`scriptBrush.right`, shown
+  for a brush with right-button handlers, not saved) or the brush handles only right-button events
+  (`scriptApi.ts` `strokeSide`; the box shows on and locked). A toggle rather than a modifier key, since
+  brushes read Shift, Ctrl, Alt and Space for their own parts (Noggit Red's `clean.lua`).
 - **The options bar** (`components/ScriptBrushBar.svelte`): the folder's scripts that call `brush(`, the
   brush when the script makes several, Reload, Scripts…, Size and Falloff, then the tags as controls
   (a slider for a number range up to 100000, a number field past it). The script's file is

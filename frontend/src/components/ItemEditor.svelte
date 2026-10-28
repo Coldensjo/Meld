@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
 	import { copyItems } from '../lib/ui/copyId'
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItemsSorted } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
@@ -130,10 +131,10 @@
 
 	// Find: items by name or entry.
 	let query = $state('')
-	let found = $state<vmangos.ItemRef[]>([])
-	let searching = $state(false)
+	const search = createSearch((k: { q: string; sort: string; desc: boolean }) => SearchItemsSorted(k.q, k.sort, k.desc).then((r) => r ?? []), { empty: [] as vmangos.ItemRef[], onError: (err) => (ed.error = String(err)) })
+	const found = $derived(search.results)
+	const searching = $derived(search.searching)
 	let searchVersion = $state(0)
-	let timer = 0
 	/** The search's orders (#677), done in SQL before its limit of 100, so a broad search gives the highest items, not the first by name. */
 	const SORTS: [string, string][] = [
 		['name', 'Name'],
@@ -149,22 +150,7 @@
 		const sort = prefs.itemSort
 		const desc = prefs.itemSortDesc
 		void searchVersion
-		clearTimeout(timer)
-		if (!q) {
-			found = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				const r = await SearchItemsSorted(q, sort, desc)
-				if (q === query.trim() && sort === prefs.itemSort && desc === prefs.itemSortDesc) found = r ?? []
-			} catch (err) {
-				ed.error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
+		search.set(q ? { q, sort, desc } : null)
 	})
 
 	// A new item: a kind of item (a bow, a cloth chest…) with the usual basics of the database's items

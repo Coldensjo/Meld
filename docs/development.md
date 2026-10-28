@@ -171,8 +171,16 @@ make verify        # check, test and the build for the current OS
 ```
 
 `make check` checks formatting; `make format` rewrites source files. Do not run the latter over
-someone else's in-progress work. The root Go package's tests and some checks are skipped if
-`frontend/dist/index.html` has not been built, because the desktop package embeds it.
+someone else's in-progress work. The desktop package embeds `frontend/dist`, so `make test` and
+`make check` build the frontend first when `frontend/dist/index.html` is missing, and always run the
+root package's tests and checks.
+
+GitHub Actions runs the same checks and the short tests on Linux at every push and pull request
+(`.github/workflows/check.yml`, job `check`): gofmt, the bindings, notices and Prettier checks,
+`go vet`, golangci-lint, `go test -short`, `bun run test` and `bun run check`, then the frontend build
+and the root package. Its second job, `build-linux`, runs `make build-linux` with WebKitGTK 4.1 and
+is allowed to fail (`continue-on-error`) while it is new, so read its result rather than the run's
+overall status. Read a run with `gh run list --workflow check.yml` and `gh run view <id> --log-failed`.
 
 Read [Testing](TESTS.md) before running integration tests or live-app probes: a local configuration
 can make tests discover the real client and server, and some database-writing tests require explicit opt-in.

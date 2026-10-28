@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { openScript, runScript, type BrushEvent, type ScriptHost, type ScriptModel } from '../src/lib/script/scriptApi'
+import { openScript, runScript, strokeSide, type BrushEvent, type ScriptHost, type ScriptModel } from '../src/lib/script/scriptApi'
 import { noiseGrid, NOISE_NAMES } from '../src/lib/script/scriptNoise'
 
 /** A host over a flat `verts`×`verts` grid, `cell` yards apart, and a list of models. */
@@ -55,6 +55,7 @@ function fakeHost(verts = 9, cell = 2) {
 		chunkRemoveTexture: () => {},
 		chunkClearTextures: () => {},
 		chunkEffect: () => 0,
+		chunkSetEffect: () => {},
 		chunkSetHole: () => {},
 		chunkArea: () => 0,
 		chunkSetArea: () => {},
@@ -205,6 +206,14 @@ function b:on_left_release(evt) error("released") end
 		expect(session!.values[0]).toEqual(['', 2, 5, '', true, '', 'up'])
 		expect(b.tags[6]).toMatchObject({ values: ['up', 'down'] })
 		session!.close()
+	})
+
+	test("a stroke sends the right button's events when asked, or when the brush handles only those (#762)", () => {
+		expect(strokeSide(['left_click', 'left_hold'], true)).toBe('left')
+		expect(strokeSide(['left_click', 'right_click'], false)).toBe('left')
+		expect(strokeSide(['left_click', 'right_click'], true)).toBe('right')
+		expect(strokeSide(['right_hold'], false)).toBe('right')
+		expect(strokeSide([], true)).toBe('left')
 	})
 
 	test('a script without brushes closes its state', async () => {

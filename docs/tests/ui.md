@@ -284,10 +284,29 @@ undoes (`scrollTop = 0`) before it decides the control is clipped.
 ## Help window
 
 Checks: Help › Help… (or F1 anywhere but in an input) opens the Help dialog; its Open the manual
-button and Help › Manual open docs/MANUAL.md on GitHub in the system browser (`BrowserOpenURL`; the
+button and Help › Manual open the manual on the published docs site (coldensjo.github.io/Meld/MANUAL) in the system browser (`BrowserOpenURL`; the
 dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `document.querySelector('[role=dialog]').textContent` holds "Getting started". The URL is
 `MANUAL_URL` in `AppDialogs.svelte`.
+
+## Panel edge drags (#592)
+
+Checks: the dock's left edge and the asset browser's top edge resize through one action,
+`use:dragResize` (`lib/ui/dragResize.ts`): the size follows the pointer in CSS px (`toCss`), kept to
+its range, and pointerup, pointercancel and lostpointercapture all end the drag, so a cancelled one
+(Alt-Tab, a pen) does not keep writing `prefs.dockWidth` or `prefs.browserHeight` on the next hover.
+`bun test tests/dragResize.test.ts`. By hand: drag either edge, Alt-Tab mid-drag, come back and hover
+the edge; the panel must not move.
+
+## Find fields and number inputs (#594)
+
+Checks: the database find fields (item and quest editors, Find a creature, the Loot, Shop, Quests and
+Quest givers tabs, the spell picker) share `createSearch` (`lib/ui/search.svelte.ts`): one search
+250 ms after the last key, only the latest query's answer kept, an empty query clearing the list at
+once, an error passed to the panel's error line. The dialogs' `num`, `numOr0` and `clamp` are in
+`lib/ui/inputs.ts`. `bun test tests/findSearch.test.ts`. By hand: type fast in the item editor's
+find field with the server running; the list shows the last word's items, never an earlier one's.
+RefField keeps its own effect (its starters and local lists answer without a search).
 
 ## Preferences from two windows
 

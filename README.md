@@ -38,6 +38,9 @@ make test            # Go and frontend unit tests
 make check           # go vet + golangci-lint + svelte-check/tsc
 ```
 
+GitHub Actions runs the checks and short tests on Linux at every push (`.github/workflows/check.yml`);
+its `make build-linux` job is allowed to fail for now (see [Development](docs/development.md)).
+
 On first start, pick your WoW 1.12 client folder under Edit › Preferences… › Folders.
 
 ## Documentation

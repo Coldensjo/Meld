@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { NextObjectLoot, ReadObjectLoot, SaveObjectLoot, SearchItems } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -126,28 +127,10 @@
 
 	// Adding: a search over item_template by name or entry.
 	let query = $state('')
-	let results = $state<vmangos.ItemRef[]>([])
-	let searching = $state(false)
-	let timer = 0
-	$effect(() => {
-		const q = query.trim()
-		clearTimeout(timer)
-		if (!q) {
-			results = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				const r = await SearchItems(q)
-				if (q === query.trim()) results = r ?? []
-			} catch (err) {
-				rows.error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
-	})
+	const search = createSearch((q: string) => SearchItems(q).then((r) => r ?? []), { empty: [] as vmangos.ItemRef[], onError: (err) => (rows.error = String(err)) })
+	const results = $derived(search.results)
+	const searching = $derived(search.searching)
+	$effect(() => search.set(query.trim() || null))
 
 	function add(r: vmangos.ItemRef) {
 		if (items.some((i) => i.item === r.entry)) {

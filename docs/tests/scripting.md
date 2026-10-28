@@ -49,10 +49,15 @@ range), events with the position, radius, keys and tag values, an error at the h
 brush event reading the terrain of the host it is sent with, the event time limit, noise maps (the
 grid, out-of-bounds errors, the FRACTAL fallback for encoded trees, `is_highest`, freed by Lua's
 collector, every algorithm about -1..1) and images (`create_image`, the packed pixel, `load_png`
-waiting for the host in a run and in an event). `internal/scripts` tests `ImagePath` and `LoadPNG`.
+waiting for the host in a run and in an event), and `strokeSide` (#762). `tests/scriptBrushes.test.ts`
+drives `ScriptBrushes` strokes on the editor's own host: the left events by default, the right ones
+(with `holding_right_mouse` true and `holding_left_mouse` false) with `scriptBrush.right` on or for a
+brush that only handles the right button, and the one undo step. `internal/scripts` tests `ImagePath`
+and `LoadPNG`.
 The probe `script-brush` loads a brush through `Engine.runScript` on a flat map, checks the options
 bar's controls, strokes it with `P.stroke('script', ...)` (click, holds, release, a noise map, a model
-placed), checks the one undo step, a handler's error, and `load_png` of a missing file and of a PNG
+placed), checks the one undo step, a handler's error, a right-button-only brush's events from a
+left-button stroke, and `load_png` of a missing file and of a PNG
 written to the throwaway client's scratch folder (`P.sandboxClient`, `P.sandboxFile`).
 
 - A stroke's events run on a promise chain: after `P.stroke`, wait for
@@ -70,7 +75,9 @@ Checks: `tests/scriptGround.test.ts` runs scripts against the editor's own host 
 over a real 16-cell `Terrain`, `ObjectLayer` and `LiquidMap`): chunk layers added, found, removed and
 cleared (the palette growing), a full chunk's -1, an unpainted layer kept, texel alphas written by
 Noggit Red's rule, `get_tex` and `get_pos_2d`, `vert:set_alpha`, `procedures:paint_texture` (with a
-colon and a dot), holes by chunk and by vertex block, `set_water` and its removal, the zone and the
+colon and a dot), `set_effect` and `add_texture`'s effect (#764: the tile's choice in
+`scopedEffects.tiles`, read back by `get_effect` through the real `effectAt` in every chunk of the
+tile, -1 for none, and undone with the step), holes by chunk and by vertex block, `set_water` and its removal, the zone and the
 impassable flag, the colour notes, the errors, and the one undo step. The probe `lua-chunks` runs one
 script on a flat map in the dev page through `Engine.runScript` and checks the editor's arrays, the
 redraw markers (`paintVersion`, `holesVersion`) and that undo and redo restore every array exactly.

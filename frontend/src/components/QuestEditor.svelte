@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -119,28 +120,13 @@
 
 	// Find: quests by title or entry.
 	let query = $state('')
-	let found = $state<vmangos.QuestRef[]>([])
-	let searching = $state(false)
-	let timer = 0
+	const search = createSearch((q: string) => SearchQuests(q).then((r) => r ?? []), { empty: [] as vmangos.QuestRef[], onError: (err) => (ed.error = String(err)) })
+	const found = $derived(search.results)
+	const searching = $derived(search.searching)
 	$effect(() => {
 		const q = query.trim()
 		void ui.questsVersion
-		clearTimeout(timer)
-		if (!q) {
-			found = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				const r = await SearchQuests(q)
-				if (q === query.trim()) found = r ?? []
-			} catch (err) {
-				ed.error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
+		search.set(q || null)
 	})
 
 	// A new quest: blank, or a copy of the one that was open, given and taken in by the creature it

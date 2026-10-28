@@ -11,16 +11,21 @@
 //   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
 //   bun run probe --touching <range> --list  name those probes without running them
 //
+// A probe whose header holds `// quarantine: #<issue>` (#399), a flake parked while its issue is open, is left out of --all,
+// --smoke and --touching; it still runs when named, and --list shows it with its issue.
+//
 // A probe is `probes/<name>.js`: the body of an async function run in the page, with `P` (lib.js)
 // in scope. It returns an object; `ok: false` (or a throw) fails it, and the runner exits 1.
 // Its leading comment block holds a `// touches: <repo-root paths or globs, comma-separated>` line naming the source files it
-// checks, which --touching reads; a probe without one is picked by every range.
+// checks, which --touching reads; a probe without one is picked by every range. A `// timeout: <seconds>` line there raises
+// the probe's limit over PROBE_TIMEOUT's (300 s), for a probe whose map alone takes most of it (#635).
 
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { firstAttempt, noRetryReason } from './retry.mjs'
 import { globRe, parseHeader } from './touches.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -28,13 +33,18 @@ const here = dirname(fileURLToPath(import.meta.url))
 const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
 // Chrome picks its own DevTools port (--remote-debugging-port=0, read back from DevToolsActivePort, #602), so two runs never share one; DEBUG_PORT forces a port.
 const DEBUG_PORT = process.env.DEBUG_PORT ?? '0'
-// A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit.
+// A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit,
+// and a probe's own `// timeout: <seconds>` header line raises it for that probe (#635).
 const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 300) * 1000
 // `bun run` starts the script in frontend/ and doesn't set INIT_CWD; a path is meant from there, or from where `bun probes/run.mjs` was typed.
 const CWD = process.env.INIT_CWD ?? process.cwd()
 // PROBE_GPU=1 draws on the machine's GPU instead of SwiftShader (#747): a fault that only a real GPU's rasteriser shows (depth precision, a
 // huge triangle's clipping) never shows on SwiftShader, and frames are far faster. The probes' numbers and baselines are SwiftShader's.
 const GPU = process.env.PROBE_GPU === '1'
+// PROBE_AA=0 draws without MSAA (#768), as the owner does (Graphics › Anti-aliasing off): an edge or flicker fault that MSAA hides
+// shows. The page reads `meld.antialias` (display.ts) before the renderer is made, earlier than window.__probeEnv arrives,
+// so launch() sets it in every new document; a relaunched Chrome's fresh profile gets it again.
+const NO_AA = process.env.PROBE_AA === '0'
 const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
 
 const args = process.argv.slice(2)
@@ -65,9 +75,10 @@ const listOnly = touching && names[0] === '--list'
 if (listOnly) names.shift()
 if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
 	for (const n of all) {
-		const { first, touches } = header(n)
+		const { first, touches, quarantine } = header(n)
 		console.log(`${n.padEnd(20)} ${first}`)
 		console.log(`${''.padEnd(20)}   touches: ${touches ? touches.join(', ') : '(no touches line: every change)'}`)
+		if (quarantine) console.log(`${''.padEnd(20)}   quarantined: #${quarantine} (left out of --all, --smoke and --touching; runs when named)`)
 	}
 	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all | --touching <git range> [--shot <dir>] [--profile]')
 	process.exit(0)
@@ -92,6 +103,14 @@ const expand = (n) => {
 // --all leaves out the benchmarks (bench, perf-*): they print numbers for a before/after and check nothing a feature breaks, and
 // their ~8 minutes would take `make probe` past the agent harness's 30-minute task limit (#390). `make probe-perf` runs them.
 const isBenchmark = (n) => n === 'bench' || n.startsWith('perf-')
+/** The probes the selections (--all, --smoke, --touching) left out for their `// quarantine: #<n>` line (#399), as 'name (#n)'. */
+const leftOut = new Set()
+/** Whether a selection takes probe `n`: not when it is quarantined (#399), which is noted for the run's start line. */
+const selectable = (n) => {
+	const q = header(n).quarantine
+	if (q) leftOut.add(`${n} (#${q})`)
+	return !q
+}
 /**
  * --touching <range> (#397): the probes (not the benchmarks) whose `touches` globs match a file `git diff --name-only <range>` lists.
  * A probe also touches its own file, and lib.js (every probe's P) touches them all; a probe with no `touches` line is always picked.
@@ -102,15 +121,15 @@ const touchingProbes = (range) => {
 	const changed = r.stdout.split(/\r?\n/).filter(Boolean)
 	const libChanged = changed.includes('frontend/probes/lib.js')
 	return all.filter((n) => {
-		if (isBenchmark(n)) return false
+		if (isBenchmark(n) || !selectable(n)) return false
 		const { touches } = header(n)
 		if (!touches || libChanged) return true
 		const res = [...touches, `frontend/probes/${n}.js`].map(globRe)
 		return changed.some((f) => res.some((re) => re.test(f)))
 	})
 }
-let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n)) : names.flatMap(expand)
-if (smoke) picked = [...new Set([...picked, ...all.filter((n) => header(n).tier === 'smoke')])]
+let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && selectable(n)) : names.flatMap(expand)
+if (smoke) picked = [...new Set([...picked, ...all.filter((n) => header(n).tier === 'smoke' && selectable(n))])]
 if (touching) {
 	const found = touchingProbes(touching)
 	console.error(`probe: --touching ${touching}: ${found.length ? found.join(' ') : 'no probe touches it'}`)
@@ -400,6 +419,7 @@ async function main() {
 		// reads the module URLs from them; raise the limit before the page's scripts run.
 		await send('Page.enable')
 		await send('Page.addScriptToEvaluateOnNewDocument', { source: 'performance.setResourceTimingBufferSize(100000)' })
+		if (NO_AA) await send('Page.addScriptToEvaluateOnNewDocument', { source: "try { localStorage.setItem('meld.antialias', 'off') } catch {}" })
 	}
 	/** Throws Chrome away (the probe's own, found by its profile) and starts another, since a timed-out or closed page does not recover. */
 	const relaunch = async () => {
@@ -431,6 +451,7 @@ async function main() {
 			await send('Page.navigate', { url: PAGE })
 			await evaluate(`(async () => { for (let i = 0; i < 600; i++) { if (window.__engine && window.__loadScene) return; await new Promise((r) => setTimeout(r, 100)) } throw new Error('the page never set up __engine') })()`, 90_000)
 			const body = readFileSync(file, 'utf8')
+			const limit = Math.max(TIMEOUT, (parseHeader(body).timeout ?? 0) * 1000)
 			if (profiling) {
 				await send('Profiler.enable')
 				await send('Profiler.setSamplingInterval', { interval: 500 })
@@ -444,13 +465,17 @@ async function main() {
 			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;await P.flyingStart();\nreturn await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
-				const value = await evaluate(`${prefix}${body}\n})()\n})()`)
+				const value = await evaluate(`${prefix}${body}\n})()\n})()`, limit).catch((err) => {
+					// The probe's own body ran out of time (not the page's setup, which a retry may still get past, #388).
+					if (/^timed out after/.test(err.message)) err.timedOut = true
+					throw err
+				})
 				out = { probe: name, ok: value?.ok !== false, ...value }
 			} finally {
 				if (profiling) prof = (await send('Profiler.stop')).result?.profile
 			}
 		} catch (err) {
-			out = { probe: name, ok: false, error: err.message }
+			out = { probe: name, ok: false, error: err.message, ...(err.timedOut ? { timedOut: true } : {}) }
 			// The page itself is lost (a timeout, a closed or navigated target, no answer): it needs a new Chrome (#388).
 			if (/timed out after|got no answer|page (is )?closed|navigated or closed|Target closed|Session with given id|Cannot find context/.test(err.message)) out.lostPage = true
 			// Where it stopped: the step a wait (P.until, P.settle) was in, and for a throw the first
@@ -487,10 +512,13 @@ async function main() {
 	}
 
 	// A log that ends without the summary line below is a run that was cut short (#616).
-	console.error(`probe: starting ${run.length} probe${run.length === 1 ? '' : 's'}`)
+	console.error(`probe: starting ${run.length} probe${run.length === 1 ? '' : 's'}${NO_AA ? ', without MSAA (PROBE_AA=0)' : ''}`)
+	// A quarantine stays visible in every run it shortens (#399).
+	if (leftOut.size) console.error(`probe: ${leftOut.size} quarantined, left out: ${[...leftOut].join(', ')}`)
 	const runStart = Date.now()
 	const failedNames = []
 	const flakyNames = []
+	const skippedNames = []
 	for (const p of run) {
 		const t0 = Date.now()
 		const bootBefore = await devStarted()
@@ -515,9 +543,14 @@ async function main() {
 			out = { ...(await runOnce(p)), refreshedWailsjs: true }
 		}
 		// A failure gets one more try in a fresh page (a new Chrome when the page was lost), so a probe that fails only in a
-		// long run is reported flaky instead of failing the run, and a real break still fails twice (#388).
-		if (!out.ok) {
+		// long run is reported flaky instead of failing the run, and a real break still fails twice (#388). A timeout of the
+		// probe's body or an error in its own code is not retried (#628, `noRetryReason`): it would only double the wait.
+		const noRetry = out.ok ? '' : noRetryReason(out)
+		if (noRetry) out.notRetried = noRetry
+		else if (!out.ok) {
 			const first = out
+			// Say so now: the retry can take as long again, and a shell timeout in that time would lose this line (#628).
+			console.error(`probe: ${p.name} failed after ${Math.round((Date.now() - t0) / 1000)} s, retrying in a fresh page: ${JSON.stringify(first)}`)
 			// A dev server that died under the probe (or is rebuilding) fails the retry too: wait a minute for a rebuild to
 			// finish, then start `make dev` again as at the start of the run (#391).
 			if (!process.env.MELD_URL && (await devDown())) {
@@ -531,8 +564,9 @@ async function main() {
 			await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
 			out = await runOnce(p)
 			if (first.devRestarted) out.devRestarted = first.devRestarted
-			if (out.ok) out = { ...out, flaky: true, firstFailure: first.error ?? first.pageErrors?.[0] ?? 'ok: false', ...(first.step ? { firstStep: first.step } : {}) }
-			else out.retried = true
+			// `first` keeps the failed attempt's own fields (#624): for a probe that missed on a number, those are the numbers needed.
+			if (out.ok) out = { ...out, flaky: true, firstFailure: first.error ?? first.pageErrors?.[0] ?? 'ok: false', ...(first.step ? { firstStep: first.step } : {}), first: firstAttempt(first) }
+			else out = { ...out, retried: true, first: firstAttempt(first) }
 		}
 		await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
 		// The app restarted under the probe (a Go change rebuilt by wails dev, maybe another session's, #656): name it, so a
@@ -572,10 +606,15 @@ async function main() {
 		}
 		if (!out.ok) failedNames.push(p.name)
 		else if (out.flaky) flakyNames.push(p.name)
+		// A probe whose data is missing here (the server's mmaps, #427) returns ok with `skipped`: counted apart, so it is not read as a pass.
+		if (out.ok && out.skipped) {
+			skippedNames.push(p.name)
+			console.error(`probe: ${p.name} skipped: ${out.skipped}`)
+		}
 		console.log(JSON.stringify(out))
 	}
 	const seconds = Math.round((Date.now() - runStart) / 100) / 10
-	console.log(JSON.stringify({ summary: true, run: run.length, passed: run.length - failedNames.length, failed: failedNames, flaky: flakyNames, seconds }))
+	console.log(JSON.stringify({ summary: true, run: run.length, passed: run.length - failedNames.length - skippedNames.length, failed: failedNames, skipped: skippedNames, flaky: flakyNames, seconds }))
 	ws.close()
 	cleanup()
 	process.exit(failedNames.length ? 1 : 0)

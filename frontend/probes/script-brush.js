@@ -1,4 +1,4 @@
-// The Script Brush tool (#29): a Lua script that calls brush() loads into the tool through Engine.runScript; the options bar shows its script, size and falloff and its tags as controls; a stroke sends on_left_click, on_left_hold (with dt) and on_left_release at the brush's position with the tags' values, raising the ground under the brush with noise from sel:make_noise and placing a model on release, all one undo step named after the brush that undo and redo exactly; a handler's error stops the stroke with the script's line in the Scripts window's output and keeps the edits made before it as a step; and load_png reaches Go: a missing file comes back as the script's error, and a PNG written to the throwaway client's scratch folder reads with its pixels.
+// The Script Brush tool (#29): a Lua script that calls brush() loads into the tool through Engine.runScript; the options bar shows its script, size and falloff and its tags as controls; a stroke sends on_left_click, on_left_hold (with dt) and on_left_release at the brush's position with the tags' values, raising the ground under the brush with noise from sel:make_noise and placing a model on release, all one undo step named after the brush that undo and redo exactly; a handler's error stops the stroke with the script's line in the Scripts window's output and keeps the edits made before it as a step; a brush that only handles the right button gets on_right_click and on_right_release from a left-button stroke, with holding_right_mouse true (#762); and load_png reaches Go: a missing file comes back as the script's error, and a PNG written to the throwaway client's scratch folder reads with its pixels.
 // touches: frontend/src/lib/script/prelude.ts, frontend/src/lib/script/scriptApi.ts, frontend/src/lib/script/scriptNoise.ts, frontend/src/lib/io/scriptImages.ts, internal/scripts/image.go, frontend/src/lib/engine/ScriptBrushes.ts, frontend/src/lib/tools/ScriptBrushTool.ts, frontend/src/components/ScriptBrushBar.svelte, app_scripts.go
 const e = P.e
 const { editor } = await P.state()
@@ -108,6 +108,15 @@ end
 	if (!scriptLog.lines.some((l) => l.kind === 'err' && /^broken-brush:5:/.test(l.text))) bad.push(`the error reads ${JSON.stringify(r.brokenOut)}`)
 	if (scriptLog.lines.filter((l) => l.kind === 'err').length !== 1) bad.push('the stroke went on after the error')
 	if (e.history.position !== pos1 + 1 || Math.abs(t.heightAt(60, 60) - 1) > 1e-6) bad.push("the click's edit before the error is not a step")
+
+	// The right mouse button moves the camera, so a brush that only handles it paints with the left (#762).
+	const right = await e.runScript('local b = brush("Right")\nfunction b:on_right_click() print("rclick", holding_right_mouse(), holding_left_mouse()) end\nfunction b:on_right_release() print("rrelease") end', 'right-brush', () => {})
+	if (!right?.ok) bad.push(`the right-button brush did not load: ${right?.error}`)
+	scriptLog.lines = []
+	await P.stroke('script', { x: 60, z: 80 }, { x: 60, z: 90 }, 4, 0.05)
+	await e.scriptBrushes.settled()
+	r.rightOut = scriptLog.lines.map((l) => l.text)
+	if (r.rightOut.join('|') !== 'rclick\ttrue\tfalse|rrelease') bad.push(`the right-button brush printed ${JSON.stringify(r.rightOut)}`)
 
 	// load_png goes through the app's binding, which says what was wrong with the file.
 	const png = await e.runScript('load_png("probe-missing-image.png")', 'png', () => {})

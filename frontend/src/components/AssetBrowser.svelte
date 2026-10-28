@@ -23,7 +23,8 @@
 	import { exportModelSet, importModelSets } from '../lib/io/lists'
 	import PrefabBrowser from './PrefabBrowser.svelte'
 	import { paletteIndex } from '../lib/terrain/chunkPaint'
-	import { cssViewport, toCss } from '../lib/ui/uiScale'
+	import { cssViewport } from '../lib/ui/uiScale'
+	import { dragResize } from '../lib/ui/dragResize'
 	import { dialogOpen } from '../lib/ui/dialogFocus'
 
 	/** A tab: the client's files by kind, all of them, the world database's templates, or the author's sets. */
@@ -400,30 +401,14 @@
 			searchBox?.select()
 		}
 	}
-
-	// Drag the top edge to resize, as the dock's edge does.
-	function startResize(e: PointerEvent) {
-		const startY = e.clientY
-		const startH = prefs.browserHeight
-		const el = e.currentTarget as HTMLElement
-		el.setPointerCapture(e.pointerId)
-		const move = (ev: PointerEvent) => {
-			prefs.browserHeight = Math.round(Math.min(cssViewport().h * 0.7, Math.max(160, startH + toCss(startY - ev.clientY))))
-		}
-		const up = () => {
-			el.removeEventListener('pointermove', move)
-			el.removeEventListener('pointerup', up)
-		}
-		el.addEventListener('pointermove', move)
-		el.addEventListener('pointerup', up)
-	}
 </script>
 
 <svelte:window onkeydown={globalKey} />
 
 <section class="browser" class:collapsed={prefs.browserCollapsed} style:height={prefs.browserCollapsed ? undefined : `${prefs.browserHeight}px`}>
 	{#if !prefs.browserCollapsed}
-		<div class="resizer" role="separator" aria-orientation="horizontal" onpointerdown={startResize}></div>
+		<!-- Drag the top edge to resize, as the dock's edge does. -->
+		<div class="resizer" role="separator" aria-orientation="horizontal" use:dragResize={{ axis: 'y', get: () => prefs.browserHeight, set: (h) => (prefs.browserHeight = h), min: 160, max: () => cssViewport().h * 0.7 }}></div>
 	{/if}
 	<header>
 		<div class="kinds" role="tablist">

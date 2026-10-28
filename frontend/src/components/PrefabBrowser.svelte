@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clamp, num } from '../lib/ui/inputs'
 	import PaletteTile from './PaletteTile.svelte'
 	import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -64,9 +65,6 @@
 		for (const o of e.prefab.objects) counts.set(o.type, (counts.get(o.type) ?? 0) + 1)
 		return [...counts].map(([t, n]) => [displayName(t), n] as [string, number]).sort((a, b) => b[1] - a[1])
 	}
-
-	const num = (e: Event) => parseFloat((e.target as HTMLInputElement).value)
-	const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo)
 </script>
 
 <div class="body">

@@ -664,7 +664,8 @@ creature's way round obstacles.
   It is slime, not magma, in both: the mmap builder reads the vmaps' LiquidType ID by its low two
   bits (`liquidTypeArea`), and the server's tiles show the same (a count of polygon areas over
   `data/mmaps` finds slime in Ironforge's tiles 33_41 and 34_41, files `0004133.mmtile` and `0004134.mmtile`, where no slime
-  is). Needs the VMaNGOS folder's `data/mmaps`. The lava's centroid in that block is about
+  is). Needs the VMaNGOS folder's `data/mmaps`: without its tile 33_41 (or with no VMaNGOS folder set) it
+  returns ok with `skipped` naming the folder (`P.noMmaps`, #427) instead of failing. The lava's centroid in that block is about
   (478, 431, 56); the WMO reaches into tile 34_41.
 - Probe: `bun run probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
   round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, the inn moved 3 yd building again
@@ -695,7 +696,8 @@ creature's way round obstacles.
   browser's 72.7, 82.5, 186.9 and 44.7 after #282, 72.6, 82.5, 186.8 and 44.7 with the client's inner
   heights, #284), and the
   view off frees it. It needs the VMaNGOS folder set and its `data/mmaps` built for map 0 (470 tiles
-  on this machine). Unit: `tests/navServer.test.ts` (the frame round trip against `serverSpot`, the
+  on this machine); without the folder or tile 32_48 it returns ok with `skipped` naming the folder
+  (`P.noMmaps`, #427), as the Go tests skip without `VMANGOS_DIR`. Unit: `tests/navServer.test.ts` (the frame round trip against `serverSpot`, the
   flags' colours, a built tile's surface read back from its bytes and a copy of them pathing in a
   navmesh). Go: `TestDetourTile32ShrinksTheLinks`, `TestNavTileReadsTheFiles`, and with
   `VMANGOS_DIR=C:/WoW/vmangos` `TestServerNavTiles` (every map 0 tile converts). Check one tile by

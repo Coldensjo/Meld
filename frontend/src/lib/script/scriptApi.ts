@@ -65,6 +65,8 @@ export interface ScriptHost {
 	chunkClearTextures(c: number): void
 	/** The ground effect ID layer `layer` of chunk `c` grows. */
 	chunkEffect(c: number, layer: number): number
+	/** Sets the ground effect layer `layer` of chunk `c` grows (-1 for none); Meld keeps it for the chunk's tile. */
+	chunkSetEffect(c: number, layer: number, id: number): void
 	chunkSetHole(c: number, hole: boolean): void
 	chunkArea(c: number): number
 	chunkSetArea(c: number, id: number): void
@@ -121,6 +123,16 @@ export type TagValue = number | string | boolean
 /** What a brush is told: the click, the hold of each frame after it, and the release. */
 export const BRUSH_EVENTS = ['left_click', 'left_hold', 'left_release', 'right_click', 'right_hold', 'right_release'] as const
 export type BrushEventKind = (typeof BRUSH_EVENTS)[number]
+
+/**
+ * The button a stroke of a brush handling `handles` sends its events as (#762). The right mouse button
+ * moves the camera in Meld, so a left-button stroke stands in for it: when `right` is asked for (the
+ * options bar's Right button), or when the brush handles only right-button events.
+ */
+export function strokeSide(handles: readonly BrushEventKind[], right: boolean): 'left' | 'right' {
+	if (!handles.some((h) => h.startsWith('right_'))) return 'left'
+	return right || !handles.some((h) => h.startsWith('left_')) ? 'right' : 'left'
+}
 
 /** A brush a script made with `brush(name)`: its settings and the events it handles. */
 export interface BrushSpec {
@@ -281,6 +293,7 @@ export class ScriptSession {
 			chunk_remove_texture: (c: number, layer: number) => h().chunkRemoveTexture(c, layer),
 			chunk_clear_textures: (c: number) => h().chunkClearTextures(c),
 			chunk_effect: (c: number, layer: number) => h().chunkEffect(c, layer),
+			chunk_set_effect: (c: number, layer: number, id: number) => h().chunkSetEffect(c, layer, id),
 			chunk_set_hole: (c: number, hole: boolean) => h().chunkSetHole(c, hole),
 			chunk_area: (c: number) => h().chunkArea(c),
 			chunk_set_area: (c: number, id: number) => h().chunkSetArea(c, id),

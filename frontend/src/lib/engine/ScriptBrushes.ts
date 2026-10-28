@@ -1,7 +1,7 @@
 import type * as THREE from 'three'
 import type { History } from '../state/history'
 import { MAX_BRUSH_RADIUS, editor, prefs, setStatus } from '../state/editor.svelte'
-import type { BrushEventKind, BrushKeys, ScriptSession, TagSpec, TagValue } from '../script/scriptApi'
+import { strokeSide, type BrushEventKind, type BrushKeys, type ScriptSession, type TagSpec, type TagValue } from '../script/scriptApi'
 import { scriptBrush, scriptSay } from '../script/scriptBrush.svelte'
 import type { EngineScriptHost } from './ScriptRun'
 
@@ -10,6 +10,8 @@ import type { EngineScriptHost } from './ScriptRun'
 // on_left_click, each frame the button stays down sends on_left_hold with the seconds since the last
 // (one at a time: a frame whose hold is still running adds its time to the next), and the release sends
 // on_left_release. A stroke's edits gather in one host, and so in one undo step, named after the brush.
+// The right mouse button moves the camera, so a stroke sends on_right_* instead when the options bar's
+// Right button is on or the brush handles only those (`strokeSide`, #762).
 // The events run one after another on a promise chain, since a handler may wait for a file (load_png).
 
 /** Where the runner reaches the editor: the active map's script host and history. */
@@ -27,6 +29,8 @@ interface Stroke {
 	brush: number
 	label: string
 	failed: boolean
+	/** The button the stroke's events are sent as. */
+	side: 'left' | 'right'
 }
 
 /** The key under `file/brush` in prefs.scriptBrushTags. */
@@ -130,26 +134,27 @@ export class ScriptBrushes {
 		const label = `Script brush ${session.brushes[brush].name}`
 		const at = this.env.host(label)
 		if (!at) return
-		this.stroke = { ...at, session, brush, label, failed: false }
+		const side = strokeSide(session.brushes[brush].handles, scriptBrush.right)
+		this.stroke = { ...at, session, brush, label, failed: false, side }
 		this.pendingDt = 0
-		this.send('left_click', hit, 0, keys)
+		this.send('click', hit, 0, keys)
 	}
 
-	/** A frame with the button held: sends on_left_hold, unless the last event still runs. */
+	/** A frame with the button held: sends on_left_hold (or on_right_hold), unless the last event still runs. */
 	hold(hit: THREE.Vector3 | null, dt: number, keys: BrushKeys) {
 		if (!this.stroke) return
 		this.pendingDt += dt
 		if (this.queued || !hit) return
 		const d = this.pendingDt
 		this.pendingDt = 0
-		this.send('left_hold', hit, d, keys)
+		this.send('hold', hit, d, keys)
 	}
 
-	/** The release: sends on_left_release, then makes the stroke's edits one undo step. */
+	/** The release: sends on_left_release (or on_right_release), then makes the stroke's edits one undo step. */
 	end(hit: THREE.Vector3 | null, keys: BrushKeys) {
 		const s = this.stroke
 		if (!s) return
-		this.send('left_release', hit, 0, keys)
+		this.send('release', hit, 0, keys)
 		this.stroke = null
 		this.chain = this.chain.then(() => {
 			const cmd = s.host.finish(s.label)
@@ -168,9 +173,12 @@ export class ScriptBrushes {
 		return this.chain
 	}
 
-	private send(kind: BrushEventKind, hit: THREE.Vector3 | null, dt: number, keys: BrushKeys) {
+	private send(event: 'click' | 'hold' | 'release', hit: THREE.Vector3 | null, dt: number, keys: BrushKeys) {
 		const s = this.stroke
 		if (!s || s.failed) return
+		const kind: BrushEventKind = `${s.side}_${event}`
+		// The tool holds the left button; a right-side stroke reads as the right one (holding_right_mouse).
+		if (s.side === 'right') keys = { ...keys, left: false, right: keys.left }
 		if (hit) this.last = { x: hit.x, y: hit.y, z: hit.z }
 		const e = { ...this.last, outer: editor.brush.radius, inner: 1 - editor.brush.falloff, dt }
 		this.queued++

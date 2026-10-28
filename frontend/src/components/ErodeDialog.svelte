@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clamp, num } from '../lib/ui/inputs'
 	import Modal from './Modal.svelte'
 	import { editor } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -13,8 +14,6 @@
 	let { onclose }: Props = $props()
 
 	const o = editor.erode
-	const num = (e: Event) => parseFloat((e.target as HTMLInputElement).value)
-	const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo)
 
 	let running = $state(false)
 	let share = $state(0)
