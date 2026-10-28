@@ -139,6 +139,8 @@ for the benchmark scene and measurement details.
 - Use `go run ./cmd/meldtool` to inspect `.wmap`, ADT and MPQ files without opening the editor.
   Its `wmap info`, `adt dump`, `adt diff`, `mpq ls` and `bindings` commands help distinguish a bad
   export from a rendering problem. `mpq cat -o` writes the output file you explicitly name.
+  `mpq ls <substring>` searches the client's file list and `mpq cat <path>` prints a file: the way to
+  find a UI texture's path and the FrameXML that uses it, instead of a throwaway Go test (#698).
 - For a client round trip, compare an edited export with an unedited export through the same save
   path. Comparing only to the original client tile can mistake normal writer changes for a regression.
 
