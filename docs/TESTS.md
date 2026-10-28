@@ -98,7 +98,8 @@ It refuses operations that write the real server database or control the game an
 
 When adding a probe:
 
-1. Give its leading comment a `touches:` list identifying the source files it checks.
+1. Give its leading comment a `touches:` list identifying the source files it checks. `tests/probeTouches.test.ts`
+   (in `make test`) fails when a path there no longer exists or a glob matches no file, so rename it with the file.
 2. Step rendering with `P.frames`, `P.until` or `P.settle`; the runner stops the normal engine loop.
 3. Assert an observable outcome, including undo/redo when it edits a map.
 4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene.
