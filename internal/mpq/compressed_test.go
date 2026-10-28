@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -57,7 +58,13 @@ func buildArchive(files []testFile) []byte {
 		size := uint32(len(f.data))
 		var key uint32
 		if f.flags&flagEncrypted != 0 {
-			key = hashString(filepath.Base(f.name), hashFileKey)
+			// The key hashes the name after its last slash, as ReadFile does; not filepath.Base, which
+			// splits a backslash only on Windows.
+			base := f.name
+			if i := strings.LastIndexAny(base, `\/`); i >= 0 {
+				base = base[i+1:]
+			}
+			key = hashString(base, hashFileKey)
 			if f.flags&flagFixKey != 0 {
 				key = (key + pos) ^ size
 			}
