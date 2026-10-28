@@ -462,51 +462,6 @@ selector finds it in the dock and in the window).
   `width === terrain.size`, not `width > 0`, or the read races the refresh (it failed after #750).
 - The marker moves on the click itself (#129), not at the next 2 Hz refresh: dispatch a `click` with
   `clientX`/`clientY` on `.minimap .map`, wait one frame, and `.minimap circle`'s `cx`/`cy` have moved.
-- A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a
-  3x3 block (`region: { mapName: 'Azeroth', x: 31, y: 48, size: 3 }`, cells 384, world 768), and read
-  the next five frames. Run Chrome on the GPU for this (`--use-angle=d3d11 --enable-gpu
-  --ignore-gpu-blocklist` instead of the swiftshader flags); swiftshader's times say nothing. Wrapping
-  `renderer.shadowMap.render` splits the shadow pass out: a point light's cube map is about 40 ms
-  there, the far cascade about 5 ms. Before #129 a jump that brought three new shadowed lights took
-  one ~225 ms frame (steady ~50 ms headless); now one cube map is drawn a frame (~115, 95, 95 ms) and
-  a light waits dark for its first map.
-- A cube's draw calls (#133): model and spawn batches join a cube face only with a drawn instance in
-  the light's reach and the face (`world/shadowReach.ts`). Force `lights[0].shadow.needsUpdate` on
-  every other frame and compare `renderer.info.render.calls`: on the 3x3 block a cube adds about 43
-  calls (about 1400 with the batches' `intersectsFrustum` set to `() => true`, the old behaviour) and
-  about 1 ms. In T3 Code's preview tab (a real GPU, RTX 5080) the old cube was ~38 ms at the default
-  spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
-  good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
-- The near cascade's draw calls (#325): a model or spawn batch joins the sun's near shadow pass only
-  with a drawn instance in the cascade's box (`setNearCascade`, `world/shadowReach.ts`). Unit test
-  `tests/shadowReach.test.ts`; in the app, `bun run probe perf-everything` (about 830 fewer calls than
-  before, 2725 to 1895). To A/B it in one page, wrap every scene InstancedMesh that has its own
-  `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
-  behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
-  shadows (Help › Benchmark maps) for casters missing at the near box's edge.
-- The scene pass draws only what is in view (#15): a batch's `count` is its instances in the camera's
-  frustum, and a shadow pass draws `packedCount(mesh)` (objects.md, the instance batch). Unit tests
-  in `tests/instanceCull.test.ts`, `tests/instanceBatch.test.ts` and `tests/shadowReach.test.ts`. In
-  the app: the `world-view` probe's `perf.models.calls` (1,993 before, 1,017 after, CPU 15.7 to 10.8
-  ms). To split the passes, wrap `renderer.shadowMap.render` and set `env.key.shadow.needsUpdate` or
-  `env.far.shadow.needsUpdate` before a frame: the shadow passes must draw the same calls and triangles
-  before and after a change here (near 160 calls, far 1,920 at that view). To see that no shadow went
-  missing, shoot the same views on both commits at a low sun (`prefs.dayCycle = false`,
-  `prefs.timeOfDay = 17.6`, four headings, both maps forced redrawn) and compare the PNGs with
-  `magick compare -metric AE -fuzz 2%`: a few pixels differ between identical runs.
-- The moving casters' pass (#346, probe `shadow-poses`): with Prop animations on, a still view draws
-  only the posed models and moving cut-outs into the near map, over a copy of the rest. A/B it in one
-  page with `P.ab((on) => { __engine.posedShadows.enabled = on }, 6, { sections: ['Shadow', 'Render'] })`
-  after `P.benchMap('objects-mixed')` (off redraws the whole near map on such frames, as before). Trap:
-  a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
-  until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
-  (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
-- The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
-  sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
-  light follows the live sun. The probe steps `e.hour` by 0.0005 a frame with the clock frozen and
-  compares the matrix after each held frame with the one after the last redraw. Trap: a pixel diff
-  barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
-  own turn), so compare the matrix.
 
 ## Projects (#48)
 
@@ -692,3 +647,10 @@ Checks: `lib/io/folderSetup.ts` opens `FolderSetupDialog` after the recovery off
 `folderGaps` (`bun test tests/folderGaps.test.ts`). It is skipped on the probes' page (`?nosession`). In the app, back up
 `%APPDATA%\Meld\config.json`, clear `wowPath` or `vmangosPath` in a copy's place, start `make dev`, and see the dialog
 with Skip and "Don't ask again"; restore the config afterwards.
+
+## Activating the open tab (#547, probe `activate-same`)
+
+Checks: activating the tab that is already active (Ctrl+Tab with one tab; `openRegion` or `focusPath` of
+the active file) keeps what the editor holds since the last stash, rather than loading the document's
+older `meta` over it (`Engine.activate`, `stashActive`).
+- Probe: `bun run probe activate-same` (two flat maps).

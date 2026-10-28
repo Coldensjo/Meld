@@ -835,3 +835,16 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   check that a model is placed once by its ID, not by its spot.
 - Trap: wait for `queued` as well as `loading` to reach 0. Between two reads `loading` is 0 for a
   frame while tiles still wait, and a check then sees half the ring.
+
+## Cutting holes in a selected area (probe `undo-holes`)
+
+Checks: cutting holes in a selected area cuts whole 2x2 blocks (cells 9..13 snap out to the blocks 8..13,
+36 cells), and one undo fills them again.
+- Probe: `bun run probe undo-holes` (a flat map, a few seconds).
+
+## Map Properties' world settings are undoable (#571, probe `world-settings`)
+
+Checks: the sea on and off, the sea level and the texture roles in Map Properties each make one undo step
+that undo and redo restore, mark the map dirty, and survive a tab switch. A drag of the sea level writes
+live and commits one step that names where it began.
+- Probe: `bun run probe world-settings` (two flat maps).

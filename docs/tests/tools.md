@@ -428,3 +428,55 @@ back and then removes it. `bun run probe path-fence` (needs the client); `--shot
 model long in Z) and a fence's apply and undo on stand-in layers.
 - The model is measured from its loaded bounds (`loadAsset`) before the apply, so `PathTool.apply`
   is async for a fence; the probe awaits `e.path((t, c) => t.apply(c))`.
+
+## A scripted Sculpt stroke and its undo (probe `undo-sculpt`, smoke)
+
+Checks: a scripted Raise stroke on a flat map changes the heights, undo puts them back exactly and redo
+redoes it; the cheapest check that a stroke, `History` and the terrain upload still work together.
+- Probe: `bun run probe undo-sculpt` (smoke, a flat map, a few seconds). Unit: `tests/toolUndo.test.ts`
+  checks every tool's stroke is one step without the app (#438).
+
+## Attached objects follow their parent (#329, probe `attach-follow`, smoke)
+
+Checks: an object attached to another follows it through a move, an undo-style snapshot that detaches
+it, re-parenting through `ObjectLayer.place`, a type change, a sculpt re-snap of the tree, and the parent
+deleted and added back. It reads the drawn instance's position from the batch, not the object's fields.
+- Probe: `bun run probe attach-follow` (smoke, a flat map).
+- Trap: move an attached object only through `place(o, parentId, worldPlacement)`; writing world values
+  into its fields breaks the attachment (CLAUDE.md).
+
+## Drags write reactive state once a frame (#448, #621, probe `drag-state`)
+
+Checks: a model dragged by Select reaches `editor.selected` at the next frame, not on each pointer move;
+an area drag reaches `editor.selection` then; a dragged path point reaches `editor.paths` on release;
+the Sculpt vertex slope slider records its undo step at most every 100 ms and once when it rests; a
+paint stroke over a full chunk says so once; a gizmo's or brush-size drag's viewport hint is published
+once a frame.
+- Probe: `bun run probe drag-state` (a flat map).
+- Trap: a probe frame takes about 250 ms, so a 100 ms throttle fires on every `P.frames(1)`: the probe
+  calls the tool's own `frame` many times in a loop instead (testing notebook, "Probes").
+
+## The Stamp tool's per-brush settings (#445, probe `stamp-settings`)
+
+Checks: the Stamp tool's per-brush settings copy holds only the brush tools' fields
+(`TOOL_SETTING_KEYS`), never the region's spawns, and costs the same with 5000 spawns loaded.
+- Probe: `bun run probe stamp-settings`.
+
+## A tab switch in the middle of a gizmo drag (#549, probe `tab-switch-drag`)
+
+Checks: the drag ends on the tab it began in: the turned model keeps its turn with one undo step in that
+tab's History, the other tab's History gets nothing, and moves after the switch touch neither tab; the
+same for a group of two; a brush-size drag is dropped.
+- Probe: `bun run probe tab-switch-drag` (two flat maps).
+
+## Objects near a point and selection groups from the layer's cells (#512, #630)
+
+Checks: the queries that used to scan every object read `ObjectLayer`'s cells instead and give the same
+answer.
+- Probe: `bun run probe objects-near` (#512, the everything benchmark map): the Clear tool's models
+  under the brush, the Doodad brush's spacing neighbours and prop list, the Select brush and an area's
+  objects match a scan of every object, after the models loaded and after a move; prints the ms a call.
+  Trap: a building's box only reaches wide once its model has loaded, so compare after the load.
+- Probe: `bun run probe select-groups` (#630, the same map, every root in a group of ten): `withGroups`
+  for each grouped model under a Select brush, and the Ungroup command's member list and its undo, match
+  a scan; prints the brush's ms a spot against the scan's.
