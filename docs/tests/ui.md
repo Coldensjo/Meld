@@ -434,9 +434,12 @@ the newest line. Copy puts the whole log on the clipboard.
 The same lines go to a file, one a session, in `<user cache>/Meld/logs/<start time>.log` (#319;
 `internal/sessionlog`, the last 10 kept; on Windows `%LOCALAPPDATA%\Meld\logs`), batched once a
 second through the `AppendLog` binding (`io/sessionLog.ts`), with the Go side's game session lines.
-It is the first thing to read for a bug report, as the Log window is gone once Meld closes. Probe
-`session-log` logs lines, clears the window and reads them back through `SessionLog`. The running
-`make dev` must have rebuilt its Go side first (a stale binary answers `null`).
+It is the first thing to read for a bug report, as the Log window is gone once Meld closes.
+`bun test tests/sessionLog.test.ts` (it was the probe `session-log`, #423) checks the page side: the lines
+from before `startLogFile` go at once, later ones wait as one batch for `flushLog` or its 1 s timer, in
+order, and clearing the window drops none; `go test ./internal/sessionlog/` checks the file. To see it in
+the app, log a line and call the `SessionLog` binding; the running `make dev` must have rebuilt its Go side
+first (a stale binary answers `null`).
 
 ## Minimap window (M)
 
@@ -559,9 +562,10 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   asserted there on bg, panel and panel-2; the tooltip keeps `QUALITY_COLORS`, the game's own.
 - Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
   that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
-- Focus ring and reduced motion (#374, probe `focus-motion`): checks `app.css` holds the `:root[data-kbd-nav] :focus-visible` ring
-  (#652: `main.ts` sets the attribute on Tab, clears it on a pointer press) and the plain `:focus-visible` reset and the `prefers-reduced-motion` rule (it reads the stylesheets,
-  since the probe cannot fake a Tab or the media query). Look at the ring by pressing Tab in the dev page.
+- Focus ring and reduced motion (#374): `bun test tests/focusMotion.test.ts` (it was the probe `focus-motion`, #423)
+  checks `app.css` holds the 2 px `:root[data-kbd-nav] :focus-visible` ring (#652: `main.ts` sets the attribute on Tab,
+  clears it on a pointer press), the plain `:focus-visible` reset and the `prefers-reduced-motion` rule, from the file's
+  text (a headless page cannot fake a Tab or the media query either). Look at the ring by pressing Tab in the dev page.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
 
 ## Dialog focus and Esc (#369, #573, probe `dialog-focus`)
