@@ -112,7 +112,7 @@ make check           # gofmt + go vet (same rule) + golangci-lint (skipped if mi
 make verify          # check + test + the build for this OS: the gate before a commit
 make bindings        # regenerate frontend/wailsjs (wails generate module)
 make format          # gofmt -w + Prettier over frontend (frontend/.prettierrc.json); make check fails on unformatted files
-make probe           # every live-app probe (frontend/probes) against the running `make dev`
+make probe           # every live-app probe (frontend/probes) but the benchmarks (bench, perf-*; `make probe-perf`) against the running `make dev`
 cd frontend && bun run probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
 cd frontend && bun run build   # frontend only
 make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vitepress/dist; `cd frontend && bun run docs:dev` serves it live
@@ -149,7 +149,7 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
   - `mapfile` reads and writes `.wmap` files; `config` keeps the user's settings; `heightmap` reads
     and writes heightmap PNGs; `recovery` autosaves maps with unsaved changes for after a crash;
     `sessionlog` keeps each session's status lines in a file; `handoff` passes a bound method's large
-    binary reply to the page as one GET.
+    binary reply to the page as one GET; `scripts` keeps the user's Lua scripts folder.
   - For tests: `sandbox` copies the client's Data folder for the probes, `testclient` finds the
     client and server the client-dependent Go tests read, and `cmd/meldtool` inspects `.wmap` files,
     tiles, MPQs and the bound methods (docs/TESTS.md).

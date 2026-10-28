@@ -170,7 +170,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     of Azeroth, which keeps the client's ocean. Lakes and rivers are the Water tool's Paint mode.
     A map made for the client also has its Map.dbc and map_template facts here (`MapInfo`, written
     on publish). Its loading screen is one of the client's or, through Picture… (#218), a PNG of the
-    author's: `WriteLoadingScreen` (`vmangos/loadingscreen.go`) writes it at once as a 512x512 DXT1
+    author's: `WriteLoadingScreen` (`app_client_tables.go`, on `vmangos.LoadingScreenFiles`) writes it at once as a 512x512 DXT1
     BLP at `Interface\Glues\LoadingScreens\LoadScreenMeld<Dir>.blp`, a LoadingScreens.dbc row of its
     own (found again by that path) and the map's Map.dbc field 38 when the client has the row, and the
     dialog chooses the row in `MapInfo` so a later publish keeps it. The preview draws the chosen

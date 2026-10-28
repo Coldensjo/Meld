@@ -579,7 +579,7 @@ Import or New item.
   durability the middle, the INSERT); with `VMANGOS_DIR`, `TestItemKindsLive` (117 kinds; a bow:
   arrows, range 100, sheath 0, wood). A real make by a scratch Go test (not kept), cleaned up by
   entry: a bow got display 32079, delay 2300, durability 65; a cloth chest 24546, cloth, 70; a bag
-  1183, 10 slots; none had damage, armour, stats, level or price. Picture: `probes/scratch/item-new.js`.
+  1183, 10 slots; none had damage, armour, stats, level or price.
   Trap: editing a Go file while `make dev` runs rebuilds it; when that build fails (Meld-dev.exe
   locked) it leaves `frontend/wailsjs/go/main` missing, so `make check` reports every binding import
   missing and probes say "the page never set up __engine": stop the dev server and run `wails
@@ -595,15 +595,15 @@ Import or New item.
 - Trap: in the Icons grid the tile is `.icon-btn`; `.icon` is the ItemIcon span inside it. A probe's
   synthetic hover must bubble (`pointerover` with `bubbles: true`), or the look tiles' `pointerenter`
   for PaletteTile.
-- Picker pictures: `probes/scratch/item-change.js` (git-ignored: opens `ui.itemEditor` on
-  `PROBE_ITEM`, clicks Change look… or, with `PROBE_TAB=icons`, Change icon…, and hovers tile
-  `PROBE_HOVER`) with `--shot`. Seen on 2026-10-19: 3687 weapon looks for the Worn Shortsword, a
+- Picker pictures: a probe of your own in `probes/scratch/` (git-ignored, so none is kept) that
+  opens `ui.itemEditor` on an entry, clicks Change look… or Change icon… and hovers a tile, run
+  with `--shot`; probe `item-editor` checks the same views. Seen on 2026-10-19: 3687 weapon looks for the Worn Shortsword, a
   hovered axe alone in the middle; the Icons view with a hovered icon large beside the tooltip.
 - Equip bonuses: `TestEquipBonuses` (a used spell wins an amount, two auras only as a pair, a
   talent and an old spell left out). Live on 2026-10-20: 20 bonuses, such as Healing 52 amounts 2 to
   300, Spell damage and healing 61 (1 to 150), Attack power 48, Mana every 5 sec 16; picture with
-  `probes/scratch/item-stats.js` (git-ignored: Stats, Spell damage and healing +12 and crit +1%
-  added, unsaved). Trap: a slot found by a reactive "first free" must be read once before writing
+  a scratch probe of your own (Stats, Spell damage and healing +12 and crit +1% added, unsaved;
+  probe `item-editor` adds Healing +22 the same way). Trap: a slot found by a reactive "first free" must be read once before writing
   it, or the trigger lands in the next slot (the first try wrote "Use:" for an Equip).
 - A new display: `TestItemIconDisplay` (an icon a display already has, one another display pairs
   with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,

@@ -38,4 +38,3 @@ require (
 	golang.org/x/text v0.42.0 // indirect
 )
 
-// replace github.com/wailsapp/wails/v2 v2.16.0 => /home/support/go/pkg/mod
