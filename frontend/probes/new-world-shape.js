@@ -100,7 +100,7 @@ const isle = await create(d, 'Island', 'ProbeIsland', 0.5, 'Small')
 {
 	const V = isle.verts
 	const hs = isle.heights
-	const sea = P.e.doc.meta.waterLevel
+	const sea = P.e.debug.doc.meta.waterLevel
 	const reach = Math.ceil(20 / isle.cellSize)
 	let hi = -Infinity
 	let n = 0

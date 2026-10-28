@@ -10,7 +10,7 @@ editor.selection = null
 await P.frames(1)
 const t = e.terrain
 const cs = t.cellSize
-const walls = e.ctx.holeWalls
+const walls = e.debug.ctx.holeWalls
 const cx = 124 * cs
 const cz = 124 * cs
 // A square camera of our own, so the ribbons' width (a share of the cursor's distance) is a few pixels in every view.
@@ -27,7 +27,7 @@ const view = (camPos, gx, gz, ribbons = true) =>
 		e.raycaster.camera = cam
 		ray.origin.set(gx, 50, gz)
 		ray.direction.set(0, -1, 0)
-		walls.frame(e.ctx)
+		walls.frame(e.debug.ctx)
 		walls.hoverRibbon.visible = walls.hoverGlow.visible = walls.plus.visible = walls.minus.visible = false
 		walls.ribbons.visible = ribbons
 		e.renderer.render(walls.group, cam)

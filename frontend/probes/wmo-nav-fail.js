@@ -6,7 +6,7 @@
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e
-const rooms = e.rooms
+const rooms = e.debug.rooms
 const { appLog } = await P.state()
 await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
 const sw = [...e.objects.objects.values()].find((o) => o.type.includes('stormwind.wmo'))

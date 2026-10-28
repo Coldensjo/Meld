@@ -49,7 +49,7 @@ gl.texSubImage2D = function (...a) {
 }
 try {
 	// Raise the ground along the cube's edge only: its middle (where it snaps to) stays put.
-	await P.stroke(e.tools.sculpt, { x: cx + 2.5, z: cz - 3 }, { x: cx + 2.5, z: cz + 3 }, 30)
+	await P.stroke(e.debug.tools.sculpt, { x: cx + 2.5, z: cz - 3 }, { x: cx + 2.5, z: cz + 3 }, 30)
 } finally {
 	gl.texImage2D = ti
 	gl.texSubImage2D = ts

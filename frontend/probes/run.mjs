@@ -617,7 +617,7 @@ async function main() {
 			await evaluate(`(async () => {
 				const e = window.__engine
 				if (!e) return
-				e.frame()
+				e.debug.frame()
 				const gl = e.renderer.getContext()
 				const sync = gl.isContextLost() ? null : gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
 				if (!sync) return

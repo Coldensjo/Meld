@@ -17,10 +17,10 @@ const twins = [...e.objects.batches.values()].filter((b) => b.cull)
 const twinTrees = twins.filter((b) => b.mesh.geometry.boundsTree).length
 
 // The names' sight tests, counted and timed.
-const blocked = e.spawnLabels.blocked
+const blocked = e.debug.spawnLabels.blocked
 let tests = 0
 let testMs = 0
-e.spawnLabels.blocked = (to) => {
+e.debug.spawnLabels.blocked = (to) => {
 	const a = performance.now()
 	const r = blocked(to)
 	testMs += performance.now() - a
@@ -53,12 +53,12 @@ for (let k = 1; k < pts.length && frames < 40; k++) {
 		c.target.z += (dz / d) * 3
 		await P.tick()
 		const a = performance.now()
-		e.frame()
+		e.debug.frame()
 		worst = Math.max(worst, performance.now() - a)
 		await P.drawn()
 	}
 }
-e.spawnLabels.blocked = blocked
+e.debug.spawnLabels.blocked = blocked
 const out = {
 	spawns: editor.spawns.length,
 	twins: twins.length,

@@ -35,7 +35,7 @@ try {
 	try {
 		const t0 = performance.now()
 		e.undo()
-		e.frame()
+		e.debug.frame()
 		r.undoMs = Math.round(performance.now() - t0)
 		await P.drawn()
 		await P.frames(3)

@@ -8,7 +8,7 @@ const T = 1600 / 3
 openWorldView(e, 'Azeroth', { x: 31, y: 48, size: 3 })
 await P.until(() => editor.worldMap === 'Azeroth' || null, 30000, "Azeroth's world tab")
 const worldId = e.activeDocumentId()
-const worldDoc = e.doc
+const worldDoc = e.debug.doc
 // The camera looks at the block's middle (tile 32_49's) once that tile has loaded.
 const mid = { x: 32.5 * T, z: 49.5 * T }
 await P.until(
@@ -22,7 +22,7 @@ await P.until(
 await P.frames(3)
 const c = e.controller
 const first = e.worldStats()
-const ground = e.doc.world.heightAt(mid.x, mid.z)
+const ground = e.debug.doc.world.heightAt(mid.x, mid.z)
 const focused = Math.abs(c.target.x - mid.x) < 600 && Math.abs(c.target.z - mid.z) < 600 && Number.isFinite(c.target.y)
 // Every tile within the reach of the eye is loaded, and nothing else beyond a tile further.
 const reach = streamReach(1)
@@ -63,9 +63,9 @@ for (const t of worldDoc.world.tiles.values()) {
 await P.lookAt({ x: mid.x, y: ground + 120, z: mid.z + 300 }, { pitch: 0.35, back: 1 })
 await P.settle()
 const shown = await P.shot()
-e.doc.world.group.visible = false
+e.debug.doc.world.group.visible = false
 const hidden = await P.shot()
-e.doc.world.group.visible = true
+e.debug.doc.world.group.visible = true
 const drawn = +P.diff(shown, hidden).off.toFixed(3)
 // The paint is drawn: the view with the painted tiles in their minimap colour differs.
 const paintedTiles = [...worldDoc.world.tiles.values()].filter((t) => t.mesh && t.paint && t.mesh.material === t.paint.material)
@@ -205,17 +205,16 @@ const sm = e.renderer.shadowMap
 const smRender = sm.render
 let farNow = false
 sm.render = function (...args) {
-	farNow ||= e.env.far.shadow.needsUpdate
+	farNow ||= e.debug.env.far.shadow.needsUpdate
 	return smRender.apply(this, args)
 }
-const frameOf = e.frame
 const farRedraws = { scene: 0, fit: 0, early: 0, frames: 0 }
 let sinceFar = Infinity
-e.frame = function () {
-	const fc = e.env.cascades[1]
+const unwrapFrame = e.debug.wrapFrame((frame) => {
+	const fc = e.debug.env.cascades[1]
 	const fit = `${fc.extent} ${fc.center.x} ${fc.center.z}`
 	farNow = false
-	frameOf.call(this)
+	frame()
 	farRedraws.frames++
 	sinceFar++
 	if (!farNow) return
@@ -225,23 +224,23 @@ e.frame = function () {
 		if (sinceFar < 30) farRedraws.early++
 	}
 	sinceFar = 0
-}
+})
 c.setView(c.target.x + 4 * T, c.target.y, c.target.z, c.yaw, c.pitch, c.distance)
 const east = { x: c.target.x, z: c.target.z }
 await P.until(
 	() => {
 		const s = e.worldStats()
-		return s && !s.loading && !s.queued && !Number.isNaN(e.doc.world.heightAt(east.x, east.z)) ? s : null
+		return s && !s.loading && !s.queued && !Number.isNaN(e.debug.doc.world.heightAt(east.x, east.z)) ? s : null
 	},
 	120000,
 	'the tiles four tiles east',
 )
 // The redraw held back for what landed comes once its frames are up.
 await P.frames(32)
-delete e.frame
+unwrapFrame()
 sm.render = smRender
 const moved = e.worldStats()
-const westDropped = Number.isNaN(e.doc.world.heightAt(mid.x - 2 * T, mid.z))
+const westDropped = Number.isNaN(e.debug.doc.world.heightAt(mid.x - 2 * T, mid.z))
 // What the dropped tiles alone used goes with them: no batch is left without objects, and the models
 // of the types gone are let go of from the registry, unless another tab, a preview or a particle uses them.
 await P.frames(2)
@@ -326,7 +325,7 @@ const regionPaint = { tiles: 0, chunks: 0, slotsOff: 0, texelsOff: 0 }
 // in the same order, covering the same cells at the same heights and depths as the region read.
 const regionLiquids = { tiles: 0, layers: 0, off: 0 }
 {
-	const map = e.doc.liquids
+	const map = e.debug.doc.liquids
 	for (const t of worldDoc.world.tiles.values()) {
 		if (!t.liquids || t.x < r.x || t.y < r.y || t.x >= r.x + r.size || t.y >= r.y + r.size) continue
 		regionLiquids.tiles++

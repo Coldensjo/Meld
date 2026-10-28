@@ -42,7 +42,7 @@ const turnAcrossSwitch = async () => {
 	}
 	e.switchDocument(other.id)
 	await P.frames(1)
-	const onB = e.doc === other
+	const onB = e.debug.doc === other
 	for (let i = 5; i <= 8; i++) {
 		P.pointer('pointermove', at[0] + i * 0.03, at[1] + i * 0.02, { buttons: 1 })
 		await P.frames(1)
@@ -69,7 +69,7 @@ out.one = { ...one, turned: +turned.toFixed(3) }
 // Back on A, the step undoes the turn.
 e.switchDocument(docA.id)
 await P.frames(1)
-const backOnA = e.doc === docA
+const backOnA = e.debug.doc === docA
 e.history.undo()
 await P.frames(1)
 out.one.undone = cube.rotY === 0

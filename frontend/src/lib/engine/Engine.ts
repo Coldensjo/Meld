@@ -389,11 +389,47 @@ export interface MapSnapshot {
 }
 
 /**
+ * What the probes (frontend/probes) may reach of the engine's private parts, as `P.e.debug` or
+ * `window.__engine.debug` (#562). A probe reaches no other private member: tests/engineDebug.test.ts
+ * checks the probes' uses against DEBUG_MEMBERS (engine/engineDebug.ts), which lists these names. A
+ * member renamed or moved keeps its name here, so the probes keep working.
+ */
+export interface EngineDebug {
+	readonly ctx: ToolContext
+	readonly tools: Record<ToolId, Tool>
+	readonly rooms: WmoRooms
+	readonly env: Environment
+	/** The active tab's document. */
+	readonly doc: MapDocument
+	/** The 3D view's camera (the top-down view's is not in here). */
+	readonly persp: THREE.PerspectiveCamera
+	/** The pointer in normalized device coordinates, as the last pointer move set it. */
+	readonly ndc: THREE.Vector2
+	readonly particles: ParticleLayer
+	readonly weather: WeatherLayer
+	readonly spawnLabels: SpawnLabels
+	readonly clientLights: ClientLights | null
+	/** The time of day the sky shows (0 to 24), and its setter. */
+	readonly hour: number
+	setHour(hour: number): void
+	/** The viewport menus opened so far; a probe counts one up to make a late answer's menu stale. */
+	menuSeq: number
+	/** Draws one frame, as the loop does. */
+	frame(): void
+	/** Runs every frame through `wrap` (which calls `frame` to draw it) until the returned function is called. */
+	wrapFrame(wrap: (frame: () => void) => void): () => void
+	/** Opens the viewport's context menu for a right click `e` (a synthetic pointerup). */
+	openContextMenu(e: PointerEvent): void
+}
+
+/**
  * Owns the renderer, scene and render loop. Svelte components talk to it via
  * methods; per-frame state never round-trips through Svelte reactivity.
  */
 export class Engine {
 	readonly renderer: THREE.WebGLRenderer
+	/** The probes' typed way in (`EngineDebug`, #562). */
+	readonly debug: EngineDebug = this.makeDebug()
 	readonly scene = new THREE.Scene()
 	/** The 3D view's camera, which the controller drives. */
 	private persp: THREE.PerspectiveCamera
@@ -921,6 +957,67 @@ export class Engine {
 			if (!this.contextLost) this.frame()
 		}
 		loop(performance.now())
+	}
+
+	private makeDebug(): EngineDebug {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this
+		return {
+			get ctx() {
+				return self.ctx
+			},
+			get tools() {
+				return self.tools
+			},
+			get rooms() {
+				return self.rooms
+			},
+			get env() {
+				return self.env
+			},
+			get doc() {
+				return self.doc
+			},
+			get persp() {
+				return self.persp
+			},
+			get ndc() {
+				return self.ndc
+			},
+			get particles() {
+				return self.particles
+			},
+			get weather() {
+				return self.weather
+			},
+			get spawnLabels() {
+				return self.spawnLabels
+			},
+			get clientLights() {
+				return self.clientLights
+			},
+			get hour() {
+				return self.hour
+			},
+			setHour: (hour) => {
+				self.hour = hour
+			},
+			get menuSeq() {
+				return self.menuSeq
+			},
+			set menuSeq(n) {
+				self.menuSeq = n
+			},
+			frame: () => self.frame(),
+			wrapFrame: (wrap) => {
+				const inner = self.frame
+				const draw = () => inner.call(self)
+				self.frame = () => wrap(draw)
+				// Back to the class's own, so a later wrap of the prototype's (P.time) sees the calls again.
+				return () => void Reflect.deleteProperty(self, 'frame')
+			},
+			openContextMenu: (e) => self.openContextMenu(e),
+		}
 	}
 
 	/** Stops the loop `start` began; `frame()` still draws when called. The probes' page drives its own frames (#233). */

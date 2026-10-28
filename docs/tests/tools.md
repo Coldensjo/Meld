@@ -20,7 +20,7 @@ c.dispatchEvent(new PointerEvent('pointerup', { button: 2, altKey: true, clientX
 ```
 
 - The engine picks the ground from the pointer position on the press, so the pointer must be over
-  the terrain in the hidden tab too (`__engine.frame()` first, after aiming the camera).
+  the terrain in the hidden tab too (`__engine.debug.frame()` first, after aiming the camera).
 - The inspector: `ui.inspector = true` (or the I key) shows `.inspector` with the Properties
   panel's fields for the selection; Esc closes it without deselecting (App.svelte's key handler
   takes that Esc before the engine's selection keys).
@@ -294,7 +294,7 @@ e.history.undo(); e.objects.objects.size            // 0
   x1: 100, z1: 100}`, then `__engine.fillWithDoodadBrush(false)`: about 85 bushes in ~250 ms, every
   one where `textureWeightAt` gives grass ≥ 0.5 and cobblestone < 0.5, and one undo ("Fill with doodad
   brush") takes them all. A hand stroke still works through `__engine.doodadTool`'s `onDown`, `tick`
-  and `onUp` with `__engine.ctx`.
+  and `onUp` with `__engine.debug.ctx`.
 - Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
 
 ## Spawn brush (the Doodad tool's Creatures mode, #171)
@@ -305,7 +305,7 @@ Checks: `tools/SpawnBrushTool.ts` (unit tests of the arithmetic in `spawnBrush.t
 on Northshire (its 347 spawns come from the world database), set `prefs.spawnBrush` to
 `{ ...newSpawnBrush(), entries: [entryFrom(<Young Wolf's template>)], density: 20, spacing: 8 }` (the
 module URL from `SpawnBrushTool.ts`'s source), `editor.doodadMode = 'creatures'`, radius 40, and drive
-`__engine.tools.doodad` (`onDown`, `tick`, `onUp`) at x 300, z 300. The first stroke places nothing:
+`__engine.debug.tools.doodad` (`onDown`, `tick`, `onUp`) at x 300, z 300. The first stroke places nothing:
 it asks Go for the look and the next guid. Wait a couple of seconds and stroke again: 10 wolves (the
 target for 20 per 100×100 yd in a 40 yd circle), all at least 8 yd apart, each with its own guid, the
 template's levels, wander 5 and respawn 300, and 10 spawn edits. One undo removes them, and
@@ -314,7 +314,7 @@ Ctrl+drag erases them as one step. `spawns.frame(ctx, point)` shows the planned 
 Undo speed (#193): undoing a stroke must not redraw the spawn layer once a creature (`SpawnLayer.redraw` walks every spawn), so the stroke's undo and redo run in `spawnsBatch`. `bun test tests/spawnsBatch.test.ts` (it was the probe `undo-spawns`, #423) pushes such a step of 60 creatures on 500 loaded ones in a real `SpawnLayer` and checks the undo and the redo each bump `layer.version` by one redraw (a rebuild and its kinds, 2), against 60 redraws for the same adds outside the batch. Timings of `Engine.undo` for sculpt, paint, water and the Doodad brush on Northshire (8k models) were under 1 ms each in Chromium, with no frame spike after, so a slow Ctrl+Z is not in those.
 
 - Placement rules (#196, the options bar's Rules…, `SpawnRulesDialog.svelte` over the shared
-  `PlacementRulesForm.svelte`): probe `__engine.tools.doodad.spawns.groundAllows(__engine.ctx, x, z)`
+  `PlacementRulesForm.svelte`): probe `__engine.debug.tools.doodad.spawns.groundAllows(__engine.debug.ctx, x, z)`
   over x 120 to 240, z 290 to 410 (step 3) and read each point's weights from `spawns.ground`
   (`ToolGround`, after `ground.at(ctx, x, z)`). Without rules all 340 cobblestone points around the abbey
   are allowed; with `prefs.spawnBrush.rules.onTextures = ['Tileset\\Elwynn\\ElwynnGrassBase.blp']` none

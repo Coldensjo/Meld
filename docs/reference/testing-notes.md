@@ -235,7 +235,7 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   `setSceneView({ hour })` still lasts only until a pref changes; set `prefs.timeOfDay` with it.
 - Traps:
   - Tabs opened by the Chrome extension are usually `document.hidden`, so the rAF loop stops (the
-    frame counter is stuck and loads hang). Drive frames with `__engine.frame()` from
+    frame counter is stuck and loads hang). Drive frames with `__engine.debug.frame()` from
     `javascript_tool`, then take the screenshot.
   - `javascript_tool` results that contain shader source are blocked as "cookie/query data".
     `console.log` them and read them with `read_console_messages` and a pattern.
@@ -329,7 +329,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - A probe is `frontend/probes/<name>.js`: the body of an async function run in the page, whose first
   line is a `//` comment saying what it checks (`--list` shows it). It returns an object; `ok: false`
   or a throw fails it. `P` (`probes/lib.js`) is in scope:
-  - `P.e` (the Engine), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()` (waits for client reads and the spawn layer's version to go quiet, #393)
+  - `P.e` (the Engine; its private parts a probe may touch only through `P.e.debug`, the typed `EngineDebug` facade in `Engine.ts`: `ctx`, `tools`, `doc`, `env`, `frame()`, `wrapFrame(fn)`, `setHour(h)` and the rest; `tests/engineDebug.test.ts` fails on a probe that reaches one of them on `P.e` directly or names one the facade lacks, #562), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()` (waits for client reads and the spawn layer's version to go quiet, #393)
     (frames until the client reads stop), `P.frames(n)`, `P.until(fn, ms, what)`, `P.perf()`
     (`measurePerf` with frames stepped), `P.e.timer.setTimescale(0)` (holds the clock: animations, the liquids'
     frames and the sky stay put while frames still draw, for shots that must differ only by what you changed),
@@ -399,7 +399,7 @@ belong to another run) and the page's websocket from
 `http://127.0.0.1:<port>/json`, sends `Page.navigate`, waits 4 s, and for each JS file runs
 `Runtime.evaluate` on `(async () => { <file> })()` with `awaitPromise` and `returnByValue`, prints
 the result and saves `Page.captureScreenshot` as `<prefix>-<n>.png`. A step loads a scene with
-`__loadScene`, then steps the app with `await new Promise(r => setTimeout(r, 50)); __engine.frame()`
+`__loadScene`, then steps the app with `await new Promise(r => setTimeout(r, 50)); __engine.debug.frame()`
 in a loop and returns what it wants to report as JSON. The viewport of a 1400x900 window is
 `magick shot.png -crop 1068x285+47+95` (the asset browser takes the bottom).
 - Traps:
@@ -491,7 +491,7 @@ Report puts the same numbers and the scene line on the clipboard. Use it as the 
 the same scene, the report before and after.
 
 - From a probe, without the pref: `let r; __engine.measurePerf().then((x) => (r = x))`, then step
-  `__engine.frame()` with `MessageChannel` waits for a bit over a second of wall time until `r` is set.
+  `__engine.debug.frame()` with `MessageChannel` waits for a bit over a second of wall time until `r` is set.
   The hidden preview throttles rAF, so a probe must drive the frames itself, and the numbers are then
   the probe's frame rate, not the window's.
 - Northshire (Azeroth 32_48, 1x1, the camera over the abbey) in the dev page on 2026-10-16: about

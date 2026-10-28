@@ -113,7 +113,7 @@ const sculptWhole = surface()
 
 // A river 2 yd deep down one chunk row 50 yd south of the target, across the whole map (#239): swim
 // area (blue), which a walking creature can't cross and a swimming one can.
-const liquids = e.doc.liquids
+const liquids = e.debug.doc.liquids
 const chunkCells = 8
 const row = Math.floor((t.z - 50) / (chunkCells * cs))
 for (let c = 0; c < liquids.side; c++) {
