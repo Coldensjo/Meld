@@ -43,10 +43,12 @@ writes into the client and server). An item in another area whose body is about 
 
 ## Checks
 
-While working (only the ones that touch the change):
-- `cd frontend && bun test tests/<name>.test.ts`, `go test ./internal/<pkg>/`
-- the probes that touch it: `cd frontend && bun run probe --list`, then `bun run probe <name...>`
-  (against the coordinator's `make dev`)
+While working:
+- `make test`, whole: the Bun suite takes seconds and the Go suite well under a minute, so a subset
+  saves nothing and misses a break in another package (#442).
+- only the probes that touch the change, since a probe costs minutes: `cd frontend && bun run probe
+  --touching HEAD` (the uncommitted change; `HEAD~1` once it is committed), or `bun run probe --list`
+  and then `bun run probe <name...>` (against the coordinator's `make dev`)
 
 Before commit (all of them):
 - `make test`
