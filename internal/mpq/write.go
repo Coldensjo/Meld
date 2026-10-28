@@ -61,15 +61,30 @@ func Write(files []File) []byte {
 	return buf.Bytes()
 }
 
+// WriteUnmarked is Write without Meld's marker: an archive as another tool writes it, for the tests
+// of how Meld treats a patch it did not write.
+func WriteUnmarked(files []File) []byte {
+	var buf bytes.Buffer
+	_ = writeTo(&buf, Entries(files), false)
+	return buf.Bytes()
+}
+
 // WriteTo writes the archive Write builds to w, reading each entry's bytes as it goes.
 func WriteTo(w io.Writer, files []Entry) error {
+	return writeTo(w, files, true)
+}
+
+// writeTo is WriteTo, adding Meld's marker only when marked is set.
+func writeTo(w io.Writer, files []Entry, marked bool) error {
 	all := make([]Entry, 0, len(files)+2)
 	for _, f := range files {
 		if f.Name != "(listfile)" && f.Name != MarkerName && f.Name != OldMarkerName {
 			all = append(all, f)
 		}
 	}
-	all = append(all, Entry{Name: MarkerName, Size: int64(len(MarkerText)), Data: strings.NewReader(MarkerText)})
+	if marked {
+		all = append(all, Entry{Name: MarkerName, Size: int64(len(MarkerText)), Data: strings.NewReader(MarkerText)})
+	}
 	var list strings.Builder
 	for _, f := range all {
 		list.WriteString(strings.ReplaceAll(f.Name, "/", `\`) + "\r\n")

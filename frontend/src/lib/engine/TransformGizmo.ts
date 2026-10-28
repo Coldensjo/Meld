@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { disposeTree } from './disposeTree'
 
 export type GizmoHandle = 'ring' | 'arrow' | 'scale' | 'moveX' | 'moveZ'
 
@@ -205,6 +206,11 @@ export class TransformGizmo {
 			this.knob.scale.setScalar(size)
 			this.knob.rotation.y = Math.atan2(this.right.x, this.right.z)
 		}
+	}
+
+	/** Frees the handles' geometries and materials (the ring's hit torus included, which update swaps). */
+	dispose() {
+		disposeTree(this.group)
 	}
 
 	hide() {
