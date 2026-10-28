@@ -623,6 +623,10 @@ ${fs.slice(0, end)}
 			textures: r.textures,
 			heapMB: r.heapMB,
 			topModels: r.models.slice(0, 5).map((m) => `${m.type.split('?')[0].split(/[\\/]/).pop()} ${m.triangles}`),
+			// The last frame's calls by pass (null: that shadow map kept from an earlier frame) and the window's redraws of each (#692).
+			callsByPass: r.callsByPass,
+			shadowRedraws: r.shadowRedraws,
+			topCalls: r.topCalls.slice(0, 5).map((m) => `${m.type.split('?')[0].split(/[\\/]/).pop()} ${m.calls}`),
 		}
 	},
 

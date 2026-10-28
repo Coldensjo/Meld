@@ -17,6 +17,8 @@
 	const gpuMs = $derived(r?.gpu ? r.gpu.reduce((a, b) => a + b, 0) : 0)
 	const fmt = (v: number) => v.toFixed(2)
 	const count = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(0)}k` : `${v}`)
+	/** A shadow pass's calls, or a dash for maps kept from an earlier frame (#692). */
+	const pass = (n: number | null) => (n === null ? '–' : count(n))
 	/** A model's file name, without its folder or look query. */
 	const modelName = (type: string) =>
 		type
@@ -44,6 +46,9 @@
 		{/if}
 		<div class="sub">Drawn</div>
 		<div class="row"><span>Draw calls</span><b>{r.calls}</b></div>
+		<div class="row" title="Scene pass · the sun's near and far shadow maps · point-light shadows, this frame; a dash is a map kept from an earlier frame">
+			<span>Scene · shadows</span><b>{count(r.callsByPass.scene)} · {pass(r.callsByPass.near)} · {pass(r.callsByPass.far)} · {pass(r.callsByPass.points)}</b>
+		</div>
 		<div class="row"><span>Triangles</span><b>{count(r.triangles)}</b></div>
 		<div class="row"><span>Instanced meshes</span><b>{r.instancedMeshes}</b></div>
 		<div class="row"><span>Geometries · textures</span><b>{r.geometries} · {r.textures}</b></div>
@@ -53,6 +58,12 @@
 			<div class="sub">Most triangles</div>
 			{#each r.models as mdl (mdl.type)}
 				<div class="row" title={mdl.type}><span>{modelName(mdl.type)} ×{mdl.instances}</span><b>{count(mdl.triangles)}</b></div>
+			{/each}
+		{/if}
+		{#if r.topCalls.length}
+			<div class="sub">Most draw calls</div>
+			{#each r.topCalls as mdl (mdl.type)}
+				<div class="row" title={mdl.type}><span>{modelName(mdl.type)} ×{mdl.instances}</span><b>{mdl.calls}</b></div>
 			{/each}
 		{/if}
 	{/if}
