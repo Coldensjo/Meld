@@ -73,6 +73,20 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
 - Trap: this runs the owner's real app on their config; its session restore opens their tabs. Only
   edit an untitled map, and quit without saving.
 
+## What the built app did: the debug log (#626)
+
+Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway
+build. Start it with `MELD_DEBUG_LOG=1` (`$env:MELD_DEBUG_LOG = '1'; Start-Process build\bin\Meld.exe`
+in PowerShell, `MELD_DEBUG_LOG=1 build/bin/Meld` on Linux), do the thing, close it, and read the newest
+file in `<user cache>/Meld/logs` (`%LOCALAPPDATA%\Meld\logs` on Windows). With the switch on, Go writes
+each asset server request as `asset GET <path> <status> <ms> ms` (`app_debuglog.go`, `logRequests`), and
+the page writes its `console.warn` and `console.error` lines (and uncaught errors) as `console.warn ...`
+(`lib/io/debugLog.ts`, which asks `GET /meld/debug-log` once at start). They go to the file only, not the
+Log window. Unit tests: `go test . -run 'DebugLog|LogRequests'` (needs `frontend/dist`),
+`bun test tests/debugLog.test.ts`.
+- Trap: it is off unless the variable is set (to anything but `0`); a file with no `asset` lines means
+  the app was started without it. The built app restores the owner's session, as above.
+
 ## A long right-drag turn on Windows never stops (#724)
 
 Hand check: in the native window on Windows; the unit test below covers the bookkeeping.
