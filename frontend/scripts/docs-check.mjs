@@ -81,10 +81,7 @@ export function markdownStructure(tokens, source) {
 export async function check() {
 	const config = (await import('../../docs/.vitepress/config.mts')).default
 	const markdown = await createMarkdownRenderer(docs, config.markdown)
-	const documents = [
-		...filesUnder(docs, '.md'),
-		...['README.md', 'CLAUDE.md', 'DOCUMENTATION_PLAN.md', 'DOCUMENTATION_AUDIT.md', 'DOCUMENTATION_RULES.md', 'build/README.md'].map((path) => join(repository, path)),
-	]
+	const documents = [...filesUnder(docs, '.md'), ...['README.md', 'CLAUDE.md', 'DOCUMENTATION_PLAN.md', 'DOCUMENTATION_AUDIT.md', 'DOCUMENTATION_RULES.md', 'build/README.md'].map((path) => join(repository, path))]
 	const errors = []
 	const parsed = new Map()
 	const report = (path, message) => errors.push(`${relative(repository, path)}: ${message}`)
