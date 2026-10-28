@@ -31,6 +31,8 @@ frontend (`bun run build`, about 6 s) when `frontend/dist/index.html` is missing
 the root package: its tests guard the bindings that write the world database (`TestSandboxRefusesWorldDatabaseWrites`).
 A plain `go test .` or `go vet ./...` without that build still fails.
 `make check` also reports when golangci-lint is absent instead of silently proving the lint passed.
+On Windows, the Linux-only files (`*_linux.go`) and the Linux build are checked only by CI:
+`.github/workflows/check.yml` runs the checks and short tests on ubuntu at every push (docs/development.md).
 
 For a focused run:
 
