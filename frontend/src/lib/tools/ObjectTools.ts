@@ -489,6 +489,11 @@ export class SelectTool implements Tool {
 		}
 	}
 
+	dispose() {
+		this.outlineLine.geometry.dispose()
+		this.outlineLine.material.dispose()
+	}
+
 	deactivate(ctx: ToolContext) {
 		this.rectStart = null
 		this.dragging = null
