@@ -2,7 +2,7 @@
 // The camera's collision step (#434) against a toy WMO room, through the same wmoRoom.ts queries the
 // Engine's hooks use (`WmoRooms.collide` and `floorAt`), with the editor's axes taken to WoW's as
 // `toModel` does. The live checks are the `wmo-collide` and `walk-wmo` probes.
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { COLLIDE_HEIGHT, WALK_HEIGHT, cornerFactor, moveStep, nearPlane, roomFloor, walkFloor, type CameraMoveRules } from '../src/lib/engine/cameraMove.ts'

@@ -1,5 +1,5 @@
 // Run with: bun test tests/formations.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import type { vmangos } from '../wailsjs/go/models'
 import { disbandChanges, FORMATION_DEFAULT, joinChanges, leaveChanges, slotAt, slotFieldsAt, slotPosition } from '../src/lib/world/formations.ts'

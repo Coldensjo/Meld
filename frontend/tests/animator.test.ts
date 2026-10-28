@@ -1,5 +1,5 @@
 // Run with: bun test tests/animator.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { ModelAnimation, SkinnedInstancedMesh, hasSkeleton, modelMesh } from '../src/lib/world/Animator.ts'

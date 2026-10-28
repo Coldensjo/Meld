@@ -1,5 +1,5 @@
 // Run with: bun test tests/brush.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { FALLOFF_CURVES, brushWeight, type FalloffCurve } from '../src/lib/tools/falloff.ts'
 

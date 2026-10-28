@@ -1,5 +1,5 @@
 // Run with: bun test tests/disposeTree.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { disposeTree } from '../src/lib/engine/disposeTree.ts'

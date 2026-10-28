@@ -1,5 +1,5 @@
 // Run with: bun test tests/helpers.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { HELPERS, helperGeometry, isHelper } from '../src/lib/models/helpers.ts'
 

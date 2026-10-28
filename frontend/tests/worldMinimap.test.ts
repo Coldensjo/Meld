@@ -1,5 +1,5 @@
 // Run with: bun test tests/worldMinimap.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { worldExtent } from '../src/lib/world/worldMinimap.ts'
 

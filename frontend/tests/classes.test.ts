@@ -1,5 +1,5 @@
 // Run with: bun test tests/classes.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CLASSES, classCell, classOfBit } from '../src/lib/wow/classes.ts'
 import { CLASS_MASK } from '../src/lib/world/questFields.ts'

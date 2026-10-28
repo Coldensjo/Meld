@@ -1,5 +1,5 @@
 // Run with: bun test tests/worldLiquid.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { LIQUID_LAYER_BYTES, liquidMesh, parseLiquids, type TileLiquid } from '../src/lib/world/worldLiquid.ts'
 import { TILE_YARDS } from '../src/lib/wow/format.ts'

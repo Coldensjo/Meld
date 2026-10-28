@@ -1,5 +1,5 @@
 // Run with: bun test tests/prefabs.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { formatPrefab, parsePrefab, prefabClip, prefabHash, type Prefab } from '../src/lib/wow/prefabs.ts'
 import { turnObjectClip } from '../src/lib/world/clipTurn.ts'

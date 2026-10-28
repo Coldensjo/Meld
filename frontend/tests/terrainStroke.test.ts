@@ -1,5 +1,5 @@
 // Run with: bun test tests/terrainStroke.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { TerrainStroke } from '../src/lib/tools/brush.ts'
 import { ShadowStroke } from '../src/lib/tools/shadowStroke.ts'

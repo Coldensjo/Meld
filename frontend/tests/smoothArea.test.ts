@@ -1,5 +1,5 @@
 // Run with: bun test tests/smoothArea.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { fadeFromEdge, shapePatch, smoothPass, smoothPatch } from '../src/lib/terrain/smoothArea.ts'
 

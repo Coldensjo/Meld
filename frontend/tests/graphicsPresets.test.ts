@@ -1,5 +1,5 @@
 // Run with: bun test tests/graphicsPresets.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { GRAPHICS_PRESETS, applyPreset, presetOf, type GraphicsValues } from '../src/lib/state/graphicsPresets.ts'
 

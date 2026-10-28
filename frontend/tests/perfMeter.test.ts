@@ -1,5 +1,5 @@
 // Run with: bun test tests/perfMeter.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CPU_SECTIONS, PerfMeter, SECTION, formatReport, meshTriangles, topModels, type PerfReport } from '../src/lib/engine/perfMeter.ts'
 

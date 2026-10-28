@@ -1,5 +1,5 @@
 // Run with: bun test tests/uvAnim.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { colorAt, colorFades, colorIsStatic, sampleTrack, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../src/lib/world/uvAnim.ts'
 

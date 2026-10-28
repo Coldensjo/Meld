@@ -5,7 +5,7 @@
 // building gates nothing), #156 (the camera's room's spawns are drawn) and #300 (the eye must be in
 // the room's box) are checked without the probes' client and 90 s runs.
 import './runes.ts'
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { ModelAsset } from '../src/lib/models/assets.ts'

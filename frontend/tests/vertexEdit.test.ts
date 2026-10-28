@@ -1,5 +1,5 @@
 // Run with: bun test tests/vertexEdit.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices } from '../src/lib/tools/vertexEdit.ts'
 
