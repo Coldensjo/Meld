@@ -45,7 +45,7 @@ export class DirtyRegion {
 
 /**
  * The part of a `res` texels square texture that an inclusive `rect` asks to upload: the rect clipped
- * to the texture, null when nothing of it is inside, or 'whole' when it covers at least half of the
+ * to the texture, null when nothing of it is inside, or 'whole' when it covers more than half of the
  * texture, since a sub-rect that large costs about as much as all of it.
  */
 export function uploadRect(rect: DirtyRect, res: number): DirtyRect | null | 'whole' {
