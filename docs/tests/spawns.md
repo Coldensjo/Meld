@@ -25,7 +25,7 @@ Checks: `engine/SpawnActions.ts`, the spawn editing out of Engine. A new spawn's
 open tab's spawns of its kind (monsters and NPCs share creature guids, objects have their own) and at
 least the database's next one (`nextFreeGuid`); a new pool's entry likewise (`nextFreePoolEntry`).
 Unit: `bun test tests/spawnActions.test.ts`, which also runs pool picking, the spawn keys and the
-spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-new`, `undo-spawns`, `compile-spawns`,
+spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-new`, `compile-spawns`,
 `teleport-trigger` and `place-spawn-size` probes, which name the file in their `// touches:` lines.
 - Trap: the actions that read the world database (placing, the brush's first guid, a new pool, the
   menu's Teleport items) call Go bindings, which `bun test` lacks; don't define `window` to stub them,
@@ -332,9 +332,11 @@ tile into view once the displays are read. In the dev page on Northshire, set
 `[aria-label="Creature displays"] .virtual`, then read the two `.picker select`s and the `.active`
 tile's rect against the grid's. A Northshire Guard opens on Humanoid / HumanMale, the wolves on
 Beast / Wolf, each with its tile in view. The first read of the displays takes several seconds.
-The tiles grow to fill the row (#389): `bun run probe display-tiles` reads the guide's picker (same component)
-and checks the last tile of a row ends within 4 px of the grid's inner edge, 104 to 140 px wide. The editor's
-560 px panel should show 4 tiles of about 126 px.
+The tiles grow to fill the row (#389): `bun test tests/displayTiles.test.ts` (it was the probe `display-tiles`, #423)
+runs `gridCols` and `gridTile` (`lib/ui/virtualGrid.ts`) at every width up to 1400 px and checks a row of tiles,
+104 to 140 px wide, ends within a pixel a column of the grid's inner edge and never past it; it reads the
+picker's `TILE`, `MAX_TILE`, `GAP` and `PAD` and its `.grid-wrap` padding from `DisplayPicker.svelte`, so a
+padding that no longer matches `PAD` fails too. The editor's 560 px panel should show 4 tiles of about 126 px.
 
 ## Creature editor: Shop tab (npc_vendor, #145)
 

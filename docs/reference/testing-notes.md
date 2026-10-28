@@ -787,7 +787,7 @@ the same scene, the report before and after.
 - Moving the view up and down in the previews (#662)
 - Camera views (#750, probe `camera-views`)
 - Top-down view (U)
-- Log window (and the session log file, #319, probe `session-log`)
+- Log window (and the session log file, #319, `tests/sessionLog.test.ts`)
 - Minimap window (M)
 - Projects (#48)
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
