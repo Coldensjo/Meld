@@ -408,6 +408,11 @@ export class SculptTool extends BrushTool {
 		this.drawMarkers(ctx, sel)
 	}
 
+	dispose() {
+		this.markers?.geometry.dispose()
+		;(this.markers?.material as THREE.Material | undefined)?.dispose()
+	}
+
 	deactivate(ctx: ToolContext) {
 		this.recordOrient()
 		this.drawMarkers(ctx, null)
