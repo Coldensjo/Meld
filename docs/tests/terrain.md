@@ -724,13 +724,22 @@ creature's way round obstacles.
   (the abbey's tiles); cutting the ground under models (#282) took the average from 2.7 to 3.9 ms in
   one headless run (`nav.buildTile` over `nav.tiles` in a probe times them alone); on SwiftShader the whole build takes about 70 s of frames, so wait on
   `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
-- Workers (#508): `bun run probe walkable-worker` (about 60 s) builds the benchmark scene's 177 tiles
-  in the workers and again on the main thread (`useNavWorkers(false)` from `navJobs.ts`), and checks
-  the surfaces and a path round the abbey match and the longest frame's `NavPreview.update` is
-  shorter in the workers (33 against 54 ms when written; the main thread's share of the whole build
-  192 against 709 ms). What stays on the main thread is the gathering (0.84 ms a tile on average,
-  14.5 ms for the abbey's worst) and `refreshModels`. Unit: `tests/navmesh.test.ts` (a job's copies
-  and `runTileJob` against a main-thread build, byte for byte). Trap: Bun has no `window`, so the
+- Workers (#508, #633): `bun run probe walkable-worker` (about 60 s) builds the benchmark scene's 177
+  tiles in the workers, then moves the crate nearest the abbey 3 yd, sculpts a 2 yd bump and cuts a
+  hole cell (which reach the workers' copy as changes, not whole; undone at the end), and builds the
+  same on the main thread (`useNavWorkers(false)` from `navJobs.ts`). It checks the changes rebuilt
+  some tiles but under half, the surfaces and a path round the abbey match, and the longest frame's
+  `NavPreview.update` is shorter in the workers. With #633's gathering in the workers: longest
+  frame 10.7 ms against 63.8 on the main thread (38.8 with #508's main-thread gathering), the main
+  thread's share of the whole build 32 ms against 706 (195 with #508's). What stays on the main
+  thread is `refreshModels` (13 ms on the view's first settle, placing every model's faces) and
+  `syncWorkers` (9 ms on the next frame, copying the 16 MB of placed faces for two workers).
+  Dropping the ground rows from a settle's `sceneUpdates` makes the probe fail, so it catches a copy
+  gone stale. A breakdown of the longest frames: wrap `nav.refreshModels`, `nav.syncWorkers`,
+  `nav.markChanged` and `nav.buildTile` with timers in a `probes/scratch` probe. Unit:
+  `tests/navmesh.test.ts` (a job's copies and `runTileJob` against a main-thread build, byte for
+  byte; a `NavScene` fed through `sceneCopy` gathers what the main thread gathers, after the whole
+  scene, a sculpt's rows and a hole, a moved and a dropped model). Trap: Bun has no `window`, so the
   unit tests always take the main-thread path; only the probe runs the workers.
 - Server mode (#240, Show › Server's mmaps): `bun run probe walkable-server` (about 45 s) in the
   benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k

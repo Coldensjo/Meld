@@ -6,7 +6,7 @@
 // (internal/adt/water.go, seaLayer). Deep chunks drop out of the navmesh, ground and all, as the
 // server's builder leaves them ("players should not be here").
 
-import { LIQUID_CELLS, LIQUID_OCEAN, LIQUID_VERTS, OCEAN_OPACITY, liquidType, type LiquidLayer, type LiquidMap } from '../../water/liquids'
+import { LIQUID_CELLS, LIQUID_OCEAN, LIQUID_VERTS, OCEAN_OPACITY, liquidType, type LiquidLayer } from '../../water/liquids'
 import type { NavGround } from './navGeometry'
 import { AREA_MAGMA, AREA_SLIME, AREA_WATER } from './navBuild'
 
@@ -36,9 +36,15 @@ const areaOf = (id: number) => {
 	return k === 'magma' ? AREA_MAGMA : k === 'slime' ? AREA_SLIME : AREA_WATER
 }
 
+/** Where the liquids' layers come from: a LiquidMap, or a worker's copy of one (navScene.ts, #633). */
+export interface NavLiquidSource {
+	side: number
+	layers(c: number): readonly LiquidLayer[]
+}
+
 /** The map's liquids by chunk for the navmesh, worked out on first ask and kept until `reset`. */
 export class NavLiquids {
-	private map: LiquidMap | null = null
+	private map: NavLiquidSource | null = null
 	private ground: NavGround | null = null
 	private sea: number | null = null
 	private chunks = new Map<number, ChunkLiquid>()
@@ -46,7 +52,7 @@ export class NavLiquids {
 	private seaDepth = new Uint8Array(NV)
 
 	/** Starts over with these liquids, over this ground, and the sea at `sea` (null for none). */
-	reset(map: LiquidMap | null, ground: NavGround, sea: number | null) {
+	reset(map: NavLiquidSource | null, ground: NavGround, sea: number | null) {
 		this.map = map
 		this.ground = ground
 		this.sea = sea

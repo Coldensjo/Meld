@@ -3,8 +3,10 @@
 // built nearest first within RANGE of the camera's target, a few each frame within BUDGET_MS, and
 // built again QUIET_MS after the ground or the models stop changing: only those a changed model (#509)
 // or a sculpt or hole stroke (#620) meets, and all of them for a change to the liquids or the sea. A
-// tile's triangles are gathered here and Recast builds it in a Web Worker (navJobs.ts, #508), whose
-// Detour bytes go into the navmesh kept here for the path test; without workers the build runs here. Nothing runs while the view is
+// Web Worker (navJobs.ts, #508) gathers a tile's triangles from its copy of the ground, liquids and
+// placed faces, which this keeps up to date (navScene.ts, #633), and Recast builds it there; its
+// Detour bytes go into the navmesh kept here for the path test. Without workers the gathering and the
+// build run here. Nothing runs while the view is
 // off: the Engine calls `update` only while it is on, and `clear` frees the WASM side when it goes off.
 // In server mode (#240, navServer.ts) the tiles are instead the server's own, one a client tile, read
 // from its movement maps, and nothing is built.
@@ -18,25 +20,9 @@ import { isHelper } from '../../models/helpers'
 import type { ObjectLayer } from '../ObjectLayer'
 import type { Terrain } from '../../terrain/Terrain'
 import { LIQUID_CELLS, type LiquidMap } from '../../water/liquids'
-import {
-	AREA_MAGMA,
-	AREA_SLIME,
-	AREA_STEEP,
-	AREA_WATER,
-	AREA_WATER_TRANSITION,
-	NAV_GROUND,
-	NAV_MAGMA,
-	NAV_SLIME,
-	NAV_WATER,
-	TileBuilder,
-	loadRecast,
-	tileJob,
-	vmangosSettings,
-	type NavSettings,
-	type Recast,
-	type TileOutput,
-} from './navBuild'
-import { buildInWorker, navWorkerRoom, navWorkersReady, stopNavWorkers } from './navJobs'
+import { AREA_MAGMA, AREA_SLIME, AREA_STEEP, AREA_WATER, AREA_WATER_TRANSITION, NAV_GROUND, NAV_MAGMA, NAV_SLIME, NAV_WATER, TileBuilder, loadRecast, vmangosSettings, type NavSettings, type Recast, type TileOutput } from './navBuild'
+import { buildInWorker, navWorkerGeneration, navWorkerRoom, navWorkersReady, sendNavScene, stopNavWorkers } from './navJobs'
+import { groundUpdate, liquidsUpdate, rowsUpdate, type SceneUpdate } from './navScene'
 import { TileGatherer, adtHeightSpan, placeFaces, type ModelLiquid, type PlacedCollision } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
@@ -175,6 +161,9 @@ export class NavPreview {
 	private modelSignature = ''
 	/** The boxes (x0, z0, x1, z1) of the placements refreshModels added, moved or dropped, and of the ground that changed. */
 	private changed: number[] = []
+	/** The changes to send the workers' copy of the scene at this settle (#633), and the workers' start it was last sent whole to (-1 for none). */
+	private sceneUpdates: SceneUpdate[] = []
+	private synced = -1
 	/** Tiles built so far, for the probes. */
 	private builds = 0
 	private sea: number | null = null
@@ -295,29 +284,40 @@ export class NavPreview {
 		this.liquidMap = liquids
 		this.sea = sea
 		// The first build doesn't wait for the models to settle.
-		if (this.dirty && (this.stamp === 0 || now - this.changedAt > QUIET_MS)) {
+		const settled = this.dirty && (this.stamp === 0 || now - this.changedAt > QUIET_MS)
+		if (settled) {
 			this.dirty = false
 			const full = this.full || this.stamp === 0
 			this.full = false
 			// A tile still out in a worker was gathered from the inputs before the change: its result is dropped.
 			for (const t of this.tiles.values()) t.job = 0
+			this.sceneUpdates.length = 0
 			this.refreshModels(focus)
 			if (full) {
 				this.liquids.reset(this.liquidMap, terrain, this.sea)
 				this.spans.clear()
 				terrain.takeGroundChange(this.groundRect)
 				this.stamp++
+				// The workers' copy is sent whole again (syncWorkers).
+				this.synced = -1
 			} else {
 				this.addGroundChange(terrain)
 				this.markChanged()
 			}
+			if (this.synced === navWorkerGeneration()) sendNavScene(this.sceneUpdates)
+			this.sceneUpdates.length = 0
 			this.focusTile.x = NaN
 		}
 		this.followFocus(focus)
 		// Wait for the models' faces, and for a change to settle, so no tile is built twice.
 		if (this.collisions.loading > 0 || this.dirty) return
-		// The workers build (#508) and the budget pays only for gathering; without them the builds run here.
+		// The workers gather and build (#508, #633); without them it all runs here, within the budget.
 		const workers = navWorkersReady()
+		if (workers && this.synced !== navWorkerGeneration()) {
+			// The whole scene goes in a frame of its own, not after a settle's placing in the same one.
+			if (!settled) this.syncWorkers()
+			return
+		}
 		const t0 = performance.now()
 		while (this.queue.length && performance.now() - t0 < BUDGET_MS) {
 			if (workers && !navWorkerRoom()) break
@@ -334,6 +334,7 @@ export class NavPreview {
 		this.liquidMap = null
 		this.placed.clear()
 		this.placedList.length = 0
+		this.synced = -1
 		this.signature = ''
 		this.groundSignature = ''
 		this.modelSignature = ''
@@ -414,11 +415,13 @@ export class NavPreview {
 			const faces = placeFaces(local.tris, e, local.groups, local.liquid)
 			this.addChanged(faces)
 			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces })
+			this.sceneUpdates.push({ kind: 'place', id: o.id, faces })
 		}
 		for (const [id, p] of this.placed) {
 			if (keep.has(id)) continue
 			this.addChanged(p.faces)
 			this.placed.delete(id)
+			this.sceneUpdates.push({ kind: 'drop', id })
 		}
 		this.placedList.length = 0
 		for (const p of this.placed.values()) this.placedList.push(p.faces)
@@ -449,6 +452,8 @@ export class NavPreview {
 			cz1 = Math.floor(cz1 / LIQUID_CELLS) * LIQUID_CELLS + LIQUID_CELLS - 1
 		}
 		this.liquids.forget(cx0, cz0, cx1, cz1)
+		// The workers' copy takes the changed rows, and forgets the same chunks.
+		this.sceneUpdates.push(rowsUpdate(terrain, g.z0, g.z1), { kind: 'forget', gx0: cx0, gz0: cz0, gx1: cx1, gz1: cz1 })
 		const cs = terrain.cellSize
 		this.changed.push(cx0 * cs, cz0 * cs, (cx1 + 1) * cs, (cz1 + 1) * cs)
 	}
@@ -533,7 +538,23 @@ export class NavPreview {
 		this.queue.sort((a, b) => dist(b) - dist(a))
 	}
 
-	/** Gathers a tile's triangles and builds it, in a worker with `workers` (the result taken when it comes back). */
+	/**
+	 * Sends the workers the whole scene (#633) when they hold none of it yet: they started anew, or a
+	 * full rebuild started over. Changes since then go with each settle.
+	 */
+	private syncWorkers() {
+		const gen = navWorkerGeneration()
+		if (this.synced === gen) return
+		const models: [number, PlacedCollision][] = []
+		for (const [id, p] of this.placed) models.push([id, p.faces])
+		sendNavScene([groundUpdate(this.terrain!), liquidsUpdate(this.liquidMap, this.sea), { kind: 'models', list: models }])
+		this.synced = gen
+	}
+
+	/**
+	 * Builds a tile: with `workers` a worker gathers its triangles from its copy of the scene and builds
+	 * it (the result taken when it comes back); without, both run here.
+	 */
 	private buildTile(tile: NavTile, workers: boolean) {
 		const s = this.settings!
 		const border = s.borderSize * s.cs
@@ -541,7 +562,6 @@ export class NavPreview {
 		const z0 = tile.tz * s.tileYards - border
 		const x1 = (tile.tx + 1) * s.tileYards + border
 		const z1 = (tile.tz + 1) * s.tileYards + border
-		const input = this.gather.gather(this.terrain!, this.placedList, x0, z0, x1, z1, this.groundAt, this.liquids)
 		const per = Math.round(ADT_YARDS / s.tileYards)
 		const ax = Math.floor(tile.tx / per)
 		const az = Math.floor(tile.tz / per)
@@ -550,15 +570,13 @@ export class NavPreview {
 			span = adtHeightSpan(this.terrain!, this.placedList, ax, az, ADT_YARDS, this.deep, [0, 0])
 			this.spans.set(az * 64 + ax, span)
 		}
-		input.floorY = span[0]
-		input.ceilY = span[1]
 		if (workers) {
 			const id = ++this.jobs
 			const key = tile.tz * 4096 + tile.tx
 			tile.job = id
 			// Dropped if the tile went, or a change since (update cancels the jobs out) made its inputs stale.
 			const live = () => tile.job === id && this.tiles.get(key) === tile
-			buildInWorker(tileJob(input, this.continent, tile.tx, tile.tz)).then(
+			buildInWorker({ continent: this.continent, tx: tile.tx, tz: tile.tz, x0, z0, x1, z1, floorY: span[0], ceilY: span[1] }).then(
 				(out) => {
 					if (!live()) return
 					tile.job = 0
@@ -573,6 +591,9 @@ export class NavPreview {
 			)
 			return
 		}
+		const input = this.gather.gather(this.terrain!, this.placedList, x0, z0, x1, z1, this.groundAt, this.liquids)
+		input.floorY = span[0]
+		input.ceilY = span[1]
 		this.builder ??= new TileBuilder(this.r!, s)
 		const built = this.builder.build(input, tile.tx, tile.tz)
 		this.takeTile(tile, built?.data ?? null, built)

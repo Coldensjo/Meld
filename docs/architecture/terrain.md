@@ -226,15 +226,25 @@ mask/liquid, image codec or native/game rendering contracts.
     settle (`takeGroundChange`), widens a cell all round (a cell's lift reads its neighbours) and,
     with the sea, to whole liquid chunks (the sea's cells and deep flag follow the ground), whose
     `NavLiquids` entries it forgets; `touchHoles()` with no rect counts as the whole map. A change
-    to the liquids, the sea or the client's inner heights builds every tile again. Recast's build of a tile runs in up to two Web Workers (#508,
-    `navJobs.ts` posts the jobs, `navWorker.ts` runs `runTileJob` with a WASM instance of its own,
-    three jobs out a worker): the main thread gathers the tile's triangles (`tileJob` copies them
-    out of the gatherer's reused buffers), and takes back Detour's tile bytes, which it copies into
-    its own navmesh (kept there for the path test, as in server mode; added without
-    `DT_TILE_FREE_DATA`, the tile's `data` freed by `dropTile`), and the surface to draw. The 6 ms
-    budget then pays only for gathering. A job whose inputs a settled change made stale is dropped
-    when it returns (`tile.job`); without workers (Bun's tests) or after one fails, the build runs
-    on the main thread as before. `Engine.updateNav` calls it only while the view is on and
+    to the liquids, the sea or the client's inner heights builds every tile again. A tile's gathering
+    and Recast's build run in up to two Web Workers (#508, #633: `navJobs.ts` posts the jobs,
+    `navWorker.ts` runs `runTileJob` with a WASM instance of its own, three jobs out a worker). Each
+    worker keeps a copy of the gather's inputs (`NavScene` in `navScene.ts`: the ground's heights,
+    holes and inner heights, the liquids and the sea, every placed model's faces in the main thread's
+    order), so a job (`GatherJob`) is just the tile's box and its client tile's height span. The
+    main thread still places the models' faces (`refreshModels`, whose boxes the spans and
+    `markChanged` need) and works out the spans, and keeps the copies current with `sendNavScene`:
+    the whole scene in a frame of its own (`syncWorkers`) when the workers started anew or a full
+    rebuild started over (`synced` against `navWorkerGeneration`), and at each partial settle only
+    what changed (`sceneUpdates`: a placement added, moved or dropped, the ground rows
+    `addGroundChange` took and the liquid chunks it forgot). `sceneCopy` copies each update's arrays
+    for each worker and hands the copies over, since postMessage's structured clone of the abbey
+    scene's 16 MB of placed faces took 14 to 18 ms. The main thread takes back Detour's tile bytes,
+    which it copies into its own navmesh (kept there for the path test, as in server mode; added
+    without `DT_TILE_FREE_DATA`, the tile's `data` freed by `dropTile`), and the surface to draw. A
+    job whose inputs a settled change made stale is dropped when it returns (`tile.job`); without
+    workers (Bun's tests) or after one fails, the gathering and the build run on the main thread
+    within the 6 ms budget, from the main thread's own placed faces and the live terrain. `Engine.updateNav` calls it only while the view is on and
     `clear()`s it (frees the WASM navmesh and stops the workers) when it goes off. Show › Test a Path arms `Engine.navPick`:
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
     drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's

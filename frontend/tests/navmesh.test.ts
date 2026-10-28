@@ -27,6 +27,8 @@ import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
 import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
 import { LIQUID_OCEAN, LIQUID_WATER, LiquidMap, newLayer } from '../src/lib/water/liquids.ts'
+import { NavScene, groundUpdate, liquidsUpdate, rowsUpdate, sceneCopy, type SceneUpdate } from '../src/lib/world/nav/navScene.ts'
+import { heightAt } from '../src/lib/terrain/heightField.ts'
 
 const CELL = 1600 / 3 / 128
 
@@ -478,4 +480,65 @@ test("a worker's job (#508) builds the same tile as the main thread, from copies
 	data.destroy()
 	here.data.destroy()
 	builder.destroy()
+})
+
+test("a worker's copy of the scene (#633) gathers the same triangles as the main thread, after whole and partial updates", () => {
+	const g = flat(32)
+	g.innerLift = new Float32Array(32 * 32).fill(0.25)
+	g.innerBase = g.heights.slice()
+	for (let z = 0; z <= 32; z++) for (let x = 0; x <= 32; x++) g.heights[z * g.verts + x] = 10 + Math.sin(x * 0.7) * 2 + z * 0.1
+	g.innerBase = g.heights.slice()
+	const map = new LiquidMap(32)
+	const lake = newLayer(LIQUID_WATER, 11)
+	lake.cells.fill(1)
+	map.set(1, [lake])
+	const liquids = new NavLiquids()
+	liquids.reset(map, g, 9.5)
+	const crate = placeFaces(box(10, 9, 10, 14, 13, 14), new THREE.Matrix4().elements)
+	const wall = placeFaces(box(40, 5, 5, 42, 16, 60), new THREE.Matrix4().makeRotationY(0.3).setPosition(5, 0, 3).elements)
+	const placed = new Map<number, PlacedCollision>([
+		[1, crate],
+		[2, wall],
+	])
+	const worldSize = g.size * g.cellSize
+	const at = (x: number, z: number) => (x >= 0 && z >= 0 && x <= worldSize && z <= worldSize ? heightAt(g.heights, g.size, g.cellSize, x, z) : null)
+	const scene = new NavScene()
+	// Each update goes through a copy, as postMessage hands it over, so the scene never shares the main thread's arrays.
+	const send = (u: SceneUpdate[]) => {
+		const c = sceneCopy(u)
+		for (const x of c.updates) scene.apply(x)
+		return c
+	}
+	const sent = send([groundUpdate(g), liquidsUpdate(map, 9.5), { kind: 'models', list: [...placed] }])
+	assert.ok(sent.transfer.length > 8)
+	const job = { continent: true, tx: 0, tz: 0, x0: 0, z0: 0, x1: 80, z1: 70, floorY: -3, ceilY: 30 }
+	const same = (why: string) => {
+		const here = new TileGatherer().gather(g, [...placed.values()], job.x0, job.z0, job.x1, job.z1, at, liquids)
+		const there = scene.gather(job)
+		assert.equal(there.floorY, -3)
+		assert.equal(there.ceilY, 30)
+		assert.ok(here.triCount > 0 && here.liquidTriCount! > 0, why)
+		for (const k of ['vertCount', 'triCount', 'modelFrom', 'minY', 'maxY', 'liquidVertCount', 'liquidTriCount'] as const) assert.equal(there[k], here[k], `${why}: ${k}`)
+		assert.deepEqual(there.pos.subarray(0, there.vertCount * 3), here.pos.subarray(0, here.vertCount * 3), why)
+		assert.deepEqual(there.idx.subarray(0, there.triCount * 3), here.idx.subarray(0, here.triCount * 3), why)
+		assert.deepEqual(there.liquidPos!.subarray(0, there.liquidVertCount! * 3), here.liquidPos!.subarray(0, here.liquidVertCount! * 3), why)
+		assert.deepEqual(there.liquidAreas!.subarray(0, there.liquidTriCount!), here.liquidAreas!.subarray(0, here.liquidTriCount!), why)
+	}
+	same('the whole scene')
+
+	// A sculpt and a hole: only their rows go, and the chunks under them are forgotten on both sides.
+	for (let z = 4; z <= 6; z++) for (let x = 3; x <= 9; x++) g.heights[z * g.verts + x] -= 3
+	g.holes[5 * 32 + 20] = 1
+	liquids.forget(2, 3, 21, 6)
+	send([rowsUpdate(g, 4, 6), { kind: 'forget', gx0: 2, gz0: 3, gx1: 21, gz1: 6 }])
+	same('after the sculpt and the hole')
+
+	// A model moved (keeping its place in the order) and one dropped.
+	const moved = placeFaces(box(10, 9, 10, 14, 13, 14), new THREE.Matrix4().setPosition(6, 0, 4).elements)
+	placed.set(1, moved)
+	send([{ kind: 'place', id: 1, faces: moved }])
+	same('after the crate moved')
+	placed.delete(2)
+	send([{ kind: 'drop', id: 2 }])
+	same('after the wall went')
 })

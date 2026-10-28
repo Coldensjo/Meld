@@ -1,10 +1,13 @@
 // Runs the walkable-ground view's Recast tile builds in Web Workers (navWorker.ts, #508), so a dense
-// tile (the abbey's, a city's) no longer holds a frame for its whole build. NavPreview still gathers
-// each tile's triangles here and keeps the navmesh and the path test on the main thread; a worker
-// hands back Detour's tile bytes and the surface to draw. Where workers can't run (Bun's tests) or a
-// worker fails, `navWorkersReady` says no and NavPreview builds on the main thread, as before.
+// tile (the abbey's, a city's) no longer holds a frame for its whole build. Each worker keeps a copy
+// of the ground, the liquids and the placed models' faces (navScene.ts, #633), which NavPreview keeps
+// up to date with `sendNavScene`, and gathers each tile's triangles from it too; NavPreview keeps the
+// navmesh and the path test on the main thread, and a worker hands back Detour's tile bytes and the
+// surface to draw. Where workers can't run (Bun's tests) or a worker fails, `navWorkersReady` says
+// no and NavPreview gathers and builds on the main thread, as before.
 
 import { tileBuffers, type TileJob, type TileOutput } from './navBuild'
+import { sceneCopy, type GatherJob, type SceneUpdate } from './navScene'
 
 /** Jobs a worker holds at once: one building and the next waiting, so it never idles a frame. */
 const PER_WORKER = 3
@@ -27,18 +30,21 @@ let nextId = 1
 let broken = typeof window === 'undefined' || typeof Worker === 'undefined'
 /** Off for the probes' main-thread comparison (`useNavWorkers`). */
 let enabled = true
+/** Counts the times the workers started: workers started anew hold no copy of the scene (navScene.ts). */
+let generation = 0
 
 function start(): boolean {
 	if (broken || !enabled) return false
 	if (slots.length) return true
 	const n = Math.max(1, Math.min(2, (navigator.hardwareConcurrency || 2) - 1))
+	generation++
 	try {
 		for (let i = 0; i < n; i++) {
 			const slot: Slot = { worker: new Worker(new URL('./navWorker.ts', import.meta.url), { type: 'module' }), jobs: 0 }
 			slot.worker.onmessage = (e: MessageEvent<{ id: number; out?: TileOutput | null; error?: string }>) => {
+				if (e.data.error !== undefined) return fail(`a tile build threw: ${e.data.error}`)
 				const w = waiting.get(e.data.id)
 				if (!w) return
-				if (e.data.error !== undefined) return fail(`a tile build threw: ${e.data.error}`)
 				waiting.delete(e.data.id)
 				w.slot.jobs--
 				w.resolve(e.data.out ?? null)
@@ -81,15 +87,35 @@ export function navWorkerRoom(): boolean {
 	return false
 }
 
-/** Builds a job's tile in the least busy worker; check `navWorkersReady` and `navWorkerRoom` first. */
-export function buildInWorker(job: TileJob): Promise<TileOutput | null> {
+/** Which start of the workers is running, for NavPreview to tell when they need the whole scene sent again. */
+export function navWorkerGeneration(): number {
+	return generation
+}
+
+/**
+ * Brings every worker's copy of the scene up to date, applied in this order before any later job.
+ * Each worker gets copies of the arrays (`sceneCopy`), so the caller's stay its own.
+ */
+export function sendNavScene(updates: readonly SceneUpdate[]) {
+	if (updates.length === 0) return
+	for (const s of slots) {
+		const copy = sceneCopy(updates)
+		s.worker.postMessage({ scene: copy.updates }, copy.transfer)
+	}
+}
+
+/**
+ * Builds a job's tile in the least busy worker, from the triangles it holds (`TileJob`) or gathers
+ * from its scene (`GatherJob`); check `navWorkersReady` and `navWorkerRoom` first.
+ */
+export function buildInWorker(job: TileJob | GatherJob): Promise<TileOutput | null> {
 	return new Promise((resolve, reject) => {
 		let slot = slots[0]
 		for (const s of slots) if (s.jobs < slot.jobs) slot = s
 		const id = nextId++
 		waiting.set(id, { resolve, reject, slot })
 		slot.jobs++
-		slot.worker.postMessage({ id, job }, tileBuffers(job))
+		slot.worker.postMessage({ id, job }, 'input' in job ? tileBuffers(job) : [])
 	})
 }
 
