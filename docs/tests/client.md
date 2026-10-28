@@ -643,3 +643,11 @@ memory and building the archive there.
   the carried files and the minimap tiles it drops.
 - Trap: the time is mostly the disk copy of the carried files, so it varies with the disk cache;
   compare B/op, and time only on the same machine.
+
+## A WMO-only map's frame and Launch spot (#272, probe `wmo-only-frame`)
+
+Checks: Publish writes a WMO-only world's building at the world's middle, so the editor's frame follows
+the building and Launch's spot over it is the server's 0,0 wherever the building stands in the editor;
+with WMO-only unticked the frame is the corner's again. Nothing written.
+- Probe: `bun run probe wmo-only-frame`. It puts the camera and its orbit target straight above the
+  building, so either ground mode finds it below.

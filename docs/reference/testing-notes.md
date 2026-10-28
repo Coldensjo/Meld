@@ -683,7 +683,13 @@ the same scene, the report before and after.
 - A WMO's liquids: Blackrock Depths' lava (#287)
 - A camera over a building is in none of its rooms (#300)
 - Camera collision keeps the flying camera off a WMO's walls (#305)
+- Shadow maps: lights' cube maps, the sun's cascades and the moving casters (#129, #133, #325, #326, #346, #366; probes `shadow-redraw`, `shadow-poses`, `shadow-sun-drift`)
 - The instance batch: culling, packing and picking of placed models and spawns (#517)
+- The benchmark scene and maps: smoke, bench and perf-* (#322, #429; probes `smoke`, `bench`, `perf-*`)
+- Spawns posed only when drawn (#328, probe `pose-drawn`)
+- A model the client draws nothing of (#333, probe `nothing-to-draw`)
+- Releasing models: closed maps, thumbnails and previews (#505, #506; probes `release-models`, `release-asset`)
+- Moving lit models (#511, probe `effects-drag`)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)
 
@@ -716,6 +722,8 @@ the same scene, the report before and after.
 - The .wmap snapshot round trip and every readable version (#431)
 - The unknown state of holes, liquids and chunk data across a save (#525, #644, #663, probe `unknown-flags`)
 - Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
+- Cutting holes in a selected area (probe `undo-holes`)
+- Map Properties' world settings are undoable (#571, probe `world-settings`)
 - The world view: streamed tiles and Edit Here (#15, probe `world-view`), its minimap (probe `world-minimap`), Detail info in it (probe `world-detail`), its own map's ID (probe `world-map-id`, #754), Launch and Copy Teleport in it (probe `world-teleport`, #756), and a flight through it (probe `perf-world-flight`, #742)
 
 ### Tools and placing models (`docs/tests/tools.md`)
@@ -741,6 +749,12 @@ the same scene, the report before and after.
 - Paths: roads along a curve (#167, probe `path-road`)
 - Paths: rivers (#167, probe `path-river`)
 - Paths: fences (#167, probe `path-fence`)
+- A scripted Sculpt stroke and its undo (probe `undo-sculpt`, smoke)
+- Attached objects follow their parent (#329, probe `attach-follow`, smoke)
+- Drags write reactive state once a frame (#448, #621, probe `drag-state`)
+- The Stamp tool's per-brush settings (#445, probe `stamp-settings`)
+- A tab switch in the middle of a gizmo drag (#549, probe `tab-switch-drag`)
+- Objects near a point and selection groups from the layer's cells (#512, #630; probes `objects-near`, `select-groups`)
 
 ### UI and the window (`docs/tests/ui.md`)
 
@@ -786,6 +800,7 @@ the same scene, the report before and after.
 - Shortcut table (#583, probe `shortcut-table`)
 - Hotkey Manager (#396, probe `hotkey-manager`)
 - Interface size (#372, probe `ui-scale`)
+- Activating the open tab (#547, probe `activate-same`)
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)
 
@@ -808,7 +823,9 @@ the same scene, the report before and after.
 - A spawn's scripts on the This spawn tab (#137, probe `spawn-scripts`)
 - World event spawns (#143)
 - Creature editor: Looks opens on the creature's display (#206)
-- Creature editor: Shop tab (npc_vendor, #145)
+- Creature editor: Shop tab (npc_vendor, #145, probe `creature-shop`)
+- Creature editor: Quests and Messages tabs (#158)
+- Creature editor: texts shown under a condition (#160, probe `messages-conditions`)
 - Creature editor: Spells tab (creature_spells, #243)
 - Portals and area triggers (#141, #18; Teleport to destination #306, spawn teleports #308, probe `teleport-trigger`; layout #718, probe `portals-fit`)
 - Flight paths (#180, probe `flight-paths`)
@@ -854,6 +871,7 @@ the same scene, the report before and after.
 - The binary replies against their parsers (#520, the wire fixtures)
 - The format constants and the axis swap on both sides (#538, the format fixture)
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
+- A WMO-only map's frame and Launch spot (#272, probe `wmo-only-frame`)
 
 ### Scripting (`docs/tests/scripting.md`)
 

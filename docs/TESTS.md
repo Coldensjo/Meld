@@ -123,6 +123,10 @@ When adding a probe:
    `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints
    `probe: <name> skipped: <reason>` and lists it under `skipped` in the summary line, apart from `passed`.
 
+Every probe has an entry under its feature in the pages below (`Probe: bun run probe <name>`), but
+two that check the probe helpers themselves: `probe-helpers` (#348, `P.time`, `P.stroke`, `P.turn`)
+and `texture-picture` (#317, `P.texture`). Run those after changing `frontend/probes/lib.js`.
+
 For the helper API, profiling options and unusual browser failures, use the
 [testing notebook](reference/testing-notes.md#probes-bun-run-probe-checks-in-the-live-app-you-can-rerun).
 
