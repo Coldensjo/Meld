@@ -2602,12 +2602,10 @@ export class Engine {
 		if (this.doc) this.endInteractions()
 		if (stash && this.doc && this.doc !== d) {
 			this.stashActive()
-			this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.groundEffects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
-			if (this.doc.world) this.scene.remove(this.doc.world.group, this.doc.world.water)
+			this.scene.remove(...this.doc.sceneObjects())
 		}
 		this.doc = d
-		this.scene.add(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
-		if (d.world) this.scene.add(d.world.group, d.world.water)
+		this.scene.add(...d.sceneObjects())
 		const m = d.meta
 		editor.mapName = m.mapName
 		editor.filePath = m.filePath
@@ -3527,8 +3525,7 @@ export class Engine {
 		const d = this.documents[i]
 		this.documents.splice(i, 1)
 		if (d === this.doc) {
-			this.scene.remove(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
-			if (d.world) this.scene.remove(d.world.group, d.world.water)
+			this.scene.remove(...d.sceneObjects())
 			const next = this.documents[Math.min(i, this.documents.length - 1)]
 			// Keep at least one map open. The closed doc isn't stashed.
 			if (next) {
