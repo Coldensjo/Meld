@@ -11,7 +11,7 @@ on:
       - 'frontend/package.json'
       - 'frontend/bun.lock'
       - '.github/workflows/docs.yml'
-      - 'frontend/scripts/docs-check*'
+      - 'frontend/scripts/docs-*'
       - '**/*.md'
   pull_request:
     paths:
@@ -19,7 +19,7 @@ on:
       - '**/*.md'
       - 'frontend/package.json'
       - 'frontend/bun.lock'
-      - 'frontend/scripts/docs-check*'
+      - 'frontend/scripts/docs-*'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 

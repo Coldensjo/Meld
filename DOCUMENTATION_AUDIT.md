@@ -2,12 +2,14 @@
 
 ## Latest audit
 
-- **Current handoff:** 2026-10-28, session 9, documentation commit/CI preparation and browser
-  verification of the existing live site. See [session-9 evidence](#publication-ci-and-live-site-verification-2026-10-28-session-9).
-  The new documentation is not deployed: push authorization is absent and remote `main` is
-  20 commits ahead of this checkout, with overlapping documentation edits. No source re-audit,
-  merge, push or new remote workflow run was performed. F-023 / DOC-013 records verified theme
-  accessibility findings; completed source-writing tasks remain complete at their recorded baseline.
+- **Current handoff:** 2026-10-28, session 10, focused DOC-013 accessibility/usability corrections.
+  See [session-10 evidence](#documentation-accessibility-and-usability-2026-10-28-session-10).
+  Local theme fixes, regression tests and browser validation are complete; DOC-013 is **In progress,
+  awaiting deployed-revision retest**, not Done, because deployed-revision acceptance remains.
+  This session read live `revision.txt` as `a9643c7ec05345d273708c7d34c5e5663b5d7eea`, matching
+  its starting HEAD. Earlier session-9 remote/publication/404 observations remain historical below.
+  The owner authorized committing and pushing these edits on 2026-10-29. Completed source-writing
+  tasks and native/distributor limitations are unchanged.
 
 ### Prior acceptance summary — session 8
 
@@ -1825,3 +1827,117 @@ This was a bounded acceptance review, not another subsystem-wide implementation 
   patch, full theme-source review, exhaustive contrast audit, dark-theme pass, screen-reader
   testing or complete WCAG certification is claimed. These verified issues do not reopen the
   completed source-backed application guides, DOC-011 native checks or DOC-010 owner decision.
+
+## Documentation accessibility and usability (2026-10-28, session 10)
+
+### Scope and implementation review
+
+- **Baseline:** starting HEAD `a9643c7ec05345d273708c7d34c5e5663b5d7eea`; live
+  `/Meld/revision.txt` returned HTTP 200 and this same SHA on 2026-10-28. The session-9 report of
+  unpublished guide URLs is historical. This session did not commit, push or deploy its new edits.
+  The preexisting untracked `.agents/` directory was left alone; no application source changed.
+- **Fully inspected for this bounded task:** `docs/.vitepress/config.mts`, the pinned VitePress
+  **1.6.4** default-theme `VPHome.vue`, `VPSidebarItem.vue`, `VPLocalSearchBox.vue`, `VPSidebar.vue`,
+  `VPNavScreen.vue`, `VPSwitchAppearance.vue`, search-button/parent navigation wiring, sidebar/nav
+  and data composables, base/variable CSS, VueUse's `useFocusTrap` lifecycle, and emitted code styles.
+  Reviewed local search indexing, result anchors, arrow/Enter handlers, close events, focus trapping,
+  query/detail persistence and router integration. No framework replacement or dependency upgrade.
+- **Correction boundary:** `theme-patches.mjs` transforms only the named upstream components before
+  Vue compilation; exact-match guards fail on changed source instead of silently dropping fixes.
+  `theme/index.ts` extends the existing theme and imports narrowly scoped CSS. `codeContrast.tokens`
+  adjusts only failing syntax colors. No installed dependency files were edited or vendored.
+  Existing structure, pages, search provider, result click handlers and routing are retained.
+
+### F-023 — Verified findings and corrections
+
+| Verified issue and root cause | Small correction and evidence |
+| --- | --- |
+| Code-language labels used muted text, **2.87:1** on light code backgrounds; default brand button was **4.48:1**. Syntax red/orange and code comments also failed normal-text contrast; comments were **4.45:1** in light mode and **3.75:1** in dark mode. | Override language/line-number text and brand-button state colors; adjust the failing Shiki token colors only. Source-palette checks give the normal brand button **4.79:1**, corrected light syntax samples **4.71–5.01:1**, and dark comments **5.88:1**. Both-theme page audits pass contrast checks on measurable text. |
+| Unselected detailed-search excerpts applied group opacity **0.5**, making ordinary text approximately **2.67:1** on white. This visible text was not covered by axe because the excerpt is inert. | Restore full excerpt opacity with specificity that survives lazy-loaded scoped CSS; preserve layout, clipping and the existing inert excerpt. Browser regression checks assert full opacity and independently measure excerpt/search colors. |
+| Homepage wrapper was a generic div, with no main landmark. | Add `role="main"` to that wrapper without moving content. This corrects an axe landmark/best-practice finding; the missing landmark alone was not treated as proof of a WCAG failure. |
+| Sidebar headers nested two button roles, had no expanded state, did not handle Space, and exposed dead focus stops on noncollapsible headings. | Keep one named toggle per unlinked collapsible group; make its caret decorative. Restrict role/tabindex to working controls, expose expanded state, handle Enter/Space without page scrolling, and provide a visible focus outline. Linked-parent caret support is retained. |
+| Search overlay used a button role around form controls; listbox options wrapped focusable links; shortcut `kbd` elements used prohibited labels. | Use a named modal dialog, combobox input with list autocomplete and accurate expanded state, and one option-role anchor per presentation list item. Keep real hrefs and existing mouse/router/arrow handlers. Give labelled keyboard glyphs an image role. |
+| Closing search with Escape returned focus to BODY on the live site at desktop and mobile widths. Focus-trap activation had captured the already-focused search field, not its opener. | Capture the active opener at component setup through the focus trap's return-focus option. Escape restores the Search button; Ctrl+K opened from a navigation link restores that original link. |
+| A saved dark theme reloaded with a visibly dark page and “Switch to light theme” title but `aria-checked="false"`: prerendered switch attributes did not update during hydration. | Gate the checked state on a mounted ref, creating an explicit post-hydration reactive update. Tests check switch-state agreement after navigation/reload in both themes. |
+| Off-canvas sidebar tried to focus a nonfocusable aside, leaving keyboard focus behind its overlay. Mobile main navigation allowed Tab behind its overlay and did not close with Escape. | Reuse the already-installed focus-trap integration: contain focus in the narrow sidebar, disable that trap at desktop width, and contain mobile header/menu focus while retaining its close trigger. Escape closes/restores focus; mouse selection still closes/navigates. No overlay redesign. |
+
+These are reproducible runtime/source failures, not speculative cosmetic improvements. Content
+heading order, accessible search/control names, skip navigation and reduced-motion CSS did not
+require redesign. No content heading-level skips or duplicate content H1/main landmarks were found
+in the navigable-page checks. There were **zero image elements** in those pages, so no missing-alt
+failure was found; useful image descriptions were not meaningfully exercised.
+
+### Search verification and environment distinction
+
+- **Existing live site, before corrections:** direct browser clicks at widths **1366** and **390**
+  opened `/Meld/guides/saving-and-compiling#saving-compiling-and-playing` for compiling, matching
+  the clicked href. ArrowDown then Enter selected and opened the expected troubleshooting result
+  in the engineering notebook. Escape closed search but left focus on BODY in both viewports.
+  Thus the previously unverified mouse-result failure was **not reproduced**, while focus loss was.
+- **Local corrected build:** desktop/mobile mouse selection and ArrowDown/ArrowUp/Enter open the
+  exact selected route and existing fragment. Escape and the mobile close button restore focus;
+  the latter does not accidentally submit/navigate. Tab stays within search, empty results remain
+  open on Enter, and the input's controls/active-descendant IDs resolve to the actual list/option.
+  A live no-results query followed by ArrowDown exposed a nonexistent `localsearch-item-0` reference;
+  the local binding now requires an actual result before exposing an active descendant. Regression
+  checks press both arrows with no results and confirm the reference stays absent.
+- **Tool failures were not website fixes:** shared preview rejected selectors and a stale reference.
+  After those control failures, testing switched to isolated Playwright/Chrome, which independently
+  confirmed that live result clicks work. An early artificial iframe dark-mode audit caught
+  transitional colors and was discarded, not used to redesign the theme. Direct theme interaction
+  and settled/reloaded browser state supplied the accepted evidence.
+- **Preview-server limitation:** rebuilding under a running VitePress preview produced 404s for new
+  hashed assets because the preview cached its asset directory. Restarting that local server fixed
+  the harness; no search/navigation or asset-path workaround was added to the site. The developer
+  recipe now explicitly requires restarting preview after a rebuild.
+
+### Validation and repeatability
+
+- **Passed:** `cd frontend; bun run docs:check`: VitePress build, **38 Markdown files**, **740 relative
+  links/images**, **32 HTML pages**, **2,013 rendered references**, navigation/anchors/assets and
+  Markdown structure; **15 tests / 51 assertions** across the existing checker and eight new theme
+  regression tests. Existing large-chunk build warning remains; no application/game tests were needed.
+- **Passed:** optional `node scripts/docs-browser-check.mjs` using **Chrome 156.0.8078.47**,
+  **Playwright Core 1.56.1**, **axe-core 4.10.3**, installed only in a temporary QA tools directory.
+  Axe ran WCAG 2 A/AA, 2.1 A/AA, 2.2 AA and best-practice tags: **86 page/state audits, zero reported
+  violations**. All **31 navigable pages** were checked in **both themes** at **1366x768**. The 404
+  template and external websites are not included in that navigable-page accessibility claim.
+- **Passed:** **18 keyboard/mouse interaction cases**, including skip-link/content focus, sidebar
+  Space/Enter/state/ring, desktop/mobile search, focus trapping/restoration, empty results, mobile
+  nav/sidebar opening/selection/Escape, and reduced-motion emulation. Mobile containment checks Tab
+  repeatedly through the menu/sidebar, not merely a successful mouse click.
+- **Responsive:** home, development, database authoring and troubleshooting checked at widths
+  **1920, 768, 390 and 320**, with 1080px height at 1920 and 844px otherwise; no document-level
+  horizontal overflow. Long code remains locally scrollable. Additional mobile menu/search audits
+  use **390x844**. QA screenshots were visually reviewed, not used as exhaustive visual baselines.
+  A separate browser check confirmed that resizing an open mobile sidebar to desktop releases its
+  focus trap and body-scroll lock.
+- **Incomplete results retained:** **54/86** audit states retain axe incomplete findings, chiefly
+  clipped/overlapped code/result text; four search states additionally require popup-reference review.
+  The actual referenced IDs were checked independently. **236 computed-color text samples** across
+  ordinary/detailed desktop search in light/dark and mobile search were all at least **4.84:1**.
+  These spot checks do not turn every clipped-code/gradient incomplete into a certified pass.
+- **Diagnostics:** no application JavaScript exceptions, failed documentation assets or substantive
+  console/network errors in the accepted run. Chrome's optional, unconfigured `/favicon.ico` request
+  returned 404 and is explicitly retained as a nonblocking observation, not silently filtered away.
+- **Evidence:** repeatable runner and guarded tests in `frontend/scripts/`; recipe at
+  `docs/development.md#check-documentation-accessibility`. Machine-local JSON/screenshots are in
+  `C:\Users\Chris\AppData\Local\Temp\meld-doc013-browser\` (`report.json`, `live-baseline.json`,
+  desktop/mobile PNGs). They are QA artifacts, not committed site assets. Targeted theme/script/config
+  Prettier checks and `git diff --check` passed. The workflow's Prettier warning also reproduces on
+  unchanged HEAD; its existing layout was preserved for the two path-filter edits. CI path filters
+  include both documentation checker and browser scripts.
+
+### Remaining limits and DOC-013 acceptance
+
+- **DOC-013 remains In progress, awaiting the deployed-revision retest** (publication authorized 2026-10-29). Its corrections are locally
+  implemented/verified, but the original acceptance criterion requires retesting the corrected
+  deployed revision. After the deployment, compare live `revision.txt` with that commit and
+  rerun browser checks. Do not deploy or mark Done merely because local automation passes.
+- **Not certified:** full WCAG 2.2 AA conformance, NVDA/JAWS/VoiceOver announcements, real touch-device
+  interaction/virtual keyboards, every zoom/forced-colors configuration, or all clipped syntax and
+  excerpt-gradient combinations. Viewport emulation is not a physical-device test. Remaining axe
+  incompletes and assistive-technology behavior need manual assessment.
+- Completed DOC-001–009/012 stay closed. DOC-010 remains owner-deferred and DOC-011 native/distributor
+  checks remain blocked on their original resources. No new broad application audit or unrelated
+  documentation task was opened. The edits were committed afterwards, on 2026-10-29, at the owner's request.

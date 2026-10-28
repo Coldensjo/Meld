@@ -224,6 +224,44 @@ use Markdown and VitePress containers rather than embedded HTML.
 Check the built site in a browser as well as building it: search, theme switching and collapsible
 navigation must work after hydration. Prerendered text alone does not prove the JavaScript works.
 
+### Check documentation accessibility
+
+For theme changes, run `bun run docs:check`, start `bun run docs:preview` in a separate terminal,
+then run `node scripts/docs-browser-check.mjs` from `frontend/`. Restart the preview after rebuilding:
+its cached asset directory can otherwise return 404 for newly generated filenames.
+
+The optional browser check needs Playwright Core, axe-core and a Chromium browser. Keep these QA
+tools outside the project dependencies. For example, in PowerShell:
+
+```powershell
+$tools = Join-Path $env:TEMP 'meld-doc013-tools'
+npm install --prefix $tools --no-audit --no-fund playwright-core@1.56.1 axe-core@4.10.3
+node "$tools/node_modules/playwright-core/cli.js" install chromium
+$env:DOCS_BROWSER_TOOLS = $tools
+node scripts/docs-browser-check.mjs
+```
+
+Alternatively set `DOCS_BROWSER_EXECUTABLE` to an installed Chrome/Chromium executable and skip the
+browser download. On other shells, set the same environment variables to absolute paths. The script
+defaults to the local preview; `DOCS_BASE_URL` changes the target. JSON evidence and QA screenshots go
+to the system temporary directory's `meld-doc013-browser` folder, or `DOCS_BROWSER_OUTPUT` if set.
+No game, database, application probe or deployment is involved.
+
+The check audits the sidebar-linked pages in both themes, narrow/desktop layouts and search states;
+it exercises keyboard focus, sidebar/mobile menus, mouse and keyboard result navigation, Escape,
+empty results and reduced motion. axe's incomplete results are retained for review, not counted as
+passes. Independent computed-color checks supplement clipped search-result/footer contrast checks.
+An optional browser-requested `/favicon.ico` 404 is recorded separately from application failures.
+Real screen-reader announcements, touch/virtual-keyboard behavior and full WCAG 2.2 AA conformance
+still require manual assessment.
+
+DOC-013's small compatibility plugin in `docs/.vitepress/theme-patches.mjs` corrects the pinned
+VitePress default theme at build time, before Vue compilation, without editing `node_modules` or
+copying the entire upstream components. It preserves their search handlers, routing and styling.
+Exact-match guards and `scripts/docs-check-theme.test.mjs` fail when an upstream component changes;
+review or retire each patch on a VitePress upgrade. The local theme CSS and code-token transformer
+only adjust verified contrast failures and focus indicators.
+
 ## Find the relevant code
 
 Start with the [architecture overview](architecture/index.md). The detailed subsystem references

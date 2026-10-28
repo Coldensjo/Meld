@@ -108,6 +108,14 @@ anchors, not just page counts. Prefer short task routes and links to specialist 
 copying implementation detail into onboarding. Revisit page splitting only when a real task is hard
 to find. Record browser/search/accessibility QA separately from a successful static site build.
 
+DOC-013's session-10 theme corrections are local, not deployed acceptance. For future theme changes,
+run the guarded theme tests with `bun run docs:check` and the optional browser recipe in
+`docs/development.md#check-documentation-accessibility`. Retain axe incomplete findings, independently
+check clipped/overlaid search text and distinguish automation/preview-server failures from site bugs.
+Review build-time compatibility patches whenever VitePress changes; do not silently skip a guard or
+edit installed dependencies. Publication was authorized on 2026-10-29; DOC-013 is Done only after
+a deployed-revision retest. Automated checks never certify full WCAG or screen-reader behavior.
+
 Track persistent inspection-unit IDs separately from `DOC-NNN` work items. For static depth use
 **Fully inspected**, **Partially inspected** or **Not inspected**, with an explicit feature boundary,
 implementation/configuration/test/document paths and remaining work. Filenames, symbols or headings

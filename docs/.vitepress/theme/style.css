@@ -1,0 +1,26 @@
+:root {
+	--vp-code-lang-color: var(--vp-c-text-2);
+	--vp-code-line-number-color: var(--vp-c-text-2);
+	--vp-button-brand-bg: #526ec4;
+}
+
+.dark {
+	--vp-button-brand-bg: #526ec4;
+	--vp-button-brand-hover-bg: #4963b5;
+	--vp-button-brand-active-bg: #4058a4;
+}
+
+.VPSidebarItem .item[role='button']:focus-visible {
+	outline: 2px solid var(--vp-c-brand-1);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+.VPLocalSearchBox .search-bar:focus-within {
+	outline: 2px solid var(--vp-c-brand-1);
+	outline-offset: 2px;
+}
+
+.VPLocalSearchBox .result .excerpt {
+	opacity: 1;
+}

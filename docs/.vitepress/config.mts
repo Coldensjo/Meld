@@ -4,6 +4,7 @@
 import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
 import type { DefaultTheme, UserConfig } from 'vitepress'
+import { codeContrast, themeAccessibility } from './theme-patches.mjs'
 
 const repo = 'https://github.com/Coldensjo/Meld'
 
@@ -23,8 +24,9 @@ const config: UserConfig<DefaultTheme.Config> = {
 	// The dev page (http://localhost:34115) is a real link only on the machine running make dev.
 	ignoreDeadLinks: 'localhostLinks',
 	// The docs mention <placeholders> in plain text, which Vue would read as tags: render HTML as text.
-	markdown: { html: false },
+	markdown: { html: false, codeTransformers: [codeContrast] },
 	vite: {
+		plugins: [themeAccessibility()],
 		resolve: {
 			alias: [
 				{ find: /^vue$/, replacement: vueDir },

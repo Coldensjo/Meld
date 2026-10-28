@@ -21,17 +21,18 @@ Reader entry points: [README](README.md), [site home](docs/index.md),
 Focused guides and selected source contracts were examined, not every implementation or regression
 recipe. No subsystem-wide completeness or live game compatibility is claimed. Section 9 is the handoff.
 
-**Current phase: sustainable maintenance; all currently actionable documentation tasks complete.**
+**Current phase: sustainable maintenance; DOC-013 fixes committed; deployed-revision retest outstanding.**
 DOC-006 is Done for bounded source-verifiable workflow/reference acceptance after session-7 checks;
 DOC-001–009 and DOC-012 are Done. DOC-011 retains its source-backed precautions and is Blocked on
 native/distributor verification. DOC-010 remains Deferred for owner approval. No P0/P1 remains open.
 This closes initial creation, not subsystem-wide implementation or native/game certification.
 
-**Publication handoff (session 9):** the documentation and CI changes are prepared for a dedicated
-local commit. Publication is pending explicit authorization to push `main`; no new deployment or
-remote CI run is claimed. Existing-site browser checks passed basic navigation/search/responsiveness
-but exposed theme accessibility findings tracked as DOC-013 P2 Ready/Todo below. The two new guide
-URLs currently return 404 because they have not been published. See the latest audit entry.
+**Accessibility handoff (session 10):** DOC-013's bounded theme corrections and regression checks
+are implemented locally. Browser checks identify the existing live revision as
+`a9643c7ec05345d273708c7d34c5e5663b5d7eea`, also this session's starting HEAD; the earlier session-9
+404/publication observations are historical, not the current deployment state. The new theme edits
+were committed and pushed to `main` with the owner's authorization on 2026-10-29; the deployed
+revision has not been retested yet.
 
 All 14 parent subsystems remain **Broadly Audited**, none Unaudited or Deeply Audited as a whole.
 The [inspection register](DOCUMENTATION_AUDIT.md#inspection-register-current) retains static-depth
@@ -342,18 +343,19 @@ checks and changed-file preservation; session-5 counts are historical, not count
 
 ## 6. Work currently in progress
 
-None. No task lease, delegate or background job remains. Initial source-verifiable implementation
-and whole-documentation quality review are complete; DOC-006 joins the Done tasks. DOC-011 is
-Blocked and DOC-010 Deferred. No P0/P1 remains. Session 9 adds the verified P2 theme follow-up
-DOC-013; completed source-writing tasks are not reopened.
+DOC-013's local implementation and browser validation are complete and committed (2026-10-29); a
+deployed-revision retest remains outstanding. No delegate or scheduled job is active. Initial
+source-verifiable implementation remains complete; DOC-011 is Blocked and DOC-010 Deferred.
+No P0/P1 remains. Completed source-writing tasks are not reopened.
 
 ### DOC-013 — Resolve verified documentation-theme accessibility issues
 
-- **Priority / status / readiness:** P2 / Todo / Ready. **Audience:** keyboard and assistive-technology users.
+- **Priority / status / readiness:** P2 / In progress / Awaiting deployed-revision retest.
+  **Audience:** keyboard and assistive-technology users.
 - **Description:** address F-023 from the existing live VitePress site, without changing editor behavior.
 - **Sources:** `docs/.vitepress/config.mts`, `frontend/package.json` (VitePress 1.6.4), default-theme
   `VPHome.vue`, `VPSidebarItem.vue`, `VPLocalSearchBox.vue` and theme CSS in installed VitePress.
-  These are runtime findings; no upstream source audit or proposed fix is credited yet.
+  Session 10 inspected these components, their keyboard/focus composables and theme/code styles.
 - **Target:** minimal documentation-theme configuration/override if needed, this plan and the audit.
 - **Acceptance:** correct code-language and brand-button contrast; resolve nested interactive
   sidebar/search controls; give the homepage a main landmark. Recheck axe WCAG AA/best-practice
@@ -361,6 +363,20 @@ DOC-013; completed source-writing tasks are not reopened.
   Investigate axe's incomplete search contrast result manually; do not equate zero automated
   violations with full screen-reader certification.
 - **Dependencies:** a focused theme fix and authorized publication, followed by live browser retest.
+- **Local corrections (2026-10-28, session 10):** contrast for brand-button states, language labels,
+  code tokens/comments and detailed-search excerpts; homepage main landmark; single sidebar toggles
+  with state, Space/Enter and visible focus; modal/combobox/result semantics, shortcut names and
+  original-opener focus restoration; correct theme-switch state after dark-mode hydration.
+  Off-canvas navigation/sidebar contain keyboard focus and close with Escape without trapping desktop use.
+  Existing search click/router handlers and site structure retained.
+- **Evidence:** documentation build/link checks and 15 checker/theme tests; Chromium/axe audit of
+  all 31 navigable pages in both themes, responsive and search-state samples, keyboard/mouse/mobile
+  menu regression checks. Exact counts, incomplete findings and limits are in the session-10 audit.
+  Live desktop/mobile result clicks and ArrowDown/Enter already worked; no click-navigation bug was
+  reproduced. Live Escape focus loss was reproduced and corrected locally.
+- **Acceptance:** locally verified, **not fully satisfied**: original criteria require retesting the
+  published corrections against their deployed revision. Publication was authorized on 2026-10-29; do not mark
+  Done until that retest. Screen-reader/real-device checks remain explicit limitations, not automated passes.
 
 ### Publication and CI handoff — session 9
 
