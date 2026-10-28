@@ -88,6 +88,26 @@ minutes a run plus fix items (#439).
 - The run log says which selection ran and how long it took. A failure is handled as before: find the
   commit, file a bug, revert if it cannot be fixed.
 
+Flaky probes (#440): a probe line with `flaky: true` (failed once, passed on the retry, docs/TESTS.md
+"Probes") is quarantined after its second flaky result on commits that did not touch its subject,
+instead of costing a worker item each time (`wmo-cull` cost #350 and #392 that way, #392 at high
+effort, before #393 fixed `P.settle`).
+- Untouched means the probe is not picked by `cd frontend && bun run probe --touching <range> --list`
+  for the commits under test (the item's change for a worker, `<start>..HEAD` for the full-run check).
+  A flaky or failed result on a commit that does touch its subject is a real failure, handled as today.
+- The first flaky result goes in the run log (probe, commit, the line) and nothing more; search the
+  earlier run logs and the open issues for the probe's name to tell whether it is the second.
+- On the second: file a `bug` issue "Fix the flaky <probe> probe", labelled `bug`, `area:tooling`,
+  `source:loop`, holding the two flaky lines (with their `first` fields), the commits and the probe; then
+  add `// quarantine: #<n>` to the probe's header (#399) in its own commit. The coordinator does it in the
+  full-run check; a worker does it in its own checks only when the flaky probe is not its item's subject,
+  and says so in its report.
+- Only after two: #252 (0 triangles drawn with the cull on) looked like a flake and was a real break
+  that `wmo-cull` found. A failure on both attempts (`retried: true`) is never a flake.
+- A quarantined probe is out of `--all`, `--smoke` and `--touching`, but still run by name (`bun run
+  probe <name>`) when a change touches its area, and workers spend no time on it until it fails for
+  real there or its bug issue is picked; that item takes the `quarantine` line out when it closes.
+
 Benchmark for optimizations: `cd frontend && bun run probe bench`, on the commit before the change and
 on the change (docs/TESTS.md, "Measuring performance"). An estimate with its working also counts (e.g.
 "stormwind.wmo draws 1.3M triangles a frame, about 77k of them in view").
