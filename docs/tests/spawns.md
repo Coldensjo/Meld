@@ -538,7 +538,7 @@ The Creature tab's spell columns (#255): `auras` lists each spell's icon and nam
 Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared
 vendor list) has its inventory icon, and hovering one shows the game-style tooltip.
 - Go: `TestParseVendorItems`, `TestParseItemRow`; with `WOW_DIR=C:/WoW/client`,
-  `TestItemIconsFromClient` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
+  `TestItemLooksLive` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
 - Frontend: `frontend/tests/itemTooltip.test.ts` (lines for a weapon, armour with stats, a bag; money;
   #355, a set piece's set block).
 - Item sets (#355): `TestParseItemSetSkipsEmptySlots`; with `WOW_DIR=C:/WoW/client`,
@@ -551,7 +551,7 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
   `td.item` (6 rows, 6 `img`). Hover: dispatch `new PointerEvent('pointerenter', { clientX, clientY })`
   on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
   and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
-- Effects show the spell's own text (#217): Tough Hunk of Bread (4540, spell 433) reads "Use: Restores 61 health over 18 sec.  Must remain seated while eating." Go: with `WOW_DIR=C:/WoW/client`, `TestSpellTextsFromClient` checks Spell.dbc's field layout (description at field 138). Trap: an aura with no period of its own counts every 5 sec for `$o1` (17 per tick over 18 sec is 61).
+- Effects show the spell's own text (#217): Tough Hunk of Bread (4540, spell 433) reads "Use: Restores 61 health over 18 sec.  Must remain seated while eating." Go: with `WOW_DIR=C:/WoW/client`, `TestSpellRefsFromClient` checks Spell.dbc's field layout (description at field 138). Trap: an aura with no period of its own counts every 5 sec for `$o1` (17 per tick over 18 sec is 61).
 
 ## Item editor (#353)
 

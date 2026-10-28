@@ -87,7 +87,7 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   package's tests) before the overlay (`SetOverlay`) is asked. Trap: the panic only kills the app in
   the desktop build; `wails dev`'s net/http server recovers it, so the dev page never shows the crash.
 - The same locator runs the client checks in `internal/vmangos` (region round trips, the chunk
-  header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
+  header write `TestRegionHeadersWritten`, `TestClientAreaTable`). On the owner's machine the
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
   flags (0x8000 on some chunks), so compare a write against the same save without your change, not
   against the client's tile.
