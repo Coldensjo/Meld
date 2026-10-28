@@ -677,7 +677,7 @@ the same scene, the report before and after.
 
 - Growing a region (the Map panel's plus)
 - Opening a region: the alpha maps' handoff (#636, probe `region-alpha`)
-- Holes per triangle (Sculpt › Hole)
+- Hole blocks (Sculpt › Hole)
 - Hole walls (drag an edge, + and − badges)
 - Sculpt › Terrace (#166)
 - Terrain › Smooth Selection (#713), with Raise, Lower, Flatten and Roughen (#721)
