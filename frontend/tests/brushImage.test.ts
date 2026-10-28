@@ -1,5 +1,5 @@
 // Run with: bun test tests/brushImage.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { brushImage, imageWeight, setBrushImage, setBrushImageRotation } from '../src/lib/tools/brushImage.ts'
 

@@ -1,5 +1,5 @@
 // Run with: bun test tests/spawnInfo.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { creatureTypeName, levelText, npcRoles, objectTypeName, orientationDegrees, rankName, spawnType } from '../src/lib/world/spawnInfo.ts'
 

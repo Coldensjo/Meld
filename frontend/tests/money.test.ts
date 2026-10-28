@@ -1,5 +1,5 @@
 // Run with: bun test tests/money.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { joinMoney, shownCoins, splitMoney } from '../src/lib/wow/money.ts'
 

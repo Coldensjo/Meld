@@ -1,5 +1,5 @@
 // Run with: bun test tests/sculptShapes.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale, terraceHeight, terraceLevel, trenchWidth } from '../src/lib/tools/sculptShapes.ts'
 

@@ -1,5 +1,5 @@
 // Run with: bun test tests/navServer.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { AREA_GROUND, AREA_MAGMA, AREA_STEEP, AREA_WATER, AREA_WATER_TRANSITION, NAV_GROUND, NAV_MAGMA, NAV_STEEP, NAV_WATER, TileBuilder, loadRecast, vmangosSettings } from '../src/lib/world/nav/navBuild.ts'

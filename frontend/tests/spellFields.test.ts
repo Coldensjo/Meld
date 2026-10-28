@@ -1,5 +1,5 @@
 // Run with: bun test tests/spellFields.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { vmangos } from '../wailsjs/go/models.ts'
 import { withBit } from '../src/lib/world/creatureFields.ts'

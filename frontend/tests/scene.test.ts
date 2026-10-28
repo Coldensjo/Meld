@@ -1,5 +1,5 @@
 // Run with: bun test tests/scene.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { parseScene, TOOL_IDS, VIEW_PREFS } from '../src/lib/io/sceneParse.ts'
 import { prefValueOk } from '../src/lib/state/prefsPatch.ts'

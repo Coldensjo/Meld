@@ -1,5 +1,5 @@
 // Run with: bun test tests/autoPaint.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { generateHeights } from '../src/lib/terrain/generate.ts'
 import { autoPaintRoles, AUTO_PAINT_ROLES } from '../src/lib/terrain/autoPaint.ts'

@@ -1,5 +1,5 @@
 // Run with: bun test tests/spray.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from '../src/lib/tools/spray.ts'
 

@@ -1,5 +1,5 @@
 // Run with: bun test tests/holes.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { HOLE_CELL, HOLE_FIRST, HOLE_NONE, HOLE_SECOND, countHoles, fillHoles, holeTriangle, triangleIsHole, writeCellIndex } from '../src/lib/terrain/holes.ts'
 

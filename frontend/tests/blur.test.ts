@@ -1,5 +1,5 @@
 // Run with: bun test tests/blur.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { copyRect, tentBlur } from '../src/lib/terrain/blur.ts'
 

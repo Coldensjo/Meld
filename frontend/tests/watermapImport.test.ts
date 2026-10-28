@@ -1,5 +1,5 @@
 // Run with: bun test tests/watermapImport.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { watermapCells } from '../src/lib/io/watermapImport.ts'
 import { LiquidMap, layLiquidCells, newLayer, LIQUID_WATER, LIQUID_MAGMA } from '../src/lib/water/liquids.ts'

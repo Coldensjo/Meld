@@ -1,6 +1,6 @@
 // Run with: bun test tests/wmoRoom.test.ts
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { buildColumnGrid, collideSphere, downRayPick, walkFloorZ, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
 
