@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Session restore (reopening the last tabs at start)
 
+Probe: `session-prefs` (a camera move re-applies no prefs, #461); the rest is a hand check.
+
 Checks: `lib/io/session.ts` keeps the open file and region tabs with their cameras in
 `prefs.session` (every 3 s when changed, saved alone through `savePref`, and on quit) and opens them again at start.
 The prefs effect in App.svelte leaves `session` out, so a camera move re-applies nothing: `bun run probe session-prefs` (#461).
@@ -21,6 +23,8 @@ location.reload()                                  // then, after ~6 s: editor.r
   The target's y differs a little after a restore because the camera target rides on the ground.
 
 ## Autosave and recovery (#177)
+
+Probe: `autosave` (#546, #637); the Recover offer is a hand check.
 
 Checks: `lib/io/recovery.ts` copies dirty tabs into `%LOCALAPPDATA%\Meld\recovery` (Linux
 `~/.cache/Meld/recovery`), and the next start offers copies whose session is gone (`internal/recovery`,
@@ -54,6 +58,8 @@ Go tests cover the alive file going stale). In the dev page:
 
 ## The desktop window itself (closing with unsaved maps, #188)
 
+Hand check: only the built app's native window; no probe can reach it.
+
 Checks: what only the native window does (its ✕, Alt+F4), in the built `build/bin/Meld.exe`. WebView2's
 `--remote-debugging-port` through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` does not work (Wails sets
 its own browser arguments), so drive the window from PowerShell with user32 (`SetForegroundWindow`,
@@ -68,6 +74,8 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
   edit an untitled map, and quit without saving.
 
 ## A long right-drag turn on Windows never stops (#724)
+
+Hand check: in the native window on Windows; the unit test below covers the bookkeeping.
 
 Checks: the Windows mouse look (`CameraController` with `lookWarp.ts`, `mouselook_windows.go`) moves
 the hidden cursor back to the drag's start once it is `WARP_AT` away, however fast the spin, and the
@@ -89,6 +97,8 @@ built `build/bin/Meld.exe` from PowerShell as in the entry above:
 
 ## Hover previews in tile grids (no gap between tiles)
 
+Probe: `item-editor` (the item looks' tiles).
+
 Checks: in every grid whose hovered tile drives a preview (the asset browser, Doodad Brushes, the
 prefab browser, the spawn tabs, the creature editor's displays and gear, the item editor's looks), a
 tile only *sets* the hover and the grid clears it on `pointerleave`, so moving slowly from one tile
@@ -98,6 +108,8 @@ still reads "Showing display 8690", and only the grid's `pointerleave` clears it
 hover preview should do the same.
 
 ## Thumbnail loading order (asset browser grids)
+
+No probe: the unit test below.
 
 Checks: `lib/wow/thumbQueue.ts` (the priority queue: tiles on screen nearest the grid's centre
 first, then the rows just outside the view that `prefetchAround` asks for) and `PaletteTile`'s
@@ -117,6 +129,8 @@ IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe, pr
 
 ## Asset browser tabs remember their place (#123)
 
+Probe: `virtual-grid` (the scroll); a restart is a hand check.
+
 Checks: each tab keeps its search, zone, category and scroll (`prefs.browserViews`, `wow/browserViews.ts`).
 In headless Chrome (`docs/TESTS.md`): click the `.browser .tab` named Doodads, set the `.browser select` to a zone
 and dispatch `change`, `grid-wrap.scrollTo(0, 400)`, wait 800 ms (the scroll is kept 300 ms after it
@@ -126,6 +140,8 @@ facet click then goes to the top. `tests/browserViews.test.ts` covers the stored
 window instead. The `virtual-grid` probe runs this check for the scroll (Doodads, Textures and back).
 
 ## The virtualised tile grids (#578)
+
+Probe: `virtual-grid`.
 
 Checks: every tile grid renders only the rows in view through `components/VirtualGrid.svelte`,
 with the row maths in `lib/ui/virtualGrid.ts` (`tests/virtualGrid.test.ts`: columns, the window
@@ -137,6 +153,8 @@ since the browser's own one may land after the frames it waits. The
 brush editor (`ui.brushEditor = true`) has the same grid under `[data-ui="DoodadBrushEditor"]`.
 
 ## Names under the tiles (#655)
+
+Probe: `browser-names`.
 
 Checks: the asset browser header's Names checkbox (`.names input`, `prefs.browserNames`) hides the names
 under every tab's tiles and in the preview, and the virtual rows pack tighter.
@@ -152,6 +170,8 @@ under every tab's tiles and in the preview, and the virtual rows pack tighter.
 
 ## The same header on every tab (#651)
 
+Probe: `browser-header`.
+
 Checks: each asset browser tab shows the header's search box, count and tile-size slider; Ctrl+F
 focuses the box; the zone select shows on Doodads, Buildings, Textures, All and Sets, the creature
 order on Creatures and NPCs; no tab has a search box of its own; a creature name typed in the header
@@ -159,6 +179,8 @@ narrows the Creatures tab's count. Probe: `bun run probe browser-header` (needs 
 the Creatures count). Trap: the Sets tab's rename box is a text input outside the header, by design.
 
 ## Model sets (the asset browser's Sets tab, #124)
+
+Hand check: in headless Chrome, as below; no probe covers it.
 
 Checks: making a set, adding models by a tile's right-click, showing it. In headless Chrome (`docs/TESTS.md`):
 click the Sets tab, its `.setbar` New, type a name into `.setbar .setname` and dispatch `change`; on
@@ -168,6 +190,8 @@ paths. The file form is `tests/modelSets.test.ts`; Import… and Export… open 
 headless page can't drive.
 
 ## Menu heights (#122)
+
+Probe: `preferences` (every menu's height).
 
 Checks: every menu fits the window. In headless Chrome (`docs/TESTS.md`), click each `.menubar .title`, read
 the `.menubar .dropdown`'s height and whether `scrollHeight > clientHeight`, and click it shut. An
@@ -247,6 +271,8 @@ Probe: `bun run probe hide-dock` (canvas width before, hidden, with Tab and show
 
 ## Toolbar on the right (#654)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: Preferences › General › Toolbar side, Right (`prefs.toolbarSide`) puts the toolbar at the window's right
 edge, after the dock, and back. In the dev page, open Edit › Preferences (Ctrl+,) and pick Right in
 Toolbar side (`#pref-toolbarSide`): `.toolbar`'s left is the `.dock`'s right, and its left border is set. Hover a
@@ -283,6 +309,8 @@ undoes (`scrollTop = 0`) before it decides the control is clipped.
 
 ## Help window
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: Help › Help… (or F1 anywhere but in an input) opens the Help dialog; its Open the manual
 button and Help › Manual open the manual on the published docs site (coldensjo.github.io/Meld/MANUAL) in the system browser (`BrowserOpenURL`; the
 dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
@@ -290,6 +318,8 @@ dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `MANUAL_URL` in `AppDialogs.svelte`.
 
 ## Panel edge drags (#592)
+
+No probe: the unit test below, and a hand check in the app.
 
 Checks: the dock's left edge and the asset browser's top edge resize through one action,
 `use:dragResize` (`lib/ui/dragResize.ts`): the size follows the pointer in CSS px (`toCss`), kept to
@@ -299,6 +329,8 @@ its range, and pointerup, pointercancel and lostpointercapture all end the drag,
 the edge; the panel must not move.
 
 ## Find fields and number inputs (#594)
+
+No probe: the unit test below, and a hand check in the app.
 
 Checks: the database find fields (item and quest editors, Find a creature, the Loot, Shop, Quests and
 Quest givers tabs, the spell picker) share `createSearch` (`lib/ui/search.svelte.ts`): one search
@@ -310,6 +342,8 @@ RefField keeps its own effect (its starters and local lists answer without a sea
 
 ## Preferences from two windows
 
+Hand check: the desktop app and a dev page together; the unit tests below cover the merge.
+
 Checks: a save writes only the changed keys, merged into the file (`changedPrefs` in `prefsPatch.ts`,
 `tests/prefs.test.ts`; `config.MergePrefs` in `internal/config/config_test.go`). By hand: open the
 desktop app and a dev page without `?nosave`, add a doodad brush in the app, then turn the fog off
@@ -317,6 +351,8 @@ in the page; the app's brush is still in `config.json` (the page sent only `fog`
 `baseline` is private to `prefs.ts`; a key that was never saved goes out on the first save.
 
 ## Detail info readout
+
+Hand check: in the dev page, as below; no probe covers it.
 
 Checks: View › Detail info shows, in the viewport's top right corner, the client tile, the
 chunk in it, the cell, height, slope, hole and no-tuft flags, the chunk's texture layers with their
@@ -326,6 +362,8 @@ chunk. In the dev page: `ed.prefs.detailInfo = true`, move the mouse over the gr
 `[data-ui="DetailInfo"]`.
 
 ## Loading bar (#159)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: `lib/wow/loadProgress.ts` (counters, unit test `loadProgress.test.ts`) fed by `fetchBinary`
 in `wow/api.ts`, drawn by `LoadingBar.svelte` (`[aria-label="Loading from the client"]`, label in
@@ -345,6 +383,8 @@ waits 600 ms, run with `--shot <dir>`. The real saves need the desktop app's dia
 the probe checks the helper, not File › Save; in `make dev` a Compile to Client of a region shows it.
 
 ## Preview window (#197)
+
+Hand check: in the dev page, as below; no probe covers it.
 
 Checks: the right-click menu's Preview (`ui.modelPreview`, `ModelPreviewWindow.svelte` over
 `CreaturePreview` with a `type` and `hq`). In the dev page on Northshire, project a model's position to
@@ -382,6 +422,8 @@ loop when nothing moves, and keep to Preferences › Graphics › FPS limit whil
 
 ## Moving the view up and down in the previews (#662)
 
+No probe: the logic on a renderer of its own, as below (a hidden page draws no preview).
+
 Checks: a right or middle drag in `AssetPreview` and `CreaturePreview` moves the orbit target up
 and down the model, held to its bounds; the left drag still turns and the wheel zooms.
 - The previews don't draw in a hidden page (`document.hidden`, #589), so a headless or background tab
@@ -412,6 +454,8 @@ changes only the camera that view returns to.
 
 ## Top-down view (U)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: U (or Camera › Top-down View, one of the four views of #750) draws the map straight down with an orthographic camera
 over the controller's target; the wheel zooms, WASD and a middle drag pan, Q/E and a right drag
 turn the map, and every tool picks and paints as in 3D (the ray goes straight down). Fog is off
@@ -422,6 +466,8 @@ brings the perspective camera back. The arrow handle of the gizmo can't be dragg
 plane is edge-on), the ring and knob can.
 
 ## Log window
+
+No probe: `tests/sessionLog.test.ts` for the file's batching; the window itself is a hand check.
 
 Checks: Help › Log… lists every status message with its time (`appLog.lines` in
 `editor.svelte.ts`, the last 500), the Go side's progress lines (they arrive as status messages),
@@ -462,6 +508,8 @@ selector finds it in the dock and in the window).
 
 ## Projects (#48)
 
+Hand check: in the app, as below; the probe `instance-open` covers the Start dialog's ask for a project.
+
 Checks: File › Project… opens a project folder with its client; the folder gets `meld-project.json`,
 the config (`%APPDATA%\Meld\config.json`) gets `projectPath` and the project at the front of
 `projects`, the File menu lists the other recent ones, and the Open and Save map dialogs start in the
@@ -497,6 +545,8 @@ nothing written unchanged, a doodad set written, a move refused).
   building from outside (only its doodads' flames); inside a room it draws as usual.
 
 ## Accessibility (#354)
+
+A method: `bun run check` for the warnings, and the probes `dialog-focus`, `menu-keys` and `aria-state` for its findings.
 
 Checks: keyboard focus, roles and contrast, the audit's method (its findings are #369 to #375).
 - `cd frontend && bun run check` reports Svelte's a11y warnings; `svelte.config.js` sets no
@@ -560,6 +610,8 @@ Checks: the menu bar and the right-click menu work from the keyboard.
   focus sits on the title, from where the browser's own Tab moves on.
 
 ## Copy id (#681)
+
+Probe: `item-editor` (a search result's Copy).
 
 Checks: a right-click copies a thing's id and name.
 - `cd frontend && bun test tests/copyId.test.ts tests/spawnActions.test.ts`: the labels (entry for
@@ -637,6 +689,8 @@ asset browser's kind tabs are `role="tab"` with `aria-selected`, its facets carr
   dev page by hand to see the tip; the probe only checks that a blur hides it.
 
 ## Folder setup dialog at start (#689)
+
+No probe (the probes' page skips the dialog): the unit test below, and a hand check in the app.
 
 Checks: `lib/io/folderSetup.ts` opens `FolderSetupDialog` after the recovery offer when the client folder
 (`wow.path`) or the server folder (`VmangosPath()`) is unset and `prefs.skipFolderSetup` is false; the pure rule is
