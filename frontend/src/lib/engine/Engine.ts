@@ -163,7 +163,7 @@ import type { TaxiHooks, TaxiPick, TaxiRouteShape, TaxiStopShape } from '../worl
 import type { Vec3 } from '../world/taxiRoute'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
-import { PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
+import { PerfMeter, SECTION, ShadowPassCalls, topCalls, topModels, type ModelCost, type PerfReport } from './perfMeter'
 import { GpuTimer } from './gpuTimer'
 import { updateTerrainOverlays, withOverlaysOff, type OverlayState } from '../terrain/terrainOverlays'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
@@ -1494,15 +1494,19 @@ export class Engine {
 		const dt = Math.min(this.timer.getDelta(), 0.1)
 		const time = this.timer.getElapsed()
 		const m = this.meter
+		const metering = m.on
 		m.setOn(this.prefs.perfOverlay || this.perfWaiters.length > 0)
+		if (m.on && !metering) this.shadowPasses.newWindow()
 		// The overlay starts on "Measuring…" the next time, not on old numbers.
 		if (!this.prefs.perfOverlay && stats.perf) stats.perf = null
 		m.begin()
 		if (m.on) this.gpu.poll()
 		this.simulate(dt, time)
+		if (m.on) this.shadowPasses.beginFrame()
 		this.draw(dt)
 		const calls = this.drawnCalls
 		const triangles = this.drawnTriangles
+		if (m.on) this.shadowPasses.endFrame()
 		if (m.end()) this.publishPerf(calls, triangles)
 
 		this.frames++
@@ -1537,6 +1541,8 @@ export class Engine {
 	/** The scene's draw calls and triangles of the last `draw`, before its outline passes. */
 	private drawnCalls = 0
 	private drawnTriangles = 0
+	/** The shadow passes' share of `drawnCalls`, counted while the meter is on (#692). */
+	private shadowPasses = new ShadowPassCalls()
 
 	/**
 	 * Readies everything the next draw shows from `this.camera`: the camera and sky, picking and the
@@ -1932,8 +1938,21 @@ export class Engine {
 	 * its GPU time to the Shadow maps pass, going back to the pass that was running after.
 	 */
 	private timeShadowMaps() {
-		const sm = this.renderer.shadowMap
+		const renderer = this.renderer
+		const sm = renderer.shadowMap
 		const render = sm.render.bind(sm)
+		// Splits the shadow maps' draw calls by pass (#692): three switches the target to each map it
+		// redraws, so the calls between two switches are that map's.
+		const info = renderer.info.render
+		const passes = this.shadowPasses
+		const setTarget = renderer.setRenderTarget
+		// The target the shadow maps' render goes back to when done, which is none of theirs.
+		let outer: THREE.RenderTarget | null = null
+		const countingSetTarget: typeof setTarget = (target, face, level) => {
+			const env = this.env
+			passes.enter(!target || target === outer ? -1 : target === env.key.shadow.map ? 0 : target === env.far.shadow.map ? 1 : 2, info.calls)
+			setTarget.call(renderer, target, face, level)
+		}
 		sm.render = (lights, scene, camera) => {
 			// The far layers' copies (#691) have no shadows to time.
 			if (!this.meter.on || isFarLayerScene(scene)) return render(lights, scene, camera)
@@ -1941,7 +1960,14 @@ export class Engine {
 			const pass = this.gpu.pass
 			this.meter.mark(SECTION['Render (CPU)'])
 			if (timing) this.gpu.begin(0)
-			render(lights, scene, camera)
+			outer = renderer.getRenderTarget()
+			renderer.setRenderTarget = countingSetTarget
+			try {
+				render(lights, scene, camera)
+			} finally {
+				renderer.setRenderTarget = setTarget
+				passes.leave(info.calls)
+			}
 			if (timing) this.gpu.begin(pass)
 			this.meter.mark(SECTION['Shadow maps (CPU)'])
 		}
@@ -1958,6 +1984,8 @@ export class Engine {
 			...w,
 			gpu: this.gpu.take(),
 			calls,
+			callsByPass: this.shadowPasses.byPass(calls),
+			shadowRedraws: this.shadowPasses.takeRedrawn(),
 			triangles,
 			geometries: info.memory.geometries,
 			textures: info.memory.textures,
@@ -1965,6 +1993,7 @@ export class Engine {
 			instancedMeshes: meshes,
 			heapMB: heap ? heap.usedJSHeapSize / 1048576 : null,
 			models: topModels(costs, 5),
+			topCalls: topCalls(costs, 5),
 		}
 		if (this.prefs.perfOverlay) stats.perf = r
 		const waiters = this.perfWaiters

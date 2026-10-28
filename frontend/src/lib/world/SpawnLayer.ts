@@ -6,7 +6,7 @@ import type { CullView } from './instanceCull'
 import { InstanceBatch, instancedMesh } from './instanceBatch'
 import { packedCount } from './shadowReach'
 import { firstPick } from './instanceHit'
-import { meshTriangles, type ModelCost } from '../engine/perfMeter'
+import { meshCalls, meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { spawnQuaternion } from './spawnTilt'
 import { SpawnChanges } from './spawnChanges'
 
@@ -268,7 +268,7 @@ export class SpawnLayer {
 
 	/** What each spawn type drew in the last cull, and how many instanced meshes there are (#179). */
 	drawnCosts(out: ModelCost[]): number {
-		for (const b of this.batches) out.push({ type: b.type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0 })
+		for (const b of this.batches) out.push({ type: b.type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0, calls: meshCalls(b.mesh) })
 		return this.batches.length
 	}
 

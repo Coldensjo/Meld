@@ -486,7 +486,7 @@ Checks: where a frame's time goes, before and after a performance change. Help �
 `simulate` then `draw`, and `renderTopDown`'s shots run `simulate` with the meter off, so they book
 nothing), the GPU time of
 the shadow maps, the scene and the outlines (`engine/gpuTimer.ts`, timer queries; n/a where the browser
-has none), the draw counts and the five model types drawing the most triangles. Help › Copy Performance
+has none), the draw counts (split by pass) and the five model types drawing the most triangles and making the most draw calls. Help › Copy Performance
 Report puts the same numbers and the scene line on the clipboard. Use it as the measure for perf work:
 the same scene, the report before and after.
 
@@ -505,6 +505,14 @@ the same scene, the report before and after.
   `P.drawn` wait does not help: the GPU backlog then stalls the frames instead.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
+- Where the draw calls go (#692): the report's `callsByPass` splits the last frame's `calls` into the
+  scene pass, the sun's near and far shadow maps and the point lights' (the wrap counts the calls between
+  three's switches of render target, `ShadowPassCalls`); a shadow pass is null (`kept` in the copied
+  report, a dash in the overlay) when its map was kept from an earlier frame (`markShadows`), so take
+  the split from a frame that redrew them, and `shadowRedraws` says in how many of the window's frames
+  each was. `topCalls` lists the five model types whose batches make the most calls (a call a geometry
+  group drawn, for one pass: a shadow pass that draws the batch adds as many again). `P.perfSummary`
+  prints all three.
 - **The benchmark scene.** Optimization issues and their done comments measure on this one scene, so
   their numbers compare. `cd frontend && bun run probe bench` loads it, waits for the client reads to
   stop and prints the numbers. By hand: load it with `__loadScene`, wait until the models stop
