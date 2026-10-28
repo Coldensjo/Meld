@@ -29,7 +29,9 @@ test('the header parser reads the touches and tier lines of the leading comment 
 	assert.equal(h.first, 'First line.')
 	assert.deepEqual(h.touches, ['a/b.ts', 'c/*.go'])
 	assert.equal(h.tier, 'smoke')
+	assert.equal(h.timeout, null)
 	assert.equal(parseHeader('// No touches line.\nrun()\n').touches, null)
+	assert.equal(parseHeader('// A slow map.\n// timeout: 600 (why)\nrun()\n').timeout, 600, "a probe's timeout line, read as seconds (#635)")
 })
 
 test('a glob matches within one folder with *, across folders with **, and under a folder ending in /', () => {

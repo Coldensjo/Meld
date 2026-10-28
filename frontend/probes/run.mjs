@@ -14,7 +14,8 @@
 // A probe is `probes/<name>.js`: the body of an async function run in the page, with `P` (lib.js)
 // in scope. It returns an object; `ok: false` (or a throw) fails it, and the runner exits 1.
 // Its leading comment block holds a `// touches: <repo-root paths or globs, comma-separated>` line naming the source files it
-// checks, which --touching reads; a probe without one is picked by every range.
+// checks, which --touching reads; a probe without one is picked by every range. A `// timeout: <seconds>` line there raises
+// the probe's limit over PROBE_TIMEOUT's (300 s), for a probe whose map alone takes most of it (#635).
 
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -29,7 +30,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
 // Chrome picks its own DevTools port (--remote-debugging-port=0, read back from DevToolsActivePort, #602), so two runs never share one; DEBUG_PORT forces a port.
 const DEBUG_PORT = process.env.DEBUG_PORT ?? '0'
-// A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit.
+// A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit,
+// and a probe's own `// timeout: <seconds>` header line raises it for that probe (#635).
 const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 300) * 1000
 // `bun run` starts the script in frontend/ and doesn't set INIT_CWD; a path is meant from there, or from where `bun probes/run.mjs` was typed.
 const CWD = process.env.INIT_CWD ?? process.cwd()
@@ -432,6 +434,7 @@ async function main() {
 			await send('Page.navigate', { url: PAGE })
 			await evaluate(`(async () => { for (let i = 0; i < 600; i++) { if (window.__engine && window.__loadScene) return; await new Promise((r) => setTimeout(r, 100)) } throw new Error('the page never set up __engine') })()`, 90_000)
 			const body = readFileSync(file, 'utf8')
+			const limit = Math.max(TIMEOUT, (parseHeader(body).timeout ?? 0) * 1000)
 			if (profiling) {
 				await send('Profiler.enable')
 				await send('Profiler.setSamplingInterval', { interval: 500 })
@@ -445,7 +448,7 @@ async function main() {
 			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;await P.flyingStart();\nreturn await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
-				const value = await evaluate(`${prefix}${body}\n})()\n})()`).catch((err) => {
+				const value = await evaluate(`${prefix}${body}\n})()\n})()`, limit).catch((err) => {
 					// The probe's own body ran out of time (not the page's setup, which a retry may still get past, #388).
 					if (/^timed out after/.test(err.message)) err.timedOut = true
 					throw err
