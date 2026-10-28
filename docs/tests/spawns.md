@@ -728,5 +728,5 @@ new icon) in Meld's patch only on Save or New spell.
   which Save sends through the SOAP console; with `SOAP.Enabled = 0` in mangosd.conf (this machine on
   2026-10-20) it can't, and a saved spell reaches the server at its next start. The game reads the
   patch only when it starts, and a file saved while it runs waits until it has closed.
-- Trap: in a heredoc or sed, `Interface\Icons` and regexes lose their backslashes; edit them with
-  the Edit tool (a probe's `\w` became `w` that way).
+- Trap: in a heredoc with an unquoted delimiter (`<<EOF`; `<<'EOF'` keeps them) or a sed,
+  `Interface\Icons` and regexes lose their backslashes; edit them with the Edit tool (a probe's `\w` became `w` that way).

@@ -11,6 +11,15 @@ a passing unit test does not prove a shader renders or a compiled map works in t
 - Do not run builds, formatters or live-app probes against another person's active session without
   coordinating. A probe uses its own browser page, but shares the Go backend.
 - Never put Blizzard assets in committed fixtures. Use synthetic data or read a local installation.
+- In a shell, quote a heredoc's delimiter when the text holds backslashes, `$` or backticks (client
+  paths, JS strings, Markdown). Unquoted, the shell halves the backslashes and expands the rest:
+
+  ```sh
+  cat <<EOF      # Textures\\Weather\\x.blp comes out as Textures\Weather\x.blp
+  cat <<'EOF'    # Textures\\Weather\\x.blp comes out unchanged
+  ```
+
+  Write multi-line source with the Write tool all the same.
 - Check the exit status and skip messages. A test that skipped because the client was absent did not
   verify compatibility with that client.
 
