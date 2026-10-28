@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync,
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { noRetryReason } from './retry.mjs'
+import { firstAttempt, noRetryReason } from './retry.mjs'
 import { globRe, parseHeader } from './touches.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -541,8 +541,9 @@ async function main() {
 			await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
 			out = await runOnce(p)
 			if (first.devRestarted) out.devRestarted = first.devRestarted
-			if (out.ok) out = { ...out, flaky: true, firstFailure: first.error ?? first.pageErrors?.[0] ?? 'ok: false', ...(first.step ? { firstStep: first.step } : {}) }
-			else out.retried = true
+			// `first` keeps the failed attempt's own fields (#624): for a probe that missed on a number, those are the numbers needed.
+			if (out.ok) out = { ...out, flaky: true, firstFailure: first.error ?? first.pageErrors?.[0] ?? 'ok: false', ...(first.step ? { firstStep: first.step } : {}), first: firstAttempt(first) }
+			else out = { ...out, retried: true, first: firstAttempt(first) }
 		}
 		await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
 		// The app restarted under the probe (a Go change rebuilt by wails dev, maybe another session's, #656): name it, so a
