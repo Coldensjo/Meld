@@ -1,5 +1,5 @@
 // Run with: bun test tests/creatureSpellNames.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CAST_FLAGS, CAST_TARGETS, SELECT_FLAGS, castTarget, paramKind, spellLabel } from '../src/lib/wow/creatureSpellNames.ts'
 

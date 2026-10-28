@@ -565,8 +565,12 @@ Import or New item.
   (read back with `window.runtime.ClipboardGetText()`, the Wails runtime, which works on the dev
   page; the probe overwrites the system clipboard); the Worn Shortsword (25) reads Main Hand | Sword,
   1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
-  quality and damage change the tooltip; a chest slot gives the armour note; a level of 300 is
-  refused and jumps to Requirements; Change look… replaces the field tabs with the item large
+  quality and damage change the tooltip; a chest slot gives the armour note; the probe enters level
+  300 as an unsaved edit, inspects the Save label and uses Revert without pressing Save. It does
+  not verify a live refusal or tab jump. Backend range refusal is covered separately by
+  TestEditorSavesRefuseOutOfRangeValues in internal/vmangos/templates_test.go;
+  tests/templateEditor.test.ts checks the shared refusal callback, not a rendered tab switch.
+  Change look… replaces the field tabs with the item large
   over the looks; the search for the Battleworn Hammer finds display 8690, whose tile previews it on
   hover (the item's display_id unchanged), is picked by a click and applied by Change look, back on
   the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a

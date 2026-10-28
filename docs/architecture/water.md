@@ -1,5 +1,27 @@
 # Water
 
+## Editing scope and exchange
+
+Follow the [manual](../MANUAL.md#start-with-generated-ground) for sea versus generated lakes/rivers.
+`WaterTool` in `tools/TerrainTools.ts` paints/removes `LiquidMap` cells through `LiquidStroke`;
+Dig/Shore instead change terrain relative to the sea level. The texture paint mask is not a liquid
+brush constraint. `maskWand.wandClick` can read sea/painted-liquid coverage to select texture texels;
+it does not modify either liquid representation.
+
+`Engine.cropWater` and `regenWaterOpacity` translate an area selection to touched chunks;
+`shapeChunks` filters chunks containing free-form cells. `cropLiquids` and `regenOpacity` then
+process those **whole chunks**, including cells outside the exact selection. Check Map's crop fix
+also targets a whole chunk. Both operations use liquid snapshots for Undo.
+
+`io/watermapImport.watermapCells` samples one grey per outer vertex, skips cells with a corner at or
+below `0.5 / 255`, and places ordinary water at `ground + min + grey * (max - min)`. Black is not an
+erase command. `Engine.importWatermap` lays the cells and regenerates opacity across their touched
+rectangle's chunks in one liquid history command. It does not consume paint/area masks or move the sea.
+See `watermapImport.test.ts`, `liquids.test.ts` and `maskSelect.test.ts`; these synthetic checks do
+not certify native file decoding, the viewport or client export fidelity.
+
+## Detailed liquid reference
+
 Liquids, the sea and how both are drawn and exported.
 
 - **Water** follows noggit3 (`lib/water/`):

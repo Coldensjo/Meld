@@ -1,5 +1,5 @@
 // Run with: bun test tests/instanceHit.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import type * as THREE from 'three'
 import { firstPick, hitId } from '../src/lib/world/instanceHit.ts'

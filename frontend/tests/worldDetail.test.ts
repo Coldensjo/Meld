@@ -1,5 +1,5 @@
 // Run with: bun test tests/worldDetail.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { worldCellDetail, type WorldTileData } from '../src/lib/world/worldDetail.ts'
 import { GROUND_CELLS, GROUND_SIDE } from '../src/lib/world/worldGround.ts'

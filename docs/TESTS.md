@@ -45,6 +45,10 @@ bun test tests/history.test.ts
 Replace `TestName` with the test you intend to run. For setup and platform build commands, see
 [Building and development](development.md).
 
+The frontend tests use Bun's own runner, `bun:test`, in every file (`import { test } from 'bun:test'`), with
+assertions from `node:assert/strict` or `expect`; don't import `node:test` (#614,
+[testing notes](reference/testing-notes.md#unit-and-integration-tests)).
+
 ## Client and server integration tests
 
 The helper in `internal/testclient` looks for a client using `WOW_DIR`, then the `wowPath` in
@@ -147,6 +151,20 @@ for the benchmark scene and measurement details.
   export from a rendering problem. `mpq cat -o` writes the output file you explicitly name.
 - For a client round trip, compare an edited export with an unedited export through the same save
   path. Comparing only to the original client tile can mistake normal writer changes for a regression.
+
+## Recipe evidence and limits
+
+The 2026-10-28 documentation pass checked selected save/compile/extractor and item-editor claims
+against source and focused synthetic tests. It did not execute the live probes or certify every
+recipe below. In particular, the item-editor probe enters an invalid level and uses Revert without
+pressing Save: backend refusal tests are separate evidence, not a live tab-jump check.
+Failed extraction leaves the game/server under explicit user control; successful staging does not
+make later installation atomic. A recorded local mmap.enabled value is not a setting Meld changes.
+
+Old recipes retain machine-specific scene names, ports and observations. Substitute your own
+disposable resources and read current guards before executing them. Historical counts and screenshots
+are not expected outcomes for every client or GPU. For everyday workflows, use
+[authoring](guides/database-editing.md) and [safe writes](guides/saving-and-compiling.md).
 
 ## Index of feature checks
 

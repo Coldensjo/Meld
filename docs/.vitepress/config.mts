@@ -46,6 +46,8 @@ const config: UserConfig<DefaultTheme.Config> = {
 					{ text: 'Getting started', link: '/getting-started' },
 					{ text: 'Manual', link: '/MANUAL' },
 					{ text: 'Saving, compiling and playing', link: '/guides/saving-and-compiling' },
+					{ text: 'Database and client-table authoring', link: '/guides/database-editing' },
+					{ text: 'Settings, local data and backups', link: '/guides/settings-and-data' },
 					{ text: 'Troubleshooting', link: '/troubleshooting' },
 					{ text: 'Benilla as the game client', link: '/BENILLA' },
 				],

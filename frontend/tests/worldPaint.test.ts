@@ -1,5 +1,5 @@
 // Run with: bun test tests/worldPaint.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 import { PAINT_SIDE, PaletteSlots, parsePaint, sharedSlots } from '../src/lib/world/worldPaint.ts'

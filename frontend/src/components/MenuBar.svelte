@@ -777,7 +777,7 @@
 		background: var(--panel);
 		border-bottom: 1px solid var(--border);
 		position: relative;
-		z-index: 50;
+		z-index: var(--z-bar);
 	}
 	.brand {
 		font-weight: 700;

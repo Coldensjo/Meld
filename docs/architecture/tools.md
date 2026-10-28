@@ -1,6 +1,32 @@
 # Tools, selection and the clipboard
 
+## Exchange boundaries
+
+For file-dialog steps, units and precautions, use the
+[manual exchange section](../MANUAL.md#exchange-images-models-and-brushes). `io/images.ts` dispatches
+whole-map or explicit tile height import; water/alpha import do not read the paint/area mask.
+`Engine.importAlphamap` edits every paint chunk and reports unavailable texture slots.
+`io/lists.ts` adds valid parsed placements in one history step; `world/objectList.ts` writes only
+root placements as tab-separated fields (six legacy or eight including tilt/roll). Helpers are
+filtered by the exporter; asset paths, not assets, cross this boundary.
+
+Brush/set TOML import appends uniquely named definitions to `prefs`, selects the last addition and
+reports partial parse errors; it is not a map-history command. Prefab hierarchy/ground exchange is
+separate from a flat object list. Pure tests: `objectList`, `doodadBrush`, `modelSets`,
+`watermapImport`, `normalMap` and `heightmapImport`. Native decoding/dialog round trips remain
+unexecuted; format tests alone cannot establish game compatibility.
+
+## Detailed tool reference
+
 How the tools take input and record undo, the brushes, and selection, clipboard and nudging.
+For task steps, use the [manual](../MANUAL.md#tool-reference).
+
+The bounded path-apply review also inspected PathTool.apply/appliedOf, not only pathApply.
+PathTool keeps prior application commands per Terrain instance and path ID. A live previous
+command is undone before reapplying; a refused/no-command result redoes it, and the history wrapper
+tracks the old/new live state for Undo/Redo. This in-memory bookkeeping is not serialized with
+the control curve. Tests of applyPath alone do not verify native repeated-Apply UI behavior,
+interleaved edits or fence assets after reopening; preserve a working copy for those checks.
 
 - **Tools** implement `Tool` (`lib/tools/Tool.ts`):
   - LMB goes to the active tool; RMB and MMB belong to the camera.

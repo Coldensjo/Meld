@@ -46,6 +46,16 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc. svelte-check runs twice: on `tsconfig.app.json` (`src`) and on `tsconfig.tests.json` (`frontend/tests`, which Bun runs with types erased, so a fixture that drifts from its type fails `make check`, not `make test`).
 - `make check` also runs `make lint`: golangci-lint with the committed `.golangci.yml` (errcheck, govet, ineffassign, staticcheck, unused; tests are left out of errcheck). Discard a best-effort error as `_ = f()`. It skips with a note when golangci-lint is not installed (README), and lints only the files for this OS, so a Linux-only file is checked only on Linux.
 - `make check` also runs `make notices-check` (`frontend/scripts/notices.mjs --check`): it fails when a bundled npm package or linked Go module comes under a licence outside the permissive allow list, or when `THIRD_PARTY_NOTICES.md` is out of date. After `bun add`, a Go bump or a lockfile change run `make notices` and commit the file. It needs `node_modules` and the Go module cache.
+- The frontend tests use `bun:test` only (#614): `import { test } from 'bun:test'` (with `describe`, `test.each`,
+  `test.skipIf(cond)(name, fn)`, `mock` and `afterEach` from there too), Bun's native runner. Assertions are
+  `node:assert/strict` (`assert.equal(a, b, 'message')`) or Bun's `expect`; either is fine. Don't import `node:test`:
+  Bun runs it through a partial compatibility layer (`t.mock`, `t.diagnostic` and `only` are incomplete there).
+- Helpers shared by several test files live in `frontend/tests/support/` (#612; not `*.test.ts`, so `bun test` does
+  not run them, and not `helpers`, which `tests/helpers.test.ts` already names for `models/helpers.ts`):
+  `support/near.ts` has `nearNum(a, b, eps = 1e-6, what?)` and `nearVec(a, b, eps, what?)` (asserting, with a
+  message) and `isNear(a, b, eps)` (a boolean, for a check that combines several), and `support/wmo.ts` has
+  `navGroup(flags, min, max, refStart, refCount)`, a `WmoNavGroup` for a fake `WmoNav`. Use them rather than another
+  local `near`, which drifted into four meanings and tolerances before; pass the tolerance a test needs.
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: Bun doesn't run the Svelte compiler, so a test that imports `editor.svelte.ts`, or any module that

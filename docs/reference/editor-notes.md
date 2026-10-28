@@ -136,7 +136,9 @@ Also included:
   calls `brush()` loads into the Script brush tool instead. `make_noise` and `sel:make_noise` give noise
   maps (SIMPLEX, PERLIN, VALUE, FRACTAL, CELLULAR, WHITE; FastNoise2's encoded trees fall back to
   FRACTAL), `create_image` and `load_png` images (a path relative to the scripts folder, or a whole one).
-  Texture layers, vertex colours, water, holes and files are not in Meld yet.
+  `read_file`, `write_file`, `append_file`, `path_exists` and `image:save` reach files the same way;
+  writes stay in the scripts folder unless Edit › Preferences › General › Scripts may write any file is on.
+  1.12 tiles have no vertex colours, so those calls do nothing.
 - **Import/Export**: heightmaps, watermaps, normal maps, alphamaps, object lists, doodad brushes,
   port coordinates, minimap image.
 - **View**: grid, chunk lines, a reference image (a plan of your own laid over the map to trace, and turned into heights, zones, textures or the mask), far horizon, walkable ground (the server's navmesh, built by Meld or read from the server's own mmaps) and a path test, layers (terrain, water, objects, tufts, spawns), hide panels.

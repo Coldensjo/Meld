@@ -63,6 +63,9 @@ when it launches Benilla:
 You do not need to set these manually for a launch from Meld. Keep credentials out of shell
 history, screenshots and bug reports.
 
+The saved Game Login password is plaintext in Meld's configuration. Use a local development
+account and protect configuration backups; see [Settings, local data and backups](guides/settings-and-data.md).
+
 The **Game** page of Preferences controls the window mode and resolution Meld writes when starting the
 client. Benilla keeps its settings, addons and caches under `benilla-config`. Meld's launcher log
 is `benilla-config/meld-benilla.log`.

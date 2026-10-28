@@ -1,5 +1,5 @@
 // Run with: bun test tests/creatureFields.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CREATURE_FIELD_GROUPS, MECHANIC_MASK, RACE_MASK, SCHOOL_MASK, STATIC_FLAGS1, ownListIds, withBit } from '../src/lib/world/creatureFields.ts'
 

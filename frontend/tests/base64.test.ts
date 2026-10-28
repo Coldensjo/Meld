@@ -1,5 +1,5 @@
 // Run with: bun test tests/base64.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { base64ToBytes, bytesToBase64, bytesToBase64Sliced, fromWailsBytes, wailsBytes } from '../src/lib/io/base64.ts'
 

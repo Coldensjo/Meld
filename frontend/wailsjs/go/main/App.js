@@ -530,6 +530,10 @@ export function ReadReferenceImage(arg1) {
   return window['go']['main']['App']['ReadReferenceImage'](arg1);
 }
 
+export function ReadScriptFile(arg1) {
+  return window['go']['main']['App']['ReadScriptFile'](arg1);
+}
+
 export function ReadSpell(arg1) {
   return window['go']['main']['App']['ReadSpell'](arg1);
 }
@@ -698,6 +702,10 @@ export function SaveScript(arg1, arg2) {
   return window['go']['main']['App']['SaveScript'](arg1, arg2);
 }
 
+export function SaveScriptImage(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SaveScriptImage'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function SaveSpell(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SaveSpell'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -720,6 +728,10 @@ export function SaveVendor(arg1, arg2) {
 
 export function ScriptCommands(arg1, arg2) {
   return window['go']['main']['App']['ScriptCommands'](arg1, arg2);
+}
+
+export function ScriptPathExists(arg1) {
+  return window['go']['main']['App']['ScriptPathExists'](arg1);
 }
 
 export function ScriptsFolder() {
@@ -888,6 +900,10 @@ export function WriteNormalMap(arg1, arg2, arg3) {
 
 export function WritePNG(arg1, arg2) {
   return window['go']['main']['App']['WritePNG'](arg1, arg2);
+}
+
+export function WriteScriptFile(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['WriteScriptFile'](arg1, arg2, arg3, arg4);
 }
 
 export function WriteTextFile(arg1, arg2) {

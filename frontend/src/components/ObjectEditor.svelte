@@ -317,7 +317,7 @@
 </script>
 
 {#if target}
-	<EditorFrame {ed} label="Game object editor" z={150} {unsavedText} blocked={() => !!ui.questEditor}>
+	<EditorFrame {ed} label="Game object editor" z="editor" {unsavedText} blocked={() => !!ui.questEditor}>
 		{#snippet title()}
 			{#if target.entry > 0}
 				<h2>{values.name || saved.name || 'Game object'}</h2>

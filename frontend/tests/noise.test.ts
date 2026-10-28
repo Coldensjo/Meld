@@ -1,5 +1,5 @@
 // Run with: bun test tests/noise.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { fbm, noise, ridged } from '../src/lib/engine/noise.ts'
 

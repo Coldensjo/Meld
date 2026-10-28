@@ -1,7 +1,7 @@
 // Run with: bun test tests/lookWarp.test.ts
 // The Windows mouse look's recentring of the hidden cursor (#724): a long spin keeps turning, the warp
 // jumps back to the anchor never turn the camera, and a fast move riding along with a warp is kept.
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { LookWarp, STALE_MS, WARP_AT } from '../src/lib/engine/lookWarp.ts'
 

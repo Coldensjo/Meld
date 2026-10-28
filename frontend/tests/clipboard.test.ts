@@ -1,5 +1,5 @@
 // Run with: bun test tests/clipboard.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { MapClip } from '../src/lib/world/clipboard.ts'

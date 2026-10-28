@@ -1,5 +1,5 @@
 // Run with: bun test tests/modelSets.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { formatSet, newSet, parseSet, validSets, withModel, withoutModel } from '../src/lib/wow/modelSets.ts'
 

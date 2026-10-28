@@ -1,6 +1,6 @@
 // Run with: bun test tests/ghosts.test.ts
 import './runes.ts'
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { GhostPool } from '../src/lib/tools/ghosts.ts'

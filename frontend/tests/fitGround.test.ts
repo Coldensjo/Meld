@@ -1,5 +1,5 @@
 // Run with: bun test tests/fitGround.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { fitHeights, type FitOptions } from '../src/lib/terrain/fitGround.ts'
 
