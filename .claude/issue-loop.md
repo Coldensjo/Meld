@@ -43,6 +43,21 @@ writes into the client and server). An item in another area whose body is about 
 
 ## Checks
 
+Start of run (the coordinator, after the pull, beside reading the backlog): the last CI run on Linux
+(`.github/workflows/check.yml`, #414), since the loop works on Windows and a red Linux check would
+otherwise sit unread (#441):
+- `gh run list --repo Coldensjo/Meld --workflow check.yml --branch main --limit 1 --json databaseId,conclusion,status,headSha,url,name`.
+  It prints `[]` when Actions has never run. A run still going (`status` not `completed`, `conclusion`
+  empty) is not red; nor is `cancelled` (a newer push replaced it).
+- When the conclusion is `failure` (or another that is not `success`, `cancelled` or `skipped`): read the
+  failing job and step with `gh run view <databaseId> --repo Coldensjo/Meld --log-failed`, and file a
+  `bug` issue titled "Make the <job> CI job pass again, red since <short sha>", labelled `bug`,
+  `area:tooling`, `source:loop`, `value:H`, `effort:S`, with the run's URL, the commit and the failing
+  step's log excerpt. If such an issue is already open, comment the new run on it instead of filing a
+  second. It is a bug in the pick order like any other; the run does not stop for it.
+- The `build-linux` job is allowed to fail (`continue-on-error`), so its failure leaves the run green;
+  it is not checked here until that line is dropped.
+
 While working:
 - `make test`, whole: the Bun suite takes seconds and the Go suite well under a minute, so a subset
   saves nothing and misses a break in another package (#442).
