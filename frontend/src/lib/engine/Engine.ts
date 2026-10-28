@@ -1500,15 +1500,15 @@ export class Engine {
 			)
 		}
 		this.objects.update()
-		this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
+		this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightUploadVersion)
 		this.updateTriggers()
 		this.taxi.update(this.prefs?.showFlightPaths === true, this.topDown)
-		this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
+		this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightUploadVersion, ui.historyVersion)
 		m.mark(SECTION.Objects)
 		// Lights first: culling keeps what can throw the shadowed lights' shadows.
 		this.effects.enabled = this.prefs?.propEffects !== false
 		this.effects.particles = this.prefs?.particles !== false
-		this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
+		this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightUploadVersion)
 		this.updateClientPoints()
 		m.mark(SECTION['Lights and flames'])
 		this.rooms.update(this.objects, this.camera.position, this.roomGround)
@@ -2423,7 +2423,7 @@ export class Engine {
 		const t = this.terrain
 		const objects = this.objects
 		const v0 = objects.version
-		const v1 = t.heightsVersion
+		const v1 = t.heightUploadVersion
 		const v2 = t.holesVersion
 		const v3 = this.doc.spawnLayer.changeStamp
 		const v4 = texturesBoundCount()
@@ -4759,11 +4759,11 @@ export class Engine {
 		const L = this.objects
 		const k = this.selBuiltFor
 		const primary = editor.selected?.id
-		if (k.layer !== L || k.version !== L.version || k.terrain !== this.terrain || k.heights !== this.terrain.heightsVersion || k.ids !== editor.selectedIds || k.primary !== primary || k.nudge !== nudge) {
+		if (k.layer !== L || k.version !== L.version || k.terrain !== this.terrain || k.heights !== this.terrain.heightUploadVersion || k.ids !== editor.selectedIds || k.primary !== primary || k.nudge !== nudge) {
 			k.layer = L
 			k.version = L.version
 			k.terrain = this.terrain
-			k.heights = this.terrain.heightsVersion
+			k.heights = this.terrain.heightUploadVersion
 			k.ids = editor.selectedIds
 			k.primary = primary
 			k.nudge = nudge
@@ -5485,15 +5485,15 @@ export class Engine {
 	 */
 	private groundTop(): number {
 		const t = this.terrain
-		// Edits still waiting for the frame bump heightsVersion here, so the key sees them.
+		// Edits still waiting for the frame bump heightUploadVersion here, so the key sees them.
 		t.update(this.renderer)
 		const k = this.groundTopKey
-		if (k.terrain === t && k.version === t.heightsVersion) return k.top
+		if (k.terrain === t && k.version === t.heightUploadVersion) return k.top
 		let top = -Infinity
 		const hs = t.heights
 		for (let i = 0; i < hs.length; i++) if (hs[i] > top) top = hs[i]
 		k.terrain = t
-		k.version = t.heightsVersion
+		k.version = t.heightUploadVersion
 		k.top = top
 		return top
 	}

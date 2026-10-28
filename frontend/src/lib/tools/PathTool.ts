@@ -57,8 +57,8 @@ class PathView {
 	/** Redraws when the paths, the pick or the ground changed since the last call; cheap otherwise. */
 	update(list: readonly MapPath[], version: number, id: number, point: number, t: Terrain) {
 		const d = this.drawn
-		if (d.list === list && d.version === version && d.id === id && d.point === point && d.heights === t.heightVersion && d.terrain === t) return
-		this.drawn = { list, version, id, point, heights: t.heightVersion, terrain: t }
+		if (d.list === list && d.version === version && d.id === id && d.point === point && d.heights === t.heightEditVersion && d.terrain === t) return
+		this.drawn = { list, version, id, point, heights: t.heightEditVersion, terrain: t }
 		const other: number[] = []
 		const mine: number[] = []
 		const edge: number[] = []

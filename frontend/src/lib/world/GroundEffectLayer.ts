@@ -128,7 +128,7 @@ export class GroundEffectLayer {
 	private up = new THREE.Vector3(0, 1, 0)
 	private builtAt = new THREE.Vector2(Infinity, Infinity)
 	private builtKey = ''
-	private heightVersion = -1
+	private heightEditVersion = -1
 	private paintVersion = -1
 	private chunkDataVersion = -1
 	private lastBuild = 0
@@ -146,7 +146,7 @@ export class GroundEffectLayer {
 
 	setTerrain(t: Terrain) {
 		this.terrain = t
-		this.heightVersion = -1
+		this.heightEditVersion = -1
 	}
 
 	/**
@@ -173,13 +173,13 @@ export class GroundEffectLayer {
 		const t = this.terrain
 		const half = (CHUNK_CELLS * t.cellSize) / 2
 		const moved = Math.abs(eye.x - this.builtAt.x) > half || Math.abs(eye.z - this.builtAt.y) > half
-		const changed = t.heightVersion !== this.heightVersion || t.paintVersion !== this.paintVersion || t.chunkDataVersion !== this.chunkDataVersion || key !== this.builtKey || this.assetsChanged
+		const changed = t.heightEditVersion !== this.heightEditVersion || t.paintVersion !== this.paintVersion || t.chunkDataVersion !== this.chunkDataVersion || key !== this.builtKey || this.assetsChanged
 		if (!moved && !changed) return
 		if (now - this.lastBuild < REBUILD_MS) return
 		this.lastBuild = now
 		this.builtAt.set(eye.x, eye.z)
 		this.builtKey = key
-		this.heightVersion = t.heightVersion
+		this.heightEditVersion = t.heightEditVersion
 		this.paintVersion = t.paintVersion
 		this.chunkDataVersion = t.chunkDataVersion
 		this.assetsChanged = false

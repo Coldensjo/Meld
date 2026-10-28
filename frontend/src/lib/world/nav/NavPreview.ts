@@ -280,7 +280,7 @@ export class NavPreview {
 		// The client's inner heights (#284) arriving rebuild the tiles, and the first build waits for them.
 		if (terrain.innerPending) return
 		const sig = `${liquids.version}|${sea}|${!!terrain.innerLift}`
-		const groundSig = `${terrain.heightVersion}|${terrain.holesVersion}`
+		const groundSig = `${terrain.heightEditVersion}|${terrain.holesVersion}`
 		const modelSig = `${objects.version}|${this.collisions.settled}`
 		if (sig !== this.signature || groundSig !== this.groundSignature || modelSig !== this.modelSignature) {
 			// A change to the models (#509) or the ground's heights and holes (#620) builds again only the
