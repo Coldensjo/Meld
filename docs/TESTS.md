@@ -20,13 +20,16 @@ Run from the repository root:
 
 | Command | What it covers |
 | --- | --- |
-| `make test` | Short-mode Go tests under `internal/`, `cmd/` and, when built, the root package; frontend Bun tests |
+| `make test` | Short-mode Go tests under `internal/`, `cmd/` and the root package; frontend Bun tests |
 | `make test-full` | The same suites without short mode, including heavier client scans |
 | `make check` | Formatting, Go vet/lint, binding and licence-notice consistency, Svelte and TypeScript |
 | `make verify` | Checks, tests and a desktop build for the current OS |
 | `make fuzz` | Time-bounded mutation runs against the client format parsers |
 
-The root Go package embeds `frontend/dist`. Its tests are skipped when that build output is missing.
+The root Go package embeds `frontend/dist`, so `make test`, `make test-full` and `make check` first build the
+frontend (`bun run build`, about 6 s) when `frontend/dist/index.html` is missing, and then always test and vet
+the root package: its tests guard the bindings that write the world database (`TestSandboxRefusesWorldDatabaseWrites`).
+A plain `go test .` or `go vet ./...` without that build still fails.
 `make check` also reports when golangci-lint is absent instead of silently proving the lint passed.
 
 For a focused run:

@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf docs clean
+.PHONY: dev build build-linux build-windows frontend-dist test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -25,9 +25,14 @@ build-linux:
 build-windows:
 	$(WAILS) build -platform windows/amd64
 
-test:
+# Builds the frontend when frontend/dist is missing, since the root package embeds it and its tests
+# guard the bindings that write the world database (#410). Skipped when it is already built.
+frontend-dist:
+	@if [ ! -f frontend/dist/index.html ]; then echo 'frontend/dist is missing: building the frontend'; cd frontend && bun run build; fi
+
+test: frontend-dist
 	go test -short ./internal/... ./cmd/...
-	@if [ -f frontend/dist/index.html ]; then go test -short .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
+	go test -short .
 	cd frontend && bun run test
 
 # Mutates each client parser's fuzzer for 10 s (internal/*/fuzz_test.go, docs/TESTS.md); `make test` runs only their seeds.
@@ -36,9 +41,9 @@ fuzz:
 	for f in FuzzParseTerrain FuzzParsePlacements; do go test ./internal/adt -run '^$$' -fuzz "^$$f\$$" -fuzztime=10s || exit 1; done
 
 # Everything, with the heavy client scans that -short skips (about 10 s more).
-test-full:
+test-full: frontend-dist
 	go test ./internal/... ./cmd/...
-	@if [ -f frontend/dist/index.html ]; then go test .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
+	go test .
 	cd frontend && bun run test
 
 # Regenerates frontend/wailsjs from the bound Go methods (never edit it by hand); stage only the files that changed.
@@ -72,15 +77,13 @@ notices-check:
 	cd frontend && bun scripts/notices.mjs --check
 
 # golangci-lint with the committed .golangci.yml (errcheck, govet, ineffassign, staticcheck, unused). Skipped with a note when the tool is missing; install it as README says.
-lint:
+lint: frontend-dist
 	@if ! command -v golangci-lint >/dev/null 2>&1; then echo 'skipping golangci-lint (not installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)'; \
-	elif [ -f frontend/dist/index.html ]; then golangci-lint run ./internal/... ./cmd/... .; \
-	else echo 'linting ./internal/... only (frontend/dist is missing; build the frontend first)'; golangci-lint run ./internal/... ./cmd/...; fi
+	else golangci-lint run ./internal/... ./cmd/... .; fi
 
-check: bindings-check notices-check format-check lint
+check: bindings-check notices-check format-check frontend-dist lint
 	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
-	go vet ./internal/... ./cmd/...
-	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi
+	go vet ./internal/... ./cmd/... .
 	cd frontend && bun run check
 
 # Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) against the running `make dev` (docs/TESTS.md, "Probes").
