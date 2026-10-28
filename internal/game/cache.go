@@ -23,7 +23,8 @@ import (
 // Quests are cached the same way, in WDB\questcache.wdb (their texts, objectives and rewards), so a
 // quest the quest editor saved is taken out of it too (#259), and so are items, in WDB\itemcache.wdb
 // (the whole template: name, stats, tooltip) and WDB\itemnamecache.wdb (the name), both keyed by
-// the item's entry, for the item editor (#353).
+// the item's entry, for the item editor (#353). The pages a readable object or item shows are cached
+// by their page_text entry in WDB\pagetextcache.wdb, so a page the Text tab rewrote goes too (#139).
 //
 // Benilla keeps the creature half in benilla-config/cache/<realm>.tsv (game objects only for the
 // session), so its lines for those creatures go too.
@@ -34,13 +35,14 @@ const (
 	questCache    = "questcache.wdb"
 	itemCache     = "itemcache.wdb"
 	itemNameCache = "itemnamecache.wdb"
+	pageCache     = "pagetextcache.wdb"
 	// wdbHeader is the size of a WDB file's header: FourCC, build, locale, record size, version.
 	wdbHeader = 20
 	// benillaCacheTag starts the first line of Benilla's name cache files.
 	benillaCacheTag = "benilla-namecache"
 )
 
-// Stale is the creature, game object and item templates and the quests saved since the game's caches were
+// Stale is the creature, game object and item templates, the quests and the pages saved since the game's caches were
 // last cleaned. It's safe to use from several goroutines.
 type Stale struct {
 	mu        sync.Mutex
@@ -48,6 +50,7 @@ type Stale struct {
 	objects   map[uint32]bool
 	quests    map[uint32]bool
 	items     map[uint32]bool
+	pages     map[uint32]bool
 }
 
 // AddCreature marks a creature template as changed.
@@ -62,6 +65,9 @@ func (s *Stale) AddQuest(entry uint32) { s.add(&s.quests, entry) }
 // AddItem marks an item template as changed.
 func (s *Stale) AddItem(entry uint32) { s.add(&s.items, entry) }
 
+// AddPage marks a page_text page as changed.
+func (s *Stale) AddPage(entry uint32) { s.add(&s.pages, entry) }
+
 func (s *Stale) add(set *map[uint32]bool, entry uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -75,7 +81,7 @@ func (s *Stale) add(set *map[uint32]bool, entry uint32) {
 func (s *Stale) Empty() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return len(s.creatures) == 0 && len(s.objects) == 0 && len(s.quests) == 0 && len(s.items) == 0
+	return len(s.creatures) == 0 && len(s.objects) == 0 && len(s.quests) == 0 && len(s.items) == 0 && len(s.pages) == 0
 }
 
 // Forget takes the changed templates out of the game's caches: the client's WDB files in clientRoot
@@ -84,7 +90,7 @@ func (s *Stale) Empty() bool {
 func (s *Stale) Forget(clientRoot, benilla string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.creatures) == 0 && len(s.objects) == 0 && len(s.quests) == 0 && len(s.items) == 0 {
+	if len(s.creatures) == 0 && len(s.objects) == 0 && len(s.quests) == 0 && len(s.items) == 0 && len(s.pages) == 0 {
 		return nil
 	}
 	wdb := filepath.Join(clientRoot, "WDB")
@@ -94,6 +100,7 @@ func (s *Stale) Forget(clientRoot, benilla string) error {
 		pruneWDB(filepath.Join(wdb, questCache), s.quests),
 		pruneWDB(filepath.Join(wdb, itemCache), s.items),
 		pruneWDB(filepath.Join(wdb, itemNameCache), s.items),
+		pruneWDB(filepath.Join(wdb, pageCache), s.pages),
 	}
 	if benilla != "" {
 		errs = append(errs, pruneBenilla(filepath.Join(benilla, "benilla-config", "cache"), s.creatures))
@@ -101,7 +108,7 @@ func (s *Stale) Forget(clientRoot, benilla string) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	s.creatures, s.objects, s.quests, s.items = nil, nil, nil, nil
+	s.creatures, s.objects, s.quests, s.items, s.pages = nil, nil, nil, nil, nil
 	return nil
 }
 

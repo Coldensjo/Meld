@@ -580,9 +580,10 @@ export const ui = $state({
 	creatureEditor: null as { key: string | null; entry: number } | null,
 	/**
 	 * The game object editor, full screen (#136): the game object template `entry`, and the spawn `key`
-	 * it was opened from (null for a template alone, such as a new object).
+	 * it was opened from (null for a template alone, such as a new object); `tab` opens it on that tab
+	 * (the right-click menu's Edit text…, #139).
 	 */
-	objectEditor: null as { key: string | null; entry: number } | null,
+	objectEditor: null as { key: string | null; entry: number; tab?: 'text' } | null,
 	/**
 	 * The large preview window (#197, the right-click menu's Preview): a model type (`m2:`, `wmo:` with
 	 * its set, `helper:`, or a spawn's dressed type), its name and its scale; null while closed.

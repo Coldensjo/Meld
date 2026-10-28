@@ -197,6 +197,8 @@ export function NextObjectGUID():Promise<number>;
 
 export function NextObjectLoot():Promise<number>;
 
+export function NextPage():Promise<number>;
+
 export function NextPoolEntry():Promise<number>;
 
 export function ObjectDisplaySounds(arg1:number):Promise<vmangos.ObjectDisplaySounds>;
@@ -266,6 +268,8 @@ export function ReadItemTemplate(arg1:number):Promise<vmangos.TemplateRecord>;
 export function ReadObject(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadObjectLoot(arg1:number,arg2:number):Promise<vmangos.ObjectLoot>;
+
+export function ReadObjectPages(arg1:number,arg2:number):Promise<vmangos.ObjectPages>;
 
 export function ReadObjectQuests(arg1:number):Promise<vmangos.QuestLists>;
 
@@ -340,6 +344,8 @@ export function SaveObjectDisplaySounds(arg1:number,arg2:Array<number>):Promise<
 export function SaveObjectLoot(arg1:number,arg2:Array<vmangos.LootItem>):Promise<string>;
 
 export function SaveObjectQuests(arg1:number,arg2:vmangos.QuestLists):Promise<string>;
+
+export function SavePages(arg1:number,arg2:Array<string>):Promise<string>;
 
 export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 

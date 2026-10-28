@@ -6,6 +6,7 @@ import { NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, SpawnLook
 import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import type { TriggerDestination } from '../world/areaTriggers'
 import { spawnType } from '../world/spawnInfo'
+import { pageColumn } from '../world/objectFields'
 import { copyItems } from '../ui/copyId'
 import { firstKeyOf, pressed } from '../ui/commands'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
@@ -468,6 +469,8 @@ export class SpawnActions {
 			items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
 		} else {
 			items.push({ label: 'Edit object…', run: () => (ui.objectEditor = { key, entry: spawn.entry }) })
+			// A readable object (#139): straight to what it says.
+			if (pageColumn(spawn.type)) items.push({ label: 'Edit text…', run: () => (ui.objectEditor = { key, entry: spawn.entry, tab: 'text' }) })
 		}
 		items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
 		const type = spawnType(spawn)

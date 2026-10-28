@@ -194,6 +194,28 @@ one row's slots) in `internal/vmangos/objectsounds_test.go`.
   Forge's display 197 is used by 156 templates); the tab names them. The sound list has thousands of
   rows: the picker draws the first 200 matches.
 
+## Game object editor: Text, a readable object's pages (#139)
+
+Probe: `object-text`.
+
+Checks: the Text tab (`PagesTab.svelte`) reads a readable object's `page_text` chain into one
+textarea a page, names what else reads the pages, gives the object a copy of its own, adds, moves and
+removes pages, and makes another type readable; the right-click menu's Edit text… opens it. The
+probe `object-text` does it in about 10 s without writing: "Missing: Corporal Keeshan" (1726, page
+245) from its menu item, an edited page and an added one (Save object (1), the new page marked
+`new`) that Revert drops; A Treatise on Military Ranks (179706, pages 2654 on, 7 pages) is read by
+item 18664 too, and its copy moves it to the next free page; Make it readable on a generic object.
+Unit: `internal/vmangos/pages_test.go` (the chain, the SQL for more, fewer and new pages, the
+refusals, the users) and `TestForgetPrunesTheClientCaches` (`pagetextcache.wdb`).
+
+- Saving, by hand: `SavePages` on a throwaway entry (900000 and up, past the table's 2974), read it
+  back with `ReadObjectPages(0, 900000)`, save fewer pages and check the dropped ones are gone, then
+  `DELETE FROM page_text WHERE entry >= 900000`.
+- In the game (the owner's check): edit Keeshan's poster in Redridge, Save, restart the world server
+  (the server reads `page_text` at start) and read it. The game keeps pages it has read in
+  `WDB\pagetextcache.wdb`; Meld prunes the rewritten ones when the game is closed, so a poster read
+  before the edit with the game open still shows the old text until the game restarts.
+
 ## Tilted game objects (#229)
 
 Probe: `object-tilt`.

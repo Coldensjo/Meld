@@ -660,7 +660,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `SaveObject` mark the entry in `App.stale` (`game.Stale`, `internal/game/cache.go`), which takes its
   records out of those files (and Benilla's name cache) while the game is closed: at once when it
   is, else in `Session.Start` before Meld starts the game. `SaveQuest` does the same for
-  `WDB\questcache.wdb` (#259).
+  `WDB\questcache.wdb` (#259), and `SavePages` for the pages it rewrote in `WDB\pagetextcache.wdb`
+  (#139).
 - **Contents** (`components/LootTab.svelte`, #220): the game object editor's tab for what a chest
   (type 3; veins and herbs are chests) or fishing hole (25) holds: the `gameobject_loot_template`
   rows of the list its `data1` names (`internal/vmangos/loot.go`: `ReadObjectLoot`, `SaveObjectLoot`,
@@ -673,4 +674,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   again. Respawn time is the spawn's own (`gameobject.spawntimesecsmin/max`), so the tab edits it
   through `editSpawn` as an undo step, as `SpawnFields` does; the template's restock time (`data2`)
   only counts for a chest that isn't taken when looted.
+- **Text** (`components/PagesTab.svelte`, #139): the game object editor's tab for what a readable
+  object says: a text object (type 9: tombstones, plaques, wanted posters) reads `page_text` from the
+  page its `data0` names, a goober (10) from its `data7` (`pageColumn` in `lib/world/objectFields.ts`),
+  each page naming the next in `next_page`. `internal/vmangos/pages.go`: `ReadObjectPages` follows the
+  chain (stopping at a missing page, a loop or 100 pages) and names what else reads any of its pages
+  (object templates, items by `item_template.page_text`, pages of another text), `SavePages` writes
+  the edited list (`pagesSQL`: the pages it has are rewritten in place, more get new entries past
+  `lastPageSQL`, fewer delete the dropped pages nothing else reads), `NextPage` gives a free entry
+  for Give it text and Give it its own copy (the object is pointed at it, the texts kept, and the
+  first page is made with that entry). A form like Contents: Save writes the template first, then
+  the pages. Make it readable sets type 9 and clears the data columns. The right-click menu of a
+  readable spawn has Edit text…, which opens the editor on this tab (`ui.objectEditor.tab`). Road
+  signposts are not text: their words are painted in the model's texture.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.

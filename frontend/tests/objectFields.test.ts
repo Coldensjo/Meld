@@ -1,7 +1,7 @@
 // Run with: bun test tests/objectFields.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { CURSOR_ICONS, dataField, modelName, objectFieldGroups } from '../src/lib/world/objectFields.ts'
+import { CURSOR_ICONS, dataField, modelName, objectFieldGroups, pageColumn } from '../src/lib/world/objectFields.ts'
 import { lockText } from '../src/lib/wow/locks.ts'
 
 const fields = (type: number, model = '') => objectFieldGroups(type, model).flatMap((g) => g.fields)
@@ -82,4 +82,11 @@ test('a lock is named by what opens it', () => {
 		lockText(lock([]), types, () => null),
 		'Nothing opens it',
 	)
+})
+
+test('the Text tab reads the first page from data0 of a text object and data7 of a goober (#139)', () => {
+	assert.equal(pageColumn(9), 'data0')
+	assert.equal(pageColumn(10), 'data7')
+	assert.equal(pageColumn(3), null)
+	assert.equal(pageColumn(99), null)
 })

@@ -35,6 +35,7 @@ func TestForgetPrunesTheClientCaches(t *testing.T) {
 	// Item 240 is not the creature 240: only the item caches lose item 25.
 	os.WriteFile(filepath.Join(wdb, itemCache), wdbFile("BDIW", 240, 25), 0o644)
 	os.WriteFile(filepath.Join(wdb, itemNameCache), wdbFile("BDNW", 25, 26), 0o644)
+	os.WriteFile(filepath.Join(wdb, pageCache), wdbFile("XTPW", 245, 246), 0o644)
 
 	var s Stale
 	s.AddCreature(240)
@@ -42,6 +43,7 @@ func TestForgetPrunesTheClientCaches(t *testing.T) {
 	s.AddObject(99) // not cached
 	s.AddQuest(9666)
 	s.AddItem(25)
+	s.AddPage(245)
 	if err := s.Forget(root, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -63,6 +65,7 @@ func TestForgetPrunesTheClientCaches(t *testing.T) {
 	check(questCache, wdbFile("BOQW", 7))
 	check(itemCache, wdbFile("BDIW", 240))
 	check(itemNameCache, wdbFile("BDNW", 26))
+	check(pageCache, wdbFile("XTPW", 246))
 }
 
 func TestForgetDeletesACacheItCantRead(t *testing.T) {

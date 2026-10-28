@@ -33,6 +33,7 @@ func TestSandboxRefusesWorldDatabaseWrites(t *testing.T) {
 		"SaveObject":          func() error { _, err := a.SaveObject(-1, 0, nil); return err },
 		"SaveObjectLoot":      func() error { _, err := a.SaveObjectLoot(-1, nil); return err },
 		"SaveObjectQuests":    func() error { _, err := a.SaveObjectQuests(-1, vmangos.QuestLists{}); return err },
+		"SavePages":           func() error { _, err := a.SavePages(-1, nil); return err },
 		"SaveQuest":           func() error { _, err := a.SaveQuest(-1, 0, nil); return err },
 		"SaveQuestGivers":     func() error { _, err := a.SaveQuestGivers(-1, vmangos.QuestGivers{}, nil); return err },
 		"SaveVendor":          func() error { _, err := a.SaveVendor(-1, nil); return err },

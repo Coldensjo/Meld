@@ -122,6 +122,12 @@ const DATA_HINTS: Record<string, string> = {
 	'Quest list': 'No world database table holds quest lists: a bare number',
 }
 
+/** The data column holding the first page a type reads (page_text, #139): data0 of a text object, data7 of a goober; null for the others. */
+export function pageColumn(type: number): string | null {
+	const i = (DATA_NAMES[type] ?? []).indexOf('Page')
+	return i < 0 ? null : `data${i}`
+}
+
 /** The editor's field for data column `i` of a type, named `name` in DATA_NAMES. */
 export function dataField(name: string, i: number): CreatureField {
 	const label = name.replace(/^\?/, '')

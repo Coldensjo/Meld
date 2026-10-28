@@ -98,6 +98,45 @@ func (a *App) NextObjectLoot() (int, error) {
 	return vmangos.NextObjectLoot(server)
 }
 
+// ReadObjectPages reads what game object template entry says when its first page is first: the
+// pages, what else reads them and the object's spawn count, for the Text tab (#139).
+func (a *App) ReadObjectPages(entry, first int) (vmangos.ObjectPages, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.ObjectPages{}, err
+	}
+	return vmangos.ReadObjectPages(server, entry, first)
+}
+
+// SavePages writes texts as the pages of the text starting at page first and returns the SQL it
+// ran. The game's page cache forgets the pages it rewrote.
+func (a *App) SavePages(first int, texts []string) (string, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return "", err
+	}
+	saved, err := vmangos.SavePages(server, first, texts)
+	if err != nil {
+		return "", err
+	}
+	if len(saved.Changed) > 0 {
+		for _, p := range saved.Changed {
+			a.stale.AddPage(uint32(p))
+		}
+		a.forgetStale()
+	}
+	return saved.SQL, nil
+}
+
+// NextPage is the first page_text entry nothing uses yet.
+func (a *App) NextPage() (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.NextPage(server)
+}
+
 // ObjectModel is the client model a game object display shows ("" for none), for a spawn whose
 // template's display changed.
 func (a *App) ObjectModel(display int) (string, error) {

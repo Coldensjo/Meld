@@ -378,6 +378,10 @@ export function NextObjectLoot() {
   return window['go']['main']['App']['NextObjectLoot']();
 }
 
+export function NextPage() {
+  return window['go']['main']['App']['NextPage']();
+}
+
 export function NextPoolEntry() {
   return window['go']['main']['App']['NextPoolEntry']();
 }
@@ -516,6 +520,10 @@ export function ReadObject(arg1) {
 
 export function ReadObjectLoot(arg1, arg2) {
   return window['go']['main']['App']['ReadObjectLoot'](arg1, arg2);
+}
+
+export function ReadObjectPages(arg1, arg2) {
+  return window['go']['main']['App']['ReadObjectPages'](arg1, arg2);
 }
 
 export function ReadObjectQuests(arg1) {
@@ -664,6 +672,10 @@ export function SaveObjectLoot(arg1, arg2) {
 
 export function SaveObjectQuests(arg1, arg2) {
   return window['go']['main']['App']['SaveObjectQuests'](arg1, arg2);
+}
+
+export function SavePages(arg1, arg2) {
+  return window['go']['main']['App']['SavePages'](arg1, arg2);
 }
 
 export function SavePrefabDialog(arg1, arg2) {

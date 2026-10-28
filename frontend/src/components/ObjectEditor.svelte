@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -6,7 +7,7 @@
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { fieldGroups } from '../lib/world/creatureFields'
-	import { objectFieldGroups } from '../lib/world/objectFields'
+	import { objectFieldGroups, pageColumn } from '../lib/world/objectFields'
 	import { objectEntryFields, selectSpawn } from '../lib/world/spawnEdits'
 	import { objectTypeName, spawnType } from '../lib/world/spawnInfo'
 	import { spawnKey } from '../lib/world/SpawnLayer'
@@ -15,6 +16,7 @@
 	import EditorFrame from './EditorFrame.svelte'
 	import LootTab from './LootTab.svelte'
 	import ObjectSoundsTab from './ObjectSoundsTab.svelte'
+	import PagesTab from './PagesTab.svelte'
 	import QuestsTab from './QuestsTab.svelte'
 	import { forgetObjectTemplates, loadObjectTemplates, objectCategory } from './SpawnBrowser.svelte'
 	import SpawnFields from './SpawnFields.svelte'
@@ -32,12 +34,15 @@
 	// opens that object to edit. Display (#230) picks the template's display from thumbnails, as the
 	// creature editor's Looks tab does; hovering a tile shows it big on the left. Sounds (#674) sets the
 	// sounds the game plays near the object, its display's sound slots in the client's
-	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save.
+	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save. Text (#139) edits what a
+	// readable object (a tombstone, a plaque, a note) says, its page_text pages, saved with the same Save.
 
-	type Tab = 'spawn' | 'object' | 'display' | 'sounds' | 'contents' | 'quests' | 'find' | 'new'
+	type Tab = 'spawn' | 'object' | 'display' | 'text' | 'sounds' | 'contents' | 'quests' | 'find' | 'new'
 
 	/** GAMEOBJECT_TYPE_QUESTGIVER: the one object type the server lets offer and take quests. */
 	const QUEST_GIVER_TYPE = 2
+	/** GAMEOBJECT_TYPE_TEXT: a readable object, its first page in data0. */
+	const TEXT_TYPE = 9
 
 	const target = $derived(ui.objectEditor)
 	/** The spawn the editor was opened from, as the panel's copy of it. */
@@ -50,6 +55,8 @@
 	let questsTab = $state<QuestsTab | null>(null)
 	let soundsDirty = $state(false)
 	let soundsTab = $state<ObjectSoundsTab | null>(null)
+	let pagesDirty = $state(false)
+	let pagesTab = $state<PagesTab | null>(null)
 
 	// Opening another object reads its template and picks the first tab.
 	const ed = new TemplateEditor<{ key: string | null; entry: number }, vmangos.TemplateRecord>({
@@ -57,7 +64,7 @@
 		entry: (t) => t.entry,
 		read: ReadObject,
 		clear: () => (ui.objectEditor = null),
-		dirty: () => lootDirty || questsDirty || soundsDirty,
+		dirty: () => lootDirty || questsDirty || soundsDirty || pagesDirty,
 		onopen: (t, before) => {
 			const sameSpawn = before !== '' && before.startsWith(`${t.key}|`) && t.key !== null
 			if (t.entry === 0) {
@@ -73,10 +80,12 @@
 			lootDirty = false
 			questsDirty = false
 			soundsDirty = false
+			pagesDirty = false
 		},
 		onrevert: () => {
 			lootTab?.revert()
 			soundsTab?.revert()
+			pagesTab?.revert()
 		},
 		ondiscard: () => questsTab?.revert(),
 		onclose: () => {
@@ -85,13 +94,18 @@
 		},
 	})
 	ed.follow(() => target)
+	// Opened on a tab of its own (the right-click menu's Edit text…), once the opening above has picked its first one.
+	$effect(() => {
+		const want = target?.tab
+		if (want) untrack(() => (tab = want))
+	})
 	const record = $derived(ed.record)
 	const values = $derived(ed.values)
 	const saved = $derived(ed.saved)
 	const changes = $derived(ed.changes)
 	const changeCount = $derived(ed.changeCount)
-	/** Anything unsaved that Save object writes: the template's values, the contents or the sounds. */
-	const unsaved = $derived(changeCount > 0 || lootDirty || soundsDirty)
+	/** Anything unsaved that Save object writes: the template's values, the contents, the text or the sounds. */
+	const unsaved = $derived(changeCount > 0 || lootDirty || pagesDirty || soundsDirty)
 	/** Anything unsaved at all, the quests (saved apart) too: what closing asks about. */
 	const anyUnsaved = $derived(ed.unsaved)
 	// The model of the template's display, for the preview and the Display box's note.
@@ -112,6 +126,8 @@
 				)
 			: [],
 	)
+	/** The column holding the object's first page, for the Text tab (null for a type that reads none). */
+	const pageCol = $derived(pageColumn(Number(values.type) || 0))
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
 	// The spawn turned into another object (here, or by an undo): the Object tab follows it, once its
@@ -156,6 +172,7 @@
 		[
 			changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '',
 			lootDirty ? 'unsaved changes to the contents' : '',
+			pagesDirty ? 'unsaved changes to the text' : '',
 			soundsDirty ? 'unsaved changes to the sounds' : '',
 			questsDirty ? 'unsaved changes to the quests' : '',
 		]
@@ -177,8 +194,9 @@
 				await engineRef.current?.applyObjectTemplate(r.entry, values, before)
 			}
 			const rows = (await lootTab?.save()) ?? -1
-			const what = rows >= 0 ? ` and its contents (${rows} ${rows === 1 ? 'row' : 'rows'})` : ''
-			const database = changeCount > 0 || rows >= 0
+			const pages = (await pagesTab?.save()) ?? -1
+			const what = (rows >= 0 ? ` and its contents (${rows} ${rows === 1 ? 'row' : 'rows'})` : '') + (pages >= 0 ? ` and its text (${pages} ${pages === 1 ? 'page' : 'pages'})` : '')
+			const database = changeCount > 0 || rows >= 0 || pages >= 0
 			// The sounds last: they are the client's, and the database's share is written by then.
 			const sounds = (await soundsTab?.save()) ?? null
 			const heard = !sounds?.changed ? '' : sounds.waiting ? " Its sounds wait for the game to close, then go into the client's patch." : " Its sounds are in the client's patch."
@@ -205,6 +223,20 @@
 		} catch (err) {
 			ed.error = String(err)
 		}
+	}
+
+	/**
+	 * Makes the object readable (Text's Make it readable): a text object (type 9) with no text yet, which
+	 * the Text tab then gives. The other data columns meant something else for the old type, so they are
+	 * cleared. Saved with Save.
+	 */
+	function makeReadable() {
+		if (!record) return
+		const v = { ...values }
+		for (const c of record.columns) if (/^data\d+$/.test(c.name)) v[c.name] = '0'
+		v.type = String(TEXT_TYPE)
+		ed.values = v
+		setStatus(`${values.name} is a text object now: give it its text, then Save.`, 8000)
 	}
 
 	/** The template as the Place tool and the spawn's entry change take it, from the record's values. */
@@ -336,7 +368,7 @@
 				<button disabled={ed.saving} onclick={place} title="Place this object in the region">Place in world</button>
 				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
 				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
-					{ed.saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0) + (soundsDirty ? 1 : 0)})` : 'Saved'}
+					{ed.saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0) + (pagesDirty ? 1 : 0) + (soundsDirty ? 1 : 0)})` : 'Saved'}
 				</button>
 			{/if}
 		{/snippet}
@@ -369,6 +401,7 @@
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
 					{#if record}<button class:on={tab === 'display'} onclick={() => (tab = 'display')}>Display</button>{/if}
+					{#if record}<button class:on={tab === 'text'} onclick={() => (tab = 'text')}>Text{pagesDirty ? ' (1)' : ''}</button>{/if}
 					{#if record}<button class:on={tab === 'sounds'} onclick={() => (tab = 'sounds')}>Sounds{soundsDirty ? ' (1)' : ''}</button>{/if}
 					{#if record}<button class:on={tab === 'contents'} onclick={() => (tab = 'contents')}>Contents</button>{/if}
 					{#if record}<button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests{questsDirty ? ' (1)' : ''}</button>{/if}
@@ -459,8 +492,8 @@
 							A click sets it, saved with Save object. Hover a tile to see it big on the left.
 						</p>
 						<DisplayPicker kind="object" selected={Number(values.displayId) || 0} onpick={(d) => (values.displayId = String(d.id))} onhover={(d) => (hoveredDisplay = d)} />
-					{:else if tab === 'contents' || tab === 'quests' || tab === 'sounds'}
-						<!-- The Contents, Quests and Sounds tabs stay mounted below, so their unsaved rows survive a tab switch. -->
+					{:else if tab === 'contents' || tab === 'quests' || tab === 'sounds' || tab === 'text'}
+						<!-- The Contents, Text, Quests and Sounds tabs stay mounted below, so their unsaved rows survive a tab switch. -->
 					{:else if record}
 						{#each groups as g (g.title)}
 							<h3>{g.title}</h3>
@@ -484,6 +517,19 @@
 								onmakechest={makeChest}
 								onsetloot={(id) => (values.data1 = String(id))}
 								onset={(col, v) => (values[col] = v)}
+							/>
+						</div>
+						<div hidden={tab !== 'text'}>
+							<PagesTab
+								bind:this={pagesTab}
+								bind:dirty={pagesDirty}
+								entry={record.entry}
+								name={values.name || saved.name || 'This object'}
+								type={Number(values.type) || 0}
+								column={pageCol}
+								page={pageCol ? Number(values[pageCol]) || 0 : 0}
+								onsetpage={(id) => pageCol && (values[pageCol] = String(id))}
+								onmakereadable={makeReadable}
 							/>
 						</div>
 						<div hidden={tab !== 'sounds'}>
