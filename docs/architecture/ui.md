@@ -181,6 +181,13 @@ The window layout, the asset browser and the dock panels and floating windows.
     Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
   - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
     under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.
+- **UI state modules** (#459): `lib/state/editor.svelte.ts` holds `editor`, `stats`, `docs`, `wow` and
+  `ui` (whose `ui.dialog` is a `DialogId`, the one list of dialog ids). The preferences (`prefs`,
+  `Prefs`, `defaultPrefs`, `stepCameraSpeed`) are in `state/prefs.svelte.ts` (their saving stays in `state/prefs.ts`),
+  the Log window's lines and the session's log file (`appLog`, `logLine`, `logFile`, `startLogFile`)
+  in `state/log.svelte.ts`, and `setStatus` and the viewport hint in `state/status.svelte.ts`.
+  editor.svelte.ts re-exports all of them so older imports keep working; import new uses from the
+  module itself.
 - **Dialogs and focus** (#369): every dialog, `Modal.svelte` and the editors and windows with their
   own `role="dialog"` root (the creature, item, spell, quest and object editors, the Creatures
   workspace, the doodad brush editor, the model preview, the start dialog), carries
