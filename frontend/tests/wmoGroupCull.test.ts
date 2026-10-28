@@ -108,6 +108,19 @@ test('only the culled camera draws the view half, and the group is put back afte
 	assert.equal(c.geometry.userData.drawnIndexCount, 18)
 })
 
+test('a draw group the twin does not hold is left alone (#521)', () => {
+	const c = WmoGroupCull.of(model(), 0, 2)!
+	const { cam, f } = view(-10, 50)
+	c.update(cam, f, identity)
+	const other = { start: 3, count: 6, materialIndex: 1 }
+	c.before(cam, other)
+	assert.deepEqual(other, { start: 3, count: 6, materialIndex: 1 })
+	c.after(cam, other)
+	assert.deepEqual(other, { start: 3, count: 6, materialIndex: 1 })
+	c.before(cam, null)
+	c.after(cam, null)
+})
+
 test('the near shadow cascade adds its groups to the view half and draws it; other shadow cameras draw it all', () => {
 	const c = WmoGroupCull.of(model(), 0, 2)!
 	const { cam, f } = view(-10, 50)

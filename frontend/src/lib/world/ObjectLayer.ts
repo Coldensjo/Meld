@@ -786,14 +786,14 @@ export class ObjectLayer {
 			// The shadow hooks also keep `cullForShadows`' own, which draw every instance packed in a shadow pass.
 			const before = m.onBeforeShadow
 			const after = m.onAfterShadow
-			m.onBeforeRender = (_r, _s, camera, _g, _m, group) => cull.before(camera, group as unknown as THREE.GeometryGroup | null)
-			m.onAfterRender = (_r, _s, camera, _g, _m, group) => cull.after(camera, group as unknown as THREE.GeometryGroup | null)
+			m.onBeforeRender = (_r, _s, camera, _g, _m, group) => cull.before(camera, group)
+			m.onAfterRender = (_r, _s, camera, _g, _m, group) => cull.after(camera, group)
 			m.onBeforeShadow = (r, s, c, shadowCamera, g, dm, group) => {
 				before.call(m, r, s, c, shadowCamera, g, dm, group)
-				cull.before(shadowCamera, group as unknown as THREE.GeometryGroup | null)
+				cull.before(shadowCamera, group)
 			}
 			m.onAfterShadow = (r, s, c, shadowCamera, g, dm, group) => {
-				cull.after(shadowCamera, group as unknown as THREE.GeometryGroup | null)
+				cull.after(shadowCamera, group)
 				after.call(m, r, s, c, shadowCamera, g, dm, group)
 			}
 		}

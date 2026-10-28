@@ -23,7 +23,7 @@ export function textureFrom(buf: ArrayBuffer): THREE.Texture {
 		t.generateMipmaps = true
 		return t
 	}
-	const mipmaps: { data: Uint8Array; width: number; height: number }[] = []
+	const mipmaps: THREE.CompressedTextureMipmap[] = []
 	let o = 16
 	let w = width
 	let h = height
@@ -34,8 +34,7 @@ export function textureFrom(buf: ArrayBuffer): THREE.Texture {
 		w = Math.max(1, w >> 1)
 		h = Math.max(1, h >> 1)
 	}
-	// three's typings want ImageData-shaped mips; a compressed level is its blocks and size.
-	const t = new THREE.CompressedTexture(mipmaps as unknown as ImageData[], width, height, format)
+	const t = new THREE.CompressedTexture(mipmaps, width, height, format)
 	t.generateMipmaps = false
 	return t
 }
