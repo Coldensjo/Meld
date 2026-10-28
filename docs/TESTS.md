@@ -87,9 +87,14 @@ bun run probe undo-sculpt            # run a focused check
 bun run probe --smoke                # fast checks of shared behavior
 bun run probe --touching HEAD~1..HEAD # select checks relevant to a committed change
 bun run probe --all                  # all probes but the benchmarks and the `tier: manual` ones
+bun run probe --all --shard 1/2      # every second one of them; --shard 2/2 runs the rest (make probe SHARD=1/2)
 ```
 
-The root shortcuts are `make probe-smoke`, `make probe` and `make probe-perf`. The runner checks
+The root shortcuts are `make probe-smoke`, `make probe` and `make probe-perf`. The whole `--all` run takes
+over 30 minutes, past an agent harness's task limit: run it as two background tasks one after the other,
+`--shard 1/2` and `--shard 2/2` (#669). The closing `{"summary":true,...}` line is also printed when a
+signal stops the run (Ctrl-C, a kill, a harness's time limit), with `stopped` and the probes it never
+reached in `notRun`. The runner checks
 the dev server and may start or restart it when no explicit `MELD_URL` is set. Do not use it while
 someone else relies on the shared development backend. With an explicit `MELD_URL`, the runner
 uses that server rather than managing one itself.
