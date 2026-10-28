@@ -118,6 +118,10 @@ export function DropRecoveryParts(arg1) {
   return window['go']['main']['App']['DropRecoveryParts'](arg1);
 }
 
+export function EnableSoap() {
+  return window['go']['main']['App']['EnableSoap']();
+}
+
 export function EndClientSandbox() {
   return window['go']['main']['App']['EndClientSandbox']();
 }

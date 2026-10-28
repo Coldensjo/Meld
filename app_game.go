@@ -253,3 +253,22 @@ func (a *App) SetGameLogin(account, password, character string) error {
 		return nil
 	})
 }
+
+// EnableSoap turns the world server's SOAP console on for Play here: it sets SOAP.Enabled = 1 in
+// mangosd.conf and, when the world server runs, restarts it (the conf is read only at its start),
+// which kicks anyone in the game. The editor asks the owner first (the soapOff dialog, #270).
+func (a *App) EnableSoap() error {
+	sess, err := a.gameSession()
+	if err != nil {
+		return err
+	}
+	if sess.ServerRoot == "" {
+		return errors.New("no VMaNGOS server folder is set")
+	}
+	if err := vmangos.Supported(sess.Run); err != nil {
+		return err
+	}
+	return sess.Around(game.Closed{World: true}, func() error {
+		return vmangos.EnableSoap(sess.ServerRoot)
+	})
+}

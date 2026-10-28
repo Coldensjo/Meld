@@ -1,6 +1,21 @@
 // The game: which client Meld starts and how its window opens, the Benilla and VMaNGOS folders, Launch,
 // Play Here and the port commands.
-import { BrowseVmangosFolder, SaveTextDialog, WriteTextFile, GameClient, SetGameClient, GameWindow, SetGameWindow, BrowseBenillaFolder, SetBenillaPath, LaunchGame, LaunchGameAt, PlayHere, SetVmangosPath } from '../../../wailsjs/go/main/App'
+import {
+	BrowseVmangosFolder,
+	SaveTextDialog,
+	WriteTextFile,
+	GameClient,
+	SetGameClient,
+	GameWindow,
+	SetGameWindow,
+	BrowseBenillaFolder,
+	SetBenillaPath,
+	LaunchGame,
+	LaunchGameAt,
+	PlayHere,
+	EnableSoap,
+	SetVmangosPath,
+} from '../../../wailsjs/go/main/App'
 import { guarded, hasBackend } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
@@ -136,7 +151,23 @@ export async function playHere(engine: Engine | null) {
 			stale ? 12000 : 4000,
 		)
 	} catch (e) {
+		if (`${e}`.includes('SOAP console is off')) {
+			ui.dialog = 'soapOff'
+			return
+		}
 		setStatus(`Play here didn't move the character: ${e}. Game › Launch puts it there by restarting the game.`, 12000)
+	}
+}
+
+/** The Turn On and Restart button of the soapOff dialog (#270): SOAP.Enabled = 1 in mangosd.conf, then the world server restarts. */
+export async function enableSoap() {
+	if (!hasBackend()) return
+	setStatus('Turning on the SOAP console and restarting the world server…', 20000)
+	try {
+		await EnableSoap()
+		setStatus('The SOAP console is on and the world server restarted. Enter the world, then Play here.', 10000)
+	} catch (e) {
+		setStatus(`The SOAP console wasn't turned on: ${e}`, 12000)
 	}
 }
 

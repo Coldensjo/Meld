@@ -145,9 +145,8 @@ func TeleportCharacter(serverRoot, account, password, name string, spot Characte
 	if err != nil {
 		return err
 	}
-	conf := filepath.Join(serverRoot, "run", "mangosd.conf")
 	if !soap.enabled {
-		return fmt.Errorf("Play here needs the world server's SOAP console: set SOAP.Enabled = 1 in %s and restart the world server", conf)
+		return ErrSoapOff
 	}
 	chars, err := confDatabase(serverRoot, "CharacterDatabase.Info")
 	if err != nil {

@@ -67,6 +67,8 @@ export function DropRecovery(arg1:string):Promise<void>;
 
 export function DropRecoveryParts(arg1:number):Promise<void>;
 
+export function EnableSoap():Promise<void>;
+
 export function EndClientSandbox():Promise<main.SandboxEnded>;
 
 export function EndRecovery():Promise<void>;

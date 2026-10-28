@@ -150,7 +150,7 @@ func TestTeleportCharacterMovesTheCharacter(t *testing.T) {
 func TestTeleportCharacterNeedsSoap(t *testing.T) {
 	root := soapServer(t, "SOAP.Enabled = 0\n")
 	err := TeleportCharacter(root, "gm", "pw", "Siz", CharacterSpot{})
-	if err == nil || !strings.Contains(err.Error(), "SOAP.Enabled = 1") {
+	if err != ErrSoapOff {
 		t.Fatalf("got %v", err)
 	}
 }

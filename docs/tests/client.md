@@ -30,6 +30,7 @@ settings, the SOAP envelope, a fault and a refused login against an `httptest` s
 `game_tele` SQL and the two commands). Live: needs `SOAP.Enabled = 1` in mangosd.conf and a world
 server restart (the owner's call; it is off on this machine), then the character in the world and
 Play here at open ground, inside a building and on another map; the character must stand there.
+With SOAP off, Play here opens the "Turn on the server's SOAP console?" dialog (#270, the owner's decision 2b): Turn On and Restart writes `SOAP.Enabled = 1` into mangosd.conf (`vmangos.EnableSoap`, unit-tested in `soapconf_test.go` on conf text and a copy) and restarts the world server through `Session.Around`, so the character has to enter the world again. The game checks are still the owner's to make.
 Without the game, the console can be driven alone: `curl -u <account>:<password> -d @envelope.xml
 http://127.0.0.1:7878/` with the envelope in `soap.go` and the command `server info`.
 - Trap: the world server reads `game_tele` only at start, so the row is useless until `reload

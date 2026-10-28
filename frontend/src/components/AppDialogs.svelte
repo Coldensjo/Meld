@@ -32,7 +32,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { saveSpawns } from '../lib/io/compile'
-	import { compileAndLaunch, launchGame } from '../lib/io/game'
+	import { compileAndLaunch, enableSoap, launchGame } from '../lib/io/game'
 	import { revertMap } from '../lib/io/mapio'
 	import { saveAndPublish } from '../lib/io/publish'
 	/** Keeps the Log window scrolled to its newest line while it is open. */
@@ -259,6 +259,23 @@
 					close()
 					if (e) void compileAndLaunch(e)
 				}}>Compile and Launch</button
+			>
+		{/snippet}
+	</Modal>
+{:else if ui.dialog === 'soapOff'}
+	<Modal title="Turn on the server's SOAP console?" width={440} onclose={close}>
+		<p>Play here moves the character through the world server's SOAP console, which is off in its mangosd.conf.</p>
+		<p class="dim">
+			Turn on writes <code>SOAP.Enabled = 1</code> into mangosd.conf (nothing else in the file changes) and restarts the world server, which kicks everyone in the game. Enter the world again afterwards, then use Play here.
+		</p>
+		{#snippet actions()}
+			<button onclick={close}>Cancel</button>
+			<button
+				class="active"
+				onclick={() => {
+					close()
+					void enableSoap()
+				}}>Turn On and Restart</button
 			>
 		{/snippet}
 	</Modal>

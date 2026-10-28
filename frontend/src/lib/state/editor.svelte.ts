@@ -485,6 +485,7 @@ export type DialogId =
 	| 'erode'
 	| 'smoothArea'
 	| 'compileBeforeLaunch'
+	| 'soapOff'
 	| 'project'
 	| 'folderSetup'
 	| 'preferences'
