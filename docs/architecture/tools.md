@@ -228,6 +228,11 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
     the pointer, the camera, the objects, the spawns or the selection moved (`hoverKey`, an
     `InputsKey`), and with nothing hovered it has no targets, so its mask pass is skipped. It is drawn
     before the selection's stroke. Probe `hover-outline`.
+  - A `SelectionOutline`'s mask draws a big WMO's group cull (#642): a target whose geometry has a
+    `WmoGroupCull` (`WmoGroupCull.existing`, never built there) draws the cull's twin geometry with
+    the cull's `before`/`after` hooks, so for the scene's camera it draws only the groups the scene
+    pass draws (Stormwind from a street: 94k of 1.32M triangles). Any other camera, or a cull stopped
+    for a batch of several instances, draws the full half. Probe `hover-outline-cost`.
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.

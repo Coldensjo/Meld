@@ -674,6 +674,7 @@ the same scene, the report before and after.
 - Liquid types from the client, and a layer's kind kept in the map file (#540, probe `liquid-kinds`)
 - Selection outline colours (free, touching, buried)
 - Hover outline (#641)
+- Hover outline cost with Stormwind (#642, probe `hover-outline-cost`)
 - Ground effects: no-doodad cells and density
 - Graphics › Quality presets (#203)
 - The camera's WMO room (down-ray probe, #8)

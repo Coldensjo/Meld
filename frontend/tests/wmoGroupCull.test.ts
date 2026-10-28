@@ -163,3 +163,15 @@ test("the batch mesh drawing the twin picks through the model's bounds tree (#28
 	assert.ok(Math.abs(hits[0].distance - 10) < 1e-6, 'the hit is on group 2, at x 100')
 	assert.equal(hits[0].instanceId, 0)
 })
+
+test('existing never builds a cull, and culledFor tells the culled placement from another', () => {
+	const m = model()
+	assert.equal(WmoGroupCull.existing(m), null, 'not made yet')
+	const c = WmoGroupCull.of(m, 0, 2)!
+	assert.equal(WmoGroupCull.existing(m), c)
+	const { cam, f } = view(-10, 150)
+	const placed = new THREE.Matrix4().makeTranslation(1000.5, 20, -3000.25)
+	c.update(cam, f, new Float32Array(placed.elements))
+	assert.ok(c.culledFor(placed), 'the same placement, through the float instance matrix')
+	assert.ok(!c.culledFor(new THREE.Matrix4().makeTranslation(1010, 20, -3000.25)), 'another instance')
+})

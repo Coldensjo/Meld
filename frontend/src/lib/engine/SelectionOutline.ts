@@ -2,8 +2,22 @@ import * as THREE from 'three'
 import type { ModelAsset } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 import { hasSkeleton, modelMesh } from '../world/Animator'
+import { WmoGroupCull } from '../world/wmoGroupCull'
 
 const MAX_BOXES = 8
+
+type Hook = THREE.Mesh['onBeforeRender']
+/** A mask proxy's draw of a culled WMO's material, pointed at the groups in view (`WmoGroupCull.before`). */
+const cullBefore: Hook = function (this: THREE.Mesh, _r, _s, camera, _g, _m, group) {
+	const cull = this.userData.cull as WmoGroupCull
+	// Another instance than the one culled draws the full half: `after` then skips it the same way.
+	this.userData.culled = cull.culledFor(this.matrixWorld)
+	if (this.userData.culled) cull.before(camera, group)
+}
+const cullAfter: Hook = function (this: THREE.Mesh, _r, _s, camera, _g, _m, group) {
+	if (this.userData.culled) (this.userData.cull as WmoGroupCull).after(camera, group)
+}
+const noHook: Hook = () => {}
 
 /** A model to outline, where it stands, and whether it touches anything (the stroke's colour). */
 export interface OutlineTarget {
@@ -244,7 +258,15 @@ export class SelectionOutline {
 				this.maskScene.add(proxy)
 				this.proxies[i] = proxy
 			}
-			proxy.geometry = t.asset.geometry
+			// A big WMO drawn once draws only the groups the scene pass draws (its group cull, #642): the
+			// cull's twin geometry, pointed at the view half for the scene's camera by the hooks below. Its
+			// groups match the model's, so the material array lines up; any other camera, or a cull
+			// stopped for a batch of several instances, draws the full half.
+			const cull = t.asset.skeleton ? null : WmoGroupCull.existing(t.asset.geometry)
+			proxy.userData.cull = cull
+			proxy.onBeforeRender = cull ? cullBefore : noHook
+			proxy.onAfterRender = cull ? cullAfter : noHook
+			proxy.geometry = cull?.geometry ?? t.asset.geometry
 			proxy.material = Array.isArray(t.asset.material) ? this.maskMaterials(t.asset.material, t.touching) : this.maskMaterial(t.asset.material, t.touching)
 			proxy.matrix.copy(t.matrix)
 			proxy.matrixWorld.copy(t.matrix)

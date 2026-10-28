@@ -177,6 +177,19 @@ Sculpt tool draws nothing. `--shot` shows the faint white stroke round the hover
 - Trap: `prefs` reach the engine through `App.svelte`'s effect, a snapshot, not the object: after
   setting a pref in a probe, step a frame before reading what the engine does with it.
 
+## Hover outline cost with Stormwind (#642)
+
+Probe: `hover-outline-cost` (about 30 s; run it with `PROBE_GPU=1` for the real GPU's times).
+
+Checks: the outline's mask pass draws a big WMO by its group cull. On the benchmark scene, in a
+street of Stormwind, it hovers the city and counts the triangles the mask's render call draws: about
+what the scene pass draws of the city (94k), against 1.32M with `WmoGroupCull.enabled` off. It also
+prints the Outlines pass's GPU ms with the pref off, on, and on with the cull off. On the RTX 5080
+(#642): 0.005, 0.66 to 0.84 and 1.05 ms in the street; over the whole city (`PROBE_VIEW` set to wmo-cull's
+city view) the scene draws 940k and both are about 1.2 ms. Most of what is left is the full-screen
+edge pass and the mask's fragments, not its triangles.
+- `PROBE_VIEW` takes a `setSceneView` JSON, `PROBE_WINDOWS` the windows a case (default 2).
+
 ## Ground effects: no-doodad cells and density
 
 No probe: the unit tests below.

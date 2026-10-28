@@ -198,6 +198,11 @@ export class WmoGroupCull {
 		return WmoGroupCull.adopt(source, data)
 	}
 
+	/** The cull already made for `source`, or null: never builds one (the outline's mask pass, #642). */
+	static existing(source: THREE.BufferGeometry): WmoGroupCull | null {
+		return culls.get(source) ?? null
+	}
+
 	/** Keeps the cull built from `data` (or none, for null) as the one of `source`. */
 	static adopt(source: THREE.BufferGeometry, data: CullData | null): WmoGroupCull | null {
 		const cull = data ? new WmoGroupCull(source, data) : null
@@ -238,6 +243,18 @@ export class WmoGroupCull {
 		}
 		if (changed || this.drawn < 0) this.compact()
 		else this.geometry.userData.drawnIndexCount = this.drawn
+	}
+
+	/**
+	 * Whether the view half was culled for the instance placed by `m` (world from model): another
+	 * instance of the model, such as a selected one too small on screen to be drawn while this one is,
+	 * would draw this one's groups. The instance matrix is stored as floats, hence the tolerance.
+	 */
+	culledFor(m: THREE.Matrix4) {
+		const a = this.matrix.elements
+		const b = m.elements
+		for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) > 1e-3 * Math.max(1, Math.abs(b[i]))) return false
+		return true
 	}
 
 	/** Indices the scene pass (and the near cascade) draws, for the performance overlay; -1 before the first cull. */
