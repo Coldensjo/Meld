@@ -1,5 +1,5 @@
 // Run with: bun test tests/pickNearest.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import type * as THREE from 'three'
 import type { vmangos } from '../wailsjs/go/models'

@@ -1,5 +1,5 @@
 // Run with: bun test tests/inputsKey.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { InputsKey } from '../src/lib/tools/inputsKey.ts'
 

@@ -81,6 +81,78 @@ The [design draft](../DESIGN.md) records original priorities and policy. It is r
 it contains historical scope statements, including the old Lua non-goal superseded by the
 implemented [scripting system](scripting.md).
 
+## Extend an internal feature
+
+This is a source-navigation checklist, not a plugin SDK or a stable third-party interface.
+For user-authored Lua, use the [manual](../MANUAL.md) and [scripting reference](scripting.md);
+do not expose Go, filesystem or database access merely to add a map operation.
+
+### Add or change a map tool
+
+1. Start with Tool and ToolContext in frontend/src/lib/tools/Tool.ts. Implement the relevant
+   activation, pointer, tick/frame and key hooks. Pointer events can be absent when the engine
+   ends a stroke during a tool/tab switch; do not assume a physical mouse-up always arrives.
+2. Register a new ID in state/editor.svelte.ts:ToolId, its instance in Engine.ts's tools map,
+   and its toolbar metadata in ui/tools.ts:TOOLS. Add the options UI where appropriate. The
+   toolbar and shortcut rows use that metadata; a class alone does not make a tool selectable.
+3. Follow an existing edit from input to history. SculptTool in tools/TerrainTools.ts is a useful
+   example: BrushTool starts a TerrainStroke on press and finishes/pushes its command on release.
+   History.push accepts an **already-applied** command; undo restores the previous state and redo
+   restores the result. Capture every changed array/placement and any dependent visual refresh,
+   not just the most obvious value. One stroke should produce one meaningful undo step.
+4. Put shared terrain-tool settings in the appropriate state/types and TOOL_SETTING_KEYS. Stamp
+   copies those settings per brush; forgetting that path can make a tool work alone but not in a
+   stack. Keep persistent preferences distinct from per-document editing state.
+5. Use ui/commands.ts for rebindable command defaults and ui/runCommand.ts for shared execution.
+   Tool selection rows are generated as tool:<id> from TOOLS; the user's prefs.keymap overrides
+   defaults. Camera codes and fixed tool-local keys are distinct; do not add a competing listener
+   that bypasses rebinding or steals text-field input.
+6. Add the smallest deterministic regression: pure rule tests first, then an appropriate case in
+   tests/toolUndo.test.ts for press/drag/tick/release and full snapshot Undo/Redo. Use
+   tests/history.test.ts for stack semantics and tests/shortcuts.test.ts for key matching. Only
+   add a live probe when the outcome needs actual UI/rendering; coordinate its shared backend.
+
+### Add a backend capability
+
+1. Keep editing logic in the frontend. Put OS/file/format work in the matching Go package and
+   expose only the narrow operation through App in the relevant root app_<area>.go file.
+   main.go binds the App instance and routes asset requests; validate paths and write permissions
+   at this boundary rather than trusting a picker or a stale frontend preview.
+2. Regenerate frontend/wailsjs with **make bindings** after changing the bound method signature;
+   do not hand-edit generated exports/models. Run **make bindings-check** to detect method-name
+   drift, and frontend type checks for shape/call-site errors. Binding generation is a development
+   operation with the platform/Wails prerequisites in [development](../development.md), not a
+   reason to regenerate every binding while changing prose.
+3. For large binary replies, inspect the existing region-alpha handoff before adding base64 JSON.
+   app_region.go:handOffAlpha puts bytes in internal/handoff.Store and returns alphaUrl;
+   io/region.ts fetches it once as bytes through /wow/handoff. A handoff expires after two minutes
+   or is consumed by its first fetch. Empty output has no URL; a second fetch returns 404, so a
+   retry must request fresh data rather than blindly retrying the old URL. This is an internal
+   transport detail, not persistent storage or a public download service.
+4. Test format logic with synthetic bytes/temp files and handoffs with Go's httptest. For an
+   external write, state destination/order/partial-error behavior and update the
+   [write guide](../guides/saving-and-compiling.md) or
+   [authoring guide](../guides/database-editing.md) as needed. UI Revert and map Undo do not
+   retroactively undo external SQL/client output.
+
+### Verify a small change
+
+For the source-checked Sculpt/History/shortcut and region-handoff examples, these focused checks
+avoid a live game or database. Run the Go command at the repository root and Bun commands from
+frontend/:
+
+```sh
+go test ./internal/handoff -run '^TestServeOnce$' -count=1
+cd frontend
+bun test tests/history.test.ts tests/shortcuts.test.ts
+bun test tests/toolUndo.test.ts
+```
+
+These tests do not certify pointer capture in the native app, WebGL frames, live client compatibility
+or database writes. See [testing](../TESTS.md) for read-only integration versus isolated write tests,
+standalone browser pages and backend-sharing probes. For database editor form state, reuse the
+existing TemplateEditor explanation in [client integration](client.md), not a second editor framework.
+
 ## Related developer tools
 
 - [Testing](../TESTS.md): choose checks, isolate writes and find regression recipes.

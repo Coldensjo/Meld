@@ -1,5 +1,5 @@
 // Run with: bun test tests/dirtyRect.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { DirtyRegion, growRect, uploadRect } from '../src/lib/terrain/dirtyRect.ts'
 

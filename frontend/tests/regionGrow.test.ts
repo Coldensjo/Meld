@@ -1,5 +1,5 @@
 // Run with: bun test tests/regionGrow.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { growableSides, grownBlock } from '../src/lib/io/regionGrow.ts'
 

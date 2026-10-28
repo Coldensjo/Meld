@@ -1,5 +1,5 @@
 // Run with: bun test tests/mapCheck.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { MAX_PER_CHECK, capped, type Finding } from '../src/lib/check/findings.ts'
 import { checkDuplicateModels, checkModelHeights, type CheckModel } from '../src/lib/check/models.ts'

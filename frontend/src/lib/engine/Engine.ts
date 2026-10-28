@@ -88,6 +88,7 @@ import { ScriptBrushes } from './ScriptBrushes'
 import { ScriptBrushTool } from '../tools/ScriptBrushTool'
 import { scriptSay } from '../script/scriptBrush.svelte'
 import { loadScriptImage } from '../io/scriptImages'
+import { scriptFiles } from '../io/scriptFiles'
 import { HoleWalls } from '../tools/HoleWalls'
 import { stepTilt } from '../world/placement'
 import { ClearTool } from '../tools/ClearTool'
@@ -5540,6 +5541,7 @@ export class Engine {
 				areaAt: (x, z) => this.areaAt(x, z),
 				area: s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : null,
 				loadImage: loadScriptImage,
+				files: scriptFiles,
 				palette: () => editor.palette,
 				setPalette: (p) => (editor.palette = p),
 				effect: (tex, chunk) => {

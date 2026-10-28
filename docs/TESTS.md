@@ -45,6 +45,10 @@ bun test tests/history.test.ts
 Replace `TestName` with the test you intend to run. For setup and platform build commands, see
 [Building and development](development.md).
 
+The frontend tests use Bun's own runner, `bun:test`, in every file (`import { test } from 'bun:test'`), with
+assertions from `node:assert/strict` or `expect`; don't import `node:test` (#614,
+[testing notes](reference/testing-notes.md#unit-and-integration-tests)).
+
 ## Client and server integration tests
 
 The helper in `internal/testclient` looks for a client using `WOW_DIR`, then the `wowPath` in
@@ -86,10 +90,15 @@ bun run probe --list                 # discover available checks
 bun run probe undo-sculpt            # run a focused check
 bun run probe --smoke                # fast checks of shared behavior
 bun run probe --touching HEAD~1..HEAD # select checks relevant to a committed change
-bun run probe --all                  # all non-benchmark probes
+bun run probe --all                  # all probes but the benchmarks and the `tier: manual` ones
+bun run probe --all --shard 1/2      # every second one of them; --shard 2/2 runs the rest (make probe SHARD=1/2)
 ```
 
-The root shortcuts are `make probe-smoke`, `make probe` and `make probe-perf`. The runner checks
+The root shortcuts are `make probe-smoke`, `make probe` and `make probe-perf`. The whole `--all` run takes
+over 30 minutes, past an agent harness's task limit: run it as two background tasks one after the other,
+`--shard 1/2` and `--shard 2/2` (#669). The closing `{"summary":true,...}` line is also printed when a
+signal stops the run (Ctrl-C, a kill, a harness's time limit), with `stopped` and the probes it never
+reached in `notRun`. The runner checks
 the dev server and may start or restart it when no explicit `MELD_URL` is set. Do not use it while
 someone else relies on the shared development backend. With an explicit `MELD_URL`, the runner
 uses that server rather than managing one itself.
@@ -107,7 +116,8 @@ When adding a probe:
    (in `make test`) fails when a path there no longer exists or a glob matches no file, so rename it with the file.
 2. Step rendering with `P.frames`, `P.until` or `P.settle`; the runner stops the normal engine loop.
 3. Assert an observable outcome, including undo/redo when it edits a map.
-4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene.
+4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene, and
+   `tier: manual` for a slow check of a rarely touched path that `--all` should skip (`--touching` still picks it).
 5. Record how to run it in the appropriate feature-check page below.
 6. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
    `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints
@@ -145,6 +155,20 @@ for the benchmark scene and measurement details.
   export from a rendering problem. `mpq cat -o` writes the output file you explicitly name.
 - For a client round trip, compare an edited export with an unedited export through the same save
   path. Comparing only to the original client tile can mistake normal writer changes for a regression.
+
+## Recipe evidence and limits
+
+The 2026-10-28 documentation pass checked selected save/compile/extractor and item-editor claims
+against source and focused synthetic tests. It did not execute the live probes or certify every
+recipe below. In particular, the item-editor probe enters an invalid level and uses Revert without
+pressing Save: backend refusal tests are separate evidence, not a live tab-jump check.
+Failed extraction leaves the game/server under explicit user control; successful staging does not
+make later installation atomic. A recorded local mmap.enabled value is not a setting Meld changes.
+
+Old recipes retain machine-specific scene names, ports and observations. Substitute your own
+disposable resources and read current guards before executing them. Historical counts and screenshots
+are not expected outcomes for every client or GPU. For everyday workflows, use
+[authoring](guides/database-editing.md) and [safe writes](guides/saving-and-compiling.md).
 
 ## Index of feature checks
 

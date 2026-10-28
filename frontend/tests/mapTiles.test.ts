@@ -1,5 +1,5 @@
 // Run with: bun test tests/mapTiles.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { blockGaps, fullBlock, tileKey } from '../src/lib/io/mapTiles.ts'
 

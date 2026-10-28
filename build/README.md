@@ -1,35 +1,38 @@
-# Build Directory
+# Build assets
 
-The build directory is used to house all the build files and assets for your application. 
+This directory contains tracked packaging inputs and generated application output. For prerequisites,
+platform commands and validation, use [Building and development](../docs/development.md).
+Meld targets Windows and Linux; retained macOS templates are not a promise of macOS support.
 
-The structure is:
+## Outputs versus tracked inputs
 
-* bin - Output directory
-* darwin - macOS specific files
-* windows - Windows specific files
+- `bin/` is ignored build output: `Meld.exe` on Windows and `Meld` on Linux.
+- `appicon.png` is a tracked application icon source.
+- `windows/` contains tracked Windows packaging assets.
+- `darwin/Info.plist` and `darwin/Info.dev.plist` are retained Wails templates.
 
-## Mac
+Do not delete customized manifests, icons or installer scripts to reset a build. Review the diff
+and preserve local changes before deliberately restoring a tracked asset from version control.
+Cleaning generated output and changing packaging inputs are separate operations.
 
-The `darwin` directory holds files specific to Mac builds.
-These may be customised and used as part of the build. To return these files to the default state, simply delete them
-and
-build with `wails build`.
+## Windows packaging assets
 
-The directory contains the following files:
+- `windows/icon.ico`: Windows application icon.
+- `windows/info.json`: executable version/product metadata template.
+- `windows/wails.exe.manifest`: application manifest.
+- `windows/installer/project.nsi` and `wails_tools.nsh`: NSIS installer inputs.
 
-- `Info.plist` - the main plist file used for Mac builds. It is used when building using `wails build`.
-- `Info.dev.plist` - same as the main plist file but used when building using `wails dev`.
+The development guide documents `wails build -nsis` and its NSIS prerequisite. A normal desktop
+build is not proof that the installer works, nor does a cross-build verify the other OS at runtime.
 
-## Windows
+> **Warning: uninstall removes the entire chosen install directory.** The NSIS uninstall section
+> recursively removes the installation folder, not only a list of packaged files. Keep client/server
+> data, projects, working maps and backups outside that directory. Move any author data out before
+> uninstalling. The script also removes its WebView2 data path, shortcuts and generated associations.
+> This is source-inspected behavior; the installer/uninstaller were not run for documentation checks.
 
-The `windows` directory contains the manifest and rc files used when building with `wails build`.
-These may be customised for your application. To return these files to the default state, simply delete them and
-build with `wails build`.
-
-- `icon.ico` - The icon used for the application. This is used when building using `wails build`. If you wish to
-  use a different icon, simply replace this file with your own. If it is missing, a new `icon.ico` file
-  will be created using the `appicon.png` file in the build directory.
-- `installer/*` - The files used to create the Windows installer. These are used when building using `wails build`.
-- `info.json` - Application details used for Windows builds. The data here will be used by the Windows installer,
-  as well as the application itself (right click the exe -> properties -> details)
-- `wails.exe.manifest` - The main application manifest file.
+Default scope is administrator/all-machine under Program Files, with a user-scope override in the
+script. Review the generated NSIS inputs for the exact artifact. The WebView2 bootstrap and
+file/protocol association behavior require disposable-host validation. The optional sibling-built
+Benilla launcher and Rust dependency/asset attribution are separate distribution-review inputs,
+not proven included by the binary-file macro or the npm/Go notices check.

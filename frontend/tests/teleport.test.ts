@@ -1,5 +1,5 @@
 // Run with: bun test tests/teleport.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { editorPoint } from '../src/lib/io/portCoords.ts'
 import { tileKey } from '../src/lib/io/mapTiles.ts'

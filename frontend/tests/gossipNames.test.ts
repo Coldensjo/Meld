@@ -1,5 +1,5 @@
 // Run with: bun test tests/gossipNames.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { ACTION_TALK, AI_EVENTS, CHAT_TYPES, GOSSIP_ACTIONS, GOSSIP_ICONS, nameOf, nextOptionId } from '../src/lib/wow/gossipNames.ts'
 

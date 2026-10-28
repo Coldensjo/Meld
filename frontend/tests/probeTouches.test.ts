@@ -1,5 +1,5 @@
 // Run with: bun test tests/probeTouches.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'

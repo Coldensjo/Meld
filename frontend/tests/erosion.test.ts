@@ -1,5 +1,5 @@
 // Run with: bun test tests/erosion.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { Eroder, talusSlope } from '../src/lib/terrain/erosion.ts'
 import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL } from '../src/lib/terrain/erodeArea.ts'

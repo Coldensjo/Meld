@@ -1,5 +1,5 @@
 // Run with: bun test tests/spawnBrush.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { brushLevels, entryFrom, facingTurn, newSpawnBrush, pickSpawnEntry, spacedOut, targetCount } from '../src/lib/tools/spawnBrush.ts'
 

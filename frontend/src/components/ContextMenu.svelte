@@ -92,7 +92,7 @@
 <style>
 	.menu {
 		position: fixed;
-		z-index: 180;
+		z-index: var(--z-menu);
 		min-width: 200px;
 		padding: 4px;
 		background: var(--panel-2);

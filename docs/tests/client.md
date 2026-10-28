@@ -130,8 +130,10 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   `TestChangedTiles`.
 - The extractors write into `data\meld-staging` (MapExtractor `-o meld-staging`, the assembler's
   `meld-staging\vmaps`), whose files move over `data\maps` and `data\vmaps` only once all three steps
-  passed; a failed step leaves the old files and starts mangosd again on them (#466). Go:
-  `TestPublishServerKeepsTheOldDataOnFailure` (each step failing in turn).
+  passed; a failed extractor step leaves the old map/vmap files in place (#466), but does not
+  restore an earlier client patch or SQL write. Meld never starts mangosd after success or failure
+  (#661). Moving the staged results afterward replaces files individually, not atomically as one
+  server installation. Go: `TestPublishServerKeepsTheOldDataOnFailure` (each step failing in turn).
 - Extractors by hand, without touching the server: run them in an empty scratch folder (VMapExtractor
   writes `.\Buildings` in the working folder and refuses a folder that already holds `Buildings\dir_bin`):
   `MapExtractor.exe -i C:\WoW\client -o . -e 1 -m 0 -t 32_48,33_48,32_49,33_49 --silent`, then
@@ -151,7 +153,7 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   region's own tiles), which runs `vmangos.UpdateServerMaps` (the publish without the database
   step) in the background and reports through `servermaps:log`/`servermaps:done`. It rebuilds the
   live server's map data, so not for the loop to try against the live server. Go: `TestFileTileName`.
-- Nothing is closed or started (#661, replacing #469 and #470): a patch write (`installClient`,
+- Nothing is closed or started (#661, replacing #469 and #470): on Windows a patch write (`installClient`,
   `app_pending.go`) waits for a running game instead, and `UpdateServerMaps` waits for the author to
   stop mangosd and never starts it. Go: `TestUpdateServerMapsWaitsForTheAuthorToStopTheServer` and
   `TestUpdateServerMapsNeverStopsOrStartsTheServer` (`publish_test.go`, the fake runner's
@@ -177,8 +179,9 @@ Checks: after the map data is replaced, `buildMoveMaps` (`publish.go`) runs `run
 in `data`, one run a compiled tile (`<id> --silent --threads N --configInputPath ... --offMeshInput ... --tile x,y`),
 or one run for the whole map with its own `MMM.mmap` and `MMM*.mmtile` removed first (the generator skips a
 tile whose file exists). A failed run is only logged; Preferences › Compile and export › Build movement maps on compile
-(`prefs.buildMoveMaps`, read in Go by `App.buildMoveMaps`) turns it off. `mmap.enabled` stays 0 in mangosd.conf
-(the owner's choice on #173), so the server doesn't load them yet.
+(`prefs.buildMoveMaps`, read in Go by `App.buildMoveMaps`) turns it off. Meld leaves `mmap.enabled`
+in mangosd.conf unchanged. The value 0 was a machine-specific observation (#173), not a compile
+side effect or a universal default; verify the disposable server's setting before an in-game check.
 - Go: `TestPublishServerBuildsMoveMaps` (order after the assembler, the `--tile` arguments, the whole-map
   removal keeping other maps' and `go*.mmtile` files, a failure not failing the publish, the pref off).
 - By hand, without a compile: back up `data\mmaps\0002337.mmtile` and `000.mmap`, then in `data` run

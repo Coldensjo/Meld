@@ -1,5 +1,5 @@
 // Run with: bun test tests/areaShape.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { INSIDE, cellsInRect, combineArea, fillsRect, insideDistance, mirrorCells, rasterPolygon, rectCells, rotateCells, shapeBounds } from '../src/lib/terrain/areaShape.ts'
 import type { MapClip } from '../src/lib/world/clipboard.ts'

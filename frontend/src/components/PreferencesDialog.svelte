@@ -142,6 +142,14 @@
 			`Every ${prefs.autosaveMinutes} minutes`,
 		),
 		check('general', 'logFileLoading', 'Log file loading', 'Every file read from the client, with its time, in Help › Log.', prefs.logFileLoading, (v) => (prefs.logFileLoading = v)),
+		check(
+			'general',
+			'scriptWriteAnyFile',
+			'Scripts may write any file',
+			'Lua scripts’ write_file, append_file and image:save may write outside the scripts folder. Off, they write only inside it; reading is never limited.',
+			prefs.scriptWriteAnyFile,
+			(v) => (prefs.scriptWriteAnyFile = v),
+		),
 		{
 			page: 'general',
 			id: 'thumbnails',

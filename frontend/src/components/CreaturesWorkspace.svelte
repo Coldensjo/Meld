@@ -440,7 +440,7 @@
 	.ws {
 		position: fixed;
 		inset: 0;
-		z-index: 140;
+		z-index: var(--z-workspace);
 		display: flex;
 		flex-direction: column;
 		background: var(--bg);

@@ -3,7 +3,7 @@
 // internal/vmangos/wire_test.go (navtile). A layout change on the Go side means writing the
 // fixtures again with `go test ./internal/wow/ ./internal/vmangos/ -run TestWireFixtures -update`,
 // and this test then says which parser has to follow.
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseCollision, parseMesh } from '../src/lib/wow/meshReply.ts'

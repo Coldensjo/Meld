@@ -1,5 +1,5 @@
 // Run with: bun test tests/frameLimit.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { frameDue } from '../src/lib/engine/frameLimit.ts'
 
