@@ -229,6 +229,16 @@ export class MapDocument {
 		return into
 	}
 
+	/**
+	 * The scene objects this map draws, added on activate and taken out on a tab switch or close
+	 * (Engine.activate, closeDocument). A new per-map layer goes here, or it stays drawn over the next tab.
+	 */
+	sceneObjects(): THREE.Object3D[] {
+		const list: THREE.Object3D[] = [this.terrain.group, this.water.mesh, this.water.floor, this.objects.group, this.groundEffects.group, this.spawnLayer.group, this.liquidRenderer.group]
+		if (this.world) list.push(this.world.group, this.world.water)
+		return list
+	}
+
 	dispose() {
 		// First: it takes its models out of `objects`.
 		this.world?.dispose()

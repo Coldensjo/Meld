@@ -185,6 +185,8 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
     document's `meta` and loads the new one's. Add any new per-map editor field to `DocMeta`,
     `stashActive` and `activate`.
   - The tab list for the UI is `docs` in `editor.svelte.ts`.
+  - A document's scene objects are listed once, in `MapDocument.sceneObjects()`, which `activate` and
+    `closeDocument` add and remove. A new per-map layer goes there.
 - **State**: `lib/state/editor.svelte.ts` holds Svelte 5 runes (`editor`, `stats`, `ui`). The engine
   *reads* `editor.*` each frame. **Never write per-frame data into reactive state.** `stats` is
   throttled to 2 Hz for this reason.
