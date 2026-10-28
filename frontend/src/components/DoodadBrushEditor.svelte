@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clamp, num } from '../lib/ui/inputs'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { leaveField, takeEscape } from '../lib/state/escape'
 	import PaletteTile from './PaletteTile.svelte'
@@ -90,8 +91,6 @@
 		return brush!.rules
 	}
 
-	const num = (e: Event) => parseFloat((e.target as HTMLInputElement).value)
-	const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo)
 	const share = (w: number) => (total > 0 ? Math.round((Math.max(0, w) / total) * 100) : 0)
 
 	/** Shows a model's thumbnail in `node` (an img) once it is rendered. */

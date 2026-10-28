@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clamp, num } from '../lib/ui/inputs'
 	import { editor } from '../lib/state/editor.svelte'
 	import { newRules, type PlacementRules } from '../lib/tools/doodadBrush'
 
@@ -21,8 +22,6 @@
 		else rules().offTextures = list
 	}
 	const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
-	const num = (e: Event) => parseFloat((e.target as HTMLInputElement).value)
-	const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo)
 </script>
 
 <div class="rules">

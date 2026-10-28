@@ -298,6 +298,16 @@ its range, and pointerup, pointercancel and lostpointercapture all end the drag,
 `bun test tests/dragResize.test.ts`. By hand: drag either edge, Alt-Tab mid-drag, come back and hover
 the edge; the panel must not move.
 
+## Find fields and number inputs (#594)
+
+Checks: the database find fields (item and quest editors, Find a creature, the Loot, Shop, Quests and
+Quest givers tabs, the spell picker) share `createSearch` (`lib/ui/search.svelte.ts`): one search
+250 ms after the last key, only the latest query's answer kept, an empty query clearing the list at
+once, an error passed to the panel's error line. The dialogs' `num`, `numOr0` and `clamp` are in
+`lib/ui/inputs.ts`. `bun test tests/findSearch.test.ts`. By hand: type fast in the item editor's
+find field with the server running; the list shows the last word's items, never an earlier one's.
+RefField keeps its own effect (its starters and local lists answer without a search).
+
 ## Preferences from two windows
 
 Checks: a save writes only the changed keys, merged into the file (`changedPrefs` in `prefsPatch.ts`,

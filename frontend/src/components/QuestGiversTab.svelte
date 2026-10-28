@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { ReadQuestGivers, SaveQuestGivers, SearchCreatures } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -75,39 +76,25 @@
 	// Adding: a search over creatures (the world database) or game objects (the object list).
 	let kind = $state<'creature' | 'object'>('creature')
 	let query = $state('')
-	let results = $state<vmangos.QuestGiver[]>([])
-	let searching = $state(false)
-	let timer = 0
+	async function findGivers({ q, k }: { q: string; k: 'creature' | 'object' }): Promise<vmangos.QuestGiver[]> {
+		if (k === 'creature') {
+			return ((await SearchCreatures(q)) ?? []).map((c) =>
+				vmangos.QuestGiver.createFrom({ kind: 'creature', id: c.entry, name: c.subname ? `${c.name} <${c.subname}>` : c.name, ready: (c.npcFlags & 0x2) !== 0, spawns: -1, patchMin: 0, patchMax: 10 }),
+			)
+		}
+		const lq = q.toLowerCase()
+		return (await loadObjectTemplates())
+			.filter((o) => o.name.toLowerCase().includes(lq) || String(o.entry) === q)
+			.slice(0, 100)
+			.map((o) => vmangos.QuestGiver.createFrom({ kind: 'object', id: o.entry, name: o.name, ready: o.type === 2, spawns: -1, patchMin: 0, patchMax: 10 }))
+	}
+	const search = createSearch(findGivers, { empty: [] as vmangos.QuestGiver[], onError: (err) => (lists.error = String(err)) })
+	const results = $derived(search.results)
+	const searching = $derived(search.searching)
 	$effect(() => {
 		const q = query.trim()
 		const k = kind
-		clearTimeout(timer)
-		if (!q) {
-			results = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				let r: vmangos.QuestGiver[]
-				if (k === 'creature') {
-					r = ((await SearchCreatures(q)) ?? []).map((c) =>
-						vmangos.QuestGiver.createFrom({ kind: 'creature', id: c.entry, name: c.subname ? `${c.name} <${c.subname}>` : c.name, ready: (c.npcFlags & 0x2) !== 0, spawns: -1, patchMin: 0, patchMax: 10 }),
-					)
-				} else {
-					const lq = q.toLowerCase()
-					r = (await loadObjectTemplates())
-						.filter((o) => o.name.toLowerCase().includes(lq) || String(o.entry) === q)
-						.slice(0, 100)
-						.map((o) => vmangos.QuestGiver.createFrom({ kind: 'object', id: o.entry, name: o.name, ready: o.type === 2, spawns: -1, patchMin: 0, patchMax: 10 }))
-				}
-				if (q === query.trim() && k === kind) results = r
-			} catch (err) {
-				lists.error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
+		search.set(q ? { q, k } : null)
 	})
 
 	/** The spawn selected on the map, offered as a giver. */
