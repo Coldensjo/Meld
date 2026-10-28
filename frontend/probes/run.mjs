@@ -3,7 +3,7 @@
 //
 //   bun run probe smoke undo-sculpt      run these probes
 //   bun run probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
-//   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*; name those)
+//   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*) and the `// tier: manual` ones (name those)
 //   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
 //   bun run probe bench --profile        also print the probe's top functions by CPU time
 //   bun run probe --smoke                the probes marked `// tier: smoke` (#398): fast, deterministic, guarding shared code; `make probe-smoke`
@@ -75,8 +75,9 @@ const listOnly = touching && names[0] === '--list'
 if (listOnly) names.shift()
 if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
 	for (const n of all) {
-		const { first, touches, quarantine } = header(n)
+		const { first, touches, tier, quarantine } = header(n)
 		console.log(`${n.padEnd(20)} ${first}`)
+		if (tier === 'manual') console.log(`${''.padEnd(20)}   tier: manual (not in --all; run by name or --touching)`)
 		console.log(`${''.padEnd(20)}   touches: ${touches ? touches.join(', ') : '(no touches line: every change)'}`)
 		if (quarantine) console.log(`${''.padEnd(20)}   quarantined: #${quarantine} (left out of --all, --smoke and --touching; runs when named)`)
 	}
@@ -128,7 +129,10 @@ const touchingProbes = (range) => {
 		return changed.some((f) => res.some((re) => re.test(f)))
 	})
 }
-let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && selectable(n)) : names.flatMap(expand)
+// --all also leaves out the probes marked `// tier: manual` (#426): a slow check of a path commits rarely touch, which --touching
+// still picks when its `touches` files change, and which runs when named.
+const isManual = (n) => header(n).tier === 'manual'
+let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && !isManual(n) && selectable(n)) : names.flatMap(expand)
 if (smoke) picked = [...new Set([...picked, ...all.filter((n) => header(n).tier === 'smoke' && selectable(n))])]
 if (touching) {
 	const found = touchingProbes(touching)
