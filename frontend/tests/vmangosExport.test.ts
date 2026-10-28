@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
-import { mapToTiles, toBase64, TILE_CELLS, type ExportInput } from '../src/lib/io/vmangosExport.ts'
+import { mapToTiles, TILE_CELLS, type ExportInput } from '../src/lib/io/vmangosExport.ts'
 import { base64ToFloats } from '../src/lib/io/base64.ts'
 
 const CELL = 1600 / 3 / 128
@@ -93,11 +93,6 @@ test("a model goes to the tile it stands in, in that tile's own coordinates", ()
 	assert.equal(west.Objects[0].Type, 'wmo:World\\Test\\Hut.wmo')
 	assert.equal(west.Objects[0].TiltX, 0, 'a model without a tilt goes out level')
 	assert.equal(out.outside, 1)
-})
-
-test('base64 of bytes round-trips', () => {
-	const bytes = Uint8Array.from({ length: 70000 }, (_, i) => i * 7)
-	assert.deepEqual(Buffer.from(toBase64(bytes), 'base64'), Buffer.from(bytes))
 })
 
 test('the no-doodad cells go out per chunk as row bits, and only for chunks that have any', () => {

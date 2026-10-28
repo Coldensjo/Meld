@@ -26,10 +26,3 @@ export function normalMapPixels(heights: ArrayLike<number>, side: number, cell: 
 	}
 	return out
 }
-
-/** Base64 of `bytes`, for the bridge (CLAUDE.md: blobs cross it as base64 strings). */
-export function toBase64(bytes: Uint8Array): string {
-	let s = ''
-	for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-	return btoa(s)
-}
