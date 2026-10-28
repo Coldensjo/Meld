@@ -46,7 +46,7 @@
 <style>
 	.tip {
 		position: fixed;
-		z-index: 1000;
+		z-index: var(--z-tip);
 		pointer-events: none;
 	}
 </style>

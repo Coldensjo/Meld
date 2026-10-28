@@ -1,5 +1,5 @@
 // Run with: bun test tests/clipShadows.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { copyShadows, mirrorShadows, pasteShadows, rotateShadows, type ShadowTerrain } from '../src/lib/world/clipShadows.ts'
 import { SHADOW_PER_CELL } from '../src/lib/terrain/bakedShadows.ts'

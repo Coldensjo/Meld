@@ -11,7 +11,7 @@ const e = P.e
 await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
 const { prefs, ui } = await P.state()
 const { nearestFaceDist, toModel } = await P.app('/src/lib/world/wmoRoom.ts')
-const rooms = e.rooms
+const rooms = e.debug.rooms
 const c = e.controller
 const sw = [...e.objects.objects.values()].find((o) => o.type.includes('stormwind.wmo'))
 const m = e.camera.matrixWorld.clone()

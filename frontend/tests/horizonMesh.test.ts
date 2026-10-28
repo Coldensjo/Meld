@@ -1,5 +1,5 @@
 // Run with: bun test tests/horizonMesh.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { HORIZON_TILE_INDICES, horizonMesh, packHorizon } from '../src/lib/world/horizonMesh.ts'
 

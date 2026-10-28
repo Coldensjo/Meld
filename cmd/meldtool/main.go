@@ -35,7 +35,9 @@ const usage = `meldtool: read-only checks of Meld's files (docs/TESTS.md, "meldt
 A tile is a file on disk, or an archive path (World\Maps\<map>\<map>_<x>_<y>.adt) read from the
 client: --client (the client folder, its Data folder or one .MPQ), else config.json's wowPath.
 adt diff exits 1 when the tiles differ, as diff does; --client-b reads b from another client or
-archive (patch-3.MPQ against terrain.MPQ: what a patch changed).
+archive (patch-3.MPQ against terrain.MPQ: what a patch changed). mpq ls searches the client's
+file list (mpq ls moneyframe finds a UI texture's path), and mpq cat prints a file, such as the
+Interface\FrameXML XML or Lua that uses it.
 `
 
 // errUsage is a call with the wrong arguments; main prints the usage for it.

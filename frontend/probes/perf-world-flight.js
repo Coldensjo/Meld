@@ -16,7 +16,7 @@ await P.until(
 	180000,
 	'the tiles around the camera loaded',
 )
-const ground = e.doc.world.heightAt(mid.x, mid.z)
+const ground = e.debug.doc.world.heightAt(mid.x, mid.z)
 await P.lookAt({ x: mid.x, y: ground + 100, z: mid.z }, { pitch: 0.3, back: 1 })
 await P.settle()
 await P.frames(20)
@@ -26,8 +26,8 @@ const info = e.renderer.info.render
 const orig = sm.render.bind(sm)
 let rec = null
 sm.render = (lights, scene, camera) => {
-	const key = e.env.key.shadow.needsUpdate
-	const far = e.env.far.shadow.needsUpdate
+	const key = e.debug.env.key.shadow.needsUpdate
+	const far = e.debug.env.far.shadow.needsUpdate
 	const c0 = info.calls
 	const t0 = performance.now()
 	orig(lights, scene, camera)
@@ -46,12 +46,12 @@ const t0 = performance.now()
 try {
 	for (let i = 0; i < N; i++) {
 		c.target.x += STEP
-		const h = e.doc.world.heightAt(c.target.x, c.target.z)
+		const h = e.debug.doc.world.heightAt(c.target.x, c.target.z)
 		if (Number.isFinite(h)) c.target.y = h + 100
 		await P.tick()
 		rec = null
 		const a = performance.now()
-		e.frame()
+		e.debug.frame()
 		const ms = performance.now() - a
 		await P.drawn()
 		const s = e.worldStats()

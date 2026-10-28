@@ -10,7 +10,7 @@ import (
 )
 
 // Spell.dbc field indexes of 1.12.1 (173 fields): the indexes are those of MaNGOS's SpellEntry, and
-// TestSpellTextsFromClient checks them against the client's own rows.
+// TestSpellRefsFromClient checks them against the client's own rows.
 const (
 	spellFProcChance  = 25
 	spellFProcCharges = 26

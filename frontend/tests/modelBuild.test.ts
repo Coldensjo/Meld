@@ -1,7 +1,7 @@
 // Run with: bun test tests/modelBuild.test.ts
 // A loaded model's bounds tree, LOD and WMO group cull, built from its buffers alone as the model
 // worker does (#507), come out as the main thread built them on the geometry itself.
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { MeshBVH } from 'three-mesh-bvh'

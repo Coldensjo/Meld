@@ -24,7 +24,7 @@ ui.dialog = null
 await P.frames(1)
 
 // Map Properties: a map made for the client sends its ghost to a map picked from the client's.
-P.e.doc.meta.vmangos = { dir: 'ProbeMap', mapId: 36, info: { type: 1, name: '', areaId: 0, loadingScreen: 0, maxPlayers: 0, ghostMap: 0, ghostX: 0, ghostY: 0 } }
+P.e.debug.doc.meta.vmangos = { dir: 'ProbeMap', mapId: 36, info: { type: 1, name: '', areaId: 0, loadingScreen: 0, maxPlayers: 0, ghostMap: 0, ghostX: 0, ghostY: 0 } }
 ui.dialog = 'mapProps'
 const ghost = await P.until(
 	() => {

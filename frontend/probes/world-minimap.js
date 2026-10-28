@@ -54,10 +54,10 @@ const look = () => {
 }
 const l0 = look()
 r.flew = Math.round(Math.hypot(l0.x - to.x, l0.z - to.z))
-await P.until(() => (!Number.isNaN(e.doc.world.heightAt(to.x, to.z)) ? true : null), 60000, 'the tile clicked on loaded')
+await P.until(() => (!Number.isNaN(e.debug.doc.world.heightAt(to.x, to.z)) ? true : null), 60000, 'the tile clicked on loaded')
 await P.frames(3)
 const l1 = look()
-const ground = e.doc.world.heightAt(to.x, to.z)
+const ground = e.debug.doc.world.heightAt(to.x, to.z)
 r.onGround = +(l1.y - ground).toFixed(2)
 r.across = +Math.hypot(l1.x - to.x, l1.z - to.z).toFixed(2)
 

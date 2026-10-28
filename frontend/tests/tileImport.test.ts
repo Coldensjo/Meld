@@ -1,5 +1,5 @@
 // Run with: bun test tests/tileImport.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 import { tilePaint } from '../src/lib/io/tileImport.ts'

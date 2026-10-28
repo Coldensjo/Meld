@@ -19,6 +19,7 @@ import (
 // order, or one archive.
 type archives interface {
 	ReadFile(name string) ([]byte, error)
+	Has(name string) bool
 }
 
 // client is an opened --client: its archives, the names they list, and how to close them.
@@ -26,6 +27,30 @@ type client struct {
 	files archives
 	list  func() []string
 	close func()
+}
+
+// matching is the client's listed files whose path holds filter (any case; / and \ alike), leaving
+// out the names a listfile has that no archive holds (some were never shipped), as the app's asset
+// server does.
+func (c *client) matching(filter string) []string {
+	filter = strings.ToLower(strings.ReplaceAll(filter, "/", `\`))
+	var out []string
+	for _, n := range c.list() {
+		if (filter == "" || strings.Contains(strings.ToLower(strings.ReplaceAll(n, "/", `\`)), filter)) && c.files.Has(n) {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// read gives a client file by its archive path (either slash).
+func (c *client) read(name string) ([]byte, error) {
+	name = strings.ReplaceAll(name, "/", `\`)
+	data, err := c.files.ReadFile(name)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	return data, nil
 }
 
 // openClient opens dir (a client folder, its Data folder or one .MPQ file), or config.json's

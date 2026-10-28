@@ -1,5 +1,5 @@
 // Run with: bun test tests/terrainRaycast.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { rayMarchGround } from '../src/lib/terrain/rayMarch.ts'

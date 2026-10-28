@@ -45,7 +45,7 @@
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 		pointer-events: none;
 		/* Above the full-screen editors and Modal (200), below the tooltips (1000). */
-		z-index: 900;
+		z-index: var(--z-saving);
 	}
 	.title {
 		margin-bottom: 8px;

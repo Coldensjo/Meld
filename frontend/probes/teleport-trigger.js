@@ -53,7 +53,7 @@ try {
 	if (!item) return { ok: false, titles, radius: t.radius, why: 'no Teleport to destination item' }
 	item.run()
 	await P.until(() => (editor.regionMap === 'DeadminesInstance' && !ui.busy) || null, 120_000, "the Deadmines' tab")
-	const region = P.e.doc.meta.region
+	const region = P.e.debug.doc.meta.region
 	const dest = t.teleport
 	const at = editorPoint(dest, region.x, region.y)
 	const tg = P.e.controller.target
@@ -62,7 +62,7 @@ try {
 	const portal = (await window.go.main.App.SpawnTeleports('object', 176296, 0))?.[0]?.dest
 	// A gossip teleport (#308): the items join a spawn's open menu above Focus when the database answers.
 	const lothos = { kind: 'creature', entry: 14387, guid: 0, name: 'Lothos Riftwaker' }
-	const seq = ++P.e.menuSeq
+	const seq = ++P.e.debug.menuSeq
 	ui.contextMenu = { x: 10, y: 10, title: 'Lothos', items: [{ label: 'Edit creature…' }, { label: 'Focus' }] }
 	await P.e.spawnActions.addTeleports(lothos, seq, 'Lothos')
 	const lothosItems = ui.contextMenu?.items.map((i) => i.label) ?? []

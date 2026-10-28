@@ -1,5 +1,5 @@
 // Run with: bun test tests/rivers.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { LAKE_RULES, findLakes } from '../src/lib/water/lakes.ts'
 import { findRivers, planWater, riverPoints, type RiverRules } from '../src/lib/water/rivers.ts'

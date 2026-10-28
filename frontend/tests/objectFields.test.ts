@@ -1,5 +1,5 @@
 // Run with: bun test tests/objectFields.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CURSOR_ICONS, dataField, modelName, objectFieldGroups } from '../src/lib/world/objectFields.ts'
 import { lockText } from '../src/lib/wow/locks.ts'

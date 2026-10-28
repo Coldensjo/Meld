@@ -8,7 +8,7 @@
 const e = P.e
 const { prefs } = await P.state()
 const was = prefs.animations
-const near = e.env.key.shadow
+const near = e.debug.env.key.shadow
 const ps = e.posedShadows
 let fulls = 0
 let forceFull = false
@@ -57,7 +57,7 @@ e.markShadows = () => {
 }
 let creatures, mixed
 try {
-	if (!e.env.key.castShadow) return { ok: false, error: 'the sun casts no shadows (Graphics › Shadows is off)' }
+	if (!e.debug.env.key.castShadow) return { ok: false, error: 'the sun casts no shadows (Graphics › Shadows is off)' }
 	creatures = await run('creatures')
 	mixed = await run('objects-mixed')
 } finally {

@@ -9,9 +9,9 @@ const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(3)
-if (!e.env.key.castShadow) return { ok: false, error: 'the sun casts no shadows (Graphics › Shadows is off)' }
-const near = e.env.key.shadow
-const far = e.env.far.shadow
+if (!e.debug.env.key.castShadow) return { ok: false, error: 'the sun casts no shadows (Graphics › Shadows is off)' }
+const near = e.debug.env.key.shadow
+const far = e.debug.env.far.shadow
 let nears = 0
 let fars = 0
 const mark = e.markShadows.bind(e)
@@ -27,7 +27,7 @@ const count = async (fn) => {
 	await P.frames(3)
 	return { near: nears, far: fars }
 }
-const focus = e.env.key.target.position
+const focus = e.debug.env.key.target.position
 const cube = e.objects.add({ type: 'helper:cube:4', x: focus.x, z: focus.z, yOff: 0, rotY: 0, scale: 1 })
 // A new map's spawns and preferences arrive a few frames late, and each redraws the maps once.
 await P.settle()
@@ -45,10 +45,10 @@ try {
 		editor.sculptMode = 'raise'
 		const V3 = e.controller.target.constructor
 		const at = (x, z) => new V3(x, e.terrain.heightAt(x, z), z)
-		const tool = e.tools.sculpt
-		tool.onDown(e.ctx, at(focus.x + 10, focus.z))
-		for (let i = 0; i < 5; i++) tool.tick(e.ctx, 0.05, at(focus.x + 10 + i, focus.z))
-		tool.onUp(e.ctx)
+		const tool = e.debug.tools.sculpt
+		tool.onDown(e.debug.ctx, at(focus.x + 10, focus.z))
+		for (let i = 0; i < 5; i++) tool.tick(e.debug.ctx, 0.05, at(focus.x + 10 + i, focus.z))
+		tool.onUp(e.debug.ctx)
 	})
 	r.holes = await count(() => {
 		editor.selection = { x0: 9, z0: 9, x1: 14, z1: 14 }
@@ -66,13 +66,13 @@ try {
 	// #324: the far fit is held while the view turns a little, and refit once it has moved a good
 	// share of the far box's half-size; the sun's direction is held within 0.1°.
 	r.panned = await count(() => {
-		e.controller.target.x += e.env.far.shadow.camera.right * 0.5
+		e.controller.target.x += e.debug.env.far.shadow.camera.right * 0.5
 	})
 	r.sunNudged = await count(() => {
-		e.hour += 0.001
+		e.debug.setHour(e.debug.hour + 0.001)
 	})
 	r.sunMoved = await count(() => {
-		e.hour += 0.05
+		e.debug.setHour(e.debug.hour + 0.05)
 	})
 	r.stillAgain = await count(() => {})
 } finally {

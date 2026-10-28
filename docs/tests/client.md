@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Launch where the camera is (character placement)
 
+Hand check: needs the game and the server running; the unit tests below cover the parts.
+
 Checks: Launch puts the Game Login's character on the ground below the camera, on the open map,
 facing the camera's way. Unit tests: `internal/vmangos/character_test.go` (waits for the logout,
 the UPDATE it writes), `internal/game/session_test.go` (`WOW_REALM`, `WOW_CHAR`, `StopGame`),
@@ -20,6 +22,8 @@ where it really stood (the zone too, which only the server sets).
 
 ## Play here: move the character in the world (#13)
 
+Hand check: needs the game, the server and its SOAP console; the unit tests below cover the parts.
+
 Checks: Game › Play Here moves the Game Login's character, in the world, to the spot Launch would
 use, without closing the game. Unit tests: `internal/vmangos/soap_test.go` (mangosd.conf's SOAP
 settings, the SOAP envelope, a fault and a refused login against an `httptest` server, the
@@ -34,6 +38,8 @@ http://127.0.0.1:7878/` with the envelope in `soap.go` and the command `server i
 - Trap: the key is `SOAP.Enabled`, though mangosd.conf's comment block calls it `SOAP.Enable`.
 
 ## Benilla launcher: nothing on screen until the world (benilla-launcher)
+
+Hand check: needs Benilla and its game window; the unit tests below cover the parts.
 
 Checks: started by Meld with a login and a character, `meld-benilla.exe` shows no console and no
 window until the character is in the world, then its game window in front. Unit tests: `cargo test
@@ -51,6 +57,8 @@ must never appear. Its log is `C:\WoW\benilla\benilla-config\meld-benilla.log`, 
 - Trap: a running launcher locks `meld-benilla.exe`, so a rebuild fails with "access denied".
 
 ## The game's template cache after an editor's Save (#234)
+
+Hand check: against the game's own cache files; the unit test below covers the rule.
 
 Checks: a creature or game object template saved in its editor is taken out of the game's caches
 (`WDB\creaturecache.wdb`, `WDB\gameobjectcache.wdb`, Benilla's `benilla-config\cache\<realm>.tsv`
@@ -97,7 +105,7 @@ into the client's minimap (BLP plus md5translate.trs in Meld's patch).
   roads land in the same place, and the mean brightness is close (89 against 84). To look at both,
   draw them on a canvas and save it with `go.main.App.SaveThumbnail(key, pngBase64)`, then read the
   newest PNG under `%LOCALAPPDATA%\Meld\thumbs`.
-- Probe `top-down-shot` (#554): the shot runs `Engine.simulate` for its ortho camera and draws only
+- Probe: `top-down-shot` (#554): the shot runs `Engine.simulate` for its ortho camera and draws only
   itself, so it draws no frame of the view, moves no clock and is the same twice; it prints the ms a
   shot (SwiftShader, Northshire: about 600 ms before #554, 250 to 350 after).
 - The client's tiles show the buildings (WMOs) but not the trees, hence the default; their rock is
@@ -110,6 +118,9 @@ into the client's minimap (BLP plus md5translate.trs in Meld's patch).
   `internalFormat` is `'RGBA8'`.
 
 ## Server map extraction for one map (Publish, #174; nothing closed or started, #661)
+
+No probe: the Go tests below; a real Publish (the server's extractors) is a hand check.
+
 Checks: Publish runs the VMaNGOS extractors on the published map only: MapExtractor with `-m <id>`
 (and `-t x_y,...` for the tiles the export wrote, when the server was current before it), VMapExtractor
 with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.vmtile` files.
@@ -119,8 +130,10 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   `TestChangedTiles`.
 - The extractors write into `data\meld-staging` (MapExtractor `-o meld-staging`, the assembler's
   `meld-staging\vmaps`), whose files move over `data\maps` and `data\vmaps` only once all three steps
-  passed; a failed step leaves the old files and starts mangosd again on them (#466). Go:
-  `TestPublishServerKeepsTheOldDataOnFailure` (each step failing in turn).
+  passed; a failed extractor step leaves the old map/vmap files in place (#466), but does not
+  restore an earlier client patch or SQL write. Meld never starts mangosd after success or failure
+  (#661). Moving the staged results afterward replaces files individually, not atomically as one
+  server installation. Go: `TestPublishServerKeepsTheOldDataOnFailure` (each step failing in turn).
 - Extractors by hand, without touching the server: run them in an empty scratch folder (VMapExtractor
   writes `.\Buildings` in the working folder and refuses a folder that already holds `Buildings\dir_bin`):
   `MapExtractor.exe -i C:\WoW\client -o . -e 1 -m 0 -t 32_48,33_48,32_49,33_49 --silent`, then
@@ -140,7 +153,7 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   region's own tiles), which runs `vmangos.UpdateServerMaps` (the publish without the database
   step) in the background and reports through `servermaps:log`/`servermaps:done`. It rebuilds the
   live server's map data, so not for the loop to try against the live server. Go: `TestFileTileName`.
-- Nothing is closed or started (#661, replacing #469 and #470): a patch write (`installClient`,
+- Nothing is closed or started (#661, replacing #469 and #470): on Windows a patch write (`installClient`,
   `app_pending.go`) waits for a running game instead, and `UpdateServerMaps` waits for the author to
   stop mangosd and never starts it. Go: `TestUpdateServerMapsWaitsForTheAuthorToStopTheServer` and
   `TestUpdateServerMapsNeverStopsOrStartsTheServer` (`publish_test.go`, the fake runner's
@@ -159,12 +172,16 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   "map extraction".
 
 ## Movement maps on compile (#173)
+
+Hand check: runs the server's MoveMapGenerator; no probe covers it.
+
 Checks: after the map data is replaced, `buildMoveMaps` (`publish.go`) runs `run\Extractors\MoveMapGenerator.exe`
 in `data`, one run a compiled tile (`<id> --silent --threads N --configInputPath ... --offMeshInput ... --tile x,y`),
 or one run for the whole map with its own `MMM.mmap` and `MMM*.mmtile` removed first (the generator skips a
 tile whose file exists). A failed run is only logged; Preferences › Compile and export › Build movement maps on compile
-(`prefs.buildMoveMaps`, read in Go by `App.buildMoveMaps`) turns it off. `mmap.enabled` stays 0 in mangosd.conf
-(the owner's choice on #173), so the server doesn't load them yet.
+(`prefs.buildMoveMaps`, read in Go by `App.buildMoveMaps`) turns it off. Meld leaves `mmap.enabled`
+in mangosd.conf unchanged. The value 0 was a machine-specific observation (#173), not a compile
+side effect or a universal default; verify the disposable server's setting before an in-game check.
 - Go: `TestPublishServerBuildsMoveMaps` (order after the assembler, the `--tile` arguments, the whole-map
   removal keeping other maps' and `go*.mmtile` files, a failure not failing the publish, the pref off).
 - By hand, without a compile: back up `data\mmaps\0002337.mmtile` and `000.mmap`, then in `data` run
@@ -177,7 +194,7 @@ tile whose file exists). A failed run is only logged; Preferences › Compile an
 ## Compile to Server and Compile All save the spawn edits (#342)
 Checks: Compile to Server and Compile All write the region's spawn edits into the world database
 before the server rebuild, a failed write stops the rebuild, and Compile to Client never writes them.
-- Probe `compile-spawns` (`bun run probe compile-spawns`, about 8 s): opens Azeroth 31_50 and swaps the
+- Probe: `compile-spawns` (`bun run probe compile-spawns`, about 8 s): opens Azeroth 31_50 and swaps the
   bindings the compile calls (`VmangosPath`, `SaveRegion`, `ApplySpawnEdits`, `UpdateRegionServer` on
   `window.go.main.App`) and `Engine.spawnEdits` for stand-ins that record the call order, so it writes
   nothing and never restarts mangosd. The wailsjs wrappers look the binding up at call time, which is
@@ -191,7 +208,7 @@ before the server rebuild, a failed write stops the rebuild, and Compile to Clie
 ## Compile to Client, Server, All and Launch's check for uncompiled edits (#214)
 Checks: the File menu's three compile entries, and that Launch asks before starting the game while the
 open region has edits the client lacks, and only then.
-- Probe `compile-launch` (`bun run probe compile-launch`, about 5 s): opens Azeroth 31_50, checks the menu,
+- Probe: `compile-launch` (`bun run probe compile-launch`, about 5 s): opens Azeroth 31_50, checks the menu,
   that the region counts as compiled as it opens, that a history step changing no compile input (as a
   spawn edit is) keeps it so, that a raised vertex makes it uncompiled and its undo compiled again, that
   Launch then opens the Compile and Launch dialog without starting anything, that growing the region
@@ -238,7 +255,7 @@ open region has edits the client lacks, and only then.
 ## Compile keeps the client's alpha where nothing was painted (#526)
 Checks: a region's compile writes the client's own 64x64 alpha maps back on every chunk and texel the
 editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
-- Probe `compile-alpha` (`bun run probe compile-alpha`, about 5 s): in the throwaway client
+- Probe: `compile-alpha` (`bun run probe compile-alpha`, about 5 s): in the throwaway client
   (`P.sandboxClient`), opens Azeroth 31_50 (a tile not in the owner's patch), writes a 2x2-texel spot of
   one chunk straight into `terrain.weights` and compiles to the client. Read back with `LoadRegion`,
   `keptChunks` (255) chunks have the alpha bytes they had, and the painted chunk differs only in the
@@ -264,7 +281,7 @@ editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
 Checks: Paint › Restore the Client's Paint puts a region's chunks (the selected area's, or all) back
 to the client's paint without Meld's patch, as one undo step, so the next compile writes the client's
 own alpha bytes there again.
-- Probe `restore-paint` (`bun run probe restore-paint`, about 10 s): in the throwaway client, paints a
+- Probe: `restore-paint` (`bun run probe restore-paint`, about 10 s): in the throwaway client, paints a
   spot of an Azeroth 31_50 chunk and compiles it into the patch, opens the region again from the
   patch, selects that chunk and restores it (undo and redo checked), compiles again and reads back
   every chunk's layers and alpha bytes as they were before the first compile.
@@ -276,6 +293,9 @@ own alpha bytes there again.
   already open).
 
 ## Added models get unique IDs across the map (#491)
+
+No probe: the Go tests below, on made-up tiles.
+
 Checks: a compile or Publish gives every model it adds an ID no other placement of the map has, since
 the client draws only the first loaded placement of an ID and the server's vmaps keep one an ID.
 - `go test ./internal/adt/ -run 'NextUID|MaxPlacementUID'` and `go test ./internal/vmangos/ -run
@@ -289,6 +309,9 @@ the client draws only the first loaded placement of an ID and the server's vmaps
   compile and a relog, would show it.
 
 ## Border models in every tile that lists them (#646)
+
+No probe: the Go tests below, on made-up tiles.
+
 Checks: a model the client's tiles list in each tile it overlaps reaches the editor once, and a save
 moves, deletes or adds it in every block tile its bounds reach, under one ID; Publish lists each model
 in every tile of the map it reaches the same way.
@@ -312,6 +335,9 @@ in every tile of the map it reaches the same way.
 
 
 ## Border models in the tiles outside the block (#647)
+
+No probe: the Go tests below, on made-up tiles.
+
 Checks: a compile moves, deletes or adds a model by the block's edge in the tiles outside the block that
 list it or that it now reaches, changing nothing else there, and a second compile of the same edit (or
 of the block read back from the patch) writes nothing.
@@ -338,7 +364,7 @@ Map.dbc row pointing at it.
   `TestSetMapLoadingScreen`; with `WOW_DIR=C:/WoW/client`, `TestLoadingScreenFromClient` reads the
   Deadmines' picture, writes it again as map 36's own (row 206, within 0.1 a channel), the client's
   rows unchanged and Map.dbc's row 36 pointing at it.
-- Probe `loading-screen`: a map made for the client (the probe sets `doc.meta.vmangos`) lists the
+- Probe: `loading-screen`: a map made for the client (the probe sets `doc.meta.vmangos`) lists the
   41 choices, previews the Deadmines' picture and shows Picture…, then presses it in the throwaway
   client (`P.sandboxClient`, #382) with a blue PNG made in the page: a 42nd choice named ProbeMap
   (row 206) is chosen and previewed blue, and the real client still lists 40. The file dialog is
@@ -366,7 +392,7 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   the overlays: a subzone's own piece with a soft edge and parchment under it in the base, a piece
   redrawn in part keeping its art outside the block, a subzone drawn into the piece whose art covers it,
   a piece whose subzone is no longer painted in the block cleared there or dropped, #278).
-- Probe `world-map`: on Northshire, Elwynn's twelve overlays listed and previewed over the base, and
+- Probe: `world-map`: on Northshire, Elwynn's twelve overlays listed and previewed over the base, and
   Generate redraws Northshire Valley's ("12 overlays, 1 drawn": Echo Ridge Mine and Northshire
   Vineyards, which no overlay names, go into Northshire's piece, whose art covers them). More than 1
   drawn means a neighbour was rewritten: Stormwind's, Goldshire's, Tower of Azora's and Stonecairn
@@ -399,14 +425,14 @@ as `<name>.png` files.
   twice and a bad PNG refused; installed, the list has it and the export writes it, a missing name and
   `..\up` reported), `TestPendingIcons` (an icon waiting for the game to close is listed, previewed
   through `PendingIcon` and exported).
-- Probe `icons` (the real client left alone): Fireball's Change icon… shows Import PNG… and Export all as PNG…;
+- Probe: `icons` (the real client left alone): Fireball's Change icon… shows Import PNG… and Export all as PNG…;
   searching Spell_Fire_FlameBolt leaves one icon and Export 1 as PNG…; `ImportIcons` with a missing
   file refuses it under its name (`Probe_Icon`, from "Probe Icon.png") and `ExportIcons` refuses a
   missing folder. Then, in the throwaway client (`P.sandboxClient`, #368), Import PNG… with the file
   dialog stubbed takes a red 64 px PNG drawn in the page ("Meld Probe Icon.png"): the note says it was
   added, the grid shows `Meld_Probe_Icon` alone and its preview is red; after `P.endSandbox()` the real
   patch has its size and time and the real icon list hasn't the icon. About 7 s.
-- Probe `icons`, the Icons tool (#683): Tools › Icons… (`ui.iconsTool`) shows the shared grid with
+- Probe: `icons`, the Icons tool (#683): Tools › Icons… (`ui.iconsTool`) shows the shared grid with
   Export all as PNG…; searching Spell_Fire_FlameBolt and clicking it shows its name, Copy spell icon
   ID (185) enabled and Fireball (Rank 1) among its spells, and Copy name puts the name on the
   clipboard. Go: `vmangos.TestSpellsWithIcon` (a synthetic SpellIcon map and Spell.dbc: any case, the
@@ -477,7 +503,7 @@ by its suffixes ("of the …"); the Ornate Bronze Lockbox (4632) its lock by wha
 Grelin Whitebeard (2188) its page by its first line and its page material; the Gordok Inner Door Key
 (18268) its map (Dire Maul); Tough Jerky (117)'s Effects tab its cooldown category by its spells;
 Marshal's Satin Sandals (17607) Honor rank Marshal / General (16). `bun run probe item-pickers`
-(nothing written). Unit tests: `bun test tests/itemFields.test.ts`, `go test ./internal/vmangos/ -run
+(nothing written). Unit tests: `bun test tests/itemFields.test.ts tests/editorFields.test.ts` (the latter: `withBit`, `changedValues`, `fieldGroups`, `subclassOptions`, `slotKind`, #522), `go test ./internal/vmangos/ -run
 'TestSpellCategoryNames|TestRandomPropertyNames|TestEnchantments|TestDisenchantSQL'`, and
 `TestLoadItemTablesClient` with `WOW_DIR`.
 - Trap: random_property names an item_enchantment_template entry, not an ItemRandomProperties.dbc
@@ -574,6 +600,10 @@ bits and the atlas cells).
 - Trap: the 1.12 client has no `Interface\TargetingFrame\UI-Classes-Circles.blp` (a 2.x file); the
   `/wow/texture` endpoint answers 404 for it. Check a path there before relying on it:
   `curl -s -o /dev/null -w '%{http_code}' "localhost:34115/wow/texture?path=<url-encoded path>"`.
+  To find the right path, search the client's file list and read the frame that uses it, without the
+  app (#698): `go run ./cmd/meldtool mpq ls moneyframe` lists `Interface\MoneyFrame\UI-MoneyIcons.blp`,
+  and `go run ./cmd/meldtool mpq cat 'Interface\FrameXML\MoneyFrame.xml'` prints its TexCoords (quote
+  the path, or write it with `/`).
 
 ## The asset server across a patch write (#471, probe `patch-cache`)
 Checks: a write into Meld's patch closes the asset server's archives (`wow.Client`) only for the
@@ -590,7 +620,7 @@ again only when one changed.
   forgets the waiting file), `wow.TestDoodadsCached` (a doodad's mesh and hull read once, again
   after a `Forget` of a model but not of a texture, and after `Open`; #500), `TestInstallPatchWithClientOpen` (the rename succeeds while a real
   `wow.Client` holds the patch; on Windows it fails without the reader set).
-- Probe `patch-cache` (the throwaway client, the real one left alone): Stormwind's WMO from
+- Probe: `patch-cache` (the throwaway client, the real one left alone): Stormwind's WMO from
   `/wow/model` cold, then an icon imported red, an `InstallMapPatch` of a file of its own, the WMO
   again, and the icon imported again in blue. On 2026-10-21: cold 1239 ms, after the write 49 ms (the
   code before #471 rebuilt it, 1167 ms); the file count 79890 to 79892; the icon read back red, then
@@ -599,6 +629,9 @@ again only when one changed.
   inside one sandbox.
 
 ## The binary replies against their parsers (#520, the wire fixtures)
+
+No probe: the Go and Bun fixture tests below.
+
 Checks: the frontend's parsers of the binary `/wow/*` replies read what Go's encoders write:
 `parseMesh` and `parseCollision` (`wow/meshReply.ts`) against `Mesh.Encode` and `collision.encode`,
 `decodeWmoNav` against `WMONav.Encode`, and `parseNavTile` against `vmangos.NavTile`.
@@ -613,6 +646,9 @@ Checks: the frontend's parsers of the binary `/wow/*` replies read what Go's enc
   the client's files (CLAUDE.md, Blizzard assets).
 
 ## The format constants and the axis swap on both sides (#538, the format fixture)
+
+No probe: the Go and Bun fixture tests below.
+
 Checks: `lib/wow/format.ts` and Go's `adt`/`mapfile` constants agree, and `toServer`/`fromServer`
 match `adt.ToServer`/`adt.FromServer` (and `serverSpot`, `editorPoint` and the world map extent use
 the same swap).
@@ -624,6 +660,9 @@ the same swap).
   `533 + 1/3` and `1600/3` differ in the last bit.
 
 ## The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
+
+No probe: a Go benchmark (below); the probes `patch-cache` and `icons` cover what the write carries.
+
 Checks: a save of one small file into a large patch (a DBC row, an imported icon) opens the patch
 once in `ChangedFiles` and once in `InstallPatch`, and copies the files it carries over straight from
 the old patch into the new one (`mpq.Archive.Reader`, `mpq.WriteTo`) instead of reading them all into
@@ -640,3 +679,11 @@ memory and building the archive there.
   the carried files and the minimap tiles it drops.
 - Trap: the time is mostly the disk copy of the carried files, so it varies with the disk cache;
   compare B/op, and time only on the same machine.
+
+## A WMO-only map's frame and Launch spot (#272, probe `wmo-only-frame`)
+
+Checks: Publish writes a WMO-only world's building at the world's middle, so the editor's frame follows
+the building and Launch's spot over it is the server's 0,0 wherever the building stands in the editor;
+with WMO-only unticked the frame is the corner's again. Nothing written.
+- Probe: `bun run probe wmo-only-frame`. It puts the camera and its orbit target straight above the
+  building, so either ground mode finds it below.

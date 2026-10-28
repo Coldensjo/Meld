@@ -43,6 +43,7 @@
 	import { offerRecovery, startAutosave } from './lib/io/recovery'
 	import { offerFolderSetup } from './lib/io/folderSetup'
 	import { startSessionLog } from './lib/io/sessionLog'
+	import { startDebugLog } from './lib/io/debugLog'
 	import { onMount, untrack } from 'svelte'
 	import { refreshGameClient } from './lib/io/game'
 	import { initWow } from './lib/wow/api'
@@ -61,6 +62,7 @@
 	let prefsLoaded = $state(false)
 	onMount(() => {
 		const stopLogFile = startSessionLog()
+		const debugLog = startDebugLog()
 		void refreshGameClient()
 		void refreshProjects()
 		const wowReady = initWow().catch((e) => console.warn('WoW client init failed', e))
@@ -81,6 +83,7 @@
 			stopSaving()
 			stopAutosave()
 			stopLogFile()
+			void debugLog.then((stop) => stop())
 		}
 	})
 
@@ -121,11 +124,16 @@
 	// A map still on the built-in colour palette gets the default WoW tileset set as
 	// soon as a client is available. Setting the palette leaves the map's dirty flag alone: putting back
 	// the flag read before the await wiped an edit made meanwhile (#779, the autosave probe's first copy).
+	// The effect is keyed on `wantsDefaultPalette` alone (#598), so an edit or a palette change that
+	// keeps it true doesn't fetch again; a result equal to the palette (a client with none of the
+	// tilesets) is not written, since the new array would set it off once more.
 	const isDefaultPalette = (palette: string[]) => palette.every((p) => LAYERS.some((l) => l.swatch === p))
+	const wantsDefaultPalette = $derived(wow.loaded && isDefaultPalette(editor.palette))
 	$effect(() => {
-		if (!wow.loaded || !isDefaultPalette(editor.palette)) return
+		if (!wantsDefaultPalette) return
 		defaultLayerTextures().then((t) => {
-			if (!isDefaultPalette(editor.palette)) return
+			const cur = editor.palette
+			if (!isDefaultPalette(cur) || (t.length === cur.length && t.every((p, i) => p === cur[i]))) return
 			editor.palette = t
 		})
 	})

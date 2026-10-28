@@ -14,7 +14,8 @@
     "probe": "bun probes/run.mjs",
     "docs:dev": "bun --bun --no-install vitepress dev ../docs",
     "docs:build": "bun --bun --no-install vitepress build ../docs",
-    "docs:preview": "bun --bun --no-install vitepress preview ../docs"
+    "docs:preview": "bun --bun --no-install vitepress preview ../docs",
+    "docs:check": "bun run docs:build && bun scripts/docs-check.mjs && bun test scripts/docs-check.test.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

@@ -43,7 +43,12 @@ func main() {
 			Middleware: func(next http.Handler) http.Handler {
 				wowHandler := app.wow.Handler()
 				// The nav tiles parse the client's files too, so a panic there answers a 500 as well (#487).
-				return wow.RecoverPanics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// With MELD_DEBUG_LOG set, each request goes to the session log too (#626).
+				return app.logRequests(wow.RecoverPanics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == debugLogPath {
+						app.serveDebugLog(w, r)
+						return
+					}
 					if r.URL.Path == "/wow/navtile" {
 						app.serveNavTile(w, r)
 						return
@@ -57,7 +62,7 @@ func main() {
 						return
 					}
 					next.ServeHTTP(w, r)
-				}))
+				})))
 			},
 		},
 		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 24, A: 1},

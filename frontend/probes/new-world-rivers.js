@@ -56,7 +56,7 @@ try {
 		const q = p.points[Math.floor(p.points.length / 2)]
 		return ground(q.x, q.z) < q.y
 	}).length
-	const liquids = P.e.doc.liquids
+	const liquids = P.e.debug.doc.liquids
 	const C = 8
 	const ids = new Set()
 	let cells = 0

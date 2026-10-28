@@ -140,6 +140,64 @@ func TestMpqLsCatAndClientTile(t *testing.T) {
 	}
 }
 
+// memArchives is an in-memory client: files by their archive path.
+type memArchives map[string]string
+
+func (m memArchives) ReadFile(name string) ([]byte, error) {
+	for k, v := range m {
+		if strings.EqualFold(k, name) {
+			return []byte(v), nil
+		}
+	}
+	return nil, os.ErrNotExist
+}
+
+func (m memArchives) Has(name string) bool {
+	_, err := m.ReadFile(name)
+	return err == nil
+}
+
+func TestClientMatchingAndRead(t *testing.T) {
+	files := memArchives{
+		`Interface\MoneyFrame\UI-MoneyIcons.blp`: "blp",
+		`Interface\FrameXML\MoneyFrame.xml`:      "<Ui/>",
+		`Interface\FrameXML\UIParent.lua`:        "-- lua",
+	}
+	listed := []string{`Interface\FrameXML\MoneyFrame.xml`, `Interface\FrameXML\UIParent.lua`, `Interface\MoneyFrame\UI-GoldIcon.blp`, `Interface\MoneyFrame\UI-MoneyIcons.blp`}
+	c := &client{files: files, list: func() []string { return listed }, close: func() {}}
+	got := c.matching("moneyframe")
+	want := []string{`Interface\FrameXML\MoneyFrame.xml`, `Interface\MoneyFrame\UI-MoneyIcons.blp`}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("matching moneyframe = %q, want %q (UI-GoldIcon is listed but not shipped)", got, want)
+	}
+	if got := c.matching("interface/framexml/"); len(got) != 2 {
+		t.Fatalf("a forward-slash filter matched %q", got)
+	}
+	if got := c.matching(""); len(got) != 3 {
+		t.Fatalf("no filter gave %q, want every shipped file", got)
+	}
+	if b, err := c.read(`interface/framexml/moneyframe.xml`); err != nil || string(b) != "<Ui/>" {
+		t.Fatalf("read: %q %v", b, err)
+	}
+	if _, err := c.read(`Interface\MoneyFrame\UI-GoldIcon.blp`); err == nil || !strings.Contains(err.Error(), `UI-GoldIcon.blp`) {
+		t.Fatalf("a missing file's error should name it: %v", err)
+	}
+}
+
+func TestMpqLsCatAcrossPatches(t *testing.T) {
+	dir := t.TempDir()
+	const xml = `Interface\FrameXML\MoneyFrame.xml`
+	writeFile(t, dir, "interface.MPQ", mpq.Write([]mpq.File{{Name: xml, Data: []byte("old")}, {Name: `Interface\MoneyFrame\UI-MoneyIcons.blp`, Data: []byte("blp")}}))
+	writeFile(t, dir, "patch.MPQ", mpq.Write([]mpq.File{{Name: xml, Data: []byte("new")}}))
+	code, out, errOut := call(t, "mpq", "ls", "--client", dir, "MONEYFRAME")
+	if code != 0 || out != xml+"\n"+`Interface\MoneyFrame\UI-MoneyIcons.blp`+"\n" {
+		t.Fatalf("ls over two archives: exit %d, %q %q", code, out, errOut)
+	}
+	if code, out, _ := call(t, "mpq", "cat", "--client", dir, xml); code != 0 || out != "new" {
+		t.Fatalf("cat gives the patch's copy: exit %d, %q", code, out)
+	}
+}
+
 func TestWmapInfo(t *testing.T) {
 	const size = 16
 	enc := base64.StdEncoding.EncodeToString

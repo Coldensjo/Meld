@@ -205,9 +205,8 @@ export class PaletteArray {
 		for (let i = 0; i < depth; i++) this.put(i, this.blank)
 		const t = this.compressed
 			? new THREE.CompressedArrayTexture(
-					// three's typings want ImageData-shaped mips; a compressed level is its blocks and size,
-					// every layer's in one array, which addLayerUpdate slices per layer.
-					this.levels.map((data, k) => ({ data, width: LEVEL_SIDE[k], height: LEVEL_SIDE[k] })) as unknown as ImageData[],
+					// A compressed level is its blocks and size, every layer's in one array, which addLayerUpdate slices per layer.
+					this.levels.map((data, k): THREE.CompressedTextureMipmap => ({ data, width: LEVEL_SIDE[k], height: LEVEL_SIDE[k] })),
 					PALETTE_RES,
 					PALETTE_RES,
 					depth,

@@ -1,5 +1,5 @@
 // Run with: bun test tests/heightmapImport.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights } from '../src/lib/io/heightmapImport.ts'
 

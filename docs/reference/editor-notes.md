@@ -31,7 +31,7 @@ The layout follows Photoshop:
 
 - **Menu bar** at the top.
 - **Options bar** below it, showing the active tool's settings (mode, size, strength, falloff…).
-- **Toolbar** on the left, or on the right (Preferences › Toolbar on the right).
+- **Toolbar** on the left, or on the right (Edit › Preferences › General › Toolbar side).
 - **Asset browser** along the bottom: search the client's doodads, buildings and textures in one box
   (`Ctrl+F`), narrow by category and zone, and hover a tile to see it large and turning in the
   preview on the right (drag to turn a model, right-drag to move up and down it, scroll to zoom).
@@ -136,7 +136,9 @@ Also included:
   calls `brush()` loads into the Script brush tool instead. `make_noise` and `sel:make_noise` give noise
   maps (SIMPLEX, PERLIN, VALUE, FRACTAL, CELLULAR, WHITE; FastNoise2's encoded trees fall back to
   FRACTAL), `create_image` and `load_png` images (a path relative to the scripts folder, or a whole one).
-  Texture layers, vertex colours, water, holes and files are not in Meld yet.
+  `read_file`, `write_file`, `append_file`, `path_exists` and `image:save` reach files the same way;
+  writes stay in the scripts folder unless Edit › Preferences › General › Scripts may write any file is on.
+  1.12 tiles have no vertex colours, so those calls do nothing.
 - **Import/Export**: heightmaps, watermaps, normal maps, alphamaps, object lists, doodad brushes,
   port coordinates, minimap image.
 - **View**: grid, chunk lines, a reference image (a plan of your own laid over the map to trace, and turned into heights, zones, textures or the mask), far horizon, walkable ground (the server's navmesh, built by Meld or read from the server's own mmaps) and a path test, layers (terrain, water, objects, tufts, spawns), hide panels.
@@ -247,6 +249,7 @@ internal/sessionlog/   Each session's status lines, kept in a file for bug repor
 internal/handoff/      Large binary replies of bound methods, fetched by the page in one GET
 internal/sandbox/      Throwaway copies of the client's Data folder for the probes
 internal/testclient/   Finds the client and server the client-dependent Go tests read
+internal/scripts/      The user's Lua scripts folder, and the PNG images scripts load
 cmd/meldtool/          Read-only inspector for .wmap files, tiles, MPQs and the bound methods
 benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)
 frontend/src/
@@ -263,6 +266,7 @@ frontend/src/
   lib/wow/             Client for the /wow/* endpoints (lists, textures, meshes)
   lib/ui/              Tool list, menu commands and keys, UI scale, virtual grids
   lib/check/           File › Check Map's checks
+  lib/script/          The Lua engine (wasmoon), Noggit Red's script API, script brushes
   lib/bench/           Generated benchmark maps
 frontend/tests/       Bun unit tests
 frontend/probes/      Checks in the live app (docs/TESTS.md)

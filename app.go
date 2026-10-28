@@ -39,6 +39,9 @@ type App struct {
 	rec *recovery.Store
 	// slog is this session's log file in the user cache; nil if its folder couldn't be made.
 	slog *sessionlog.Log
+	// debugLog is whether MELD_DEBUG_LOG asked for the asset requests and the page's console
+	// warnings in the session log (#626, app_debuglog.go).
+	debugLog bool
 	// unsaved is whether an open map has unsaved changes (SetUnsaved).
 	unsaved atomic.Bool
 	// closeAsked is when a close was stopped and not yet answered (AckClose), in Unix ms; 0 for none.
@@ -67,7 +70,7 @@ type App struct {
 }
 
 func NewApp() *App {
-	a := &App{wow: wow.NewClient(), cfg: config.Load()}
+	a := &App{wow: wow.NewClient(), cfg: config.Load(), debugLog: debugLogOn()}
 	// The asset server previews an icon added while the game ran before the patch has it (#364).
 	a.wow.SetOverlay(a.clientOverlay)
 	// A patch write closes the client's archives for its rename only, and the asset server forgets

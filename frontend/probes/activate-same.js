@@ -19,7 +19,7 @@ const results = {
 	oneTabDirty: editor.dirty === true,
 }
 // The private activate on the active document, as focusPath and openRegion do.
-e.activate(e.doc)
+e.activate(e.debug.doc)
 await P.frames(2)
 results.sameDocPalette = editor.palette.length === grown
 results.sameDocDirty = editor.dirty === true

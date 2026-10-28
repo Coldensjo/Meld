@@ -43,10 +43,27 @@ writes into the client and server). An item in another area whose body is about 
 
 ## Checks
 
-While working (only the ones that touch the change):
-- `cd frontend && bun test tests/<name>.test.ts`, `go test ./internal/<pkg>/`
-- the probes that touch it: `cd frontend && bun run probe --list`, then `bun run probe <name...>`
-  (against the coordinator's `make dev`)
+Start of run (the coordinator, after the pull, beside reading the backlog): the last CI run on Linux
+(`.github/workflows/check.yml`, #414), since the loop works on Windows and a red Linux check would
+otherwise sit unread (#441):
+- `gh run list --repo Coldensjo/Meld --workflow check.yml --branch main --limit 1 --json databaseId,conclusion,status,headSha,url,name`.
+  It prints `[]` when Actions has never run. A run still going (`status` not `completed`, `conclusion`
+  empty) is not red; nor is `cancelled` (a newer push replaced it).
+- When the conclusion is `failure` (or another that is not `success`, `cancelled` or `skipped`): read the
+  failing job and step with `gh run view <databaseId> --repo Coldensjo/Meld --log-failed`, and file a
+  `bug` issue titled "Make the <job> CI job pass again, red since <short sha>", labelled `bug`,
+  `area:tooling`, `source:loop`, `value:H`, `effort:S`, with the run's URL, the commit and the failing
+  step's log excerpt. If such an issue is already open, comment the new run on it instead of filing a
+  second. It is a bug in the pick order like any other; the run does not stop for it.
+- The `build-linux` job is allowed to fail (`continue-on-error`), so its failure leaves the run green;
+  it is not checked here until that line is dropped.
+
+While working:
+- `make test`, whole: the Bun suite takes seconds and the Go suite well under a minute, so a subset
+  saves nothing and misses a break in another package (#442).
+- only the probes that touch the change, since a probe costs minutes: `cd frontend && bun run probe
+  --touching HEAD` (the uncommitted change; `HEAD~1` once it is committed), or `bun run probe --list`
+  and then `bun run probe <name...>` (against the coordinator's `make dev`)
 
 Before commit (all of them):
 - `make test`
@@ -88,13 +105,34 @@ minutes a run plus fix items (#439).
 - The run log says which selection ran and how long it took. A failure is handled as before: find the
   commit, file a bug, revert if it cannot be fixed.
 
+Flaky probes (#440): a probe line with `flaky: true` (failed once, passed on the retry, docs/TESTS.md
+"Probes") is quarantined after its second flaky result on commits that did not touch its subject,
+instead of costing a worker item each time (`wmo-cull` cost #350 and #392 that way, #392 at high
+effort, before #393 fixed `P.settle`).
+- Untouched means the probe is not picked by `cd frontend && bun run probe --touching <range> --list`
+  for the commits under test (the item's change for a worker, `<start>..HEAD` for the full-run check).
+  A flaky or failed result on a commit that does touch its subject is a real failure, handled as today.
+- The first flaky result goes in the run log (probe, commit, the line) and nothing more; search the
+  earlier run logs and the open issues for the probe's name to tell whether it is the second.
+- On the second: file a `bug` issue "Fix the flaky <probe> probe", labelled `bug`, `area:tooling`,
+  `source:loop`, holding the two flaky lines (with their `first` fields), the commits and the probe; then
+  add `// quarantine: #<n>` to the probe's header (#399) in its own commit. The coordinator does it in the
+  full-run check; a worker does it in its own checks only when the flaky probe is not its item's subject,
+  and says so in its report.
+- Only after two: #252 (0 triangles drawn with the cull on) looked like a flake and was a real break
+  that `wmo-cull` found. A failure on both attempts (`retried: true`) is never a flake.
+- A quarantined probe is out of `--all`, `--smoke` and `--touching`, but still run by name (`bun run
+  probe <name>`) when a change touches its area, and workers spend no time on it until it fails for
+  real there or its bug issue is picked; that item takes the `quarantine` line out when it closes.
+
 Benchmark for optimizations: `cd frontend && bun run probe bench`, on the commit before the change and
 on the change (docs/TESTS.md, "Measuring performance"). An estimate with its working also counts (e.g.
 "stormwind.wmo draws 1.3M triangles a frame, about 77k of them in view").
 
 ## Services
 
-Started by the coordinator before the first worker and left running; workers never start their own.
+Started by the coordinator before the first worker and left running; workers never start their own, except to restart
+`make dev` after a Go binding change (below).
 
 - One loop at a time (#656): two loops on this checkout and its one `make dev` broke each other's
   whole-run probes. At the start of the run, before the pull, the coordinator runs
@@ -102,8 +140,17 @@ Started by the coordinator before the first worker and left running; workers nev
   (`<user cache>/Meld/loop.lock`, its pid and start time): stop the run and say so, without touching
   the issues. A lock whose process is gone is stale and is taken over. After the report (or when the
   run stops early, for any reason) it runs `bun probes/loop-lock.mjs release`. Workers never touch it.
-- `make dev`, in the background from Git Bash; healthy when `curl -s localhost:34115/wow/status`
-  answers. Read the dead-session trap in docs/TESTS.md first: the owner's own session may be half dead.
+- `make dev`, brought up through the probe runner: `make probe-smoke` (or `cd frontend && bun run
+  probe <any probe>`), which starts `make dev` detached when the server is down (log `meld-dev.log` in
+  the temp folder) and waits for it, so it outlives the run's shell. Never start it as a background task
+  of the agent harness: the harness stops those after 30 minutes, and a worker then found no server
+  (#277, #513, #321). Healthy when `curl -s localhost:34115/wow/status` answers. Read the dead-session
+  trap in docs/TESTS.md first: the owner's own session may be half dead.
+- After a worker changes a bound Go method, it restarts `make dev` before probing the new binding
+  (kill `wails.exe`, `Meld-dev.exe` and the two `bun` processes, then run any probe, which starts it
+  again): `wails dev` sometimes does not rebuild after a Go change (#319, #387), and the binding then
+  answers null or "is not a function". The runner warns of it (`staleBackend`, in
+  docs/reference/testing-notes.md).
 
 ## Priority lanes
 
