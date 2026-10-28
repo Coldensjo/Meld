@@ -288,6 +288,20 @@ The window layout, the asset browser and the dock panels and floating windows.
   place. Read inside a `$derived` (the menus, the Shortcuts dialog, the toolbar), `keysOf` follows the
   pref; `$effect(syncKeymap)` in App refills `CAMERA_KEYS` at once. `assignBinding` takes a key off
   every other row with the same press (a camera code clashes with the plain letter it types);
-  `refusal` keeps out modifiers, F5/F8/F12 and the plain keys the engine reads (Esc, Enter, Del,
-  arrows, PgUp/PgDn); `fixedClash` warns of H, R, T and Z, which the selection or a tool read first.
-  The rows without chords or codes (Del, H, R, arrows, Esc, Paint's T, the mouse) stay fixed.
+  `refusal` keeps out modifiers, F5/F8/F12, and the plain keys the engine reads (Esc, Enter, Del,
+  arrows, PgUp/PgDn) for any row but the engine's own.
+- **Own rows** (#711): the keys the selection, the tools and the engine read themselves (`own: true`:
+  `deleteSelected`, `hideSelected`, `spin`, `nudgeLeft/Right/Forward/Back`, `liftUp/liftDown`,
+  `escDeselect`, `spray`, `placeTilt`) have chords too, and their readers ask `pressed(id, e)`
+  instead of comparing `e.key` (`Engine.handleSelectionKey`, `SpawnActions.handleKey`, the Place,
+  Select, Path, Paint and Doodad brush tools' `onKey`, Engine's held-Z listener with `isKeyOf` on key
+  up). `commandFor` skips them; App's order (early chords, selection, tool, late chords) is unchanged.
+  An `anyShift` row matches with or without Shift (the reader's big step or other way) and takes no
+  Shift in its keys; Alt is never matched, so the readers keep it for their fine steps (Alt+arrows
+  spin and lift). Own rows take no Ctrl (App drops Ctrl presses before the selection), nor Tab, the
+  function keys or Enter; only `escDeselect` takes Esc. Between an own row and a command a key is
+  *shared*, not moved (Paint's T and Orbit / Flying View): `fixedClash` names the other row for the
+  dialog's note. Against a camera key or another own row it moves as usual. The cancel keys stay
+  raw `Escape`/`Enter`/`Backspace` (a paste, a Select outline, a pick, the dialogs). Rows that only
+  describe other rows' keys (`spinFine`, `placeNudge`, `placeLift`, `pasteLift`, `doodadSpin`) use
+  `like`, so their text follows a rebind. Only the mouse rows stay fixed.

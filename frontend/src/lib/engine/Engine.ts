@@ -199,7 +199,7 @@ import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
 import { copyItems, copyValue } from '../ui/copyId'
-import { firstKeyOf, keysOf } from '../ui/commands'
+import { firstKeyOf, isKeyOf, keysOf, pressed } from '../ui/commands'
 import { yieldToFrame } from './yieldToFrame'
 
 /** A world view's side (#15): the whole map, 64 tiles. */
@@ -1244,18 +1244,18 @@ export class Engine {
 		window.addEventListener('keydown', (e) => e.key === 'Alt' && (this.altHeld = true), sig)
 		window.addEventListener('keyup', (e) => e.key === 'Alt' && (this.altHeld = false), sig)
 		window.addEventListener('blur', () => (this.altHeld = this.tiltHeld = false), sig)
-		// Z held turns the wheel into tilt; not while typing (a z in a text field) or with Ctrl (undo).
+		// Z (the placeTilt row's key, #711) held turns the wheel into tilt; not while typing (a z in a text field) or with Ctrl (undo).
 		window.addEventListener(
 			'keydown',
 			(e) => {
-				if (e.code !== 'KeyZ' || e.ctrlKey || e.metaKey || e.altKey) return
+				if (e.altKey || !pressed('placeTilt', e)) return
 				const t = e.target as HTMLElement | null
 				if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
 				this.tiltHeld = true
 			},
 			sig,
 		)
-		window.addEventListener('keyup', (e) => e.code === 'KeyZ' && (this.tiltHeld = false), sig)
+		window.addEventListener('keyup', (e) => isKeyOf('placeTilt', e) && (this.tiltHeld = false), sig)
 		// Z+scroll tilts the selected models, or the placement preview, 5° per notch (Shift+Z+scroll rolls them).
 		// Ctrl+scroll rotates the placement preview (15° per notch), Shift+scroll scales it. Its height is
 		// PgUp / PgDn and its offset the arrows (PlaceTool.onKey): Alt is the pipette, so Alt+scroll clashed.
@@ -3144,7 +3144,7 @@ export class Engine {
 				items.push({ separator: true }, ...copyItems({ ids: uid !== undefined ? [{ what: 'unique id', id: uid }] : [] }))
 				if (path !== o.type) items.push({ label: 'Copy path', run: () => void copyValue(path, 'path') })
 			}
-			items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })
+			items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: firstKeyOf('deleteSelected'), danger: true, run: () => this.deleteSelected() })
 		}
 		ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
 		if (spawn) void this.spawnActions.addTeleports(spawn, seq, title)
@@ -5984,11 +5984,11 @@ export class Engine {
 			setStatus('Stopped the path test.', 2000)
 			return true
 		}
-		if (ui.pasting && this.lastCopied === 'area' && (e.key === 'r' || e.key === 'R')) {
+		if (ui.pasting && this.lastCopied === 'area' && pressed('spin', e)) {
 			this.rotateClip()
 			return true
 		}
-		if (ui.pasting && this.lastCopied === 'objects' && (e.key === 'r' || e.key === 'R')) {
+		if (ui.pasting && this.lastCopied === 'objects' && pressed('spin', e)) {
 			this.turnPastedModels((e.shiftKey ? 1 : -1) * THREE.MathUtils.degToRad(45))
 			return true
 		}
@@ -5998,43 +5998,50 @@ export class Engine {
 		const step = big ? 4 : 0.5
 		const lift = big ? 2 : 0.25
 		const spin = THREE.MathUtils.degToRad(e.altKey ? 5 : 15)
-		switch (e.key) {
-			case 'ArrowLeft':
-				if (e.altKey) this.nudgeSelected(0, 0, 0, spin)
-				else this.nudgeSelected(-step, 0, 0, 0)
-				return true
-			case 'ArrowRight':
-				if (e.altKey) this.nudgeSelected(0, 0, 0, -spin)
-				else this.nudgeSelected(step, 0, 0, 0)
-				return true
-			case 'ArrowUp':
-				if (e.altKey) this.nudgeSelected(0, 0, lift, 0)
-				else this.nudgeSelected(0, step, 0, 0)
-				return true
-			case 'ArrowDown':
-				if (e.altKey) this.nudgeSelected(0, 0, -lift, 0)
-				else this.nudgeSelected(0, -step, 0, 0)
-				return true
-			case 'PageUp':
-				this.nudgeSelected(0, 0, lift, 0)
-				return true
-			case 'PageDown':
-				this.nudgeSelected(0, 0, -lift, 0)
-				return true
-			case 'r':
-			case 'R':
-				this.nudgeSelected(0, 0, 0, e.shiftKey ? -spin : spin)
-				return true
-			case 'Delete':
-			case 'Backspace':
-				this.deleteSelected()
-				return true
-			case 'Escape':
-				selectObjects(this.objects, [])
-				return true
-			case 'h':
-				this.toggleHideSelected()
-				return true
+		// The keys are the shortcut table's own rows (#711), so the Hotkey Manager moves them; Alt and Shift stay the fine and big steps.
+		if (pressed('nudgeLeft', e)) {
+			if (e.altKey) this.nudgeSelected(0, 0, 0, spin)
+			else this.nudgeSelected(-step, 0, 0, 0)
+			return true
+		}
+		if (pressed('nudgeRight', e)) {
+			if (e.altKey) this.nudgeSelected(0, 0, 0, -spin)
+			else this.nudgeSelected(step, 0, 0, 0)
+			return true
+		}
+		if (pressed('nudgeForward', e)) {
+			if (e.altKey) this.nudgeSelected(0, 0, lift, 0)
+			else this.nudgeSelected(0, step, 0, 0)
+			return true
+		}
+		if (pressed('nudgeBack', e)) {
+			if (e.altKey) this.nudgeSelected(0, 0, -lift, 0)
+			else this.nudgeSelected(0, -step, 0, 0)
+			return true
+		}
+		if (pressed('liftUp', e)) {
+			this.nudgeSelected(0, 0, lift, 0)
+			return true
+		}
+		if (pressed('liftDown', e)) {
+			this.nudgeSelected(0, 0, -lift, 0)
+			return true
+		}
+		if (pressed('spin', e)) {
+			this.nudgeSelected(0, 0, 0, e.shiftKey ? -spin : spin)
+			return true
+		}
+		if (pressed('deleteSelected', e)) {
+			this.deleteSelected()
+			return true
+		}
+		if (pressed('escDeselect', e)) {
+			selectObjects(this.objects, [])
+			return true
+		}
+		if (pressed('hideSelected', e)) {
+			this.toggleHideSelected()
+			return true
 		}
 		return false
 	}

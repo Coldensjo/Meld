@@ -1,8 +1,10 @@
 // The editor's keyboard shortcuts in one table (#583). App.svelte's key handler matches a key press
 // against the rows that carry `chords` and runs that command (lib/ui/runCommand.ts), the menu bar
 // takes its shortcut text and its action from the same row by id, and Help › Keyboard Shortcuts
-// lists every row. A row with `codes` is a camera movement key CameraController holds. A row with
-// neither is a key the engine or a tool reads itself (or a mouse action): it is listed, and a menu
+// lists every row. A row with `codes` is a camera movement key CameraController holds. An `own` row
+// has chords the selection, a tool or the engine reads itself through `pressed` (#711: Del, H, R, the
+// arrows, PgUp/PgDn, Esc, Paint's T, the held Z), between the early and the late commands. A row with
+// none of these (a mouse action, or text made from other rows' keys with `like`) is listed, and a menu
 // may show its keys, but it is fixed.
 //
 // The chords and codes here are the defaults. The Hotkey Manager (#396) rebinds a row through the
@@ -35,6 +37,16 @@ export interface Shortcut {
 	readonly codes?: readonly string[]
 	/** The text shown, for a row without chords; a bound row's text is made from its chords. */
 	readonly keys?: string
+	/**
+	 * The selection, a tool or the engine reads this row's chords itself (`pressed`), after the early
+	 * chords and before the late ones (#711); App's key handler does not run it. It takes no Ctrl,
+	 * which never gets that far.
+	 */
+	readonly own?: boolean
+	/** An own row read with or without Shift (its bigger step or its other way): its chords take no Shift. */
+	readonly anyShift?: boolean
+	/** Text made from other rows' keys: `pre`, then each key of rows `ids` with `mod` before it, joined by ' / '. */
+	readonly like?: { readonly ids: readonly string[]; readonly mod?: string; readonly pre?: string }
 }
 
 const ctrl = (key: string, shift = false): Chord => ({ key, ctrl: true, shift })
@@ -66,7 +78,7 @@ const GENERAL = [
 	{ id: 'selectAll', group: 'File', desc: 'Select the whole map and its models (switches to the Select tool)', chords: [ctrl('a')] },
 	{ id: 'deselect', group: 'File', desc: 'Deselect', chords: [ctrl('d')] },
 	{ id: 'pastePlace', group: 'File', desc: 'Place / cancel a paste', keys: 'Enter / Esc' },
-	{ id: 'pasteLift', group: 'File', desc: 'Raise / lower the paste while placing', keys: 'PgUp / PgDn' },
+	{ id: 'pasteLift', group: 'File', desc: 'Raise / lower the paste while placing', like: { ids: ['liftUp', 'liftDown'] } },
 	{ id: 'bookmark', group: 'File', desc: "Bookmark the camera's spot (Camera › Bookmarks)", chords: [ctrl('b')] },
 
 	// The camera and the view.
@@ -107,30 +119,41 @@ const TOOL_KEYS = [
 	{ id: 'falloffSofter', group: 'Tools', desc: 'Brush falloff softer', chords: [key('{')] },
 	{ id: 'falloffHarder', group: 'Tools', desc: 'Brush falloff harder', chords: [key('}')] },
 	{ id: 'brushDrag', group: 'Tools', desc: 'Size the brush where it stands: sideways for the size, up and down for the falloff', keys: 'Alt+right-drag' },
-	{ id: 'spray', group: 'Tools', desc: 'Spray on / off (Paint tool)', keys: 'T' },
-	{ id: 'nudge', group: 'Tools', desc: 'Move selected object (camera-relative)', keys: 'Arrow keys' },
+	{ id: 'spray', group: 'Tools', desc: 'Spray on / off (Paint tool)', own: true, chords: [key('t')] },
+	{ id: 'nudgeForward', group: 'Tools', desc: 'Move selected object away from the camera (with Alt: raise it)', own: true, anyShift: true, chords: [key('arrowup')] },
+	{ id: 'nudgeBack', group: 'Tools', desc: 'Move selected object toward the camera (with Alt: lower it)', own: true, anyShift: true, chords: [key('arrowdown')] },
+	{ id: 'nudgeLeft', group: 'Tools', desc: 'Move selected object left, as the camera sees it', own: true, anyShift: true, chords: [key('arrowleft')] },
+	{ id: 'nudgeRight', group: 'Tools', desc: 'Move selected object right, as the camera sees it', own: true, anyShift: true, chords: [key('arrowright')] },
 	{ id: 'snapGround', group: 'Tools', desc: 'Put the selected models back on the ground', chords: [ctrl('pagedown')] },
-	{ id: 'lift', group: 'Tools', desc: 'Raise / lower selected object', keys: 'Alt+↑ / Alt+↓, PgUp / PgDn' },
-	{ id: 'spinFine', group: 'Tools', desc: 'Spin selected object 5°', keys: 'Alt+← / Alt+→' },
-	{ id: 'spin', group: 'Tools', desc: 'Spin selected object 15° (or the placement preview)', keys: 'R / Shift+R' },
-	{ id: 'bigSteps', group: 'Tools', desc: 'Bigger steps', keys: 'Shift + arrows' },
+	{ id: 'liftUp', group: 'Tools', desc: 'Raise selected object (also the placement preview and a paste)', own: true, anyShift: true, chords: [key('pageup')] },
+	{ id: 'liftDown', group: 'Tools', desc: 'Lower selected object (also the placement preview and a paste)', own: true, anyShift: true, chords: [key('pagedown')] },
+	{ id: 'spinFine', group: 'Tools', desc: 'Spin selected object 5°', like: { ids: ['nudgeLeft', 'nudgeRight'], mod: 'Alt+' } },
+	{ id: 'spin', group: 'Tools', desc: 'Spin selected object 15°, with Shift the other way (or the placement preview, the doodad brush or a paste)', own: true, anyShift: true, chords: [key('r')] },
+	{ id: 'bigSteps', group: 'Tools', desc: 'Bigger steps (held with the move, raise and spin keys)', keys: 'Shift' },
 	{ id: 'resetRotation', group: 'Tools', desc: 'Stand the selected models upright (their tilt goes, their heading stays)', chords: [ctrl('r')] },
 	{ id: 'group', group: 'Tools', desc: 'Group the selected models, so a click selects them all', chords: [ctrl('g')] },
 	{ id: 'ungroup', group: 'Tools', desc: 'Ungroup the selected models', chords: [ctrl('g', true)] },
 	{ id: 'placeSpin', group: 'Tools', desc: 'Rotate the placement preview (Place tool)', keys: 'Ctrl+scroll' },
-	{ id: 'placeTilt', group: 'Tools', desc: 'Tilt / roll the selected models 5° a notch, or the placement preview with nothing selected (Place tool); all the way round', keys: 'Z+scroll, Shift+Z+scroll' },
-	{ id: 'placeLift', group: 'Tools', desc: 'Raise / lower the placement preview (Place tool, nothing selected)', keys: 'PgUp / PgDn' },
-	{ id: 'placeNudge', group: 'Tools', desc: 'Move the placement preview away from the cursor (Place tool, nothing selected; Shift for bigger steps)', keys: 'Arrow keys' },
+	{
+		id: 'placeTilt',
+		group: 'Tools',
+		desc: 'Held while scrolling: tilt the selected models 5° a notch (with Shift: roll them), or the placement preview with nothing selected (Place tool); all the way round',
+		own: true,
+		anyShift: true,
+		chords: [key('z')],
+	},
+	{ id: 'placeLift', group: 'Tools', desc: 'Raise / lower the placement preview (Place tool, nothing selected)', like: { ids: ['liftUp', 'liftDown'] } },
+	{ id: 'placeNudge', group: 'Tools', desc: 'Move the placement preview away from the cursor (Place tool, nothing selected; Shift for bigger steps)', like: { ids: ['nudgeForward', 'nudgeLeft', 'nudgeBack', 'nudgeRight'] } },
 	{ id: 'placeScale', group: 'Tools', desc: 'Scale the placement preview (Place tool; doodads only, the client draws buildings at full size)', keys: 'Shift+scroll' },
 	{ id: 'scatter', group: 'Tools', desc: 'Scatter (Place tool)', keys: 'Shift+drag' },
-	{ id: 'doodadSpin', group: 'Tools', desc: 'Spin the preview about the brush (Doodad brush tool)', keys: 'Ctrl+scroll, R' },
+	{ id: 'doodadSpin', group: 'Tools', desc: 'Spin the preview about the brush (Doodad brush tool)', like: { pre: 'Ctrl+scroll, ', ids: ['spin'] } },
 	{ id: 'doodadStack', group: 'Tools', desc: 'Stack models on top of each other, ignoring the spacing (Doodad brush tool)', keys: 'Shift+drag' },
 	{ id: 'doodadErase', group: 'Tools', desc: "Erase the brush's models (Doodad brush tool)", keys: 'Ctrl+drag' },
-	{ id: 'deleteSelected', group: 'Tools', desc: 'Delete the selected models', keys: 'Del' },
+	{ id: 'deleteSelected', group: 'Tools', desc: 'Delete the selected models (or spawn, or path point)', own: true, chords: [key('delete'), key('backspace')] },
 	{ id: 'duplicate', group: 'Tools', desc: 'Duplicate the selected models in place', chords: [ctrl('d', true)] },
-	{ id: 'hideSelected', group: 'Tools', desc: 'Hide the selected models', keys: 'H' },
+	{ id: 'hideSelected', group: 'Tools', desc: 'Hide the selected models', own: true, chords: [key('h')] },
 	{ id: 'unhideAll', group: 'Tools', desc: 'Unhide all models', chords: [shift('h')] },
-	{ id: 'escDeselect', group: 'Tools', desc: 'Deselect', keys: 'Esc' },
+	{ id: 'escDeselect', group: 'Tools', desc: 'Deselect (a paste, an outline, a pick and the dialogs keep Esc to cancel)', own: true, chords: [key('escape')] },
 	{ id: 'grid', group: 'Tools', desc: 'Toggle grid', chords: [key('g')] },
 	{ id: 'inspector', group: 'Tools', desc: "Inspector: the selected model's placement numbers and actions (Esc closes it)", chords: [key('i')] },
 	{ id: 'uiName', group: 'Tools', desc: 'Name the part of the UI under the cursor (for bug reports)', keys: 'Hold F8' },
@@ -140,7 +163,9 @@ const TOOL_KEYS = [
 type Row = (typeof GENERAL)[number] | (typeof TOOL_KEYS)[number]
 type ToolCommand = `tool:${ToolId}`
 /** A command App's key handler binds: a row with chords, or a tool's key. */
-export type CommandId = Extract<Row, { chords: readonly Chord[] }>['id'] | ToolCommand
+export type CommandId = Exclude<Extract<Row, { chords: readonly Chord[] }>, { own: true }>['id'] | ToolCommand
+/** A key the selection, a tool or the engine reads itself, through `pressed`. */
+export type OwnKeyId = Extract<Row, { own: true }>['id']
 /** A camera movement CameraController holds while its key is down. */
 export type CameraMove = Extract<Row, { codes: readonly string[] }>['id']
 /** Any row of the table. */
@@ -299,7 +324,7 @@ function build(km: Keymap | undefined): Effective {
 		if (s.chords) {
 			const chords = rowChords(s, km)
 			out.chords.set(s.id, chords)
-			if (chords.length) out.bound.push({ id: s.id as CommandId, chords })
+			if (chords.length && !s.own) out.bound.push({ id: s.id as CommandId, chords })
 		} else if (s.codes) {
 			const codes = rowCodes(s, km)
 			out.codes.set(s.id, codes)
@@ -344,6 +369,10 @@ export function keysOf(id: ShortcutId): string {
 	if (!s) return ''
 	if (s.keys) return s.keys
 	const e = current()
+	if (s.like) {
+		const keys = s.like.ids.flatMap((r) => (e.chords.get(r) ?? []).filter((c) => !c.hidden).map((c) => (s.like?.mod ?? '') + chordLabel(c)))
+		return keys.length ? (s.like.pre ?? '') + keys.join(' / ') : ''
+	}
 	if (s.codes) return (e.codes.get(id) ?? []).map(codeLabel).join(' / ')
 	return (e.chords.get(id) ?? [])
 		.filter((c) => !c.hidden)
@@ -385,6 +414,26 @@ export function isEarly(c: Chord): boolean {
 	return !!c.ctrl || /^f\d+$/.test(c.key) || c.key === 'tab'
 }
 
+/**
+ * Whether key event `e` is one of own row `id`'s keys (#711): the selection, the tools and the engine
+ * ask this instead of comparing `e.key`. An `anyShift` row matches with or without Shift (the reader
+ * takes Shift as its bigger step); Alt is never looked at, so the readers keep it for their fine steps.
+ */
+export function pressed(id: OwnKeyId, e: KeyLike): boolean {
+	const any = BY_ID.get(id)?.anyShift
+	const k = e.key.toLowerCase()
+	for (const c of current().chords.get(id) ?? []) {
+		if (any ? !(e.ctrlKey || e.metaKey) && k === c.key : chordMatches(c, e)) return true
+	}
+	return false
+}
+
+/** Whether key event `e` (a key up, with any modifiers) is the key of one of own row `id`'s chords. */
+export function isKeyOf(id: OwnKeyId, e: Pick<KeyboardEvent, 'key'>): boolean {
+	const k = e.key.toLowerCase()
+	return (current().chords.get(id) ?? []).some((c) => c.key === k)
+}
+
 /** The command bound to key event `e` among the early chords (`early`) or the later ones, or null. */
 export function commandFor(e: KeyLike, early: boolean): CommandId | null {
 	for (const s of current().bound) for (const c of s.chords) if (isEarly(c) === early && chordMatches(c, e)) return s.id
@@ -411,6 +460,16 @@ export function isBindable(id: string): boolean {
 }
 
 const isCamera = (id: string) => !!BY_ID.get(id)?.codes
+
+/** Whether row `id` is a key the selection, a tool or the engine reads itself (#711). */
+export const isOwnKey = (id: string) => !!BY_ID.get(id)?.own
+
+/**
+ * Whether a key of row `a` and one of row `b` are shared rather than taken from one another: an own
+ * row and a command, where the selection or the tool reads the key first and the command runs when
+ * they don't (Paint's T and Orbit / Flying View, #711).
+ */
+const shares = (a: string, b: string) => isOwnKey(a) !== isOwnKey(b) && !isCamera(a) && !isCamera(b)
 
 /** Row `id`'s keys after the user's changes in `km`, as the keymap stores them. */
 export function bindingsOf(id: string, km?: Keymap): string[] {
@@ -456,7 +515,8 @@ function clash(idA: string, a: string, idB: string, b: string): boolean {
 	}
 	const ca = parseChord(a)
 	const cb = parseChord(b)
-	return !!ca && !!cb && ca.key === cb.key && !!ca.ctrl === !!cb.ctrl && (isSymbol(ca.key) || !!ca.shift === !!cb.shift)
+	const anyShift = !!BY_ID.get(idA)?.anyShift || !!BY_ID.get(idB)?.anyShift
+	return !!ca && !!cb && ca.key === cb.key && !!ca.ctrl === !!cb.ctrl && (anyShift || isSymbol(ca.key) || !!ca.shift === !!cb.shift)
 }
 
 /**
@@ -468,7 +528,7 @@ export function assignBinding(km: Keymap | undefined, id: string, binding: strin
 	const moved: string[] = []
 	let out: Keymap = { ...km }
 	for (const s of SHORTCUTS) {
-		if (s.id === id || !isBindable(s.id)) continue
+		if (s.id === id || !isBindable(s.id) || shares(id, s.id)) continue
 		const keys = bindingsOf(s.id, out)
 		const kept = keys.filter((k) => !clash(id, binding, s.id, k))
 		if (kept.length === keys.length) continue
@@ -527,7 +587,7 @@ const MODIFIERS = new Set(['control', 'shift', 'alt', 'altgraph', 'meta', 'os', 
 /** Keys the window keeps (reload, dev tools) and F8, which names the UI under the cursor. */
 const WINDOW_KEYS = new Set(['f5', 'f8', 'f12'])
 
-/** Keys the selection, the tools and the dialogs read themselves, plain. */
+/** Keys the selection, the tools and the dialogs read themselves, plain: only their own rows (#711) take them. */
 const ENGINE_KEYS = new Set(['escape', 'enter', 'delete', 'backspace', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'pageup', 'pagedown'])
 
 /** Why `binding` cannot go on row `id`, or null when it can. */
@@ -545,26 +605,27 @@ export function refusal(id: string, binding: string): string | null {
 	}
 	if (MODIFIERS.has(k)) return 'Press a key, with or without Ctrl and Shift.'
 	if (WINDOW_KEYS.has(k)) return k === 'f8' ? 'F8 is kept for naming the UI under the cursor.' : `${k.toUpperCase()} is kept by the window.`
-	if (!ctrl && ENGINE_KEYS.has(k)) return `${chordLabel({ key: k })} is read by the selection, the tools and the dialogs, and stays fixed.`
+	if (isOwnKey(id)) {
+		if (k === 'enter' || (k === 'escape' && id !== 'escDeselect')) return `${chordLabel({ key: k })} is kept for placing and cancelling.`
+		if (isEarly({ key: k })) return `${chordLabel({ key: k })} is read before the selection and the tools.`
+		if (BY_ID.get(id)?.anyShift && isSymbol(k)) return 'Shift changes that key, and this one is read with Shift too: pick a letter, a digit or a named key.'
+		return null
+	}
+	if (!ctrl && ENGINE_KEYS.has(k)) return `${chordLabel({ key: k })} is read by the selection, the tools and the dialogs: only their own rows take it.`
 	return null
 }
 
-/** Plain keys a fixed row reads (the engine and the tools see them first): the row's id. */
-const FIXED_KEYS: Record<string, string> = { h: 'hideSelected', r: 'spin', t: 'spray', z: 'placeTilt' }
-
 /**
- * The fixed row that also reads `binding` on row `id`, for a warning: the selection or a tool takes
- * that key first, so the command runs only when they don't (H with no model selected).
+ * The row that shares `binding` with row `id` (`shares`), for a warning: for a command, the own row
+ * that reads the key first when it applies (H with a model selected); for an own row, the command
+ * that runs when it doesn't. Null when none does.
  */
-export function fixedClash(id: string, binding: string): Shortcut | null {
-	let k: string | undefined
-	if (isCamera(id)) k = codeKey(binding)
-	else {
-		const c = parseChord(binding)
-		if (c && !c.ctrl) k = c.key
+export function fixedClash(id: string, binding: string, km?: Keymap): Shortcut | null {
+	for (const s of SHORTCUTS) {
+		if (s.id === id || !isBindable(s.id) || !shares(id, s.id)) continue
+		if (bindingsOf(s.id, km).some((k) => clash(id, binding, s.id, k))) return s
 	}
-	const row = k !== undefined ? FIXED_KEYS[k] : undefined
-	return row ? (BY_ID.get(row) ?? null) : null
+	return null
 }
 
 /** The binding a key press makes for row `id` (a code for a camera row, a chord's text otherwise), or why it makes none. */
@@ -573,6 +634,10 @@ export function bindingFromEvent(id: string, e: KeyLike & { altKey: boolean }): 
 	if (isCamera(id)) {
 		if (e.ctrlKey || e.metaKey) return { error: 'The camera keys take no Ctrl (Ctrl+Shift is very fast).' }
 		return { binding: e.code }
+	}
+	if (isOwnKey(id)) {
+		if (e.ctrlKey || e.metaKey) return { error: 'The selection and the tools read their keys without Ctrl.' }
+		if (BY_ID.get(id)?.anyShift) return { binding: chordText({ key: e.key.toLowerCase() }) }
 	}
 	return { binding: chordText({ key: e.key.toLowerCase(), ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey }) }
 }

@@ -1,3 +1,4 @@
+import { pressed } from '../ui/commands'
 import * as THREE from 'three'
 import { HOLE_CELL, HOLE_NONE, fillHoles, snapToBlocks } from '../terrain/holes'
 import { editor as liveEditor, setStatus, ui, type SculptMode, type ToolSettings } from '../state/editor.svelte'
@@ -1026,7 +1027,7 @@ export class PaintTool extends BrushTool {
 	}
 
 	onKey(_ctx: ToolContext, e: KeyboardEvent) {
-		if (e.key !== 't' && e.key !== 'T') return false
+		if (!pressed('spray', e)) return false
 		editor.paintSpray = !editor.paintSpray
 		if (editor.paintSpray) editor.paintMode = 'texture'
 		setStatus(editor.paintSpray ? 'Spray on' : 'Spray off', 1500)

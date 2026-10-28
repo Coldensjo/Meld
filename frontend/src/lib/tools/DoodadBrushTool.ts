@@ -1,3 +1,4 @@
+import { pressed } from '../ui/commands'
 import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import { editor, prefs, setStatus, setViewportHint } from '../state/editor.svelte'
@@ -170,7 +171,7 @@ export class DoodadBrushTool implements Tool {
 
 	onKey(_ctx: ToolContext, e: KeyboardEvent) {
 		if (this.creatures) return false
-		if (e.key === 'r' || e.key === 'R') {
+		if (pressed('spin', e)) {
 			this.spinPreview((e.shiftKey ? -1 : 1) * (Math.PI / 4))
 			return true
 		}

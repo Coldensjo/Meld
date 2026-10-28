@@ -10,6 +10,7 @@
 		fixedClash,
 		isBindable,
 		isModifierKey,
+		isOwnKey,
 		isRebound,
 		keysOf,
 		refusal,
@@ -77,8 +78,9 @@
 		const { keymap, moved } = assignBinding(prefs.keymap, cap.id, r.binding, cap.index)
 		prefs.keymap = keymap
 		const label = bindingLabel(cap.id, r.binding)
-		const fixed = fixedClash(cap.id, r.binding)
-		note = [moved.length ? `${label} moved here from: ${moved.map(descOf).join('; ')}.` : `${label} set.`, fixed ? `“${fixed.desc}” reads ${label} first when it applies.` : ''].join(' ').trim()
+		const fixed = fixedClash(cap.id, r.binding, keymap)
+		const shared = fixed ? (isOwnKey(cap.id) ? `This reads ${label} first when it applies; “${fixed.desc}” runs otherwise.` : `“${fixed.desc}” reads ${label} first when it applies.`) : ''
+		note = [moved.length ? `${label} moved here from: ${moved.map(descOf).join('; ')}.` : `${label} set.`, shared].join(' ').trim()
 		cap = null
 	}
 
@@ -120,8 +122,8 @@
 
 <Modal title="Hotkey Manager" width={680} {onclose}>
 	<p class="dim">
-		Click a key to change it, + to add one, × to clear it. A key given to one command leaves any other that had it. The keys the selection and the tools read themselves (Del, H, R, the arrows, Esc, PgUp/PgDn) and the mouse stay fixed.
-		The changes are saved at once.
+		Click a key to change it, + to add one, × to clear it. A key given to one command leaves any other that had it, except between a key the selection or a tool reads (Del, H, R, the arrows, Esc, PgUp/PgDn, Paint's T, the held Z) and a
+		command: they share it, and the selection or the tool takes it first when it applies. The mouse stays fixed. The changes are saved at once.
 	</p>
 	<input class="filter" type="search" placeholder="Filter by name or key" bind:value={filter} aria-label="Filter the shortcuts" />
 	{#each sections as [group, rows] (group)}

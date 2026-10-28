@@ -72,7 +72,7 @@ test('picking spawns into a pool joins and leaves it, one undo step each', () =>
 })
 
 /** A key press as handleKey reads it (bun has no KeyboardEvent). */
-const key = (k: string) => ({ key: k, altKey: false, shiftKey: false }) as KeyboardEvent
+const key = (k: string) => ({ key: k, code: '', altKey: false, shiftKey: false, ctrlKey: false, metaKey: false }) as KeyboardEvent
 
 test('the spawn keys: Esc stops placing, Delete removes the selected spawn undoably', () => {
 	const t = tab([spawn('object', 5)])

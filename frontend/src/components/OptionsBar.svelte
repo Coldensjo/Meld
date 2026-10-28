@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { firstKeyOf } from '../lib/ui/commands'
 	import OptSlider from './OptSlider.svelte'
 	import ScriptBrushBar from './ScriptBrushBar.svelte'
 	import { TOOLS } from './Toolbar.svelte'
@@ -798,7 +799,7 @@
 				{#if count}
 					<button onclick={() => engineRef.current?.duplicateSelected()} title="Put a copy of the selected models down next to them">Duplicate <kbd>Ctrl+Shift+D</kbd></button>
 					<button onclick={() => engineRef.current?.focusSelected()}>Focus <kbd>F</kbd></button>
-					<button onclick={() => engineRef.current?.deleteSelected()}>Delete <kbd>Del</kbd></button>
+					<button onclick={() => engineRef.current?.deleteSelected()}>Delete <kbd>{firstKeyOf('deleteSelected')}</kbd></button>
 				{/if}
 				{#if count || editor.selection}
 					<button onclick={() => engineRef.current?.deselect()}>Deselect <kbd>Esc</kbd></button>

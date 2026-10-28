@@ -20,6 +20,9 @@ import {
 	fixedClash,
 	isBindable,
 	isEarly,
+	isKeyOf,
+	isOwnKey,
+	pressed,
 	isRebound,
 	keyHint,
 	keysOf,
@@ -59,10 +62,16 @@ describe('shortcut table', () => {
 		for (const s of SHORTCUTS) expect(keysOf(s.id as ShortcutId)).not.toBe('')
 	})
 
-	test('no two commands share a chord', () => {
+	test('no two commands share a chord, nor two own rows', () => {
 		const seen = new Map<string, string>()
 		for (const s of SHORTCUTS)
 			for (const c of s.chords ?? []) {
+				if (s.own) {
+					const sig = `own:${c.key}`
+					expect(seen.get(sig) ?? s.id).toBe(s.id)
+					seen.set(sig, s.id)
+					continue
+				}
 				const sig = `${c.ctrl ? 'C' : ''}${c.shift ? 'S' : ''}:${c.key}`
 				expect(seen.get(sig) ?? s.id).toBe(s.id)
 				seen.set(sig, s.id)
@@ -74,6 +83,10 @@ describe('shortcut table', () => {
 			for (const c of s.chords ?? []) {
 				const e = press(c.key.length > 1 ? c.key[0].toUpperCase() + c.key.slice(1) : c.key, { ctrl: c.ctrl, shift: c.shift })
 				expect(chordMatches(c, e)).toBe(true)
+				if (s.own) {
+					expect(pressed(s.id as never, e)).toBe(true)
+					continue
+				}
 				expect(commandFor(e, isEarly(c))).toBe(s.id as never)
 			}
 	})
@@ -162,7 +175,12 @@ describe('rebinding (#396)', () => {
 		expect(bindingsOf('camForward')).toEqual(['KeyW'])
 		expect(bindingsOf('camDown')).toEqual(['KeyX', 'KeyC'])
 		expect(CAMERA_KEYS.camUp).toEqual(['Space'])
-		expect(isBindable('deleteSelected')).toBe(false)
+		expect(isBindable('deleteSelected')).toBe(true)
+		expect(isBindable('spinFine')).toBe(false)
+		expect(bindingsOf('deleteSelected')).toEqual(['delete', 'backspace'])
+		expect(keysOf('spinFine')).toBe('Alt+← / Alt+→')
+		expect(keysOf('placeNudge')).toBe('↑ / ← / ↓ / →')
+		expect(keysOf('doodadSpin')).toBe('Ctrl+scroll, R')
 		expect(isBindable('grid')).toBe(true)
 		expect(isBindable('camTurnLeft')).toBe(true)
 	})
@@ -259,7 +277,65 @@ describe('rebinding (#396)', () => {
 		expect(refusal('camForward', 'KeyI')).toBe(null)
 		expect(fixedClash('grid', 'h')?.id).toBe('hideSelected')
 		expect(fixedClash('grid', 'ctrl+h')).toBe(null)
-		expect(fixedClash('camForward', 'KeyR')?.id).toBe('spin')
+		expect(fixedClash('grid', 'shift+r')?.id).toBe('spin')
+		expect(fixedClash('camForward', 'KeyR')).toBe(null)
+		expect(fixedClash('hideSelected', 'g')?.id).toBe('grid')
+		expect(fixedClash('spray', 't')?.id).toBe('followGround')
+	})
+
+	test('the keys the selection and the tools read move like the rest (#711)', () => {
+		let km: Keymap = {}
+		bindKeymap(() => km)
+		try {
+			expect(pressed('deleteSelected', press('Delete'))).toBe(true)
+			expect(pressed('deleteSelected', press('Backspace'))).toBe(true)
+			expect(pressed('spin', press('R', { shift: true }))).toBe(true)
+			expect(pressed('spin', press('r', { ctrl: true }))).toBe(false)
+			expect(pressed('hideSelected', press('H', { shift: true }))).toBe(false)
+			expect(pressed('nudgeLeft', press('ArrowLeft', { shift: true }))).toBe(true)
+
+			// Delete on X: it leaves the camera's Fly down, and Delete no longer deletes.
+			const r = assignBinding(km, 'deleteSelected', 'x', 0)
+			expect(r.moved).toEqual(['camDown'])
+			km = r.keymap
+			expect(bindingsOf('camDown', km)).toEqual(['KeyC'])
+			expect(pressed('deleteSelected', press('x'))).toBe(true)
+			expect(pressed('deleteSelected', press('Delete'))).toBe(false)
+			expect(keysOf('deleteSelected')).toBe('X / Backspace')
+
+			// A command given T shares it with Paint's spray rather than taking it.
+			const t = assignBinding(km, 'grid', 't')
+			expect(t.moved).toEqual(['followGround'])
+			expect(bindingsOf('spray', t.keymap)).toEqual(['t'])
+
+			// Spin on Y: Shift+Y spins the other way, and a command with Shift+Y shares it.
+			km = assignBinding(km, 'spin', 'y', 0).keymap
+			expect(pressed('spin', press('Y', { shift: true }))).toBe(true)
+			expect(keysOf('doodadSpin')).toBe('Ctrl+scroll, Y')
+			expect(isKeyOf('placeTilt', press('Z', { ctrl: true }))).toBe(true)
+			// Two own rows take a key from one another.
+			expect(assignBinding(km, 'hideSelected', 'y').moved).toEqual(['spin'])
+		} finally {
+			bindKeymap(() => undefined)
+		}
+		expect(pressed('deleteSelected', press('Delete'))).toBe(true)
+	})
+
+	test('an own row refuses the keys read before it, and takes no Ctrl', () => {
+		const ev = (key: string, m: { ctrl?: boolean; shift?: boolean } = {}) => ({ key, code: '', ctrlKey: !!m.ctrl, metaKey: false, shiftKey: !!m.shift, altKey: false })
+		expect(isOwnKey('spin')).toBe(true)
+		expect(isOwnKey('grid')).toBe(false)
+		expect(refusal('deleteSelected', 'arrowup')).toBe(null)
+		expect(refusal('escDeselect', 'escape')).toBe(null)
+		expect(refusal('hideSelected', 'escape')).not.toBe(null)
+		expect(refusal('hideSelected', 'enter')).not.toBe(null)
+		expect(refusal('hideSelected', 'f6')).not.toBe(null)
+		expect(refusal('hideSelected', 'tab')).not.toBe(null)
+		expect(refusal('spin', '[')).not.toBe(null)
+		expect(refusal('hideSelected', '[')).toBe(null)
+		expect(bindingFromEvent('spin', ev('R', { shift: true }))).toEqual({ binding: 'r' })
+		expect(bindingFromEvent('hideSelected', ev('H', { shift: true }))).toEqual({ binding: 'shift+h' })
+		expect(bindingFromEvent('hideSelected', ev('h', { ctrl: true }))).toHaveProperty('error')
 	})
 
 	test('a key press makes a chord, or a code for the camera', () => {

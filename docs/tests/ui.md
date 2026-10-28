@@ -675,14 +675,16 @@ reads the key follows.
   before the keymap, chord text round-trips, a keymap moves a command and the camera
   (`bindKeymap`/`syncKeymap`), a key given to one row leaves the others (Shift+N vs N, `{`, camera
   codes vs letters), a row put back on its default leaves the keymap, a bad entry keeps the default,
-  the refused keys, and a key press turned into a chord or a code. `tests/prefs.test.ts` checks the
+  the refused keys, and a key press turned into a chord or a code; the own rows (#711): `pressed`
+  with and without Shift, Delete moved to X, T shared with a command, an own row's refused keys. `tests/prefs.test.ts` checks the
   pref's shape.
 - `bun run probe hotkey-manager`: the dialog's capture button takes Ctrl+K for Show grid without the
   map seeing it, Sculpt's chip moved to L, the camera's forward key to I (taken off the Inspector,
   with the note saying so), Delete refused and Esc cancelling; then Ctrl+K toggles the grid, L picks
   Sculpt and 2 no longer does, View › Show grid shows "G / Ctrl+K", the toolbar shows L, the
   Shortcuts dialog the new keys, the camera flies on I and not W, and Reset all puts every default
-  back. The probe page runs with `?nosave`, so the owner's keymap is never touched; it sets
+  back. Delete moved to X (#711): X deletes the selected model, Delete no longer does, and X left
+  Fly down. The probe page runs with `?nosave`, so the owner's keymap is never touched; it sets
   `prefs.keymap = {}` at the start and end.
 - Preferences › Camera and input › Q / E fly up and down (#725) is only a keymap rewrite (`setFlyOnQE`, checked state `flyOnQE`): Q joins Fly up, E joins Fly down, the turns lose them; off gives them back. Tested in `tests/shortcuts.test.ts` ("Q/E fly switch"). Fly up/down only act with Follow the Ground off, as Space does.
 - Not in the probe: a reload keeping the keys (the page doesn't save). In `make dev`'s window, rebind

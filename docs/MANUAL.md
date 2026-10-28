@@ -8,8 +8,9 @@ items, spells and world-table changes, follow
 
 Keys below are defaults. Open **Edit › Preferences…** (`Ctrl+,`), then **Camera and input ›
 Keyboard shortcuts**, to launch the Hotkey Manager and change command and camera bindings;
-**Help › Keyboard Shortcuts** shows the current ones. Mouse gestures and certain tool-local keys
-such as Delete, R, arrows and Escape remain fixed.
+**Help › Keyboard Shortcuts** shows the current ones. Delete, H, R, the arrows, PgUp/PgDn, Esc,
+Paint's T and the held Z can be moved too; mouse gestures, and Enter and Esc for placing and
+cancelling a paste or an outline, remain fixed.
 
 Jump to [tools](#tool-reference), [generation](#start-with-generated-ground),
 [exchange](#exchange-images-models-and-brushes), [map checks](#check-a-map-before-compiling) or

@@ -1,5 +1,5 @@
-// The Hotkey Manager (#396): a key pressed on a row's "+" rebinds it, and the key handler, View › Show grid's shortcut text, the toolbar's key, the Shortcuts dialog and the camera all follow; a key taken from another command leaves it, and Reset all puts every default back.
-// touches: frontend/src/components/HotkeyManager.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/engine/CameraController.ts, frontend/src/components/Toolbar.svelte, frontend/src/components/AppDialogs.svelte
+// The Hotkey Manager (#396): a key pressed on a row's "+" rebinds it, Delete moves to X and X deletes the selected model (#711), and the key handler, View › Show grid's shortcut text, the toolbar's key, the Shortcuts dialog and the camera all follow; a key taken from another command leaves it, and Reset all puts every default back.
+// touches: frontend/src/components/HotkeyManager.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/engine/CameraController.ts, frontend/src/components/Toolbar.svelte, frontend/src/components/AppDialogs.svelte
 // tier: full
 const e = P.e
 const { ui, editor, prefs } = await P.state()
@@ -90,6 +90,26 @@ const hold = async (code, key) => {
 }
 r.flyOnI = (await hold('KeyI', 'i')) > 0.01
 r.notOnW = (await hold('KeyW', 'w')) < 1e-6
+
+// Delete moved to X (#711): X deletes the selected model, Delete no longer does, and X left Fly down.
+ui.dialog = 'hotkeys'
+await P.frames(3)
+row('deleteSelected').querySelector('.chip .key').click()
+await P.frames(2)
+press(row('deleteSelected').querySelector('.capture'), 'x', { code: 'KeyX' })
+await P.frames(2)
+r.deleteOnX = cmds.keysOf('deleteSelected') === 'X / Backspace' && !cmds.CAMERA_KEYS.camDown.includes('KeyX')
+ui.dialog = null
+await P.frames(2)
+const sel = await P.app('/src/lib/state/selection.ts')
+editor.tool = 'select'
+const model = e.objects.add({ type: 'm2:probe', x: 100, z: 100, yOff: 0, rotY: 0, scale: 1 })
+const exists = () => e.objects.list().some((o) => o.id === model.id)
+sel.selectObjects(e.objects, [model.id])
+press(document.body, 'Delete', { code: 'Delete' })
+r.deleteKeyFreed = exists()
+press(document.body, 'x', { code: 'KeyX' })
+r.xDeletes = !exists()
 
 // Reset all.
 ui.dialog = 'hotkeys'

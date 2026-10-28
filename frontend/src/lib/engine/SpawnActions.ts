@@ -7,6 +7,7 @@ import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import type { TriggerDestination } from '../world/areaTriggers'
 import { spawnType } from '../world/spawnInfo'
 import { copyItems } from '../ui/copyId'
+import { firstKeyOf, pressed } from '../ui/commands'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields } from '../world/pools'
@@ -482,7 +483,7 @@ export class SpawnActions {
 		// Copy id (#681): the template's entry and this placement's guid (none yet for a new spawn).
 		const ids = [{ what: `${kind} entry`, id: spawn.entry }, ...(spawn.guid > 0 ? [{ what: 'spawn guid', id: spawn.guid }] : [])]
 		items.push({ separator: true }, ...copyItems({ ids, name: spawn.name }))
-		items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
+		items.push({ separator: true }, { label: 'Delete spawn', shortcut: firstKeyOf('deleteSelected'), danger: true, run: () => this.deleteSelectedSpawn() })
 		return { title, items }
 	}
 
@@ -538,26 +539,24 @@ export class SpawnActions {
 				ui.pathEdit = false
 				return true
 			}
-			if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selectedWaypoint >= 0) {
+			if (pressed('deleteSelected', e) && editor.selectedWaypoint >= 0) {
 				this.deletePathPoint()
 				return true
 			}
 		}
-		switch (e.key) {
-			case 'r':
-			case 'R': {
-				const spin = THREE.MathUtils.degToRad(e.altKey ? 5 : 15) * (e.shiftKey ? -1 : 1)
-				const o = spawnOrientation(spawnRotation(sel.orientation) + spin)
-				void this.editSpawn(spawnKey(sel), { orientation: o }, `Turn ${sel.name}`)
-				return true
-			}
-			case 'Delete':
-			case 'Backspace':
-				this.deleteSelectedSpawn()
-				return true
-			case 'Escape':
-				selectSpawn(null)
-				return true
+		if (pressed('spin', e)) {
+			const spin = THREE.MathUtils.degToRad(e.altKey ? 5 : 15) * (e.shiftKey ? -1 : 1)
+			const o = spawnOrientation(spawnRotation(sel.orientation) + spin)
+			void this.editSpawn(spawnKey(sel), { orientation: o }, `Turn ${sel.name}`)
+			return true
+		}
+		if (pressed('deleteSelected', e)) {
+			this.deleteSelectedSpawn()
+			return true
+		}
+		if (pressed('escDeselect', e)) {
+			selectSpawn(null)
+			return true
 		}
 		return false
 	}

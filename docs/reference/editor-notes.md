@@ -157,8 +157,9 @@ Also included:
   cache, camera speed, mouse sensitivity, interface size, toolbar icon size and side, invert camera Y,
   tablet support, and the **Hotkey Manager**: every command and camera movement key with its keys,
   changed with a click and a key press, cleared or reset (a key given to one command leaves any other
-  that had it). The keys the selection and the tools read themselves (Del, H, R, the arrows, Esc) and
-  the mouse stay fixed. The menus, the toolbar and Help › Keyboard Shortcuts show the keys you set.
+  that had it). The keys the selection and the tools read themselves (Del, H, R, the arrows,
+  PgUp/PgDn, Esc, Paint's T, the held Z) can be moved too; a command given one of them shares it,
+  and the selection or the tool takes it first when it applies. The mouse stays fixed. The menus, the toolbar and Help › Keyboard Shortcuts show the keys you set.
 - **Help**: a help window (F1) with the tools, brushes, camera and view in short, the keyboard shortcuts, the manual (this file), the log and app info.
 
 The sky is a physically based atmosphere (or the client's own sky with Client Lighting) with a sun

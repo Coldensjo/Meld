@@ -3,6 +3,7 @@
 // a drag moves a point over the ground and Shift+drag raises or lowers it; Apply bakes the path into
 // the map as one undo step, and applying it again first takes back what its last apply wrote. The
 // paths are per-map state (`editor.paths`, saved in the map file's `paths` header), never exported.
+import { pressed } from '../ui/commands'
 import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import type { Command } from '../state/history'
@@ -265,11 +266,11 @@ export class PathTool implements Tool {
 	}
 
 	onKey(ctx: ToolContext, e: KeyboardEvent): boolean {
-		if (e.key === 'Delete' || e.key === 'Backspace') {
+		if (pressed('deleteSelected', e)) {
 			this.deletePoint(ctx)
 			return true
 		}
-		if (e.key === 'Escape' && editor.pathId >= 0) {
+		if (pressed('escDeselect', e) && editor.pathId >= 0) {
 			this.pick(-1)
 			setStatus('No path picked: the next click starts a new one.', 2500)
 			return true

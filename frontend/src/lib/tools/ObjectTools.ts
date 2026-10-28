@@ -1,3 +1,4 @@
+import { pressed } from '../ui/commands'
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
@@ -336,33 +337,22 @@ export class PlaceTool implements Tool {
 	 * it, the arrows and PgUp / PgDn move it), so these act on the preview when nothing is selected.
 	 */
 	onKey(ctx: ToolContext, e: KeyboardEvent) {
-		if (e.key === 'r' || e.key === 'R') {
+		if (pressed('spin', e)) {
 			this.rot += (e.shiftKey ? -1 : 1) * (Math.PI / 4)
 			return true
 		}
 		if (!editor.prefab || editor.placeScatter) return false
 		const step = e.shiftKey ? 4 : 0.5
 		const lift = e.shiftKey ? 1 : 0.25
-		switch (e.key) {
-			case 'ArrowLeft':
-				this.moveOffset(ctx, -step, 0)
-				return true
-			case 'ArrowRight':
-				this.moveOffset(ctx, step, 0)
-				return true
-			case 'ArrowUp':
-				this.moveOffset(ctx, 0, step)
-				return true
-			case 'ArrowDown':
-				this.moveOffset(ctx, 0, -step)
-				return true
-			case 'PageUp':
-			case 'PageDown':
-				editor.placeHeight = Math.round((editor.placeHeight + (e.key === 'PageUp' ? lift : -lift)) * 100) / 100
-				setViewportHint(`Height ${editor.placeHeight >= 0 ? '+' : ''}${editor.placeHeight.toFixed(2)}`)
-				return true
-		}
-		return false
+		if (pressed('nudgeLeft', e)) this.moveOffset(ctx, -step, 0)
+		else if (pressed('nudgeRight', e)) this.moveOffset(ctx, step, 0)
+		else if (pressed('nudgeForward', e)) this.moveOffset(ctx, 0, step)
+		else if (pressed('nudgeBack', e)) this.moveOffset(ctx, 0, -step)
+		else if (pressed('liftUp', e) || pressed('liftDown', e)) {
+			editor.placeHeight = Math.round((editor.placeHeight + (pressed('liftUp', e) ? lift : -lift)) * 100) / 100
+			setViewportHint(`Height ${editor.placeHeight >= 0 ? '+' : ''}${editor.placeHeight.toFixed(2)}`)
+		} else return false
+		return true
 	}
 }
 
@@ -1060,8 +1050,8 @@ export class SelectTool implements Tool {
 		if (ui.pasting) {
 			if (e.key === 'Escape') this.hooks.cancelPaste()
 			else if (e.key === 'Enter') this.hooks.commitPaste()
-			else if (e.key === 'PageUp') editor.paste.heightOffset += e.shiftKey ? 5 : 1
-			else if (e.key === 'PageDown') editor.paste.heightOffset -= e.shiftKey ? 5 : 1
+			else if (pressed('liftUp', e)) editor.paste.heightOffset += e.shiftKey ? 5 : 1
+			else if (pressed('liftDown', e)) editor.paste.heightOffset -= e.shiftKey ? 5 : 1
 			else return false
 			return true
 		}
@@ -1081,7 +1071,7 @@ export class SelectTool implements Tool {
 			setStatus(`Select: ${editor.selectShape === 'rect' ? 'rectangle' : editor.selectShape} (L cycles).`, 2000)
 			return true
 		}
-		if (e.key === 'Escape' && (editor.selection || editor.selectedIds.length)) {
+		if (pressed('escDeselect', e) && (editor.selection || editor.selectedIds.length)) {
 			editor.selection = null
 			selectObjects(ctx.objects, [])
 			return true
