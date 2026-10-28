@@ -142,6 +142,20 @@ for the benchmark scene and measurement details.
 - For a client round trip, compare an edited export with an unedited export through the same save
   path. Comparing only to the original client tile can mistake normal writer changes for a regression.
 
+## Recipe evidence and limits
+
+The 2026-10-28 documentation pass checked selected save/compile/extractor and item-editor claims
+against source and focused synthetic tests. It did not execute the live probes or certify every
+recipe below. In particular, the item-editor probe enters an invalid level and uses Revert without
+pressing Save: backend refusal tests are separate evidence, not a live tab-jump check.
+Failed extraction leaves the game/server under explicit user control; successful staging does not
+make later installation atomic. A recorded local mmap.enabled value is not a setting Meld changes.
+
+Old recipes retain machine-specific scene names, ports and observations. Substitute your own
+disposable resources and read current guards before executing them. Historical counts and screenshots
+are not expected outcomes for every client or GPU. For everyday workflows, use
+[authoring](guides/database-editing.md) and [safe writes](guides/saving-and-compiling.md).
+
 ## Index of feature checks
 
 These pages retain detailed regression recipes and known pitfalls. They are reference material,
