@@ -45,7 +45,7 @@
 		background: rgba(0, 0, 0, 0.55);
 		display: grid;
 		place-items: center;
-		z-index: 200;
+		z-index: var(--z-modal);
 	}
 	.dialog {
 		max-width: calc(100 * var(--vw) - 32px);

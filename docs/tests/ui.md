@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Session restore (reopening the last tabs at start)
 
+Probe: `session-prefs` (a camera move re-applies no prefs, #461); the rest is a hand check.
+
 Checks: `lib/io/session.ts` keeps the open file and region tabs with their cameras in
 `prefs.session` (every 3 s when changed, saved alone through `savePref`, and on quit) and opens them again at start.
 The prefs effect in App.svelte leaves `session` out, so a camera move re-applies nothing: `bun run probe session-prefs` (#461).
@@ -21,6 +23,8 @@ location.reload()                                  // then, after ~6 s: editor.r
   The target's y differs a little after a restore because the camera target rides on the ground.
 
 ## Autosave and recovery (#177)
+
+Probe: `autosave` (#546, #637); the Recover offer is a hand check.
 
 Checks: `lib/io/recovery.ts` copies dirty tabs into `%LOCALAPPDATA%\Meld\recovery` (Linux
 `~/.cache/Meld/recovery`), and the next start offers copies whose session is gone (`internal/recovery`,
@@ -54,6 +58,8 @@ Go tests cover the alive file going stale). In the dev page:
 
 ## The desktop window itself (closing with unsaved maps, #188)
 
+Hand check: only the built app's native window; no probe can reach it.
+
 Checks: what only the native window does (its ✕, Alt+F4), in the built `build/bin/Meld.exe`. WebView2's
 `--remote-debugging-port` through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` does not work (Wails sets
 its own browser arguments), so drive the window from PowerShell with user32 (`SetForegroundWindow`,
@@ -68,6 +74,8 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
   edit an untitled map, and quit without saving.
 
 ## A long right-drag turn on Windows never stops (#724)
+
+Hand check: in the native window on Windows; the unit test below covers the bookkeeping.
 
 Checks: the Windows mouse look (`CameraController` with `lookWarp.ts`, `mouselook_windows.go`) moves
 the hidden cursor back to the drag's start once it is `WARP_AT` away, however fast the spin, and the
@@ -89,6 +97,8 @@ built `build/bin/Meld.exe` from PowerShell as in the entry above:
 
 ## Hover previews in tile grids (no gap between tiles)
 
+Probe: `item-editor` (the item looks' tiles).
+
 Checks: in every grid whose hovered tile drives a preview (the asset browser, Doodad Brushes, the
 prefab browser, the spawn tabs, the creature editor's displays and gear, the item editor's looks), a
 tile only *sets* the hover and the grid clears it on `pointerleave`, so moving slowly from one tile
@@ -99,6 +109,8 @@ hover preview should do the same.
 
 ## Thumbnail loading order (asset browser grids)
 
+No probe: the unit test below.
+
 Checks: `lib/wow/thumbQueue.ts` (the priority queue: tiles on screen nearest the grid's centre
 first, then the rows just outside the view that `prefetchAround` asks for) and `PaletteTile`'s
 IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe, prefetch set and the 512-result eviction (an evicted blob URL is revoked).
@@ -108,7 +120,7 @@ IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe, pr
   and screenshot at once: the rows that came in should already be filled.
 - Traps: tiles only ask for thumbnails from an IntersectionObserver, which does not fire in a
   hidden tab (`document.hidden`), so a `javascript_tool` loop counting `.tile img` in a hidden tab
-  sees nothing finish however many `__engine.frame()` it drives; and `await`ing
+  sees nothing finish however many `__engine.debug.frame()` it drives; and `await`ing
   `requestAnimationFrame` there never returns (the eval times out after 45 s). Use the `computer`
   tool's scroll and screenshots, which keep the tab visible. Cold list timings for reference: the
   three `/wow/list` kinds about 40 ms each, `ListCreatureTemplates` about 0.3 s uncached (10k rows
@@ -116,6 +128,8 @@ IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe, pr
   creature thumbnails about 3-4 s, cached PNGs near instant.
 
 ## Asset browser tabs remember their place (#123)
+
+Probe: `virtual-grid` (the scroll); a restart is a hand check.
 
 Checks: each tab keeps its search, zone, category and scroll (`prefs.browserViews`, `wow/browserViews.ts`).
 In headless Chrome (`docs/TESTS.md`): click the `.browser .tab` named Doodads, set the `.browser select` to a zone
@@ -127,6 +141,8 @@ window instead. The `virtual-grid` probe runs this check for the scroll (Doodads
 
 ## The virtualised tile grids (#578)
 
+Probe: `virtual-grid`.
+
 Checks: every tile grid renders only the rows in view through `components/VirtualGrid.svelte`,
 with the row maths in `lib/ui/virtualGrid.ts` (`tests/virtualGrid.test.ts`: columns, the window
 with its one-row margins, the last partial row, an empty or shrunk list). `bun run probe
@@ -137,6 +153,8 @@ since the browser's own one may land after the frames it waits. The
 brush editor (`ui.brushEditor = true`) has the same grid under `[data-ui="DoodadBrushEditor"]`.
 
 ## Names under the tiles (#655)
+
+Probe: `browser-names`.
 
 Checks: the asset browser header's Names checkbox (`.names input`, `prefs.browserNames`) hides the names
 under every tab's tiles and in the preview, and the virtual rows pack tighter.
@@ -152,6 +170,8 @@ under every tab's tiles and in the preview, and the virtual rows pack tighter.
 
 ## The same header on every tab (#651)
 
+Probe: `browser-header`.
+
 Checks: each asset browser tab shows the header's search box, count and tile-size slider; Ctrl+F
 focuses the box; the zone select shows on Doodads, Buildings, Textures, All and Sets, the creature
 order on Creatures and NPCs; no tab has a search box of its own; a creature name typed in the header
@@ -159,6 +179,8 @@ narrows the Creatures tab's count. Probe: `bun run probe browser-header` (needs 
 the Creatures count). Trap: the Sets tab's rename box is a text input outside the header, by design.
 
 ## Model sets (the asset browser's Sets tab, #124)
+
+Hand check: in headless Chrome, as below; no probe covers it.
 
 Checks: making a set, adding models by a tile's right-click, showing it. In headless Chrome (`docs/TESTS.md`):
 click the Sets tab, its `.setbar` New, type a name into `.setbar .setname` and dispatch `change`; on
@@ -168,6 +190,8 @@ paths. The file form is `tests/modelSets.test.ts`; Import… and Export… open 
 headless page can't drive.
 
 ## Menu heights (#122)
+
+Probe: `preferences` (every menu's height).
 
 Checks: every menu fits the window. In headless Chrome (`docs/TESTS.md`), click each `.menubar .title`, read
 the `.menubar .dropdown`'s height and whether `scrollHeight > clientHeight`, and click it shut. An
@@ -247,6 +271,8 @@ Probe: `bun run probe hide-dock` (canvas width before, hidden, with Tab and show
 
 ## Toolbar on the right (#654)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: Preferences › General › Toolbar side, Right (`prefs.toolbarSide`) puts the toolbar at the window's right
 edge, after the dock, and back. In the dev page, open Edit › Preferences (Ctrl+,) and pick Right in
 Toolbar side (`#pref-toolbarSide`): `.toolbar`'s left is the `.dock`'s right, and its left border is set. Hover a
@@ -283,6 +309,8 @@ undoes (`scrollTop = 0`) before it decides the control is clipped.
 
 ## Help window
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: Help › Help… (or F1 anywhere but in an input) opens the Help dialog; its Open the manual
 button and Help › Manual open the manual on the published docs site (coldensjo.github.io/Meld/MANUAL) in the system browser (`BrowserOpenURL`; the
 dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
@@ -290,6 +318,8 @@ dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `MANUAL_URL` in `AppDialogs.svelte`.
 
 ## Panel edge drags (#592)
+
+No probe: the unit test below, and a hand check in the app.
 
 Checks: the dock's left edge and the asset browser's top edge resize through one action,
 `use:dragResize` (`lib/ui/dragResize.ts`): the size follows the pointer in CSS px (`toCss`), kept to
@@ -299,6 +329,8 @@ its range, and pointerup, pointercancel and lostpointercapture all end the drag,
 the edge; the panel must not move.
 
 ## Find fields and number inputs (#594)
+
+No probe: the unit test below, and a hand check in the app.
 
 Checks: the database find fields (item and quest editors, Find a creature, the Loot, Shop, Quests and
 Quest givers tabs, the spell picker) share `createSearch` (`lib/ui/search.svelte.ts`): one search
@@ -310,6 +342,8 @@ RefField keeps its own effect (its starters and local lists answer without a sea
 
 ## Preferences from two windows
 
+Hand check: the desktop app and a dev page together; the unit tests below cover the merge.
+
 Checks: a save writes only the changed keys, merged into the file (`changedPrefs` in `prefsPatch.ts`,
 `tests/prefs.test.ts`; `config.MergePrefs` in `internal/config/config_test.go`). By hand: open the
 desktop app and a dev page without `?nosave`, add a doodad brush in the app, then turn the fog off
@@ -317,6 +351,8 @@ in the page; the app's brush is still in `config.json` (the page sent only `fog`
 `baseline` is private to `prefs.ts`; a key that was never saved goes out on the first save.
 
 ## Detail info readout
+
+Hand check: in the dev page, as below; no probe covers it.
 
 Checks: View › Detail info shows, in the viewport's top right corner, the client tile, the
 chunk in it, the cell, height, slope, hole and no-tuft flags, the chunk's texture layers with their
@@ -327,10 +363,12 @@ chunk. In the dev page: `ed.prefs.detailInfo = true`, move the mouse over the gr
 
 ## Loading bar (#159)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `lib/wow/loadProgress.ts` (counters, unit test `loadProgress.test.ts`) fed by `fetchBinary`
 in `wow/api.ts`, drawn by `LoadingBar.svelte` (`[aria-label="Loading from the client"]`, label in
 `.label`) after a batch has run 400 ms. In the dev page over CDP: start `__loadScene` without awaiting
-it, sample the label every 200 ms while stepping `__engine.frame()`: it reads like "Loading 96 / 236 ·
+it, sample the label every 200 ms while stepping `__engine.debug.frame()`: it reads like "Loading 96 / 236 ·
 Textures · G_BARREL01.BLP", and is gone within ~200 ms of the reads ending. One `fetchImage` while
 idle must never show it. Trap: on a second run the reads come from cache and each batch ends before
 400 ms, so the bar rightly never shows; use a region not opened in that browser profile yet.
@@ -346,10 +384,12 @@ the probe checks the helper, not File › Save; in `make dev` a Compile to Clien
 
 ## Preview window (#197)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: the right-click menu's Preview (`ui.modelPreview`, `ModelPreviewWindow.svelte` over
 `CreaturePreview` with a `type` and `hq`). In the dev page on Northshire, project a model's position to
 the screen (`p.project(__engine.camera)`, then the canvas rect) and call
-`__engine.openContextMenu({ clientX, clientY })`: the menu lists Preview after Focus. Its window is
+`__engine.debug.openContextMenu({ clientX, clientY })`: the menu lists Preview after Focus. Its window is
 `[role="dialog"][aria-label="Model preview"]` (not `aria-label` alone: the asset browser's small
 preview has the same label). nsabbey.wmo reads "89.0 yd tall · 35,413 triangles" (the full model) once
 loaded; a spawn's (`spawnType(s)`) shows it dressed. Esc closes it and the map's selection stays.
@@ -382,6 +422,8 @@ loop when nothing moves, and keep to Preferences › Graphics › FPS limit whil
 
 ## Moving the view up and down in the previews (#662)
 
+No probe: the logic on a renderer of its own, as below (a hidden page draws no preview).
+
 Checks: a right or middle drag in `AssetPreview` and `CreaturePreview` moves the orbit target up
 and down the model, held to its bounds; the left drag still turns and the wheel zooms.
 - The previews don't draw in a hidden page (`document.hidden`, #589), so a headless or background tab
@@ -412,6 +454,8 @@ changes only the camera that view returns to.
 
 ## Top-down view (U)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: U (or Camera › Top-down View, one of the four views of #750) draws the map straight down with an orthographic camera
 over the controller's target; the wheel zooms, WASD and a middle drag pan, Q/E and a right drag
 turn the map, and every tool picks and paints as in 3D (the ray goes straight down). Fog is off
@@ -422,6 +466,8 @@ brings the perspective camera back. The arrow handle of the gizmo can't be dragg
 plane is edge-on), the ring and knob can.
 
 ## Log window
+
+No probe: `tests/sessionLog.test.ts` for the file's batching; the window itself is a hand check.
 
 Checks: Help › Log… lists every status message with its time (`appLog.lines` in
 `editor.svelte.ts`, the last 500), the Go side's progress lines (they arrive as status messages),
@@ -434,9 +480,12 @@ the newest line. Copy puts the whole log on the clipboard.
 The same lines go to a file, one a session, in `<user cache>/Meld/logs/<start time>.log` (#319;
 `internal/sessionlog`, the last 10 kept; on Windows `%LOCALAPPDATA%\Meld\logs`), batched once a
 second through the `AppendLog` binding (`io/sessionLog.ts`), with the Go side's game session lines.
-It is the first thing to read for a bug report, as the Log window is gone once Meld closes. Probe
-`session-log` logs lines, clears the window and reads them back through `SessionLog`. The running
-`make dev` must have rebuilt its Go side first (a stale binary answers `null`).
+It is the first thing to read for a bug report, as the Log window is gone once Meld closes.
+`bun test tests/sessionLog.test.ts` (it was the probe `session-log`, #423) checks the page side: the lines
+from before `startLogFile` go at once, later ones wait as one batch for `flushLog` or its 1 s timer, in
+order, and clearing the window drops none; `go test ./internal/sessionlog/` checks the file. To see it in
+the app, log a line and call the `SessionLog` binding; the running `make dev` must have rebuilt its Go side
+first (a stale binary answers `null`).
 
 ## Minimap window (M)
 
@@ -459,53 +508,10 @@ selector finds it in the dock and in the window).
   `width === terrain.size`, not `width > 0`, or the read races the refresh (it failed after #750).
 - The marker moves on the click itself (#129), not at the next 2 Hz refresh: dispatch a `click` with
   `clientX`/`clientY` on `.minimap .map`, wait one frame, and `.minimap circle`'s `cx`/`cy` have moved.
-- A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a
-  3x3 block (`region: { mapName: 'Azeroth', x: 31, y: 48, size: 3 }`, cells 384, world 768), and read
-  the next five frames. Run Chrome on the GPU for this (`--use-angle=d3d11 --enable-gpu
-  --ignore-gpu-blocklist` instead of the swiftshader flags); swiftshader's times say nothing. Wrapping
-  `renderer.shadowMap.render` splits the shadow pass out: a point light's cube map is about 40 ms
-  there, the far cascade about 5 ms. Before #129 a jump that brought three new shadowed lights took
-  one ~225 ms frame (steady ~50 ms headless); now one cube map is drawn a frame (~115, 95, 95 ms) and
-  a light waits dark for its first map.
-- A cube's draw calls (#133): model and spawn batches join a cube face only with a drawn instance in
-  the light's reach and the face (`world/shadowReach.ts`). Force `lights[0].shadow.needsUpdate` on
-  every other frame and compare `renderer.info.render.calls`: on the 3x3 block a cube adds about 43
-  calls (about 1400 with the batches' `intersectsFrustum` set to `() => true`, the old behaviour) and
-  about 1 ms. In T3 Code's preview tab (a real GPU, RTX 5080) the old cube was ~38 ms at the default
-  spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
-  good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
-- The near cascade's draw calls (#325): a model or spawn batch joins the sun's near shadow pass only
-  with a drawn instance in the cascade's box (`setNearCascade`, `world/shadowReach.ts`). Unit test
-  `tests/shadowReach.test.ts`; in the app, `bun run probe perf-everything` (about 830 fewer calls than
-  before, 2725 to 1895). To A/B it in one page, wrap every scene InstancedMesh that has its own
-  `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
-  behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
-  shadows (Help › Benchmark maps) for casters missing at the near box's edge.
-- The scene pass draws only what is in view (#15): a batch's `count` is its instances in the camera's
-  frustum, and a shadow pass draws `packedCount(mesh)` (objects.md, the instance batch). Unit tests
-  in `tests/instanceCull.test.ts`, `tests/instanceBatch.test.ts` and `tests/shadowReach.test.ts`. In
-  the app: the `world-view` probe's `perf.models.calls` (1,993 before, 1,017 after, CPU 15.7 to 10.8
-  ms). To split the passes, wrap `renderer.shadowMap.render` and set `env.key.shadow.needsUpdate` or
-  `env.far.shadow.needsUpdate` before a frame: the shadow passes must draw the same calls and triangles
-  before and after a change here (near 160 calls, far 1,920 at that view). To see that no shadow went
-  missing, shoot the same views on both commits at a low sun (`prefs.dayCycle = false`,
-  `prefs.timeOfDay = 17.6`, four headings, both maps forced redrawn) and compare the PNGs with
-  `magick compare -metric AE -fuzz 2%`: a few pixels differ between identical runs.
-- The moving casters' pass (#346, probe `shadow-poses`): with Prop animations on, a still view draws
-  only the posed models and moving cut-outs into the near map, over a copy of the rest. A/B it in one
-  page with `P.ab((on) => { __engine.posedShadows.enabled = on }, 6, { sections: ['Shadow', 'Render'] })`
-  after `P.benchMap('objects-mixed')` (off redraws the whole near map on such frames, as before). Trap:
-  a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
-  until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
-  (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
-- The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
-  sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
-  light follows the live sun. The probe steps `e.hour` by 0.0005 a frame with the clock frozen and
-  compares the matrix after each held frame with the one after the last redraw. Trap: a pixel diff
-  barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
-  own turn), so compare the matrix.
 
 ## Projects (#48)
+
+Hand check: in the app, as below; the probe `instance-open` covers the Start dialog's ask for a project.
 
 Checks: File › Project… opens a project folder with its client; the folder gets `meld-project.json`,
 the config (`%APPDATA%\Meld\config.json`) gets `projectPath` and the project at the front of
@@ -543,6 +549,8 @@ nothing written unchanged, a doodad set written, a move refused).
 
 ## Accessibility (#354)
 
+A method: `bun run check` for the warnings, and the probes `dialog-focus`, `menu-keys` and `aria-state` for its findings.
+
 Checks: keyboard focus, roles and contrast, the audit's method (its findings are #369 to #375).
 - `cd frontend && bun run check` reports Svelte's a11y warnings; `svelte.config.js` sets no
   `warningFilter`, so 0 warnings means none are hidden (only two `svelte-ignore a11y` lines exist).
@@ -559,9 +567,10 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   asserted there on bg, panel and panel-2; the tooltip keeps `QUALITY_COLORS`, the game's own.
 - Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
   that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
-- Focus ring and reduced motion (#374, probe `focus-motion`): checks `app.css` holds the `:root[data-kbd-nav] :focus-visible` ring
-  (#652: `main.ts` sets the attribute on Tab, clears it on a pointer press) and the plain `:focus-visible` reset and the `prefers-reduced-motion` rule (it reads the stylesheets,
-  since the probe cannot fake a Tab or the media query). Look at the ring by pressing Tab in the dev page.
+- Focus ring and reduced motion (#374): `bun test tests/focusMotion.test.ts` (it was the probe `focus-motion`, #423)
+  checks `app.css` holds the 2 px `:root[data-kbd-nav] :focus-visible` ring (#652: `main.ts` sets the attribute on Tab,
+  clears it on a pointer press), the plain `:focus-visible` reset and the `prefers-reduced-motion` rule, from the file's
+  text (a headless page cannot fake a Tab or the media query either). Look at the ring by pressing Tab in the dev page.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
 
 ## Dialog focus and Esc (#369, #573, probe `dialog-focus`)
@@ -605,6 +614,8 @@ Checks: the menu bar and the right-click menu work from the keyboard.
   focus sits on the title, from where the browser's own Tab moves on.
 
 ## Copy id (#681)
+
+Probe: `item-editor` (a search result's Copy).
 
 Checks: a right-click copies a thing's id and name.
 - `cd frontend && bun test tests/copyId.test.ts tests/spawnActions.test.ts`: the labels (entry for
@@ -683,8 +694,17 @@ asset browser's kind tabs are `role="tab"` with `aria-selected`, its facets carr
 
 ## Folder setup dialog at start (#689)
 
+No probe (the probes' page skips the dialog): the unit test below, and a hand check in the app.
+
 Checks: `lib/io/folderSetup.ts` opens `FolderSetupDialog` after the recovery offer when the client folder
 (`wow.path`) or the server folder (`VmangosPath()`) is unset and `prefs.skipFolderSetup` is false; the pure rule is
 `folderGaps` (`bun test tests/folderGaps.test.ts`). It is skipped on the probes' page (`?nosession`). In the app, back up
 `%APPDATA%\Meld\config.json`, clear `wowPath` or `vmangosPath` in a copy's place, start `make dev`, and see the dialog
 with Skip and "Don't ask again"; restore the config afterwards.
+
+## Activating the open tab (#547, probe `activate-same`)
+
+Checks: activating the tab that is already active (Ctrl+Tab with one tab; `openRegion` or `focusPath` of
+the active file) keeps what the editor holds since the last stash, rather than loading the document's
+older `meta` over it (`Engine.activate`, `stashActive`).
+- Probe: `bun run probe activate-same` (two flat maps).

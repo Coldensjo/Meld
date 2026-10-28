@@ -1,7 +1,7 @@
 // Run with: bun test tests/farLayers.test.ts
 // A far WMO's LOD merges its groups by class (#691): the plan's classes, and the worker's merge.
 import './runes.ts'
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import type { MeshGroup } from '../src/lib/wow/api.ts'
 import { farMerge, type LodIndex } from '../src/lib/models/lod.ts'

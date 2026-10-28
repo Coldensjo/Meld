@@ -21,8 +21,8 @@ into the world database), and Benilla is just another program that shows it.
   `C:\WoW\benilla\target\release\benilla.exe`. This is the default "dev" build, which
   reads the install from `WOW_DATA`; `--no-default-features` is the player build, which only looks for
   `Data\` beside the binary, so keep the dev build for Meld.
-- Meld points at it: Preferences › Benilla Folder… is `C:\WoW\benilla`, and Preferences ›
-  Game client › Benilla is picked (both in `%APPDATA%\Meld\config.json`: `benillaPath`, `gameClient`).
+- Meld points at it: Edit › Preferences › Folders › Benilla folder is `C:\WoW\benilla`, and Edit ›
+  Preferences › Game › Game client › Benilla is picked (both in `%APPDATA%\Meld\config.json`: `benillaPath`, `gameClient`).
 
 - It reads the one client install, `C:\WoW\client\Data`: Meld sets `WOW_DATA` when it starts Benilla,
   and `WOW_DATA` is also set for the user, so a Benilla started by hand finds it. Its old copy of the
@@ -56,8 +56,8 @@ that should open straight in the world is a feature on top of Benilla, not in it
 
 ## What Meld does with it (done)
 
-- **Preferences › Game client**: World of Warcraft (Wow.exe) or Benilla. Benilla needs its folder
-  (Preferences › Benilla Folder…) with a release build in it; Meld refuses otherwise and says why.
+- **Edit › Preferences › Game › Game client**: World of Warcraft (Wow.exe) or Benilla. Benilla needs its folder
+  (Edit › Preferences › Folders › Benilla folder) with a release build in it; Meld refuses otherwise and says why.
 - **Around an export** (region save, publish, zone, light and ground effect saves): Meld closes the
   chosen game (`benilla.exe` instead of `Wow.exe`), writes the patch, then starts it again
   (`internal/game/session.go`).
@@ -82,12 +82,12 @@ that should open straight in the world is a feature on top of Benilla, not in it
   Login's account, which needs GM level 3 (`internal/vmangos/soap.go`). SOAP is off by default:
   `SOAP.Enabled = 1` in `vmangos\run\mangosd.conf` and a world server restart turn it on; until then,
   and when the character isn't in the world, Play here says so and points to Launch.
-- **Preferences › Launch Benilla** opens it on demand.
+- **Game › Launch Benilla** (Launch World of Warcraft while the game client is Wow.exe) opens it on demand.
 - **Template caches**: like the 1.12 client's `WDB\creaturecache.wdb`, Benilla keeps the creature
   templates it was told across sessions, in `benilla-config\cache\<realm>.tsv` (game objects only for
   the session). After a creature editor Save, Meld drops that creature's line before it next starts
   the game (`internal/game/cache.go`), so the game asks the server again.
-- **Preferences › Game window**: the game's own setting, Windowed or Fullscreen, at a size (1280×720
+- **Edit › Preferences › Game › Game window**: the game's own setting, Windowed or Fullscreen, at a size (1280×720
   to 2560×1440). Each time Meld starts the game it writes the 1.12 client's `gxWindow`, `gxMaximize`
   and `gxResolution` into the game's own settings (Benilla's `benilla-config\config.toml` `[cvars]`,
   Wow.exe's `WTF\Config.wtf`), so the in-game Video options still work until Meld next starts it

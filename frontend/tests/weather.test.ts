@@ -1,5 +1,5 @@
 // Run with: bun test tests/weather.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { effectDensity, MAX_SETTLED, MAX_SPLASH, SETTLE_LIFE, settleRate, SPLASH_LIFE, splashRate, stormBlend, streakTilt, WEATHER_GRADE, weatherCounts, WeatherWind } from '../src/lib/wow/weather.ts'
 

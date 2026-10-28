@@ -10,7 +10,7 @@ const e = P.e
 await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
 const { prefs } = await P.state()
 const { nearestFaceDist, toModel } = await P.app('/src/lib/world/wmoRoom.ts')
-const rooms = e.rooms
+const rooms = e.debug.rooms
 const c = e.controller
 const sw = [...e.objects.objects.values()].find((o) => o.type.includes('stormwind.wmo'))
 const m = e.camera.matrixWorld.clone()
@@ -45,7 +45,7 @@ const fly = async (collision) => {
 	const room = rooms.current ? `${rooms.current.group} ${rooms.current.nav.groups[rooms.current.group].name}` : null
 	// How far on the room's side of the wall the eye is (yd); negative is through it.
 	const side = -eye.clone().sub(wallWorld).dot(dirWorld)
-	return { room, lift, overFloor, side: +side.toFixed(2), wallDist: +rooms.wallDist.toFixed(2), near: +e.persp.near.toFixed(3) }
+	return { room, lift, overFloor, side: +side.toFixed(2), wallDist: +rooms.wallDist.toFixed(2), near: +e.debug.persp.near.toFixed(3) }
 }
 const on = await fly(true)
 // Down towards the street from the start (#310): the eye stops 3 yd over the street's floor, not over

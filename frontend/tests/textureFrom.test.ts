@@ -1,5 +1,5 @@
 // Run with: bun test tests/textureFrom.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { textureFrom } from '../src/lib/wow/textureReply.ts'

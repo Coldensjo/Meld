@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Brush size controls (Photoshop-style)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `tools/brushSize.ts` (unit tests in `tests/brushSize.test.ts`) and the engine's Alt+right-drag.
 In the dev page, with a brush tool active and the `editor.svelte.ts` module as `ed`:
 
@@ -18,7 +20,7 @@ c.dispatchEvent(new PointerEvent('pointerup', { button: 2, altKey: true, clientX
 ```
 
 - The engine picks the ground from the pointer position on the press, so the pointer must be over
-  the terrain in the hidden tab too (`__engine.frame()` first, after aiming the camera).
+  the terrain in the hidden tab too (`__engine.debug.frame()` first, after aiming the camera).
 - The inspector: `ui.inspector = true` (or the I key) shows `.inspector` with the Properties
   panel's fields for the selection; Esc closes it without deselecting (App.svelte's key handler
   takes that Esc before the engine's selection keys).
@@ -26,6 +28,8 @@ c.dispatchEvent(new PointerEvent('pointerup', { button: 2, altKey: true, clientX
   (it is wrapped), so the drag still works from a script.
 
 ## Scripted brush strokes
+
+A method, not a check: probes stroke the same way through `P.stroke` (the probe `undo-sculpt` does).
 
 Checks: what a sculpt mode does to the heights, without dragging the mouse. In the dev page
 (`javascript_tool`), make a flat map and drive the tool directly:
@@ -61,6 +65,8 @@ e.terrain.heightAt(180, 300)                  // then screenshot
 
 ## Vertex mode undo and keys on a focused control (#127)
 
+Probe: `hotkeys` (keys with the focus on each kind of control).
+
 Checks: Sculpt's Vertex edits undo, and Ctrl+Z reaches the map while an options-bar slider has the
 focus. On a flat new world (as in "Scripted brush strokes"), `ed.sculptMode = 'vertex'`, pick points
 with `onDown(e.ctx, at(100, 100), {})`, one `tick`, `onUp`; then `ed.vertexAngle = 30; e.frame()` tilts
@@ -80,6 +86,8 @@ input must leave the history alone. A Shift move is `onDown(..., { shiftKey: tru
   slider keep their own keys. A control now keeps only the keys it uses (`controlKeepsKey` in `App.svelte`).
 
 ## Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`)
+
+No probe for the tools: the unit tests below; the probe `gizmo-undo` covers the gizmo's drags.
 
 Checks: the hard rule that every edit is undoable, and that a stroke is one step, for each tool and
 mode without the app: `cd frontend && bun test tests/toolUndo.test.ts`. Each row drives a tool as the
@@ -124,6 +132,8 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
 
 ## Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 
+A method for a hand check; the probes `gizmo-undo` and `tab-switch-drag` drive the gizmo.
+
 Checks: the selected prop's gizmo (`TransformGizmo`), its sweep arc and the viewport badge, in the
 dev page with `javascript_tool`. A drag through the Chrome extension releases the button at once,
 so drive the Engine's private drag methods instead:
@@ -150,6 +160,8 @@ e.endGizmoDrag()
 
 ## Place tool keys (preview height and offset)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: `PlaceTool.onKey` (PgUp / PgDn set `editor.placeHeight`, the arrows `editor.placeOffset`,
 camera-relative) and that Alt+scroll no longer touches the height. In the dev page, with the
 `editor.svelte.ts` and `selection.ts` module URLs from "Scripted brush strokes":
@@ -165,6 +177,8 @@ document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY:
 - The Options bar shows an Offset chip with Reset while the offset is not zero.
 
 ## Tilting by hand (Z+scroll, #344)
+
+Probe: `hand-tilt`.
 
 Checks: holding Z turns the wheel into tilt (Shift: roll), 5° a notch, on the selected models or, in
 the Place tool with nothing selected, on the preview, and the camera does not zoom meanwhile. Probe
@@ -191,6 +205,8 @@ frames running: no throw, no model left, every height back, and the undo with it
 
 ## Placing a creature or game object: the preview's size (#672)
 
+Probe: `place-spawn-size`.
+
 Checks: with a template from the browser's Creatures, NPCs or Objects tab, the Place tool's preview is
 drawn at the size the spawn takes (`placingSpawnScale` in `ObjectTools.ts`: the template's scale times
 its display's, an object's `size`), not at 1, Shift+scroll leaves it be, and the clicked spawn's
@@ -205,6 +221,8 @@ brush's ghosts take the same size through its `ghostScale` hook.
 
 ## Placement tilt (the client's rotation order, #149)
 
+No probe: the unit test below; the look against the game is a hand check.
+
 Checks: a placed model's tilt and roll match the client's. `world/placement.ts` (`placementEuler`) is the
 one place the rotation is built; `tests/placement.test.ts` pins it to the client's order, heading, then
 Rz(-first angle), then Rx(third angle), in the editor's frame. The references that agree: wowdev.wiki's
@@ -216,6 +234,8 @@ ADT `createPlacementMatrix`, Noggit Red's `SceneObject::updateTransformMatrix` a
   or a screenshot from the game.
 
 ## Doodad brush (scatter models by weight)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: `DoodadBrushTool` places the brush's models under the brush in their weights' proportions,
 keeps them apart by the spacing, erases them with Ctrl, and undoes as one step. The brush logic alone
@@ -274,25 +294,27 @@ e.history.undo(); e.objects.objects.size            // 0
   x1: 100, z1: 100}`, then `__engine.fillWithDoodadBrush(false)`: about 85 bushes in ~250 ms, every
   one where `textureWeightAt` gives grass ≥ 0.5 and cobblestone < 0.5, and one undo ("Fill with doodad
   brush") takes them all. A hand stroke still works through `__engine.doodadTool`'s `onDown`, `tick`
-  and `onUp` with `__engine.ctx`.
+  and `onUp` with `__engine.debug.ctx`.
 - Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
 
 ## Spawn brush (the Doodad tool's Creatures mode, #171)
+
+No probe: the unit tests below (`spawnsBatch.test.ts` for its undo, #193), and a hand check in the dev page.
 
 Checks: `tools/SpawnBrushTool.ts` (unit tests of the arithmetic in `spawnBrush.test.ts`). In the dev page
 on Northshire (its 347 spawns come from the world database), set `prefs.spawnBrush` to
 `{ ...newSpawnBrush(), entries: [entryFrom(<Young Wolf's template>)], density: 20, spacing: 8 }` (the
 module URL from `SpawnBrushTool.ts`'s source), `editor.doodadMode = 'creatures'`, radius 40, and drive
-`__engine.tools.doodad` (`onDown`, `tick`, `onUp`) at x 300, z 300. The first stroke places nothing:
+`__engine.debug.tools.doodad` (`onDown`, `tick`, `onUp`) at x 300, z 300. The first stroke places nothing:
 it asks Go for the look and the next guid. Wait a couple of seconds and stroke again: 10 wolves (the
 target for 20 per 100×100 yd in a 40 yd circle), all at least 8 yd apart, each with its own guid, the
 template's levels, wander 5 and respawn 300, and 10 spawn edits. One undo removes them, and
 Ctrl+drag erases them as one step. `spawns.frame(ctx, point)` shows the planned ghosts; Models mode hides them.
 
-Undo speed (#193): undoing a stroke must not redraw the spawn layer once a creature (`SpawnLayer.redraw` walks every spawn), so the stroke's undo and redo run in `spawnsBatch`. The probe `undo-spawns` pushes such a step on Elwynn's 1.3k spawns and counts `layer.version` bumps (2, not 60). Timings of `Engine.undo` for sculpt, paint, water and the Doodad brush on Northshire (8k models) were under 1 ms each in Chromium, with no frame spike after, so a slow Ctrl+Z is not in those.
+Undo speed (#193): undoing a stroke must not redraw the spawn layer once a creature (`SpawnLayer.redraw` walks every spawn), so the stroke's undo and redo run in `spawnsBatch`. `bun test tests/spawnsBatch.test.ts` (it was the probe `undo-spawns`, #423) pushes such a step of 60 creatures on 500 loaded ones in a real `SpawnLayer` and checks the undo and the redo each bump `layer.version` by one redraw (a rebuild and its kinds, 2), against 60 redraws for the same adds outside the batch. Timings of `Engine.undo` for sculpt, paint, water and the Doodad brush on Northshire (8k models) were under 1 ms each in Chromium, with no frame spike after, so a slow Ctrl+Z is not in those.
 
 - Placement rules (#196, the options bar's Rules…, `SpawnRulesDialog.svelte` over the shared
-  `PlacementRulesForm.svelte`): probe `__engine.tools.doodad.spawns.groundAllows(__engine.ctx, x, z)`
+  `PlacementRulesForm.svelte`): probe `__engine.debug.tools.doodad.spawns.groundAllows(__engine.debug.ctx, x, z)`
   over x 120 to 240, z 290 to 410 (step 3) and read each point's weights from `spawns.ground`
   (`ToolGround`, after `ground.at(ctx, x, z)`). Without rules all 340 cobblestone points around the abbey
   are allowed; with `prefs.spawnBrush.rules.onTextures = ['Tileset\\Elwynn\\ElwynnGrassBase.blp']` none
@@ -303,6 +325,8 @@ Undo speed (#193): undoing a stroke must not redraw the spawn layer once a creat
   `MessageChannel` turns that check `performance.now()` instead.
 
 ## Prefabs (#170)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: `wow/prefabs.ts` (TOML, variation; `prefabs.test.ts`), `world/clipTurn.ts`, the Prefabs tab
 (`PrefabBrowser.svelte`) and the multi-model thumbnail (`thumbs.ts` `renderPrefab`). In the dev page on
@@ -328,6 +352,8 @@ preview's 15 s limit; keep each evaluate short.
 
 ## Rotate around pivot point (group spins)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: with two or more models selected, R (and Alt+arrows) turn the group about the mean of its
 positions when `editor.rotatePivot` is on (the Select tool's checkbox, shown for a multi-selection),
 and each about its own origin when off. Unit test: `tests/pivot.test.ts` (`meanPivot`, `turnAbout`
@@ -345,6 +371,8 @@ ed.editor.rotatePivot = false; e.nudgeSelected(0, 0, 0, Math.PI / 2)   // they s
 
 ## Group gizmo (ring, knob and arrow on a multi-selection)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: with two or more models selected in the Select or Place tool, the ring, scale knob and
 arrow stand at the selection's pivot (`e.selectionPivot()`), sized round the whole group; the ring
 turns the group (about the pivot with Rotate around pivot point, else each in place), the knob
@@ -356,6 +384,8 @@ the ring (the cursor becomes a grab hand), drag sideways and watch the hint "Rot
 
 ## Mouse-move snap (Follow cursor, Snap models to the ground)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: in the Select tool, a dragged single model follows the surface under the cursor with
 `editor.moveFollowCursor` on (default) and slides across a level plane at its starting height with
 it off; a dragged group lands on the ground with `editor.moveSnapGroup` on and keeps every model's
@@ -366,6 +396,8 @@ and watch `ed.editor.selected.yOff` go negative (it keeps its world height). A t
 `e.raycaster.setFromCamera(e.ndc, e.camera)`; `onMove` reads `ctx.raycaster.ray` for the plane.
 
 ## Clear tool: the models a stroke would delete (#131)
+
+Hand check: in the dev page on the GPU, as below; no probe covers it.
 
 Checks: in Models mode the Clear tool marks, while it hovers, exactly the models a stroke there
 removes, with a red outline and a red tint (`Engine.doomOutline`, a `SelectionOutline` with one
@@ -428,3 +460,55 @@ back and then removes it. `bun run probe path-fence` (needs the client); `--shot
 model long in Z) and a fence's apply and undo on stand-in layers.
 - The model is measured from its loaded bounds (`loadAsset`) before the apply, so `PathTool.apply`
   is async for a fence; the probe awaits `e.path((t, c) => t.apply(c))`.
+
+## A scripted Sculpt stroke and its undo (probe `undo-sculpt`, smoke)
+
+Checks: a scripted Raise stroke on a flat map changes the heights, undo puts them back exactly and redo
+redoes it; the cheapest check that a stroke, `History` and the terrain upload still work together.
+- Probe: `bun run probe undo-sculpt` (smoke, a flat map, a few seconds). Unit: `tests/toolUndo.test.ts`
+  checks every tool's stroke is one step without the app (#438).
+
+## Attached objects follow their parent (#329, probe `attach-follow`, smoke)
+
+Checks: an object attached to another follows it through a move, an undo-style snapshot that detaches
+it, re-parenting through `ObjectLayer.place`, a type change, a sculpt re-snap of the tree, and the parent
+deleted and added back. It reads the drawn instance's position from the batch, not the object's fields.
+- Probe: `bun run probe attach-follow` (smoke, a flat map).
+- Trap: move an attached object only through `place(o, parentId, worldPlacement)`; writing world values
+  into its fields breaks the attachment (CLAUDE.md).
+
+## Drags write reactive state once a frame (#448, #621, probe `drag-state`)
+
+Checks: a model dragged by Select reaches `editor.selected` at the next frame, not on each pointer move;
+an area drag reaches `editor.selection` then; a dragged path point reaches `editor.paths` on release;
+the Sculpt vertex slope slider records its undo step at most every 100 ms and once when it rests; a
+paint stroke over a full chunk says so once; a gizmo's or brush-size drag's viewport hint is published
+once a frame.
+- Probe: `bun run probe drag-state` (a flat map).
+- Trap: a probe frame takes about 250 ms, so a 100 ms throttle fires on every `P.frames(1)`: the probe
+  calls the tool's own `frame` many times in a loop instead (testing notebook, "Probes").
+
+## The Stamp tool's per-brush settings (#445, probe `stamp-settings`)
+
+Checks: the Stamp tool's per-brush settings copy holds only the brush tools' fields
+(`TOOL_SETTING_KEYS`), never the region's spawns, and costs the same with 5000 spawns loaded.
+- Probe: `bun run probe stamp-settings`.
+
+## A tab switch in the middle of a gizmo drag (#549, probe `tab-switch-drag`)
+
+Checks: the drag ends on the tab it began in: the turned model keeps its turn with one undo step in that
+tab's History, the other tab's History gets nothing, and moves after the switch touch neither tab; the
+same for a group of two; a brush-size drag is dropped.
+- Probe: `bun run probe tab-switch-drag` (two flat maps).
+
+## Objects near a point and selection groups from the layer's cells (#512, #630)
+
+Checks: the queries that used to scan every object read `ObjectLayer`'s cells instead and give the same
+answer.
+- Probe: `bun run probe objects-near` (#512, the everything benchmark map): the Clear tool's models
+  under the brush, the Doodad brush's spacing neighbours and prop list, the Select brush and an area's
+  objects match a scan of every object, after the models loaded and after a move; prints the ms a call.
+  Trap: a building's box only reaches wide once its model has loaded, so compare after the load.
+- Probe: `bun run probe select-groups` (#630, the same map, every root in a group of ten): `withGroups`
+  for each grouped model under a Select brush, and the Ungroup command's member list and its undo, match
+  a scan; prints the brush's ms a spot against the scan's.

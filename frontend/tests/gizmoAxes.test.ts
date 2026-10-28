@@ -1,5 +1,5 @@
 // Run with: bun test tests/gizmoAxes.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { TransformGizmo } from '../src/lib/engine/TransformGizmo.ts'

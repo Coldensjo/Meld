@@ -1,5 +1,5 @@
 // Run with: bun test tests/paths.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { RIVER_BANK, copyPaths, crossWeight, downhill, fencePieces, limitGrade, riverBed, nearestSegment, newPath, pathField, readPaths, samplePath, type MapPath } from '../src/lib/terrain/paths.ts'
 import { applyPath } from '../src/lib/tools/pathApply.ts'

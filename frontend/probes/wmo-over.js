@@ -5,7 +5,7 @@ await P.settle()
 const e = P.e
 await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
 await P.fullView()
-const rooms = e.rooms
+const rooms = e.debug.rooms
 const sw = [...e.objects.objects.values()].find((o) => o.type.includes('stormwind.wmo'))
 // The view with the gate off: no room, no building flooded from outside.
 const whole = async () => {
@@ -65,7 +65,7 @@ const trade = await look('trade', { target: p.set(-56, 3.78, -255.5).applyMatrix
 // the street. The near plane is pulled in so the wall is not clipped away; before, the clipped wall
 // showed the sky with the gate on (55% of the picture off the gate-off view).
 const wall = await look('wall', { target: p.set(-51, 3.78, -249.13).applyMatrix4(m).toArray(), yaw: 2, pitch: 0.1, distance: 0.5 })
-wall.near = +e.persp.near.toFixed(3)
+wall.near = +e.debug.persp.near.toFixed(3)
 const same = (v) => !v.room && v.over && v.lit > 0.5 && v.offWhole < v.noise + 1
 return {
 	ok:

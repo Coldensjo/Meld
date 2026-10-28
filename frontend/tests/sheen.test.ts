@@ -1,5 +1,5 @@
 // Run with: bun test tests/sheen.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { applySheen, sheenPath } from '../src/lib/terrain/sheen.ts'
 

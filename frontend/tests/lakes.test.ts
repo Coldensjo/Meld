@@ -1,5 +1,5 @@
 // Run with: bun test tests/lakes.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { LAKE_RULES, fillLakes, findLakes, shoreLevels } from '../src/lib/water/lakes.ts'
 import { shapeLakeBeaches } from '../src/lib/terrain/beach.ts'

@@ -1,7 +1,6 @@
 package scripts
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -17,13 +16,7 @@ const MaxImagePixels = 4096 * 4096
 // ImagePath is where a script's load_png reads path from: the path itself when it is whole, else that
 // path under dir (the scripts folder), as Noggit Red's scripts name images beside themselves.
 func ImagePath(dir, path string) (string, error) {
-	if path == "" {
-		return "", errors.New("no file named")
-	}
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path), nil
-	}
-	return filepath.Join(dir, filepath.FromSlash(path)), nil
+	return Resolve(dir, path)
 }
 
 // LoadPNG reads the PNG at file as RGBA, a byte each and not premultiplied, row by row from the top.

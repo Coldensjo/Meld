@@ -46,6 +46,16 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc. svelte-check runs twice: on `tsconfig.app.json` (`src`) and on `tsconfig.tests.json` (`frontend/tests`, which Bun runs with types erased, so a fixture that drifts from its type fails `make check`, not `make test`).
 - `make check` also runs `make lint`: golangci-lint with the committed `.golangci.yml` (errcheck, govet, ineffassign, staticcheck, unused; tests are left out of errcheck). Discard a best-effort error as `_ = f()`. It skips with a note when golangci-lint is not installed (README), and lints only the files for this OS, so a Linux-only file is checked only on Linux.
 - `make check` also runs `make notices-check` (`frontend/scripts/notices.mjs --check`): it fails when a bundled npm package or linked Go module comes under a licence outside the permissive allow list, or when `THIRD_PARTY_NOTICES.md` is out of date. After `bun add`, a Go bump or a lockfile change run `make notices` and commit the file. It needs `node_modules` and the Go module cache.
+- The frontend tests use `bun:test` only (#614): `import { test } from 'bun:test'` (with `describe`, `test.each`,
+  `test.skipIf(cond)(name, fn)`, `mock` and `afterEach` from there too), Bun's native runner. Assertions are
+  `node:assert/strict` (`assert.equal(a, b, 'message')`) or Bun's `expect`; either is fine. Don't import `node:test`:
+  Bun runs it through a partial compatibility layer (`t.mock`, `t.diagnostic` and `only` are incomplete there).
+- Helpers shared by several test files live in `frontend/tests/support/` (#612; not `*.test.ts`, so `bun test` does
+  not run them, and not `helpers`, which `tests/helpers.test.ts` already names for `models/helpers.ts`):
+  `support/near.ts` has `nearNum(a, b, eps = 1e-6, what?)` and `nearVec(a, b, eps, what?)` (asserting, with a
+  message) and `isNear(a, b, eps)` (a boolean, for a check that combines several), and `support/wmo.ts` has
+  `navGroup(flags, min, max, refStart, refCount)`, a `WmoNavGroup` for a fake `WmoNav`. Use them rather than another
+  local `near`, which drifted into four meanings and tolerances before; pass the tolerance a test needs.
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: Bun doesn't run the Svelte compiler, so a test that imports `editor.svelte.ts`, or any module that
@@ -223,7 +233,7 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   `setSceneView({ hour })` still lasts only until a pref changes; set `prefs.timeOfDay` with it.
 - Traps:
   - Tabs opened by the Chrome extension are usually `document.hidden`, so the rAF loop stops (the
-    frame counter is stuck and loads hang). Drive frames with `__engine.frame()` from
+    frame counter is stuck and loads hang). Drive frames with `__engine.debug.frame()` from
     `javascript_tool`, then take the screenshot.
   - `javascript_tool` results that contain shader source are blocked as "cookie/query data".
     `console.log` them and read them with `read_console_messages` and a pattern.
@@ -265,7 +275,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   detached (log: `meld-dev.log` in the temp folder) and waits up to 10 minutes, a few minutes in
   practice. It stays up for the next run; with `MELD_URL` set it never starts one. Keep it running across items.
 - `cd frontend && bun run probe <name...>` runs those probes, `bun run probe --all` (or `make probe`)
-  runs every one but the benchmarks (`bench`, `perf-*`, about 8 of the 31 minutes; name them, or `make probe-perf`, #390), which keeps a whole run under the agent harness's 30-minute task limit (a foreground command gets 10, so run it in the background and read its log, one line a probe, rather than piping it through `tail`), `bun run probe --list` names them, `--touching <git range>` runs the ones a change touches (below), `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
+  runs every one but the benchmarks (`bench`, `perf-*`, about 8 of the 31 minutes; name them, or `make probe-perf`, #390) and the probes marked `// tier: manual` (#426: `preview-context`, about 2.5 minutes for a path commits rarely touch; `--touching` still picks them and a name runs them), which kept a whole run under the agent harness's 30-minute task limit until the set grew past it again (#669: run it in two background tasks one after the other, `--shard 1/2` and `--shard 2/2`, or `make probe SHARD=1/2`; a shard takes every n-th probe of the sorted set, so the slow benchmark-scene ones spread over both; a foreground command gets 10 minutes, so run it in the background and read its log, one line a probe, rather than piping it through `tail`; a signal that stops the run still gets the closing summary line, with `stopped` and `notRun`), `bun run probe --list` names them, `--touching <git range>` runs the ones a change touches (below), `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
   stalls in one run), each followed by `<=` and its heaviest caller chain up to the first Meld `src/` frame, with that
   chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). `PROFILE_TOP=<n>`
@@ -275,7 +285,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and
-  `object-loot` timed out once the owner's session held a region). It prints `probe: starting N probes` to stderr, one JSON line a probe, then a closing `{"summary":true,"run","passed","failed":[names],"flaky":[names],"seconds"}` line (a log without it is a run cut short, #616), and exits 1 if any failed. A page
+  `object-loot` timed out once the owner's session held a region). It prints `probe: starting N probes` to stderr, one JSON line a probe, then a closing `{"summary":true,"run","passed","failed":[names],"flaky":[names],"seconds"}` line (a log without it is a run cut short, #616; a run stopped by a signal prints it with `stopped` and `notRun`, #669), and exits 1 if any failed. A page
   error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
   is left out).
 - **`[Unhandled error] TypeError: Cannot read properties of null (reading 'nodes')` in the `make dev`
@@ -317,7 +327,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - A probe is `frontend/probes/<name>.js`: the body of an async function run in the page, whose first
   line is a `//` comment saying what it checks (`--list` shows it). It returns an object; `ok: false`
   or a throw fails it. `P` (`probes/lib.js`) is in scope:
-  - `P.e` (the Engine), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()` (waits for client reads and the spawn layer's version to go quiet, #393)
+  - `P.e` (the Engine; its private parts a probe may touch only through `P.e.debug`, the typed `EngineDebug` facade in `Engine.ts`: `ctx`, `tools`, `doc`, `env`, `frame()`, `wrapFrame(fn)`, `setHour(h)` and the rest; `tests/engineDebug.test.ts` fails on a probe that reaches one of them on `P.e` directly or names one the facade lacks, #562), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()` (waits for client reads and the spawn layer's version to go quiet, #393)
     (frames until the client reads stop), `P.frames(n)`, `P.until(fn, ms, what)`, `P.perf()`
     (`measurePerf` with frames stepped), `P.e.timer.setTimescale(0)` (holds the clock: animations, the liquids'
     frames and the sky stay put while frames still draw, for shots that must differ only by what you changed),
@@ -387,7 +397,7 @@ belong to another run) and the page's websocket from
 `http://127.0.0.1:<port>/json`, sends `Page.navigate`, waits 4 s, and for each JS file runs
 `Runtime.evaluate` on `(async () => { <file> })()` with `awaitPromise` and `returnByValue`, prints
 the result and saves `Page.captureScreenshot` as `<prefix>-<n>.png`. A step loads a scene with
-`__loadScene`, then steps the app with `await new Promise(r => setTimeout(r, 50)); __engine.frame()`
+`__loadScene`, then steps the app with `await new Promise(r => setTimeout(r, 50)); __engine.debug.frame()`
 in a loop and returns what it wants to report as JSON. The viewport of a 1400x900 window is
 `magick shot.png -crop 1068x285+47+95` (the asset browser takes the bottom).
 - Traps:
@@ -468,7 +478,7 @@ Checks: that `docs/` still builds into the site `.github/workflows/docs.yml` pub
 
 ## Measuring performance (the overlay, #179)
 
-Checks: where a frame's time goes, before and after a performance change. View › Performance overlay
+Checks: where a frame's time goes, before and after a performance change. Help › Performance overlay
 (Ctrl+Shift+M) shows, averaged over a second, the CPU time of each `Engine.frame()` section
 (`CPU_SECTIONS` in `engine/perfMeter.ts`, booked by `meter.mark` after each subsystem; `frame()` is
 `simulate` then `draw`, and `renderTopDown`'s shots run `simulate` with the meter off, so they book
@@ -479,7 +489,7 @@ Report puts the same numbers and the scene line on the clipboard. Use it as the 
 the same scene, the report before and after.
 
 - From a probe, without the pref: `let r; __engine.measurePerf().then((x) => (r = x))`, then step
-  `__engine.frame()` with `MessageChannel` waits for a bit over a second of wall time until `r` is set.
+  `__engine.debug.frame()` with `MessageChannel` waits for a bit over a second of wall time until `r` is set.
   The hidden preview throttles rAF, so a probe must drive the frames itself, and the numbers are then
   the probe's frame rate, not the window's.
 - Northshire (Azeroth 32_48, 1x1, the camera over the abbey) in the dev page on 2026-10-16: about
@@ -546,7 +556,7 @@ the same scene, the report before and after.
   - Sizes: Help › Benchmark map size (`prefs.benchScale`, `BENCH_SCALES`) multiplies the default counts
     by 1, 4 or 16; the buildings, terrain and water maps grow their side by the square root instead,
     up to 1024 cells (8x8 tiles). In a probe, `P.benchMap(kind, undefined, 4)`.
-  - Trap: the window can't draw faster than the screen (Graphics › FPS limit's None is the screen's
+  - Trap: the window can't draw faster than the screen (Edit › Preferences › Graphics › FPS limit's None is the screen's
     rate), so on a fast GPU the normal maps all show the screen's 240 FPS and say nothing. Read the
     report's CPU and GPU ms a frame instead, which don't stop at the screen's rate, or take a larger size.
   - The creatures are spawns made in the tab (`Engine.setSpawns`), dressed from the client's displays
@@ -673,7 +683,13 @@ the same scene, the report before and after.
 - A WMO's liquids: Blackrock Depths' lava (#287)
 - A camera over a building is in none of its rooms (#300)
 - Camera collision keeps the flying camera off a WMO's walls (#305)
+- Shadow maps: lights' cube maps, the sun's cascades and the moving casters (#129, #133, #325, #326, #346, #366; probes `shadow-redraw`, `shadow-poses`, `shadow-sun-drift`)
 - The instance batch: culling, packing and picking of placed models and spawns (#517)
+- The benchmark scene and maps: smoke, bench and perf-* (#322, #429; probes `smoke`, `bench`, `perf-*`)
+- Spawns posed only when drawn (#328, probe `pose-drawn`)
+- A model the client draws nothing of (#333, probe `nothing-to-draw`)
+- Releasing models: closed maps, thumbnails and previews (#505, #506; probes `release-models`, `release-asset`)
+- Moving lit models (#511, probe `effects-drag`)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)
 
@@ -706,6 +722,8 @@ the same scene, the report before and after.
 - The .wmap snapshot round trip and every readable version (#431)
 - The unknown state of holes, liquids and chunk data across a save (#525, #644, #663, probe `unknown-flags`)
 - Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
+- Cutting holes in a selected area (probe `undo-holes`)
+- Map Properties' world settings are undoable (#571, probe `world-settings`)
 - The world view: streamed tiles and Edit Here (#15, probe `world-view`), its minimap (probe `world-minimap`), Detail info in it (probe `world-detail`), its own map's ID (probe `world-map-id`, #754), Launch and Copy Teleport in it (probe `world-teleport`, #756), and a flight through it (probe `perf-world-flight`, #742)
 
 ### Tools and placing models (`docs/tests/tools.md`)
@@ -731,6 +749,12 @@ the same scene, the report before and after.
 - Paths: roads along a curve (#167, probe `path-road`)
 - Paths: rivers (#167, probe `path-river`)
 - Paths: fences (#167, probe `path-fence`)
+- A scripted Sculpt stroke and its undo (probe `undo-sculpt`, smoke)
+- Attached objects follow their parent (#329, probe `attach-follow`, smoke)
+- Drags write reactive state once a frame (#448, #621, probe `drag-state`)
+- The Stamp tool's per-brush settings (#445, probe `stamp-settings`)
+- A tab switch in the middle of a gizmo drag (#549, probe `tab-switch-drag`)
+- Objects near a point and selection groups from the layer's cells (#512, #630; probes `objects-near`, `select-groups`)
 
 ### UI and the window (`docs/tests/ui.md`)
 
@@ -763,7 +787,7 @@ the same scene, the report before and after.
 - Moving the view up and down in the previews (#662)
 - Camera views (#750, probe `camera-views`)
 - Top-down view (U)
-- Log window (and the session log file, #319, probe `session-log`)
+- Log window (and the session log file, #319, `tests/sessionLog.test.ts`)
 - Minimap window (M)
 - Projects (#48)
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
@@ -776,6 +800,7 @@ the same scene, the report before and after.
 - Shortcut table (#583, probe `shortcut-table`)
 - Hotkey Manager (#396, probe `hotkey-manager`)
 - Interface size (#372, probe `ui-scale`)
+- Activating the open tab (#547, probe `activate-same`)
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)
 
@@ -798,7 +823,9 @@ the same scene, the report before and after.
 - A spawn's scripts on the This spawn tab (#137, probe `spawn-scripts`)
 - World event spawns (#143)
 - Creature editor: Looks opens on the creature's display (#206)
-- Creature editor: Shop tab (npc_vendor, #145)
+- Creature editor: Shop tab (npc_vendor, #145, probe `creature-shop`)
+- Creature editor: Quests and Messages tabs (#158)
+- Creature editor: texts shown under a condition (#160, probe `messages-conditions`)
 - Creature editor: Spells tab (creature_spells, #243)
 - Portals and area triggers (#141, #18; Teleport to destination #306, spawn teleports #308, probe `teleport-trigger`; layout #718, probe `portals-fit`)
 - Flight paths (#180, probe `flight-paths`)
@@ -844,6 +871,7 @@ the same scene, the report before and after.
 - The binary replies against their parsers (#520, the wire fixtures)
 - The format constants and the axis swap on both sides (#538, the format fixture)
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
+- A WMO-only map's frame and Launch spot (#272, probe `wmo-only-frame`)
 
 ### Scripting (`docs/tests/scripting.md`)
 

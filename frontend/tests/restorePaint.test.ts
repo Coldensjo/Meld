@@ -1,5 +1,5 @@
 // Run with: bun test tests/restorePaint.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { MAX_PALETTE, NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 import { planRestore, restoreChunk } from '../src/lib/terrain/restorePaint.ts'

@@ -46,7 +46,7 @@
 	.window {
 		position: fixed;
 		inset: 0;
-		z-index: 160;
+		z-index: var(--z-editor-2);
 		display: flex;
 		flex-direction: column;
 		background: var(--bg);

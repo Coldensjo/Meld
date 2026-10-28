@@ -12,7 +12,7 @@ const WmoGroupCull = batch[1].cull.constructor
 // settle (#392: the culled read caught such a frame, 1.9M against the whole read's 173k).
 const sm = P.e.renderer.shadowMap
 const render = sm.render
-const { key, far } = P.e.env
+const { key, far } = P.e.debug.env
 let shadow = -1
 sm.render = function (...args) {
 	const info = P.e.renderer.info.render

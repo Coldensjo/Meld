@@ -37,3 +37,12 @@ export function gridWindow(count: number, cols: number, rowH: number, scrollTop:
 export function rowTop(index: number, cols: number, rowH: number): number {
 	return Math.floor(index / cols) * rowH
 }
+
+/**
+ * The tile size that fills a row of `cols` columns (from `gridCols` at the smallest tile `min`) across
+ * `width`, less the grid's padding `pad` and the gaps between the tiles, kept between `min` and `max`
+ * px (#389: the display picker's tiles grow to end at the grid's right edge, not short of it).
+ */
+export function gridTile(width: number, cols: number, gap: number, pad: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, Math.floor((width - pad - (cols - 1) * gap) / cols)))
+}

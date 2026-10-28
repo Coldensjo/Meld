@@ -1,5 +1,5 @@
 // Run with: bun test tests/vmangosExport.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 import { mapToTiles, TILE_CELLS, type ExportInput } from '../src/lib/io/vmangosExport.ts'

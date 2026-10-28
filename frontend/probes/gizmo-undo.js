@@ -22,15 +22,15 @@ const g = e.gizmo
 /** Points the Engine's pointer at world point p. */
 const aim = (p) => {
 	const q = p.clone().project(e.camera)
-	e.ndc.set(q.x, q.y)
-	e.raycaster.setFromCamera(e.ndc, e.camera)
+	e.debug.ndc.set(q.x, q.y)
+	e.raycaster.setFromCamera(e.debug.ndc, e.camera)
 }
 /** What `state` reads: the cubes, or the spawn when one is chosen. */
 let spawnKeyNow = null
 /** The fields a gizmo drag edits, of every cube (or of the spawn). */
 const state = () => {
 	if (spawnKeyNow) {
-		const s = e.doc.spawnLayer.get(spawnKeyNow)
+		const s = e.debug.doc.spawnLayer.get(spawnKeyNow)
 		return JSON.stringify([s.x, s.y, s.z, s.orientation])
 	}
 	return JSON.stringify(cubes.map((c) => L.objects.get(c.id)).map((o) => [o.x, o.yOff, o.z, o.rotY, o.scale, o.parent ?? null]))
@@ -97,7 +97,7 @@ for (const name of ['ring', 'arrow']) results.push({ ...(await drag(name)), grou
 const loaded = await window.go.main.App.LoadSpawns('Azeroth', 30, 48, 1)
 const found = loaded.find((x) => x.kind === 'monster')
 if (!found) return { ok: false, results, error: 'no creature spawn from the world database' }
-const layer = e.doc.spawnLayer
+const layer = e.debug.doc.spawnLayer
 const spawn = { ...found, x: 128, z: 122, y: e.terrain.heightAt(128, 122), orientation: 0.5 }
 layer.set([spawn])
 se.syncSpawnUi(layer, true)

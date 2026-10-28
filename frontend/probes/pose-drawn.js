@@ -2,7 +2,7 @@
 // touches: frontend/src/lib/world/Animator.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/world/ObjectLayer.ts
 await P.loadBenchMap('creatures', 300)
 const { animatedAssets } = await P.app('/src/lib/models/assets.ts')
-const layer = P.e.doc.spawnLayer
+const layer = P.e.debug.doc.spawnLayer
 const types = [...animatedAssets.keys()].filter((t) => layer.hasType(t))
 const drawn = () => types.filter((t) => layer.drawsType(t))
 const posed = () => Object.fromEntries(types.map((t) => [t, animatedAssets.get(t).anim.posedAt]))

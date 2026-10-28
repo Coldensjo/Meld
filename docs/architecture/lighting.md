@@ -1,5 +1,23 @@
 # Lighting, sky and shadows
 
+## Preview and verification boundary
+
+For practical controls and limitations, see the [manual](../MANUAL.md#understand-the-viewport-preview).
+`Engine.applyClientLight` uses `openMapId`, client Light tables and camera coordinates to blend
+lighting. Missing map context/tables clears the client-light override and hides the client cloud
+layer; fallback Environment lighting remains. `ui.weather`/`weatherGrade` are temporary preview
+state, not writes to server `game_weather`. Storm colours require client-light data; `updateWeather`
+draws precipitation separately, gated by top-down view, roofs and room visibility.
+
+Terrain/liquid/sky shaders and instanced prop materials have distinct lighting/shadow paths;
+changing one does not automatically update the others. `Environment` and `shadowCascades` implement
+editor shadow fits/refresh policies, not the game's renderer. World-view far-shadow refresh may lag
+streamed scene changes. Pure `clientLight`, `weather` and `weatherRoof` tests check rules, not shader
+compilation, actual frames, indoor assets or game parity. Use the
+[rendering recipes](../tests/rendering.md) for separately authorized native/GPU checks.
+
+## Detailed lighting reference
+
 Shaders, the sky and time of day, the shadow cascades and the client's lighting.
 
 - **Shaders** are custom `ShaderMaterial`s (terrain, water, sky). They include three's fog,
