@@ -323,7 +323,7 @@
 </script>
 
 {#if target}
-	<EditorFrame {ed} label="Spell editor" z={165} unsavedText={`${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the spell.`} blocked={() => !!ui.contextMenu} {back}>
+	<EditorFrame {ed} label="Spell editor" z="editor-3" unsavedText={`${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the spell.`} blocked={() => !!ui.contextMenu} {back}>
 		{#snippet title()}
 			{#if target.entry > 0}
 				<h2>

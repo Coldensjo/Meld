@@ -333,7 +333,7 @@
 	.editor {
 		position: fixed;
 		inset: 0;
-		z-index: 150;
+		z-index: var(--z-editor);
 		display: flex;
 		flex-direction: column;
 		background: var(--bg);

@@ -29,7 +29,7 @@
 		border: 1px solid var(--border);
 		border-radius: 8px;
 		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-		z-index: 40;
+		z-index: var(--z-window);
 		overflow: hidden;
 	}
 	header {

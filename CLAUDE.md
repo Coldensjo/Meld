@@ -311,3 +311,24 @@ These are repeated from the docs above, since breaking one breaks things far fro
 - Linux/Wayland: `env_linux.go` sets `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Without it, WebKitGTK
   crashes with "Error 71 (Protocol error)" on this KDE Wayland machine.
 - Windows uses WebView2 (Chromium) and has no cgo requirement, so it cross-compiles from Linux.
+
+## Documentation Maintenance
+
+Documentation is a maintained part of the project.
+
+When changing functionality, configuration, APIs,
+build processes, or user workflows:
+
+1. Identify affected documentation.
+2. Update it alongside the implementation.
+3. Verify accuracy against the current source code.
+4. Run documentation build and link checks.
+5. Update the documentation roadmap if necessary.
+
+Follow DOCUMENTATION_RULES.md.
+
+Do not perform full documentation audits unless
+explicitly requested.
+
+Do not create documentation tasks for trivial
+implementation details or speculative features.
