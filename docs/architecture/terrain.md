@@ -29,6 +29,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   - Heights are a `Float32Array` of `(size+1)^2` vertices; `CELL_SIZE` = a tile's 1600/3 (533.33) yd over 128 cells = 4.1667 yd, for every map, new or read from the client.
   - The mesh is split into 32×32-cell chunks. Edits call `markDirty(rect)`, and `update()` rewrites
     only the touched chunks.
+  - Two counters follow the heights: `heightEditVersion` is bumped by every `markDirty`, before the
+    frame uploads it, and `heightUploadVersion` by `update()` once the heights reach the GPU. A view that
+    rebuilds from the CPU heights (ground effects, the walkable ground) keys on the first; one that must
+    agree with what is drawn (the selection boxes, the gizmo, the minimap) on the second (#539).
   - Picking ray-marches the heightmap (`raycast`, the march itself in `rayMarch.ts`). Don't use triangle raycasts on the terrain.
     A ray passes through holes and, once below the surface through one, stays under until it is above the ground again (#528), so a slanted ray into a cave mouth does not hit the ground's underside at the rim.
   - **Holes**: `Terrain.holes` is one byte per cell (`terrain/holes.ts`). A hole cell gets no
@@ -265,7 +269,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   ramp from 52.5 to 70 yd multiplied into the alpha, cut out at 128/255, so grass is gone by 61.1 yd).
   It builds them within `reach` of the camera (`tuftReach`: that depth out to the view's side edge,
   set by the Engine from the camera), rebuilt when the camera moves half a chunk or
-  `Terrain.heightVersion`/`paintVersion` change (Show › Ground effects, `prefs.showGroundEffects`).
+  `Terrain.heightEditVersion`/`paintVersion` change (Show › Ground effects, `prefs.showGroundEffects`).
   A map's own effect per texture (`editor.textureEffects`, World › Ground Effects…, saved as the map
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer
   (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK

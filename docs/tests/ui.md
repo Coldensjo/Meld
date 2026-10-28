@@ -424,7 +424,7 @@ It is the first thing to read for a bug report, as the Log window is gone once M
 Checks: M (or Camera › Minimap) shows the map (`MinimapView.svelte`) attached to the dock above
 Layers (`prefs.minimapDocked`, the default, #749; M shows a hidden dock too), or, detached with the
 panel's ⇱, as a floating window at the top left (its ⇥ attaches it again): the heights drawn grey
-by height and blue under the sea (redrawn when the terrain object, its `heightsVersion` or the sea
+by height and blue under the sea (redrawn when the terrain object, its `heightUploadVersion` or the sea
 changes, checked at 2 Hz through `stats.view`; `MinimapDrawn` in `lib/io/minimapImage.ts`), the client's overview behind it for a part of Azeroth (cropped to the open
 block), amber tile borders on a map bigger than a tile, and a white dot with a line for the camera's
 target and facing. A click moves the camera there (`controller.focus`). In the dev page:
@@ -434,7 +434,7 @@ selector finds it in the dock and in the window).
 - Probe: `bun run probe minimap-dock`: attached above Layers and square at the dock's width, M shows
   a hidden dock, detach and attach, M hides it in either place, and a new Small Mountains world
   (the start map's size) drawn with its ground. Trap (#749): a new map's `Terrain` starts its own
-  `heightsVersion`, so two maps of one size both stand at 1 after the first upload; a cache key of
+  `heightUploadVersion`, so two maps of one size both stand at 1 after the first upload; a cache key of
   size and version kept the old map's picture (all water) over the new world. Trap (#757): a fresh
   canvas is 300 wide (the HTML default) until the first 2 Hz refresh draws it, so wait for
   `width === terrain.size`, not `width > 0`, or the read races the refresh (it failed after #750).

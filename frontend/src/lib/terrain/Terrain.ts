@@ -143,8 +143,11 @@ export class Terrain {
 	readonly material: THREE.ShaderMaterial
 	readonly group = new THREE.Group()
 
-	/** Incremented whenever heights reach the GPU (lets other views resync). */
-	heightsVersion = 0
+	/**
+	 * Bumped when edited heights reach the GPU (`update`), for views that read the uploaded heights or
+	 * must agree with what is drawn. `heightEditVersion` is bumped earlier, at each edit.
+	 */
+	heightUploadVersion = 0
 	private chunks: THREE.Mesh[] = []
 	private chunksPerSide: number
 	private dirty = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
@@ -311,8 +314,11 @@ export class Terrain {
 		else this.growGroundChange(0, 0, this.size, this.size)
 	}
 
-	/** Bumped whenever heights or paint change, for layers that rebuild from them (the ground effects). */
-	heightVersion = 0
+	/**
+	 * Bumped at every height edit (`markDirty`), before the frame uploads it, for layers that rebuild from
+	 * the CPU heights (the ground effects, the walkable-ground view). `heightUploadVersion` follows the upload.
+	 */
+	heightEditVersion = 0
 	paintVersion = 0
 
 	/**
@@ -344,7 +350,7 @@ export class Terrain {
 
 	/** Mark a vertex-space rect (inclusive) as changed. */
 	markDirty(x0: number, z0: number, x1: number, z1: number) {
-		this.heightVersion++
+		this.heightEditVersion++
 		this.growGroundChange(x0, z0, x1, z1)
 		const d = this.dirty
 		d.x0 = Math.min(d.x0, x0 - 1)
@@ -416,7 +422,7 @@ export class Terrain {
 			if (this.heightTex) this.heightTexDirty.mark({ x0: d.x0, z0: d.z0, x1: d.x1, z1: d.z1 })
 			d.x0 = d.z0 = Infinity
 			d.x1 = d.z1 = -Infinity
-			this.heightsVersion++
+			this.heightUploadVersion++
 		}
 		if (this.heightTexDirty.dirty) {
 			this.uploadRegion(renderer, this.heightTexDirty, this.heightSrc!, this.heightTex!, this.verts)

@@ -188,7 +188,7 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     `Terrain.heightTexture()`, shared with the terrain, which uploads only the edited rect) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
     8). The edge pass colours the stroke from the neighbouring mask pixels.
   - `Engine.updateSelectionVisuals` builds the outline's targets, their colours, the warn boxes and
-    the handles' spot (`selGizmo`) only when the layer's `version`, the ground's `heightsVersion`,
+    the handles' spot (`selGizmo`) only when the layer's `version`, the ground's `heightUploadVersion`,
     `editor.selectedIds`, the primary selection or the tool moved (`selBuiltFor`, #551); each frame
     it only fits the handles to the camera. The prop test reads `ObjectLayer.rootsTouching` (the
     roots whose model may reach the box) and `attachedObjects`, not every object, so a drag that

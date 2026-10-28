@@ -508,7 +508,7 @@ export class SculptTool extends BrushTool {
 		if (m.parent !== ctx.scene) ctx.scene.add(m)
 		const t = ctx.terrain
 		const key = this.markersKey
-		if (key.sel === sel && key.terrain === t && key.version === sel.version && key.size === n && key.heights === t.heightVersion) {
+		if (key.sel === sel && key.terrain === t && key.version === sel.version && key.size === n && key.heights === t.heightEditVersion) {
 			m.visible = true
 			return
 		}
@@ -516,7 +516,7 @@ export class SculptTool extends BrushTool {
 		key.terrain = t
 		key.version = sel.version
 		key.size = n
-		key.heights = t.heightVersion
+		key.heights = t.heightEditVersion
 		const V = t.verts
 		const cs = t.cellSize
 		const pos = m.geometry.attributes.position as THREE.BufferAttribute

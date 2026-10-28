@@ -40,7 +40,7 @@
 		world = null
 		const t = e.terrain
 		const sea = editor.waterEnabled ? editor.waterLevel : -Infinity
-		if (!drawn.stale(t, t.heightsVersion, sea)) return
+		if (!drawn.stale(t, t.heightUploadVersion, sea)) return
 		draw(canvas, t.heights, t.size, sea)
 	})
 

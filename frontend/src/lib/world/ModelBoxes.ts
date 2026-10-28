@@ -31,10 +31,10 @@ export class ModelBoxes {
 	}
 
 	/** Shows or hides the boxes and rebuilds them when the map's models or ground changed. */
-	update(layer: ObjectLayer, visible: boolean, heightsVersion: number) {
+	update(layer: ObjectLayer, visible: boolean, heightUploadVersion: number) {
 		this.lines.visible = visible
 		if (!visible) return
-		if (layer === this.layer && layer.shapeVersion === this.shapeVersion && heightsVersion === this.heights) {
+		if (layer === this.layer && layer.shapeVersion === this.shapeVersion && heightUploadVersion === this.heights) {
 			if (layer.moveSeq === this.moveSeq) return
 			const moved = layer.movedSince(this.moveSeq)
 			this.moveSeq = layer.moveSeq
@@ -51,7 +51,7 @@ export class ModelBoxes {
 		this.layer = layer
 		this.shapeVersion = layer.shapeVersion
 		this.moveSeq = layer.moveSeq
-		this.heights = heightsVersion
+		this.heights = heightUploadVersion
 		const objects = layer.list().filter((o) => !layer.isHidden(o.id) && getAsset(o.type).ready)
 		const pos = new Float32Array(objects.length * EDGES.length * 3)
 		this.at.clear()
@@ -112,20 +112,20 @@ export class GroupBoxes {
 	}
 
 	/** `history` is ui.historyVersion, which moves when models are grouped or ungrouped. */
-	update(layer: ObjectLayer, selectedIds: readonly number[], heightsVersion: number, history: number) {
+	update(layer: ObjectLayer, selectedIds: readonly number[], heightUploadVersion: number, history: number) {
 		// Nothing is looked at, nor allocated, on a frame where none of these moved.
-		if (selectedIds === this.ids && layer === this.layer && layer.version === this.version && heightsVersion === this.heights && history === this.history) return
+		if (selectedIds === this.ids && layer === this.layer && layer.version === this.version && heightUploadVersion === this.heights && history === this.history) return
 		this.ids = selectedIds
 		this.layer = layer
 		this.version = layer.version
-		this.heights = heightsVersion
+		this.heights = heightUploadVersion
 		this.history = history
 		const groups = new Set<number>()
 		for (const id of selectedIds) {
 			const g = layer.objects.get(id)?.group
 			if (g) groups.add(g)
 		}
-		const key = groups.size ? `${layer.version}:${heightsVersion}:${history}:${[...groups].join(',')}` : ''
+		const key = groups.size ? `${layer.version}:${heightUploadVersion}:${history}:${[...groups].join(',')}` : ''
 		if (key === this.key) return
 		this.key = key
 		const pos: number[] = []
