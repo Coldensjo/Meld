@@ -42,6 +42,23 @@
 	--radius: 3px;
 	--font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
 	--mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+	/* The stacking order of the window's layers, lowest first (#590, docs/architecture/ui.md). A new
+	   window, bar or dialog takes one of these, never a number of its own; the small z-index values
+	   inside a panel order only its own parts. */
+	--z-window: 40; /* the floating windows: Inspector, History, Minimap, Reference, Scripts... */
+	--z-options: 45; /* the options bar while its overflow is open */
+	--z-options-more: 46; /* its overflow (the » menu) */
+	--z-options-panel: 47; /* its settings panel (Sculpt's Brush, Water, Placement, Spawns) */
+	--z-bar: 50; /* the menu bar and its menus */
+	--z-workspace: 140; /* the Creatures workspace */
+	--z-editor: 150; /* the creature, game object and doodad brush editors */
+	--z-editor-2: 160; /* over those: the quest editor and the model preview */
+	--z-editor-3: 165; /* over those: the item and spell editors and the icon picker */
+	--z-menu: 180; /* the right-click menu */
+	--z-modal: 200; /* Modal and every dialog built on it */
+	--z-saving: 900; /* the saving bar, over the editors and Modal */
+	--z-tip: 1000; /* tooltips */
+	--z-debug: 10000; /* the F8 overlay */
 	color-scheme: dark;
 }
 

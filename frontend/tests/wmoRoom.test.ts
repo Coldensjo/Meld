@@ -1,14 +1,11 @@
 // Run with: bun test tests/wmoRoom.test.ts
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { navGroup } from './support/wmo.ts'
 import { buildColumnGrid, collideSphere, downRayPick, walkFloorZ, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
 
 type Tri = number[] // nine floats
-
-function group(flags: number, min: number[], max: number[], refStart = 0, refCount = 0): WmoNavGroup {
-	return { flags, min: min as [number, number, number], max: max as [number, number, number], refStart, refCount, fogs: [0, 0, 0, 0], name: '' }
-}
 
 /** A horizontal floor quad (two triangles, radius r) at height z. */
 function quad(z: number, r: number): Tri[] {
@@ -34,7 +31,7 @@ function nav(groups: WmoNavGroup[], walk: Tri[][], opts: Partial<Pick<WmoNav, 'p
 const pick = (n: WmoNav, eye: number[], terrain: number | null = null) => downRayPick(n, eye[0], eye[1], eye[2], terrain)
 
 test('the walking leg picks the group of the nearest face below', () => {
-	const n = nav([group(0, [-30, -30, 0], [30, 30, 100]), group(0, [-5, -5, 10], [5, 5, 16])], [quad(0, 30), quad(10, 5)])
+	const n = nav([navGroup(0, [-30, -30, 0], [30, 30, 100]), navGroup(0, [-5, -5, 10], [5, 5, 16])], [quad(0, 30), quad(10, 5)])
 	assert.equal(pick(n, [0, 0, 12]).inGroup, 1)
 	assert.equal(pick(n, [0, 0, 5]).inGroup, 0)
 	assert.equal(pick(n, [20, 20, 5]).inGroup, 0)
@@ -43,12 +40,12 @@ test('the walking leg picks the group of the nearest face below', () => {
 
 test('the walking leg has no orientation filter, and an exterior group is outside', () => {
 	const steep = [[-1, -1, 0, 1, -1, 0, 0, 1, 20]]
-	assert.equal(pick(nav([group(0, [-10, -10, 0], [10, 10, 120])], [steep]), [0, 0, 30]).inGroup, 0)
-	assert.equal(pick(nav([group(EXTERIOR, [-30, -30, 0], [30, 30, 100])], [quad(0, 30)]), [0, 0, 5]).inGroup, null)
+	assert.equal(pick(nav([navGroup(0, [-10, -10, 0], [10, 10, 120])], [steep]), [0, 0, 30]).inGroup, 0)
+	assert.equal(pick(nav([navGroup(EXTERIOR, [-30, -30, 0], [30, 30, 100])], [quad(0, 30)]), [0, 0, 5]).inGroup, null)
 })
 
 test('the floor under the eye is the highest walking face at or below it, whatever the group (#310)', () => {
-	const n = nav([group(EXTERIOR, [-30, -30, 0], [30, 30, 100]), group(0, [-5, -5, 10], [5, 5, 16])], [quad(0, 30), quad(10, 5)])
+	const n = nav([navGroup(EXTERIOR, [-30, -30, 0], [30, 30, 100]), navGroup(0, [-5, -5, 10], [5, 5, 16])], [quad(0, 30), quad(10, 5)])
 	assert.equal(walkFloorZ(n, 0, 0, 12), 10)
 	assert.equal(walkFloorZ(n, 0, 0, 9), 0)
 	assert.equal(walkFloorZ(n, 20, 20, 50), 0, 'an exterior floor counts')
@@ -67,7 +64,7 @@ function stairwell(normalUp: boolean, slab = false): WmoNav {
 				{ portal: 0, group: 1, side: 1 },
 				{ portal: 0, group: 0, side: -1 },
 			]
-	return nav([group(0, [-5, -5, 0], [5, 5, 11], 0, 1), group(0, [-20, -20, 10], [20, 20, 20], 1, 1)], [slab ? [...quad(0, 5), ...quad(10, 5)] : quad(0, 5), []], {
+	return nav([navGroup(0, [-5, -5, 0], [5, 5, 11], 0, 1), navGroup(0, [-20, -20, 10], [20, 20, 20], 1, 1)], [slab ? [...quad(0, 5), ...quad(10, 5)] : quad(0, 5), []], {
 		portalVerts: [-5, -5, 10, 5, -5, 10, 5, 5, 10, -5, 5, 10],
 		portals: [{ start: 0, count: 4, plane: normalUp ? [0, 0, 1, -10] : [0, 0, -1, 10] }],
 		refs,
@@ -97,7 +94,7 @@ test('a vertical doorway counts only within the snap of its plane', () => {
 		[0.5, -10, 0, 10, -10, 0, 10, 10, 0],
 		[0.5, -10, 0, 10, 10, 0, 0.5, 10, 0],
 	]
-	const n = nav([group(0, [-10, -10, 0], [0.5, 10, 10], 0, 1), group(0, [-0.5, -10, 0], [10, 10, 10], 1, 1)], [a, b], {
+	const n = nav([navGroup(0, [-10, -10, 0], [0.5, 10, 10], 0, 1), navGroup(0, [-0.5, -10, 0], [10, 10, 10], 1, 1)], [a, b], {
 		portalVerts: [0, -2, 0, 0, 2, 0, 0, 2, 4, 0, -2, 4],
 		portals: [{ start: 0, count: 4, plane: [1, 0, 0, 0] }],
 		refs: [
@@ -110,7 +107,7 @@ test('a vertical doorway counts only within the snap of its plane', () => {
 })
 
 test('the terrain race drops a buried interior but spares a tunnel under a hill', () => {
-	const mine = nav([group(0, [-20, -20, 0], [20, 20, 10])], [quad(0, 20)])
+	const mine = nav([navGroup(0, [-20, -20, 0], [20, 20, 10])], [quad(0, 20)])
 	assert.equal(pick(mine, [0, 0, 2]).inGroup, 0)
 	assert.equal(pick(mine, [0, 0, 2], 8).inGroup, 0, 'terrain above the eye is off the ray')
 	assert.equal(pick(mine, [0, 0, 12], 8).inGroup, null, 'ground between the eye and the floor')
@@ -119,14 +116,14 @@ test('the terrain race drops a buried interior but spares a tunnel under a hill'
 })
 
 test('the camera-only fallback names a room floored only with detail faces', () => {
-	const pocket = group(0, [-10, -10, 0], [10, 10, 12])
+	const pocket = navGroup(0, [-10, -10, 0], [10, 10, 12])
 	const n = nav([pocket], [[]], { camera: [quad(0, 10)] })
 	assert.deepEqual(pick(n, [0, 0, 2]), { inGroup: 0, across: null })
 	assert.equal(pick(n, [0, 0, 2], 8).inGroup, 0)
 	assert.equal(pick(n, [0, 0, 2], 1.9).inGroup, null, 'terrain below the eye keeps it outside')
-	const hall = nav([pocket, group(0, [-30, -30, -5], [30, 30, 12])], [[], quad(-5, 30)], { camera: [quad(0, 10), []] })
+	const hall = nav([pocket, navGroup(0, [-30, -30, -5], [30, 30, 12])], [[], quad(-5, 30)], { camera: [quad(0, 10), []] })
 	assert.equal(pick(hall, [0, 0, 2]).inGroup, 1, 'a walking face pre-empts the fallback')
-	assert.equal(pick(nav([group(EXTERIOR, [-10, -10, 0], [10, 10, 12])], [[]], { camera: [quad(0, 10)] }), [0, 0, 2]).inGroup, null)
+	assert.equal(pick(nav([navGroup(EXTERIOR, [-10, -10, 0], [10, 10, 12])], [[]], { camera: [quad(0, 10)] }), [0, 0, 2]).inGroup, null)
 })
 
 test('triangleZAt interpolates inside and rejects outside', () => {
@@ -151,7 +148,7 @@ test('the column index never changes a pick', () => {
 		return out
 	}
 	const slab: Tri = [0, 0, 4, 30, 0, 4, 30, 30, 4]
-	const groups = [0, 1, 2].map((i) => group(0, [0, 0, i * 8], [30, 30, i * 8 + 8]))
+	const groups = [0, 1, 2].map((i) => navGroup(0, [0, 0, i * 8], [30, 30, i * 8 + 8]))
 	const linear = nav(groups, [[...storey(0), slab], storey(8), storey(16)])
 	const indexed = { ...linear, walkGrids: linear.walk.map(buildColumnGrid) }
 	assert.ok(
@@ -197,7 +194,7 @@ test('the nearest face is found within reach, walls and camera faces included, a
 		[10, 0, 0, 10, 10, 5, 10, 0, 5],
 	]
 	const beam: Tri[] = [[0, 5, 4, 10, 5, 4, 5, 5.5, 4]]
-	const linear = nav([group(0, [0, 0, 0], [10, 10, 5])], [[...floor, ...wall]], { camera: [beam] })
+	const linear = nav([navGroup(0, [0, 0, 0], [10, 10, 5])], [[...floor, ...wall]], { camera: [beam] })
 	const indexed = { ...linear, walkGrids: linear.walk.map(buildColumnGrid) }
 	assert.ok(indexed.walkGrids[0], 'the floor is indexed')
 	for (const n of [linear, indexed]) {
@@ -218,7 +215,7 @@ test('a sphere moved into a wall stops its radius off it and slides along, howev
 		[10, 0, 0, 10, 10, 0, 10, 10, 5],
 		[10, 0, 0, 10, 10, 5, 10, 0, 5],
 	]
-	const linear = nav([group(0, [0, 0, 0], [10, 10, 5])], [[...floor, ...wall]])
+	const linear = nav([navGroup(0, [0, 0, 0], [10, 10, 5])], [[...floor, ...wall]])
 	const indexed = { ...linear, walkGrids: linear.walk.map(buildColumnGrid) }
 	const close = (a: number[], b: number[], what: string) =>
 		assert.ok(

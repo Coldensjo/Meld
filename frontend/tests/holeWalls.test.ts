@@ -1,5 +1,5 @@
 // Run with: bun test tests/holeWalls.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { WALL_FADE_FAR, WALL_FADE_NEAR, bandOf, findWalls, revealRadius, wallFade } from '../src/lib/terrain/holes.ts'
 

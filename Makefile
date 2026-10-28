@@ -86,9 +86,10 @@ check: bindings-check notices-check format-check frontend-dist lint
 	go vet ./internal/... ./cmd/... .
 	cd frontend && bun run check
 
-# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) against the running `make dev` (docs/TESTS.md, "Probes").
+# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev` (docs/TESTS.md, "Probes").
+# The whole set outgrew the agent harness's 30-minute task limit (#669): `make probe SHARD=1/2`, then `SHARD=2/2`, runs it in halves.
 probe:
-	cd frontend && bun run probe --all
+	cd frontend && bun run probe --all $(if $(SHARD),--shard $(SHARD))
 
 # The probes marked `// tier: smoke`: fast and deterministic, guarding the shared code most commits touch (docs/TESTS.md, "Probes").
 probe-smoke:

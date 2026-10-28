@@ -185,7 +185,7 @@
 	.editor {
 		position: fixed;
 		inset: 0;
-		z-index: 165;
+		z-index: var(--z-editor-3);
 		display: flex;
 		flex-direction: column;
 		background: var(--bg);

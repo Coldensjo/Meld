@@ -1,5 +1,5 @@
 // Run with: bun test tests/terrainGenerate.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CoastShape, presetHeight, snowLine, type PresetId } from '../src/lib/terrain/presets.ts'
 import { generateHeights, imageGroundHeights } from '../src/lib/terrain/generate.ts'

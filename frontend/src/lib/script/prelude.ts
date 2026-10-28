@@ -30,10 +30,6 @@ function print(...)
 	H.print(concat(parts, '\t'))
 end
 
-local function missing(name)
-	return function() error(name .. ' is not in Meld yet', 2) end
-end
-
 -- vector_3d: x and z across the ground, y up, in yards.
 local vec_mt = {}
 vec_mt.__index = vec_mt
@@ -583,7 +579,14 @@ function image_mt:gradient_scale(rel)
 end
 function image_mt:width() return self._w end
 function image_mt:height() return self._h end
-image_mt.save = missing('image:save (writing files, #761)')
+-- Files (#761): the app reads and writes them, so the script waits; level 3 is the script's line.
+local function await_file(what, p)
+	local r = p:await()
+	if type(r) == 'string' then error(what .. ': ' .. r, 3) end
+	return r
+end
+-- A PNG, at a path as write_file takes it.
+function image_mt:save(path) await_file('image:save', H.image_save(self._id, tostring(path))) end
 function create_image(w, h)
 	w, h = mfloor(tonumber(w) or 0), mfloor(tonumber(h) or 0)
 	local id = H.image_new(w, h)
@@ -660,11 +663,13 @@ function __meld_event(i, kind, x, y, z, outer, inner, dt)
 	flush()
 end
 
--- Not in Meld yet: files (#761).
-write_file = missing('write_file')
-append_file = missing('append_file')
-read_file = missing('read_file')
-path_exists = missing('path_exists')
+-- Files (#761), as Noggit Red's: a path relative to the scripts folder, or a whole one. Reading goes
+-- anywhere; writing (which makes the folders on the way) only inside the scripts folder, unless the
+-- user's preference lets scripts write any file.
+function read_file(path) return await_file('read_file', H.file_read(tostring(path))).text end
+function path_exists(path) return await_file('path_exists', H.file_exists(tostring(path))).yes end
+function write_file(path, content) await_file('write_file', H.file_write(tostring(path), tostring(content), false)) end
+function append_file(path, content) await_file('append_file', H.file_write(tostring(path), tostring(content), true)) end
 
 -- The script itself, then whatever its blocks still hold.
 local chunk, err = load(H.code(), '=' .. H.name(), 't')

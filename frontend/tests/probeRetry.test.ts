@@ -1,5 +1,5 @@
 // Run with: bun test tests/probeRetry.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { firstAttempt, noRetryReason } from '../probes/retry.mjs'
 

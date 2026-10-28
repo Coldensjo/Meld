@@ -46,6 +46,16 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc. svelte-check runs twice: on `tsconfig.app.json` (`src`) and on `tsconfig.tests.json` (`frontend/tests`, which Bun runs with types erased, so a fixture that drifts from its type fails `make check`, not `make test`).
 - `make check` also runs `make lint`: golangci-lint with the committed `.golangci.yml` (errcheck, govet, ineffassign, staticcheck, unused; tests are left out of errcheck). Discard a best-effort error as `_ = f()`. It skips with a note when golangci-lint is not installed (README), and lints only the files for this OS, so a Linux-only file is checked only on Linux.
 - `make check` also runs `make notices-check` (`frontend/scripts/notices.mjs --check`): it fails when a bundled npm package or linked Go module comes under a licence outside the permissive allow list, or when `THIRD_PARTY_NOTICES.md` is out of date. After `bun add`, a Go bump or a lockfile change run `make notices` and commit the file. It needs `node_modules` and the Go module cache.
+- The frontend tests use `bun:test` only (#614): `import { test } from 'bun:test'` (with `describe`, `test.each`,
+  `test.skipIf(cond)(name, fn)`, `mock` and `afterEach` from there too), Bun's native runner. Assertions are
+  `node:assert/strict` (`assert.equal(a, b, 'message')`) or Bun's `expect`; either is fine. Don't import `node:test`:
+  Bun runs it through a partial compatibility layer (`t.mock`, `t.diagnostic` and `only` are incomplete there).
+- Helpers shared by several test files live in `frontend/tests/support/` (#612; not `*.test.ts`, so `bun test` does
+  not run them, and not `helpers`, which `tests/helpers.test.ts` already names for `models/helpers.ts`):
+  `support/near.ts` has `nearNum(a, b, eps = 1e-6, what?)` and `nearVec(a, b, eps, what?)` (asserting, with a
+  message) and `isNear(a, b, eps)` (a boolean, for a check that combines several), and `support/wmo.ts` has
+  `navGroup(flags, min, max, refStart, refCount)`, a `WmoNavGroup` for a fake `WmoNav`. Use them rather than another
+  local `near`, which drifted into four meanings and tolerances before; pass the tolerance a test needs.
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: Bun doesn't run the Svelte compiler, so a test that imports `editor.svelte.ts`, or any module that
@@ -265,7 +275,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   detached (log: `meld-dev.log` in the temp folder) and waits up to 10 minutes, a few minutes in
   practice. It stays up for the next run; with `MELD_URL` set it never starts one. Keep it running across items.
 - `cd frontend && bun run probe <name...>` runs those probes, `bun run probe --all` (or `make probe`)
-  runs every one but the benchmarks (`bench`, `perf-*`, about 8 of the 31 minutes; name them, or `make probe-perf`, #390), which keeps a whole run under the agent harness's 30-minute task limit (a foreground command gets 10, so run it in the background and read its log, one line a probe, rather than piping it through `tail`), `bun run probe --list` names them, `--touching <git range>` runs the ones a change touches (below), `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
+  runs every one but the benchmarks (`bench`, `perf-*`, about 8 of the 31 minutes; name them, or `make probe-perf`, #390) and the probes marked `// tier: manual` (#426: `preview-context`, about 2.5 minutes for a path commits rarely touch; `--touching` still picks them and a name runs them), which kept a whole run under the agent harness's 30-minute task limit until the set grew past it again (#669: run it in two background tasks one after the other, `--shard 1/2` and `--shard 2/2`, or `make probe SHARD=1/2`; a shard takes every n-th probe of the sorted set, so the slow benchmark-scene ones spread over both; a foreground command gets 10 minutes, so run it in the background and read its log, one line a probe, rather than piping it through `tail`; a signal that stops the run still gets the closing summary line, with `stopped` and `notRun`), `bun run probe --list` names them, `--touching <git range>` runs the ones a change touches (below), `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
   stalls in one run), each followed by `<=` and its heaviest caller chain up to the first Meld `src/` frame, with that
   chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). `PROFILE_TOP=<n>`
@@ -275,7 +285,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and
-  `object-loot` timed out once the owner's session held a region). It prints `probe: starting N probes` to stderr, one JSON line a probe, then a closing `{"summary":true,"run","passed","failed":[names],"flaky":[names],"seconds"}` line (a log without it is a run cut short, #616), and exits 1 if any failed. A page
+  `object-loot` timed out once the owner's session held a region). It prints `probe: starting N probes` to stderr, one JSON line a probe, then a closing `{"summary":true,"run","passed","failed":[names],"flaky":[names],"seconds"}` line (a log without it is a run cut short, #616; a run stopped by a signal prints it with `stopped` and `notRun`, #669), and exits 1 if any failed. A page
   error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
   is left out).
 - **`[Unhandled error] TypeError: Cannot read properties of null (reading 'nodes')` in the `make dev`

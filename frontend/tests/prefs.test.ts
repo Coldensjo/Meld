@@ -1,5 +1,5 @@
 // Run with: bun test tests/prefs.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { changedPrefs } from '../src/lib/state/prefsPatch.ts'
 

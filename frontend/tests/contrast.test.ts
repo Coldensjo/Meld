@@ -1,6 +1,6 @@
 // Run with: bun test tests/contrast.test.ts
 // The text tokens in app.css keep WCAG AA contrast (4.5:1) on every panel, in both themes (#371).
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
@@ -46,7 +46,7 @@ for (const [name, selector] of themes) {
 		}
 	})
 	// The dark theme keeps the game's own colours (the blue and purple are below 4.5:1 there, as in the game).
-	test(`${name} theme: item quality names reach 4.5:1 on the panels they sit on (#708)`, { skip: name === 'dark' }, () => {
+	test.skipIf(name === 'dark')(`${name} theme: item quality names reach 4.5:1 on the panels they sit on (#708)`, () => {
 		const t = tokens(selector)
 		for (let q = 0; q <= 6; q++) {
 			for (const bg of ['bg', 'panel', 'panel-2']) {

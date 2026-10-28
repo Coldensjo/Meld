@@ -1,5 +1,5 @@
 // Run with: bun test tests/maskSelect.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { combineMask, featherMask, growMask, shrinkMask, wandSelect } from '../src/lib/terrain/maskSelect.ts'
 

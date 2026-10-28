@@ -3,13 +3,14 @@
 //
 //   bun run probe smoke undo-sculpt      run these probes
 //   bun run probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
-//   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*; name those)
+//   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*) and the `// tier: manual` ones (name those)
 //   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
 //   bun run probe bench --profile        also print the probe's top functions by CPU time
 //   bun run probe --smoke                the probes marked `// tier: smoke` (#398): fast, deterministic, guarding shared code; `make probe-smoke`
 //   bun run probe --list                 list the probes with their first comment line and their touches line
 //   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
 //   bun run probe --touching <range> --list  name those probes without running them
+//   bun run probe --all --shard 1/2      every second probe of the picked set, from the first (#669); --shard 2/2 runs the rest
 //
 // A probe whose header holds `// quarantine: #<issue>` (#399), a flake parked while its issue is open, is left out of --all,
 // --smoke and --touching; it still runs when named, and --list shows it with its issue.
@@ -52,6 +53,7 @@ let shotDir = null
 let profiling = false
 let touching = null
 let smoke = false
+let shard = null
 const names = []
 for (let i = 0; i < args.length; i++) {
 	if (args[i] === '--shot') {
@@ -60,7 +62,10 @@ for (let i = 0; i < args.length; i++) {
 	} else if (args[i] === '--profile') profiling = true
 	else if (args[i] === '--smoke') smoke = true
 	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
-	else names.push(args[i])
+	else if (args[i] === '--shard') {
+		const m = /^(\d+)\/(\d+)$/.exec(args[++i] ?? '')
+		shard = m && Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2]) ? { k: Number(m[1]), n: Number(m[2]) } : fail('--shard needs k/n with 1 <= k <= n, e.g. --shard 1/2')
+	} else names.push(args[i])
 }
 const all = readdirSync(here)
 	.filter((f) => f.endsWith('.js') && f !== 'lib.js')
@@ -75,12 +80,13 @@ const listOnly = touching && names[0] === '--list'
 if (listOnly) names.shift()
 if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
 	for (const n of all) {
-		const { first, touches, quarantine } = header(n)
+		const { first, touches, tier, quarantine } = header(n)
 		console.log(`${n.padEnd(20)} ${first}`)
+		if (tier === 'manual') console.log(`${''.padEnd(20)}   tier: manual (not in --all; run by name or --touching)`)
 		console.log(`${''.padEnd(20)}   touches: ${touches ? touches.join(', ') : '(no touches line: every change)'}`)
 		if (quarantine) console.log(`${''.padEnd(20)}   quarantined: #${quarantine} (left out of --all, --smoke and --touching; runs when named)`)
 	}
-	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all | --touching <git range> [--shot <dir>] [--profile]')
+	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all | --touching <git range> [--shard k/n] [--shot <dir>] [--profile]')
 	process.exit(0)
 }
 /** A probe by name (in this folder) or by path (ends in .js or has a slash), as { name, file }. */
@@ -128,7 +134,10 @@ const touchingProbes = (range) => {
 		return changed.some((f) => res.some((re) => re.test(f)))
 	})
 }
-let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && selectable(n)) : names.flatMap(expand)
+// --all also leaves out the probes marked `// tier: manual` (#426): a slow check of a path commits rarely touch, which --touching
+// still picks when its `touches` files change, and which runs when named.
+const isManual = (n) => header(n).tier === 'manual'
+let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && !isManual(n) && selectable(n)) : names.flatMap(expand)
 if (smoke) picked = [...new Set([...picked, ...all.filter((n) => header(n).tier === 'smoke' && selectable(n))])]
 if (touching) {
 	const found = touchingProbes(touching)
@@ -139,6 +148,13 @@ if (touching) {
 		process.exit(0)
 	}
 	if (!picked.length) process.exit(0)
+}
+// --shard k/n (#669): every n-th probe of the picked set, from its k-th, so n runs one after the other cover it all, each under the
+// agent harness's 30-minute task limit that a whole --all outgrew. Taken round the sorted names rather than in runs, so the slow
+// benchmark-scene probes, which cluster by name, spread over the shards.
+if (shard) {
+	picked = picked.filter((_, i) => i % shard.n === shard.k - 1)
+	console.error(`probe: --shard ${shard.k}/${shard.n}: ${picked.length} probes`)
 }
 const run = picked.map(probeFile)
 
@@ -294,9 +310,23 @@ async function main() {
 		}
 	}
 	process.on('exit', cleanup)
+	// What has run so far, for the summary line (#616). A run stopped by a signal (the harness's time limit, #669) prints it too,
+	// with `stopped` and the probes it never reached in `notRun`, so a killed run still says what passed.
+	let runStart = Date.now()
+	const doneNames = []
+	const failedNames = []
+	const flakyNames = []
+	const skippedNames = []
+	const summary = (stopped) => {
+		const seconds = Math.round((Date.now() - runStart) / 100) / 10
+		const notRun = stopped ? run.map((p) => p.name).filter((n) => !doneNames.includes(n)) : []
+		const passed = doneNames.length - failedNames.length - skippedNames.length
+		console.log(JSON.stringify({ summary: true, run: run.length, passed, failed: failedNames, skipped: skippedNames, flaky: flakyNames, seconds, ...(stopped ? { stopped, notRun } : {}) }))
+	}
 	// Node and Bun skip 'exit' handlers when a signal ends the process, so Ctrl-C, kill and a harness timeout left Chrome running (#601).
 	for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP'])
 		process.on(s, () => {
+			summary(s)
 			cleanup()
 			process.exit(130)
 		})
@@ -511,14 +541,11 @@ async function main() {
 		return out
 	}
 
-	// A log that ends without the summary line below is a run that was cut short (#616).
+	// A log that ends without the summary line is a run that was cut short (#616); a signal still prints it, with `stopped` (#669).
 	console.error(`probe: starting ${run.length} probe${run.length === 1 ? '' : 's'}${NO_AA ? ', without MSAA (PROBE_AA=0)' : ''}`)
 	// A quarantine stays visible in every run it shortens (#399).
 	if (leftOut.size) console.error(`probe: ${leftOut.size} quarantined, left out: ${[...leftOut].join(', ')}`)
-	const runStart = Date.now()
-	const failedNames = []
-	const flakyNames = []
-	const skippedNames = []
+	runStart = Date.now()
 	for (const p of run) {
 		const t0 = Date.now()
 		const bootBefore = await devStarted()
@@ -604,6 +631,7 @@ async function main() {
 			// Pictures the probe saved with P.save.
 			for (const sh of saved) writeFileSync(join(shotDir, `${p.name}-${sh.name}.png`), Buffer.from(sh.data, 'base64'))
 		}
+		doneNames.push(p.name)
 		if (!out.ok) failedNames.push(p.name)
 		else if (out.flaky) flakyNames.push(p.name)
 		// A probe whose data is missing here (the server's mmaps, #427) returns ok with `skipped`: counted apart, so it is not read as a pass.
@@ -613,8 +641,7 @@ async function main() {
 		}
 		console.log(JSON.stringify(out))
 	}
-	const seconds = Math.round((Date.now() - runStart) / 100) / 10
-	console.log(JSON.stringify({ summary: true, run: run.length, passed: run.length - failedNames.length - skippedNames.length, failed: failedNames, skipped: skippedNames, flaky: flakyNames, seconds }))
+	summary(null)
 	ws.close()
 	cleanup()
 	process.exit(failedNames.length ? 1 : 0)

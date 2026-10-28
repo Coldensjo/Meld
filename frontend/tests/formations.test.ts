@@ -1,6 +1,7 @@
 // Run with: bun test tests/formations.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { nearNum } from './support/near.ts'
 import type { vmangos } from '../wailsjs/go/models'
 import { disbandChanges, FORMATION_DEFAULT, joinChanges, leaveChanges, slotAt, slotFieldsAt, slotPosition } from '../src/lib/world/formations.ts'
 import { chanceProblem, joinMotherChanges, joinPoolChanges, leaveMotherChanges, motherLimitChanges, poolLegend, poolRule, poolSize } from '../src/lib/world/pools.ts'
@@ -31,17 +32,15 @@ const spawn = (o: Partial<vmangos.WorldSpawn>): vmangos.WorldSpawn =>
 		...o,
 	}) as vmangos.WorldSpawn
 
-const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} is not ${b}`)
-
 test("a slot ahead of a leader facing 0 lies towards the region's -Z, and 90° is on its left (-X)", () => {
 	const leader = spawn({ x: 10, z: 10, orientation: 0 })
 	const ahead = slotPosition(leader, 3, 0, { x: 0, z: 0 })
-	near(ahead.x, 10)
-	near(ahead.z, 7)
+	nearNum(ahead.x, 10)
+	nearNum(ahead.z, 7)
 	// Server +Y (west) is the region's -X; facing north, west is on the left.
 	const left = slotPosition(leader, 3, Math.PI / 2, { x: 0, z: 0 })
-	near(left.x, 7)
-	near(left.z, 10)
+	nearNum(left.x, 7)
+	nearNum(left.z, 10)
 })
 
 test('slotAt undoes slotPosition for any facing', () => {
@@ -50,8 +49,8 @@ test('slotAt undoes slotPosition for any facing', () => {
 		for (const a of [0, 0.3, 3, 5.9]) {
 			const p = slotPosition(leader, 4.5, a, { x: 0, z: 0 })
 			const s = slotAt(leader, p.x, p.z)
-			near(s.followDist, 4.5)
-			near(s.followAngle, a)
+			nearNum(s.followDist, 4.5)
+			nearNum(s.followAngle, a)
 		}
 	}
 })
@@ -63,8 +62,8 @@ test('joining makes the leader lead with the default flags and the member follow
 	assert.ok(Array.isArray(c))
 	assert.deepEqual(c[0], { key: 'monster/1', vals: { leader: 1, followDist: 0, followAngle: 0, groupFlags: FORMATION_DEFAULT } })
 	assert.equal(c[1].key, 'monster/2')
-	near(c[1].vals.followDist!, 2)
-	near(c[1].vals.followAngle!, Math.PI) // behind a leader facing -Z
+	nearNum(c[1].vals.followDist!, 2)
+	nearNum(c[1].vals.followAngle!, Math.PI) // behind a leader facing -Z
 	assert.equal(c[1].vals.leader, 1)
 })
 
@@ -103,7 +102,7 @@ test('the last follower leaving ends the formation; disbanding takes every follo
 test('a dragged follower takes its slot; a creature without a leader in the region does not', () => {
 	const leader = spawn({ guid: 1, leader: 1, x: 0, z: 0 })
 	const f = spawn({ guid: 2, leader: 1 })
-	near(slotFieldsAt([leader, f], f, 0, -5)!.followDist!, 5)
+	nearNum(slotFieldsAt([leader, f], f, 0, -5)!.followDist!, 5)
 	assert.equal(slotFieldsAt([f], f, 0, -5), undefined)
 	assert.equal(slotFieldsAt([leader, f], leader, 0, -5), undefined)
 })

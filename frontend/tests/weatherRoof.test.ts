@@ -1,5 +1,5 @@
 // Run with: bun test tests/weatherRoof.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { NO_ROOF, PROBE_ABOVE, ROOF_CELL, ROOF_SIDE, WeatherRoof, type SplashGround } from '../src/lib/world/WeatherRoof.ts'
 

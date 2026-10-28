@@ -1,5 +1,5 @@
 // Run with: bun test tests/pivot.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { meanPivot, turnAbout } from '../src/lib/world/pivot.ts'

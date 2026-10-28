@@ -149,9 +149,39 @@ describe('Lua scripts', () => {
 		expect(r.error).toStartWith('broken:1:')
 	})
 
-	test('what Meld lacks says so', async () => {
-		const r = await runScript('write_file("a.txt", "b")', 'b', fakeHost().host)
-		expect(r.error).toContain('write_file is not in Meld yet')
+	test('files (#761): read, write, append, exists and image:save wait for the host, and a refusal is the script line’s error', async () => {
+		const f = fakeHost()
+		const disk = new Map<string, string>()
+		let saved = ''
+		f.host.files = {
+			read: async (p) => (disk.has(p) ? { text: disk.get(p)! } : `no such file: ${p}`),
+			exists: async (p) => disk.has(p),
+			write: async (p, text, append) => {
+				await new Promise((r) => setTimeout(r, 2))
+				if (p.startsWith('..')) return `${p} is outside the scripts folder`
+				disk.set(p, (append ? (disk.get(p) ?? '') : '') + text)
+				return true
+			},
+			saveImage: async (p, img) => {
+				saved = `${p} ${img.width}x${img.height} ${img.data[0]}`
+				return true
+			},
+		}
+		const code = `print(path_exists("out/log.txt"))
+write_file("out/log.txt", "one\\n")
+append_file("out/log.txt", 2)
+print(path_exists("out/log.txt"), read_file("out/log.txt"))
+local img = create_image(2, 1) img:set_pixel_floats(0, 0, 1, 0, 0, 1) img:save("img.png")
+print(pcall(read_file, "missing.txt"))
+write_file("../x.txt", "no")`
+		const r = await runScript(code, 'files', f.host)
+		expect(f.out[0]).toBe('false')
+		expect(f.out[1]).toBe('true\tone\n2')
+		expect(saved).toBe('img.png 2x1 255')
+		expect(f.out[2]).toContain('read_file: no such file: missing.txt')
+		expect(r.error).toContain('files:7: write_file: ../x.txt is outside the scripts folder')
+		const none = await runScript('read_file("a.txt")', 'n', fakeHost().host)
+		expect(none.error).toContain('n:1: read_file: files can only be reached in the desktop app')
 	})
 
 	test('an endless loop is stopped', async () => {

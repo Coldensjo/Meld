@@ -1,5 +1,5 @@
 // Run with: bun test tests/regionKey.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { cachedPending, contentKey, regionKey, type PendingAnswer, type RegionKeyInput } from '../src/lib/io/regionKey.ts'
 import type { ExportInput } from '../src/lib/io/vmangosExport.ts'

@@ -1,5 +1,5 @@
 // Run with: bun test tests/typedArray.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { grow } from '../src/lib/tools/typedArray.ts'
 

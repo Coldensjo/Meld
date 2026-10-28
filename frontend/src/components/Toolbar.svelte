@@ -120,7 +120,7 @@
 	}
 	.tip {
 		position: fixed;
-		z-index: 1000;
+		z-index: var(--z-tip);
 		transform: translateY(-50%);
 		max-width: 260px;
 		padding: 6px 9px;
