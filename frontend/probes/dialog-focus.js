@@ -1,5 +1,5 @@
 // A dialog takes the focus when it opens, keeps Tab inside it, and gives the focus back when it closes (#369); Esc goes to the topmost dialog only (#573).
-// touches: frontend/src/components/Modal.svelte, frontend/src/lib/ui/dialogFocus.ts, frontend/src/lib/state/escape.ts
+// touches: frontend/src/components/Modal.svelte, frontend/src/lib/ui/dialogFocus.ts, frontend/src/lib/state/escape.ts, frontend/src/components/AppDialogs.svelte, frontend/src/lib/ui/commands.ts
 // tier: smoke
 const { ui } = await P.state()
 const press = (key, init = {}) => {
@@ -95,10 +95,17 @@ ui.questEditor = null
 ui.dialog = null
 await P.frames(2)
 
-// Keyboard Shortcuts lists both Arrow keys rows; a duplicate key in its keyed each threw (#377).
+// Keyboard Shortcuts lists rows that share a key text (two rows once both read "Arrow keys", and a
+// duplicate key in its keyed each threw, #377). Since #711 each arrow has its own nudge row, and the
+// Place tool's row repeats all four.
 ui.dialog = 'shortcuts'
 const sc = await P.until(() => document.querySelector('[role="dialog"]'), 20_000, 'the shortcuts dialog')
-r.arrowRows = [...sc.querySelectorAll('tr, li, div')].filter((el) => el.children.length >= 2 && el.firstElementChild?.textContent.trim() === 'Arrow keys').length
+const rows = [...sc.querySelectorAll('tr')].map((tr) => ({ keys: tr.cells[0]?.textContent.trim() ?? '', desc: tr.cells[1]?.textContent.trim() ?? '' }))
+r.shortcutRows = rows.length
+r.nudgeRows = rows.filter((row) => row.desc.startsWith('Move selected object')).length
+r.placeNudgeKeys = rows.find((row) => row.desc.startsWith('Move the placement preview'))?.keys ?? null
+const keyTexts = rows.map((row) => row.keys)
+r.sharedKeyRows = keyTexts.filter((k, i) => keyTexts.indexOf(k) !== i).length
 ui.dialog = null
 await P.frames(2)
 
@@ -118,5 +125,7 @@ const ok =
 	r.escInFieldBlurs &&
 	r.escClosesTopOnly &&
 	r.escThenClosesEditor &&
-	r.arrowRows === 2
+	r.nudgeRows === 4 &&
+	(r.placeNudgeKeys?.split(/[,/]/).length ?? 0) >= 4 &&
+	r.sharedKeyRows > 0
 return { ok, r }
