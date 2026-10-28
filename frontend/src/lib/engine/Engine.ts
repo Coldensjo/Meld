@@ -164,7 +164,7 @@ import type { TaxiHooks, TaxiPick, TaxiRouteShape, TaxiStopShape } from '../worl
 import type { Vec3 } from '../world/taxiRoute'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
-import { GPU_PASSES, PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
+import { PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
 import { GpuTimer } from './gpuTimer'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'

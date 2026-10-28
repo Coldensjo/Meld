@@ -14,7 +14,7 @@
 	import { hasBackend } from '../lib/io/backend'
 	import { exportDoodadBrush, importDoodadBrushes } from '../lib/io/lists'
 	import PlacementRulesForm from './PlacementRulesForm.svelte'
-	import { cloneBrush, newEntry, newRules, totalWeight, uniqueName, type DoodadBrush, type PlacementRules } from '../lib/tools/doodadBrush'
+	import { cloneBrush, newEntry, newRules, totalWeight, uniqueName, type PlacementRules } from '../lib/tools/doodadBrush'
 	import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
 
 	// The doodad brush editor, full screen like the creature editor: the left is a model picker over
