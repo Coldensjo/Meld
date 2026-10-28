@@ -83,7 +83,7 @@ export async function check() {
 	const markdown = await createMarkdownRenderer(docs, config.markdown)
 	const documents = [
 		...filesUnder(docs, '.md'),
-		...['README.md', 'CLAUDE.md', 'DOCUMENTATION_PLAN.md', 'DOCUMENTATION_AUDIT.md', 'DOCUMENTATION_RULES.md', 'build/README.md', 'frontend/tests/browser/README.md'].map((path) => join(repository, path)),
+		...['README.md', 'CLAUDE.md', 'DOCUMENTATION_PLAN.md', 'DOCUMENTATION_AUDIT.md', 'DOCUMENTATION_RULES.md', 'build/README.md'].map((path) => join(repository, path)),
 	]
 	const errors = []
 	const parsed = new Map()

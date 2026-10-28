@@ -434,6 +434,14 @@ e.terrain.heightAt(100, 100)                 // 0 on a hills map (was the hill's
   Clear with `clearMode = 'faint'`, `clearThreshold = 10`: the base goes back to 255, the step is
   "Clear faint layers", and `e.history.undo()` brings the layer back.
 
+## The paint rules on a real Terrain (#613)
+
+`bun test tests/paintRules.test.ts` builds real `Terrain`s (no WebGL needed) and checks the four-texture
+rule through `paintPixel` (a fifth texture is refused, one the chunk has still paints), a stroke's undo and
+redo of weights and chunk slots, a paste across palettes into full chunks with its undo, and auto-paint on a
+128- and a 512-cell map. It replaced the hand-run `frontend/tests/browser/paint.html`; the pure rules
+underneath are in `tests/chunkPaint.test.ts`. About 4 s, most of it the 512-cell auto-paint.
+
 ## Area paste: liquids and turning (chunk mover)
 
 No probe: the unit tests below, and a hand check in the dev page.

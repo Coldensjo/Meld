@@ -132,9 +132,10 @@ For the helper API, profiling options and unusual browser failures, use the
 
 ## Rendering and performance
 
-For terrain shader and paint-rule checks without the desktop backend, see the
-[browser-check README](https://github.com/Coldensjo/Meld/blob/main/frontend/tests/browser/README.md).
-These are separate from `bun run check` and require a browser with WebGL.
+The paint rules (four textures a chunk, undo and redo, paste across palettes, auto-paint) run on a real
+`Terrain` in `tests/paintRules.test.ts`, part of `make test`; that the terrain shader compiles and draws is
+the probes' part (`smoke`, `terrain-cell-tex`, `terrain-dxt`). The old hand-run pages in
+`frontend/tests/browser/` were retired for these (#613).
 
 For performance changes, use the same scene, camera, preferences and loading state before and after.
 Record CPU time, GPU time when available, draw calls and triangle counts. The performance overlay
