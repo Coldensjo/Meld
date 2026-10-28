@@ -19,6 +19,12 @@ This guide gets you from the first launch to a saved map. To build the applicati
 The integrated VMaNGOS server-management and map-extraction workflow currently requires Windows.
 Linux supports the editor, but not that Windows-specific automation.
 
+Before opening database editors or publishing, follow the
+[database readiness checklist](troubleshooting.md#database-features-cannot-connect): configure the
+server and client folders, provide the mariadb query client on PATH and verify the connection
+in run/mangosd.conf. Querying or exporting can start the local database on Windows; Game Login
+is separate from SQL credentials.
+
 Meld does not include Blizzard's assets. It reads models, textures and tables from the client's
 MPQ archives as needed. A `.wmap` stores references to those assets, not copies of them.
 
@@ -45,6 +51,10 @@ later sessions; nothing needs to be extracted into your project.
 
 Open **File › New World** (`Ctrl+N`) and choose **New world**. Enter a name and choose a size,
 preset and seed. Use the preview to choose a starting shape, then create the map.
+
+For irregular tile layouts, heightmap starts and sea/lake/river choices, see
+[generated ground and scope](MANUAL.md#start-with-generated-ground). Those controls create a new
+document; they do not regenerate just a selection in an existing map.
 
 The preset is only a starting point: you can reshape the terrain, change the textures and place
 your own models. Publishing a new world also requires the VMaNGOS setup described in the
@@ -102,6 +112,10 @@ For an existing region, saving its `.wmap` does **not** compile its edits into t
 
 - [Saving, compiling and playing](guides/saving-and-compiling.md): what gets written, where,
   and when you need to close the game or stop the world server.
+- [Database and client-table authoring](guides/database-editing.md): templates, spawns, quests,
+  items, spells and shared world data, with independent save and recovery boundaries.
 - [Manual](MANUAL.md): tools, camera controls, menus and scripting.
 - [Troubleshooting](troubleshooting.md): missing assets, pending writes, recovery and bug reports.
+- [Settings, local data and backups](guides/settings-and-data.md): where settings and recovery
+  data live, and what to keep private.
 - [Building and development](development.md): build Meld or work on its code.
