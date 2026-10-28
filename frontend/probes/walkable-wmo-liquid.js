@@ -1,5 +1,7 @@
-// Show › Walkable ground over Ironforge (Azeroth 33_41, #281): the WMO's forge lava, an MLIQ inside the building, is liquid area in the browser's build as in the server's mmaps, and of the same kind: slime, since the mmap builder reads the vmaps' LiquidType ID (3, magma) by its low two bits. The slime within 60 yd of the forge must cover over 1000 yd² in both and agree within 15% (3475 and 3357 yd² when written). Needs the VMaNGOS folder's data/mmaps for map 0, as walkable-server does.
+// Show › Walkable ground over Ironforge (Azeroth 33_41, #281): the WMO's forge lava, an MLIQ inside the building, is liquid area in the browser's build as in the server's mmaps, and of the same kind: slime, since the mmap builder reads the vmaps' LiquidType ID (3, magma) by its low two bits. The slime within 60 yd of the forge must cover over 1000 yd² in both and agree within 15% (3475 and 3357 yd² when written). Needs the VMaNGOS folder's data/mmaps for map 0, as walkable-server does; without them it returns ok with `skipped` (#427).
 // touches: frontend/src/lib/world/nav/*, internal/wow/wmoliquid.go, internal/wow/wmonav.go
+const skipped = await P.noMmaps(0, 33, 41)
+if (skipped) return { ok: true, skipped }
 const e = P.e
 const { prefs } = await P.state()
 await P.scene(
