@@ -189,6 +189,22 @@ prints the Outlines pass's GPU ms with the pref off, on, and on with the cull of
 city view) the scene draws 940k and both are about 1.2 ms. Most of what is left is the full-screen
 edge pass and the mask's fragments, not its triangles.
 - `PROBE_VIEW` takes a `setSceneView` JSON, `PROBE_WINDOWS` the windows a case (default 2).
+- In the street the camera stands inside Stormwind's box, so the passes are not scissored (#844);
+  the 0.56 ms there after #844 is the full-screen path.
+
+## Outline passes scissored to the outlined models (#844)
+
+Probe: `outline-scissor` (about 17 s; `PROBE_GPU=1` for the real GPU's times).
+
+Checks: `SelectionOutline.screenRect` and the scissor in `render`. On a flat map with two 4 yd helper
+cubes selected, the scissor box is a small share of the view (0.006), and the canvas read back right
+after the selection outline draws (`gl.readPixels` inside a wrapped `outline.render`, since the
+drawing buffer is not kept) matches the whole-screen pass's (`SelectionOutline.scissor = false`)
+pixel for pixel, also with a cube half off the view's edge. It prints the Outlines pass's GPU ms with
+the scissor off and on: SwiftShader 10.6 to 12.3 ms against 0.8 to 1.1 ms; the RTX 5080 0.018 against
+0.005 ms.
+- Trap: the edge pass reads 2.5 texels past each pixel, so the mask's scissor is 3 px wider than the
+  stroke's; with the same rect it would read stale mask texels from earlier frames at the border.
 
 ## Ground effects: no-doodad cells and density
 

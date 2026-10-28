@@ -35,6 +35,8 @@ export interface OutlineTarget {
  * parent or another prop), and red along the parts that are buried or inside another prop.
  */
 export class SelectionOutline {
+	/** Scissor the passes to the targets' screen box (#844); off draws the whole screen, for probe `outline-scissor`. */
+	static scissor = true
 	/** Colour around a model that touches nothing. */
 	readonly color = new THREE.Color(1, 0.8, 0.2)
 	/** Colour around a model that touches the ground, its parent or another prop. */
@@ -270,6 +272,9 @@ export class SelectionOutline {
 			proxy.material = Array.isArray(t.asset.material) ? this.maskMaterials(t.asset.material, t.touching) : this.maskMaterial(t.asset.material, t.touching)
 			proxy.matrix.copy(t.matrix)
 			proxy.matrixWorld.copy(t.matrix)
+			// For `screenRect`: the model's box, and whether a pose can carry it outside that box.
+			proxy.userData.box = t.asset.bbox
+			proxy.userData.skinned = !!t.asset.skeleton
 		}
 	}
 
@@ -295,22 +300,95 @@ export class SelectionOutline {
 
 	/** Scratch for `render`'s saved clear colour. */
 	private prevClear = new THREE.Color()
+	/** Scratch for `render`'s saved scissor, and `screenRect`'s corner and box. */
+	private prevScissor = new THREE.Vector4()
+	private corner = new THREE.Vector4()
+	private grown = new THREE.Box3()
+	private growBy = new THREE.Vector3()
+	/** `screenRect`'s answer: the targets' box on the mask in its pixels, from the bottom left. */
+	private rect = new THREE.Vector4()
+
+	/**
+	 * The mask pixels the targets can cover, padded by the stroke's reach, into `rect` (#844): 1 when it
+	 * is worth scissoring to, 0 when the whole screen is drawn (a corner behind the camera, which
+	 * projects wrongly, or a box over most of the view), -1 when no target is on screen.
+	 */
+	private screenRect(camera: THREE.Camera): number {
+		const w = this.maskRT.width
+		const h = this.maskRT.height
+		let x0 = Infinity
+		let y0 = Infinity
+		let x1 = -Infinity
+		let y1 = -Infinity
+		const c = this.corner
+		for (const p of this.proxies) {
+			if (!p.visible) continue
+			let box = p.userData.box as THREE.Box3 | undefined
+			if (!box || box.isEmpty()) return 0
+			if (p.userData.skinned) {
+				// A pose can reach past the model's box (an arm swung out): grow it by half its size each way.
+				box.getSize(this.growBy).multiplyScalar(0.5)
+				box = this.grown.copy(box).expandByVector(this.growBy)
+			}
+			for (let i = 0; i < 8; i++) {
+				c.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z, 1)
+				c.applyMatrix4(p.matrixWorld).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix)
+				if (c.w <= 1e-3) return 0
+				const x = ((c.x / c.w) * 0.5 + 0.5) * w
+				const y = ((c.y / c.w) * 0.5 + 0.5) * h
+				if (x < x0) x0 = x
+				if (x > x1) x1 = x
+				if (y < y0) y0 = y
+				if (y > y1) y1 = y
+			}
+		}
+		// The edge pass reaches 2.5 texels past the mask: pad by 4.
+		x0 = Math.max(0, Math.floor(x0) - 4)
+		y0 = Math.max(0, Math.floor(y0) - 4)
+		x1 = Math.min(w, Math.ceil(x1) + 4)
+		y1 = Math.min(h, Math.ceil(y1) + 4)
+		if (x1 <= x0 || y1 <= y0) return -1
+		if ((x1 - x0) * (y1 - y0) > 0.6 * w * h) return 0
+		this.rect.set(x0, y0, x1 - x0, y1 - y0)
+		return 1
+	}
 
 	/** Draw the stroke on top of the already-rendered frame. */
 	render(renderer: THREE.WebGLRenderer, camera: THREE.Camera) {
 		if (!this.active) return
 		const prevTarget = renderer.getRenderTarget()
+		// Only the targets' box on screen is cleared, masked and stroked (#844), so a small model costs
+		// little: the edge pass samples 24 mask texels a pixel. The mask's scissor is 3 px wider than the
+		// stroke's, so the edge pass never reads a texel this frame did not clear.
+		const fit = prevTarget || !SelectionOutline.scissor ? 0 : this.screenRect(camera)
+		if (fit < 0) return
+		const r = this.rect
+		const mask = this.maskRT
+		mask.scissorTest = fit > 0
+		if (fit > 0) mask.scissor.set(r.x - 3, r.y - 3, r.z + 6, r.w + 6)
 		const prevColor = renderer.getClearColor(this.prevClear)
 		const prevAlpha = renderer.getClearAlpha()
 		const prevAuto = renderer.autoClear
-		renderer.setRenderTarget(this.maskRT)
+		renderer.setRenderTarget(mask)
 		renderer.setClearColor(0x000000, 0)
 		renderer.clear()
 		renderer.render(this.maskScene, camera)
 		renderer.setRenderTarget(prevTarget)
 		renderer.setClearColor(prevColor, prevAlpha)
 		renderer.autoClear = false
+		const prevTest = renderer.getScissorTest()
+		if (fit > 0) {
+			// `setScissor` takes CSS pixels on the canvas; the mask is the size of its drawing buffer.
+			const pr = renderer.getPixelRatio()
+			renderer.getScissor(this.prevScissor)
+			renderer.setScissor(r.x / pr, r.y / pr, r.z / pr, r.w / pr)
+			renderer.setScissorTest(true)
+		}
 		renderer.render(this.quadScene, this.quadCam)
+		if (fit > 0) {
+			renderer.setScissor(this.prevScissor)
+			renderer.setScissorTest(prevTest)
+		}
 		renderer.autoClear = prevAuto
 	}
 

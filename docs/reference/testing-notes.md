@@ -677,6 +677,7 @@ the same scene, the report before and after.
 - Selection outline colours (free, touching, buried)
 - Hover outline (#641)
 - Hover outline cost with Stormwind (#642, probe `hover-outline-cost`)
+- Outline passes scissored to the outlined models (#844, probe `outline-scissor`)
 - Ground effects: no-doodad cells and density
 - Graphics › Quality presets (#203)
 - The camera's WMO room (down-ray probe, #8)

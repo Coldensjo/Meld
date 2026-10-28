@@ -233,6 +233,11 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
     the cull's `before`/`after` hooks, so for the scene's camera it draws only the groups the scene
     pass draws (Stormwind from a street: 94k of 1.32M triangles). Any other camera, or a cull stopped
     for a batch of several instances, draws the full half. Probe `hover-outline-cost`.
+  - Each `SelectionOutline.render` scissors its mask clear, mask draw and edge pass to the targets'
+    screen box (#844, `screenRect`: each model's `bbox` through its matrix, grown by half its size
+    for an animated model, padded for the stroke), so a small model costs little. It draws the whole
+    screen when a box corner is behind the camera (inside a WMO), the box covers most of the view, or
+    another render target is bound, and nothing when the box is off screen. Probe `outline-scissor`.
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.
