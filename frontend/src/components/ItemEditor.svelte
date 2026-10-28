@@ -442,7 +442,7 @@
 </script>
 
 {#if target}
-	<EditorFrame {ed} label="Item editor" z={165} unsavedText={`${changeCount + lookChanges} unsaved ${changeCount + lookChanges === 1 ? 'change' : 'changes'} to the item.`} blocked={() => !!ui.contextMenu} {back}>
+	<EditorFrame {ed} label="Item editor" z="editor-3" unsavedText={`${changeCount + lookChanges} unsaved ${changeCount + lookChanges === 1 ? 'change' : 'changes'} to the item.`} blocked={() => !!ui.contextMenu} {back}>
 		{#snippet title()}
 			{#if target.entry > 0}
 				<h2 style:color={QUALITY_VARS[Number(values.quality)] ?? undefined}><ItemIcon displayId={iconShown ? 0 : display} icon={iconShown} size={20} /> {values.name || saved.name || 'Item'}</h2>
