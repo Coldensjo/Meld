@@ -31,7 +31,7 @@ The layout follows Photoshop:
 
 - **Menu bar** at the top.
 - **Options bar** below it, showing the active tool's settings (mode, size, strength, falloff…).
-- **Toolbar** on the left, or on the right (Preferences › Toolbar on the right).
+- **Toolbar** on the left, or on the right (Edit › Preferences › General › Toolbar side).
 - **Asset browser** along the bottom: search the client's doodads, buildings and textures in one box
   (`Ctrl+F`), narrow by category and zone, and hover a tile to see it large and turning in the
   preview on the right (drag to turn a model, right-drag to move up and down it, scroll to zoom).
