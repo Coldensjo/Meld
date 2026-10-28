@@ -11,7 +11,7 @@ import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
 import type { Command } from '../state/history'
-import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
+import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, defaultPrefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { type adt, type main, vmangos } from '../../../wailsjs/go/models'
@@ -512,7 +512,7 @@ export class Engine {
 	currentHour(): number {
 		return this.hour
 	}
-	private prefs: Prefs | null = null
+	private prefs: Prefs = defaultPrefs()
 	private tools: Record<ToolId, Tool>
 	private activeToolId: ToolId | null = null
 	private activeTool: Tool | null = null
@@ -818,7 +818,7 @@ export class Engine {
 			holeWalls: new HoleWalls(),
 			surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
 			floor: (exclude?: Set<number>) => self.floorHit(exclude),
-			pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),
+			pressure: () => (self.prefs.tabletSupport ? self.penPressure : 1),
 			radiusPressure: () => self.radiusPressure(),
 			cameraYaw: () => self.controller.yaw,
 		}
@@ -883,7 +883,7 @@ export class Engine {
 		const loop = (now: number) => {
 			this.raf = requestAnimationFrame(loop)
 			// Preferences › Graphics › FPS limit (#24): a frame waits for its interval; the timer's next delta covers the skipped ones.
-			if (!frameDue(now, last, this.prefs?.fpsLimit ?? 0)) return
+			if (!frameDue(now, last, this.prefs.fpsLimit)) return
 			last = now
 			if (!this.contextLost) this.frame()
 		}
@@ -1033,7 +1033,7 @@ export class Engine {
 
 	/** The pen's share of the brush radius while "Pen pressure sizes the brush" is on (#42), else 1. */
 	private radiusPressure(): number {
-		return this.prefs?.tabletSupport && this.prefs.tabletRadius ? Math.max(0.05, Math.min(1, this.penPressure)) : 1
+		return this.prefs.tabletSupport && this.prefs.tabletRadius ? Math.max(0.05, Math.min(1, this.penPressure)) : 1
 	}
 
 	private updatePointer(e: PointerEvent) {
@@ -1353,9 +1353,9 @@ export class Engine {
 		const dt = Math.min(this.timer.getDelta(), 0.1)
 		const time = this.timer.getElapsed()
 		const m = this.meter
-		m.setOn(!!this.prefs?.perfOverlay || this.perfWaiters.length > 0)
+		m.setOn(this.prefs.perfOverlay || this.perfWaiters.length > 0)
 		// The overlay starts on "Measuring…" the next time, not on old numbers.
-		if (!this.prefs?.perfOverlay && stats.perf) stats.perf = null
+		if (!this.prefs.perfOverlay && stats.perf) stats.perf = null
 		m.begin()
 		if (m.on) this.gpu.poll()
 		this.simulate(dt, time)
@@ -1374,7 +1374,7 @@ export class Engine {
 			const world = this.doc.world
 			const at = world ? this.worldCursor() : this.hit
 			stats.cursor = at ? { x: at.x, y: at.y, z: at.z } : null
-			stats.detail = !this.prefs?.detailInfo ? null : world ? this.worldDetailInfo(at) : this.detailInfo()
+			stats.detail = !this.prefs.detailInfo ? null : world ? this.worldDetailInfo(at) : this.detailInfo()
 			const hoverArea = editor.tool === 'mapdata' ? this.hoverArea() : ''
 			if (stats.hoverArea !== hoverArea) stats.hoverArea = hoverArea
 			const c = this.controller
@@ -1418,7 +1418,7 @@ export class Engine {
 		else if (this.pointerInside && !this.controller.isDragging) {
 			// Locked cursor (Noggit Red's): a brush's ground point stays put while the camera moves, and
 			// follows only the mouse. The other tools still pick under the cursor every frame.
-			if (!(this.prefs?.lockedCursor && this.activeTool?.usesBrush && this.hit && !this.pointerMoved)) this.pick()
+			if (!(this.prefs.lockedCursor && this.activeTool?.usesBrush && this.hit && !this.pointerMoved)) this.pick()
 			this.pointerMoved = false
 		} else if (!this.leftDown) this.hit = null
 		this.updatePipetteCursor()
@@ -1450,10 +1450,10 @@ export class Engine {
 		u.brushSquare.value = square ? 1 : 0
 		this.updateBrushImageCursor(u, tool)
 		u.gridVisible.value = editor.grid ? 1 : 0
-		u.unpaintable.value = this.prefs?.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
-		u.climbCos.value = this.prefs?.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
+		u.unpaintable.value = this.prefs.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
+		u.climbCos.value = this.prefs.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
 		this.updateNav()
-		u.contourStep.value = this.prefs?.showContours ? this.prefs.contourStep : 0
+		u.contourStep.value = this.prefs.showContours ? this.prefs.contourStep : 0
 		u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
 		this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
 		const md = editor.mapDataMode
@@ -1470,7 +1470,7 @@ export class Engine {
 		u.waterLevel.value = editor.waterLevel
 		u.waterEnabled.value = editor.waterEnabled ? 1 : 0
 		this.water.level = editor.waterLevel
-		this.water.visible = editor.waterEnabled && this.prefs?.showWater !== false
+		this.water.visible = editor.waterEnabled && this.prefs.showWater
 		this.doc.liquidRenderer.setLayer(editor.tool === 'water' && !editor.water.allLayers ? Math.max(0, editor.water.layer | 0) : -1)
 		this.doc.liquidRenderer.update()
 		if (this.wowRevision !== wow.revision) {
@@ -1500,14 +1500,14 @@ export class Engine {
 			)
 		}
 		this.objects.update()
-		this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightUploadVersion)
+		this.boxes.update(this.objects, this.prefs.showBoxes, this.terrain.heightUploadVersion)
 		this.updateTriggers()
-		this.taxi.update(this.prefs?.showFlightPaths === true, this.topDown)
+		this.taxi.update(this.prefs.showFlightPaths, this.topDown)
 		this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightUploadVersion, ui.historyVersion)
 		m.mark(SECTION.Objects)
 		// Lights first: culling keeps what can throw the shadowed lights' shadows.
-		this.effects.enabled = this.prefs?.propEffects !== false
-		this.effects.particles = this.prefs?.particles !== false
+		this.effects.enabled = this.prefs.propEffects
+		this.effects.particles = this.prefs.particles
 		this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightUploadVersion)
 		this.updateClientPoints()
 		m.mark(SECTION['Lights and flames'])
@@ -1530,8 +1530,8 @@ export class Engine {
 		m.mark(SECTION['Ground effects'])
 		this.updateBakedShadows()
 		const sel = editor.selectedSpawn
-		this.paths.update(this.doc.spawnLayer, sel ? this.spawnKeyOf(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
-		this.links.update(this.doc.spawnLayer, sel, !!this.prefs?.showPools)
+		this.paths.update(this.doc.spawnLayer, sel ? this.spawnKeyOf(sel) : null, editor.selectedWaypoint, this.prefs.showAllPaths)
+		this.links.update(this.doc.spawnLayer, sel, this.prefs.showPools)
 		m.mark(SECTION['Paths and baked shadows'])
 		this.animateModels(time)
 		m.mark(SECTION.Animation)
@@ -1633,7 +1633,7 @@ export class Engine {
 		// Pixels per unit at a distance of one. The top-down camera stands ORTHO_HEIGHT above the ground,
 		// so its constant pixels per unit is scaled by that distance.
 		v.pxPerUnit = this.topDown ? (this.container.clientHeight / (2 * this.ortho.top)) * ORTHO_HEIGHT : this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.persp.fov) / 2))
-		v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
+		v.cutoffPx = this.prefs.cullSmallModels ? SMALL_MODEL_PX : 0
 		v.lodPx = LOD_PX
 		// A world view draws the doodads as far as the game does (#15); a region keeps every one in sight to edit.
 		v.doodadReach = !!this.doc.world
@@ -1641,7 +1641,7 @@ export class Engine {
 		// Spawns show through a room's walls by preference (#150): the camera often sits inside a building
 		// while the author works on the creatures around it.
 		const gate = v.gate
-		if (this.prefs?.spawnsThroughWalls !== false) v.gate = null
+		if (this.prefs.spawnsThroughWalls) v.gate = null
 		this.doc.spawnLayer.cull(v)
 		v.gate = gate
 	}
@@ -1655,7 +1655,7 @@ export class Engine {
 	private animateModels(time: number) {
 		// With animations off, a model still holds the first frame of its idle (or posed) loop rather
 		// than the bind pose, which for many creatures is a T-pose. It is posed once, at time 0.
-		const still = this.prefs?.animations === false
+		const still = !this.prefs.animations
 		const ms = still ? 0 : time * 1000
 		const prefab = editor.tool === 'place' ? editor.prefab : ''
 		const doodads = editor.tool === 'doodad'
@@ -1677,7 +1677,7 @@ export class Engine {
 	/** Runs the models' particles on the animations' clock, after the bones they ride are posed. */
 	private updateParticles(dt: number, time: number) {
 		const p = this.particles
-		p.enabled = this.prefs?.particles !== false
+		p.enabled = this.prefs.particles
 		p.ground = this.particleGround
 		// Lit particles take the sky light and the sun on a surface facing up, as the terrain shades.
 		const tu = this.terrain.material.uniforms
@@ -1689,12 +1689,12 @@ export class Engine {
 			this.objects,
 			this.doc.spawnLayer,
 			dt,
-			this.prefs?.animations === false ? 0 : time * 1000,
+			this.prefs.animations ? time * 1000 : 0,
 			this.camera,
 			this.viewFrustum,
 			this.cullView.gate ?? null,
 			this.rooms.current?.id ?? -1,
-			this.prefs?.spawnsThroughWalls !== false,
+			this.prefs.spawnsThroughWalls,
 			this.cullView.gateAdmits ?? null,
 		)
 	}
@@ -1743,7 +1743,7 @@ export class Engine {
 	/** Time of day, sky and lighting; feeds the terrain/water shaders. */
 	private updateEnvironment(dt: number, time: number) {
 		const p = this.prefs
-		if (p?.dayCycle) this.hour = (this.hour + (dt * 24) / (Math.max(0.5, p.cycleMinutes) * 60)) % 24
+		if (p.dayCycle) this.hour = (this.hour + (dt * 24) / (Math.max(0.5, p.cycleMinutes) * 60)) % 24
 		const env = this.env
 		env.update(this.hour, time, this.camera)
 		const s = env.state
@@ -1760,9 +1760,9 @@ export class Engine {
 		this.applyClientLight(time, skyless)
 		;(this.scene.background as THREE.Color).copy(skyless ? EARTH : s.horizon)
 		if (fog) fog.color.copy(skyless && !this.terrain.material.uniforms.clientLit.value ? EARTH : s.horizon)
-		this.horizon.update(this.doc.id, this.doc.meta.region, !!this.prefs?.showHorizon && wow.loaded && !this.topDown, s.horizon)
+		this.horizon.update(this.doc.id, this.doc.meta.region, this.prefs.showHorizon && wow.loaded && !this.topDown, s.horizon)
 		// A world view's horizon is its own, past the tiles it streams (#15).
-		this.doc.world?.showHorizon(!!this.prefs?.showHorizon && !this.topDown, s.horizon)
+		this.doc.world?.showHorizon(this.prefs.showHorizon && !this.topDown, s.horizon)
 
 		const tu = this.terrain.material.uniforms
 		tu.sunDir.value.copy(s.keyDir)
@@ -1823,7 +1823,7 @@ export class Engine {
 			heapMB: heap ? heap.usedJSHeapSize / 1048576 : null,
 			models: topModels(costs, 5),
 		}
-		if (this.prefs?.perfOverlay) stats.perf = r
+		if (this.prefs.perfOverlay) stats.perf = r
 		const waiters = this.perfWaiters
 		this.perfWaiters = []
 		for (const f of waiters) f(r)
@@ -1902,7 +1902,7 @@ export class Engine {
 
 	/** Builds the walkable-ground view's tiles while it is on, and frees them when it goes off. */
 	private updateNav() {
-		if (!this.prefs?.navView) {
+		if (!this.prefs.navView) {
 			if (this.navOn) {
 				this.navOn = false
 				this.navPick = false
@@ -2038,7 +2038,7 @@ export class Engine {
 
 	/** Shows the triggers while asked for, reading the open map's once per document. */
 	private updateTriggers() {
-		const on = this.triggers.edited || this.prefs?.showAreaTriggers === true
+		const on = this.triggers.edited || this.prefs.showAreaTriggers
 		this.triggerLayer.group.visible = on && !this.topDown
 		this.triggers.update(on)
 	}
@@ -2261,7 +2261,7 @@ export class Engine {
 	private applyClientLight(time: number, skyless: boolean) {
 		const tu = this.terrain.material.uniforms
 		tu.clientLit.value = 0
-		const id = this.prefs?.clientLighting && wow.loaded ? this.openMapId() : null
+		const id = this.prefs.clientLighting && wow.loaded ? this.openMapId() : null
 		if (id === null) {
 			setLiquidLight(null)
 			this.env.setClientSky(null, time)
@@ -2319,7 +2319,7 @@ export class Engine {
 		this.env.setClientSky(sky, time)
 		const dt = Math.min(0.1, Math.max(0, time - this.cloudsAt))
 		this.cloudsAt = time
-		this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs?.clouds !== false && !this.topDown && !skyless, stormBlend(ui.weather, grade))
+		this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs.clouds && !this.topDown && !skyless, stormBlend(ui.weather, grade))
 		s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
 		s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
 		s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)
@@ -2648,7 +2648,7 @@ export class Engine {
 		this.nudgeSession = null
 		this.controller.bounds = d.world ? WORLD_SIDE : d.terrain.worldSize
 		this.controller.maxDistance = d.world ? WORLD_MAX_DISTANCE : d.terrain.worldSize * 1.6
-		if (this.prefs) this.applyLayerVisibility(this.prefs)
+		this.applyLayerVisibility(this.prefs)
 		if (d.camera) {
 			this.controller.target.copy(d.camera.target)
 			this.controller.jump()
@@ -2902,7 +2902,7 @@ export class Engine {
 			editor.spawnsError = ''
 			ui.spawnChanges = 0
 		}
-		if (this.prefs) this.applyLayerVisibility(this.prefs)
+		this.applyLayerVisibility(this.prefs)
 	}
 
 	/** Records why a region's spawns could not be read, so the UI can say so and offer a retry. */
@@ -4860,7 +4860,7 @@ export class Engine {
 	private updateHoverVisuals() {
 		const h = this.hovered
 		const on =
-			this.prefs?.hoverOutline !== false &&
+			this.prefs.hoverOutline &&
 			editor.tool === 'select' &&
 			this.pointerInside &&
 			!this.leftDown &&
@@ -5129,7 +5129,7 @@ export class Engine {
 	 */
 	private updateBakedShadows() {
 		const t = this.terrain
-		t.showBakedShadows(!!this.prefs?.bakedShadows || (editor.tool === 'mapdata' && editor.mapDataMode === 'shadow'))
+		t.showBakedShadows(this.prefs.bakedShadows || (editor.tool === 'mapdata' && editor.mapDataMode === 'shadow'))
 		const doc = this.doc
 		const region = doc.meta.region
 		if (t.bakedRequested || !region || !wow.loaded) return
@@ -5686,7 +5686,7 @@ export class Engine {
 		if (!tables) return
 		// What the build depends on besides the ground: the palette, the map's own effects, the density
 		// and the buildings (any object change, since the cells under a building grow nothing).
-		const density = this.prefs?.groundEffectDensity ?? 'normal'
+		const density = this.prefs.groundEffectDensity
 		// The key is rebuilt only when one of them changed: the palette, the map's effects and the scoped ones
 		// are replaced as a whole on every edit, so identity tells.
 		const version = this.objects.version
@@ -6348,7 +6348,7 @@ export class Engine {
 			liquids: this.doc.liquids,
 			palette: editor.palette,
 			sea: editor.waterEnabled ? editor.waterLevel : null,
-			maxSlope: this.prefs?.climbAngle ?? 50,
+			maxSlope: this.prefs.climbAngle,
 			knownTexture,
 			knownArea,
 			edges,
