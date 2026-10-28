@@ -116,13 +116,16 @@ export function materialsNear(): boolean {
 
 const test = new THREE.Sphere()
 
+/** A batch mesh as the shadow passes see it: skinned ones (`SkinnedInstancedMesh`, Animator.ts) carry their skeleton. */
+export type ShadowBatch = THREE.InstancedMesh & { skeleton?: THREE.Skeleton }
+
 /**
  * Whether `mesh` (an InstancedMesh in world space, its instances packed to the front) has a drawn
  * instance in `frustum`: for a shadowed light's frustum, an instance whose bounding sphere meets the
  * light's reach and the face; for the near cascade's, one whose sphere meets it; for the far
  * cascade's, any; for any other (the scene pass's), one in the camera's view.
  */
-export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum): boolean {
+export function instancesMeet(mesh: ShadowBatch, frustum: THREE.Frustum): boolean {
 	const reach = reaches.get(frustum)
 	const all = packedCount(mesh)
 	if (!reach && frustum !== nearCascade) return frustum === farCascade ? all > 0 : mesh.count > 0
@@ -154,7 +157,7 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
 			if (frustum !== nearCascade) return true
 			const moves = movers.get(mesh)
 			if (!moves) return true
-			if (moves & MOVES_POSE) nearSkeletons.add((mesh as unknown as { skeleton: THREE.Skeleton }).skeleton)
+			if (moves & MOVES_POSE && mesh.skeleton) nearSkeletons.add(mesh.skeleton)
 			if (moves & MOVES_MATERIAL) nearMaterials = true
 			return !nearStill
 		}
@@ -167,7 +170,7 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
  * packed, the scene pass only those in view (`setPacked`). A caller that sets shadow hooks of its own
  * must call these too.
  */
-export function cullForShadows(mesh: THREE.InstancedMesh) {
+export function cullForShadows(mesh: ShadowBatch) {
 	mesh.frustumCulled = true
 	mesh.onBeforeShadow = () => {
 		const c = packedCounts.get(mesh)
@@ -178,7 +181,7 @@ export function cullForShadows(mesh: THREE.InstancedMesh) {
 		if (c) mesh.count = c.view
 	}
 	const m = mesh.material
-	const pose = (mesh as { skeleton?: THREE.Skeleton }).skeleton ? MOVES_POSE : 0
+	const pose = mesh.skeleton ? MOVES_POSE : 0
 	const material = (Array.isArray(m) ? m.some((x) => movingMaterials.has(x)) : movingMaterials.has(m)) ? MOVES_MATERIAL : 0
 	if (pose | material) {
 		movers.set(mesh, pose | material)

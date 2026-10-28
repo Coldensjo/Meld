@@ -121,6 +121,12 @@ export class WmoGroupCull {
 	/** Each material group's range in the full half and in the view half. */
 	private readonly full: { start: number; count: number }[]
 	private readonly view: { start: number; count: number }[]
+	/**
+	 * Each material group of the twin geometry, and its index by identity: the render hooks hand the
+	 * group they draw as three's typings declare it (an Object3D `Group`, though it is the geometry's
+	 * group), so it is only looked up here and the typed twin is what gets moved (#521).
+	 */
+	private readonly twins: THREE.GeometryGroup[] = []
 	private readonly groupIndex = new Map<object, number>()
 	private readonly visible: Uint8Array
 	private readonly half: number
@@ -158,6 +164,7 @@ export class WmoGroupCull {
 			this.view.push({ start: half + start, count: 0 })
 			const twin = { start, count: end - start, materialIndex: grp.materialIndex ?? 0 }
 			g.groups.push(twin)
+			this.twins.push(twin)
 			this.groupIndex.set(twin, this.full.length - 1)
 		}
 		this.geometry = g
@@ -269,19 +276,22 @@ export class WmoGroupCull {
 	 * Points a material's draw at the view half, for the culled camera's scene pass and the near
 	 * cascade's shadow pass only (pass the shadow camera from `onBeforeShadow`, not the view camera).
 	 */
-	before(camera: THREE.Camera, group: { start: number; count: number } | null) {
-		if (!group || !this.draws(camera)) return
-		const k = this.groupIndex.get(group)
+	before(camera: THREE.Camera, drawn: object | null) {
+		if (!drawn || !this.draws(camera)) return
+		const k = this.groupIndex.get(drawn)
 		if (k === undefined) return
+		const group = this.twins[k]
 		this.saved.start = group.start
 		this.saved.count = group.count
 		group.start = this.view[k].start
 		group.count = this.view[k].count
 	}
 
-	after(camera: THREE.Camera, group: { start: number; count: number } | null) {
-		if (!group || !this.draws(camera)) return
-		if (this.groupIndex.get(group) === undefined) return
+	after(camera: THREE.Camera, drawn: object | null) {
+		if (!drawn || !this.draws(camera)) return
+		const k = this.groupIndex.get(drawn)
+		if (k === undefined) return
+		const group = this.twins[k]
 		group.start = this.saved.start
 		group.count = this.saved.count
 	}
