@@ -127,7 +127,6 @@ import {
 	findSlot,
 	hasEmptySlot,
 	mergeDuplicateSlots,
-	paletteCoverage,
 	paletteIndex,
 	removeSlot,
 	replaceInChunk,
@@ -1860,7 +1859,6 @@ export class Engine {
 	private celestialOut = [0, 1, 0]
 	private moonOut = [0, 1, 0]
 	private clientSky: ClientSky = { colors: this.lightOut.colors, skyAt: BAND.skyTop * 3, fogAt: BAND.fog * 3, sunAt: BAND.sun * 3, warp: 0, sunDir: this.celestialOut, moonDir: this.moonOut, sunScale: 1, starAlpha: 0 }
-	/** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
 	/** The open map's area triggers (#141), drawn with Show › Area triggers or while the Portals dialog edits them. */
 	readonly triggerLayer = new AreaTriggerLayer()
 
@@ -2100,6 +2098,7 @@ export class Engine {
 		return (await this.zoneLights.lights).map((l) => ({ ...l, x: l.x - dx, z: l.z - dz }))
 	}
 
+	/** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
 	private mapIds: Map<string, number> | null = null
 	/** The client's maps' instance types (Map.dbc: 0 a continent, 1 a dungeon, 2 a raid, 3 a battleground), by folder. */
 	private mapTypes: Map<string, number> | null = null
@@ -2774,7 +2773,6 @@ export class Engine {
 		this.activate(this.documents[(i + dir + n) % n])
 	}
 
-	/** Switch to the tab already showing `path`, if any. */
 	/**
 	 * Open a block of the client's tiles in its own tab, or switch to it if it's open already. The
 	 * heights, palette and paint come from tileImport.ts. Each model becomes an object at its place
@@ -3503,6 +3501,7 @@ export class Engine {
 		this.controller.yaw += Math.PI
 	}
 
+	/** Switch to the tab already showing `path`, if any. */
 	focusPath(path: string): boolean {
 		const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
 		const d = this.documents.find((x) => norm(x === this.doc ? editor.filePath : x.meta.filePath) === norm(path))
@@ -4499,7 +4498,6 @@ export class Engine {
 		return n
 	}
 
-	/** Copy the selected area (terrain, holes, textures, objects) to the clipboard. */
 	/**
 	 * Copies the selected models, or, with none selected, the selected area (terrain, holes, textures
 	 * and the models in it), to the clipboard.
@@ -5714,11 +5712,6 @@ export class Engine {
 		layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, frillDensity(density), editor.scopedEffects, origin.x, origin.y)
 	}
 
-	/** How many grass tufts are drawn now, for the status bar. */
-	tuftCount(): number {
-		return this.doc.groundEffects.count
-	}
-
 	/** Keyboard editing of the selected objects applies in the Select and Place tools. */
 	canNudge() {
 		return (!!editor.selected || editor.selectedIds.length > 0) && (editor.tool === 'select' || editor.tool === 'place')
@@ -5941,12 +5934,12 @@ export class Engine {
 		this.history.push(addedCommand(this.objects, added, 'Import object list'))
 	}
 
-	/** Sculpt's Vertex mode: flatten the selected vertices to their mean height, or clear the selection. */
 	/** Runs `fn` on the Path tool, for the options bar's path controls (#167). */
 	path<T>(fn: (tool: PathTool, ctx: ToolContext) => T): T {
 		return fn(this.pathTool, this.ctx)
 	}
 
+	/** Sculpt's Vertex mode: flatten the selected vertices to their mean height, or clear the selection. */
 	vertexAction(action: 'flatten' | 'clear') {
 		;(this.tools.sculpt as SculptTool).vertexAction(this.ctx, action)
 	}
@@ -5975,12 +5968,6 @@ export class Engine {
 		setStatus(`Removed ${dupes.length} duplicate ${dupes.length === 1 ? 'model' : 'models'}. Undo restores them.`)
 	}
 
-	/**
-	 * Noggit Red's Assist › Clean up, on the client tile under the camera target (#45), one undo step
-	 * each: the height to zero, the textures back to each chunk's base, the textures replaced by the
-	 * paint texture alone, each chunk's duplicate textures merged, every model removed, or the
-	 * duplicate models removed.
-	 */
 	/**
 	 * The client tile under the camera target: its index in the map, its first vertex and a name for
 	 * the status bar (the client's tile numbers in a region), or null off the map.
@@ -6025,6 +6012,12 @@ export class Engine {
 		return [lo, hi]
 	}
 
+	/**
+	 * Noggit Red's Assist › Clean up, on the client tile under the camera target (#45), one undo step
+	 * each: the height to zero, the textures back to each chunk's base, the textures replaced by the
+	 * paint texture alone, each chunk's duplicate textures merged, every model removed, the
+	 * duplicate models removed, or the baked shadows cleared.
+	 */
 	cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels' | 'shadows') {
 		if (this.refuseInWorld()) return
 		const t = this.terrain
@@ -6421,12 +6414,6 @@ export class Engine {
 		this.controller.focus(x / sel.length, z / sel.length, 30 + sel.length * 2)
 	}
 
-	/** Share of the painted map each palette entry takes (sampled, 0..1). */
-	layerCoverage(): number[] {
-		const t = this.terrain
-		return paletteCoverage(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, editor.palette.length)
-	}
-
 	/**
 	 * Tracks the paint chunk under the cursor for the Layers panel and tints it. `editor.hoverChunk` only
 	 * changes when the cursor crosses into another chunk, so this writes no reactive state per frame.
@@ -6446,7 +6433,6 @@ export class Engine {
 		else rect.set((c % side) * size, Math.floor(c / side) * size, ((c % side) + 1) * size, (Math.floor(c / side) + 1) * size)
 	}
 
-	/** The Detail info readout for the ground under the cursor (noggit's detail window), or null off the map. */
 	/** The zone of the chunk under the cursor, named with its ID, or '' for none or no ground. */
 	private hoverArea(): string {
 		const hit = this.hit
@@ -6466,6 +6452,7 @@ export class Engine {
 		return t.areaIds[gz * side + gx]
 	}
 
+	/** The Detail info readout for the ground under the cursor (noggit's detail window), or null off the map. */
 	private detailInfo(): DetailInfo | null {
 		const hit = this.hit
 		const t = this.terrain
