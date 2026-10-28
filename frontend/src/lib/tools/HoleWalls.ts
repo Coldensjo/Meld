@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { disposeTree } from '../engine/disposeTree'
 import type { Terrain } from '../terrain/Terrain'
 import { HOLE_BLOCK, HOLE_CELL, HOLE_NONE, WALL_FADE_FAR, WALL_FADE_NEAR, bandOf, findWalls, revealRadius, snapToBlocks, type CellRect, type Wall } from '../terrain/holes'
 
@@ -105,6 +106,11 @@ export class HoleWalls {
 		this.minus = sprite('−', '#d9483f')
 		this.group.add(this.ribbons, this.hoverGlow, this.hoverRibbon, this.plus, this.minus)
 		this.group.traverse((o) => (o.renderOrder = 950))
+	}
+
+	/** Frees the ribbons, the badges and their textures. */
+	dispose() {
+		disposeTree(this.group)
 	}
 
 	attach(scene: THREE.Scene) {

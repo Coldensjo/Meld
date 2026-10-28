@@ -1,5 +1,7 @@
-// Show › Server's mmaps (#240) in the benchmark scene (Azeroth 32_48, Northshire Abbey): the walkable-ground view reads the server's own movement maps for the client tiles around the target (needs the VMaNGOS folder set and its data/mmaps built for map 0), draws them on the ground in the editor's frame, path tests walk over them, the same four paths round and through the abbey over the browser's own build come out within 12% as long (#282), and turning the view off frees it all.
+// Show › Server's mmaps (#240) in the benchmark scene (Azeroth 32_48, Northshire Abbey): the walkable-ground view reads the server's own movement maps for the client tiles around the target (needs the VMaNGOS folder set and its data/mmaps built for map 0; without them it returns ok with `skipped`, #427), draws them on the ground in the editor's frame, path tests walk over them, the same four paths round and through the abbey over the browser's own build come out within 12% as long (#282), and turning the view off frees it all.
 // touches: frontend/src/lib/world/nav/*, internal/vmangos/mmaps.go
+const skipped = await P.noMmaps(0, 32, 48)
+if (skipped) return { ok: true, skipped }
 const e = P.e
 const { prefs } = await P.state()
 await P.scene(P.BENCH)

@@ -23,6 +23,10 @@ import {
 	clearPalette,
 	compactChunk,
 	hasEmptySlot,
+	chunkTexelRect,
+	chunkWeightSums,
+	chunkOfTexel,
+	evictWeakest,
 } from '../src/lib/terrain/chunkPaint.ts'
 
 test('a chunk takes four textures and refuses a fifth', () => {
@@ -325,4 +329,62 @@ test('duplicate textures in a chunk merge into the first slot', async () => {
 	assert.deepEqual([...slots], [5, 7, NONE, NONE])
 	assert.deepEqual([...weights], [200, 55, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 205, 50, 0, 0])
 	assert.equal(mergeDuplicateSlots(side, res, slots, weights, 0), 0, 'nothing left to merge')
+})
+
+test('chunkTexelRect tiles the splat: every texel lies in exactly one chunk, the one chunkOfTexel names', () => {
+	const side = 4
+	const res = 32
+	const seen = new Uint8Array(res * res)
+	for (let c = 0; c < side * side; c++) {
+		const { x0, z0, per } = chunkTexelRect(side, res, c)
+		assert.equal(per, 8)
+		for (let z = z0; z < z0 + per; z++) {
+			for (let x = x0; x < x0 + per; x++) {
+				seen[z * res + x]++
+				assert.equal(chunkOfTexel(side, res, z * res + x), c)
+			}
+		}
+	}
+	assert.ok(seen.every((n) => n === 1))
+	assert.deepEqual(chunkTexelRect(side, res, 6), { x0: 16, z0: 8, per: 8 }, 'chunk 6 is column 2, row 1')
+})
+
+test('chunkWeightSums adds each slot over its own chunk only, and clears what it is given', () => {
+	const side = 2
+	const res = 4
+	const weights = new Uint8Array(res * res * SLOTS)
+	// Chunk 3 is the texels with x and z in 2..3; give its slot 1 the weights 10, 20, 30 and 40.
+	const texels = [
+		[2, 2, 10],
+		[3, 2, 20],
+		[2, 3, 30],
+		[3, 3, 40],
+	]
+	for (const [x, z, w] of texels) weights[(z * res + x) * SLOTS + 1] = w
+	weights[0] = 255 // a texel of chunk 0, which chunk 3 must not count
+	const out = new Int32Array(SLOTS).fill(7)
+	assert.equal(chunkWeightSums(side, res, weights, 3, out), out)
+	assert.deepEqual([...out], [0, 100, 0, 0])
+	assert.deepEqual([...chunkWeightSums(side, res, weights, 0)], [255, 0, 0, 0])
+})
+
+test('evictWeakest works on the chunk it is given, not chunk 0', () => {
+	const side = 2
+	const res = 4
+	const slots = new Uint8Array(side * side * SLOTS).fill(NO_TEXTURE)
+	const weights = new Uint8Array(res * res * SLOTS)
+	// Chunk 1 (x 2..3, z 0..1) holds textures 4 and 6; texture 6 is faint on one texel.
+	slots.set([4, 6, NO_TEXTURE, NO_TEXTURE], 1 * SLOTS)
+	for (const [x, z] of [
+		[2, 0],
+		[3, 0],
+		[2, 1],
+		[3, 1],
+	])
+		weights[(z * res + x) * SLOTS] = 255
+	weights[(1 * res + 3) * SLOTS] = 245
+	weights[(1 * res + 3) * SLOTS + 1] = 10
+	assert.equal(evictWeakest(side, res, slots, weights, 1, 4), 1)
+	assert.equal(slots[1 * SLOTS + 1], NO_TEXTURE)
+	assert.deepEqual([...weights.subarray((1 * res + 3) * SLOTS, (1 * res + 4) * SLOTS)], [255, 0, 0, 0])
 })

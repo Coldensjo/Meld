@@ -14,6 +14,8 @@ test('a lost page at setup, ok: false, a page error and other throws keep the re
 	assert.equal(noRetryReason({}), '')
 	assert.equal(noRetryReason({ error: "TypeError: Cannot read properties of null (reading 'x')" }), '')
 	assert.equal(noRetryReason({ error: 'timed out waiting for the tile (no loads pending)' }), '')
+	assert.equal(noRetryReason({ error: "SyntaxError: The requested module '/src/lib/x.ts' does not provide an export named 'y'" }), '', 'a module Vite was rebuilding')
+	assert.equal(noRetryReason({ error: `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON` }), '', 'an error page read as JSON')
 })
 
 test("a retried probe's line keeps the first attempt's own numbers, less its name, ok and profile (#624)", () => {
