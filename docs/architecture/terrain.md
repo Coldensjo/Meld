@@ -462,7 +462,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`vmangos.EncodeHeights`, `DecodeHeights`); so do `RegionView.Heights` (LoadRegion) and Publish's
   `TileSpec.Outer`, typed `vmangos.HeightGrid`, a float slice in Go whose JSON is that string
   (`ts_type:"string"` in the bindings; the page reads it with `base64ToFloats` and writes it with
-  `floatsToBase64`, `io/base64.ts`), a third of the JSON numbers' size for a 3x3 block (#632). A region's alpha maps stay out of
+  `floatsToBase64`, `io/base64.ts`), a third of the JSON numbers' size for a 3x3 block (#632). A plain
+  Go `[]byte` field (the loading screen's and the world map's `Pixels`) is also a base64 string in JSON
+  but typed `number[]` by Wails: write it with `wailsBytes` and read it with `fromWailsBytes`
+  (`io/base64.ts`), never a cast at the call (#595). A region's alpha maps stay out of
   LoadRegion's JSON altogether (`RegionView.Alpha` is `json:"-"`): `App.handOffAlpha` puts them in
   `App.handoffs` (`internal/handoff`) and the reply carries `alphaUrl`, which `openRegionView` fetches as
   one binary GET and slices 4096 bytes a layer, every layer but each chunk's first, in chunk order. As

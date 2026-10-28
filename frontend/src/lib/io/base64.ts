@@ -32,6 +32,20 @@ export async function bytesToBase64Sliced(bytes: Uint8Array, pause: () => Promis
 	return parts.join('')
 }
 
+/**
+ * A Go `[]byte` field of a bound struct, as Wails types it (`number[]`) from bytes. encoding/json sends
+ * and takes `[]byte` as a base64 string, so the value crossing the bridge is that string; this is the one
+ * place the generated type is overridden. Use `fromWailsBytes` for such a field the other way.
+ */
+export function wailsBytes(bytes: Uint8Array): number[] {
+	return bytesToBase64(bytes) as unknown as number[]
+}
+
+/** The bytes of a Go `[]byte` field read from the bridge, typed `number[]` by Wails but a base64 string (see `wailsBytes`). */
+export function fromWailsBytes(v: number[]): Uint8Array {
+	return base64ToBytes(v as unknown as string)
+}
+
 export function base64ToBytes(b64: string): Uint8Array {
 	const native = (Uint8Array as B64Ctor).fromBase64
 	if (native) return native(b64)
