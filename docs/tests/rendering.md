@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Particles (M2 emitters, B-182)
 
+Probe: `particles-reach` (the far-emitter pre-test, #330); the rest is a hand check in the dev page.
+
 Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
 - `go test ./internal/wow -run Emitter` (and `TestClientEmitters` with `WOW_DIR`: Elwynn's tall
   waterfall has one lit alpha emitter with flags 0x2, BloodSpurt.m2 four, FlameStrike_Area.m2 four
@@ -55,6 +57,8 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
 
 ## Ground effects (grass tufts)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: the tables load (`groundEffectTables()` in `wow/groundEffectTables.ts`), the tufts build
 around the camera (`GroundEffectLayer`) and the export carries effects. Unit tests:
 `tests/groundEffects.test.ts` and `go test ./internal/adt/` (`effects_test.go`). In the dev page:
@@ -88,6 +92,8 @@ __engine.exportInput().effects          // the effect per palette index
 
 ## Water look (the client's combine, B-174)
 
+Hand check: the look against the game's, in the dev page.
+
 Checks: `water/liquidMaterial.ts` against the client's look. Northshire's stream in Azeroth 32_48 is
 river water up to depth byte 79: with the CDP route (`docs/TESTS.md`) load the region, then
 `e.setSceneView({ target: [340, 70.2, 283], yaw: 2.4, pitch: 0.35, distance: 45, hour: 13 })`. It
@@ -98,6 +104,8 @@ pop`: the dev page reloads them.
 
 ## Client clouds (B-179)
 
+Hand check: the look against the game's; the unit test below covers the kernel.
+
 Checks: `wow/clouds.ts` and `engine/CloudDome.ts`. `tests/clouds.test.ts` ports Benilla's kernel tests
 (clear at density 0, overcast mean above 200 at 1, scattered at 0.6, the glow only brightening, the
 quarter-tile scroll). In the app (CDP route) load a scene with `"prefs":{"clientLighting":true,"clouds":true}`,
@@ -107,6 +115,8 @@ is the coverage (Elwynn's light gives density 0.5, about 60% of the cells covere
 look up (it rides the ground), so the clouds show low over the horizon, where the dome's cap is.
 
 ## Liquid types from the client
+
+Probe: `liquid-kinds` (a layer's kind kept through a save, #540).
 
 Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidTypes` binding,
 `setLiquidTypes` in `water/liquids.ts`), so it holds the base four plus rows such as 21 "Naxxramas -
@@ -136,7 +146,7 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
 - Screenshot and zoom on the two: the one on the ground has a green stroke (red along any part
   under the slope), the one 6 units up a yellow one. The models may still be the purple
   placeholder boxes, which is enough for the colours.
-- Probe `selection-visuals` (#551) checks the colours and the warn boxes without a screenshot: on
+- Probe: `selection-visuals` (#551) checks the colours and the warn boxes without a screenshot: on
   objects-mixed it lifts the 16 models nearest the middle 30 yd, selects them, and compares each
   `outlineTargets[i].touching` and a single selection's `outline.shared.boxMin`/`boxMax` with a scan
   of every object, still, after a drag, a move away, a hidden neighbour and a prop attached elsewhere
@@ -145,7 +155,7 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   dragging one of them, and one selected (2.75, 2.94 and 0.55 ms before #551 on SwiftShader; 0.02,
   0.66 and 0.02 after). The warn boxes come in the order the cells give them, so it matches them
   as a set.
-- Probe `outline-heights` (#567) checks the red underground marks against the terrain's own height
+- Probe: `outline-heights` (#567) checks the red underground marks against the terrain's own height
   texture, which the outline shares: on a flat 1024 map a 4 yd helper cube is selected under the
   Select tool and a Sculpt stroke (driven through `P.stroke(e.tools.sculpt, ...)`, since the outline
   is built only under Select and Place) raises the ground along its edge; the outline's mask
@@ -155,6 +165,8 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   Trap: raise the ground under the cube's middle and the cube re-snaps up with it, so nothing turns red.
 
 ## Hover outline (#641)
+
+Probe: `hover-outline`.
 
 Checks: `Engine.updateHoverVisuals` and the second `SelectionOutline` it drives. Probe
 `hover-outline` (about 10 s): on a flat map with two helper cubes under the Select tool, the
@@ -166,6 +178,8 @@ Sculpt tool draws nothing. `--shot` shows the faint white stroke round the hover
   setting a pref in a probe, step a frame before reading what the engine does with it.
 
 ## Ground effects: no-doodad cells and density
+
+No probe: the unit tests below.
 
 Checks: tufts stay off the cells under buildings and off the client's own `noEffectDoodad` cells,
 and the export writes those cells. Unit tests: `groundEffects.test.ts` (`coverCells`,
@@ -190,6 +204,8 @@ e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cel
 
 ## Graphics › Quality presets (#203)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `lib/state/graphicsPresets.ts` (unit test `graphicsPresets.test.ts`: each preset is found
 again after it is applied, one change makes it Custom). In the dev page, `applyPreset(prefs, 'Low')`
 through the page's own module URLs, step a few frames, and read `__engine.prefs` (renderScale 0.5,
@@ -199,6 +215,8 @@ reads Quality; after one setting changes it reads "Quality (custom)" with no pre
 `?nosave`: a preset writes ten prefs at once.
 
 ## The camera's WMO room (down-ray probe, #8)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: which group of a placed WMO the camera is in (`world/wmoRoom.ts`, Benilla's `seed.rs`), shown
 as "Camera in" in Detail info. Unit cases are Benilla's own (`tests/wmoRoom.test.ts`); the client data
@@ -254,6 +272,8 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
 
 ## Client Lighting's ground: per-vertex light and the sheen (#111)
 
+Hand check: the look against the game's; the probe `console-clean` covers the sheen textures asked for (#336).
+
 Checks: under Lighting › Client Lighting the terrain shader takes the light's rows in gamma space
 (`clientAmbient`, `clientDiffuse`, `clientSpecular` = rows 1, 0 and 9), sums and clamps them per
 vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts each `_s` twin's alpha
@@ -272,6 +292,9 @@ layer i from `i * 65536`, the first 8 bytes of each 16-byte block its 16 alphas,
   textures; compare with `clientPointCount` held at 0 before blaming the light sum.
 
 ## Losing and restoring the viewport's WebGL context (#209)
+
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: the viewport comes back after the browser drops its WebGL context, and nothing is drawn or
 cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
 - In the dev page (headless Chrome over CDP works, `docs/TESTS.md`): `const x = __engine.renderer.getContext().getExtension('WEBGL_lose_context'); x.loseContext()`,
@@ -399,6 +422,9 @@ full model does.
   copied vertices).
 
 ## Compressed client textures (DXT, #178)
+
+No probe: the Go tests below (with the client); the probe `terrain-dxt` covers the terrain's array (#216).
+
 Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where
 the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look as the RGBA path did.
 - Go: `TestDXTOf*` in `internal/wow/blpdxt_test.go`; with `WOW_DIR=C:/WoW/client`,
@@ -467,6 +493,9 @@ inside branches.
   `minFilter = 1006` (`LinearFilter`) and `needsUpdate = true` to see the old shimmer.
 
 ## Preview window: particles, ribbons and texture animation (#200)
+
+Hand check: in the dev page; the probe `preview-context` draws the Preview window on a model with particles (#213).
+
 Checks: the preview window and the creature editor's preview (`CreaturePreview.svelte`) run the model's
 particles and ribbons in a `ParticleLayer` of their own (`new ParticleLayer(new PreviewSet())`, so the
 main layer never draws that model), and its texture and colour animation (run for every material by
@@ -646,9 +675,11 @@ faces, however far it moves in a frame, and slides it along them; with it off th
 
 ## Shadow maps: lights' cube maps, the sun's cascades and the moving casters (#129, #133, #325, #326, #346, #366)
 
+Probes: `shadow-redraw` (smoke), `shadow-poses`, `shadow-sun-drift`, and `perf-everything` for the near
+cascade's calls; the cube maps' costs (#129, #133) are hand checks on the GPU.
+
 Checks: what the shadow passes draw and when they redraw. Unit: `tests/shadowReach.test.ts` (which
-batches join a cube face or the near cascade). Probes: `shadow-redraw` (smoke), `shadow-poses`,
-`shadow-sun-drift`, and `perf-everything` for the near cascade's calls.
+batches join a cube face or the near cascade).
 - The sun's near map is kept between frames (#326, probe `shadow-redraw`, smoke, a flat map): a still
   view redraws neither cascade; moving an object, sculpting, cutting holes, undo, a layer
   toggle and a turn of the camera each redraw the near one; the far one holds through a small turn and a
@@ -703,6 +734,8 @@ batches join a cube face or the near cascade). Probes: `shadow-redraw` (smoke), 
 
 ## The instance batch: culling, packing and picking of placed models and spawns (#517)
 
+Probes: `object-move` (no pack during a drag) and the others listed below, over both layers; unit test below.
+
 - `bun test tests/instanceBatch.test.ts`: `world/instanceBatch.ts` on its own (the rows in view packed
   to the front with their items, a repack forced after rows are rewritten, a moved row written in place
   with a range or the whole buffer while a pack is pending, a ray hit naming its item) and a
@@ -716,6 +749,8 @@ batches join a cube face or the near cascade). Probes: `shadow-redraw` (smoke), 
   `b.rows.spheres` and `b.rows.packed` (not `b.all` and the rest, before #517).
 
 ## The benchmark scene and maps: smoke, bench and perf-* (#322, #429)
+
+Probes: `smoke`, `bench` and `perf-*`.
 
 Checks: the benchmark scene (`P.BENCH`, Help › Copy Scene's Northshire view) and the benchmark maps
 (Help › Benchmark maps, `lib/bench/benchMaps.ts`) open and draw, and their numbers for a before/after.

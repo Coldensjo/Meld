@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Brush size controls (Photoshop-style)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `tools/brushSize.ts` (unit tests in `tests/brushSize.test.ts`) and the engine's Alt+right-drag.
 In the dev page, with a brush tool active and the `editor.svelte.ts` module as `ed`:
 
@@ -26,6 +28,8 @@ c.dispatchEvent(new PointerEvent('pointerup', { button: 2, altKey: true, clientX
   (it is wrapped), so the drag still works from a script.
 
 ## Scripted brush strokes
+
+A method, not a check: probes stroke the same way through `P.stroke` (the probe `undo-sculpt` does).
 
 Checks: what a sculpt mode does to the heights, without dragging the mouse. In the dev page
 (`javascript_tool`), make a flat map and drive the tool directly:
@@ -61,6 +65,8 @@ e.terrain.heightAt(180, 300)                  // then screenshot
 
 ## Vertex mode undo and keys on a focused control (#127)
 
+Probe: `hotkeys` (keys with the focus on each kind of control).
+
 Checks: Sculpt's Vertex edits undo, and Ctrl+Z reaches the map while an options-bar slider has the
 focus. On a flat new world (as in "Scripted brush strokes"), `ed.sculptMode = 'vertex'`, pick points
 with `onDown(e.ctx, at(100, 100), {})`, one `tick`, `onUp`; then `ed.vertexAngle = 30; e.frame()` tilts
@@ -80,6 +86,8 @@ input must leave the history alone. A Shift move is `onDown(..., { shiftKey: tru
   slider keep their own keys. A control now keeps only the keys it uses (`controlKeepsKey` in `App.svelte`).
 
 ## Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`)
+
+No probe for the tools: the unit tests below; the probe `gizmo-undo` covers the gizmo's drags.
 
 Checks: the hard rule that every edit is undoable, and that a stroke is one step, for each tool and
 mode without the app: `cd frontend && bun test tests/toolUndo.test.ts`. Each row drives a tool as the
@@ -124,6 +132,8 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
 
 ## Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 
+A method for a hand check; the probes `gizmo-undo` and `tab-switch-drag` drive the gizmo.
+
 Checks: the selected prop's gizmo (`TransformGizmo`), its sweep arc and the viewport badge, in the
 dev page with `javascript_tool`. A drag through the Chrome extension releases the button at once,
 so drive the Engine's private drag methods instead:
@@ -150,6 +160,8 @@ e.endGizmoDrag()
 
 ## Place tool keys (preview height and offset)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: `PlaceTool.onKey` (PgUp / PgDn set `editor.placeHeight`, the arrows `editor.placeOffset`,
 camera-relative) and that Alt+scroll no longer touches the height. In the dev page, with the
 `editor.svelte.ts` and `selection.ts` module URLs from "Scripted brush strokes":
@@ -165,6 +177,8 @@ document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY:
 - The Options bar shows an Offset chip with Reset while the offset is not zero.
 
 ## Tilting by hand (Z+scroll, #344)
+
+Probe: `hand-tilt`.
 
 Checks: holding Z turns the wheel into tilt (Shift: roll), 5° a notch, on the selected models or, in
 the Place tool with nothing selected, on the preview, and the camera does not zoom meanwhile. Probe
@@ -191,6 +205,8 @@ frames running: no throw, no model left, every height back, and the undo with it
 
 ## Placing a creature or game object: the preview's size (#672)
 
+Probe: `place-spawn-size`.
+
 Checks: with a template from the browser's Creatures, NPCs or Objects tab, the Place tool's preview is
 drawn at the size the spawn takes (`placingSpawnScale` in `ObjectTools.ts`: the template's scale times
 its display's, an object's `size`), not at 1, Shift+scroll leaves it be, and the clicked spawn's
@@ -205,6 +221,8 @@ brush's ghosts take the same size through its `ghostScale` hook.
 
 ## Placement tilt (the client's rotation order, #149)
 
+No probe: the unit test below; the look against the game is a hand check.
+
 Checks: a placed model's tilt and roll match the client's. `world/placement.ts` (`placementEuler`) is the
 one place the rotation is built; `tests/placement.test.ts` pins it to the client's order, heading, then
 Rz(-first angle), then Rx(third angle), in the editor's frame. The references that agree: wowdev.wiki's
@@ -216,6 +234,8 @@ ADT `createPlacementMatrix`, Noggit Red's `SceneObject::updateTransformMatrix` a
   or a screenshot from the game.
 
 ## Doodad brush (scatter models by weight)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: `DoodadBrushTool` places the brush's models under the brush in their weights' proportions,
 keeps them apart by the spacing, erases them with Ctrl, and undoes as one step. The brush logic alone
@@ -279,6 +299,8 @@ e.history.undo(); e.objects.objects.size            // 0
 
 ## Spawn brush (the Doodad tool's Creatures mode, #171)
 
+No probe: the unit tests below (`spawnsBatch.test.ts` for its undo, #193), and a hand check in the dev page.
+
 Checks: `tools/SpawnBrushTool.ts` (unit tests of the arithmetic in `spawnBrush.test.ts`). In the dev page
 on Northshire (its 347 spawns come from the world database), set `prefs.spawnBrush` to
 `{ ...newSpawnBrush(), entries: [entryFrom(<Young Wolf's template>)], density: 20, spacing: 8 }` (the
@@ -304,6 +326,8 @@ Undo speed (#193): undoing a stroke must not redraw the spawn layer once a creat
 
 ## Prefabs (#170)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `wow/prefabs.ts` (TOML, variation; `prefabs.test.ts`), `world/clipTurn.ts`, the Prefabs tab
 (`PrefabBrowser.svelte`) and the multi-model thumbnail (`thumbs.ts` `renderPrefab`). In the dev page on
 Northshire: select a few models (`selectObjects(e.objects, ids)`), write `formatPrefab({ name, objects:
@@ -328,6 +352,8 @@ preview's 15 s limit; keep each evaluate short.
 
 ## Rotate around pivot point (group spins)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: with two or more models selected, R (and Alt+arrows) turn the group about the mean of its
 positions when `editor.rotatePivot` is on (the Select tool's checkbox, shown for a multi-selection),
 and each about its own origin when off. Unit test: `tests/pivot.test.ts` (`meanPivot`, `turnAbout`
@@ -345,6 +371,8 @@ ed.editor.rotatePivot = false; e.nudgeSelected(0, 0, 0, Math.PI / 2)   // they s
 
 ## Group gizmo (ring, knob and arrow on a multi-selection)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: with two or more models selected in the Select or Place tool, the ring, scale knob and
 arrow stand at the selection's pivot (`e.selectionPivot()`), sized round the whole group; the ring
 turns the group (about the pivot with Rotate around pivot point, else each in place), the knob
@@ -356,6 +384,8 @@ the ring (the cursor becomes a grab hand), drag sideways and watch the hint "Rot
 
 ## Mouse-move snap (Follow cursor, Snap models to the ground)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: in the Select tool, a dragged single model follows the surface under the cursor with
 `editor.moveFollowCursor` on (default) and slides across a level plane at its starting height with
 it off; a dragged group lands on the ground with `editor.moveSnapGroup` on and keeps every model's
@@ -366,6 +396,8 @@ and watch `ed.editor.selected.yOff` go negative (it keeps its world height). A t
 `e.raycaster.setFromCamera(e.ndc, e.camera)`; `onMove` reads `ctx.raycaster.ray` for the plane.
 
 ## Clear tool: the models a stroke would delete (#131)
+
+Hand check: in the dev page on the GPU, as below; no probe covers it.
 
 Checks: in Models mode the Clear tool marks, while it hovers, exactly the models a stroke there
 removes, with a red outline and a red tint (`Engine.doomOutline`, a `SelectionOutline` with one
