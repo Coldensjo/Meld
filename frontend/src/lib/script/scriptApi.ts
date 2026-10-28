@@ -122,6 +122,16 @@ export type TagValue = number | string | boolean
 export const BRUSH_EVENTS = ['left_click', 'left_hold', 'left_release', 'right_click', 'right_hold', 'right_release'] as const
 export type BrushEventKind = (typeof BRUSH_EVENTS)[number]
 
+/**
+ * The button a stroke of a brush handling `handles` sends its events as (#762). The right mouse button
+ * moves the camera in Meld, so a left-button stroke stands in for it: when `right` is asked for (the
+ * options bar's Right button), or when the brush handles only right-button events.
+ */
+export function strokeSide(handles: readonly BrushEventKind[], right: boolean): 'left' | 'right' {
+	if (!handles.some((h) => h.startsWith('right_'))) return 'left'
+	return right || !handles.some((h) => h.startsWith('left_')) ? 'right' : 'left'
+}
+
 /** A brush a script made with `brush(name)`: its settings and the events it handles. */
 export interface BrushSpec {
 	name: string
