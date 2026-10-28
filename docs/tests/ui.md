@@ -284,10 +284,19 @@ undoes (`scrollTop = 0`) before it decides the control is clipped.
 ## Help window
 
 Checks: Help › Help… (or F1 anywhere but in an input) opens the Help dialog; its Open the manual
-button and Help › Manual open docs/MANUAL.md on GitHub in the system browser (`BrowserOpenURL`; the
+button and Help › Manual open the manual on the published docs site (coldensjo.github.io/Meld/MANUAL) in the system browser (`BrowserOpenURL`; the
 dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `document.querySelector('[role=dialog]').textContent` holds "Getting started". The URL is
 `MANUAL_URL` in `AppDialogs.svelte`.
+
+## Panel edge drags (#592)
+
+Checks: the dock's left edge and the asset browser's top edge resize through one action,
+`use:dragResize` (`lib/ui/dragResize.ts`): the size follows the pointer in CSS px (`toCss`), kept to
+its range, and pointerup, pointercancel and lostpointercapture all end the drag, so a cancelled one
+(Alt-Tab, a pen) does not keep writing `prefs.dockWidth` or `prefs.browserHeight` on the next hover.
+`bun test tests/dragResize.test.ts`. By hand: drag either edge, Alt-Tab mid-drag, come back and hover
+the edge; the panel must not move.
 
 ## Preferences from two windows
 

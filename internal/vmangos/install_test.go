@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"Meld/internal/mpq"
-	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -96,37 +95,44 @@ func TestCheckServer(t *testing.T) {
 	}
 }
 
-// TestIronforgePatchIsBackedUp replaces the Ironforge patch in a client copy:
-// WOW_DIR=/path/to/client go test ./internal/vmangos/
+// TestIronforgePatchIsBackedUp replaces a patch-3 that Ironforge wrote, built here with its marker,
+// so the backup is checked on every machine rather than only where the client's patch-3 is Ironforge's.
 func TestIronforgePatchIsBackedUp(t *testing.T) {
-	dir := testclient.DataDir(t)
-	dataDir, err := wow.ResolveDataDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := filepath.Join(dataDir, PatchName)
-	owner, err := archiveOwner(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if owner != IronforgeMarker {
-		t.Skip("the client's patch-3 is not Ironforge's, so there is no Ironforge backup to check")
-	}
 	tmp := t.TempDir()
-	orig, err := os.ReadFile(src)
-	if err != nil {
+	ironTile := `World\Maps\Azeroth\Azeroth_33_41.adt`
+	orig := mpq.WriteUnmarked([]mpq.File{{Name: IronforgeMarker, Data: []byte("ironforge")}, {Name: ironTile, Data: []byte("iron")}})
+	src := filepath.Join(tmp, PatchName)
+	if err := os.WriteFile(src, orig, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(tmp, PatchName), orig, 0o644)
+	if owner, err := archiveOwner(src); err != nil || owner != IronforgeMarker {
+		t.Fatalf("the built patch's owner = %q, %v; want Ironforge's", owner, err)
+	}
 	if _, err := InstallPatch(tmp, tileFiles); err != nil {
 		t.Fatal(err)
 	}
-	backupBytes, err := os.ReadFile(filepath.Join(tmp, PatchName+BackupSuffix))
+	backupPath := filepath.Join(tmp, PatchName+BackupSuffix)
+	backupBytes, err := os.ReadFile(backupPath)
 	if err != nil {
 		t.Fatal("no backup written: ", err)
 	}
 	if !bytes.Equal(backupBytes, orig) {
 		t.Fatal("backup differs from the original")
+	}
+	if owner, err := archiveOwner(backupPath); err != nil || owner != IronforgeMarker {
+		t.Errorf("the backup's owner = %q, %v; want Ironforge's marker kept", owner, err)
+	}
+	// The new patch is Meld's and carries Ironforge's tiles over.
+	if owner, err := archiveOwner(src); err != nil || owner != mpq.MarkerName {
+		t.Errorf("the new patch's owner = %q, %v; want Meld's", owner, err)
+	}
+	arch, err := mpq.Open(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arch.Close()
+	if got, err := arch.ReadFile(ironTile); err != nil || string(got) != "iron" {
+		t.Errorf("Ironforge's tile in the new patch = %q, %v", got, err)
 	}
 }
 

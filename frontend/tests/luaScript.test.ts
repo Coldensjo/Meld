@@ -55,6 +55,7 @@ function fakeHost(verts = 9, cell = 2) {
 		chunkRemoveTexture: () => {},
 		chunkClearTextures: () => {},
 		chunkEffect: () => 0,
+		chunkSetEffect: () => {},
 		chunkSetHole: () => {},
 		chunkArea: () => 0,
 		chunkSetArea: () => {},
