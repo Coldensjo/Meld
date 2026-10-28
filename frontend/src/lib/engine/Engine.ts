@@ -263,6 +263,39 @@ const ORTHO_HEIGHT = 1500
 /** The 3D camera's near plane (yd), and how far in it is pulled for a WMO wall closer than it reaches (#304). */
 const NEAR = 0.5
 const NEAR_MIN = 0.05
+/** The 3D camera's far plane at the least (yd), however small the map or short the view distance. */
+const FAR_MIN = 2000
+
+/** How far above the highest ground a minimap shot or a world-map zone (`renderTopDown`) frames, for the models standing on it (yd). */
+const SHOT_HEADROOM = 400
+/** How far below the shot's top its far plane reaches (yd): past the deepest ground a map may hold. */
+const SHOT_DEPTH = 20000
+
+/** Where the shadow cascades centre with no ground ahead of the camera (the sky), as a distance ahead in yards. */
+const SHADOW_NO_GROUND = 300
+/** The near cascade's half-extent bounds (yd): the ground ahead's distance, held to these. */
+const SHADOW_NEAR_MIN = 30
+const SHADOW_NEAR_MAX = 250
+/** The far cascade's half-extent is this many times the ground ahead's distance, held to the bounds after it (yd). */
+const SHADOW_FAR_SCALE = 6
+const SHADOW_FAR_MIN = 800
+const SHADOW_FAR_MAX = 2500
+/** How far ahead of the camera the far cascade centres, as a share of its extent at most. */
+const SHADOW_FAR_AHEAD = 0.6
+
+/** Nudges (arrow keys) of the same selection closer together than this (ms) merge into one undo step. */
+const NUDGE_MERGE_MS = 1500
+/** How far above the ground under its footprint a model's box may start and still count as standing on it (yd). */
+const GROUND_TOLERANCE = 0.25
+/** The most models a selection may hold for each to be checked for overlapping other props (the warn boxes). */
+const OVERLAP_CHECK_MAX = 16
+/** The transform gizmo's radius as a share of a model's larger footprint side, and of a group's reach from its pivot. */
+const GIZMO_MODEL_RADIUS = 0.55
+const GIZMO_GROUP_RADIUS = 1.05
+/** A player's eye height above where they stand (yd), and how `viewSpot` looks from it: pitch (radians) and distance (yd). */
+const EYE_HEIGHT = 1.7
+const SPOT_PITCH = 0.3
+const SPOT_DISTANCE = 12
 
 /** Straight down, for finding the ground below a point. */
 const DOWN = new THREE.Vector3(0, -1, 0)
@@ -1052,11 +1085,16 @@ export class Engine {
 	/** The pointer moved since the last pick, for Camera › Locked cursor (#19). */
 	private pointerMoved = false
 
+	/** How far the active camera sees (its far plane, yd): ground past it is neither drawn nor picked. */
+	private viewReach(): number {
+		return this.topDown ? this.ortho.far : this.persp.far
+	}
+
 	private pick() {
 		this.raycaster.setFromCamera(this.ndc, this.camera)
 		// The Hole mode aims at holes too (to fill them), so its ray stops where the ground would be.
 		const solid = editor.tool === 'sculpt' && editor.sculptMode === 'hole'
-		this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec, 4000, solid) ? this.hitVec : null
+		this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec, this.viewReach(), solid) ? this.hitVec : null
 		// The spawn brush stands its creatures on the floor under the cursor, a cave's or a dungeon's too (#660).
 		if (editor.tool === 'doodad' && editor.doodadMode === 'creatures') {
 			const f = this.floorHit()
@@ -1741,7 +1779,7 @@ export class Engine {
 			return
 		}
 		this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), this.fogNear, this.fogFar) : null
-		this.persp.far = Math.max(2000, w * 4 * d)
+		this.persp.far = Math.max(FAR_MIN, w * 4 * d)
 		this.persp.updateProjectionMatrix()
 	}
 
@@ -2371,12 +2409,14 @@ export class Engine {
 		const focus = this.shadowFocus
 		// A world view's ground is its streamed tiles, not the hidden stand-in terrain (#741).
 		const world = this.doc.world
-		const ahead = world ? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, 3000, 8) : this.terrain.raycast(this.shadowRay, focus, 3000) ? focus.distanceTo(eye) : -1
-		const dist = ahead < 0 ? 300 : ahead
-		const nearExtent = THREE.MathUtils.clamp(dist, 30, 250)
-		const farExtent = THREE.MathUtils.clamp(dist * 6, 800, 2500)
+		// Ground ahead is looked for as far as the camera sees.
+		const reach = this.persp.far
+		const ahead = world ? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, reach, 8) : this.terrain.raycast(this.shadowRay, focus, reach) ? focus.distanceTo(eye) : -1
+		const dist = ahead < 0 ? SHADOW_NO_GROUND : ahead
+		const nearExtent = THREE.MathUtils.clamp(dist, SHADOW_NEAR_MIN, SHADOW_NEAR_MAX)
+		const farExtent = THREE.MathUtils.clamp(dist * SHADOW_FAR_SCALE, SHADOW_FAR_MIN, SHADOW_FAR_MAX)
 		const nearCenter = this.shadowNear.copy(eye).addScaledVector(fwd, Math.min(dist, nearExtent))
-		const farCenter = this.shadowFar.copy(eye).addScaledVector(fwd, Math.min(dist, farExtent * 0.6))
+		const farCenter = this.shadowFar.copy(eye).addScaledVector(fwd, Math.min(dist, farExtent * SHADOW_FAR_AHEAD))
 		this.shadowFits |= env.updateShadow(nearCenter, nearExtent, farCenter, farExtent)
 	}
 
@@ -2991,7 +3031,7 @@ export class Engine {
 		const o = this.serverTiles(this.doc)
 		const p = editorPoint(dest, o.x, o.y)
 		// A player's eye height above the spot: where the flying camera sits, and what an orbit looks at.
-		this.controller.setView(p.x, p.y + 1.7, p.z, dest.o, 0.3, 12)
+		this.controller.setView(p.x, p.y + EYE_HEIGHT, p.z, dest.o, SPOT_PITCH, SPOT_DISTANCE)
 	}
 
 	/** The selected spawn when (clientX, clientY) is within CONTEXT_MARGIN px of it on the screen, else null. */
@@ -4782,7 +4822,7 @@ export class Engine {
 		const s = this.gizmoDrag.selectedSpawn()
 		if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
 			const size = this.tmpBox.getSize(this.tmpV)
-			this.gizmo.update(this.spawnGizmoAt.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
+			this.gizmo.update(this.spawnGizmoAt.set(s.x, s.y, s.z), Math.max(size.x, size.z) * GIZMO_MODEL_RADIUS, this.tmpBox.max.y, this.viewEye(), false)
 		} else this.gizmo.hide()
 		if (this.canvas.style.cursor && !this.gizmoDrag.active) this.canvas.style.cursor = ''
 	}
@@ -4815,7 +4855,7 @@ export class Engine {
 			this.tmpBox.copy(getAsset(one.type).bbox).applyMatrix4(this.objects.matrixOf(one, this.tmpM))
 			const size = this.tmpBox.getSize(this.tmpV)
 			this.objects.worldPosition(one, g.at)
-			g.radius = Math.max(size.x, size.z) * 0.55
+			g.radius = Math.max(size.x, size.z) * GIZMO_MODEL_RADIUS
 			g.top = this.tmpBox.max.y
 			g.scalable = !one.type.startsWith('wmo:')
 			g.yaw = this.objects.worldYaw(one)
@@ -4973,7 +5013,7 @@ export class Engine {
 		}
 		const g = this.selGizmo
 		g.at.set(pivot.x, baseY, pivot.z)
-		g.radius = radius * 1.05
+		g.radius = radius * GIZMO_GROUP_RADIUS
 		g.top = topY
 		g.scalable = scalable
 		g.yaw = this.objects.worldYaw(this.selectedObject() ?? sel[0])
@@ -4996,8 +5036,8 @@ export class Engine {
 		let ground = this.groundAt((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2)
 		ground = Math.max(ground, this.groundAt(box.min.x, box.min.z), this.groundAt(box.max.x, box.min.z))
 		ground = Math.max(ground, this.groundAt(box.min.x, box.max.z), this.groundAt(box.max.x, box.max.z))
-		if (box.min.y <= ground + 0.25) return true
-		return selected <= 16 && (props ?? this.overlappingBoxes(o, 1) > 0)
+		if (box.min.y <= ground + GROUND_TOLERANCE) return true
+		return selected <= OVERLAP_CHECK_MAX && (props ?? this.overlappingBoxes(o, 1) > 0)
 	}
 
 	/** The terrain height at a point, or -Infinity off the map or over a hole. */
@@ -5534,13 +5574,13 @@ export class Engine {
 		const ground = this.groundTop()
 		const top = editor.waterEnabled ? Math.max(editor.waterLevel, ground) : ground
 		// Models stand up to a few hundred yards above the ground; the camera is far above that.
-		this.minimapShot = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, halfX: (x1 - x0) / 2, halfZ: (z1 - z0) / 2, top: top + 400 }
+		this.minimapShot = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, halfX: (x1 - x0) / 2, halfZ: (z1 - z0) / 2, top: top + SHOT_HEADROOM }
 		const ss = Math.max(1, Math.min(4, Math.floor(this.renderer.capabilities.maxTextureSize / Math.max(w, h))))
 		const bigW = w * ss
 		const bigH = h * ss
 		// From that height the deepest ground may lie past the top-down view's far plane.
 		const far = this.ortho.far
-		this.ortho.far = ORTHO_HEIGHT + 400 + 20000
+		this.ortho.far = ORTHO_HEIGHT + SHOT_HEADROOM + SHOT_DEPTH
 		// The shot is no frame of the view: the meter books none of it to the frame's sections.
 		const metered = this.meter.on
 		this.meter.on = false
@@ -5737,7 +5777,7 @@ export class Engine {
 		const now = performance.now()
 		const s = this.nudgeSession
 		const key = targets.map((o) => o.id).join(',')
-		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < 1500
+		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < NUDGE_MERGE_MS
 		const before = continuing ? s.before : targets.map((o) => ({ ...o }))
 		const yaw = this.controller.yaw
 		const fx = -Math.sin(yaw)
@@ -5781,7 +5821,7 @@ export class Engine {
 		const now = performance.now()
 		const s = this.nudgeSession
 		const key = targets.map((o) => o.id).join(',')
-		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < 1500
+		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < NUDGE_MERGE_MS
 		const before = continuing ? s.before : targets.map((o) => ({ ...o }))
 		for (const o of targets) {
 			if (roll) o.tiltZ = stepTilt(o.tiltZ ?? 0, degrees)
