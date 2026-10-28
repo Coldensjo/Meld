@@ -131,7 +131,8 @@ on the change (docs/TESTS.md, "Measuring performance"). An estimate with its wor
 
 ## Services
 
-Started by the coordinator before the first worker and left running; workers never start their own.
+Started by the coordinator before the first worker and left running; workers never start their own, except to restart
+`make dev` after a Go binding change (below).
 
 - One loop at a time (#656): two loops on this checkout and its one `make dev` broke each other's
   whole-run probes. At the start of the run, before the pull, the coordinator runs
@@ -146,9 +147,10 @@ Started by the coordinator before the first worker and left running; workers nev
   (#277, #513, #321). Healthy when `curl -s localhost:34115/wow/status` answers. Read the dead-session
   trap in docs/TESTS.md first: the owner's own session may be half dead.
 - After a worker changes a bound Go method, it restarts `make dev` before probing the new binding
-  (stop `wails`, `Meld-dev` and the two `bun` processes, then run any probe, which starts it again):
-  `wails dev` sometimes does not rebuild after a Go change (#319, #387), and the binding then answers
-  null or "is not a function". The runner warns of it (`staleBackend`, docs/TESTS.md "Probes").
+  (kill `wails.exe`, `Meld-dev.exe` and the two `bun` processes, then run any probe, which starts it
+  again): `wails dev` sometimes does not rebuild after a Go change (#319, #387), and the binding then
+  answers null or "is not a function". The runner warns of it (`staleBackend`, in
+  docs/reference/testing-notes.md).
 
 ## Priority lanes
 
