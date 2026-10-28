@@ -349,6 +349,9 @@ both come out with `parent` 784, at the roof's height under each (130.5 and 122.
 `s.updateGhosts(e.ctx, clip, point)` with `pasteOnModel` on puts the ghosts' matrices (element 13) at
 the same heights. Probes that step 30 frames with 200 ms waits on Northshire take longer than the
 preview's 15 s limit; keep each evaluate short.
+The rule itself (`world/pasteLanding.ts` `pasteLandings`) is unit-tested without a client in
+`frontend/tests/pasteLanding.test.ts` (#522): `helper:cube:4` models over a stub ground (helpers load
+at once, with their bounds tree), stacked, past the edge and buried under the ground.
 
 ## Rotate around pivot point (group spins)
 

@@ -503,7 +503,7 @@ by its suffixes ("of the …"); the Ornate Bronze Lockbox (4632) its lock by wha
 Grelin Whitebeard (2188) its page by its first line and its page material; the Gordok Inner Door Key
 (18268) its map (Dire Maul); Tough Jerky (117)'s Effects tab its cooldown category by its spells;
 Marshal's Satin Sandals (17607) Honor rank Marshal / General (16). `bun run probe item-pickers`
-(nothing written). Unit tests: `bun test tests/itemFields.test.ts`, `go test ./internal/vmangos/ -run
+(nothing written). Unit tests: `bun test tests/itemFields.test.ts tests/editorFields.test.ts` (the latter: `withBit`, `changedValues`, `fieldGroups`, `subclassOptions`, `slotKind`, #522), `go test ./internal/vmangos/ -run
 'TestSpellCategoryNames|TestRandomPropertyNames|TestEnchantments|TestDisenchantSQL'`, and
 `TestLoadItemTablesClient` with `WOW_DIR`.
 - Trap: random_property names an item_enchantment_template entry, not an ItemRandomProperties.dbc
