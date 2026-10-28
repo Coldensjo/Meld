@@ -9,7 +9,7 @@ import { packedCount } from './shadowReach'
 import { WmoGroupCull } from './wmoGroupCull'
 import { CellGrid } from './cellGrid'
 import { firstPick, hitId } from './instanceHit'
-import { meshTriangles, type ModelCost } from '../engine/perfMeter'
+import { meshCalls, meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { wantLiquid, wmoLiquidMaterial } from '../water/liquidMaterial'
 import { farDepthMaterial } from '../models/farLayers'
 import type { LiquidClass } from '../water/liquids'
@@ -842,9 +842,12 @@ export class ObjectLayer {
 		let meshes = 0
 		for (const [type, b] of this.batches) {
 			meshes += 1 + (b.lod ? 1 : 0) + (b.liquid ? 1 : 0)
-			out.push({ type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0 })
-			if (b.lod) out.push({ type, triangles: meshTriangles(b.lod), instances: b.lod.visible ? b.lod.count : 0 })
-			if (b.liquid) out.push({ type, triangles: meshTriangles(b.liquid), instances: wmoLiquidMaterial().visible ? b.liquid.count : 0 })
+			out.push({ type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0, calls: meshCalls(b.mesh) })
+			if (b.lod) out.push({ type, triangles: meshTriangles(b.lod), instances: b.lod.visible ? b.lod.count : 0, calls: meshCalls(b.lod) })
+			if (b.liquid) {
+				const shown = wmoLiquidMaterial().visible
+				out.push({ type, triangles: meshTriangles(b.liquid), instances: shown ? b.liquid.count : 0, calls: shown ? meshCalls(b.liquid) : 0 })
+			}
 		}
 		return meshes
 	}
