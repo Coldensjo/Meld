@@ -393,8 +393,8 @@ in a loop and returns what it wants to report as JSON. The viewport of a 1400x90
 - Traps:
   - Swiftshader renders a region in seconds a frame: a few hundred `frame()` calls take minutes, so
     run it with a long timeout, and `python -u`, or nothing prints until the end.
-  - Write step files with the Write tool, not a heredoc: heredocs here halve backslashes, and client
-    paths in JS strings need `\\`.
+  - Write step files with the Write tool, or a heredoc with a quoted delimiter (`<<'EOF'`): an
+    unquoted one halves backslashes, and client paths in JS strings need `\\`.
   - The camera target rides the ground (`followGround`, re-applied from prefs by the scene), so a
     point high up (a lantern, a waterfall's top) can't be centred with `setSceneView`; move the
     model instead (`yOff`), or stand the camera far back.
