@@ -1,14 +1,11 @@
 // Run with: bun test tests/wmoFlood.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { navGroup } from './support/wmo.ts'
 import * as THREE from 'three'
 import { CALLBACK_PASS, EXTERIOR_LIT, RoomFlood } from '../src/lib/world/wmoFlood.ts'
 import { FOG_RAMP_PER_SEC, RoomFogFade, selectWmoFog } from '../src/lib/world/wmoFog.ts'
-import { EXTERIOR, type WmoFog, type WmoNav, type WmoNavGroup } from '../src/lib/world/wmoRoom.ts'
-
-function group(flags: number, min: number[], max: number[], refStart: number, refCount: number): WmoNavGroup {
-	return { flags, min: min as [number, number, number], max: max as [number, number, number], refStart, refCount, fogs: [0, 0, 0, 0], name: '' }
-}
+import { EXTERIOR, type WmoFog, type WmoNav } from '../src/lib/world/wmoRoom.ts'
 
 /**
  * Room A (x < 0, a true interior) opens through a doorway in the x = 0 plane onto B (x > 0), and B
@@ -17,7 +14,7 @@ function group(flags: number, min: number[], max: number[], refStart: number, re
 function hall(bFlags: number, cFlags = 0): WmoNav {
 	const door = (x: number) => [x, -2, 0, x, 2, 0, x, 2, 4, x, -2, 4]
 	return {
-		groups: [group(0, [-10, -10, 0], [0, 10, 10], 0, 1), group(bFlags, [0, -10, 0], [10, 10, 10], 1, 2), group(cFlags, [10, -10, 0], [20, 10, 10], 3, 1)],
+		groups: [navGroup(0, [-10, -10, 0], [0, 10, 10], 0, 1), navGroup(bFlags, [0, -10, 0], [10, 10, 10], 1, 2), navGroup(cFlags, [10, -10, 0], [20, 10, 10], 3, 1)],
 		portalVerts: [...door(0), ...door(10)],
 		portals: [
 			{ start: 0, count: 4, plane: [1, 0, 0, 0] },

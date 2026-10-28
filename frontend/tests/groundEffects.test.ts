@@ -1,6 +1,7 @@
 // Run with: bun test tests/groundEffects.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { isNear } from './support/near.ts'
 import {
 	BlizzardRandomizer,
 	cellPredominant,
@@ -92,7 +93,6 @@ test('a building bares the cells under its turned box, and the chunk bits pack p
 
 // The vectors below are Benilla's own BlizzardRandomizer and scatter loop (ground_effects.rs), built
 // with rustc and run for chunk seed (33 << 16) | 47.
-const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
 
 test("the randomizer gives the client's stream", () => {
 	const r = new BlizzardRandomizer(chunkSeed(47, 33))
@@ -101,7 +101,7 @@ test("the randomizer gives the client's stream", () => {
 		[462909168, 669678877, 618994953, 2678731783, 1483417433, 513740583],
 	)
 	const units = [-0.62321985, -0.15041244, 0.89484084, -0.21164262, 0.66742706, 0.91216016]
-	for (const u of units) assert.ok(near(r.signedUnit(), u))
+	for (const u of units) assert.ok(isNear(r.signedUnit(), u))
 	r.reset(0)
 	assert.deepEqual([r.shuffle(), r.shuffle(), r.shuffle()], [381586089, 3124349024, 2984236384])
 })
@@ -123,12 +123,12 @@ test('a chunk scatters as the client does: cells with repeats, slots by turn, no
 		const t = out[i]
 		assert.equal(t.cell, cell)
 		assert.equal(effect.doodads[t.doodad], model)
-		assert.ok(near(t.u, u) && near(t.v, v) && near(t.scale, scale) && Math.abs(t.rotY - rotY) < 1e-5, `tuft ${i}`)
+		assert.ok(isNear(t.u, u) && isNear(t.v, v) && isNear(t.scale, scale) && Math.abs(t.rotY - rotY) < 1e-5, `tuft ${i}`)
 	})
 	const last = out[n - 1]
 	assert.equal(last.cell, 4 * 8 + 3)
 	assert.equal(effect.doodads[last.doodad], 'A')
-	assert.ok(near(last.u, 0.8509138) && near(last.v, 0.60398227))
+	assert.ok(isNear(last.u, 0.8509138) && isNear(last.v, 0.60398227))
 	// The same chunk always grows the same tufts; another chunk others.
 	const again: Tuft[] = []
 	scatterChunk(new BlizzardRandomizer(), chunkSeed(47, 33), 16, cells, again)

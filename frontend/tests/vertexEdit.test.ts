@@ -1,9 +1,8 @@
 // Run with: bun test tests/vertexEdit.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { nearNum } from './support/near.ts'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices } from '../src/lib/tools/vertexEdit.ts'
-
-const near = (a: number, b: number, eps = 1e-5) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`)
 
 /** A 5x5-vertex map with every vertex at height 3. */
 function map() {
@@ -68,14 +67,14 @@ test('orienting lays the vertices on a plane through the reference', () => {
 	const ref = { x: 4, y: 10, z: 2 }
 	// 45 degrees rising toward +x: one unit up per unit along x.
 	orientVertices(heights, sel, 2, ref, 45, 0)
-	near(heights[6], 8) // x = 2
-	near(heights[7], 10) // x = 4
-	near(heights[8], 12) // x = 6
-	near(heights[11], 8)
+	nearNum(heights[6], 8) // x = 2
+	nearNum(heights[7], 10) // x = 4
+	nearNum(heights[8], 12) // x = 6
+	nearNum(heights[11], 8)
 	// Toward +z instead: x no longer matters.
 	orientVertices(heights, sel, 2, ref, 45, 90)
-	near(heights[6], 10) // z = 2
-	near(heights[11], 12) // z = 4
+	nearNum(heights[6], 10) // z = 2
+	nearNum(heights[11], 12) // z = 4
 	assert.equal(heights[0], 3)
 })
 
