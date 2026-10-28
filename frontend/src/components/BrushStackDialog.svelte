@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { numOr0 as num } from '../lib/ui/inputs'
 	import Modal from './Modal.svelte'
 	import { editor, prefs } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -66,7 +67,6 @@
 	}
 
 	const paintTexture = $derived(editor.palette[editor.paintLayer] ?? '')
-	const num = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 </script>
 
 <Modal title="Brush stack" width={760} {onclose}>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { numOr0 as num } from '../lib/ui/inputs'
 	import Modal from './Modal.svelte'
 	import Slider from './Slider.svelte'
 	import TileGrid from './TileGrid.svelte'
@@ -167,7 +168,6 @@
 	}
 	/** The side of a loading screen's picture (`vmangos.LoadingScreenSize`): the game stretches it to the screen. */
 	const LOADING_SCREEN_SIZE = 512
-	const num = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 	const TYPES: Array<[number, string]> = [
 		[0, 'World map'],
 		[1, 'Dungeon'],

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { numOr0 as num } from '../lib/ui/inputs'
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
 	import { MapLights, NewLightIDs, SaveLights } from '../../wailsjs/go/main/App'
@@ -171,7 +172,6 @@
 	}
 	const hex = (v: number) => '#' + (v & 0xffffff).toString(16).padStart(6, '0')
 	const fromHex = (s: string) => parseInt(s.slice(1), 16) || 0
-	const num = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 
 	function setKey(k: number, patch: Partial<vmangos.LightKey>) {
 		editParams((p) => {
