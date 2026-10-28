@@ -56,7 +56,6 @@ import { TILE_CHUNKS } from '../wow/format'
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'Not painted: that chunk already has four textures (the 1.12 limit). Replace one in the Layers panel, use Swap mode, or paint with one of its four.'
 
-/** Splat texel under world point (x, z), clamped to the map. */
 /** The palette index of the texture with the most weight under world point (x, z), or -1 if none. */
 export function layerAt(t: Terrain, x: number, z: number): number {
 	return dominantTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, x, z))
@@ -67,6 +66,7 @@ export function textureWeightAt(t: Terrain, x: number, z: number, tex: number): 
 	return textureWeightTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, x, z), tex)
 }
 
+/** Splat texel under world point (x, z), clamped to the map. */
 function texelAt(t: Terrain, x: number, z: number): number {
 	const R = t.splatRes
 	const ts = t.worldSize / R
