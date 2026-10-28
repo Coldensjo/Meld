@@ -564,6 +564,16 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   since the probe cannot fake a Tab or the media query). Look at the ring by pressing Tab in the dev page.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
 
+## F8 labels: the tagRoots preprocessor (#591)
+
+Checks: which elements get `data-ui="<Component>"`. `frontend/tagRoots.mjs` (used by `svelte.config.js`)
+holds it as a pure string function, `tagMarkup(content, filename, warn)`, tested by
+`frontend/tests/tagRoots.test.ts`: root elements, `{#if}`/`{#each}`/`{#key}`/`{#snippet}`/`{#await}`
+branches, nested elements untouched, a parse failure warned with the file's name.
+- A component the Svelte parser rejects gets no labels (F8 then names its parent); the build prints
+  `tagRoots: could not parse <file>`. A new block type in Svelte's AST needs a line in `visit`, and a
+  fixture: `{#key}` keeps its children in `fragment`, not `body`, and went untagged until #591.
+
 ## Dialog focus and Esc (#369, #573, probe `dialog-focus`)
 
 Checks: a dialog takes the focus on open, keeps Tab inside it and gives the focus back on close.
