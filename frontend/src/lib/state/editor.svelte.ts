@@ -536,7 +536,6 @@ export function defaultPrefs() {
 		 * shows only through its doorways (#150).
 		 */
 		spawnsThroughWalls: true,
-		/** A click on a creature in the Select tool opens it in the creature editor. */
 		renderScale: 1,
 		viewDistance: 1,
 		fog: true,
