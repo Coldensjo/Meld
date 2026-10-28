@@ -43,6 +43,7 @@
 	import { offerRecovery, startAutosave } from './lib/io/recovery'
 	import { offerFolderSetup } from './lib/io/folderSetup'
 	import { startSessionLog } from './lib/io/sessionLog'
+	import { startDebugLog } from './lib/io/debugLog'
 	import { onMount, untrack } from 'svelte'
 	import { refreshGameClient } from './lib/io/game'
 	import { initWow } from './lib/wow/api'
@@ -61,6 +62,7 @@
 	let prefsLoaded = $state(false)
 	onMount(() => {
 		const stopLogFile = startSessionLog()
+		const debugLog = startDebugLog()
 		void refreshGameClient()
 		void refreshProjects()
 		const wowReady = initWow().catch((e) => console.warn('WoW client init failed', e))
@@ -81,6 +83,7 @@
 			stopSaving()
 			stopAutosave()
 			stopLogFile()
+			void debugLog.then((stop) => stop())
 		}
 	})
 
