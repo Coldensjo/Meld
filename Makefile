@@ -86,7 +86,7 @@ check: bindings-check notices-check format-check frontend-dist lint
 	go vet ./internal/... ./cmd/... .
 	cd frontend && bun run check
 
-# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) against the running `make dev` (docs/TESTS.md, "Probes").
+# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev` (docs/TESTS.md, "Probes").
 probe:
 	cd frontend && bun run probe --all
 

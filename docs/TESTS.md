@@ -86,7 +86,7 @@ bun run probe --list                 # discover available checks
 bun run probe undo-sculpt            # run a focused check
 bun run probe --smoke                # fast checks of shared behavior
 bun run probe --touching HEAD~1..HEAD # select checks relevant to a committed change
-bun run probe --all                  # all non-benchmark probes
+bun run probe --all                  # all probes but the benchmarks and the `tier: manual` ones
 ```
 
 The root shortcuts are `make probe-smoke`, `make probe` and `make probe-perf`. The runner checks
@@ -107,7 +107,8 @@ When adding a probe:
    (in `make test`) fails when a path there no longer exists or a glob matches no file, so rename it with the file.
 2. Step rendering with `P.frames`, `P.until` or `P.settle`; the runner stops the normal engine loop.
 3. Assert an observable outcome, including undo/redo when it edits a map.
-4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene.
+4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene, and
+   `tier: manual` for a slow check of a rarely touched path that `--all` should skip (`--touching` still picks it).
 5. Record how to run it in the appropriate feature-check page below.
 6. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
    `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints
