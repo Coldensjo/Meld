@@ -1,22 +1,5 @@
 # UI
 
-## Check Map lifecycle
-
-The [manual checklist](../MANUAL.md#check-a-map-before-compiling) is the author entry point.
-`CheckMapWindow.svelte` scans when opened, retains the result and reruns only on Check again/reopen.
-Fixes dim an old finding; they do not recalculate the list. Fix all loops over findings, so Undo
-remains per applied fix. `Engine.focusFinding` focuses located findings and selects models/spawns;
-chunk targets do not establish an area selection. `fixFinding` dispatches delete, ground snap or
-chunk crop through the existing history commands.
-
-`check/run.ts:runMapChecks` yields between check groups, records unloaded model heights as unchecked
-and performs only the backend existence/edge/ID checks for which Engine supplies data. A failed
-spawn-ID query becomes an informational finding; missing texture/area lists or unread region edges
-are not a pass. `findings.ts:capped` truncates applicable check lists at 200 plus a summary note.
-`mapCheck.test.ts` verifies synthetic diagnostics, not UI focus/fix buttons or a real DB query.
-
-## Detailed UI reference
-
 The window layout, the asset browser and the dock panels and floating windows.
 
 - **UI layout** (Photoshop-like, `App.svelte`):
@@ -58,7 +41,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     where a Save button already keeps a `saving` flag (the database editors, their tabs, the flight
     path, light, portal and zone windows). Saves may overlap; the newest running is named. The Go
     bindings report no progress, so there is no percentage. It shows after 400 ms, takes no clicks
-    (the quit dialog under it still works) and sits at z-index 900, over the editors and `Modal`.
+    (the quit dialog under it still works) and sits at `--z-saving` (900), over the editors and `Modal`.
     A new save anywhere gets a label through the same helper; the background server map rebuild
     after a compile reports in the status bar only, since editing goes on during it.
   - **Interface size** (Preferences, Ctrl+= / Ctrl+- / Ctrl+0, `prefs.uiScale`, #372):
@@ -205,6 +188,28 @@ The window layout, the asset browser and the dock panels and floating windows.
   in `state/log.svelte.ts`, and `setStatus` and the viewport hint in `state/status.svelte.ts`.
   editor.svelte.ts re-exports all of them so older imports keep working; import new uses from the
   module itself.
+- **Stacking order** (#590): every window-level layer takes a `--z-*` token from `app.css`'s
+  `:root`, never a number of its own; the full-screen editors pass theirs to `EditorFrame` as `z`
+  (`'editor'`, `'editor-2'`, `'editor-3'`). Lowest first:
+
+  | Token | Value | What |
+  |---|---|---|
+  | `--z-window` | 40 | the floating windows (Inspector, History, Minimap, Reference, Scripts, Check Map, Flight Paths, Texture Palette) |
+  | `--z-options`, `-more`, `-panel` | 45, 46, 47 | the options bar while open, its overflow, its settings panel |
+  | `--z-bar` | 50 | the menu bar and its menus |
+  | `--z-workspace` | 140 | the Creatures workspace |
+  | `--z-editor` | 150 | the creature, game object and doodad brush editors |
+  | `--z-editor-2` | 160 | the quest editor and the model preview, over those |
+  | `--z-editor-3` | 165 | the item and spell editors and the icon picker, over the quest editor |
+  | `--z-menu` | 180 | the right-click menu |
+  | `--z-modal` | 200 | `Modal` and the dialogs on it |
+  | `--z-saving` | 900 | the saving bar |
+  | `--z-tip` | 1000 | tooltips (item tooltip, toolbar tips) |
+  | `--z-debug` | 10000 | the F8 overlay |
+
+  The small values (1 to 5) left in components order parts inside one panel or the viewport, not
+  windows. Known quirks kept as they were: a right-click menu opened from inside a `Modal` is under it
+  (180 < 200).
 - **Dialogs and focus** (#369): every dialog, `Modal.svelte` and the editors and windows with their
   own `role="dialog"` root (the creature, item, spell, quest and object editors, the Creatures
   workspace, the doodad brush editor, the model preview, the start dialog), carries

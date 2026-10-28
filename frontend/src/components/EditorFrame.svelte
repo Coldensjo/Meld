@@ -14,8 +14,8 @@
 		ed: EditorFlow
 		/** The dialog's name, for screen readers and the probes. */
 		label: string
-		/** Its place in the stack of full-screen editors (the quest editor opens over the creature editor). */
-		z: number
+		/** Its layer among the full-screen editors (app.css's --z-editor tokens; the quest editor opens over the creature editor). */
+		z: 'editor' | 'editor-2' | 'editor-3'
 		/** What the Discard bar says is unsaved, as a sentence. */
 		unsavedText: string
 		/** Something over the editor takes its own Esc (another editor, a right-click menu). */
@@ -47,7 +47,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="editor" style:z-index={z} role="dialog" aria-modal="true" aria-label={label} bind:this={root} use:dialogFocus>
+<div class="editor" style:z-index={`var(--z-${z})`} role="dialog" aria-modal="true" aria-label={label} bind:this={root} use:dialogFocus>
 	<header>
 		<div class="title">{@render title()}</div>
 		<div class="actions">
