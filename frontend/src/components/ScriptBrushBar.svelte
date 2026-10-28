@@ -18,7 +18,9 @@
 	const brushFiles = $derived(files.filter((f) => /\bbrush\s*\(/.test(f.text)))
 	const baseName = (file: string) => file.replace(/\.lua$/i, '')
 	const brush = $derived(scriptBrush.brushes[scriptBrush.active])
-	const rightOnly = $derived(!!brush && brush.handles.length > 0 && brush.handles.every((h) => h.startsWith('right_')))
+	// The right mouse button moves the camera: a brush with right-button handlers paints them with the left (#762).
+	const hasRight = $derived(!!brush && brush.handles.some((h) => h.startsWith('right_')))
+	const rightOnly = $derived(hasRight && !brush?.handles.some((h) => h.startsWith('left_')))
 
 	async function refresh() {
 		if (!hasBackend()) return
@@ -137,8 +139,15 @@
 			<div class="divider"></div>
 		{/if}
 	{/each}
-	{#if rightOnly}
-		<span class="warn" title="The right mouse button moves the camera in Meld, so on_right_click, on_right_hold and on_right_release never run">This brush only handles the right mouse button, which Meld keeps for the camera</span>
+	{#if hasRight}
+		<div class="divider"></div>
+		<label
+			class="field check"
+			title={rightOnly
+				? 'This brush only handles the right mouse button, which moves the camera in Meld: the left button sends its on_right_click, on_right_hold and on_right_release'
+				: 'The right mouse button moves the camera in Meld: on, the left button sends the brush on_right_click, on_right_hold and on_right_release instead of its left-button events'}
+			><input type="checkbox" checked={scriptBrush.right || rightOnly} disabled={rightOnly} onchange={(e) => (scriptBrush.right = (e.target as HTMLInputElement).checked)} /> Right button</label
+		>
 	{/if}
 {/if}
 
@@ -172,9 +181,5 @@
 	}
 	.dim {
 		color: var(--text-dim);
-	}
-	.warn {
-		color: var(--danger-text);
-		white-space: nowrap;
 	}
 </style>

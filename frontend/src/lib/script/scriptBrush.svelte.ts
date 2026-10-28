@@ -41,4 +41,6 @@ export const scriptBrush = $state({
 	brushes: [] as LoadedBrush[],
 	/** The brush a stroke paints with, an index of `brushes`. */
 	active: 0,
+	/** Whether a stroke sends the brush's right-button events (on_right_*) instead of its left ones (#762). */
+	right: false,
 })
