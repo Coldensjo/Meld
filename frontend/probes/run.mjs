@@ -486,7 +486,11 @@ async function main() {
 		return out
 	}
 
-	let failed = 0
+	// A log that ends without the summary line below is a run that was cut short (#616).
+	console.error(`probe: starting ${run.length} probe${run.length === 1 ? '' : 's'}`)
+	const runStart = Date.now()
+	const failedNames = []
+	const flakyNames = []
 	for (const p of run) {
 		const t0 = Date.now()
 		const bootBefore = await devStarted()
@@ -566,12 +570,15 @@ async function main() {
 			// Pictures the probe saved with P.save.
 			for (const sh of saved) writeFileSync(join(shotDir, `${p.name}-${sh.name}.png`), Buffer.from(sh.data, 'base64'))
 		}
-		if (!out.ok) failed++
+		if (!out.ok) failedNames.push(p.name)
+		else if (out.flaky) flakyNames.push(p.name)
 		console.log(JSON.stringify(out))
 	}
+	const seconds = Math.round((Date.now() - runStart) / 100) / 10
+	console.log(JSON.stringify({ summary: true, run: run.length, passed: run.length - failedNames.length, failed: failedNames, flaky: flakyNames, seconds }))
 	ws.close()
 	cleanup()
-	process.exit(failed ? 1 : 0)
+	process.exit(failedNames.length ? 1 : 0)
 }
 
 /**

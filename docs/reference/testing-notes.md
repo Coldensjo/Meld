@@ -274,7 +274,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and
-  `object-loot` timed out once the owner's session held a region). It prints one JSON line a probe and exits 1 if any failed. A page
+  `object-loot` timed out once the owner's session held a region). It prints `probe: starting N probes` to stderr, one JSON line a probe, then a closing `{"summary":true,"run","passed","failed":[names],"flaky":[names],"seconds"}` line (a log without it is a run cut short, #616), and exits 1 if any failed. A page
   error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
   is left out).
 - **`[Unhandled error] TypeError: Cannot read properties of null (reading 'nodes')` in the `make dev`
