@@ -65,6 +65,8 @@ export interface ScriptHost {
 	chunkClearTextures(c: number): void
 	/** The ground effect ID layer `layer` of chunk `c` grows. */
 	chunkEffect(c: number, layer: number): number
+	/** Sets the ground effect layer `layer` of chunk `c` grows (-1 for none); Meld keeps it for the chunk's tile. */
+	chunkSetEffect(c: number, layer: number, id: number): void
 	chunkSetHole(c: number, hole: boolean): void
 	chunkArea(c: number): number
 	chunkSetArea(c: number, id: number): void
@@ -291,6 +293,7 @@ export class ScriptSession {
 			chunk_remove_texture: (c: number, layer: number) => h().chunkRemoveTexture(c, layer),
 			chunk_clear_textures: (c: number) => h().chunkClearTextures(c),
 			chunk_effect: (c: number, layer: number) => h().chunkEffect(c, layer),
+			chunk_set_effect: (c: number, layer: number, id: number) => h().chunkSetEffect(c, layer, id),
 			chunk_set_hole: (c: number, hole: boolean) => h().chunkSetHole(c, hole),
 			chunk_area: (c: number) => h().chunkArea(c),
 			chunk_set_area: (c: number, id: number) => h().chunkSetArea(c, id),

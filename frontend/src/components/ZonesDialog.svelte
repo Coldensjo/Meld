@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { numOr0 as num } from '../lib/ui/inputs'
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
 	import { AreaRows, LiquidTypes, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../../wailsjs/go/main/App'
@@ -228,7 +229,6 @@
 	LiquidTypes()
 		.then((l) => (liquids = l ?? []))
 		.catch(() => (liquids = []))
-	const num = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 </script>
 
 <Modal title="Zones" width={720} onclose={close}>

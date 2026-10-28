@@ -60,7 +60,9 @@ Checks: `tests/scriptGround.test.ts` runs scripts against the editor's own host 
 over a real 16-cell `Terrain`, `ObjectLayer` and `LiquidMap`): chunk layers added, found, removed and
 cleared (the palette growing), a full chunk's -1, an unpainted layer kept, texel alphas written by
 Noggit Red's rule, `get_tex` and `get_pos_2d`, `vert:set_alpha`, `procedures:paint_texture` (with a
-colon and a dot), holes by chunk and by vertex block, `set_water` and its removal, the zone and the
+colon and a dot), `set_effect` and `add_texture`'s effect (#764: the tile's choice in
+`scopedEffects.tiles`, read back by `get_effect` through the real `effectAt` in every chunk of the
+tile, -1 for none, and undone with the step), holes by chunk and by vertex block, `set_water` and its removal, the zone and the
 impassable flag, the colour notes, the errors, and the one undo step. The probe `lua-chunks` runs one
 script on a flat map in the dev page through `Engine.runScript` and checks the editor's arrays, the
 redraw markers (`paintVersion`, `holesVersion`) and that undo and redo restore every array exactly.

@@ -44,9 +44,12 @@ export class SelectionOutline {
 	private proxies: THREE.Mesh[] = []
 	/** Mask materials per source material, for a free and for a touching model (the B channel). */
 	private maskMats = [new WeakMap<THREE.Material, THREE.ShaderMaterial>(), new WeakMap<THREE.Material, THREE.ShaderMaterial>()]
+	/** Every mask material made, for dispose (the WeakMaps can't be walked). */
+	private maskList: THREE.ShaderMaterial[] = []
 	private quadScene = new THREE.Scene()
 	private quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
 	private quadMat: THREE.ShaderMaterial
+	private quadGeo = new THREE.PlaneGeometry(2, 2)
 	private active = false
 
 	/**
@@ -113,7 +116,7 @@ export class SelectionOutline {
 			depthTest: false,
 			depthWrite: false,
 		})
-		this.quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.quadMat))
+		this.quadScene.add(new THREE.Mesh(this.quadGeo, this.quadMat))
 	}
 
 	setSize(width: number, height: number) {
@@ -181,6 +184,7 @@ export class SelectionOutline {
           }`,
 			})
 			mats.set(src, m)
+			this.maskList.push(m)
 		}
 		const s = src as THREE.MeshLambertMaterial
 		const cutoff = s.alphaTest > 0 ? s.alphaTest : s.transparent ? 0.3 : 0
@@ -291,5 +295,8 @@ export class SelectionOutline {
 	dispose() {
 		this.maskRT.dispose()
 		this.quadMat.dispose()
+		this.quadGeo.dispose()
+		for (const m of this.maskList) m.dispose()
+		this.maskList.length = 0
 	}
 }

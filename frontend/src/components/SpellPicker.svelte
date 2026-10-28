@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import type { Snippet } from 'svelte'
 	import { ListSpells } from '../../wailsjs/go/main/App'
@@ -70,16 +71,25 @@
 	let school = $state(kept.school)
 	let query = $state('')
 	let limit = $state(PAGE)
-	let results = $state<vmangos.SpellRef[]>([])
-	let total = $state(0)
-	let searching = $state(false)
-	let error = $state('')
-	let timer = 0
-	let asking = 0
+	const search = createSearch(
+		async (k: { c: string; sc: number; q: string; n: number }) => {
+			const r = await ListSpells(k.c, k.sc, k.q, k.n)
+			const spells = r.spells ?? []
+			rememberSpells(spells)
+			return { spells, total: r.total }
+		},
+		{ empty: { spells: [] as vmangos.SpellRef[], total: 0 } },
+	)
+	const results = $derived(search.results.spells)
+	const total = $derived(search.results.total)
+	const searching = $derived(search.searching)
+	/** The categories' read failing, shown when the search has no error of its own. */
+	let categoriesError = $state('')
+	const error = $derived(search.error || categoriesError)
 
 	void spellCategories()
 		.then((c) => (categories = c))
-		.catch((err) => (error = String(err)))
+		.catch((err) => (categoriesError = String(err)))
 
 	/** The category groups in their order, the ungrouped ones (creature abilities, all) first. */
 	const groups = $derived.by(() => {
@@ -109,28 +119,7 @@
 			n = limit
 		void version
 		memory.set(memoryKey, { category: c, school: sc })
-		clearTimeout(timer)
-		const ask = ++asking
-		timer = window.setTimeout(
-			async () => {
-				searching = true
-				try {
-					const r = await ListSpells(c, sc, q, n)
-					const list = r.spells ?? []
-					rememberSpells(list)
-					if (ask === asking) {
-						results = list
-						total = r.total
-						error = ''
-					}
-				} catch (err) {
-					if (ask === asking) error = String(err)
-				} finally {
-					if (ask === asking) searching = false
-				}
-			},
-			q ? 250 : 0,
-		)
+		search.set({ c, sc, q, n }, q ? 250 : 0)
 	})
 
 	function autofocus(el: HTMLInputElement, on: boolean) {

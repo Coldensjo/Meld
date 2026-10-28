@@ -52,9 +52,12 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   other layer. The host's `TerrainStroke` runs with `settle: false`: a layer a script added stays
   while nothing is painted on it yet, for a later stroke to paint (Noggit Red's `clean.lua` then
   `texture_brush.lua`). `get_texture` gives the path lower case with `/`, as `get_filename` does.
-  `get_effect` is the ground effect the export writes for the layer's texture there; `set_effect`
-  changes nothing and says so once (Meld keeps an effect per texture for the map, a zone or a tile,
-  not per chunk layer). `set_area_id` and `set_impassable` go through a `ChunkDataStroke`.
+  `get_effect` is the ground effect the export writes for the layer's texture there. Meld keeps an
+  effect per texture for the map, a zone or a tile, not per chunk layer, so `set_effect` (and
+  `add_texture`'s effect) sets the narrowest of them, the chunk's tile's choice for the layer's
+  texture (`editor.scopedEffects.tiles`, as the Ground Effects window's tile scope does; -1 sets none):
+  **every chunk of that tile with the texture takes it**, not only the one chunk (#764). The host keeps
+  the choices from before the first one and `finish` puts them in the run's undo step. `set_area_id` and `set_impassable` go through a `ChunkDataStroke`.
 - **Texels** (`sel:tex()`, `chunk:get_tex`) are the paint's grid, 4 a cell (Noggit Red's are 64 a
   chunk, 8 a cell, so `get_tex(i)` maps two of its indices a side onto one of Meld's); a texel's
   position is its corner. Alphas cross a block at a time as heights do (`alphas`, `set_alphas`, four a

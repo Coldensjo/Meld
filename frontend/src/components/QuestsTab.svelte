@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { ReadCreatureQuests, ReadObjectQuests, SaveCreatureQuests, SaveObjectQuests, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -78,28 +79,10 @@
 
 	// Adding: a search over quest_template by title or entry.
 	let query = $state('')
-	let results = $state<vmangos.QuestRef[]>([])
-	let searching = $state(false)
-	let timer = 0
-	$effect(() => {
-		const q = query.trim()
-		clearTimeout(timer)
-		if (!q) {
-			results = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				const r = await SearchQuests(q)
-				if (q === query.trim()) results = r ?? []
-			} catch (err) {
-				lists.error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
-	})
+	const search = createSearch((q: string) => SearchQuests(q).then((r) => r ?? []), { empty: [] as vmangos.QuestRef[], onError: (err) => (lists.error = String(err)) })
+	const results = $derived(search.results)
+	const searching = $derived(search.searching)
+	$effect(() => search.set(query.trim() || null))
 </script>
 
 <div class="quests">

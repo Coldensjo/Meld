@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { createSearch } from '../lib/ui/search.svelte'
+	import { numOr0 as num } from '../lib/ui/inputs'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { leaveField, takeEscape } from '../lib/state/escape'
@@ -86,21 +88,9 @@
 
 	// Finding a creature: by name or entry, opened in the creature editor.
 	let query = $state('')
-	let found = $state<vmangos.CreatureTemplate[]>([])
-	let timer = 0
-	$effect(() => {
-		const q = query.trim()
-		clearTimeout(timer)
-		if (!q) {
-			found = []
-			return
-		}
-		timer = window.setTimeout(() => {
-			SearchCreatures(q)
-				.then((r) => q === query.trim() && (found = r ?? []))
-				.catch((err) => (error = String(err)))
-		}, 250)
-	})
+	const search = createSearch((q: string) => SearchCreatures(q).then((r) => r ?? []), { empty: [] as vmangos.CreatureTemplate[], onError: (err) => (error = String(err)) })
+	const found = $derived(search.results)
+	$effect(() => search.set(query.trim() || null))
 	function open(entry: number) {
 		ui.creatures = false
 		ui.creatureEditor = { key: null, entry }
@@ -242,7 +232,6 @@
 		setStatus(`Click the ground to place ${made.values.name}. Shift+click places more; Esc stops.`, 10000)
 	}
 
-	const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value) || 0
 	const toggleRole = (bit: number, on: boolean) => (draft.npcFlags = on ? draft.npcFlags | bit : draft.npcFlags & ~bit)
 	const chip = (r: string) => (r === 'friendly' ? 'ok' : r === 'hostile' ? 'bad' : 'mid')
 
