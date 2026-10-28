@@ -41,6 +41,10 @@ const CWD = process.env.INIT_CWD ?? process.cwd()
 // PROBE_GPU=1 draws on the machine's GPU instead of SwiftShader (#747): a fault that only a real GPU's rasteriser shows (depth precision, a
 // huge triangle's clipping) never shows on SwiftShader, and frames are far faster. The probes' numbers and baselines are SwiftShader's.
 const GPU = process.env.PROBE_GPU === '1'
+// PROBE_AA=0 draws without MSAA (#768), as the owner does (Graphics › Anti-aliasing off): an edge or flicker fault that MSAA hides
+// shows. The page reads `meld.antialias` (display.ts) before the renderer is made, earlier than window.__probeEnv arrives,
+// so launch() sets it in every new document; a relaunched Chrome's fresh profile gets it again.
+const NO_AA = process.env.PROBE_AA === '0'
 const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
 
 const args = process.argv.slice(2)
@@ -415,6 +419,7 @@ async function main() {
 		// reads the module URLs from them; raise the limit before the page's scripts run.
 		await send('Page.enable')
 		await send('Page.addScriptToEvaluateOnNewDocument', { source: 'performance.setResourceTimingBufferSize(100000)' })
+		if (NO_AA) await send('Page.addScriptToEvaluateOnNewDocument', { source: "try { localStorage.setItem('meld.antialias', 'off') } catch {}" })
 	}
 	/** Throws Chrome away (the probe's own, found by its profile) and starts another, since a timed-out or closed page does not recover. */
 	const relaunch = async () => {
@@ -507,7 +512,7 @@ async function main() {
 	}
 
 	// A log that ends without the summary line below is a run that was cut short (#616).
-	console.error(`probe: starting ${run.length} probe${run.length === 1 ? '' : 's'}`)
+	console.error(`probe: starting ${run.length} probe${run.length === 1 ? '' : 's'}${NO_AA ? ', without MSAA (PROBE_AA=0)' : ''}`)
 	// A quarantine stays visible in every run it shortens (#399).
 	if (leftOut.size) console.error(`probe: ${leftOut.size} quarantined, left out: ${[...leftOut].join(', ')}`)
 	const runStart = Date.now()
