@@ -67,8 +67,9 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   mariadb skips the database tests instead of failing them; `ServerFolder(t)` is the same without the
   database check, for tests that read the server's files. Each skips the test when it finds nothing, so
   a machine without Meld set up skips them all, and on the owner's machine they run in a plain
-  `make test`: `go test ./internal/...` went from 3 s and 98 skips to 29 s and 4 skips (the three
-  database-writing tests below, and `TestIronforgePatchIsBackedUp`, which needs a particular patch-3).
+  `make test`: `go test ./internal/...` went from 3 s and 98 skips to 29 s and 3 skips (the three
+  database-writing tests below). `TestIronforgePatchIsBackedUp` builds its own Ironforge patch with
+  `mpq.WriteUnmarked`, so it runs everywhere (#412).
   A set variable still wins (`WOW_DIR=/path/to/client go test ./internal/wow/ -v` for another client).
   To see what a machine without a client runs (CI), leave `WOW_DIR` unset and point the config folder at an empty
   one: `APPDATA="$(cygpath -w $(mktemp -d))" go test ./internal/adt/ -v` in Git Bash (`XDG_CONFIG_HOME` on Linux).
