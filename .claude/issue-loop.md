@@ -102,8 +102,16 @@ Started by the coordinator before the first worker and left running; workers nev
   (`<user cache>/Meld/loop.lock`, its pid and start time): stop the run and say so, without touching
   the issues. A lock whose process is gone is stale and is taken over. After the report (or when the
   run stops early, for any reason) it runs `bun probes/loop-lock.mjs release`. Workers never touch it.
-- `make dev`, in the background from Git Bash; healthy when `curl -s localhost:34115/wow/status`
-  answers. Read the dead-session trap in docs/TESTS.md first: the owner's own session may be half dead.
+- `make dev`, brought up through the probe runner: `make probe-smoke` (or `cd frontend && bun run
+  probe <any probe>`), which starts `make dev` detached when the server is down (log `meld-dev.log` in
+  the temp folder) and waits for it, so it outlives the run's shell. Never start it as a background task
+  of the agent harness: the harness stops those after 30 minutes, and a worker then found no server
+  (#277, #513, #321). Healthy when `curl -s localhost:34115/wow/status` answers. Read the dead-session
+  trap in docs/TESTS.md first: the owner's own session may be half dead.
+- After a worker changes a bound Go method, it restarts `make dev` before probing the new binding
+  (stop `wails`, `Meld-dev` and the two `bun` processes, then run any probe, which starts it again):
+  `wails dev` sometimes does not rebuild after a Go change (#319, #387), and the binding then answers
+  null or "is not a function". The runner warns of it (`staleBackend`, docs/TESTS.md "Probes").
 
 ## Priority lanes
 
