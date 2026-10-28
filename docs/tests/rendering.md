@@ -641,6 +641,63 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   room 49 (`atWall`); on the old code it ends 2.5 yd through it, in 111 SI:7. With the walls the street
   walk stays in the rooms (80 samples, 47 before). Trap: starting the walk 6 yd up lands on the top of a wall by the street, a walking face too.
 
+## Shadow maps: lights' cube maps, the sun's cascades and the moving casters (#129, #133, #325, #326, #346, #366)
+
+Checks: what the shadow passes draw and when they redraw. Unit: `tests/shadowReach.test.ts` (which
+batches join a cube face or the near cascade). Probes: `shadow-redraw` (smoke), `shadow-poses`,
+`shadow-sun-drift`, and `perf-everything` for the near cascade's calls.
+- The sun's near map is kept between frames (#326, probe `shadow-redraw`, smoke, a flat map): a still
+  view redraws neither cascade; moving an object, sculpting, cutting holes, undo, a layer
+  toggle and a turn of the camera each redraw the near one; the far one holds through a small turn and a
+  sun moved under 0.1° and is redrawn after a long pan or a larger sun move (#324). It counts the frames
+  whose `markShadows` asked for a redraw. Trap: a new map's spawns and preferences arrive a few frames
+  late and each redraws the maps once, so let it settle before counting.
+- A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a
+  3x3 block (`region: { mapName: 'Azeroth', x: 31, y: 48, size: 3 }`, cells 384, world 768), and read
+  the next five frames. Run Chrome on the GPU for this (`--use-angle=d3d11 --enable-gpu
+  --ignore-gpu-blocklist` instead of the swiftshader flags); swiftshader's times say nothing. Wrapping
+  `renderer.shadowMap.render` splits the shadow pass out: a point light's cube map is about 40 ms
+  there, the far cascade about 5 ms. Before #129 a jump that brought three new shadowed lights took
+  one ~225 ms frame (steady ~50 ms headless); now one cube map is drawn a frame (~115, 95, 95 ms) and
+  a light waits dark for its first map.
+- A cube's draw calls (#133): model and spawn batches join a cube face only with a drawn instance in
+  the light's reach and the face (`world/shadowReach.ts`). Force `lights[0].shadow.needsUpdate` on
+  every other frame and compare `renderer.info.render.calls`: on the 3x3 block a cube adds about 43
+  calls (about 1400 with the batches' `intersectsFrustum` set to `() => true`, the old behaviour) and
+  about 1 ms. In T3 Code's preview tab (a real GPU, RTX 5080) the old cube was ~38 ms at the default
+  spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
+  good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
+- The near cascade's draw calls (#325): a model or spawn batch joins the sun's near shadow pass only
+  with a drawn instance in the cascade's box (`setNearCascade`, `world/shadowReach.ts`). Unit test
+  `tests/shadowReach.test.ts`; in the app, `bun run probe perf-everything` (about 830 fewer calls than
+  before, 2725 to 1895). To A/B it in one page, wrap every scene InstancedMesh that has its own
+  `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
+  behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
+  shadows (Help › Benchmark maps) for casters missing at the near box's edge.
+- The scene pass draws only what is in view (#15): a batch's `count` is its instances in the camera's
+  frustum, and a shadow pass draws `packedCount(mesh)` (objects.md, the instance batch). Unit tests
+  in `tests/instanceCull.test.ts`, `tests/instanceBatch.test.ts` and `tests/shadowReach.test.ts`. In
+  the app: the `world-view` probe's `perf.models.calls` (1,993 before, 1,017 after, CPU 15.7 to 10.8
+  ms). To split the passes, wrap `renderer.shadowMap.render` and set `env.key.shadow.needsUpdate` or
+  `env.far.shadow.needsUpdate` before a frame: the shadow passes must draw the same calls and triangles
+  before and after a change here (near 160 calls, far 1,920 at that view). To see that no shadow went
+  missing, shoot the same views on both commits at a low sun (`prefs.dayCycle = false`,
+  `prefs.timeOfDay = 17.6`, four headings, both maps forced redrawn) and compare the PNGs with
+  `magick compare -metric AE -fuzz 2%`: a few pixels differ between identical runs.
+- The moving casters' pass (#346, probe `shadow-poses`): with Prop animations on, a still view draws
+  only the posed models and moving cut-outs into the near map, over a copy of the rest. A/B it in one
+  page with `P.ab((on) => { __engine.posedShadows.enabled = on }, 6, { sections: ['Shadow', 'Render'] })`
+  after `P.benchMap('objects-mixed')` (off redraws the whole near map on such frames, as before). Trap:
+  a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
+  until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
+  (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
+- The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
+  sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
+  light follows the live sun. The probe steps `e.hour` by 0.0005 a frame with the clock frozen and
+  compares the matrix after each held frame with the one after the last redraw. Trap: a pixel diff
+  barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
+  own turn), so compare the matrix.
+
 ## The instance batch: culling, packing and picking of placed models and spawns (#517)
 
 - `bun test tests/instanceBatch.test.ts`: `world/instanceBatch.ts` on its own (the rows in view packed
@@ -654,3 +711,56 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   run it on a new document without spawns, as it does.
 - Probes that peek at ObjectLayer's batches read the rows as `b.rows.items`, `b.rows.matrices`,
   `b.rows.spheres` and `b.rows.packed` (not `b.all` and the rest, before #517).
+
+## The benchmark scene and maps: smoke, bench and perf-* (#322, #429)
+
+Checks: the benchmark scene (`P.BENCH`, Help › Copy Scene's Northshire view) and the benchmark maps
+(Help › Benchmark maps, `lib/bench/benchMaps.ts`) open and draw, and their numbers for a before/after.
+The method (same scene, same prefs, what to compare) is the testing notebook's "Measuring performance".
+- `bun run probe smoke` (about 90 s): the benchmark scene opens, its models load and it draws with no
+  WebGL or page error. Not `tier: smoke` despite the name: it loads the heavy scene.
+- `bun run probe bench`: the scene's numbers. Draw calls, triangles, geometries and textures are
+  deterministic there, so it fails when one drifts more than 10 % from `probes/bench-baseline.json`
+  (#429); after a change that moves them on purpose, update the baseline in the same commit.
+  Milliseconds and heap are printed only (SwiftShader, #226, #337).
+- `bun run probe 'perf-*'` (or `make probe-perf`; one map: `perf-terrain`, `perf-water`, `perf-wmo`,
+  `perf-lights`, `perf-objects-same`, `perf-objects-mixed`, `perf-creatures`, `perf-everything`,
+  `perf-world-flight`): each map's numbers, checking nothing. `PERF_WINDOWS` sets how many
+  `measurePerf` windows `P.perf` averages (#337).
+- Trap: `bench` and `perf-*` are left out of `--all` (#390): name them. Their milliseconds are
+  SwiftShader's; compare counters, or run with `PROBE_GPU=1` for times on the real GPU.
+
+## Spawns posed only when drawn (#328, probe `pose-drawn`)
+
+Checks: the Animator poses only the animated spawn types the cull drew this frame, and with Prop
+animations off a drawn type holds its first frame (time 0), not the bind pose.
+- Probe: `bun run probe pose-drawn`: hides Creatures and NPCs (View) and checks nothing of them is
+  posed, shows them again and checks every drawn type is posed on that first frame, then turns Prop
+  animations off. It loads the creatures benchmark map with 300 spawns (`P.loadBenchMap`).
+
+## A model the client draws nothing of (#333, probe `nothing-to-draw`)
+
+Checks: Blackrock's open-door collision blocker, a model with no drawn geometry, loads once with no
+warning as a ready marker (its hull's wireframe) that casts no shadow, instead of failing and retrying
+every 30 s.
+- Probe: `bun run probe nothing-to-draw` (a flat map, a few seconds).
+
+## Releasing models: closed maps, thumbnails and previews (#505, #506)
+
+Checks: closing a map lets go of its models, and a thumbnail or the Preview window lets go of a model's
+own materials, so GPU memory and the per-frame animated lists don't grow over a session.
+- Probe: `bun run probe release-models` (#505): opens the objects-mixed benchmark map, then the
+  buildings one, closes it, and checks the kept models, shared materials, model textures and the
+  renderer's geometries and own textures are back where the first map had them. Trap (#658): the client
+  textures the cache keeps are uploaded when first drawn, so they are left out of the renderer's count.
+- Probe: `bun run probe release-asset` (#506): a model with a moving texture or colour, built and
+  released as a thumbnail, and the Preview window opened and closed on it, leave the per-frame animated
+  lists as they were.
+
+## Moving lit models (#511, probe `effects-drag`)
+
+Checks: dragging a brazier on the lights benchmark map a frame at a time, and a sculpt stroke under the
+braziers, move the lights, flames and particle pools without a full rebuild (`PropEffects.rebuild` and
+`ParticleLayer.rebuild` are not called), no shadowed light goes dark for a frame, and what they hold
+afterwards matches a full rebuild.
+- Probe: `bun run probe effects-drag` (loads the lights benchmark map; prints the ms a frame of the drag).
