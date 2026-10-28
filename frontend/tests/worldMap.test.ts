@@ -1,6 +1,7 @@
 // Run with: bun test tests/worldMap.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { nearNum } from './support/near.ts'
 import {
 	areasUnder,
 	artName,
@@ -22,26 +23,24 @@ import {
 	type OverlayPiece,
 } from '../src/lib/io/worldMap.ts'
 
-const near = (a: number, b: number, eps = 0.01) => assert.ok(Math.abs(a - b) < eps, `${a} is not ${b}`)
-
 test("Elwynn's extent lands on its tiles, and back", () => {
 	// The client's row: L 1535.4, R -1935.4, T -7939.6, B -10254.2; Elwynn is around tiles 30..36, 47..50.
 	const e = { left: 1535.4, right: -1935.4, top: -7939.6, bottom: -10254.2 }
 	const r = extentToRect(e)
 	const tile = 1600 / 3
-	near(r.x0 / tile, 29.12, 0.01)
-	near(r.x1 / tile, 35.63, 0.01)
-	near(r.z0 / tile, 46.89, 0.01)
-	near(r.z1 / tile, 51.23, 0.01)
+	nearNum(r.x0 / tile, 29.12, 0.01)
+	nearNum(r.x1 / tile, 35.63, 0.01)
+	nearNum(r.z0 / tile, 46.89, 0.01)
+	nearNum(r.z1 / tile, 51.23, 0.01)
 	// A region opened at tile 32_48 sees it moved by its first tile.
 	const inRegion = extentToRect(e, 32, 48)
-	near(inRegion.x0, r.x0 - 32 * tile)
-	near(inRegion.z0, r.z0 - 48 * tile)
+	nearNum(inRegion.x0, r.x0 - 32 * tile, 0.01)
+	nearNum(inRegion.z0, r.z0 - 48 * tile, 0.01)
 	const back = rectToExtent(inRegion, 32, 48)
-	near(back.left, e.left)
-	near(back.right, e.right)
-	near(back.top, e.top)
-	near(back.bottom, e.bottom)
+	nearNum(back.left, e.left, 0.01)
+	nearNum(back.right, e.right, 0.01)
+	nearNum(back.top, e.top, 0.01)
+	nearNum(back.bottom, e.bottom, 0.01)
 	// West is the larger Y and north the larger X, as WorldMapArea stores them.
 	assert.ok(back.left > back.right && back.top > back.bottom)
 })
@@ -60,9 +59,9 @@ test('a zone is the chunks of its areas, grown to the picture’s 3:2', () => {
 		null,
 	)
 	const f = fitAspect(b, 0)
-	near((f.x1 - f.x0) / (f.z1 - f.z0), WORLD_MAP_W / WORLD_MAP_H)
-	near((f.x0 + f.x1) / 2, 20)
-	near(f.z1 - f.z0, 20, 1e-9)
+	nearNum((f.x1 - f.x0) / (f.z1 - f.z0), WORLD_MAP_W / WORLD_MAP_H, 0.01)
+	nearNum((f.x0 + f.x1) / 2, 20, 0.01)
+	nearNum(f.z1 - f.z0, 20, 1e-9)
 })
 
 test('pixel boxes and rectangles turn into each other', () => {
@@ -71,7 +70,7 @@ test('pixel boxes and rectangles turn into each other', () => {
 	const box = pixelBox(whole, part)
 	assert.deepEqual(box, { u0: 100, v0: 50, u1: 301, v1: 668 })
 	const r = boxRect(whole, box)
-	for (const [k, v] of Object.entries({ x0: 100, z0: 50, x1: 301, z1: 668 })) near(r[k as keyof typeof r], v, 1e-9)
+	for (const [k, v] of Object.entries({ x0: 100, z0: 50, x1: 301, z1: 668 })) nearNum(r[k as keyof typeof r], v, 1e-9)
 	assert.deepEqual(intersect(whole, { x0: 900, z0: -10, x1: 2000, z1: 10 }), { x0: 900, z0: 0, x1: 1002, z1: 10 })
 	assert.equal(intersect(whole, { x0: 2000, z0: 0, x1: 3000, z1: 10 }), null)
 })

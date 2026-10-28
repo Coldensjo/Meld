@@ -7,6 +7,7 @@
 import './runes.ts'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { navGroup } from './support/wmo.ts'
 import * as THREE from 'three'
 import type { ModelAsset } from '../src/lib/models/assets.ts'
 import type { WorldObject } from '../src/lib/world/ObjectLayer.ts'
@@ -14,11 +15,7 @@ import { WmoRooms, type RoomLayer } from '../src/lib/world/WmoRooms.ts'
 import { RoomFlood } from '../src/lib/world/wmoFlood.ts'
 import { RoomAdmit } from '../src/lib/world/roomAdmit.ts'
 import { addRoomGate, beginRoomGates, endRoomGates, patchRoomGate, ROOM_MAX_GATED, ROOM_MAX_GROUPS } from '../src/lib/world/roomGate.ts'
-import { toModel, type WmoNav, type WmoNavGroup } from '../src/lib/world/wmoRoom.ts'
-
-function group(min: number[], max: number[], refStart: number, refCount: number): WmoNavGroup {
-	return { flags: 0, min: min as [number, number, number], max: max as [number, number, number], refStart, refCount, fogs: [0, 0, 0, 0], name: '' }
-}
+import { toModel, type WmoNav } from '../src/lib/world/wmoRoom.ts'
 
 /** A floor from x0 to x1 (|y| up to 10) at height 0, in WoW axes. */
 function floor(x0: number, x1: number): Float32Array {
@@ -33,7 +30,7 @@ function floor(x0: number, x1: number): Float32Array {
 function building(): WmoNav {
 	const door = (x: number) => [x, -2, 0, x, 2, 0, x, 2, 4, x, -2, 4]
 	return {
-		groups: [group([-10, -10, 0], [0, 10, 10], 0, 1), group([0, -10, 0], [10, 10, 10], 1, 2), group([10, -10, 0], [20, 10, 10], 3, 1), group([20, -10, 0], [30, 10, 20], 4, 0)],
+		groups: [navGroup(0, [-10, -10, 0], [0, 10, 10], 0, 1), navGroup(0, [0, -10, 0], [10, 10, 10], 1, 2), navGroup(0, [10, -10, 0], [20, 10, 10], 3, 1), navGroup(0, [20, -10, 0], [30, 10, 20], 4, 0)],
 		portalVerts: [...door(0), ...door(10)],
 		portals: [
 			{ start: 0, count: 4, plane: [1, 0, 0, 0] },
