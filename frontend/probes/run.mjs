@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync,
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { globRe, parseHeader } from './touches.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 // `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250); `defaults`: every preference at its default, not the owner's (#253).
@@ -56,29 +57,8 @@ const all = readdirSync(here)
 	.map((f) => f.slice(0, -3))
 	.sort()
 
-/**
- * A probe's header (#397): its first comment line, and the globs of its `// touches:` line (repo-root paths, comma-separated,
- * anywhere in the leading comment block), or null when it has none, which counts as touching every file.
- */
-const header = (name) => {
-	const lines = readFileSync(join(here, name + '.js'), 'utf8').split(/\r?\n/)
-	let touches = null
-	let tier = null
-	for (const l of lines) {
-		if (!l.startsWith('//')) break
-		const m = /^\/\/\s*touches:\s*(.*)$/.exec(l)
-		const t = /^\/\/\s*tier:\s*(\S+)/.exec(l)
-		if (t) tier = t[1]
-		if (m)
-			touches = m[1]
-				.split(',')
-				.map((g) => g.trim())
-				.filter(Boolean)
-	}
-	return { first: lines[0].replace(/^\/\/\s*/, ''), touches, tier }
-}
-/** A glob as a RegExp over repo-root paths: `**` any run of folders, `*` within one name; a path ending in / matches what is under it. */
-const globRe = (g) => new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\/?|\*/g, (m) => (m === '*' ? '[^/]*' : '.*')) + (g.endsWith('/') ? '.*' : '') + '$')
+/** A probe's header (`touches.mjs`): its first comment line, its `// touches:` globs and its tier. */
+const header = (name) => parseHeader(readFileSync(join(here, name + '.js'), 'utf8'))
 
 // --list with --touching names the probes it would run, without running them.
 const listOnly = touching && names[0] === '--list'
