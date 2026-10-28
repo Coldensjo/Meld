@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync,
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { noRetryReason } from './retry.mjs'
 import { globRe, parseHeader } from './touches.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -444,13 +445,17 @@ async function main() {
 			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;await P.flyingStart();\nreturn await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
-				const value = await evaluate(`${prefix}${body}\n})()\n})()`)
+				const value = await evaluate(`${prefix}${body}\n})()\n})()`).catch((err) => {
+					// The probe's own body ran out of time (not the page's setup, which a retry may still get past, #388).
+					if (/^timed out after/.test(err.message)) err.timedOut = true
+					throw err
+				})
 				out = { probe: name, ok: value?.ok !== false, ...value }
 			} finally {
 				if (profiling) prof = (await send('Profiler.stop')).result?.profile
 			}
 		} catch (err) {
-			out = { probe: name, ok: false, error: err.message }
+			out = { probe: name, ok: false, error: err.message, ...(err.timedOut ? { timedOut: true } : {}) }
 			// The page itself is lost (a timeout, a closed or navigated target, no answer): it needs a new Chrome (#388).
 			if (/timed out after|got no answer|page (is )?closed|navigated or closed|Target closed|Session with given id|Cannot find context/.test(err.message)) out.lostPage = true
 			// Where it stopped: the step a wait (P.until, P.settle) was in, and for a throw the first
@@ -516,9 +521,14 @@ async function main() {
 			out = { ...(await runOnce(p)), refreshedWailsjs: true }
 		}
 		// A failure gets one more try in a fresh page (a new Chrome when the page was lost), so a probe that fails only in a
-		// long run is reported flaky instead of failing the run, and a real break still fails twice (#388).
-		if (!out.ok) {
+		// long run is reported flaky instead of failing the run, and a real break still fails twice (#388). A timeout of the
+		// probe's body or an error in its own code is not retried (#628, `noRetryReason`): it would only double the wait.
+		const noRetry = out.ok ? '' : noRetryReason(out)
+		if (noRetry) out.notRetried = noRetry
+		else if (!out.ok) {
 			const first = out
+			// Say so now: the retry can take as long again, and a shell timeout in that time would lose this line (#628).
+			console.error(`probe: ${p.name} failed after ${Math.round((Date.now() - t0) / 1000)} s, retrying in a fresh page: ${JSON.stringify(first)}`)
 			// A dev server that died under the probe (or is rebuilding) fails the retry too: wait a minute for a rebuild to
 			// finish, then start `make dev` again as at the start of the run (#391).
 			if (!process.env.MELD_URL && (await devDown())) {
