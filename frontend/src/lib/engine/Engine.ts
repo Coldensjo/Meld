@@ -165,6 +165,7 @@ import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
 import { PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
 import { GpuTimer } from './gpuTimer'
+import { updateTerrainOverlays, withOverlaysOff, type OverlayState } from '../terrain/terrainOverlays'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import { NavPreview, RANGE as NAV_RANGE, type PathResult, type ServerSource } from '../world/nav/NavPreview'
@@ -1441,7 +1442,8 @@ export class Engine {
 		this.syncPalette()
 		const u = this.terrain.material.uniforms
 		this.updateLookTexture(u, time)
-		u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
+		const ov = this.overlays
+		ov.brushVisible = tool.usesBrush && this.hit ? 1 : 0
 		// The ring shows the radius the pen's pressure gives the brush tools (#42).
 		const r0 = editor.brush.radius * (tool instanceof BrushTool ? this.radiusPressure() : 1)
 		const radius = editor.tool === 'road' ? Math.max(1.5, r0 * 0.5) : r0
@@ -1454,19 +1456,20 @@ export class Engine {
 		u.brushRadius.value = radius
 		u.brushSquare.value = square ? 1 : 0
 		this.updateBrushImageCursor(u, tool)
-		u.gridVisible.value = editor.grid ? 1 : 0
-		u.unpaintable.value = this.prefs.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
-		u.climbCos.value = this.prefs.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
+		ov.gridVisible = editor.grid ? 1 : 0
+		ov.unpaintable = this.prefs.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
+		ov.climbCos = this.prefs.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
 		this.updateNav()
-		u.contourStep.value = this.prefs.showContours ? this.prefs.contourStep : 0
-		u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
+		ov.contourStep = this.prefs.showContours ? this.prefs.contourStep : 0
+		ov.chunkLineWorld = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
 		this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
 		const md = editor.mapDataMode
 		this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : md === 'area' ? 1 : md === 'impassable' ? 2 : md === 'noTufts' ? 3 : 4)
 		this.terrain.setMapDataZone(editor.mapDataClear ? 0 : editor.mapDataArea)
 		// Strong red while editing the mask; faint while painting so results stay visible.
 		const painting = editor.tool === 'paint' || editor.tool === 'road'
-		u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
+		ov.maskVisible = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
+		updateTerrainOverlays(u, ov)
 		this.updateSelectionUniforms(time)
 		this.updateReference()
 		// The preview's rock on steep slopes is the map's rock role (the palette's slot 3 without one).
@@ -4580,6 +4583,9 @@ export class Engine {
 	private lookTex: THREE.DataTexture | null = null
 	private lookFrom: { looks: unknown; palette: unknown } = { looks: null, palette: null }
 
+	/** What `frame` sets the terrain's editing overlays to, reused every frame. */
+	private overlays: OverlayState = { brushVisible: 0, gridVisible: 0, unpaintable: -1, climbCos: 0, contourStep: 0, chunkLineWorld: 0, maskVisible: 0 }
+
 	/** Keeps the terrain shader's texture looks (scrolling, overbright) in step with the map's (B-162). */
 	private updateLookTexture(u: Record<string, THREE.IUniform>, time: number) {
 		// time is the timer's elapsed seconds.
@@ -5548,75 +5554,54 @@ export class Engine {
 			// Readied for the ortho camera (updateTopDown reads minimapShot), without drawing the view or
 			// moving the clock.
 			this.simulate(0, this.timer.getElapsed())
-			const u = t.material.uniforms
-			const saved: Array<[THREE.IUniform, unknown]> = []
-			const set = (key: string, v: unknown) => {
-				const un = u[key]
-				if (!un) return
-				saved.push([un, typeof un.value === 'object' && un.value && 'clone' in un.value ? (un.value as THREE.Vector4).clone() : un.value])
-				if (un.value instanceof THREE.Vector4) un.value.set(0, 0, 0, 0)
-				else un.value = v
-			}
-			set('brushVisible', 0)
-			set('gridVisible', 0)
-			set('chunkLineWorld', 0)
-			set('contourStep', 0)
-			set('climbCos', 0)
-			set('selMode', 0)
-			set('mapDataMode', 0)
-			set('maskVisible', 0)
-			set('unpaintable', -1)
-			set('chunkHover', null)
-			set('refOpacity', 0)
-			set('refEdit', 0)
-			const keep = new Set<THREE.Object3D>([t.group, this.water.mesh, this.water.floor, this.doc.liquidRenderer.group, this.effects.group])
-			if (models !== 'none') keep.add(this.objects.group)
-			const hidden: THREE.Object3D[] = []
-			if (models === 'buildings') {
-				for (const m of this.objects.group.children) {
-					if (!m.visible || String(m.userData.type ?? '').startsWith('wmo:')) continue
-					m.visible = false
-					hidden.push(m)
+			// The editing overlays stay out of the shot, which is written into the client (#561).
+			const pix = withOverlaysOff(t.material.uniforms, () => {
+				const keep = new Set<THREE.Object3D>([t.group, this.water.mesh, this.water.floor, this.doc.liquidRenderer.group, this.effects.group])
+				if (models !== 'none') keep.add(this.objects.group)
+				const hidden: THREE.Object3D[] = []
+				if (models === 'buildings') {
+					for (const m of this.objects.group.children) {
+						if (!m.visible || String(m.userData.type ?? '').startsWith('wmo:')) continue
+						m.visible = false
+						hidden.push(m)
+					}
 				}
-			}
-			for (const c of this.scene.children) {
-				// Lights stay, so no shader is rebuilt for another light count.
-				if (!c.visible || keep.has(c) || (c as THREE.Light).isLight) continue
-				c.visible = false
-				hidden.push(c)
-			}
-			const background = this.scene.background
-			this.scene.background = new THREE.Color(0, 0, 0)
-			let rt = this.minimapTarget
-			if (!rt || rt.width !== bigW || rt.height !== bigH) {
-				rt?.dispose()
-				rt = this.minimapTarget = new THREE.WebGLRenderTarget(bigW, bigH, { samples: 0 })
-				rt.texture.colorSpace = THREE.SRGBColorSpace
-				// three tone maps and converts to sRGB only when drawing to the screen or to an XR target, and
-				// the minimap should look as the editor's view does. Stored as plain bytes, not as an sRGB
-				// texture, which would encode the shader's already encoded colours a second time.
-				;(rt as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true
-				rt.texture.internalFormat = 'RGBA8'
-			}
-			const pix = new Uint8Array(bigW * bigH * 4)
-			const prev = this.renderer.getRenderTarget()
-			try {
-				this.renderer.setRenderTarget(rt)
-				this.renderer.clear()
-				this.renderer.render(this.scene, this.ortho)
-				this.renderer.readRenderTargetPixels(rt, 0, 0, bigW, bigH, pix)
-				if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
-			} finally {
-				this.renderer.setRenderTarget(prev)
-				this.scene.background = background
-				for (const c of hidden) c.visible = true
-				// The shot drew the shadow maps without what it hid; the view's next frame draws them again.
-				this.prefsChanged = true
-				for (const [un, v] of saved) {
-					if (un.value instanceof THREE.Vector4 && v instanceof THREE.Vector4) un.value.copy(v)
-					else un.value = v
+				for (const c of this.scene.children) {
+					// Lights stay, so no shader is rebuilt for another light count.
+					if (!c.visible || keep.has(c) || (c as THREE.Light).isLight) continue
+					c.visible = false
+					hidden.push(c)
 				}
-			}
+				const background = this.scene.background
+				this.scene.background = new THREE.Color(0, 0, 0)
+				let rt = this.minimapTarget
+				if (!rt || rt.width !== bigW || rt.height !== bigH) {
+					rt?.dispose()
+					rt = this.minimapTarget = new THREE.WebGLRenderTarget(bigW, bigH, { samples: 0 })
+					rt.texture.colorSpace = THREE.SRGBColorSpace
+					// three tone maps and converts to sRGB only when drawing to the screen or to an XR target, and
+					// the minimap should look as the editor's view does. Stored as plain bytes, not as an sRGB
+					// texture, which would encode the shader's already encoded colours a second time.
+					;(rt as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true
+					rt.texture.internalFormat = 'RGBA8'
+				}
+				const pix = new Uint8Array(bigW * bigH * 4)
+				const prev = this.renderer.getRenderTarget()
+				try {
+					this.renderer.setRenderTarget(rt)
+					this.renderer.clear()
+					this.renderer.render(this.scene, this.ortho)
+					this.renderer.readRenderTargetPixels(rt, 0, 0, bigW, bigH, pix)
+					if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
+				} finally {
+					this.renderer.setRenderTarget(prev)
+					this.scene.background = background
+					for (const c of hidden) c.visible = true
+					// The shot drew the shadow maps without what it hid; the view's next frame draws them again.
+					this.prefsChanged = true
+				}
+				return pix
+			})
 			// Averaged down ss by ss, and turned upright: GL reads the bottom row first.
 			const out = new Uint8Array(w * h * 4)
 			const n = ss * ss
