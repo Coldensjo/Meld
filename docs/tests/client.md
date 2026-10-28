@@ -600,6 +600,10 @@ bits and the atlas cells).
 - Trap: the 1.12 client has no `Interface\TargetingFrame\UI-Classes-Circles.blp` (a 2.x file); the
   `/wow/texture` endpoint answers 404 for it. Check a path there before relying on it:
   `curl -s -o /dev/null -w '%{http_code}' "localhost:34115/wow/texture?path=<url-encoded path>"`.
+  To find the right path, search the client's file list and read the frame that uses it, without the
+  app (#698): `go run ./cmd/meldtool mpq ls moneyframe` lists `Interface\MoneyFrame\UI-MoneyIcons.blp`,
+  and `go run ./cmd/meldtool mpq cat 'Interface\FrameXML\MoneyFrame.xml'` prints its TexCoords (quote
+  the path, or write it with `/`).
 
 ## The asset server across a patch write (#471, probe `patch-cache`)
 Checks: a write into Meld's patch closes the asset server's archives (`wow.Client`) only for the

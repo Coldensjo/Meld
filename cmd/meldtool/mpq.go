@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 )
 
 // mpqList prints the client's (or one archive's) listed files, one a line, keeping those whose path
-// holds filter (any case; / and \ alike).
+// holds filter (any case; / and \ alike): the way to find a client file's path, such as a UI
+// texture's, which /wow/list can't search.
 func mpqList(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("mpq ls", flag.ContinueOnError)
 	clientDir := fs.String("client", "", "client folder, Data folder or .MPQ")
@@ -27,12 +27,10 @@ func mpqList(args []string, out io.Writer) error {
 	defer c.close()
 	filter := ""
 	if len(pos) == 1 {
-		filter = strings.ToLower(strings.ReplaceAll(pos[0], "/", `\`))
+		filter = pos[0]
 	}
-	for _, n := range c.list() {
-		if filter == "" || strings.Contains(strings.ToLower(strings.ReplaceAll(n, "/", `\`)), filter) {
-			fmt.Fprintln(out, n)
-		}
+	for _, n := range c.matching(filter) {
+		fmt.Fprintln(out, n)
 	}
 	return nil
 }
@@ -55,10 +53,9 @@ func mpqCat(args []string, out io.Writer) error {
 		return err
 	}
 	defer c.close()
-	name := strings.ReplaceAll(pos[0], "/", `\`)
-	data, err := c.files.ReadFile(name)
+	data, err := c.read(pos[0])
 	if err != nil {
-		return fmt.Errorf("%s: %w", name, err)
+		return err
 	}
 	if *dest != "" {
 		return os.WriteFile(*dest, data, 0o644)
