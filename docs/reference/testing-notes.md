@@ -283,6 +283,10 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   injected "disconnected" overlay is compiled with Svelte 5 but mounted with the old `new Component()`
   call (reported as wailsapp/wails#6317). It is harmless, dev-only, and the probe runner already skips it; don't chase it.
 - **The smoke set** (#398): `make probe-smoke` (or `cd frontend && bun run probe --smoke`) runs the probes whose leading comment block holds a `// tier: smoke` line (next to `touches`), so the list lives in the probes: `attach-follow`, `compile-launch`, `compile-spawns`, `dialog-focus`, `hide-panels`, `hotkeys`, `menu-keys`, `path-road`, `shadow-redraw`, `shortcut-table`, `terrain-cell-tex`, `tool-hints`, `undo-sculpt`. They are fast (a flat map or a dialog, no benchmark scene), deterministic (no pixel diffs or timing thresholds) and guard shared code (`App.svelte`, `Modal`, the menu bar, `History`, `ObjectLayer` attachments, the compile state, the terrain shader's sampler budget, shadow redraws). About 100 s in all (81 s without `shadow-redraw`, 19 s). Add a probe only if it is under about 10 s and loads no scene; `--smoke` combines with names and `--touching`.
+- **Quarantine** (#399): a probe whose leading comment block holds a `// quarantine: #<issue>` line (a flake parked while
+  its issue is open) is left out of `--all`, `--smoke` and `--touching`, and those runs print `probe: N quarantined, left
+  out: <name> (#<issue>), ...` to stderr at the start. It still runs when named (`bun run probe <name>`), and `--list`
+  prints a `quarantined: #<issue>` line under it. Take the line out when the issue is closed.
 - **The probes for a change** (#397): every probe's leading comment block holds a `// touches:` line,
   the source files it checks as repo-root paths or globs, comma-separated (`frontend/src/lib/world/nav/*`,
   `internal/vmangos/spawnedit.go`; `*` stays in one folder, `**` crosses folders, a path ending in `/` takes

@@ -1,11 +1,12 @@
-// The `// touches:`, `// tier:` and `// timeout:` lines of a probe's header (#397, #635), shared by run.mjs and tests/probeTouches.test.ts (#687).
+// The `// touches:`, `// tier:`, `// timeout:` and `// quarantine:` lines of a probe's header (#397, #635, #399), shared by run.mjs and tests/probeTouches.test.ts (#687).
 
 /**
  * A probe's header: its first comment line, and the globs of its `// touches:` line (repo-root paths, comma-separated,
  * anywhere in the leading comment block), or null when it has none, which counts as touching every file; its tier; and the
- * seconds of its `// timeout:` line, which raises the runner's limit for it (#635), or null.
+ * seconds of its `// timeout:` line, which raises the runner's limit for it (#635), or null; and the issue number of its
+ * `// quarantine: #<n>` line, which keeps it out of every selection but its own name (#399), or null.
  * @param {string} text the probe file's source
- * @returns {{ first: string, touches: string[] | null, tier: string | null, timeout: number | null }}
+ * @returns {{ first: string, touches: string[] | null, tier: string | null, timeout: number | null, quarantine: number | null }}
  */
 export const parseHeader = (text) => {
 	const lines = text.split(/\r?\n/)
@@ -15,6 +16,8 @@ export const parseHeader = (text) => {
 	let tier = null
 	/** @type {number | null} */
 	let timeout = null
+	/** @type {number | null} */
+	let quarantine = null
 	for (const l of lines) {
 		if (!l.startsWith('//')) break
 		const m = /^\/\/\s*touches:\s*(.*)$/.exec(l)
@@ -22,13 +25,15 @@ export const parseHeader = (text) => {
 		const s = /^\/\/\s*timeout:\s*(\d+)/.exec(l)
 		if (t) tier = t[1]
 		if (s) timeout = Number(s[1])
+		const q = /^\/\/\s*quarantine:\s*#(\d+)/.exec(l)
+		if (q) quarantine = Number(q[1])
 		if (m)
 			touches = m[1]
 				.split(',')
 				.map((g) => g.trim())
 				.filter(Boolean)
 	}
-	return { first: lines[0].replace(/^\/\/\s*/, ''), touches, tier, timeout }
+	return { first: lines[0].replace(/^\/\/\s*/, ''), touches, tier, timeout, quarantine }
 }
 
 /**
