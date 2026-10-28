@@ -3,7 +3,7 @@
 	import LayersPanel from './LayersPanel.svelte'
 	import MinimapView from './MinimapView.svelte'
 	import { editor, prefs, ui } from '../lib/state/editor.svelte'
-	import { toCss } from '../lib/ui/uiScale'
+	import { dragResize } from '../lib/ui/dragResize'
 	import { keysOf } from '../lib/ui/commands'
 	import { detachMinimap } from '../lib/ui/minimap'
 
@@ -12,27 +12,11 @@
 		prefs.dockHidden = true
 		ui.replaceSlot = null
 	}
-
-	// Drag the left edge to resize the dock, like Photoshop's panel column.
-	function startResize(e: PointerEvent) {
-		const startX = e.clientX
-		const startW = prefs.dockWidth
-		const el = e.currentTarget as HTMLElement
-		el.setPointerCapture(e.pointerId)
-		const move = (ev: PointerEvent) => {
-			prefs.dockWidth = Math.round(Math.min(640, Math.max(240, startW + toCss(startX - ev.clientX))))
-		}
-		const up = () => {
-			el.removeEventListener('pointermove', move)
-			el.removeEventListener('pointerup', up)
-		}
-		el.addEventListener('pointermove', move)
-		el.addEventListener('pointerup', up)
-	}
 </script>
 
 <div class="dock" style:width="{prefs.dockWidth}px">
-	<div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startResize}></div>
+	<!-- Drag the left edge to resize the dock, like Photoshop's panel column. -->
+	<div class="resizer" role="separator" aria-orientation="vertical" use:dragResize={{ axis: 'x', get: () => prefs.dockWidth, set: (w) => (prefs.dockWidth = w), min: 240, max: 640 }}></div>
 	{#if ui.minimap && prefs.minimapDocked}
 		<!-- The minimap attached above Layers (#749); its ⇱ detaches it into the floating MinimapWindow. -->
 		<DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Minimap' }]} onclose={() => (ui.minimap = false)} closeTitle="Close the minimap ({keysOf('minimap')})" closeLabel="Close the minimap">

@@ -289,6 +289,15 @@ dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `document.querySelector('[role=dialog]').textContent` holds "Getting started". The URL is
 `MANUAL_URL` in `AppDialogs.svelte`.
 
+## Panel edge drags (#592)
+
+Checks: the dock's left edge and the asset browser's top edge resize through one action,
+`use:dragResize` (`lib/ui/dragResize.ts`): the size follows the pointer in CSS px (`toCss`), kept to
+its range, and pointerup, pointercancel and lostpointercapture all end the drag, so a cancelled one
+(Alt-Tab, a pen) does not keep writing `prefs.dockWidth` or `prefs.browserHeight` on the next hover.
+`bun test tests/dragResize.test.ts`. By hand: drag either edge, Alt-Tab mid-drag, come back and hover
+the edge; the panel must not move.
+
 ## Preferences from two windows
 
 Checks: a save writes only the changed keys, merged into the file (`changedPrefs` in `prefsPatch.ts`,
