@@ -284,7 +284,7 @@ undoes (`scrollTop = 0`) before it decides the control is clipped.
 ## Help window
 
 Checks: Help › Help… (or F1 anywhere but in an input) opens the Help dialog; its Open the manual
-button and Help › Manual open docs/MANUAL.md on GitHub in the system browser (`BrowserOpenURL`; the
+button and Help › Manual open the manual on the published docs site (coldensjo.github.io/Meld/MANUAL) in the system browser (`BrowserOpenURL`; the
 dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `document.querySelector('[role=dialog]').textContent` holds "Getting started". The URL is
 `MANUAL_URL` in `AppDialogs.svelte`.
