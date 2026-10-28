@@ -43,6 +43,8 @@ async function setup() {
 		palette: () => [],
 		setPalette: () => {},
 		effect: () => 0,
+		scopedEffects: () => ({ zones: {}, tiles: {} }),
+		setScopedEffects: () => {},
 	}
 	const { session } = await openScript(BRUSH, 'both', new EngineScriptHost(t, objects, liquids, view, 'x'))
 	const brushes = new ScriptBrushes({ host: (label) => ({ host: new EngineScriptHost(t, objects, liquids, view, label), history }), after: () => {} })
