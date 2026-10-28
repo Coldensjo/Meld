@@ -25,6 +25,39 @@ export function chunkOf(x: number, z: number, side: number): number {
 	return z * side + x
 }
 
+/** A paint chunk's square of splat texels: its first texel's column and row, and its texels a side. */
+export interface ChunkTexelRect {
+	x0: number
+	z0: number
+	per: number
+}
+
+/**
+ * The splat texels of chunk c, when res texels a side cover side chunks a side: the texels (x, z) with
+ * x0 <= x < x0 + per and z0 <= z < z0 + per, whose weights start at (z * res + x) * SLOTS. Every walk
+ * over a chunk's texels starts here, so the layout is written once.
+ */
+export function chunkTexelRect(side: number, res: number, c: number): ChunkTexelRect {
+	const per = res / side
+	return { x0: (c % side) * per, z0: Math.floor(c / side) * per, per }
+}
+
+/** Reused by chunkWeightSums' callers, which never run inside one another. */
+const sumsScratch = new Int32Array(SLOTS)
+
+/** Each slot's weight summed over every texel of chunk c, written into `out` (SLOTS long), which it returns. */
+export function chunkWeightSums(side: number, res: number, weights: Uint8Array, c: number, out: Int32Array = sumsScratch): Int32Array {
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
+	out.fill(0)
+	for (let z = z0; z < z0 + per; z++) {
+		for (let x = x0; x < x0 + per; x++) {
+			const base = (z * res + x) * SLOTS
+			for (let k = 0; k < SLOTS; k++) out[k] += weights[base + k]
+		}
+	}
+	return out
+}
+
 /** The slot of chunk c that holds palette index tex, or -1. */
 export function findSlot(slots: Uint8Array, c: number, tex: number): number {
 	for (let k = 0; k < SLOTS; k++) if (slots[c * SLOTS + k] === tex) return k
@@ -65,16 +98,8 @@ export function acquireSlotCompacting(side: number, res: number, slots: Uint8Arr
  * Returns the freed slot, or -1 if the chunk has nothing else to give up.
  */
 export function evictWeakest(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, keep: number): number {
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
-	const sums = new Array<number>(SLOTS).fill(0)
-	for (let z = z0; z < z0 + per; z++) {
-		for (let x = x0; x < x0 + per; x++) {
-			const base = (z * res + x) * SLOTS
-			for (let k = 0; k < SLOTS; k++) sums[k] += weights[base + k]
-		}
-	}
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
+	const sums = chunkWeightSums(side, res, weights, c)
 	let weak = -1
 	for (let k = 0; k < SLOTS; k++) {
 		const tex = slots[c * SLOTS + k]
@@ -128,9 +153,7 @@ export function acquireSlotReplacing(side: number, res: number, slots: Uint8Arra
  * packRoles.
  */
 export function compactChunk(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number): boolean {
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
 	const keep: number[] = []
 	for (let k = 0; k < SLOTS; k++) {
 		if (slots[c * SLOTS + k] === NO_TEXTURE) continue
@@ -165,9 +188,7 @@ export function compactChunk(side: number, res: number, slots: Uint8Array, weigh
 
 /** Whether chunk c has a texture whose weight is 0 on every texel of the chunk (which compactChunk frees). */
 export function hasEmptySlot(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number): boolean {
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
 	let empty = 0
 	let used = 0
 	for (let k = 0; k < SLOTS; k++) {
@@ -243,12 +264,11 @@ export function packRoles(side: number, res: number, roles: number, fill: (x: nu
 	const totals = new Float32Array(roles)
 
 	for (let c = 0; c < chunks; c++) {
-		const cx = c % side
-		const cz = Math.floor(c / side)
+		const { x0, z0 } = chunkTexelRect(side, res, c)
 		totals.fill(0)
 		for (let lz = 0; lz < per; lz++) {
 			for (let lx = 0; lx < per; lx++) {
-				fill(cx * per + lx, cz * per + lz, texel)
+				fill(x0 + lx, z0 + lz, texel)
 				const p = (lz * per + lx) * roles
 				for (let r = 0; r < roles; r++) {
 					chunkRoles[p + r] = texel[r]
@@ -269,7 +289,7 @@ export function packRoles(side: number, res: number, roles: number, fill: (x: nu
 		for (let lz = 0; lz < per; lz++) {
 			for (let lx = 0; lx < per; lx++) {
 				const p = (lz * per + lx) * roles
-				const base = ((cz * per + lz) * res + cx * per + lx) * SLOTS
+				const base = ((z0 + lz) * res + x0 + lx) * SLOTS
 				let sum = 0
 				for (let k = 0; k < picked.length; k++) sum += chunkRoles[p + picked[k]]
 				if (sum > 0) {
@@ -307,13 +327,10 @@ export function convertGlobalLayers(side: number, res: number, oldRes: number, s
  */
 export function paletteCoverage(weights: Uint8Array, chunkSlots: Uint8Array, res: number, side: number, entries: number): number[] {
 	const out = new Array<number>(entries).fill(0)
-	const per = res / side
 	const step = 7
 	let total = 0
 	for (let t = 0; t < res * res; t += step) {
-		const x = t % res
-		const z = Math.floor(t / res)
-		const c = chunkOf(Math.floor(x / per), Math.floor(z / per), side)
+		const c = chunkOfTexel(side, res, t)
 		for (let k = 0; k < SLOTS; k++) {
 			const tex = chunkSlots[c * SLOTS + k]
 			const w = weights[t * SLOTS + k]
@@ -353,9 +370,7 @@ export function replacePalette(side: number, res: number, slots: Uint8Array, wei
 
 /** Folds every texel's weight in slot `from` of chunk c into slot `to`. The caller frees the slot. */
 function mergeSlot(side: number, res: number, weights: Uint8Array, c: number, from: number, to: number): void {
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
 	for (let z = z0; z < z0 + per; z++) {
 		for (let x = x0; x < x0 + per; x++) {
 			const base = (z * res + x) * SLOTS
@@ -390,16 +405,8 @@ export function replaceInChunk(side: number, res: number, slots: Uint8Array, wei
  */
 export function removeSlot(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, slot: number): void {
 	if (slots[c * SLOTS + slot] === NO_TEXTURE) return
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
-	const sums = new Array<number>(SLOTS).fill(0)
-	for (let z = z0; z < z0 + per; z++) {
-		for (let x = x0; x < x0 + per; x++) {
-			const base = (z * res + x) * SLOTS
-			for (let k = 0; k < SLOTS; k++) sums[k] += weights[base + k]
-		}
-	}
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
+	const sums = chunkWeightSums(side, res, weights, c)
 	let fallback = -1
 	for (let k = 0; k < SLOTS; k++) {
 		if (k === slot || slots[c * SLOTS + k] === NO_TEXTURE) continue
@@ -430,9 +437,7 @@ export function removeSlot(side: number, res: number, slots: Uint8Array, weights
  * less than `below` (0 to 255), or -1 for none: a layer too faint to see that still takes a slot.
  */
 export function faintSlot(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, below: number): number {
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
 	for (let k = 1; k < SLOTS; k++) {
 		if (slots[c * SLOTS + k] === NO_TEXTURE) continue
 		let peak = 0
@@ -464,9 +469,7 @@ export function dropFaintLayers(side: number, res: number, slots: Uint8Array, we
  * slots went.
  */
 export function mergeDuplicateSlots(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number): number {
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
 	let n = 0
 	for (let a = 0; a < SLOTS; a++) {
 		const tex = slots[c * SLOTS + a]
@@ -576,15 +579,7 @@ export interface ChunkTexture {
  */
 export function chunkTextures(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, entries: number): ChunkTexture[] {
 	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
-	const sums = new Array<number>(SLOTS).fill(0)
-	for (let z = z0; z < z0 + per; z++) {
-		for (let x = x0; x < x0 + per; x++) {
-			const p = (z * res + x) * SLOTS
-			for (let k = 0; k < SLOTS; k++) sums[k] += weights[p + k]
-		}
-	}
+	const sums = chunkWeightSums(side, res, weights, c)
 	const out: ChunkTexture[] = []
 	for (let k = 0; k < SLOTS; k++) {
 		const tex = slots[c * SLOTS + k]
