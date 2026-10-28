@@ -28,6 +28,8 @@ Run from the repository root:
 
 The root Go package embeds `frontend/dist`. Its tests are skipped when that build output is missing.
 `make check` also reports when golangci-lint is absent instead of silently proving the lint passed.
+On Windows, the Linux-only files (`*_linux.go`) and the Linux build are checked only by CI:
+`.github/workflows/check.yml` runs the checks and short tests on ubuntu at every push (docs/development.md).
 
 For a focused run:
 
