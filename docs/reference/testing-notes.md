@@ -283,7 +283,8 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). `PROFILE_TOP=<n>`
   prints `n` functions instead: a benchmark map's top 12 are all its loading and the fence waits of `P.frames`,
   and a frame's own work (three's `setProgram`, `ParticleLayer.update`) starts below them. To weight a profile to
-  frames, step many after the map settles (the 2026-10-18 sweep stepped 40 turning the camera, then 40 still). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
+  frames, step many after the map settles (the 2026-10-18 sweep stepped 40 turning the camera, then 40 still).
+  `--trace <dir>` (#639) records a Chrome trace of each probe's body (the main thread's tasks, the timeline, V8's and Blink's GC) into `<dir>/<name>.trace.json`, for Perfetto or `chrome://tracing`, and adds `trace`: the page's busiest stretches (runs of main-thread tasks under 1 ms apart, `TRACE_TOP`, 6), each with where its tasks were posted (count and ms) and the heaviest events inside. It shows what a CPU profile can't: a pause with no script in it shows as GC or as thousands of tiny tasks (#639 found `simple_watcher.cc Notify`, the WebSocket's data pipe, below). To find one gap in it, have the probe keep the gap's `performance.now()` times and call `console.timeStamp('sync')` at a known time: the `TimeStamp` event's `ts` minus that time times 1000 maps one clock onto the other. Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and

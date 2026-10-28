@@ -43,8 +43,15 @@ Go tests cover the alive file going stale). In the dev page:
   second copy: a page's first tens of MB across the bridge pause it once for 300-700 ms, one whole-map
   call or parts alike. `bindingCallMs`, the longest stretch without a turn once the parts go, is printed,
   not checked: 55-760 ms across runs (most under 300) in the headless page against 290-530 ms for one `SaveRecovery` with
-  the whole map before #637, and the gap is a pause of the page with no script running (a
-  long-animation-frame observer lists none), not a part call. With the native `toBase64` (Chrome,
+  the whole map before #637. The gap is not a part call and holds no script (a long-animation-frame
+  observer lists none): a `--trace` (#639) shows the main thread busy with the WebSocket's send, tens of
+  thousands of `SimpleWatcher::OnHandleReady` tasks (`simple_watcher.cc Notify`), Chrome feeding the
+  4 MB message into the socket's mojo data pipe a write each time the pipe has room. A part normally
+  takes about 80-90 ms and 3,500-4,500 such tasks, and the ticker still gets turns among them; now and
+  then the pipe drains in smaller pieces and one part takes 300+ ms and 48,000 tasks, with the ticker's
+  `MessageChannel` turns waiting behind them. It is the dev bridge's (a websocket in headless Chrome),
+  not GC (no GC event of note in the gap) nor the compositor; the desktop window sends over WebView2's
+  `postMessage` instead, which a probe can't reach. With the native `toBase64` (Chrome,
   WebView2) and the bridge warmed, parts gave 33-44 ms against 286-321 ms for one call.
   "The first autosave wrote 0 copies" with the tab not dirty (#779) was App.svelte's default-palette
   effect putting back the dirty flag it read before its `defaultLayerTextures` await, which wiped the

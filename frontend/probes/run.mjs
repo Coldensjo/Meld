@@ -6,6 +6,7 @@
 //   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*) and the `// tier: manual` ones (name those)
 //   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
 //   bun run probe bench --profile        also print the probe's top functions by CPU time
+//   bun run probe autosave --trace out   also save a Chrome trace a probe as out/<name>.trace.json (Perfetto, chrome://tracing) and print its busiest main-thread stretches (#639)
 //   bun run probe --smoke                the probes marked `// tier: smoke` (#398): fast, deterministic, guarding shared code; `make probe-smoke`
 //   bun run probe --list                 list the probes with their first comment line and their touches line
 //   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
@@ -51,6 +52,7 @@ const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
 const args = process.argv.slice(2)
 let shotDir = null
 let profiling = false
+let traceDir = null
 let touching = null
 let smoke = false
 let shard = null
@@ -60,7 +62,10 @@ for (let i = 0; i < args.length; i++) {
 		shotDir = args[++i]
 		if (!shotDir || shotDir.startsWith('--')) fail('--shot needs a folder to save the pictures in, e.g. --shot out')
 	} else if (args[i] === '--profile') profiling = true
-	else if (args[i] === '--smoke') smoke = true
+	else if (args[i] === '--trace') {
+		traceDir = args[++i]
+		if (!traceDir || traceDir.startsWith('--')) fail('--trace needs a folder to save the traces in, e.g. --trace out')
+	} else if (args[i] === '--smoke') smoke = true
 	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
 	else if (args[i] === '--shard') {
 		const m = /^(\d+)\/(\d+)$/.exec(args[++i] ?? '')
@@ -86,7 +91,7 @@ if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
 		console.log(`${''.padEnd(20)}   touches: ${touches ? touches.join(', ') : '(no touches line: every change)'}`)
 		if (quarantine) console.log(`${''.padEnd(20)}   quarantined: #${quarantine} (left out of --all, --smoke and --touching; runs when named)`)
 	}
-	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all | --touching <git range> [--shard k/n] [--shot <dir>] [--profile]')
+	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all | --touching <git range> [--shard k/n] [--shot <dir>] [--profile] [--trace <dir>]')
 	process.exit(0)
 }
 /** A probe by name (in this folder) or by path (ends in .js or has a slash), as { name, file }. */
@@ -274,6 +279,9 @@ async function main() {
 	let seq = 0
 	const waiting = new Map()
 	const pageErrors = []
+	// A Chrome trace's events while --trace records one, and the call that ends it.
+	let traceEvents = null
+	let traceDone = null
 	/** Everything the page said or failed to load (console at every level, failed and 4xx/5xx requests), kept to report a page that never sets up __engine. */
 	const pageLog = []
 	const note = (l) => {
@@ -423,6 +431,10 @@ async function main() {
 			if (msg.id && waiting.has(msg.id)) {
 				waiting.get(msg.id).resolve(msg)
 				waiting.delete(msg.id)
+			} else if (msg.method === 'Tracing.dataCollected') {
+				traceEvents?.push(...msg.params.value)
+			} else if (msg.method === 'Tracing.tracingComplete') {
+				traceDone?.()
 			} else if (msg.method === 'Runtime.consoleAPICalled') {
 				note(`console.${msg.params.type}: ${msg.params.args.map((a) => a.value ?? a.description ?? a.type).join(' ')}`)
 			} else if (msg.method === 'Network.loadingFailed') {
@@ -476,6 +488,7 @@ async function main() {
 		pageLog.length = 0
 		let out
 		let prof = null
+		let trace = null
 		let bodyStart = Infinity
 		try {
 			await send('Page.navigate', { url: PAGE })
@@ -486,6 +499,10 @@ async function main() {
 				await send('Profiler.enable')
 				await send('Profiler.setSamplingInterval', { interval: 500 })
 				await send('Profiler.start')
+			}
+			if (traceDir) {
+				traceEvents = []
+				await send('Tracing.start', { traceConfig: { includedCategories: TRACE_CATEGORIES }, transferMode: 'ReportEvents' })
 			}
 			// PERF_WINDOWS (the number of measurePerf windows P.perf averages, #337) reaches the page this way.
 			// Every PROBE_* variable too (#347), read in a probe as P.env('NAME', fallback) for PROBE_NAME.
@@ -503,6 +520,15 @@ async function main() {
 				out = { probe: name, ok: value?.ok !== false, ...value }
 			} finally {
 				if (profiling) prof = (await send('Profiler.stop')).result?.profile
+				if (traceDir) {
+					const done = new Promise((r) => (traceDone = r))
+					await send('Tracing.end')
+					await Promise.race([done, sleep(60_000)])
+					mkdirSync(traceDir, { recursive: true })
+					writeFileSync(join(traceDir, `${name}.trace.json`), JSON.stringify({ traceEvents }))
+					trace = busiestStretches(traceEvents)
+					traceEvents = null
+				}
 			}
 		} catch (err) {
 			out = { probe: name, ok: false, error: err.message, ...(err.timedOut ? { timedOut: true } : {}) }
@@ -534,6 +560,7 @@ async function main() {
 		const ended = await evaluate('window.__probeSandbox ? window.go.main.App.EndClientSandbox() : null', 60_000).catch((e) => ({ error: e.message }))
 		if (ended?.error) out.sandboxEnd = ended.error
 		if (prof) out.profile = topFunctions(prof)
+		if (trace) out.trace = trace
 		if (pageErrors.length) {
 			out.pageErrors = pageErrors.slice(0, 5)
 			out.ok = false
@@ -645,6 +672,64 @@ async function main() {
 	ws.close()
 	cleanup()
 	process.exit(failedNames.length ? 1 : 0)
+}
+
+// What --trace records: the main thread's tasks (toplevel), the timeline's events (scripts, layout, paint, the WebSocket's),
+// and V8's and Blink's garbage collectors, which a CPU profile shows only as one `(garbage collector)` line.
+const TRACE_CATEGORIES = ['toplevel', 'devtools.timeline', 'disabled-by-default-devtools.timeline', 'v8', 'v8.gc', 'disabled-by-default-v8.gc', 'blink.gc', 'blink', 'renderer.scheduler', 'loading', 'ipc', 'mojom']
+
+/**
+ * The page's busiest stretches in a trace (`TRACE_TOP`, 6): runs of main-thread tasks with under 1 ms between them, the longest
+ * first, as "ms at s: tasks by where they were posted (count, ms), heaviest events inside (ms)". A pause with no script in it shows
+ * as what the thread did instead: a GC, or thousands of tiny tasks such as the WebSocket's data-pipe watcher feeding a big send (#639).
+ */
+function busiestStretches(events) {
+	const mains = new Set(events.filter((e) => e.ph === 'M' && e.name === 'thread_name' && e.args?.name === 'CrRendererMain').map((e) => `${e.pid}:${e.tid}`))
+	const byThread = new Map()
+	for (const e of events) {
+		const k = `${e.pid}:${e.tid}`
+		if (e.ph !== 'X' || !mains.has(k)) continue
+		;(byThread.get(k) ?? byThread.set(k, []).get(k)).push(e)
+	}
+	// The page's renderer is the main thread with the most events (an about:blank renderer may linger).
+	const main = [...byThread.values()].sort((a, b) => b.length - a.length)[0] ?? []
+	main.sort((a, b) => a.ts - b.ts || b.dur - a.dur)
+	const t0 = main[0]?.ts ?? 0
+	const ms = (us) => Math.round(us / 100) / 10
+	// The outermost tasks, merged into stretches.
+	const stretches = []
+	let end = -Infinity
+	for (const e of main) {
+		if (e.name !== 'ThreadControllerImpl::RunTask' || e.ts + e.dur <= end) continue
+		const s = stretches.at(-1)
+		if (s && e.ts - s.end < 1000) s.tasks.push(e)
+		else stretches.push({ start: e.ts, end: 0, tasks: [e] })
+		stretches.at(-1).end = end = Math.max(end, e.ts + e.dur)
+	}
+	const plumbing = new Set(['ThreadControllerImpl::RunTask', 'RunTask', 'BlinkScheduler_OnTaskCompleted', 'BlinkScheduler_PerformMicrotaskCheckpoint'])
+	return stretches
+		.sort((a, b) => b.end - b.start - (a.end - a.start))
+		.slice(0, Number(process.env.TRACE_TOP) || 6)
+		.map((s) => {
+			const from = new Map()
+			for (const t of s.tasks) {
+				const k = `${(t.args?.src_file ?? '?').split('/').pop()} ${(t.args?.src_func ?? '').replace(/\(.*$/, '').split(' ').pop()}`.trim()
+				const v = from.get(k) ?? from.set(k, { n: 0, dur: 0 }).get(k)
+				v.n++
+				v.dur += t.dur
+			}
+			const inside = new Map()
+			for (const e of main) if (e.ts >= s.start && e.ts < s.end && !plumbing.has(e.name)) inside.set(e.name, (inside.get(e.name) ?? 0) + e.dur)
+			const posted = [...from.entries()]
+				.sort((a, b) => b[1].dur - a[1].dur)
+				.slice(0, 3)
+				.map(([k, v]) => `${v.n} x ${k} ${ms(v.dur)} ms`)
+			const heavy = [...inside.entries()]
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, 4)
+				.map(([n, d]) => `${n} ${ms(d)}`)
+			return `${ms(s.end - s.start)} ms at ${(ms(s.start - t0) / 1000).toFixed(2)} s: ${posted.join(', ')}; inside: ${heavy.join(', ') || 'nothing'}`
+		})
 }
 
 /**
