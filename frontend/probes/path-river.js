@@ -10,7 +10,7 @@ const V3 = e.controller.target.constructor
 const t = e.terrain
 const h0 = t.heightAt(256, 256)
 const at = (x, z) => new V3(x, t.heightAt(x, z), z)
-const tool = e.tools.path
+const tool = e.debug.tools.path
 const ev = new PointerEvent('pointerdown')
 for (const [x, z] of [
 	[150, 200],
@@ -18,9 +18,9 @@ for (const [x, z] of [
 	[360, 240],
 ]) {
 	// Aim the press away from the dots, as a click on empty ground.
-	e.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
-	tool.onDown(e.ctx, at(x, z), ev)
-	tool.onUp(e.ctx)
+	e.debug.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
+	tool.onDown(e.debug.ctx, at(x, z), ev)
+	tool.onUp(e.debug.ctx)
 }
 // The upstream end 6 yd higher: the surface falls from it to the far end.
 e.path((tl, c) => {
@@ -33,7 +33,7 @@ e.path((tl, c) => {
 })
 e.path((tl, c) => tl.apply(c))
 await P.frames(2)
-const liquids = e.doc.liquids
+const liquids = e.debug.doc.liquids
 /** The surface of the liquid over world (x, z), or null. */
 const surfaceAt = (x, z) => {
 	const gx = Math.floor(x / t.cellSize),

@@ -1,5 +1,5 @@
 // Run with: bun test tests/minimapImage.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { MinimapDrawn, minimapScale, shadeHeights } from '../src/lib/io/minimapImage.ts'
 

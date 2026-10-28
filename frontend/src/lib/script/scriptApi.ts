@@ -81,7 +81,23 @@ export interface ScriptHost {
 	setWater(vx: number, vz: number, type: number, height: number): void
 	/** Reads a PNG for `load_png` (#29): the image, or why not. Missing where no files can be read. */
 	loadImage?(path: string): Promise<ScriptImage | string>
+	/** The file functions (#761). Missing where no files can be reached. */
+	files?: ScriptFiles
 }
+
+/**
+ * Files for read_file, path_exists, write_file, append_file and image:save (#761): a path relative to the
+ * scripts folder, or a whole one. Each answers why not as a string. Writes stay in the scripts folder
+ * unless the user's preference lets a script write any file (io/scriptFiles.ts).
+ */
+export interface ScriptFiles {
+	read(path: string): Promise<{ text: string } | string>
+	exists(path: string): Promise<boolean | string>
+	write(path: string, text: string, append: boolean): Promise<true | string>
+	saveImage(path: string, img: ScriptImage): Promise<true | string>
+}
+
+const NO_FILES = 'files can only be reached in the desktop app'
 
 /** How long a script may run before it is stopped, in milliseconds; each brush event gets as long. */
 export const SCRIPT_TIMEOUT = 10_000
@@ -397,6 +413,29 @@ export class ScriptSession {
 				return true
 			},
 			image_free: (id: number) => void this.images.delete(id),
+			image_save: async (id: number, path: string) => {
+				const f = h().files
+				const img = this.images.get(id)
+				if (!f) return NO_FILES
+				return img ? f.saveImage(path, img) : 'the image was freed'
+			},
+			// Files (#761): each answers a table, or why not as a string.
+			file_read: async (path: string) => {
+				const f = h().files
+				return f ? f.read(path) : NO_FILES
+			},
+			file_exists: async (path: string) => {
+				const f = h().files
+				if (!f) return NO_FILES
+				const r = await f.exists(path)
+				return typeof r === 'string' ? r : { yes: r }
+			},
+			file_write: async (path: string, text: string, append: boolean) => {
+				const f = h().files
+				if (!f) return NO_FILES
+				const r = await f.write(path, text, !!append)
+				return r === true ? {} : r
+			},
 		}
 	}
 

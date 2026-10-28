@@ -1,5 +1,5 @@
 // Run with: bun test tests/alphamap.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { layAlphamapChunk, textureWeights } from '../src/lib/terrain/alphamap.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'

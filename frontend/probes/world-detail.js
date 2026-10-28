@@ -10,7 +10,7 @@ const was = { detail: prefs.detailInfo }
 prefs.detailInfo = true
 openWorldView(e, 'Azeroth', { x: 31, y: 48, size: 3 })
 await P.until(() => (editor.worldMap === 'Azeroth' ? true : null), 30000, "Azeroth's world tab")
-const worldDoc = e.doc
+const worldDoc = e.debug.doc
 const mid = { x: 32.5 * T, z: 49.5 * T }
 await P.until(() => (!Number.isNaN(worldDoc.world.heightAt(mid.x, mid.z)) ? true : null), 120000, "the block's middle tile")
 await P.lookAt({ x: mid.x, y: worldDoc.world.heightAt(mid.x, mid.z), z: mid.z }, { pitch: 1.2, back: 250 })

@@ -1,5 +1,5 @@
 // Run with: bun test tests/worldGround.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { tileKey } from '../src/lib/io/mapTiles.ts'
 import { TILE_SIZE as TILE_YARDS } from '../src/lib/io/portCoords.ts'

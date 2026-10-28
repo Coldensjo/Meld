@@ -41,10 +41,10 @@ async function stroke(kind) {
 	editor.brush.strength = 1
 	editor.brush.shape = 'circle'
 	const before = Float32Array.from(t.heights)
-	const tool = e.tools.sculpt
-	tool.onDown(e.ctx, at(cx, cz))
-	for (let i = 0; i < 30; i++) tool.tick(e.ctx, 0.05, at(cx + i * 0.5, cz))
-	tool.onUp(e.ctx)
+	const tool = e.debug.tools.sculpt
+	tool.onDown(e.debug.ctx, at(cx, cz))
+	for (let i = 0; i < 30; i++) tool.tick(e.debug.ctx, 0.05, at(cx + i * 0.5, cz))
+	tool.onUp(e.debug.ctx)
 	await P.frames(1)
 	const after = Float32Array.from(t.heights)
 	let outside = 0

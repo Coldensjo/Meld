@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Spawn save: the edit list (#199, #432)
 
+No probe: the unit test below.
+
 Checks: `SpawnLayer.edits()`, built through `spawnEdits.ts`'s commands (`spawnAdd`, `spawnChange`,
 `spawnDelete`), gives one edit per spawn, and a DELETE only for a row the document loaded or saved,
 keyed by that row's own guid and entry (never a created spawn's, nor the entry a retype gave it).
@@ -17,17 +19,21 @@ database before the save) is `TestCreatedGUIDLive` in `internal/vmangos`, which 
 
 ## Spawn actions: new guids and pool entries (#557)
 
+No probe of its own: the unit test below; the probes listed below run it in the app.
+
 Checks: `engine/SpawnActions.ts`, the spawn editing out of Engine. A new spawn's guid is above every
 open tab's spawns of its kind (monsters and NPCs share creature guids, objects have their own) and at
 least the database's next one (`nextFreeGuid`); a new pool's entry likewise (`nextFreePoolEntry`).
 Unit: `bun test tests/spawnActions.test.ts`, which also runs pool picking, the spawn keys and the
-spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-new`, `undo-spawns`, `compile-spawns`,
+spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-new`, `compile-spawns`,
 `teleport-trigger` and `place-spawn-size` probes, which name the file in their `// touches:` lines.
 - Trap: the actions that read the world database (placing, the brush's first guid, a new pool, the
   menu's Teleport items) call Go bindings, which `bun test` lacks; don't define `window` to stub them,
   since `modelBuild.ts` and `navJobs.ts` check `typeof window` when loaded. They are the probes' part.
 
 ## Gear picker (a spawn's main hand, off hand and ranged items)
+
+Hand check: in the dev page against the world database, as below.
 
 Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The
 world database must be up (the picker reads item_template and writes creature_equip_template).
@@ -42,12 +48,14 @@ layer.get('monster/106001').equipment, .equipItems, decodeURIComponent(look).mat
 await window.go.main.App.EquipmentFor([14643, 1897, 0])   // finds or makes a template; run twice, same id
 ```
 
-- Traps: thumbnails only render while frames run (`__engine.frame()` in a loop with short
+- Traps: thumbnails only render while frames run (`__engine.debug.frame()` in a loop with short
   waits). `EquipmentFor` writes a creature_equip_template row for a new item combination, after
   the highest entry (987002 on this database; refused with the sandbox on, like every world-database write): delete it again after a test, with its items in
   the WHERE clause. `editor.spawns` is a snapshot; read the layer's spawn for the edited state.
 
 ## Spawn tabs of the asset browser (Creatures, NPCs, Objects)
+
+Hand check: in the dev page against the world database, as below.
 
 Checks: `SpawnBrowser.svelte` and the `ListCreatureTemplates` / `ListObjectTemplates` bindings (the
 world database must be up). In the dev page:
@@ -65,6 +73,8 @@ const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spa
 
 ## Sorting the creature tabs by level (#659)
 
+Hand check: in the dev page against the world database, as below.
+
 Checks: the Creatures and NPCs tabs' sort menu (the browser header's `select[aria-label=Sort]`, #651) orders by level. In the dev page
 on Creatures: set the select's value to `level`, `level-desc` and `''` and dispatch `change`; the first
 tiles' `.badge` levels read all 1s, all 63s, then the database's order again, and
@@ -72,6 +82,8 @@ tiles' `.badge` levels read all 1s, all 63s, then the database's order again, an
 Unit: `tests/browserViews.test.ts` (`byLevel`, the stored `sort`).
 
 ## Spawns on cave and dungeon floors (#660)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: the Place tool (a creature or object template), dragging a spawn or a waypoint, and the spawn
 brush stand spawns on the first upward-facing surface under the cursor (`ctx.floor()`), not on the
@@ -88,6 +100,8 @@ ground above a cave or in the air.
   above a cave.
 
 ## Game object editor: turning a spawn into another object, pools (#136)
+
+Probe: `object-entry`.
 
 Checks: `ObjectEditor.svelte`'s Which object list, `objectEntryFields`, the `gameobject.id` the SQL
 writes, and the pool rows in `SpawnFields`. The probe `object-entry` does it on a flat map with two
@@ -106,6 +120,8 @@ editor's title follows. It needs the world database up, and takes about 6 s.
 
 ## Game object editor: Find object, with no spawn (#351)
 
+Probe: `object-find`.
+
 Checks: Tools › Game Objects… opens the editor on Find object (tabs Find object and New object), the
 search finds by name (Small Thorium, entry 324) and by entry (1731, Copper Vein), a click opens the
 object on its Object tab with Find object kept as a tab (its search kept, the open object marked),
@@ -114,6 +130,8 @@ needs the world database and writes nothing. It sets `ui.objectEditor = { key: n
 as the menu does (there is no probe helper that clicks a menu entry).
 
 ## Game object editor: Contents, Make it a chest, respawn (#220)
+
+Probe: `object-loot`.
 
 Checks: the Contents tab (`LootTab.svelte`) reads a chest's loot list with the other objects that
 hold it, gives an object a copy of its own, adds items, makes another type a chest, and edits the
@@ -137,6 +155,8 @@ Make it a chest on a generic object each show in Save's count and go with Revert
 
 ## Game object editor: Display, picking a display from thumbnails (#230)
 
+Probe: `object-display`.
+
 Checks: the Display tab (`DisplayPicker.svelte` with `kind="object"`, `ListObjectDisplays`) lists
 GameObjectDisplayInfo's displays with a model (1622 on this client) as thumbnails, opens on the
 template's own display marked, in its object type (the Small Thorium Vein, 324: display 3951, Chest),
@@ -151,6 +171,8 @@ world database for the types and names (without it every display is Unused). Uni
   models are used by one display each, so a file-name family would be one tile a family.
 
 ## Game object editor: Sounds, a display's sound slots (#674)
+
+Probe: `object-sounds`.
 
 Checks: the Sounds tab (`ObjectSoundsTab.svelte`, `SoundPicker.svelte`) shows the ten sound slots of
 the template's display, named by SoundEntries, with Play; Add or Change opens the shared sound
@@ -174,6 +196,8 @@ one row's slots) in `internal/vmangos/objectsounds_test.go`.
 
 ## Tilted game objects (#229)
 
+Probe: `object-tilt`.
+
 Checks: a game object's tilt (`gameobject.rotation0..3`) is read into `WorldSpawn.tilt`, drawn
 (`spawnQuaternion`) and written back. Unit tests: `TestTiltedObjectKeepsItsTilt` in
 `internal/vmangos/spawns_test.go` (read, JSON round trip, a move keeps the four values, a turn
@@ -191,6 +215,8 @@ up, and takes about 6 s.
 
 ## Names over spawns (#125)
 
+Probe: `brd-fly` (names over the spawns while flying over Blackrock Depths); the rest is a hand check.
+
 Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (Show › Names over creatures
 and objects, `prefs.spawnNames`). In the dev page (GPU Chrome, as in "Minimap window (M)"), load
 Azeroth 32_48, wait for the spawns (`e.doc.spawnLayer.spawns.length` is 347 with the server's
@@ -202,7 +228,7 @@ and so on; those inside the abbey have none.
 - A name the ground or a building (WMO) hides is left out (`Engine.sightBlocked`, through
   `ObjectLayer.wmoBlocks`): trees don't hide names. Wrap `e.spawnLabels.blocked` to count the tests;
   one costs about 0.04 ms, up to 96 a pick, four picks a second.
-- Probe `brd-fly` (#286) flies 40 frames through Blackrock Depths with the names on and times the
+- Probe: `brd-fly` (#286) flies 40 frames through Blackrock Depths with the names on and times the
   sight tests (0.08 ms each) and the longest frame (under 100 ms on SwiftShader). Trap: a big WMO's
   batch mesh draws its group cull's twin geometry (#198), and a ray through a geometry without a bounds
   tree falls back to three's brute-force raycast: 33 ms a test there, frames of 1.2 to 2.4 s every
@@ -213,6 +239,8 @@ and so on; those inside the abbey have none.
 
 ## Right-click near the selected creature (#205)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `Engine.openContextMenu` falls back to the selected spawn when the click hits nothing within
 `CONTEXT_MARGIN` (24) px of its screen box (`world/screenBox.ts`, unit test `screenBox.test.ts`). In the
 dev page on Northshire, hide every placed model first (the abbey fills the view and takes the clicks:
@@ -222,6 +250,8 @@ and call `e.openContextMenu({ clientX, clientY, pointerType: 'mouse', pressure: 
 box: `ui.contextMenu.title` is the creature's; 200 px right: no menu.
 
 ## Formations and spawn pools (#172)
+
+Probe: `spawn-groups`.
 
 Checks: `readFormations` and `readSpawnPools` (`go test ./internal/vmangos/ -run "Formation|Pool"`,
 canned rows), `formationSQL` and `poolSQL` (`groupsql_test.go`), the slot maths and the pool rules
@@ -252,6 +282,8 @@ written. `TestMotherPoolSQL` checks the `pool_pool` SQL; it was also run on temp
 
 ## Creature path editing on the map (#138)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: the right-click "Edit path" / "Give it a path" on a creature and the floating `PathEditBar`.
 In the dev page: `e.editPath('npc/<guid>')` (a key from `e.doc.spawnLayer.spawns`, `kind/guid`) shows
 `.pathbar`; a ground press through `e.selectTool.onDown(e.ctx, e.hit, ev)` / `onUp` after setting
@@ -260,6 +292,8 @@ In the dev page: `e.editPath('npc/<guid>')` (a key from `e.doc.spawnLayer.spawns
 it instead of adding one (`ctx.paths.pickPoint`), so space test presses apart.
 
 ## A spawn's scripts on the This spawn tab (#137)
+
+Probe: `spawn-scripts`.
 
 Checks: the Scripts list under the pool on the creature and game object editors' This spawn tab.
 Probe `spawn-scripts` (needs the world database) opens three spawns on a flat map and reads the
@@ -274,6 +308,8 @@ page logs `SpawnScripts is not a function`.
 
 ## World event spawns (#143)
 
+Hand check: against the world database, as below.
+
 Checks: spawns of a world event (`WorldSpawn.events`, from `game_event_creature`/`_gameobject`) are
 left out of `SpawnLayer`'s batches unless Show › World events shows their event (`prefs.shownEvents`).
 - Go against the real database: Azeroth 32_49 (Goldshire) has spawns of events 2 (Winter Veil),
@@ -287,6 +323,8 @@ left out of `SpawnLayer`'s batches unless Show › World events shows their even
 
 ## Creature editor: Looks opens on the creature's display (#206)
 
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: `DisplayPicker.svelte` picks the selected display's type and model family and scrolls its
 tile into view once the displays are read. In the dev page on Northshire, set
 `ui.creatureEditor = { key: spawnKey(s), entry: s.entry }` for a drawn creature, click the Looks button
@@ -294,11 +332,15 @@ tile into view once the displays are read. In the dev page on Northshire, set
 `[aria-label="Creature displays"] .virtual`, then read the two `.picker select`s and the `.active`
 tile's rect against the grid's. A Northshire Guard opens on Humanoid / HumanMale, the wolves on
 Beast / Wolf, each with its tile in view. The first read of the displays takes several seconds.
-The tiles grow to fill the row (#389): `bun run probe display-tiles` reads the guide's picker (same component)
-and checks the last tile of a row ends within 4 px of the grid's inner edge, 104 to 140 px wide. The editor's
-560 px panel should show 4 tiles of about 126 px.
+The tiles grow to fill the row (#389): `bun test tests/displayTiles.test.ts` (it was the probe `display-tiles`, #423)
+runs `gridCols` and `gridTile` (`lib/ui/virtualGrid.ts`) at every width up to 1400 px and checks a row of tiles,
+104 to 140 px wide, ends within a pixel a column of the grid's inner edge and never past it; it reads the
+picker's `TILE`, `MAX_TILE`, `GAP` and `PAD` and its `.grid-wrap` padding from `DisplayPicker.svelte`, so a
+padding that no longer matches `PAD` fails too. The editor's 560 px panel should show 4 tiles of about 126 px.
 
 ## Creature editor: Shop tab (npc_vendor, #145)
+
+Probe: `creature-shop` (#577); a save is a hand check on a creature with no shop.
 
 Checks: the Shop tab lists, adds, reorders and saves what a creature sells. Unit: `vendor_test.go`
 (the SQL, slots, duplicates). Live, in the dev page: `ui.creatureEditor = { key: null, entry: 66 }`
@@ -313,6 +355,13 @@ Discard, reopened unchanged; nothing written). The tabs' shared dirty logic is u
   can still change its `slot` values. Test saves on a creature with no shop.
 - Trap: the tab keeps its list while other tabs are shown (it stays mounted, hidden); its unsaved
   edits count in the editor's "unsaved changes" bar.
+## Creature editor: Quests and Messages tabs (#158)
+
+Hand check: against the world database (no probe writes it); the probe `messages-conditions` reads
+the texts under a condition (next heading).
+
+Checks: the Quests tab's starts and ends and the Messages tab's greeting and gossip options, saved and
+read back on a creature with none (805, Cameron).
 - The Quests tab (creature_questrelation / creature_involvedrelation) the same way: entry 197 (Marshal
   McBride) starts 10 and ends 4; test a save on 805 with Kobold Camp Cleanup (7) as start and end,
   read back with `ReadCreatureQuests(805)`, remove both and save again.
@@ -332,14 +381,6 @@ Discard, reopened unchanged; nothing written). The tabs' shared dirty logic is u
   Clean up as above, plus `gossip_menu_option` rows of the new menus, and set 931's `gossip_menu_id`
   back to 6944 (931 has two patch rows). 931 also lists one AI line ("On aggro · yells Guards! Help
   me!") and warns that its quest option is hidden (it lacks the Quest giver flag).
-- Texts shown under a condition (#160, `SaveConditionText`, `DeleteConditionText`): the probe
-  `messages-conditions` checks the rows on Sputtervalve (3442, text 519 under condition 315; nothing
-  written). A write test, by the bindings in a scratch probe, with the maxima noted as above: on 805
-  add a text under condition 315 (a new menu holding only that row), change only its condition to 316
-  (the row keeps its npc_text), change its text (a new npc_text), try condition 999999 (refused: not
-  in `conditions`), delete it; then add one on 931 (a copied menu, shared by 1, with 6944's two
-  options; 6944 keeps its one row). Clean up as above. Of the texts whose condition holds, VMaNGOS
-  shows the one with the highest condition_id (`Player::GetGossipTextId`).
 - Trap: a menu can be left with no `gossip_menu` rows (805 above after the delete) while a creature
   still names it, so a new menu's number must look past `creature_template.gossip_menu_id` and
   `gossip_menu_option` too, not only `max(gossip_menu.entry)` (`lastMenuSQL`); the first try gave
@@ -347,7 +388,21 @@ Discard, reopened unchanged; nothing written). The tabs' shared dirty logic is u
 - Trap: GossipDef.h's comments give later clients' npc flag values (vendor 128, flight 8192); 1.12's
   are in UnitDefines.h (vendor 4, flight 8), which the world database uses.
 
+## Creature editor: texts shown under a condition (#160, probe `messages-conditions`)
+
+Checks: the Messages tab's texts shown under a condition (`SaveConditionText`, `DeleteConditionText`).
+- Probe: `bun run probe messages-conditions` checks the rows on Sputtervalve (3442, text 519 under condition 315; nothing
+  written). A write test, by the bindings in a scratch probe, with the maxima noted as for the Messages tab (previous heading): on 805
+  add a text under condition 315 (a new menu holding only that row), change only its condition to 316
+  (the row keeps its npc_text), change its text (a new npc_text), try condition 999999 (refused: not
+  in `conditions`), delete it; then add one on 931 (a copied menu, shared by 1, with 6944's two
+  options; 6944 keeps its one row). Clean up as there. Of the texts whose condition holds, VMaNGOS
+  shows the one with the highest condition_id (`Player::GetGossipTextId`).
+- The menu traps under the previous heading apply here too.
+
 ## Flight paths (#180)
+
+Probe: `flight-paths`.
 
 Checks: World › Flight Paths lists the open map's stops (TaxiNodes.dbc) and their routes (TaxiPath.dbc
 through TaxiPathNode.dbc's points), draws them, edits them on the map and saves them to the client's
@@ -372,6 +427,8 @@ patch, the server's `data/5875/dbc` and `taxi_nodes`.
   Riding Horse (308) in the Horde slot, so they draw red; that's the table, not a bug.
 
 ## Portals and area triggers (#141, #18)
+
+Probes: `teleport-trigger` (#306) and `portals-fit` (#718); a write is a hand check.
 
 Checks: World › Portals and Area Triggers… lists the open map's AreaTrigger.dbc volumes with the
 server's names and teleports, draws them, and saves them to the client's patch and the world DB.
@@ -421,17 +478,19 @@ Checks: Tools › Creatures… (`ui.creatures = true`): the search opens a creat
 the guide's four steps make a working `creature_template` row. Unit: `factions_test.go` (reactions;
 with `WOW_DIR`, the client's FactionTemplate.dbc: 14 hostile to both, 35 friendly to both, 12
 Stormwind Alliance-only), `TestParseClassLevelStats`.
-- Probe `creatures-lazy` (#586): the guide calls `Factions` and `ClassLevelStats` only once opened, `Factions` once.
+- Probe: `creatures-lazy` (#586): the guide calls `Factions` and `ClassLevelStats` only once opened, `Factions` once.
 - Live: name it, level 10 to 12, rank Elite (multipliers 3, 2, 1), side Alliance (Stormwind, 11),
   click a display tile, then step 4 shows level 10 at 594 health, 30 damage, 492 armour (warrior:
   198, 15.2 and 492 from `creature_classlevelstats`). Make creature writes one row; check it with
   `ReadCreature(entry)` and delete it afterwards (`DELETE FROM creature_template WHERE entry = …`).
-- Probe `creature-new` (#260): in the creature editor, New creature closes it and opens the guide, and Copy this creature shows its name bar (Cancel leaves; nothing is written).
-- Probe `creature-looks` (#221): opens the guide to step 3 and checks the preview stays in view while the page scrolls past the pickers (it is sticky; the row once shrank to 520px and the pickers spilled over it).
+- Probe: `creature-new` (#260): in the creature editor, New creature closes it and opens the guide, and Copy this creature shows its name bar (Cancel leaves; nothing is written).
+- Probe: `creature-looks` (#221): opens the guide to step 3 and checks the preview stays in view while the page scrolls past the pickers (it is sticky; the row once shrank to 520px and the pickers spilled over it).
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
 
 ## The database editors' shared frame (#576)
+
+Probes: the editors' own, listed below; unit test `templateEditor.test.ts`.
 
 Checks: the creature, game object, quest, item and spell editors open, read, leave, close, discard
 and save through one `TemplateEditor` (`lib/ui/templateEditor.svelte.ts`) inside `EditorFrame.svelte`.
@@ -450,7 +509,7 @@ closing only the quest editor over the creature editor).
 
 Checks: Tools › Quests… finds and opens a quest, names every number that stands for something, and
 writes `quest_template` and the four relation tables only on Save, after Go's checks.
-- Probe `quest-editor` (about 12 s; nothing written): Wolves Across the Border (33) shows Northshire
+- Probe: `quest-editor` (about 12 s; nothing written): Wolves Across the Border (33) shows Northshire
   Valley, Tough Wolf Meat (750), the choices Soft Fur-lined Shoes and Wolfskin Bracers, Stormwind
   and the quest before it (Eagan Peltskinner, 5261), started and ended by Eagan Peltskinner (196);
   a level of 300 and item 16000000 are refused (the second jumps to the Objectives tab); Revert;
@@ -484,7 +543,7 @@ writes `quest_template` and the four relation tables only on Save, after Go's ch
 Checks: the game object editor's Quests tab reads and edits `gameobject_questrelation` and
 `gameobject_involvedrelation`, and an object that is not a Quest giver (type 2) gets no new quests,
 there or in the quest editor's Givers tab.
-- Probe `object-quests` (about 13 s; nothing written): the Wanted Poster (68) starts Wanted: "Hogger"
+- Probe: `object-quests` (about 13 s; nothing written): the Wanted Poster (68) starts Wanted: "Hogger"
   (176); an added quest is an unsaved edit (`Quests (1)`) that Revert drops; Edit opens the quest
   over the object editor and Esc closes only the quest editor; the Solid Chest (2855, type 3) shows
   the refusal with its search and New quest disabled, the Givers tab disables its Starts and Ends,
@@ -501,14 +560,18 @@ there or in the quest editor's Givers tab.
 
 ## Name colours by reaction (#134)
 
+No probe: the Go unit test below, and a hand check on Northshire.
+
 Checks: a creature's name over its head is red, yellow or green by how its faction treats the side
 picked under View (Alliance or Horde). Go: `TestReaction` (the two-way rule: a player's template is
 hostile to the monster group, so a kobold whose own template attacks no one is still hostile).
-Live on Northshire (Azeroth 32_48), `__engine.spawnLabels.nameColor(spawn)` for spawns found by name
+Live on Northshire (Azeroth 32_48), `__engine.debug.spawnLabels.nameColor(spawn)` for spawns found by name
 in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
 Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
 
 ## Creature editor: Spells tab (creature_spells, #243)
+
+Probes: `creature-spells` and `creature-spell-fields`.
 
 Checks: the Spells tab lists a creature's spell list with the client's names, icons and text, finds
 spells by name or ID, and adds, reorders and saves them. Probe: `bun run probe creature-spells`
@@ -535,10 +598,13 @@ a shared, a new and an emptied list, the checks, the free list number) and, with
 The Creature tab's spell columns (#255): `auras` lists each spell's icon and name under its text (`AuraField.svelte`), `spawn_spell_id` and `totem_spell_id` are RefFields. Probe: `bun run probe creature-spell-fields` (creature 215 has aura 6408, 2887 has spawn spell 10389). Since #367 it also opens the spawn spell's Find (a `SpellPicker`: category and school selects), picks Fire Blast (2136) from Mage: Fire, and adds 2136 through the aura field's Find; wait for the row with the ID, not the first row, since the picker lists its category before the search answers.
 
 ## Shop tab: item icons and tooltips (#202)
+
+Probe: `item-editor` (the item's tooltip); the rest is a hand check.
+
 Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared
 vendor list) has its inventory icon, and hovering one shows the game-style tooltip.
 - Go: `TestParseVendorItems`, `TestParseItemRow`; with `WOW_DIR=C:/WoW/client`,
-  `TestItemIconsFromClient` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
+  `TestItemLooksLive` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
 - Frontend: `frontend/tests/itemTooltip.test.ts` (lines for a weapon, armour with stats, a bag; money;
   #355, a set piece's set block).
 - Item sets (#355): `TestParseItemSetSkipsEmptySlots`; with `WOW_DIR=C:/WoW/client`,
@@ -551,22 +617,26 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
   `td.item` (6 rows, 6 `img`). Hover: dispatch `new PointerEvent('pointerenter', { clientX, clientY })`
   on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
   and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
-- Effects show the spell's own text (#217): Tough Hunk of Bread (4540, spell 433) reads "Use: Restores 61 health over 18 sec.  Must remain seated while eating." Go: with `WOW_DIR=C:/WoW/client`, `TestSpellTextsFromClient` checks Spell.dbc's field layout (description at field 138). Trap: an aura with no period of its own counts every 5 sec for `$o1` (17 per tick over 18 sec is 61).
+- Effects show the spell's own text (#217): Tough Hunk of Bread (4540, spell 433) reads "Use: Restores 61 health over 18 sec.  Must remain seated while eating." Go: with `WOW_DIR=C:/WoW/client`, `TestSpellRefsFromClient` checks Spell.dbc's field layout (description at field 138). Trap: an aura with no period of its own counts every 5 sec for `$o1` (17 per tick over 18 sec is 61).
 
 ## Item editor (#353)
 
 Checks: Tools › Items… finds and opens an item, shows its tooltip as the game does (following the
 unsaved values) and the item held or worn by a character, and writes `item_template` only on Save,
 Import or New item.
-- Probe `item-editor` (about 10 s; nothing written): the Stats tab holds one stat a row, and
+- Probe: `item-editor` (about 10 s; nothing written): the Stats tab holds one stat a row, and
   Equip bonuses adds Healing +22 (spell 9408) into effect slot 1 as Equip, read in the tooltip as
   "Equip: Increases healing done by spells and effects by up to 22.", then Remove; the Worn Shortsword's search result
   right-clicked shows Open and Copy .additem 25, and the copy puts `.additem 25` on the clipboard
   (read back with `window.runtime.ClipboardGetText()`, the Wails runtime, which works on the dev
   page; the probe overwrites the system clipboard); the Worn Shortsword (25) reads Main Hand | Sword,
   1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
-  quality and damage change the tooltip; a chest slot gives the armour note; a level of 300 is
-  refused and jumps to Requirements; Change look… replaces the field tabs with the item large
+  quality and damage change the tooltip; a chest slot gives the armour note; the probe enters level
+  300 as an unsaved edit, inspects the Save label and uses Revert without pressing Save. It does
+  not verify a live refusal or tab jump. Backend range refusal is covered separately by
+  TestEditorSavesRefuseOutOfRangeValues in internal/vmangos/templates_test.go;
+  tests/templateEditor.test.ts checks the shared refusal callback, not a rendered tab switch.
+  Change look… replaces the field tabs with the item large
   over the looks; the search for the Battleworn Hammer finds display 8690, whose tile previews it on
   hover (the item's display_id unchanged), is picked by a click and applied by Change look, back on
   the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a
@@ -579,7 +649,7 @@ Import or New item.
   durability the middle, the INSERT); with `VMANGOS_DIR`, `TestItemKindsLive` (117 kinds; a bow:
   arrows, range 100, sheath 0, wood). A real make by a scratch Go test (not kept), cleaned up by
   entry: a bow got display 32079, delay 2300, durability 65; a cloth chest 24546, cloth, 70; a bag
-  1183, 10 slots; none had damage, armour, stats, level or price. Picture: `probes/scratch/item-new.js`.
+  1183, 10 slots; none had damage, armour, stats, level or price.
   Trap: editing a Go file while `make dev` runs rebuilds it; when that build fails (Meld-dev.exe
   locked) it leaves `frontend/wailsjs/go/main` missing, so `make check` reports every binding import
   missing and probes say "the page never set up __engine": stop the dev server and run `wails
@@ -595,15 +665,15 @@ Import or New item.
 - Trap: in the Icons grid the tile is `.icon-btn`; `.icon` is the ItemIcon span inside it. A probe's
   synthetic hover must bubble (`pointerover` with `bubbles: true`), or the look tiles' `pointerenter`
   for PaletteTile.
-- Picker pictures: `probes/scratch/item-change.js` (git-ignored: opens `ui.itemEditor` on
-  `PROBE_ITEM`, clicks Change look… or, with `PROBE_TAB=icons`, Change icon…, and hovers tile
-  `PROBE_HOVER`) with `--shot`. Seen on 2026-10-19: 3687 weapon looks for the Worn Shortsword, a
+- Picker pictures: a probe of your own in `probes/scratch/` (git-ignored, so none is kept) that
+  opens `ui.itemEditor` on an entry, clicks Change look… or Change icon… and hovers a tile, run
+  with `--shot`; probe `item-editor` checks the same views. Seen on 2026-10-19: 3687 weapon looks for the Worn Shortsword, a
   hovered axe alone in the middle; the Icons view with a hovered icon large beside the tooltip.
 - Equip bonuses: `TestEquipBonuses` (a used spell wins an amount, two auras only as a pair, a
   talent and an old spell left out). Live on 2026-10-20: 20 bonuses, such as Healing 52 amounts 2 to
   300, Spell damage and healing 61 (1 to 150), Attack power 48, Mana every 5 sec 16; picture with
-  `probes/scratch/item-stats.js` (git-ignored: Stats, Spell damage and healing +12 and crit +1%
-  added, unsaved). Trap: a slot found by a reactive "first free" must be read once before writing
+  a scratch probe of your own (Stats, Spell damage and healing +12 and crit +1% added, unsaved;
+  probe `item-editor` adds Healing +22 the same way). Trap: a slot found by a reactive "first free" must be read once before writing
   it, or the trigger lands in the next slot (the first try wrote "Use:" for an Equip).
 - A new display: `TestItemIconDisplay` (an icon a display already has, one another display pairs
   with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,
@@ -649,7 +719,7 @@ Import or New item.
 Checks: Tools › Spells… finds and opens a spell, shows its tooltip, effects and visual as the game
 would (following the unsaved values), and writes `spell_template` and Spell.dbc (SpellIcon.dbc for a
 new icon) in Meld's patch only on Save or New spell.
-- Probe `spell-editor` (about 11 s; nothing written): Fireball's result right-clicked copies
+- Probe: `spell-editor` (about 11 s; nothing written): Fireball's result right-clicked copies
   `.cast 133`; Fireball (133) reads Fireball | Rank 1, 30 Mana | 35 yd range, 1.5 sec cast and its
   description with 14 to 22 and 2 over 4 sec filled in; its effects read Damage 14 to 22 · Enemy target
   and Apply aura: Periodic damage; its visual (67) is named by Firebolt and others; a typed name and

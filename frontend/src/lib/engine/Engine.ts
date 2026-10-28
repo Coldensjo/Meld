@@ -88,6 +88,7 @@ import { ScriptBrushes } from './ScriptBrushes'
 import { ScriptBrushTool } from '../tools/ScriptBrushTool'
 import { scriptSay } from '../script/scriptBrush.svelte'
 import { loadScriptImage } from '../io/scriptImages'
+import { scriptFiles } from '../io/scriptFiles'
 import { HoleWalls } from '../tools/HoleWalls'
 import { stepTilt } from '../world/placement'
 import { ClearTool } from '../tools/ClearTool'
@@ -163,8 +164,9 @@ import type { TaxiHooks, TaxiPick, TaxiRouteShape, TaxiStopShape } from '../worl
 import type { Vec3 } from '../world/taxiRoute'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
-import { PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
+import { PerfMeter, SECTION, ShadowPassCalls, topCalls, topModels, type ModelCost, type PerfReport } from './perfMeter'
 import { GpuTimer } from './gpuTimer'
+import { updateTerrainOverlays, withOverlaysOff, type OverlayState } from '../terrain/terrainOverlays'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import { NavPreview, RANGE as NAV_RANGE, type PathResult, type ServerSource } from '../world/nav/NavPreview'
@@ -263,6 +265,39 @@ const ORTHO_HEIGHT = 1500
 /** The 3D camera's near plane (yd), and how far in it is pulled for a WMO wall closer than it reaches (#304). */
 const NEAR = 0.5
 const NEAR_MIN = 0.05
+/** The 3D camera's far plane at the least (yd), however small the map or short the view distance. */
+const FAR_MIN = 2000
+
+/** How far above the highest ground a minimap shot or a world-map zone (`renderTopDown`) frames, for the models standing on it (yd). */
+const SHOT_HEADROOM = 400
+/** How far below the shot's top its far plane reaches (yd): past the deepest ground a map may hold. */
+const SHOT_DEPTH = 20000
+
+/** Where the shadow cascades centre with no ground ahead of the camera (the sky), as a distance ahead in yards. */
+const SHADOW_NO_GROUND = 300
+/** The near cascade's half-extent bounds (yd): the ground ahead's distance, held to these. */
+const SHADOW_NEAR_MIN = 30
+const SHADOW_NEAR_MAX = 250
+/** The far cascade's half-extent is this many times the ground ahead's distance, held to the bounds after it (yd). */
+const SHADOW_FAR_SCALE = 6
+const SHADOW_FAR_MIN = 800
+const SHADOW_FAR_MAX = 2500
+/** How far ahead of the camera the far cascade centres, as a share of its extent at most. */
+const SHADOW_FAR_AHEAD = 0.6
+
+/** Nudges (arrow keys) of the same selection closer together than this (ms) merge into one undo step. */
+const NUDGE_MERGE_MS = 1500
+/** How far above the ground under its footprint a model's box may start and still count as standing on it (yd). */
+const GROUND_TOLERANCE = 0.25
+/** The most models a selection may hold for each to be checked for overlapping other props (the warn boxes). */
+const OVERLAP_CHECK_MAX = 16
+/** The transform gizmo's radius as a share of a model's larger footprint side, and of a group's reach from its pivot. */
+const GIZMO_MODEL_RADIUS = 0.55
+const GIZMO_GROUP_RADIUS = 1.05
+/** A player's eye height above where they stand (yd), and how `viewSpot` looks from it: pitch (radians) and distance (yd). */
+const EYE_HEIGHT = 1.7
+const SPOT_PITCH = 0.3
+const SPOT_DISTANCE = 12
 
 /** Straight down, for finding the ground below a point. */
 const DOWN = new THREE.Vector3(0, -1, 0)
@@ -355,11 +390,47 @@ export interface MapSnapshot {
 }
 
 /**
+ * What the probes (frontend/probes) may reach of the engine's private parts, as `P.e.debug` or
+ * `window.__engine.debug` (#562). A probe reaches no other private member: tests/engineDebug.test.ts
+ * checks the probes' uses against DEBUG_MEMBERS (engine/engineDebug.ts), which lists these names. A
+ * member renamed or moved keeps its name here, so the probes keep working.
+ */
+export interface EngineDebug {
+	readonly ctx: ToolContext
+	readonly tools: Record<ToolId, Tool>
+	readonly rooms: WmoRooms
+	readonly env: Environment
+	/** The active tab's document. */
+	readonly doc: MapDocument
+	/** The 3D view's camera (the top-down view's is not in here). */
+	readonly persp: THREE.PerspectiveCamera
+	/** The pointer in normalized device coordinates, as the last pointer move set it. */
+	readonly ndc: THREE.Vector2
+	readonly particles: ParticleLayer
+	readonly weather: WeatherLayer
+	readonly spawnLabels: SpawnLabels
+	readonly clientLights: ClientLights | null
+	/** The time of day the sky shows (0 to 24), and its setter. */
+	readonly hour: number
+	setHour(hour: number): void
+	/** The viewport menus opened so far; a probe counts one up to make a late answer's menu stale. */
+	menuSeq: number
+	/** Draws one frame, as the loop does. */
+	frame(): void
+	/** Runs every frame through `wrap` (which calls `frame` to draw it) until the returned function is called. */
+	wrapFrame(wrap: (frame: () => void) => void): () => void
+	/** Opens the viewport's context menu for a right click `e` (a synthetic pointerup). */
+	openContextMenu(e: PointerEvent): void
+}
+
+/**
  * Owns the renderer, scene and render loop. Svelte components talk to it via
  * methods; per-frame state never round-trips through Svelte reactivity.
  */
 export class Engine {
 	readonly renderer: THREE.WebGLRenderer
+	/** The probes' typed way in (`EngineDebug`, #562). */
+	readonly debug: EngineDebug = this.makeDebug()
 	readonly scene = new THREE.Scene()
 	/** The 3D view's camera, which the controller drives. */
 	private persp: THREE.PerspectiveCamera
@@ -889,6 +960,67 @@ export class Engine {
 		loop(performance.now())
 	}
 
+	private makeDebug(): EngineDebug {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this
+		return {
+			get ctx() {
+				return self.ctx
+			},
+			get tools() {
+				return self.tools
+			},
+			get rooms() {
+				return self.rooms
+			},
+			get env() {
+				return self.env
+			},
+			get doc() {
+				return self.doc
+			},
+			get persp() {
+				return self.persp
+			},
+			get ndc() {
+				return self.ndc
+			},
+			get particles() {
+				return self.particles
+			},
+			get weather() {
+				return self.weather
+			},
+			get spawnLabels() {
+				return self.spawnLabels
+			},
+			get clientLights() {
+				return self.clientLights
+			},
+			get hour() {
+				return self.hour
+			},
+			setHour: (hour) => {
+				self.hour = hour
+			},
+			get menuSeq() {
+				return self.menuSeq
+			},
+			set menuSeq(n) {
+				self.menuSeq = n
+			},
+			frame: () => self.frame(),
+			wrapFrame: (wrap) => {
+				const inner = self.frame
+				const draw = () => inner.call(self)
+				self.frame = () => wrap(draw)
+				// Back to the class's own, so a later wrap of the prototype's (P.time) sees the calls again.
+				return () => void Reflect.deleteProperty(self, 'frame')
+			},
+			openContextMenu: (e) => self.openContextMenu(e),
+		}
+	}
+
 	/** Stops the loop `start` began; `frame()` still draws when called. The probes' page drives its own frames (#233). */
 	stopLoop() {
 		cancelAnimationFrame(this.raf)
@@ -1052,11 +1184,16 @@ export class Engine {
 	/** The pointer moved since the last pick, for Camera › Locked cursor (#19). */
 	private pointerMoved = false
 
+	/** How far the active camera sees (its far plane, yd): ground past it is neither drawn nor picked. */
+	private viewReach(): number {
+		return this.topDown ? this.ortho.far : this.persp.far
+	}
+
 	private pick() {
 		this.raycaster.setFromCamera(this.ndc, this.camera)
 		// The Hole mode aims at holes too (to fill them), so its ray stops where the ground would be.
 		const solid = editor.tool === 'sculpt' && editor.sculptMode === 'hole'
-		this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec, 4000, solid) ? this.hitVec : null
+		this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec, this.viewReach(), solid) ? this.hitVec : null
 		// The spawn brush stands its creatures on the floor under the cursor, a cave's or a dungeon's too (#660).
 		if (editor.tool === 'doodad' && editor.doodadMode === 'creatures') {
 			const f = this.floorHit()
@@ -1358,15 +1495,19 @@ export class Engine {
 		const dt = Math.min(this.timer.getDelta(), 0.1)
 		const time = this.timer.getElapsed()
 		const m = this.meter
+		const metering = m.on
 		m.setOn(this.prefs.perfOverlay || this.perfWaiters.length > 0)
+		if (m.on && !metering) this.shadowPasses.newWindow()
 		// The overlay starts on "Measuring…" the next time, not on old numbers.
 		if (!this.prefs.perfOverlay && stats.perf) stats.perf = null
 		m.begin()
 		if (m.on) this.gpu.poll()
 		this.simulate(dt, time)
+		if (m.on) this.shadowPasses.beginFrame()
 		this.draw(dt)
 		const calls = this.drawnCalls
 		const triangles = this.drawnTriangles
+		if (m.on) this.shadowPasses.endFrame()
 		if (m.end()) this.publishPerf(calls, triangles)
 
 		this.frames++
@@ -1401,6 +1542,8 @@ export class Engine {
 	/** The scene's draw calls and triangles of the last `draw`, before its outline passes. */
 	private drawnCalls = 0
 	private drawnTriangles = 0
+	/** The shadow passes' share of `drawnCalls`, counted while the meter is on (#692). */
+	private shadowPasses = new ShadowPassCalls()
 
 	/**
 	 * Readies everything the next draw shows from `this.camera`: the camera and sky, picking and the
@@ -1441,7 +1584,8 @@ export class Engine {
 		this.syncPalette()
 		const u = this.terrain.material.uniforms
 		this.updateLookTexture(u, time)
-		u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
+		const ov = this.overlays
+		ov.brushVisible = tool.usesBrush && this.hit ? 1 : 0
 		// The ring shows the radius the pen's pressure gives the brush tools (#42).
 		const r0 = editor.brush.radius * (tool instanceof BrushTool ? this.radiusPressure() : 1)
 		const radius = editor.tool === 'road' ? Math.max(1.5, r0 * 0.5) : r0
@@ -1454,19 +1598,20 @@ export class Engine {
 		u.brushRadius.value = radius
 		u.brushSquare.value = square ? 1 : 0
 		this.updateBrushImageCursor(u, tool)
-		u.gridVisible.value = editor.grid ? 1 : 0
-		u.unpaintable.value = this.prefs.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
-		u.climbCos.value = this.prefs.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
+		ov.gridVisible = editor.grid ? 1 : 0
+		ov.unpaintable = this.prefs.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
+		ov.climbCos = this.prefs.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
 		this.updateNav()
-		u.contourStep.value = this.prefs.showContours ? this.prefs.contourStep : 0
-		u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
+		ov.contourStep = this.prefs.showContours ? this.prefs.contourStep : 0
+		ov.chunkLineWorld = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
 		this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
 		const md = editor.mapDataMode
 		this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : md === 'area' ? 1 : md === 'impassable' ? 2 : md === 'noTufts' ? 3 : 4)
 		this.terrain.setMapDataZone(editor.mapDataClear ? 0 : editor.mapDataArea)
 		// Strong red while editing the mask; faint while painting so results stay visible.
 		const painting = editor.tool === 'paint' || editor.tool === 'road'
-		u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
+		ov.maskVisible = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
+		updateTerrainOverlays(u, ov)
 		this.updateSelectionUniforms(time)
 		this.updateReference()
 		// The preview's rock on steep slopes is the map's rock role (the palette's slot 3 without one).
@@ -1741,7 +1886,7 @@ export class Engine {
 			return
 		}
 		this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), this.fogNear, this.fogFar) : null
-		this.persp.far = Math.max(2000, w * 4 * d)
+		this.persp.far = Math.max(FAR_MIN, w * 4 * d)
 		this.persp.updateProjectionMatrix()
 	}
 
@@ -1794,8 +1939,21 @@ export class Engine {
 	 * its GPU time to the Shadow maps pass, going back to the pass that was running after.
 	 */
 	private timeShadowMaps() {
-		const sm = this.renderer.shadowMap
+		const renderer = this.renderer
+		const sm = renderer.shadowMap
 		const render = sm.render.bind(sm)
+		// Splits the shadow maps' draw calls by pass (#692): three switches the target to each map it
+		// redraws, so the calls between two switches are that map's.
+		const info = renderer.info.render
+		const passes = this.shadowPasses
+		const setTarget = renderer.setRenderTarget
+		// The target the shadow maps' render goes back to when done, which is none of theirs.
+		let outer: THREE.RenderTarget | null = null
+		const countingSetTarget: typeof setTarget = (target, face, level) => {
+			const env = this.env
+			passes.enter(!target || target === outer ? -1 : target === env.key.shadow.map ? 0 : target === env.far.shadow.map ? 1 : 2, info.calls)
+			setTarget.call(renderer, target, face, level)
+		}
 		sm.render = (lights, scene, camera) => {
 			// The far layers' copies (#691) have no shadows to time.
 			if (!this.meter.on || isFarLayerScene(scene)) return render(lights, scene, camera)
@@ -1803,7 +1961,14 @@ export class Engine {
 			const pass = this.gpu.pass
 			this.meter.mark(SECTION['Render (CPU)'])
 			if (timing) this.gpu.begin(0)
-			render(lights, scene, camera)
+			outer = renderer.getRenderTarget()
+			renderer.setRenderTarget = countingSetTarget
+			try {
+				render(lights, scene, camera)
+			} finally {
+				renderer.setRenderTarget = setTarget
+				passes.leave(info.calls)
+			}
 			if (timing) this.gpu.begin(pass)
 			this.meter.mark(SECTION['Shadow maps (CPU)'])
 		}
@@ -1820,6 +1985,8 @@ export class Engine {
 			...w,
 			gpu: this.gpu.take(),
 			calls,
+			callsByPass: this.shadowPasses.byPass(calls),
+			shadowRedraws: this.shadowPasses.takeRedrawn(),
 			triangles,
 			geometries: info.memory.geometries,
 			textures: info.memory.textures,
@@ -1827,6 +1994,7 @@ export class Engine {
 			instancedMeshes: meshes,
 			heapMB: heap ? heap.usedJSHeapSize / 1048576 : null,
 			models: topModels(costs, 5),
+			topCalls: topCalls(costs, 5),
 		}
 		if (this.prefs.perfOverlay) stats.perf = r
 		const waiters = this.perfWaiters
@@ -2371,12 +2539,14 @@ export class Engine {
 		const focus = this.shadowFocus
 		// A world view's ground is its streamed tiles, not the hidden stand-in terrain (#741).
 		const world = this.doc.world
-		const ahead = world ? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, 3000, 8) : this.terrain.raycast(this.shadowRay, focus, 3000) ? focus.distanceTo(eye) : -1
-		const dist = ahead < 0 ? 300 : ahead
-		const nearExtent = THREE.MathUtils.clamp(dist, 30, 250)
-		const farExtent = THREE.MathUtils.clamp(dist * 6, 800, 2500)
+		// Ground ahead is looked for as far as the camera sees.
+		const reach = this.persp.far
+		const ahead = world ? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, reach, 8) : this.terrain.raycast(this.shadowRay, focus, reach) ? focus.distanceTo(eye) : -1
+		const dist = ahead < 0 ? SHADOW_NO_GROUND : ahead
+		const nearExtent = THREE.MathUtils.clamp(dist, SHADOW_NEAR_MIN, SHADOW_NEAR_MAX)
+		const farExtent = THREE.MathUtils.clamp(dist * SHADOW_FAR_SCALE, SHADOW_FAR_MIN, SHADOW_FAR_MAX)
 		const nearCenter = this.shadowNear.copy(eye).addScaledVector(fwd, Math.min(dist, nearExtent))
-		const farCenter = this.shadowFar.copy(eye).addScaledVector(fwd, Math.min(dist, farExtent * 0.6))
+		const farCenter = this.shadowFar.copy(eye).addScaledVector(fwd, Math.min(dist, farExtent * SHADOW_FAR_AHEAD))
 		this.shadowFits |= env.updateShadow(nearCenter, nearExtent, farCenter, farExtent)
 	}
 
@@ -2991,7 +3161,7 @@ export class Engine {
 		const o = this.serverTiles(this.doc)
 		const p = editorPoint(dest, o.x, o.y)
 		// A player's eye height above the spot: where the flying camera sits, and what an orbit looks at.
-		this.controller.setView(p.x, p.y + 1.7, p.z, dest.o, 0.3, 12)
+		this.controller.setView(p.x, p.y + EYE_HEIGHT, p.z, dest.o, SPOT_PITCH, SPOT_DISTANCE)
 	}
 
 	/** The selected spawn when (clientX, clientY) is within CONTEXT_MARGIN px of it on the screen, else null. */
@@ -4580,6 +4750,9 @@ export class Engine {
 	private lookTex: THREE.DataTexture | null = null
 	private lookFrom: { looks: unknown; palette: unknown } = { looks: null, palette: null }
 
+	/** What `frame` sets the terrain's editing overlays to, reused every frame. */
+	private overlays: OverlayState = { brushVisible: 0, gridVisible: 0, unpaintable: -1, climbCos: 0, contourStep: 0, chunkLineWorld: 0, maskVisible: 0 }
+
 	/** Keeps the terrain shader's texture looks (scrolling, overbright) in step with the map's (B-162). */
 	private updateLookTexture(u: Record<string, THREE.IUniform>, time: number) {
 		// time is the timer's elapsed seconds.
@@ -4782,7 +4955,7 @@ export class Engine {
 		const s = this.gizmoDrag.selectedSpawn()
 		if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
 			const size = this.tmpBox.getSize(this.tmpV)
-			this.gizmo.update(this.spawnGizmoAt.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
+			this.gizmo.update(this.spawnGizmoAt.set(s.x, s.y, s.z), Math.max(size.x, size.z) * GIZMO_MODEL_RADIUS, this.tmpBox.max.y, this.viewEye(), false)
 		} else this.gizmo.hide()
 		if (this.canvas.style.cursor && !this.gizmoDrag.active) this.canvas.style.cursor = ''
 	}
@@ -4815,7 +4988,7 @@ export class Engine {
 			this.tmpBox.copy(getAsset(one.type).bbox).applyMatrix4(this.objects.matrixOf(one, this.tmpM))
 			const size = this.tmpBox.getSize(this.tmpV)
 			this.objects.worldPosition(one, g.at)
-			g.radius = Math.max(size.x, size.z) * 0.55
+			g.radius = Math.max(size.x, size.z) * GIZMO_MODEL_RADIUS
 			g.top = this.tmpBox.max.y
 			g.scalable = !one.type.startsWith('wmo:')
 			g.yaw = this.objects.worldYaw(one)
@@ -4973,7 +5146,7 @@ export class Engine {
 		}
 		const g = this.selGizmo
 		g.at.set(pivot.x, baseY, pivot.z)
-		g.radius = radius * 1.05
+		g.radius = radius * GIZMO_GROUP_RADIUS
 		g.top = topY
 		g.scalable = scalable
 		g.yaw = this.objects.worldYaw(this.selectedObject() ?? sel[0])
@@ -4996,8 +5169,8 @@ export class Engine {
 		let ground = this.groundAt((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2)
 		ground = Math.max(ground, this.groundAt(box.min.x, box.min.z), this.groundAt(box.max.x, box.min.z))
 		ground = Math.max(ground, this.groundAt(box.min.x, box.max.z), this.groundAt(box.max.x, box.max.z))
-		if (box.min.y <= ground + 0.25) return true
-		return selected <= 16 && (props ?? this.overlappingBoxes(o, 1) > 0)
+		if (box.min.y <= ground + GROUND_TOLERANCE) return true
+		return selected <= OVERLAP_CHECK_MAX && (props ?? this.overlappingBoxes(o, 1) > 0)
 	}
 
 	/** The terrain height at a point, or -Infinity off the map or over a hole. */
@@ -5443,6 +5616,7 @@ export class Engine {
 				areaAt: (x, z) => this.areaAt(x, z),
 				area: s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : null,
 				loadImage: loadScriptImage,
+				files: scriptFiles,
 				palette: () => editor.palette,
 				setPalette: (p) => (editor.palette = p),
 				effect: (tex, chunk) => {
@@ -5534,13 +5708,13 @@ export class Engine {
 		const ground = this.groundTop()
 		const top = editor.waterEnabled ? Math.max(editor.waterLevel, ground) : ground
 		// Models stand up to a few hundred yards above the ground; the camera is far above that.
-		this.minimapShot = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, halfX: (x1 - x0) / 2, halfZ: (z1 - z0) / 2, top: top + 400 }
+		this.minimapShot = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, halfX: (x1 - x0) / 2, halfZ: (z1 - z0) / 2, top: top + SHOT_HEADROOM }
 		const ss = Math.max(1, Math.min(4, Math.floor(this.renderer.capabilities.maxTextureSize / Math.max(w, h))))
 		const bigW = w * ss
 		const bigH = h * ss
 		// From that height the deepest ground may lie past the top-down view's far plane.
 		const far = this.ortho.far
-		this.ortho.far = ORTHO_HEIGHT + 400 + 20000
+		this.ortho.far = ORTHO_HEIGHT + SHOT_HEADROOM + SHOT_DEPTH
 		// The shot is no frame of the view: the meter books none of it to the frame's sections.
 		const metered = this.meter.on
 		this.meter.on = false
@@ -5548,75 +5722,54 @@ export class Engine {
 			// Readied for the ortho camera (updateTopDown reads minimapShot), without drawing the view or
 			// moving the clock.
 			this.simulate(0, this.timer.getElapsed())
-			const u = t.material.uniforms
-			const saved: Array<[THREE.IUniform, unknown]> = []
-			const set = (key: string, v: unknown) => {
-				const un = u[key]
-				if (!un) return
-				saved.push([un, typeof un.value === 'object' && un.value && 'clone' in un.value ? (un.value as THREE.Vector4).clone() : un.value])
-				if (un.value instanceof THREE.Vector4) un.value.set(0, 0, 0, 0)
-				else un.value = v
-			}
-			set('brushVisible', 0)
-			set('gridVisible', 0)
-			set('chunkLineWorld', 0)
-			set('contourStep', 0)
-			set('climbCos', 0)
-			set('selMode', 0)
-			set('mapDataMode', 0)
-			set('maskVisible', 0)
-			set('unpaintable', -1)
-			set('chunkHover', null)
-			set('refOpacity', 0)
-			set('refEdit', 0)
-			const keep = new Set<THREE.Object3D>([t.group, this.water.mesh, this.water.floor, this.doc.liquidRenderer.group, this.effects.group])
-			if (models !== 'none') keep.add(this.objects.group)
-			const hidden: THREE.Object3D[] = []
-			if (models === 'buildings') {
-				for (const m of this.objects.group.children) {
-					if (!m.visible || String(m.userData.type ?? '').startsWith('wmo:')) continue
-					m.visible = false
-					hidden.push(m)
+			// The editing overlays stay out of the shot, which is written into the client (#561).
+			const pix = withOverlaysOff(t.material.uniforms, () => {
+				const keep = new Set<THREE.Object3D>([t.group, this.water.mesh, this.water.floor, this.doc.liquidRenderer.group, this.effects.group])
+				if (models !== 'none') keep.add(this.objects.group)
+				const hidden: THREE.Object3D[] = []
+				if (models === 'buildings') {
+					for (const m of this.objects.group.children) {
+						if (!m.visible || String(m.userData.type ?? '').startsWith('wmo:')) continue
+						m.visible = false
+						hidden.push(m)
+					}
 				}
-			}
-			for (const c of this.scene.children) {
-				// Lights stay, so no shader is rebuilt for another light count.
-				if (!c.visible || keep.has(c) || (c as THREE.Light).isLight) continue
-				c.visible = false
-				hidden.push(c)
-			}
-			const background = this.scene.background
-			this.scene.background = new THREE.Color(0, 0, 0)
-			let rt = this.minimapTarget
-			if (!rt || rt.width !== bigW || rt.height !== bigH) {
-				rt?.dispose()
-				rt = this.minimapTarget = new THREE.WebGLRenderTarget(bigW, bigH, { samples: 0 })
-				rt.texture.colorSpace = THREE.SRGBColorSpace
-				// three tone maps and converts to sRGB only when drawing to the screen or to an XR target, and
-				// the minimap should look as the editor's view does. Stored as plain bytes, not as an sRGB
-				// texture, which would encode the shader's already encoded colours a second time.
-				;(rt as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true
-				rt.texture.internalFormat = 'RGBA8'
-			}
-			const pix = new Uint8Array(bigW * bigH * 4)
-			const prev = this.renderer.getRenderTarget()
-			try {
-				this.renderer.setRenderTarget(rt)
-				this.renderer.clear()
-				this.renderer.render(this.scene, this.ortho)
-				this.renderer.readRenderTargetPixels(rt, 0, 0, bigW, bigH, pix)
-				if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
-			} finally {
-				this.renderer.setRenderTarget(prev)
-				this.scene.background = background
-				for (const c of hidden) c.visible = true
-				// The shot drew the shadow maps without what it hid; the view's next frame draws them again.
-				this.prefsChanged = true
-				for (const [un, v] of saved) {
-					if (un.value instanceof THREE.Vector4 && v instanceof THREE.Vector4) un.value.copy(v)
-					else un.value = v
+				for (const c of this.scene.children) {
+					// Lights stay, so no shader is rebuilt for another light count.
+					if (!c.visible || keep.has(c) || (c as THREE.Light).isLight) continue
+					c.visible = false
+					hidden.push(c)
 				}
-			}
+				const background = this.scene.background
+				this.scene.background = new THREE.Color(0, 0, 0)
+				let rt = this.minimapTarget
+				if (!rt || rt.width !== bigW || rt.height !== bigH) {
+					rt?.dispose()
+					rt = this.minimapTarget = new THREE.WebGLRenderTarget(bigW, bigH, { samples: 0 })
+					rt.texture.colorSpace = THREE.SRGBColorSpace
+					// three tone maps and converts to sRGB only when drawing to the screen or to an XR target, and
+					// the minimap should look as the editor's view does. Stored as plain bytes, not as an sRGB
+					// texture, which would encode the shader's already encoded colours a second time.
+					;(rt as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true
+					rt.texture.internalFormat = 'RGBA8'
+				}
+				const pix = new Uint8Array(bigW * bigH * 4)
+				const prev = this.renderer.getRenderTarget()
+				try {
+					this.renderer.setRenderTarget(rt)
+					this.renderer.clear()
+					this.renderer.render(this.scene, this.ortho)
+					this.renderer.readRenderTargetPixels(rt, 0, 0, bigW, bigH, pix)
+					if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
+				} finally {
+					this.renderer.setRenderTarget(prev)
+					this.scene.background = background
+					for (const c of hidden) c.visible = true
+					// The shot drew the shadow maps without what it hid; the view's next frame draws them again.
+					this.prefsChanged = true
+				}
+				return pix
+			})
 			// Averaged down ss by ss, and turned upright: GL reads the bottom row first.
 			const out = new Uint8Array(w * h * 4)
 			const n = ss * ss
@@ -5737,7 +5890,7 @@ export class Engine {
 		const now = performance.now()
 		const s = this.nudgeSession
 		const key = targets.map((o) => o.id).join(',')
-		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < 1500
+		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < NUDGE_MERGE_MS
 		const before = continuing ? s.before : targets.map((o) => ({ ...o }))
 		const yaw = this.controller.yaw
 		const fx = -Math.sin(yaw)
@@ -5781,7 +5934,7 @@ export class Engine {
 		const now = performance.now()
 		const s = this.nudgeSession
 		const key = targets.map((o) => o.id).join(',')
-		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < 1500
+		const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < NUDGE_MERGE_MS
 		const before = continuing ? s.before : targets.map((o) => ({ ...o }))
 		for (const o of targets) {
 			if (roll) o.tiltZ = stepTilt(o.tiltZ ?? 0, degrees)

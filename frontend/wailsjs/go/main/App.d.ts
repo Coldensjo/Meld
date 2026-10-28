@@ -273,6 +273,8 @@ export function ReadQuestGivers(arg1:number):Promise<vmangos.QuestGivers>;
 
 export function ReadReferenceImage(arg1:string):Promise<string>;
 
+export function ReadScriptFile(arg1:string):Promise<string>;
+
 export function ReadSpell(arg1:number):Promise<vmangos.SpellRecord>;
 
 export function ReadSpellVisual(arg1:number):Promise<vmangos.VisualDesign>;
@@ -357,6 +359,8 @@ export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
 
 export function SaveScript(arg1:string,arg2:string):Promise<string>;
 
+export function SaveScriptImage(arg1:string,arg2:number,arg3:number,arg4:string,arg5:boolean):Promise<void>;
+
 export function SaveSpell(arg1:number,arg2:number,arg3:Record<string, string>,arg4:string,arg5:vmangos.VisualDesign):Promise<main.SpellSaved>;
 
 export function SaveTaxi(arg1:vmangos.TaxiEdit):Promise<main.AreaSaveResult>;
@@ -368,6 +372,8 @@ export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 export function SaveVendor(arg1:number,arg2:Array<vmangos.VendorItem>):Promise<string>;
 
 export function ScriptCommands(arg1:string,arg2:number):Promise<Array<vmangos.ScriptCommand>>;
+
+export function ScriptPathExists(arg1:string):Promise<boolean>;
 
 export function ScriptsFolder():Promise<string>;
 
@@ -452,6 +458,8 @@ export function WriteMinimapTiles(arg1:string,arg2:Array<vmangos.MinimapTile>):P
 export function WriteNormalMap(arg1:string,arg2:number,arg3:string):Promise<void>;
 
 export function WritePNG(arg1:string,arg2:string):Promise<void>;
+
+export function WriteScriptFile(arg1:string,arg2:string,arg3:boolean,arg4:boolean):Promise<void>;
 
 export function WriteTextFile(arg1:string,arg2:string):Promise<void>;
 

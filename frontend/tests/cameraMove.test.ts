@@ -2,8 +2,9 @@
 // The camera's collision step (#434) against a toy WMO room, through the same wmoRoom.ts queries the
 // Engine's hooks use (`WmoRooms.collide` and `floorAt`), with the editor's axes taken to WoW's as
 // `toModel` does. The live checks are the `wmo-collide` and `walk-wmo` probes.
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { nearNum } from './support/near.ts'
 import * as THREE from 'three'
 import { COLLIDE_HEIGHT, WALK_HEIGHT, cornerFactor, moveStep, nearPlane, roomFloor, walkFloor, type CameraMoveRules } from '../src/lib/engine/cameraMove.ts'
 import { collideSphere, nearestFaceDist, walkFloorZ, type WmoNav } from '../src/lib/world/wmoRoom.ts'
@@ -88,10 +89,8 @@ function step(r: CameraMoveRules, settled: number[], target: number[], jumped = 
 	return t
 }
 
-const near = (a: number, b: number, what: string, eps = 1e-3) => assert.ok(Math.abs(a - b) < eps, `${what}: ${a}, not ${b}`)
-
 test('the radius is the near plane reach to a corner: 0.73 yd at 16:9, about 0.9 yd at a wider window', () => {
-	near(RADIUS, 0.729, 'radius at 16:9')
+	nearNum(RADIUS, 0.729, 1e-3, 'radius at 16:9')
 	assert.ok(NEAR * cornerFactor(55, 2.4) > RADIUS, 'wider, further')
 })
 
@@ -99,32 +98,32 @@ test('the flying camera stops its radius off a wall, however far it moves in a f
 	const r = rules(room(STREET))
 	// Above the terrain + 3 past the wall, so the clamp leaves the height.
 	let t = step(r, [5, 19, 10], [500, 19, 10])
-	near(t.x, 20 - RADIUS, 'off the wall')
-	near(t.y, 19, 'height kept')
+	nearNum(t.x, 20 - RADIUS, 1e-3, 'off the wall')
+	nearNum(t.y, 19, 1e-3, 'height kept')
 	t = step(r, [17, 19, 10], [22, 19, 16])
-	near(t.x, 20 - RADIUS, 'slid: off the wall')
-	near(t.z, 16, 'slid: along it')
+	nearNum(t.x, 20 - RADIUS, 1e-3, 'slid: off the wall')
+	nearNum(t.z, 16, 1e-3, 'slid: along it')
 })
 
 test('the flying camera stays 3 yd over a WMO floor in its room, not over the terrain (#310)', () => {
 	const r = rules(room(STREET))
 	// Lowered towards the street, below the terrain over it.
 	let t = step(r, [5, 14, 10], [5, 11, 10])
-	near(t.y, 10 + COLLIDE_HEIGHT, 'over the street')
+	nearNum(t.y, 10 + COLLIDE_HEIGHT, 1e-3, 'over the street')
 	assert.ok(t.y < TERRAIN, 'below the terrain')
 	// A fast drop through the floor still finds it, from where the eye was.
 	t = step(r, [5, 14, 10], [5, -40, 10])
-	near(t.y, 10 + COLLIDE_HEIGHT, 'dropped through')
+	nearNum(t.y, 10 + COLLIDE_HEIGHT, 1e-3, 'dropped through')
 	// Out of the room, over the terrain.
 	t = step(r, [40, 20, 40], [40, 5, 40])
-	near(t.y, TERRAIN + COLLIDE_HEIGHT, 'over the terrain')
+	nearNum(t.y, TERRAIN + COLLIDE_HEIGHT, 1e-3, 'over the terrain')
 })
 
 test('the floor clamp comes before the walls: under a low ceiling the walls win (#310, #305)', () => {
 	// A ceiling 3.2 yd over the street: floor + 3 lies within the radius of it.
 	const r = rules(room([...STREET, ...level(13.2, 0, 20, 0, 20)]))
 	const t = step(r, [5, 12, 10], [5, 11, 10])
-	near(t.y, 13.2 - RADIUS, 'kept off the ceiling')
+	nearNum(t.y, 13.2 - RADIUS, 1e-3, 'kept off the ceiling')
 	assert.ok(t.y < 10 + COLLIDE_HEIGHT, 'the walls won over the clamp')
 })
 
@@ -134,21 +133,21 @@ test('the walker stands 3 yd over a WMO floor, climbs a step, walks under a roof
 		const r = rules(room(tris), TERRAIN, { walk: true, collision })
 		const eye = 10 + WALK_HEIGHT
 		let t = step(r, [1, eye, 10], [6, eye, 10])
-		near(t.y, eye, `on the street (collision ${collision})`)
+		nearNum(t.y, eye, 1e-3, `on the street (collision ${collision})`)
 		t = step(r, [6, eye, 10], [10, eye, 10])
-		near(t.y, 11.5 + WALK_HEIGHT, `up the step (collision ${collision})`)
+		nearNum(t.y, 11.5 + WALK_HEIGHT, 1e-3, `up the step (collision ${collision})`)
 		t = step(r, [1, eye, 10], [3, eye, 10])
-		near(t.y, eye, `under the roof (collision ${collision})`)
+		nearNum(t.y, eye, 1e-3, `under the roof (collision ${collision})`)
 		t = step(r, [15, eye, 10], [30, eye, 10])
-		near(t.x, 20 - RADIUS, `stopped at the wall (collision ${collision})`)
-		near(t.y, eye, `still on the street (collision ${collision})`)
+		nearNum(t.x, 20 - RADIUS, 1e-3, `stopped at the wall (collision ${collision})`)
+		nearNum(t.y, eye, 1e-3, `still on the street (collision ${collision})`)
 	}
 })
 
 test('the walk starts on the floor below the eye, the street under a camera over a city (#312)', () => {
 	const r = rules(room(STREET), TERRAIN, { walk: true })
-	near(walkFloor(new THREE.Vector3(5, 19, 10), 19, true, r, scratch.floor), 10, 'the street')
-	near(walkFloor(new THREE.Vector3(40, 19, 40), 19, true, r, scratch.floor), TERRAIN, 'the terrain out of the room')
+	nearNum(walkFloor(new THREE.Vector3(5, 19, 10), 19, true, r, scratch.floor), 10, 1e-3, 'the street')
+	nearNum(walkFloor(new THREE.Vector3(40, 19, 40), 19, true, r, scratch.floor), TERRAIN, 1e-3, 'the terrain out of the room')
 })
 
 test('with collision off the flying camera passes through walls, floors and the terrain', () => {
@@ -159,7 +158,7 @@ test('with collision off the flying camera passes through walls, floors and the 
 
 test('a jump is not collided, and the orbit and top-down cameras are left alone', () => {
 	let t = step(rules(room(STREET)), [5, 14, 10], [20, 14, 10], true)
-	near(t.x, 20, 'jumped into the wall')
+	nearNum(t.x, 20, 1e-3, 'jumped into the wall')
 	for (const over of [{ followGround: true }, { topDown: true }]) {
 		t = step(rules(room(STREET), TERRAIN, over), [5, 14, 10], [30, 0, 10])
 		assert.deepEqual(t.toArray(), [30, 0, 10], JSON.stringify(over))
@@ -170,11 +169,11 @@ test('the near plane pulls in for a face within its reach, to no less than 0.05 
 	const nav = room(STREET)
 	const reach = NEAR * CORNER
 	const dist = (x: number) => nearestFaceDist(nav, x, -10, 14, reach)
-	near(nearPlane(dist(10), CORNER, NEAR, NEAR_MIN), NEAR, 'no face near')
+	nearNum(nearPlane(dist(10), CORNER, NEAR, NEAR_MIN), NEAR, 1e-3, 'no face near')
 	const d = dist(19.5)
-	near(d, 0.5, 'wall distance')
-	near(nearPlane(d, CORNER, NEAR, NEAR_MIN), 0.5 / CORNER, 'pulled in')
-	near(nearPlane(dist(19.99), CORNER, NEAR, NEAR_MIN), NEAR_MIN, 'against the wall')
+	nearNum(d, 0.5, 1e-3, 'wall distance')
+	nearNum(nearPlane(d, CORNER, NEAR, NEAR_MIN), 0.5 / CORNER, 1e-3, 'pulled in')
+	nearNum(nearPlane(dist(19.99), CORNER, NEAR, NEAR_MIN), NEAR_MIN, 1e-3, 'against the wall')
 })
 
 test('in a room the WMO floor wins over the terrain; outside it the higher of the two, so a roof is a floor', () => {

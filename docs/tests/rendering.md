@@ -5,6 +5,8 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Particles (M2 emitters, B-182)
 
+Probe: `particles-reach` (the far-emitter pre-test, #330); the rest is a hand check in the dev page.
+
 Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
 - `go test ./internal/wow -run Emitter` (and `TestClientEmitters` with `WOW_DIR`: Elwynn's tall
   waterfall has one lit alpha emitter with flags 0x2, BloodSpurt.m2 four, FlameStrike_Area.m2 four
@@ -12,8 +14,8 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   `tests/particles.test.ts` (kernels, ramps, integrator, quad writer, after Benilla's own tests).
 - In the app (the CDP route in `docs/TESTS.md`), place `World\Generic\PassiveDoodads\Lights\FreestandingTorch01.m2`
   and `World\Azeroth\Elwynn\PassiveDoodads\Waterfall\ElwynnTallWaterfall01.m2` (yOff -70: its emitter
-  is 94 yd up) on cleared ground. `__engine.particles.live` maps `<objectId>:<emitter>` to a pool
-  (`pool.count` live particles); `__engine.particles.batches` holds the draws (`floats / 36` quads).
+  is 94 yd up) on cleared ground. `__engine.debug.particles.live` maps `<objectId>:<emitter>` to a pool
+  (`pool.count` live particles); `__engine.debug.particles.batches` holds the draws (`floats / 36` quads).
   The torch burns with the flipbook flame and the waterfall throws a lit white spray (about 100
   particles).
 - Trap: an emitter out of view or beyond `RANGE` (300 yd) is frozen, so a pool with `acc` 0 and no
@@ -28,7 +30,7 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   so load the scene with `"prefs":{"animations":true}` (the owner's own prefs have animations off).
   `World\Dungeon\CavernsOfTime\PassiveDoodads\EnergyTrails\EnergyTrailHourglass.m2` placed on
   cleared ground sweeps two blue strips 60 to 160 yd up across the sky; from `distance: 260` both
-  trails hold about 95 edges (`__engine.particles.live.get('<id>:r0').trail.count`). Its bones are
+  trails hold about 95 edges (`__engine.debug.particles.live.get('<id>:r0').trail.count`). Its bones are
   linearly keyed, 9 keys in 16.7 s, so the strips run straight between keys, as the client draws them.
 - Spawns (#110): a spawn's pools and trails are keyed `s:<kind>/<guid>:<emitter>` (`:r<n>` for a
   ribbon). The Durotar region Kalimdor 41_33 (2x2) has 50 of them; its Copper Vein `object/112723`
@@ -42,7 +44,7 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   emitter (flags 0x3009, flat shockwave rings) births on the ground (ground height plus the birth
   size, about 0.5), not at the model's base. The fire and water rifts, `UndercityMonsterBirth.m2`,
   `G_GhostTrap.m2` and `G_ScourgeRuneCircleCrystal.m2` use the flag too.
-- Sorting (#118): an alpha batch (`__engine.particles.batches`, key `<texture>|alpha|...`) uploads its
+- Sorting (#118): an alpha batch (`__engine.debug.particles.batches`, key `<texture>|alpha|...`) uploads its
   quads back to front from the camera each frame. With Elwynn's tall waterfall placed as above, walk
   each batch's `data` (36 floats a quad; the centre is the mean of floats 0..2 and 18..20) and check
   the distances to `__engine.camera.position` never grow.
@@ -55,6 +57,8 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
 
 ## Ground effects (grass tufts)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: the tables load (`groundEffectTables()` in `wow/groundEffectTables.ts`), the tufts build
 around the camera (`GroundEffectLayer`) and the export carries effects. Unit tests:
 `tests/groundEffects.test.ts` and `go test ./internal/adt/` (`effects_test.go`). In the dev page:
@@ -64,7 +68,7 @@ const g = await import('<the loaded wow/groundEffectTables.ts URL>')
 await g.loadGroundEffectTables()        // the first time for a client scans every tile: a minute or two
 g.groundEffectTables().textures['tileset\elwynn\elwynngrassbase.blp']   // an effect id
 // With Northshire open and the camera on the ground: a few frames, then
-__engine.doc.groundEffects.count       // thousands (the tufts drawn now)
+__engine.debug.doc.groundEffects.count       // thousands (the tufts drawn now)
 __engine.exportInput().effects          // the effect per palette index
 ```
 
@@ -82,21 +86,25 @@ __engine.exportInput().effects          // the effect per palette index
 - The fade (B-178): `tests/groundEffects.test.ts` pins Benilla's landmarks (plateau to 52.64 yd, cut-out
   at 61.11, zero at 69.86). In the app (CDP route), Northshire's meadow at x 150, z 300 with the map's
   objects hidden, `yaw: 2.2, pitch: 0.1, distance: 4`: the grass thins away toward the hills instead
-  of ending at a ring. `__engine.doc.groundEffects.reach` is the build radius; the headless viewport
+  of ending at a ring. `__engine.debug.doc.groundEffects.reach` is the build radius; the headless viewport
   is 1068x285 (aspect 3.75), which makes it about 133 yd and the tuft count about four times a 70 yd
   ring's, so count tufts in a normal window when judging the cost.
 
 ## Water look (the client's combine, B-174)
 
+Hand check: the look against the game's, in the dev page.
+
 Checks: `water/liquidMaterial.ts` against the client's look. Northshire's stream in Azeroth 32_48 is
 river water up to depth byte 79: with the CDP route (`docs/TESTS.md`) load the region, then
 `e.setSceneView({ target: [340, 70.2, 283], yaw: 2.4, pitch: 0.35, distance: 45, hour: 13 })`. It
 should be teal with white ripple glints, as in the game; the old noggit-style shader drew it a flat
-olive. `__engine.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to 1 per vertex) to find
+olive. `__engine.debug.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to 1 per vertex) to find
 water elsewhere. For a before and after, `git stash push` the changed files, shoot, and `git stash
 pop`: the dev page reloads them.
 
 ## Client clouds (B-179)
+
+Hand check: the look against the game's; the unit test below covers the kernel.
 
 Checks: `wow/clouds.ts` and `engine/CloudDome.ts`. `tests/clouds.test.ts` ports Benilla's kernel tests
 (clear at density 0, overcast mean above 200 at 1, scattered at 0.6, the glow only brightening, the
@@ -107,6 +115,8 @@ is the coverage (Elwynn's light gives density 0.5, about 60% of the cells covere
 look up (it rides the ground), so the clouds show low over the horizon, where the dome's cap is.
 
 ## Liquid types from the client
+
+Probe: `liquid-kinds` (a layer's kind kept through a save, #540).
 
 Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidTypes` binding,
 `setLiquidTypes` in `water/liquids.ts`), so it holds the base four plus rows such as 21 "Naxxramas -
@@ -136,7 +146,7 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
 - Screenshot and zoom on the two: the one on the ground has a green stroke (red along any part
   under the slope), the one 6 units up a yellow one. The models may still be the purple
   placeholder boxes, which is enough for the colours.
-- Probe `selection-visuals` (#551) checks the colours and the warn boxes without a screenshot: on
+- Probe: `selection-visuals` (#551) checks the colours and the warn boxes without a screenshot: on
   objects-mixed it lifts the 16 models nearest the middle 30 yd, selects them, and compares each
   `outlineTargets[i].touching` and a single selection's `outline.shared.boxMin`/`boxMax` with a scan
   of every object, still, after a drag, a move away, a hidden neighbour and a prop attached elsewhere
@@ -145,7 +155,7 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   dragging one of them, and one selected (2.75, 2.94 and 0.55 ms before #551 on SwiftShader; 0.02,
   0.66 and 0.02 after). The warn boxes come in the order the cells give them, so it matches them
   as a set.
-- Probe `outline-heights` (#567) checks the red underground marks against the terrain's own height
+- Probe: `outline-heights` (#567) checks the red underground marks against the terrain's own height
   texture, which the outline shares: on a flat 1024 map a 4 yd helper cube is selected under the
   Select tool and a Sculpt stroke (driven through `P.stroke(e.tools.sculpt, ...)`, since the outline
   is built only under Select and Place) raises the ground along its edge; the outline's mask
@@ -155,6 +165,8 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   Trap: raise the ground under the cube's middle and the cube re-snaps up with it, so nothing turns red.
 
 ## Hover outline (#641)
+
+Probe: `hover-outline`.
 
 Checks: `Engine.updateHoverVisuals` and the second `SelectionOutline` it drives. Probe
 `hover-outline` (about 10 s): on a flat map with two helper cubes under the Select tool, the
@@ -166,6 +178,8 @@ Sculpt tool draws nothing. `--shot` shows the faint white stroke round the hover
   setting a pref in a probe, step a frame before reading what the engine does with it.
 
 ## Ground effects: no-doodad cells and density
+
+No probe: the unit tests below.
 
 Checks: tufts stay off the cells under buildings and off the client's own `noEffectDoodad` cells,
 and the export writes those cells. Unit tests: `groundEffects.test.ts` (`coverCells`,
@@ -190,6 +204,8 @@ e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cel
 
 ## Graphics › Quality presets (#203)
 
+No probe: the unit tests below, and a hand check in the dev page.
+
 Checks: `lib/state/graphicsPresets.ts` (unit test `graphicsPresets.test.ts`: each preset is found
 again after it is applied, one change makes it Custom). In the dev page, `applyPreset(prefs, 'Low')`
 through the page's own module URLs, step a few frames, and read `__engine.prefs` (renderScale 0.5,
@@ -199,6 +215,8 @@ reads Quality; after one setting changes it reads "Quality (custom)" with no pre
 `?nosave`: a preset writes ten prefs at once.
 
 ## The camera's WMO room (down-ray probe, #8)
+
+No probe: the unit tests below, and a hand check in the dev page.
 
 Checks: which group of a placed WMO the camera is in (`world/wmoRoom.ts`, Benilla's `seed.rs`), shown
 as "Camera in" in Detail info. Unit cases are Benilla's own (`tests/wmoRoom.test.ts`); the client data
@@ -248,11 +266,13 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   `e.doc.spawnLayer.forEachDrawn` counts 10 (Cameron, John, Dana among them); with
   `e.roomAdmit.admits = () => false` it counts 0.
 - Water and tufts (#119): with the inn placed in Durotar, outside it the region draws about 4400 tufts
-  (sum of `mesh.count` over `__engine.doc.groundEffects.batches`) and 59 liquid blocks
-  (`__engine.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
+  (sum of `mesh.count` over `__engine.debug.doc.groundEffects.batches`) and 59 liquid blocks
+  (`__engine.debug.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
   and they come back on leaving.
 
 ## Client Lighting's ground: per-vertex light and the sheen (#111)
+
+Hand check: the look against the game's; the probe `console-clean` covers the sheen textures asked for (#336).
 
 Checks: under Lighting › Client Lighting the terrain shader takes the light's rows in gamma space
 (`clientAmbient`, `clientDiffuse`, `clientSpecular` = rows 1, 0 and 9), sums and clamps them per
@@ -272,12 +292,15 @@ layer i from `i * 65536`, the first 8 bytes of each 16-byte block its 16 alphas,
   textures; compare with `clientPointCount` held at 0 before blaming the light sum.
 
 ## Losing and restoring the viewport's WebGL context (#209)
+
+Hand check: in the dev page, as below; no probe covers it.
+
 Checks: the viewport comes back after the browser drops its WebGL context, and nothing is drawn or
 cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
 - In the dev page (headless Chrome over CDP works, `docs/TESTS.md`): `const x = __engine.renderer.getContext().getExtension('WEBGL_lose_context'); x.loseContext()`,
   wait ~500 ms: `__engine.contextLost` is true, the status bar says the graphics card dropped the
   viewport, and `__engine.renderMinimapTile(0, 0, 'none', 16)` throws. Then `x.restoreContext()`, wait
-  ~1.5 s and step `__engine.frame()` a few times: the status says the viewport is back, the shot looks
+  ~1.5 s and step `__engine.debug.frame()` a few times: the status says the viewport is back, the shot looks
   as before, and `gl.getError()` stays 0 after each frame. Compare the mean of a small
   `renderMinimapTile` before and after (78.1 against 78.5 on a Stranglethorn region, 2026-10-16).
 - Trap: three rebuilds its state and re-uploads geometry and textures by itself on restore, but a
@@ -294,7 +317,10 @@ Checks: the asset browser's preview (`AssetPreview.svelte`) and the Preview wind
 their own context is lost and restored, with no WebGL errors, and a closed Preview's released context
 (#201) stays lost.
 - Probe: `bun run probe preview-context` (about 2.5 minutes: the previews' own rAF is throttled in the
-  headless page, so it waits for their draws rather than stepping frames). It hovers a palette tile
+  headless page, so it waits for their draws rather than stepping frames). It is `// tier: manual` (#426):
+  `--all` (`make probe`) leaves it out, and `--touching` runs it when a change touches `AssetPreview.svelte`,
+  `CreaturePreview.svelte`, `ModelPreviewWindow.svelte` or `lib/ui/previewRenderer.ts`. Run it by name after
+  changing how the previews create, lose or release their contexts. It hovers a palette tile
   and the preview itself (a still preview draws nothing since #589, so the pointer over it keeps it
   spinning), then opens `ui.modelPreview` on a model of the scene with particles (the Northshire waterfall).
 - How: `canvas.getContext('webgl2')` on the preview's canvas returns its live context; wrap its
@@ -396,6 +422,9 @@ full model does.
   copied vertices).
 
 ## Compressed client textures (DXT, #178)
+
+No probe: the Go tests below (with the client); the probe `terrain-dxt` covers the terrain's array (#216).
+
 Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where
 the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look as the RGBA path did.
 - Go: `TestDXTOf*` in `internal/wow/blpdxt_test.go`; with `WOW_DIR=C:/WoW/client`,
@@ -464,6 +493,9 @@ inside branches.
   `minFilter = 1006` (`LinearFilter`) and `needsUpdate = true` to see the old shimmer.
 
 ## Preview window: particles, ribbons and texture animation (#200)
+
+Hand check: in the dev page; the probe `preview-context` draws the Preview window on a model with particles (#213).
+
 Checks: the preview window and the creature editor's preview (`CreaturePreview.svelte`) run the model's
 particles and ribbons in a `ParticleLayer` of their own (`new ParticleLayer(new PreviewSet())`, so the
 main layer never draws that model), and its texture and colour animation (run for every material by
@@ -641,7 +673,68 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   room 49 (`atWall`); on the old code it ends 2.5 yd through it, in 111 SI:7. With the walls the street
   walk stays in the rooms (80 samples, 47 before). Trap: starting the walk 6 yd up lands on the top of a wall by the street, a walking face too.
 
+## Shadow maps: lights' cube maps, the sun's cascades and the moving casters (#129, #133, #325, #326, #346, #366)
+
+Probes: `shadow-redraw` (smoke), `shadow-poses`, `shadow-sun-drift`, and `perf-everything` for the near
+cascade's calls; the cube maps' costs (#129, #133) are hand checks on the GPU.
+
+Checks: what the shadow passes draw and when they redraw. Unit: `tests/shadowReach.test.ts` (which
+batches join a cube face or the near cascade).
+- The sun's near map is kept between frames (#326, probe `shadow-redraw`, smoke, a flat map): a still
+  view redraws neither cascade; moving an object, sculpting, cutting holes, undo, a layer
+  toggle and a turn of the camera each redraw the near one; the far one holds through a small turn and a
+  sun moved under 0.1° and is redrawn after a long pan or a larger sun move (#324). It counts the frames
+  whose `markShadows` asked for a redraw. Trap: a new map's spawns and preferences arrive a few frames
+  late and each redraws the maps once, so let it settle before counting.
+- A jump's cost (#129): wrap `__engine.debug.frame` to time each call, `controller.focus(x, z)` across a
+  3x3 block (`region: { mapName: 'Azeroth', x: 31, y: 48, size: 3 }`, cells 384, world 768), and read
+  the next five frames. Run Chrome on the GPU for this (`--use-angle=d3d11 --enable-gpu
+  --ignore-gpu-blocklist` instead of the swiftshader flags); swiftshader's times say nothing. Wrapping
+  `renderer.shadowMap.render` splits the shadow pass out: a point light's cube map is about 40 ms
+  there, the far cascade about 5 ms. Before #129 a jump that brought three new shadowed lights took
+  one ~225 ms frame (steady ~50 ms headless); now one cube map is drawn a frame (~115, 95, 95 ms) and
+  a light waits dark for its first map.
+- A cube's draw calls (#133): model and spawn batches join a cube face only with a drawn instance in
+  the light's reach and the face (`world/shadowReach.ts`). Force `lights[0].shadow.needsUpdate` on
+  every other frame and compare `renderer.info.render.calls`: on the 3x3 block a cube adds about 43
+  calls (about 1400 with the batches' `intersectsFrustum` set to `() => true`, the old behaviour) and
+  about 1 ms. In T3 Code's preview tab (a real GPU, RTX 5080) the old cube was ~38 ms at the default
+  spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
+  good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
+- The near cascade's draw calls (#325): a model or spawn batch joins the sun's near shadow pass only
+  with a drawn instance in the cascade's box (`setNearCascade`, `world/shadowReach.ts`). Unit test
+  `tests/shadowReach.test.ts`; in the app, `bun run probe perf-everything` (about 830 fewer calls than
+  before, 2725 to 1895). To A/B it in one page, wrap every scene InstancedMesh that has its own
+  `intersectsFrustum` as `(f) => f === __engine.debug.env.key.shadow.getFrustum() ? true : old(f)` (the old
+  behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
+  shadows (Help › Benchmark maps) for casters missing at the near box's edge.
+- The scene pass draws only what is in view (#15): a batch's `count` is its instances in the camera's
+  frustum, and a shadow pass draws `packedCount(mesh)` (objects.md, the instance batch). Unit tests
+  in `tests/instanceCull.test.ts`, `tests/instanceBatch.test.ts` and `tests/shadowReach.test.ts`. In
+  the app: the `world-view` probe's `perf.models.calls` (1,993 before, 1,017 after, CPU 15.7 to 10.8
+  ms). To split the passes, wrap `renderer.shadowMap.render` and set `env.key.shadow.needsUpdate` or
+  `env.far.shadow.needsUpdate` before a frame: the shadow passes must draw the same calls and triangles
+  before and after a change here (near 160 calls, far 1,920 at that view). To see that no shadow went
+  missing, shoot the same views on both commits at a low sun (`prefs.dayCycle = false`,
+  `prefs.timeOfDay = 17.6`, four headings, both maps forced redrawn) and compare the PNGs with
+  `magick compare -metric AE -fuzz 2%`: a few pixels differ between identical runs.
+- The moving casters' pass (#346, probe `shadow-poses`): with Prop animations on, a still view draws
+  only the posed models and moving cut-outs into the near map, over a copy of the rest. A/B it in one
+  page with `P.ab((on) => { __engine.posedShadows.enabled = on }, 6, { sections: ['Shadow', 'Render'] })`
+  after `P.benchMap('objects-mixed')` (off redraws the whole near map on such frames, as before). Trap:
+  a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
+  until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
+  (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
+- The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
+  sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
+  light follows the live sun. The probe steps the hour (`e.debug.setHour`) by 0.0005 a frame with the clock frozen and
+  compares the matrix after each held frame with the one after the last redraw. Trap: a pixel diff
+  barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
+  own turn), so compare the matrix.
+
 ## The instance batch: culling, packing and picking of placed models and spawns (#517)
+
+Probes: `object-move` (no pack during a drag) and the others listed below, over both layers; unit test below.
 
 - `bun test tests/instanceBatch.test.ts`: `world/instanceBatch.ts` on its own (the rows in view packed
   to the front with their items, a repack forced after rows are rewritten, a moved row written in place
@@ -654,3 +747,58 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   run it on a new document without spawns, as it does.
 - Probes that peek at ObjectLayer's batches read the rows as `b.rows.items`, `b.rows.matrices`,
   `b.rows.spheres` and `b.rows.packed` (not `b.all` and the rest, before #517).
+
+## The benchmark scene and maps: smoke, bench and perf-* (#322, #429)
+
+Probes: `smoke`, `bench` and `perf-*`.
+
+Checks: the benchmark scene (`P.BENCH`, Help › Copy Scene's Northshire view) and the benchmark maps
+(Help › Benchmark maps, `lib/bench/benchMaps.ts`) open and draw, and their numbers for a before/after.
+The method (same scene, same prefs, what to compare) is the testing notebook's "Measuring performance".
+- `bun run probe smoke` (about 90 s): the benchmark scene opens, its models load and it draws with no
+  WebGL or page error. Not `tier: smoke` despite the name: it loads the heavy scene.
+- `bun run probe bench`: the scene's numbers. Draw calls, triangles, geometries and textures are
+  deterministic there, so it fails when one drifts more than 10 % from `probes/bench-baseline.json`
+  (#429); after a change that moves them on purpose, update the baseline in the same commit.
+  Milliseconds and heap are printed only (SwiftShader, #226, #337).
+- `bun run probe 'perf-*'` (or `make probe-perf`; one map: `perf-terrain`, `perf-water`, `perf-wmo`,
+  `perf-lights`, `perf-objects-same`, `perf-objects-mixed`, `perf-creatures`, `perf-everything`,
+  `perf-world-flight`): each map's numbers, checking nothing. `PERF_WINDOWS` sets how many
+  `measurePerf` windows `P.perf` averages (#337).
+- Trap: `bench` and `perf-*` are left out of `--all` (#390): name them. Their milliseconds are
+  SwiftShader's; compare counters, or run with `PROBE_GPU=1` for times on the real GPU.
+
+## Spawns posed only when drawn (#328, probe `pose-drawn`)
+
+Checks: the Animator poses only the animated spawn types the cull drew this frame, and with Prop
+animations off a drawn type holds its first frame (time 0), not the bind pose.
+- Probe: `bun run probe pose-drawn`: hides Creatures and NPCs (View) and checks nothing of them is
+  posed, shows them again and checks every drawn type is posed on that first frame, then turns Prop
+  animations off. It loads the creatures benchmark map with 300 spawns (`P.loadBenchMap`).
+
+## A model the client draws nothing of (#333, probe `nothing-to-draw`)
+
+Checks: Blackrock's open-door collision blocker, a model with no drawn geometry, loads once with no
+warning as a ready marker (its hull's wireframe) that casts no shadow, instead of failing and retrying
+every 30 s.
+- Probe: `bun run probe nothing-to-draw` (a flat map, a few seconds).
+
+## Releasing models: closed maps, thumbnails and previews (#505, #506)
+
+Checks: closing a map lets go of its models, and a thumbnail or the Preview window lets go of a model's
+own materials, so GPU memory and the per-frame animated lists don't grow over a session.
+- Probe: `bun run probe release-models` (#505): opens the objects-mixed benchmark map, then the
+  buildings one, closes it, and checks the kept models, shared materials, model textures and the
+  renderer's geometries and own textures are back where the first map had them. Trap (#658): the client
+  textures the cache keeps are uploaded when first drawn, so they are left out of the renderer's count.
+- Probe: `bun run probe release-asset` (#506): a model with a moving texture or colour, built and
+  released as a thumbnail, and the Preview window opened and closed on it, leave the per-frame animated
+  lists as they were.
+
+## Moving lit models (#511, probe `effects-drag`)
+
+Checks: dragging a brazier on the lights benchmark map a frame at a time, and a sculpt stroke under the
+braziers, move the lights, flames and particle pools without a full rebuild (`PropEffects.rebuild` and
+`ParticleLayer.rebuild` are not called), no shadowed light goes dark for a frame, and what they hold
+afterwards matches a full rebuild.
+- Probe: `bun run probe effects-drag` (loads the lights benchmark map; prints the ms a frame of the drag).

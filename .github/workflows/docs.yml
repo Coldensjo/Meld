@@ -1,6 +1,6 @@
 # Builds the documentation site from docs/ with VitePress (docs/.vitepress/config.mts) and publishes
 # it to GitHub Pages (https://coldensjo.github.io/Meld/) whenever the docs or the frontend's
-# dependencies change on main.
+# dependencies change on main. Pull requests validate only; they cannot deploy.
 name: Docs
 
 on:
@@ -11,36 +11,65 @@ on:
       - 'frontend/package.json'
       - 'frontend/bun.lock'
       - '.github/workflows/docs.yml'
+      - 'frontend/scripts/docs-check*'
+      - '**/*.md'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '**/*.md'
+      - 'frontend/package.json'
+      - 'frontend/bun.lock'
+      - 'frontend/scripts/docs-check*'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: docs-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
+    permissions:
+      contents: read
+      pages: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # the pages' "Last updated" comes from the git history
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.3'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: docs-bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: docs-bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
         working-directory: frontend
-      - run: bun run docs:build
+      - run: bun run docs:check
         working-directory: frontend
+      - name: Record deployed revision
+        run: git rev-parse HEAD > docs/.vitepress/dist/revision.txt
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: docs/.vitepress/dist
 
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment:
       name: github-pages

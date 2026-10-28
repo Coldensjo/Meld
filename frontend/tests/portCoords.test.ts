@@ -1,5 +1,5 @@
 // Run with: bun test tests/portCoords.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { formatPortCoords, serverSpot, teleportCommand, wmoOnlyTiles } from '../src/lib/io/portCoords.ts'
 

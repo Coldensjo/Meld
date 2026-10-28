@@ -38,15 +38,26 @@ func TestReadMapEntriesSynthetic(t *testing.T) {
 	}
 }
 
-// TestRealMapEntries reads the client's Map.dbc and checks a few maps of each type:
-// WOW_DIR=/path/to/client go test ./internal/vmangos/ -run RealMapEntries
-func TestRealMapEntries(t *testing.T) {
+// TestClientMapRowInfo reads the client's Map.dbc once: a few maps of each type read as the client
+// names them, a row added at a free ID reads back, a map added with a raid's info shows the client's
+// reader the type and the name, with the zone and loading screen where Molten Core's sit, and
+// Azeroth's WDT builds a tile table. It needs WOW_DIR.
+func TestClientMapRowInfo(t *testing.T) {
 	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	entries, err := LoadMapEntries(dataDir)
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	dbc, err := set.ReadFile(`DBFilesClient\Map.dbc`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := ReadMapEntries(dbc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,26 +76,33 @@ func TestRealMapEntries(t *testing.T) {
 			t.Errorf("map %d = %+v, want %+v", want.ID, got, want)
 		}
 	}
-}
 
-// TestClientMapRowInfo adds a map to the client's Map.dbc and gives it a raid's info: the client's
-// reader sees the type and the name, and the zone and loading screen sit where Molten Core's do. It
-// needs WOW_DIR.
-func TestClientMapRowInfo(t *testing.T) {
-	dir := testclient.DataDir(t)
-	dataDir, err := wow.ResolveDataDir(dir)
+	// A free ID: the client may already list the maps the editor has exported.
+	free := uint32(0)
+	for _, id := range MapRowIDs(dbc) {
+		if id >= free {
+			free = id + 1
+		}
+	}
+	withFree, err := AddMapRow(dbc, free, "MeldTest")
 	if err != nil {
 		t.Fatal(err)
 	}
-	set, err := mpq.OpenDataDir(dataDir)
+	if MapRowDir(withFree, free) != "MeldTest" || len(MapRowIDs(withFree)) != len(MapRowIDs(dbc))+1 {
+		t.Fatal("the new row did not read back")
+	}
+	wdt, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dbc, err := set.ReadFile(`DBFilesClient\Map.dbc`)
-	set.Close()
+	built, err := BuildWDT(wdt, func(x, y int) bool { return x == 32 && y == 48 })
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(built) == 0 {
+		t.Fatal("empty WDT")
+	}
+
 	added, err := AddMapRow(dbc, 1901, "MeldRaid")
 	if err != nil {
 		t.Fatal(err)
@@ -93,14 +111,14 @@ func TestClientMapRowInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entries, err := ReadMapEntries(out)
+	raid, err := ReadMapEntries(out)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got *MapEntry
-	for i := range entries {
-		if entries[i].ID == 1901 {
-			got = &entries[i]
+	for i := range raid {
+		if raid[i].ID == 1901 {
+			got = &raid[i]
 		}
 	}
 	if got == nil || got.Dir != "MeldRaid" || got.Type != 2 || got.Name != "Meld's Raid" {

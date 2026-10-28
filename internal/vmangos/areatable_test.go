@@ -101,8 +101,10 @@ func TestAreaRowsEditAndAdd(t *testing.T) {
 	}
 }
 
-// TestClientAreaTable writes the client's own Azeroth areas back unchanged (the same file), then
-// renames Goldshire and adds a subzone, and checks only those rows changed. It needs WOW_DIR.
+// TestClientAreaTable checks the field layout against the client's own AreaTable.dbc (Elwynn Forest
+// is zone 12 on Azeroth, and Goldshire (87) is a subzone of it), writes its Azeroth areas back
+// unchanged (the same file), then renames Goldshire and adds a subzone, and checks only those rows
+// changed. It needs WOW_DIR.
 func TestClientAreaTable(t *testing.T) {
 	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
@@ -117,6 +119,23 @@ func TestClientAreaTable(t *testing.T) {
 	set.Close()
 	if err != nil {
 		t.Fatal(err)
+	}
+	all, err := ReadAreas(dbc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[uint32]Area{}
+	for _, a := range all {
+		byID[a.ID] = a
+	}
+	if a := byID[12]; a.Name != "Elwynn Forest" || a.MapID != 0 || a.Parent != 0 {
+		t.Fatalf("area 12: %+v", a)
+	}
+	if a := byID[87]; a.Name != "Goldshire" || a.MapID != 0 || a.Parent != 12 {
+		t.Fatalf("area 87: %+v", a)
+	}
+	if len(all) < 1000 {
+		t.Fatalf("only %d areas", len(all))
 	}
 	rows, err := ReadAreaRows(dbc, 0)
 	if err != nil {

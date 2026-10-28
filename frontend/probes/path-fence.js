@@ -10,16 +10,16 @@ const V3 = e.controller.target.constructor
 const t = e.terrain
 const h0 = t.heightAt(256, 256)
 const at = (x, z) => new V3(x, t.heightAt(x, z), z)
-const tool = e.tools.path
+const tool = e.debug.tools.path
 const ev = new PointerEvent('pointerdown')
 for (const [x, z] of [
 	[200, 240],
 	[256, 250],
 	[310, 240],
 ]) {
-	e.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
-	tool.onDown(e.ctx, at(x, z), ev)
-	tool.onUp(e.ctx)
+	e.debug.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
+	tool.onDown(e.debug.ctx, at(x, z), ev)
+	tool.onUp(e.debug.ctx)
 }
 const model = 'm2:World\\Azeroth\\Duskwood\\PassiveDoodads\\Fence\\DuskWoodFenceSegment.m2'
 e.path((tl, c) => tl.setField(c, 'model', model))

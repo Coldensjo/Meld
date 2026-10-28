@@ -10,12 +10,12 @@ ui.weatherGrade = 'heavy'
 // Low over the ground, so the mist has ground behind it rather than fog of its own colour.
 e.controller.distance = 25
 e.controller.pitch = 0.35
-await P.until(() => e.clientLights && e.scene.fog, 30000, "Azeroth's lights and the fog")
+await P.until(() => e.debug.clientLights && e.scene.fog, 30000, "Azeroth's lights and the fog")
 await P.frames(2)
 const fog = () => (e.scene.fog ? [Math.round(e.scene.fog.near), Math.round(e.scene.fog.far)] : null)
 const clearFog = fog()
 const clearShot = await P.shot()
-const layer = e.weather
+const layer = e.debug.weather
 const out = { clearFog, clearHidden: !layer.group.visible }
 
 /** One weather: its parts once their textures load, the fog, and how the picture changed from clear. */
@@ -26,14 +26,14 @@ async function look(kind) {
 	await P.frames(2)
 	// The frame drawn again as it is, and again without the drops: what the drops add to the storm light.
 	const shot = await P.shot(() => {
-		e.frame()
+		e.debug.frame()
 		e.renderer.render(e.scene, e.camera)
 	})
 	const p = layer[part]
 	const visible = layer.group.visible && p.visible
 	const count = part === 'snow' ? p.geometry.drawRange.count : p.geometry.instanceCount
 	const bare = await P.shot(() => {
-		e.frame()
+		e.debug.frame()
 		layer.group.visible = false
 		e.renderer.render(e.scene, e.camera)
 	})

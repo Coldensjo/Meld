@@ -41,7 +41,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     where a Save button already keeps a `saving` flag (the database editors, their tabs, the flight
     path, light, portal and zone windows). Saves may overlap; the newest running is named. The Go
     bindings report no progress, so there is no percentage. It shows after 400 ms, takes no clicks
-    (the quit dialog under it still works) and sits at z-index 900, over the editors and `Modal`.
+    (the quit dialog under it still works) and sits at `--z-saving` (900), over the editors and `Modal`.
     A new save anywhere gets a label through the same helper; the background server map rebuild
     after a compile reports in the status bar only, since editing goes on during it.
   - **Interface size** (Preferences, Ctrl+= / Ctrl+- / Ctrl+0, `prefs.uiScale`, #372):
@@ -170,7 +170,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     of Azeroth, which keeps the client's ocean. Lakes and rivers are the Water tool's Paint mode.
     A map made for the client also has its Map.dbc and map_template facts here (`MapInfo`, written
     on publish). Its loading screen is one of the client's or, through Picture… (#218), a PNG of the
-    author's: `WriteLoadingScreen` (`vmangos/loadingscreen.go`) writes it at once as a 512x512 DXT1
+    author's: `WriteLoadingScreen` (`app_client_tables.go`, on `vmangos.LoadingScreenFiles`) writes it at once as a 512x512 DXT1
     BLP at `Interface\Glues\LoadingScreens\LoadScreenMeld<Dir>.blp`, a LoadingScreens.dbc row of its
     own (found again by that path) and the map's Map.dbc field 38 when the client has the row, and the
     dialog chooses the row in `MapInfo` so a later publish keeps it. The preview draws the chosen
@@ -181,6 +181,35 @@ The window layout, the asset browser and the dock panels and floating windows.
     Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
   - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
     under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.
+- **UI state modules** (#459): `lib/state/editor.svelte.ts` holds `editor`, `stats`, `docs`, `wow` and
+  `ui` (whose `ui.dialog` is a `DialogId`, the one list of dialog ids). The preferences (`prefs`,
+  `Prefs`, `defaultPrefs`, `stepCameraSpeed`) are in `state/prefs.svelte.ts` (their saving stays in `state/prefs.ts`),
+  the Log window's lines and the session's log file (`appLog`, `logLine`, `logFile`, `startLogFile`)
+  in `state/log.svelte.ts`, and `setStatus` and the viewport hint in `state/status.svelte.ts`.
+  editor.svelte.ts re-exports all of them so older imports keep working; import new uses from the
+  module itself.
+- **Stacking order** (#590): every window-level layer takes a `--z-*` token from `app.css`'s
+  `:root`, never a number of its own; the full-screen editors pass theirs to `EditorFrame` as `z`
+  (`'editor'`, `'editor-2'`, `'editor-3'`). Lowest first:
+
+  | Token | Value | What |
+  |---|---|---|
+  | `--z-window` | 40 | the floating windows (Inspector, History, Minimap, Reference, Scripts, Check Map, Flight Paths, Texture Palette) |
+  | `--z-options`, `-more`, `-panel` | 45, 46, 47 | the options bar while open, its overflow, its settings panel |
+  | `--z-bar` | 50 | the menu bar and its menus |
+  | `--z-workspace` | 140 | the Creatures workspace |
+  | `--z-editor` | 150 | the creature, game object and doodad brush editors |
+  | `--z-editor-2` | 160 | the quest editor and the model preview, over those |
+  | `--z-editor-3` | 165 | the item and spell editors and the icon picker, over the quest editor |
+  | `--z-menu` | 180 | the right-click menu |
+  | `--z-modal` | 200 | `Modal` and the dialogs on it |
+  | `--z-saving` | 900 | the saving bar |
+  | `--z-tip` | 1000 | tooltips (item tooltip, toolbar tips) |
+  | `--z-debug` | 10000 | the F8 overlay |
+
+  The small values (1 to 5) left in components order parts inside one panel or the viewport, not
+  windows. Known quirks kept as they were: a right-click menu opened from inside a `Modal` is under it
+  (180 < 200).
 - **Dialogs and focus** (#369): every dialog, `Modal.svelte` and the editors and windows with their
   own `role="dialog"` root (the creature, item, spell, quest and object editors, the Creatures
   workspace, the doodad brush editor, the model preview, the start dialog), carries

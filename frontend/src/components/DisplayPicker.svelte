@@ -31,7 +31,7 @@
 <script lang="ts">
 	import PaletteTile from './PaletteTile.svelte'
 	import VirtualGrid from './VirtualGrid.svelte'
-	import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
+	import { gridCols, gridTile, gridWindow, rowTop } from '../lib/ui/virtualGrid'
 	import { creatureTypeName, objectTypeName, spawnType } from '../lib/world/spawnInfo'
 
 	// A visual picker of creature displays, or (kind 'object', #230) of game object displays: rendered
@@ -125,7 +125,7 @@
 	let scrollTop = $state(0)
 	let scroller: HTMLDivElement | undefined = $state()
 	const cols = $derived(gridCols(width, TILE, GAP, PAD - GAP))
-	const tile = $derived(Math.min(MAX_TILE, Math.max(TILE, Math.floor((width - PAD - (cols - 1) * GAP) / cols))))
+	const tile = $derived(gridTile(width, cols, GAP, PAD, TILE, MAX_TILE))
 	const rowH = $derived(tile + 22 + GAP)
 	const win = $derived(gridWindow(items.length, cols, rowH, scrollTop, height))
 	$effect(() => {

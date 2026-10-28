@@ -1,5 +1,5 @@
 // Run with: bun test tests/search.test.ts
-import { test } from 'node:test'
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { indexCatalog, scoreItem, searchAssets, tokenize } from '../src/lib/wow/search.ts'
 import { buildCatalog, categoryOrder } from '../src/lib/wow/catalog.ts'

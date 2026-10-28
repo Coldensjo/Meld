@@ -3,7 +3,7 @@
 const map = await P.loadBenchMap('everything')
 const e = P.e
 const L = e.objects
-const ctx = e.ctx
+const ctx = e.debug.ctx
 const { editor } = await P.state()
 const sel = await P.app('/src/lib/state/selection.ts')
 const V3 = e.camera.position.constructor
@@ -16,8 +16,8 @@ for (let i = 0; i < 20; i++) {
 }
 editor.brush.radius = 25
 editor.doodad.onProps = true
-const clear = e.tools.clear
-const doodad = e.tools.doodad
+const clear = e.debug.tools.clear
+const doodad = e.debug.tools.doodad
 const xs = roots.map((o) => o.x)
 const zs = roots.map((o) => o.z)
 const minX = Math.min(...xs),

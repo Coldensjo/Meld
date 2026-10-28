@@ -36,7 +36,7 @@ for (const [kind, t] of [
 	await P.frames(2)
 	if (!near(tool.ghost.scale.x, want)) bad.push(`${kind}: Shift+scroll scaled the preview to ${tool.ghost.scale.x}`)
 	// The spawn the click puts down is drawn at the preview's size.
-	const layer = e.doc.spawnLayer
+	const layer = e.debug.doc.spawnLayer
 	const n = layer.spawns.length
 	tool.rot = 1.3
 	await P.click(0.5, 0.5)

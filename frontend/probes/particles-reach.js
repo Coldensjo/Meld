@@ -6,7 +6,7 @@ if (kind === 'bench') {
 	await P.scene(P.BENCH)
 	await P.settle()
 } else await P.loadBenchMap(kind, undefined, scale)
-const pl = P.e.particles
+const pl = P.e.debug.particles
 const { ParticlePool } = await P.app('/src/lib/world/particles.ts')
 const { RibbonTrail } = await P.app('/src/lib/world/ribbons.ts')
 let pools = new Set()

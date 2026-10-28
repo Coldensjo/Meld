@@ -12,10 +12,10 @@ editor.brush.strength = 1
 const V3 = e.controller.target.constructor
 const at = (x, z) => new V3(x, e.terrain.heightAt(x, z), z)
 const before = Float32Array.from(e.terrain.heights)
-const tool = e.tools.sculpt
-tool.onDown(e.ctx, at(200, 200))
-for (let i = 0; i < 40; i++) tool.tick(e.ctx, 0.05, at(200 + i, 200))
-tool.onUp(e.ctx)
+const tool = e.debug.tools.sculpt
+tool.onDown(e.debug.ctx, at(200, 200))
+for (let i = 0; i < 40; i++) tool.tick(e.debug.ctx, 0.05, at(200 + i, 200))
+tool.onUp(e.debug.ctx)
 await P.frames(1)
 const after = Float32Array.from(e.terrain.heights)
 const diff = (a, b) => {

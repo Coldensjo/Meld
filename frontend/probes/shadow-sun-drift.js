@@ -10,11 +10,11 @@ const e = P.e
 const { prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(3)
-if (!e.env.key.castShadow) return { ok: false, error: 'the sun casts no shadows (Graphics › Shadows is off)' }
+if (!e.debug.env.key.castShadow) return { ok: false, error: 'the sun casts no shadows (Graphics › Shadows is off)' }
 const wasCycle = prefs.dayCycle
 prefs.dayCycle = false
 await P.frames(2)
-const near = e.env.key.shadow
+const near = e.debug.env.key.shadow
 let redrawn = false
 const mark = e.markShadows.bind(e)
 e.markShadows = () => {
@@ -24,8 +24,8 @@ e.markShadows = () => {
 const r = { frames: 0, redraws: 0, held: 0, matrixOff: 0 }
 try {
 	// A low afternoon sun, for long shadows that slide the most.
-	e.hour = 16
-	const focus = e.env.key.target.position
+	e.debug.setHour(16)
+	const focus = e.debug.env.key.target.position
 	for (const [dx, dz] of [
 		[-25, -25],
 		[25, -25],
@@ -47,7 +47,7 @@ try {
 	let worst = { off: 0, mean: 0 }
 	// 0.0005 h a frame is about 0.0075°: a refit (0.1°) every dozen frames or so.
 	for (let i = 0; i < 40; i++) {
-		e.hour += 0.0005
+		e.debug.setHour(e.debug.hour + 0.0005)
 		redrawn = false
 		const shot = await P.shot()
 		r.frames++

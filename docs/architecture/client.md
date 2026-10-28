@@ -98,8 +98,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - **Server tooling is Windows-only** (#483): `vmangos.OSRunner` finds and stops the server's programs
   with `tasklist` and `taskkill` and runs its Windows extractors. Off Windows its `Running` reads
   `/proc/*/comm` for the image name without `.exe` (a native Benilla) or with it (Wine), cut to comm's
-  15 characters, and `vmangos.StopCommand` gives `pkill` for the game's close (#730), so a patch write
-  there still waits for a running game; without a `/proc` (macOS) nothing runs. `vmangos.Supported(runner)` returns `ErrNeedsWindows`, which `UpdateServerMaps`,
+  15 characters, and `vmangos.StopCommand` gives `pkill` for the game's explicit close (#730).
+  This process lookup is not the patch-lock gate: `App.gameRunning` returns false off Windows,
+  so `queueClientFiles` can write immediately on Linux rather than queue for a running game.
+  Loaded assets can still be stale; without `/proc` this process lookup finds nothing. `vmangos.Supported(runner)` returns `ErrNeedsWindows`, which `UpdateServerMaps`,
   `game.Session`'s server stop and `App.PlayHere` return instead of "not running"; `ensureDatabase`
   starts the server folder's mariadbd only on Windows. A test's fake runner is always supported, and
   tests set `hostOS` to check the guard on any machine.
