@@ -8,6 +8,7 @@ import { CHUNK_IMPASSABLE } from '../src/lib/terrain/chunkFlags.ts'
 import { ObjectLayer } from '../src/lib/world/ObjectLayer.ts'
 import { LiquidMap } from '../src/lib/water/liquids.ts'
 import type { Command } from '../src/lib/state/history.ts'
+import { effectAt, noScopedEffects, type ScopedEffects } from '../src/lib/world/groundEffects.ts'
 
 // The script API's chunks, texture layers, holes, zones and water (#760) on the editor's own host, over a
 // 16-cell map (2 by 2 chunks, 64 texels a side, 32 a chunk), cells 2 yards: a chunk is 16 yards.
@@ -19,6 +20,10 @@ function world() {
 	const objects = new ObjectLayer(t)
 	const liquids = new LiquidMap(16)
 	let palette: string[] = [BASE]
+	let scoped: ScopedEffects = noScopedEffects()
+	// The client gives each texture effect 100 plus its palette index; the map chooses none of its own.
+	const tables = () => ({ effects: {}, textures: Object.fromEntries(palette.map((p, i) => [p.toLowerCase(), 100 + i])) })
+	const side = t.paintChunksPerSide
 	const out: string[] = []
 	const view: ScriptView = {
 		print: (s) => out.push(s),
@@ -30,14 +35,16 @@ function world() {
 		loadImage: async () => 'no files here',
 		palette: () => palette,
 		setPalette: (p) => (palette = p),
-		effect: (tex) => 100 + tex,
+		effect: (tex, chunk) => effectAt(palette[tex] ?? '', {}, scoped, t.areaIds[chunk], Math.floor((chunk % side) / 16), Math.floor(Math.floor(chunk / side) / 16), tables()),
+		scopedEffects: () => scoped,
+		setScopedEffects: (s) => (scoped = s),
 	}
 	const run = async (code: string) => {
 		const host = new EngineScriptHost(t, objects, liquids, view, 'Script t')
 		const r = await runScript(code, 't', host)
 		return { r, cmd: host.finish('Script t') as Command }
 	}
-	return { t, liquids, out, run, palette: () => palette }
+	return { t, liquids, out, run, palette: () => palette, scoped: () => scoped }
 }
 
 /** The weight of slot k at texel (x, z). */
@@ -50,7 +57,7 @@ describe('Lua scripts: chunks and textures', () => {
 			local c = get_chunk(vec(20, 0, 4))
 			print(c:get_texture_count(), c:get_texture(0))
 			print(c:add_texture('Tileset/Grass.blp'), c:add_texture('tileset\\\\grass.blp'), c:add_texture('Tileset/Rock.blp', 5))
-			print(c:get_texture_count(), c:get_texture(2), c:get_effect(1))
+			print(c:get_texture_count(), c:get_texture(2), c:get_effect(1), c:get_effect(2))
 			c:set_area_id(12)
 			c:set_impassable(true)
 			print(c:get_area_id(), #select_between(vec(0, 0, 0), vec(20, 0, 4)):chunks())
@@ -58,28 +65,45 @@ describe('Lua scripts: chunks and textures', () => {
 			print(c:get_texture_count(), c:get_texture(1))
 		`)
 		expect(r.error).toBeUndefined()
-		// The note comes as the third add_texture runs, before its line prints.
-		expect(w.out).toEqual([
-			'1\ttileset/base.blp',
-			"chunk:set_effect: Meld keeps one ground effect per texture (Texture Properties), not per chunk layer, so the effect didn't change.",
-			'1\t1\t2',
-			'3\ttileset/rock.blp\t101',
-			'12\t2',
-			'2\ttileset/rock.blp',
-		])
+		// Grass grows the client's effect (101); Rock the 5 its add_texture set.
+		expect(w.out).toEqual(['1\ttileset/base.blp', '1\t1\t2', '3\ttileset/rock.blp\t101\t5', '12\t2', '2\ttileset/rock.blp'])
 		// Chunk 1 (x 16..32, z 0..16): the base, then Rock, packed into the first slots.
 		expect(w.palette()).toEqual([BASE, 'Tileset\\Grass.blp', 'Tileset\\Rock.blp'])
 		expect([...w.t.chunkSlots.subarray(SLOTS, SLOTS * 2)]).toEqual([0, 2, 255, 255])
 		expect(w.t.areaIds[1]).toBe(12)
 		expect(w.t.chunkFlags[1] & CHUNK_IMPASSABLE).toBe(CHUNK_IMPASSABLE)
+		// The effect is the tile's choice for the texture: Meld keeps none per chunk layer.
+		const rock = { '0,0': { 'Tileset\\Rock.blp': 5 } }
+		expect(w.scoped().tiles).toEqual(rock)
 		cmd.undo()
 		expect(w.palette()).toEqual([BASE])
+		expect(w.scoped().tiles).toEqual({})
 		expect([...w.t.chunkSlots.subarray(SLOTS, SLOTS * 2)]).toEqual([0, 255, 255, 255])
 		expect(w.t.areaIds[1]).toBe(0)
 		expect(w.t.chunkFlags[1]).toBe(0)
 		cmd.redo()
 		expect(w.t.areaIds[1]).toBe(12)
+		expect(w.scoped().tiles).toEqual(rock)
 		expect([...w.t.chunkSlots.subarray(SLOTS, SLOTS * 2)]).toEqual([0, 2, 255, 255])
+	})
+
+	test("set_effect sets the tile's effect for the layer's texture, in every chunk of the tile, and -1 sets none", async () => {
+		const w = world()
+		const { r, cmd } = await w.run(`
+			local a = get_chunk(vec(1, 0, 1))
+			local b = get_chunk(vec(20, 0, 20))
+			a:set_effect(0, 7)
+			print(a:get_effect(0), b:get_effect(0))
+			b:set_effect(0, -1)
+			print(a:get_effect(0))
+			print(pcall(function() a:set_effect(4, 1) end))
+		`)
+		expect(r.error).toBeUndefined()
+		expect(w.out.slice(0, 2)).toEqual(['7\t7', '0'])
+		expect(w.out[2]).toContain('invalid texture index')
+		expect(w.scoped().tiles).toEqual({ '0,0': { [BASE]: 0 } })
+		cmd.undo()
+		expect(w.scoped().tiles).toEqual({})
 	})
 
 	test('an empty layer added by a script stays for a later one to paint, and a full chunk gives -1', async () => {

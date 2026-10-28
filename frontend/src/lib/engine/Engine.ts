@@ -5446,8 +5446,11 @@ export class Engine {
 					const side = t.paintChunksPerSide
 					const gx = chunk % side
 					const gz = Math.floor(chunk / side)
+					// The tile as chunkTileKey counts it (16 paint chunks a tile).
 					return effectAt(editor.palette[tex] ?? '', editor.textureEffects, editor.scopedEffects, t.areaIds[chunk], Math.floor(gx / 16), Math.floor(gz / 16), groundEffectTables())
 				},
+				scopedEffects: () => editor.scopedEffects,
+				setScopedEffects: (s) => (editor.scopedEffects = s),
 			},
 			label,
 		)
