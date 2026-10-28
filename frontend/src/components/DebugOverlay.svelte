@@ -91,7 +91,7 @@
 		position: fixed;
 		inset: 0;
 		pointer-events: none;
-		z-index: 10000;
+		z-index: var(--z-debug);
 	}
 	.box {
 		position: fixed;

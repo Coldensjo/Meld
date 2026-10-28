@@ -1170,7 +1170,7 @@
 		top: 0;
 		height: auto;
 		padding-bottom: 8px;
-		z-index: 45;
+		z-index: var(--z-options);
 		background: var(--panel);
 		border-bottom: 1px solid var(--border);
 		box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
@@ -1179,7 +1179,7 @@
 	.brushpanel {
 		position: absolute;
 		top: 34px;
-		z-index: 47;
+		z-index: var(--z-options-panel);
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -1212,7 +1212,7 @@
 		top: 4px;
 		right: 10px;
 		height: 26px;
-		z-index: 46;
+		z-index: var(--z-options-more);
 	}
 	.tool {
 		display: grid;
