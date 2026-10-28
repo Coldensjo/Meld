@@ -344,7 +344,7 @@ export class SculptTool extends BrushTool {
 		super.tick(ctx, dt, hit)
 	}
 
-	/** Cuts or restores the triangle of the ground under `hit`, as part of the stroke's hole edit. */
+	/** Cuts or restores the 2x2-cell hole block under `hit`, as part of the stroke's hole edit. */
 	private paintHole(ctx: ToolContext, hit: THREE.Vector3) {
 		const t = ctx.terrain
 		const gx = hit.x / t.cellSize

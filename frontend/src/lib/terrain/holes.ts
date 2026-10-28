@@ -1,12 +1,14 @@
 /**
  * Holes in the ground: one byte per terrain cell, non-zero where the cell is cut out (a cave mouth, a
- * pit into a building's basement). A cell is two triangles, and a hole can be either of them:
+ * pit into a building's basement). A cell is two triangles:
  *
  *   0  solid
- *   1  the whole cell (both triangles; what the client's holes and older maps say)
+ *   1  the whole cell (both triangles; what the client's holes say and every tool writes)
  *   2  only the first triangle
  *   3  only the second triangle
  *
+ * 2 and 3 are only read, for maps saved while the Sculpt tool cut single triangles; the tools now cut
+ * and fill whole 2x2-cell blocks (HOLE_BLOCK), and the export treats a half-cut cell as a hole.
  * The first triangle is the one written first by writeCellIndex: on a cell whose x+z is odd the
  * diagonal runs from (1,0) to (0,1) and the first triangle holds the (0,0) corner; on an even cell
  * it runs from (0,0) to (1,1) and the first triangle holds the (0,1) corner. A hole triangle is not
@@ -25,13 +27,6 @@ export function holeTriangle(x: number, z: number, fx: number, fz: number): 1 | 
 
 /** Whether triangle `tri` of a cell with hole value `v` is cut out. */
 export const triangleIsHole = (v: number, tri: 1 | 2) => v === HOLE_CELL || v === (tri === 1 ? HOLE_FIRST : HOLE_SECOND)
-
-/** The hole value of a cell now `v` with triangle `tri` cut (`hole` true) or restored. */
-export function withTriangle(v: number, tri: 1 | 2, hole: boolean): number {
-	const first = tri === 1 ? hole : triangleIsHole(v, 1)
-	const second = tri === 2 ? hole : triangleIsHole(v, 2)
-	return first && second ? HOLE_CELL : first ? HOLE_FIRST : second ? HOLE_SECOND : HOLE_NONE
-}
 
 /**
  * Writes the triangle indices of a render chunk into `idx`, leaving out the cells that are holes, and

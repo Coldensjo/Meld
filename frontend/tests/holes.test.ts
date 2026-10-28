@@ -1,7 +1,7 @@
 // Run with: bun test tests/holes.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HOLE_CELL, HOLE_FIRST, HOLE_NONE, HOLE_SECOND, countHoles, fillHoles, holeTriangle, triangleIsHole, withTriangle, writeCellIndex } from '../src/lib/terrain/holes.ts'
+import { HOLE_CELL, HOLE_FIRST, HOLE_NONE, HOLE_SECOND, countHoles, fillHoles, holeTriangle, triangleIsHole, writeCellIndex } from '../src/lib/terrain/holes.ts'
 
 test('a chunk without holes gets two triangles per cell', () => {
 	const size = 4
@@ -83,13 +83,8 @@ test('a point falls in the triangle on its side of the diagonal', () => {
 	assert.equal(holeTriangle(0, 0, 0.9, 0.1), 2)
 })
 
-test('cutting and filling triangles composes into the four cell values', () => {
-	assert.equal(withTriangle(HOLE_NONE, 1, true), HOLE_FIRST)
-	assert.equal(withTriangle(HOLE_FIRST, 2, true), HOLE_CELL)
-	assert.equal(withTriangle(HOLE_CELL, 1, false), HOLE_SECOND)
-	assert.equal(withTriangle(HOLE_SECOND, 2, false), HOLE_NONE)
-	assert.equal(withTriangle(HOLE_CELL, 1, true), HOLE_CELL)
-	assert.ok(triangleIsHole(HOLE_CELL, 2) && triangleIsHole(HOLE_SECOND, 2) && !triangleIsHole(HOLE_FIRST, 2))
+test("an old map's half-cut cells read as their triangle and count as holes", () => {
+	assert.ok(triangleIsHole(HOLE_CELL, 1) && triangleIsHole(HOLE_CELL, 2) && triangleIsHole(HOLE_SECOND, 2) && !triangleIsHole(HOLE_FIRST, 2))
 	// A half-cut cell counts as one hole for the area's count.
 	const holes = Uint8Array.of(HOLE_FIRST, HOLE_NONE, HOLE_CELL, HOLE_SECOND)
 	assert.equal(countHoles(holes, 2, 0, 0, 2, 2), 3)
