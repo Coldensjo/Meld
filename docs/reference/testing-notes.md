@@ -478,7 +478,7 @@ Checks: that `docs/` still builds into the site `.github/workflows/docs.yml` pub
 
 ## Measuring performance (the overlay, #179)
 
-Checks: where a frame's time goes, before and after a performance change. View › Performance overlay
+Checks: where a frame's time goes, before and after a performance change. Help › Performance overlay
 (Ctrl+Shift+M) shows, averaged over a second, the CPU time of each `Engine.frame()` section
 (`CPU_SECTIONS` in `engine/perfMeter.ts`, booked by `meter.mark` after each subsystem; `frame()` is
 `simulate` then `draw`, and `renderTopDown`'s shots run `simulate` with the meter off, so they book
@@ -556,7 +556,7 @@ the same scene, the report before and after.
   - Sizes: Help › Benchmark map size (`prefs.benchScale`, `BENCH_SCALES`) multiplies the default counts
     by 1, 4 or 16; the buildings, terrain and water maps grow their side by the square root instead,
     up to 1024 cells (8x8 tiles). In a probe, `P.benchMap(kind, undefined, 4)`.
-  - Trap: the window can't draw faster than the screen (Graphics › FPS limit's None is the screen's
+  - Trap: the window can't draw faster than the screen (Edit › Preferences › Graphics › FPS limit's None is the screen's
     rate), so on a fast GPU the normal maps all show the screen's 240 FPS and say nothing. Read the
     report's CPU and GPU ms a frame instead, which don't stop at the screen's rate, or take a larger size.
   - The creatures are spawns made in the tab (`Engine.setSpawns`), dressed from the client's displays
