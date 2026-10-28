@@ -1,14 +1,11 @@
 // Run with: bun test tests/roomAdmit.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { navGroup } from './support/wmo.ts'
 import * as THREE from 'three'
 import { RoomAdmit } from '../src/lib/world/roomAdmit.ts'
 import { cullSpheres, type CullView } from '../src/lib/world/instanceCull.ts'
-import type { WmoNav, WmoNavGroup } from '../src/lib/world/wmoRoom.ts'
-
-function group(min: number[], max: number[]): WmoNavGroup {
-	return { flags: 0, min: min as [number, number, number], max: max as [number, number, number], refStart: 0, refCount: 0, fogs: [0, 0, 0, 0], name: '' }
-}
+import type { WmoNav } from '../src/lib/world/wmoRoom.ts'
 
 /** A floor from x0 to x1 (|y| up to 10) at height 0, in WoW axes. */
 function floor(x0: number, x1: number): Float32Array {
@@ -17,7 +14,7 @@ function floor(x0: number, x1: number): Float32Array {
 
 /** Two rooms side by side: group 0 from x -10 to 10, group 1 from x 20 to 40. */
 const nav: WmoNav = {
-	groups: [group([-10, -10, 0], [10, 10, 5]), group([20, -10, 0], [40, 10, 5])],
+	groups: [navGroup(0, [-10, -10, 0], [10, 10, 5]), navGroup(0, [20, -10, 0], [40, 10, 5])],
 	portalVerts: [],
 	portals: [],
 	refs: [],

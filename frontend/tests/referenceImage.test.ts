@@ -1,6 +1,7 @@
 // Run with: bun test tests/referenceImage.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
+import { isNear } from './support/near.ts'
 import {
 	NONE,
 	areasFromImage,
@@ -27,8 +28,6 @@ function image(w: number, h: number, fn: (x: number, y: number) => number[]): Re
 	return { w, h, data }
 }
 
-const near = (a: number, b: number, eps = 1e-9) => Math.abs(a - b) < eps
-
 test('a fitted image covers the map by its longer side and keeps its shape', () => {
 	assert.deepEqual(fitPlace(200, 100, 64), { x: 32, z: 32, w: 64, h: 32, turn: 0 })
 	assert.deepEqual(fitPlace(100, 200, 64), { x: 32, z: 32, w: 32, h: 64, turn: 0 })
@@ -40,9 +39,9 @@ test('the image frame: row 0 at the top (-z), turned about the centre', () => {
 	assert.deepEqual(uv, [0, 0])
 	// A quarter turn: the image's width now runs along +z.
 	refUV({ x: 0, z: 0, w: 4, h: 2, turn: Math.PI / 2 }, 0, 2, uv)
-	assert.ok(near(uv[0], 1) && near(uv[1], 0.5))
+	assert.ok(isNear(uv[0], 1, 1e-9) && isNear(uv[1], 0.5, 1e-9))
 	const [tl, tr] = refCorners({ x: 0, z: 0, w: 4, h: 2, turn: Math.PI / 2 })
-	assert.ok(near(tl[0], 1) && near(tl[1], -2) && near(tr[0], 1) && near(tr[1], 2))
+	assert.ok(isNear(tl[0], 1, 1e-9) && isNear(tl[1], -2, 1e-9) && isNear(tr[0], 1, 1e-9) && isNear(tr[1], 2, 1e-9))
 })
 
 test('a press takes a corner near it, the image inside it, nothing outside', () => {
@@ -59,9 +58,9 @@ test('dragging a corner keeps the opposite one, and the shape unless freed', () 
 	// The bottom-right corner dragged out along the diagonal to twice the size.
 	const far = refCorners({ ...p, x: p.x + (refCorners(p)[2][0] - fixed[0]) / 2, z: p.z + (refCorners(p)[2][1] - fixed[1]) / 2, w: 20, h: 10 })[2]
 	const q = dragCorner(p, 2, far[0], far[1], true)
-	assert.ok(near(q.w, 20, 1e-6) && near(q.h, 10, 1e-6) && q.turn === p.turn)
+	assert.ok(isNear(q.w, 20, 1e-6) && isNear(q.h, 10, 1e-6) && q.turn === p.turn)
 	const kept = refCorners(q)[0]
-	assert.ok(near(kept[0], fixed[0], 1e-6) && near(kept[1], fixed[1], 1e-6))
+	assert.ok(isNear(kept[0], fixed[0], 1e-6) && isNear(kept[1], fixed[1], 1e-6))
 	// Freed: the top-right corner dragged along the width alone only widens it, from the bottom-left one.
 	const r = dragCorner({ x: 5, z: 5, w: 10, h: 10, turn: 0 }, 1, 14, 0, false)
 	assert.deepEqual(r, { x: 7, z: 5, w: 14, h: 10, turn: 0 })
@@ -71,7 +70,7 @@ test('dragging a corner keeps the opposite one, and the shape unless freed', () 
 
 test('turning follows the angle the pointer swept about the centre', () => {
 	const q = dragTurn({ x: 0, z: 0, w: 2, h: 2, turn: 0 }, 1, 0, 0, 1)
-	assert.ok(near(q.turn, Math.PI / 2))
+	assert.ok(isNear(q.turn, Math.PI / 2, 1e-9))
 })
 
 test('the dominant colours ignore the antialiased edge between two flat colours', () => {

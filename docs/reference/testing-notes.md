@@ -50,6 +50,12 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   `test.skipIf(cond)(name, fn)`, `mock` and `afterEach` from there too), Bun's native runner. Assertions are
   `node:assert/strict` (`assert.equal(a, b, 'message')`) or Bun's `expect`; either is fine. Don't import `node:test`:
   Bun runs it through a partial compatibility layer (`t.mock`, `t.diagnostic` and `only` are incomplete there).
+- Helpers shared by several test files live in `frontend/tests/support/` (#612; not `*.test.ts`, so `bun test` does
+  not run them, and not `helpers`, which `tests/helpers.test.ts` already names for `models/helpers.ts`):
+  `support/near.ts` has `nearNum(a, b, eps = 1e-6, what?)` and `nearVec(a, b, eps, what?)` (asserting, with a
+  message) and `isNear(a, b, eps)` (a boolean, for a check that combines several), and `support/wmo.ts` has
+  `navGroup(flags, min, max, refStart, refCount)`, a `WmoNavGroup` for a fake `WmoNav`. Use them rather than another
+  local `near`, which drifted into four meanings and tolerances before; pass the tolerance a test needs.
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: Bun doesn't run the Svelte compiler, so a test that imports `editor.svelte.ts`, or any module that
