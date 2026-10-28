@@ -184,7 +184,6 @@ export class ObjectLayer {
 	private nextGroup = 1
 	private tmpM = new THREE.Matrix4()
 	private tmpM2 = new THREE.Matrix4()
-	private up = new THREE.Vector3(0, 1, 0)
 
 	private unsubscribe: () => void
 

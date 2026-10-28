@@ -1126,7 +1126,7 @@ export class RoadTool extends BrushTool {
 
 	protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
 		const t = ctx.terrain
-		const { radius, strength } = editor.brush
+		const { strength } = editor.brush
 		const width = this.radius()
 		const amt = Math.min(1, strength * dt * 8)
 		let refused = 0

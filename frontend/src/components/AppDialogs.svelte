@@ -35,7 +35,6 @@
 	import { compileAndLaunch, launchGame } from '../lib/io/game'
 	import { revertMap } from '../lib/io/mapio'
 	import { saveAndPublish } from '../lib/io/publish'
-	import { openWowRegion } from '../lib/io/region'
 	/** Keeps the Log window scrolled to its newest line while it is open. */
 	function stickToEnd(el: HTMLElement) {
 		const toEnd = () => (el.scrollTop = el.scrollHeight)

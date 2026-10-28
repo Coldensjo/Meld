@@ -1,4 +1,4 @@
-import { TILE_YARDS, ZERO_POINT, fromServer, toServer } from '../wow/format'
+import { TILE_YARDS, fromServer, toServer } from '../wow/format'
 
 /** A WoW 1.12 ADT tile is 533 1/3 yards across (lib/wow/format.ts). */
 export const TILE_SIZE = TILE_YARDS

@@ -2,7 +2,7 @@
 	import OptSlider from './OptSlider.svelte'
 	import ScriptBrushBar from './ScriptBrushBar.svelte'
 	import { TOOLS } from './Toolbar.svelte'
-	import { MAX_BRUSH_RADIUS, editor, prefs, setStatus, stats, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
+	import { MAX_BRUSH_RADIUS, editor, prefs, setStatus, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { displayName } from '../lib/models/assets'
 	import { FALLOFF_CURVES } from '../lib/tools/brush'
