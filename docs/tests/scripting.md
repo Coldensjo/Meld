@@ -7,8 +7,7 @@ entries use (the dev page in headless Chrome, probes) are in `docs/TESTS.md`; re
 
 Checks: `tests/luaScript.test.ts` runs the script API under `bun test` against a fake host (flat
 arrays of heights and models): print, the math globals, seeded random, verts writing back once,
-models added, moved, turned, replaced and removed, errors at the script's line, the missing parts
-saying so, and the time limit. `internal/scripts` has the Go tests for the folder (names, list, save,
+models added, moved, turned, replaced and removed, errors at the script's line, and the time limit. `internal/scripts` has the Go tests for the folder (names, list, save,
 delete). The probe `lua-script` runs scripts on a flat map in the dev page through `Engine.runScript`:
 a hill, models and their turn, one undo step that undoes and redoes exactly, a runtime error that
 keeps its edits as a step, an endless loop stopped, and the Scripts window's Run on its starter.
@@ -53,6 +52,26 @@ written to the throwaway client's scratch folder (`P.sandboxClient`, `P.sandboxF
   and `clean.lua` run (its Shift part clears and lays the chunks' textures, #760).
 - After adding a binding, `wails dev` may not rebuild the Go side (#387): the probe's `load_png` then
   fails with "LoadScriptImage is not a function"; stop `Meld-dev.exe` and the `bun` processes and rerun.
+
+## Files: read_file, write_file, append_file, path_exists and image:save (#761)
+
+Checks: `tests/luaScript.test.ts` ("files (#761)") runs them against a fake `ScriptHost.files` (a map
+for the disk): each waits for the host, a refusal raises at the script's line with the function's
+name, and a host without files says files can only be reached in the desktop app. `internal/scripts`
+`files_test.go` tests the containment Go does (`Inside`, `WritePath`: `..`, `out/../..`, a whole path
+outside, the folder itself, a sibling folder whose name starts with the folder's, each refused unless
+any file is allowed), reading, writing, appending, the folders a write makes, and `SavePNG` read back
+with `LoadPNG`. No probe: the scripts folder is the user's own (`os.UserConfigDir`), which a probe
+would litter. By hand in the dev page:
+
+```js
+await __engine.runScript('write_file("try/a.txt", "x") append_file("try/a.txt", "y") print(read_file("try/a.txt"), path_exists("try"))', 'try', console.log)
+```
+
+- The containment is lexical (`filepath.Rel` on cleaned paths); a link inside the scripts folder that
+  points out of it is followed. Reads, `path_exists` and `load_png` are never limited, as Noggit Red's.
+- The preference (Edit › Preferences › General › Scripts may write any file, `prefs.scriptWriteAnyFile`)
+  goes with each write from `io/scriptFiles.ts`; Go never reads it from config.
 
 ## Chunks, texture layers, holes, zones and water (#760, probe `lua-chunks`)
 

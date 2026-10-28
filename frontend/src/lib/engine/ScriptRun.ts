@@ -6,7 +6,7 @@ import { TerrainStroke } from '../tools/brush'
 import { groupTransformCommand } from '../tools/ObjectTools'
 import { addedCommand, removedCommand } from '../world/objectCommands'
 import { clampScale } from '../world/placement'
-import type { ScriptHost, ScriptImage, ScriptModel } from '../script/scriptApi'
+import type { ScriptFiles, ScriptHost, ScriptImage, ScriptModel } from '../script/scriptApi'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, paletteIndex, removeSlot } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { fillHoles, snapToBlocks } from '../terrain/holes'
@@ -30,8 +30,10 @@ export interface ScriptView {
 	areaAt(x: number, z: number): number
 	/** The Select tool's area as a vertex rect, or null. */
 	area: { x0: number; z0: number; x1: number; z1: number } | null
-	/** Reads a PNG for load_png (io/scriptFiles.ts). */
+	/** Reads a PNG for load_png (io/scriptImages.ts). */
 	loadImage(path: string): Promise<ScriptImage | string>
+	/** The file functions (#761, io/scriptFiles.ts); none in the tests. */
+	files?: ScriptFiles
 	/** The map's texture palette (editor.palette), and setting it (a new entry at the end). */
 	palette(): readonly string[]
 	setPalette(p: string[]): void
@@ -518,6 +520,10 @@ export class EngineScriptHost implements ScriptHost {
 
 	loadImage(path: string): Promise<ScriptImage | string> {
 		return this.view.loadImage(path)
+	}
+
+	get files(): ScriptFiles | undefined {
+		return this.view.files
 	}
 
 	/** Whether the script changed anything. */

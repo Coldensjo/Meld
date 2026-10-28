@@ -76,8 +76,18 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   `chunk:get_vert(i)` maps Noggit Red's 145 vertices onto the chunk's 81 (an inner one is the corner
   before it). **Vertex colours**: 1.12 tiles have none, so `set_color` and `clear_colors` do nothing and
   say so once, and `get_color` gives `vec(1, 1, 1)`.
-- **Not in Meld yet** (each raises "... is not in Meld yet" at the script's line): the file functions
-  with `image:save` (#761). The `holding_*` keys are false in a run from the window.
+- **Files** (#761): `read_file`, `path_exists`, `write_file`, `append_file` and `image:save` (a PNG) are
+  Noggit Red's (`script_filesystem.cpp`, behaviour only): a path relative to the scripts folder, or a
+  whole one. Reading and `path_exists` go anywhere, as `load_png` does; a write makes the folders on the
+  way and stays inside the scripts folder unless the preference **Scripts may write any file** (Edit ›
+  Preferences › General, `prefs.scriptWriteAnyFile`) is on, as Noggit Red's "allow scripts to write to
+  any file" setting. The page reaches no files: `ScriptHost.files` (`io/scriptFiles.ts`) calls the
+  bindings `ReadScriptFile`, `ScriptPathExists`, `WriteScriptFile` and `SaveScriptImage` (the pixels as
+  base64, never a POST), passing the preference with each write so Go never takes it from the script.
+  `internal/scripts` `files.go` resolves the path (`Resolve`; a Windows drive without a root is
+  refused) and checks it lexically with `filepath.Rel` (`Inside`; links are not followed). The Lua side
+  waits with `promise:await()`, as `load_png` does, and a refusal raises at the script's line.
+- The `holding_*` keys are false in a run from the window.
 - **Sessions** (#29): `openScript` gives each script a `ScriptSession` (`scriptApi.ts`), the Lua state
   with the prelude and the script run in it. `runScript` closes it at once; `Engine.runScript` keeps it
   when the script made brushes and hands it to the Script Brush tool, closing the one before. The
@@ -141,7 +151,8 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
 - **The scripts folder**: `internal/scripts` keeps one `.lua` file a script in
   `<user config dir>/Meld/scripts` (`os.UserConfigDir`: `%APPDATA%` on Windows, `~/.config` on
   Linux), made on first use. The bindings are `ScriptsFolder`, `ListScripts`, `SaveScript` and
-  `DeleteScript` (`app_scripts.go`); a name with `/`, `\`, `:` or `..` is refused.
+  `DeleteScript` (`app_scripts.go`); a name with `/`, `\`, `:` or `..` is refused. The file functions'
+  bindings sit beside them (see Files above).
 - **The Scripts window** (`components/ScriptWindow.svelte`, Tools › Scripts (Lua), `ui.scripts`): the
   folder's scripts on the left, the name, Run (Ctrl+Enter), Save (Ctrl+S) and Delete, a plain textarea
   (Tab indents) and the output, the last 500 lines. It stays mounted while closed, so an unsaved

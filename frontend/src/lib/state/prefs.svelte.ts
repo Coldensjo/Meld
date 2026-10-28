@@ -197,6 +197,8 @@ export function defaultPrefs() {
 		 */
 		scriptBrush: '',
 		scriptBrushTags: {} as Record<string, Record<string, number | string | boolean>>,
+		/** Whether a script's write_file, append_file and image:save may write outside the scripts folder (#761). */
+		scriptWriteAnyFile: false,
 		/** The folder of the user's own greyscale images that shape the image brushes (editor.brushImage). */
 		brushImageDir: '',
 		/** The folder the author's prefabs are kept in (#170), listed by the asset browser's Prefabs tab. */
