@@ -9,7 +9,8 @@ import { maskBytes } from '../terrain/tileMask'
 import { minimapScale, shadeHeights } from './minimapImage'
 import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, importHeightsOnTile, type HeightmapMode } from './heightmapImport'
-import { normalMapPixels, toBase64 } from './normalMap'
+import { normalMapPixels } from './normalMap'
+import { bytesToBase64 } from './base64'
 
 /**
  * Saves the map's heights as a 16-bit grey PNG. The image has one sample per vertex, so
@@ -31,7 +32,7 @@ export function exportNormalMap(engine: Engine) {
 		if (!path) return
 		const t = engine.terrain
 		const side = t.size + 1
-		await WriteNormalMap(path, side, toBase64(normalMapPixels(engine.outerHeights(), side, t.cellSize)))
+		await WriteNormalMap(path, side, bytesToBase64(normalMapPixels(engine.outerHeights(), side, t.cellSize)))
 		setStatus(`Exported the normal map (${side}×${side}) to ${path}.`, 6000)
 	})
 }
@@ -163,7 +164,7 @@ export function writeMinimapTiles(engine: Engine) {
 					if (present && !present[tz * n + tx]) continue
 					setStatus(`Drawing minimap tile ${tiles.length + 1} of ${count}…`, 0)
 					await new Promise((done) => setTimeout(done, 0))
-					tiles.push({ x: target.x + tx, y: target.y + tz, pixels: toBase64(engine.renderMinimapTile(tx, tz, models)) })
+					tiles.push({ x: target.x + tx, y: target.y + tz, pixels: bytesToBase64(engine.renderMinimapTile(tx, tz, models)) })
 				}
 			}
 			setStatus('Writing the minimap into the client…', 0)

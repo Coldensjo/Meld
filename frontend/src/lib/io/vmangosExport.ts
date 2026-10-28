@@ -3,7 +3,7 @@ import { liquidsToAdt, type AdtLiquid, type LiquidMap } from '../water/liquids'
 import { chunkNoEffect } from '../world/groundEffects'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { SHADOW_PER_CELL, chunkShadowBits } from '../terrain/bakedShadows'
-import { floatsToBase64 } from './base64'
+import { bytesToBase64, floatsToBase64 } from './base64'
 import { TILE_CELLS, TILE_CHUNKS, TILE_VERTS } from '../wow/format'
 
 /** A palette entry that's a colour rather than a texture. */
@@ -235,7 +235,7 @@ export function mapToTiles(input: ExportInput, layout?: TileLayout): ExportOut {
 							used.forEach((k, j) => (weights[dst + j] = input.weights[src + k]))
 						}
 					}
-					const out: PaintOut = { Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: toBase64(weights), Effects: effects }
+					const out: PaintOut = { Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: bytesToBase64(weights), Effects: effects }
 					const flags = used.map((k) => input.looks?.[input.chunkSlots[chunk * SLOTS + k]] ?? -1)
 					if (flags.some((f) => f >= 0)) out.Flags = flags
 					const noEffect = input.noEffect ? chunkNoEffect(input.noEffect, input.size, gx, gz) : null
@@ -274,7 +274,7 @@ export function mapToTiles(input: ExportInput, layout?: TileLayout): ExportOut {
 								}
 							} else header.holes = holes ?? new Array<number>(CHUNK_CELLS).fill(0)
 						}
-						if (input.shadows) header.shadow = toBase64(chunkShadowBits(input.shadows, input.size * SHADOW_PER_CELL, gx, gz))
+						if (input.shadows) header.shadow = bytesToBase64(chunkShadowBits(input.shadows, input.size * SHADOW_PER_CELL, gx, gz))
 						tile.Headers.push(header)
 					}
 				}
@@ -283,13 +283,4 @@ export function mapToTiles(input: ExportInput, layout?: TileLayout): ExportOut {
 		}
 	}
 	return { tiles, colorChunks, outside }
-}
-
-/** Base64 of bytes, in chunks, so large weight arrays don't overflow the call stack. */
-export function toBase64(bytes: Uint8Array): string {
-	let s = ''
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		s += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-	}
-	return btoa(s)
 }

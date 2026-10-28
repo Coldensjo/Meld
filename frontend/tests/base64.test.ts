@@ -23,3 +23,20 @@ test('the sliced encoding matches the one-go encoding, whatever the length', asy
 test('a slice that is not a multiple of 3 bytes is refused, since its padding would land mid-string', async () => {
 	await assert.rejects(bytesToBase64Sliced(bytes(10), async () => {}, 4))
 })
+
+test('bytes go over the bridge as base64, across the 32 KiB chunks of the fallback', () => {
+	assert.equal(bytesToBase64(Uint8Array.from([0, 1, 2, 253, 254, 255])), Buffer.from([0, 1, 2, 253, 254, 255]).toString('base64'))
+	const big = Uint8Array.from({ length: 70000 }, (_, i) => i * 7)
+	assert.deepEqual(Buffer.from(bytesToBase64(big), 'base64'), Buffer.from(big))
+	// Again without the native encoder, where the runtime has one, so the fallback is tested too.
+	const proto: { toBase64?: unknown } = Uint8Array.prototype
+	const own = Object.getOwnPropertyDescriptor(proto, 'toBase64')
+	if (own) {
+		delete proto.toBase64
+		try {
+			assert.deepEqual(Buffer.from(bytesToBase64(big), 'base64'), Buffer.from(big))
+		} finally {
+			Object.defineProperty(proto, 'toBase64', own)
+		}
+	}
+})
