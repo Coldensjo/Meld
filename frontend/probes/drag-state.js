@@ -97,13 +97,13 @@ const hv0 = ui.historyVersion
 const corner = () => e.terrain.heightAt(128 + 8, 128)
 const c0 = corner()
 const F = 30
-const sculpt = e.tools.sculpt
+const sculpt = e.debug.tools.sculpt
 let follows = true
 let last = c0
 const t0 = performance.now()
 for (let i = 1; i <= F; i++) {
 	editor.vertexAngle = i
-	sculpt.frame(e.ctx, null)
+	sculpt.frame(e.debug.ctx, null)
 	if (corner() === last) follows = false
 	last = corner()
 }
@@ -118,7 +118,7 @@ await P.frames(1)
 const slopeUndone = corner() - c0
 out.slope = { changes: F, loopMs: Math.round(loopMs), bumpsMoving, bumps: slopeBumps, steps: slopeSteps, tilted: +tilted.toFixed(2), undone: +slopeUndone.toFixed(2), follows }
 const slopeOk = follows && slopeSteps === 1 && bumpsMoving <= 1 + loopMs / 100 && slopeBumps === bumpsMoving + 1 && Math.abs(tilted) > 0.1 && Math.abs(slopeUndone) < 1e-4
-e.tools.sculpt.vertexAction(e.ctx, 'clear')
+e.debug.tools.sculpt.vertexAction(e.debug.ctx, 'clear')
 
 // A paint stroke over a chunk that already has four textures says so once, not every tick.
 editor.tool = 'paint'
@@ -132,15 +132,15 @@ for (let i = 0; i < 4; i++) {
 }
 editor.paintLayer = slots[4]
 ui.status = 'probe'
-const tool = e.tools.paint
+const tool = e.debug.tools.paint
 const hit = new V3(124, h0, 120)
-tool.onDown(e.ctx, hit)
-tool.tick(e.ctx, 0.05, hit)
+tool.onDown(e.debug.ctx, hit)
+tool.tick(e.debug.ctx, 0.05, hit)
 const first = ui.status
 ui.status = 'probe'
-for (let i = 0; i < 10; i++) tool.tick(e.ctx, 0.05, hit)
+for (let i = 0; i < 10; i++) tool.tick(e.debug.ctx, 0.05, hit)
 const later = ui.status
-tool.onUp(e.ctx)
+tool.onUp(e.debug.ctx)
 await P.frames(1)
 out.chunkFull = { first: first.slice(0, 30), later }
 const fullOk = first.startsWith('Not painted') && later === 'probe'

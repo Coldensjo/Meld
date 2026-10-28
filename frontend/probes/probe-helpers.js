@@ -8,7 +8,7 @@ await P.frames(1)
 editor.sculptMode = 'raise'
 editor.brush.radius = 14
 editor.brush.strength = 1
-const tool = e.tools.sculpt
+const tool = e.debug.tools.sculpt
 const Cls = tool.constructor
 const orig = Cls.prototype.tick
 const t = await P.time([

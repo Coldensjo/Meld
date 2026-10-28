@@ -29,8 +29,8 @@ const inside = (x, y) => document.elementFromPoint(x, y) === canvas
 r.hitTest = inside(cr.left + 12, cr.top + 12) && inside(cr.right - 12, cr.bottom - 12) && !inside(cr.right + 12, cr.top + 12)
 P.pointer('pointermove', 0.25, 0.75)
 await P.frames(1)
-r.ndc = [+P.e.ndc.x.toFixed(3), +P.e.ndc.y.toFixed(3)]
-r.pointerMaps = near(P.e.ndc.x, -0.5, 0.01) && near(P.e.ndc.y, -0.5, 0.01) && r.hitTest
+r.ndc = [+P.e.debug.ndc.x.toFixed(3), +P.e.debug.ndc.y.toFixed(3)]
+r.pointerMaps = near(P.e.debug.ndc.x, -0.5, 0.01) && near(P.e.debug.ndc.y, -0.5, 0.01) && r.hitTest
 
 // The tallest menu (View) fits the window, and the Preferences dialog (Edit › Preferences, #752) fits it and lists the sizes.
 const title = [...document.querySelectorAll('.menubar .menu > .title')].find((b) => b.textContent.trim() === 'View')

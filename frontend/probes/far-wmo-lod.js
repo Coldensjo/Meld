@@ -16,7 +16,7 @@ await P.until(
 	'the tiles around the camera loaded',
 )
 const mid = { x: 32.5 * T, z: 49.5 * T }
-await P.lookAt({ x: mid.x, y: e.doc.world.heightAt(mid.x, mid.z) + 120, z: mid.z + 300 }, { pitch: 0.35, back: 1 })
+await P.lookAt({ x: mid.x, y: e.debug.doc.world.heightAt(mid.x, mid.z) + 120, z: mid.z + 300 }, { pitch: 0.35, back: 1 })
 await P.settle()
 await P.frames(10)
 // The far WMOs drawn: merged, a few groups each.

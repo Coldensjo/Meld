@@ -3,7 +3,7 @@
 const e = P.e
 const { ui } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
-e.doc.meta.vmangos = { dir: 'ProbeMap', mapId: 36, info: { type: 1, name: '', areaId: 0, loadingScreen: 142, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 } }
+e.debug.doc.meta.vmangos = { dir: 'ProbeMap', mapId: 36, info: { type: 1, name: '', areaId: 0, loadingScreen: 142, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 } }
 ui.dialog = 'mapProps'
 const select = await P.until(
 	() => {

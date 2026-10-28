@@ -48,7 +48,7 @@ layer.get('monster/106001').equipment, .equipItems, decodeURIComponent(look).mat
 await window.go.main.App.EquipmentFor([14643, 1897, 0])   // finds or makes a template; run twice, same id
 ```
 
-- Traps: thumbnails only render while frames run (`__engine.frame()` in a loop with short
+- Traps: thumbnails only render while frames run (`__engine.debug.frame()` in a loop with short
   waits). `EquipmentFor` writes a creature_equip_template row for a new item combination, after
   the highest entry (987002 on this database; refused with the sandbox on, like every world-database write): delete it again after a test, with its items in
   the WHERE clause. `editor.spawns` is a snapshot; read the layer's spawn for the edited state.
@@ -563,7 +563,7 @@ No probe: the Go unit test below, and a hand check on Northshire.
 Checks: a creature's name over its head is red, yellow or green by how its faction treats the side
 picked under View (Alliance or Horde). Go: `TestReaction` (the two-way rule: a player's template is
 hostile to the monster group, so a kobold whose own template attacks no one is still hostile).
-Live on Northshire (Azeroth 32_48), `__engine.spawnLabels.nameColor(spawn)` for spawns found by name
+Live on Northshire (Azeroth 32_48), `__engine.debug.spawnLabels.nameColor(spawn)` for spawns found by name
 in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
 Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
 

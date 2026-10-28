@@ -24,7 +24,7 @@ const views = {}
 let ok = true
 await P.scene(scene(0.32, 13, false))
 await P.settle()
-await P.until(() => P.e.skyless.docId === P.e.doc.id, 60_000, "Uldaman's sky known")
+await P.until(() => P.e.skyless.docId === P.e.debug.doc.id, 60_000, "Uldaman's sky known")
 for (const [pitch, hour, client] of [
 	[0.32, 13, false],
 	[0.08, 13, false],
@@ -40,13 +40,13 @@ for (const [pitch, hour, client] of [
 	const img = await P.shot()
 	const px = top(img)
 	const name = `pitch ${pitch} hour ${hour}${client ? ' client' : ''}`
-	views[name] = { px: px.join(','), sky: e.env.sky.visible }
-	if (!near(px, EARTH) || e.env.sky.visible) ok = false
+	views[name] = { px: px.join(','), sky: e.debug.env.sky.visible }
+	if (!near(px, EARTH) || e.debug.env.sky.visible) ok = false
 	P.save(img, `uldaman-${pitch}-${hour}${client ? '-client' : ''}`)
 }
 await P.scene(P.BENCH)
 await P.settle()
 await P.frames(3)
-const outdoors = { sky: P.e.env.sky.visible, skyless: P.e.skyless.value }
+const outdoors = { sky: P.e.debug.env.sky.visible, skyless: P.e.skyless.value }
 if (!outdoors.sky || outdoors.skyless) ok = false
 return { ok, views, outdoors }

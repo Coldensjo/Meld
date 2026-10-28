@@ -11,7 +11,7 @@ e.objects.matrixOf(sw, m)
 prefs.cameraFollowGround = false
 ui.weather = 'rain'
 ui.weatherGrade = 'heavy'
-const layer = e.weather
+const layer = e.debug.weather
 const out = {}
 
 // Splashes on open ground near the bench view (no model within 12 yd), the camera low and still.
@@ -116,8 +116,8 @@ const still = { speed: +layer.wind.speed.toFixed(3), lead: +lead().x.toFixed(3),
 out.wind = { moving, still }
 
 // The rooms: the Trade District's street, then SI:7 facing its door and facing away.
-await P.until(() => e.rooms.navs.get(sw.type.slice(4).toLowerCase()) || null, 60_000, "Stormwind's room data")
-const nav = e.rooms.navs.get(sw.type.slice(4).toLowerCase())
+await P.until(() => e.debug.rooms.navs.get(sw.type.slice(4).toLowerCase()) || null, 60_000, "Stormwind's room data")
+const nav = e.debug.rooms.navs.get(sw.type.slice(4).toLowerCase())
 const at = (local, yaw) =>
 	e.setSceneView({
 		target: e.camera.position
@@ -132,7 +132,7 @@ const at = (local, yaw) =>
 	})
 const state = async (name) => {
 	await P.frames(3)
-	const r = e.rooms.current
+	const r = e.debug.rooms.current
 	out[name] = { group: r?.group ?? null, gate: layer.gateCount.value, visible: layer.group.visible }
 }
 at([-51, 3.78, -249.13], 5)
@@ -198,7 +198,7 @@ await state('shopWall')
 				if (r !== undefined && r > w.y + 2) cells.roofed++
 			}
 	}
-	out.outsideDoor = { group: e.rooms.current?.group ?? null, hidden: +hidden.toFixed(5), cells }
+	out.outsideDoor = { group: e.debug.rooms.current?.group ?? null, hidden: +hidden.toFixed(5), cells }
 }
 out.glError = P.glError()
 ui.weather = 'clear'

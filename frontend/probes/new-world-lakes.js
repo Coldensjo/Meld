@@ -45,7 +45,7 @@ try {
 	await P.frames(3)
 	const t = P.e.terrain
 	r.sea = { enabled: editor.waterEnabled, level: editor.waterLevel }
-	const liquids = P.e.doc.liquids
+	const liquids = P.e.debug.doc.liquids
 	const ids = new Set()
 	let cells = 0
 	let lowSurface = 0
