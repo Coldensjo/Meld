@@ -112,13 +112,22 @@ func TestFreeSpellList(t *testing.T) {
 	}
 }
 
-// TestSpellRefsFromClient checks Spell.dbc's name, rank and icon fields and SpellIcon.dbc against
-// the client: spell 133 is Fireball, Rank 1, with the flame bolt icon. It needs WOW_DIR set.
+// TestSpellRefsFromClient checks Spell.dbc's name, rank, icon and text fields and SpellIcon.dbc
+// against the client: spell 133 is Fireball, Rank 1, with the flame bolt icon, and spell 433 (the
+// Tough Hunk of Bread's) restores health over its duration. It needs WOW_DIR set.
 func TestSpellRefsFromClient(t *testing.T) {
 	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	texts, err := SpellTexts(dataDir, []int{433, 7597, 99999999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("433: %q  7597: %q", texts[433], texts[7597])
+	if len(texts) < 1 || strings.Contains(texts[433], "$") || !strings.Contains(texts[433], "Restores 61 health over 18 sec") {
+		t.Fatalf("texts %v", texts)
 	}
 	refs, err := SpellRefs(dataDir, []int{133, 99999999})
 	if err != nil {

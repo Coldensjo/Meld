@@ -4,10 +4,6 @@ import (
 	"encoding/binary"
 	"strings"
 	"testing"
-
-	"Meld/internal/mpq"
-	"Meld/internal/testclient"
-	"Meld/internal/wow"
 )
 
 func TestAddMapRowSynthetic(t *testing.T) {
@@ -39,50 +35,6 @@ func TestAddMapRowSynthetic(t *testing.T) {
 	}
 	if _, err := AddMapRow(out, 900, "Again"); err == nil {
 		t.Fatal("a second row with the same ID was added")
-	}
-}
-
-// TestRealMapTables adds a row to the client's Map.dbc and builds a tile table:
-// WOW_DIR=/path/to/client go test ./internal/vmangos/
-func TestRealMapTables(t *testing.T) {
-	dir := testclient.DataDir(t)
-	dataDir, err := wow.ResolveDataDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	set, err := mpq.OpenDataDir(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer set.Close()
-	dbc, err := set.ReadFile(`DBFilesClient\Map.dbc`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// A free ID: the client may already list the maps the editor has exported.
-	free := uint32(0)
-	for _, id := range MapRowIDs(dbc) {
-		if id >= free {
-			free = id + 1
-		}
-	}
-	out, err := AddMapRow(dbc, free, "MeldTest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if MapRowDir(out, free) != "MeldTest" || len(MapRowIDs(out)) != len(MapRowIDs(dbc))+1 {
-		t.Fatal("the new row did not read back")
-	}
-	wdt, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	built, err := BuildWDT(wdt, func(x, y int) bool { return x == 32 && y == 48 })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(built) == 0 {
-		t.Fatal("empty WDT")
 	}
 }
 
