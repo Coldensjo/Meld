@@ -1,7 +1,7 @@
 // Run with: bun test tests/base64.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { base64ToBytes, bytesToBase64, bytesToBase64Sliced } from '../src/lib/io/base64.ts'
+import { base64ToBytes, bytesToBase64, bytesToBase64Sliced, fromWailsBytes, wailsBytes } from '../src/lib/io/base64.ts'
 
 const bytes = (n: number) => {
 	const b = new Uint8Array(n)
@@ -22,4 +22,12 @@ test('the sliced encoding matches the one-go encoding, whatever the length', asy
 
 test('a slice that is not a multiple of 3 bytes is refused, since its padding would land mid-string', async () => {
 	await assert.rejects(bytesToBase64Sliced(bytes(10), async () => {}, 4))
+})
+
+test('a Go []byte field crosses the bridge as the base64 of its bytes, typed number[] by Wails', () => {
+	const b = bytes(31)
+	const field = wailsBytes(b)
+	assert.equal(typeof field, 'string')
+	assert.equal(field as unknown as string, Buffer.from(b).toString('base64'))
+	assert.deepEqual(fromWailsBytes(field), b)
 })

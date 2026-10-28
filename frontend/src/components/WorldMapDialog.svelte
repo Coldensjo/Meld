@@ -5,7 +5,7 @@
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
-	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
+	import { base64ToBytes, bytesToBase64, fromWailsBytes, wailsBytes } from '../lib/io/base64'
 	import { loadAreas } from '../lib/wow/areas'
 	import { CHUNK_CELLS } from '../lib/terrain/chunkPaint'
 	import {
@@ -131,14 +131,14 @@
 				existing = view.row
 				name = view.row.name
 				rect = extentToRect(view.row, tileX, tileY)
-				if (view.pixels) pixels = base64ToBytes(view.pixels as unknown as string)
+				if (view.pixels) pixels = fromWailsBytes(view.pixels)
 				overlays = (view.overlays ?? []).map((o) => ({
 					id: o.id,
 					areas: o.areas ?? [],
 					name: o.name,
 					box: { u0: o.offsetX, v0: o.offsetY, u1: o.offsetX + o.width, v1: o.offsetY + o.height },
 					hit: { top: o.hitTop, left: o.hitLeft, bottom: o.hitBottom, right: o.hitRight },
-					pixels: o.pixels ? base64ToBytes(o.pixels as unknown as string) : null,
+					pixels: o.pixels ? fromWailsBytes(o.pixels) : null,
 					changed: false,
 				}))
 			} else {
@@ -280,10 +280,10 @@
 					hitBottom: o.hit.bottom,
 					hitRight: o.hit.right,
 					// An unchanged overlay keeps the client's art.
-					pixels: o.changed && o.pixels ? (bytesToBase64(o.pixels) as unknown as number[]) : null,
+					pixels: o.changed && o.pixels ? wailsBytes(o.pixels) : null,
 				}),
 			)
-			const res = await WriteWorldMap(vmangos.WorldMapSpec.createFrom({ row, pixels: bytesToBase64(pixels) as unknown as number[], overlays: pieces }))
+			const res = await WriteWorldMap(vmangos.WorldMapSpec.createFrom({ row, pixels: wailsBytes(pixels), overlays: pieces }))
 			existing = res.row
 			overlays = overlays.map((o, i) => ({ ...o, id: res.overlays?.[i]?.id ?? o.id }))
 			setStatus(`Wrote the world map of ${name} (WorldMapArea row ${res.row.id}, ${overlays.length} overlays) into ${res.patch}. In the game, M shows it in the zone.`, 10000)

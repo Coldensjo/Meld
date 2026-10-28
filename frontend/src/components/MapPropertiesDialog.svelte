@@ -13,7 +13,7 @@
 	import { LoadingScreens, MapEntries, OpenImageDialog, ReadImageFile, WriteLoadingScreen } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { hasBackend } from '../lib/io/backend'
-	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
+	import { base64ToBytes, wailsBytes } from '../lib/io/base64'
 	import { fetchImage } from '../lib/wow/api'
 
 	const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
@@ -99,7 +99,7 @@
 			ctx.drawImage(bmp, 0, 0, LOADING_SCREEN_SIZE, LOADING_SCREEN_SIZE)
 			const px = new Uint8Array(ctx.getImageData(0, 0, LOADING_SCREEN_SIZE, LOADING_SCREEN_SIZE).data)
 			for (let i = 3; i < px.length; i += 4) px[i] = 255
-			const res = await WriteLoadingScreen(vmangos.LoadingScreenSpec.createFrom({ mapId: ref.mapId, dir: ref.dir, pixels: bytesToBase64(px) as unknown as number[] }))
+			const res = await WriteLoadingScreen(vmangos.LoadingScreenSpec.createFrom({ mapId: ref.mapId, dir: ref.dir, pixels: wailsBytes(px) }))
 			await loadScreens()
 			if (info.loadingScreen !== res.row.id) setInfo({ loadingScreen: res.row.id })
 			previewKey++
