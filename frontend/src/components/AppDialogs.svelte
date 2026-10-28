@@ -1,6 +1,6 @@
 <script module lang="ts">
-	/** The manual (docs/MANUAL.md in the project's repository), which Help › Manual opens in the browser. */
-	export const MANUAL_URL = 'https://github.com/Coldensjo/Meld/blob/main/docs/MANUAL.md'
+	/** The manual (docs/MANUAL.md, published with the docs site by .github/workflows/docs.yml), which Help › Manual opens in the browser. */
+	export const MANUAL_URL = 'https://coldensjo.github.io/Meld/MANUAL'
 </script>
 
 <script lang="ts">

@@ -56,6 +56,16 @@ export function hasScopedEffects(s: ScopedEffects): boolean {
 /** The key a tile's choices are kept under: the map's own tile, x and z counted from its corner. */
 export const tileKey = (tx: number, tz: number) => `${tx},${tz}`
 
+/** The key of the tile paint chunk `chunk` lies in, on a map `side` paint chunks a side (16 chunks a tile). */
+export const chunkTileKey = (chunk: number, side: number) => tileKey(Math.floor((chunk % side) / 16), Math.floor(Math.floor(chunk / side) / 16))
+
+/** A copy of `s` with tile `key`'s choice for texture `path` set to effect `id` (0 for none). */
+export function withTileEffect(s: ScopedEffects, key: string, path: string, id: number): ScopedEffects {
+	const next = JSON.parse(JSON.stringify(s)) as ScopedEffects
+	next.tiles[key] = { ...(next.tiles[key] ?? {}), [path]: id }
+	return next
+}
+
 /**
  * The effect ID texture `path` grows in a chunk of zone `areaId` on tile (`tx`, `tz`): the tile's own
  * choice, else the zone's, else the map's, else the client's.

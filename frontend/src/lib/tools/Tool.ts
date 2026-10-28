@@ -63,6 +63,8 @@ export interface Tool {
 	imageShaped?(): boolean
 	activate?(ctx: ToolContext): void
 	deactivate?(ctx: ToolContext): void
+	/** Frees what the tool keeps on the GPU, when the Engine is disposed. */
+	dispose?(): void
 	/**
 	 * The press, the drag and the release, with the pointer event that made them. `e` is missing when
 	 * the Engine ends a stroke itself (a tool or tab switch with the button held), so read it as `e?.`.

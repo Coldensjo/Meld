@@ -27,15 +27,17 @@ func startProgramEnv(dir, name string, args, env []string) error {
 	}
 	cmd.Stdin = in
 	if err := cmd.Start(); err != nil {
-		in.Close()
-		out.Close()
+		_ = in.Close()
+		_ = out.Close()
 		return err
 	}
-	in.Close()
+	// The child holds its own copy of the read end.
+	_ = in.Close()
 	heldMu.Lock()
 	held = append(held, out)
 	heldMu.Unlock()
-	go cmd.Wait()
+	// Reaps the child when it exits; its exit status is not needed.
+	go func() { _ = cmd.Wait() }()
 	return nil
 }
 

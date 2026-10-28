@@ -64,7 +64,7 @@ const g = await import('<the loaded wow/groundEffectTables.ts URL>')
 await g.loadGroundEffectTables()        // the first time for a client scans every tile: a minute or two
 g.groundEffectTables().textures['tileset\elwynn\elwynngrassbase.blp']   // an effect id
 // With Northshire open and the camera on the ground: a few frames, then
-__engine.tuftCount()                    // thousands
+__engine.doc.groundEffects.count       // thousands (the tufts drawn now)
 __engine.exportInput().effects          // the effect per palette index
 ```
 
@@ -176,7 +176,7 @@ per chunk) and Go `TestRewriteNoEffectBitsReadBackAndKeepTheTilesOwn` (written b
 ```js
 const e = window.__engine
 e.terrain.noEffect.reduce((a, b) => a + b, 0)        // the client's no-doodad cells (roads, buildings)
-e.tuftCount()                                       // falls when a WMO is placed over grass
+e.doc.groundEffects.count                           // falls when a WMO is placed over grass
 e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cells under root WMOs
 ```
 

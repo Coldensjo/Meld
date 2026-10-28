@@ -402,8 +402,13 @@ function chunk_mt:clear_textures()
 	H.chunk_clear_textures(self._c)
 end
 function chunk_mt:get_effect(i) return H.chunk_effect(self._c, tonumber(i) or 0) end
--- Meld keeps a ground effect per texture (for the map, a zone or a tile), not per chunk layer.
-function chunk_mt:set_effect() note("chunk:set_effect: Meld keeps one ground effect per texture (Texture Properties), not per chunk layer, so the effect didn't change.") end
+-- Meld keeps a ground effect per texture (for the map, a zone or a tile), not per chunk layer: this sets
+-- the tile's choice for the layer's texture, so every chunk of the tile with that texture grows it.
+function chunk_mt:set_effect(i, effect)
+	need_index(i, 'chunk:set_effect', 'texture')
+	flush()
+	H.chunk_set_effect(self._c, i, tonumber(effect) or -1)
+end
 function chunk_mt:set_hole(on)
 	flush()
 	H.chunk_set_hole(self._c, on and true or false)
