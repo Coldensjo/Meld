@@ -1,7 +1,7 @@
 // A texture's alphamap as an image (Noggit Red's alphamap export and import, gap §9): the weight one
 // palette texture has at every splat texel of the map, 0 to 1, read out to a greyscale image or laid in
 // from one. Kept free of three.js so it can be tested on its own.
-import { NO_TEXTURE, SLOTS, acquireSlotCompacting, findSlot, normalizeTexel } from './chunkPaint'
+import { NO_TEXTURE, SLOTS, acquireSlotCompacting, chunkTexelRect, findSlot, normalizeTexel } from './chunkPaint'
 
 /** The paint the alphamap reads and writes: chunk slots and four weights per texel. */
 export interface SplatPaint {
@@ -15,13 +15,11 @@ export interface SplatPaint {
 export function textureWeights(t: SplatPaint, tex: number): Float32Array {
 	const side = t.paintChunksPerSide
 	const res = t.splatRes
-	const per = res / side
 	const out = new Float32Array(res * res)
 	for (let c = 0; c < side * side; c++) {
 		const k = findSlot(t.chunkSlots, c, tex)
 		if (k < 0) continue
-		const x0 = (c % side) * per
-		const z0 = Math.floor(c / side) * per
+		const { x0, z0, per } = chunkTexelRect(side, res, c)
 		for (let z = z0; z < z0 + per; z++) {
 			for (let x = x0; x < x0 + per; x++) out[z * res + x] = t.weights[(z * res + x) * SLOTS + k] / 255
 		}
@@ -38,9 +36,7 @@ export function textureWeights(t: SplatPaint, tex: number): Float32Array {
 export function layAlphamapChunk(t: SplatPaint, c: number, tex: number, values: Float32Array): boolean {
 	const side = t.paintChunksPerSide
 	const res = t.splatRes
-	const per = res / side
-	const x0 = (c % side) * per
-	const z0 = Math.floor(c / side) * per
+	const { x0, z0, per } = chunkTexelRect(side, res, c)
 	let k = findSlot(t.chunkSlots, c, tex)
 	if (k < 0) {
 		let wanted = false
