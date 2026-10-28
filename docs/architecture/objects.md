@@ -1,5 +1,33 @@
 # Placed models
 
+## Loading, workers and resource lifetime
+
+For author-facing limits, see the [viewport preview](../MANUAL.md#understand-the-viewport-preview).
+`models/assets.ts:loadAsset` shares pending requests, caches ready assets and uses a placeholder on
+failure; a later request retries after `wow/loadCache.ts:RETRY_MS`. A placeholder is not a deleted
+placement. `models/modelBuild.ts` lazily starts one to three workers, sending copied job buffers
+for BVH, LOD and WMO cull construction. Worker startup/runtime/message failure terminates the pool
+and requeues outstanding builds on the main thread; subsequent builds stay there. An individual
+job's reported build error rejects that job instead of declaring the whole pool broken. Pure Bun
+tests take the no-worker path and do not exercise actual worker failure recovery.
+
+`lodIndex` aims for a quarter of the triangles within 2% of bounding radius and retains a LOD only
+if it saves at least 30%; these are simplifier targets, not guaranteed output counts. ObjectLayer
+splits near/far instances and picks against full geometry even for a visible LOD. `ModelAnimation`
+shares a skeleton/idle clock across instances, not a gameplay animation controller per placement.
+
+Closing a document or dropping streamed tiles reaches `Engine.releaseModels`. Types still used by
+other documents, placement/brush previews, clipboards or particle models are retained. Assets that
+finish after release are marked to drop on arrival unless requested again. `releaseAssets`/`evict`
+release geometry/BVH/LOD/liquid/skeleton resources while shared materials/textures remain until
+remaining cached, building and loose preview assets no longer use them. Do not dispose a shared
+asset directly from one instance. This source trace is not a measured GPU memory/leak guarantee.
+
+`lod.test.ts` exercises simplification; native model-worker/resource probes in the
+[rendering recipes](../tests/rendering.md) remain separate, unexecuted evidence here.
+
+## Detailed object reference
+
 Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms), and model animation, lights, flames, particles and ribbons.
 
 - **Attachments**: a `WorldObject` with `parent` is attached.

@@ -20,12 +20,15 @@ To build Meld you need:
 - `make` ([GNU Make](https://www.gnu.org/software/make/); the makefile also lists the plain
   commands). On Windows the recipes run through the `sh.exe` of [Git for Windows](https://gitforwindows.org).
 - Linux: `gtk3` and `webkit2gtk-4.1` from your distribution. Windows: the
-  [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (already on Windows 10/11).
+  [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (install it if missing).
 
 To use the result you need your own WoW 1.12.1 client. To export a map into a running game you also
 need a [VMaNGOS](https://github.com/vmangos/core) server with its [MariaDB](https://mariadb.org/download/)
 database, and optionally the [Benilla](https://github.com/samwhosung/benilla) client
 ([Benilla guide](docs/BENILLA.md)).
+
+First follow [source checkout and dependency setup](docs/development.md#get-the-source) in the
+development guide. Run these commands from the repository root:
 
 ```bash
 make dev             # run with hot reload (also served at http://localhost:34115)
@@ -49,11 +52,16 @@ The docs are also published as a site: <https://coldensjo.github.io/Meld/>.
 - [Saving, compiling and playing](docs/guides/saving-and-compiling.md): working files, client patches,
   server updates and recovery precautions.
 - [Troubleshooting](docs/troubleshooting.md): missing assets, pending writes, crashes and bug reports.
+- [Settings, local data and backups](docs/guides/settings-and-data.md): preferences, private login
+  data, projects and recovery storage.
 - [Benilla](docs/BENILLA.md): using the open-source Benilla client as Meld's game client.
 - [Development](docs/development.md): prerequisites, building Meld and working on the documentation.
 - [Testing](docs/TESTS.md): how to test and verify changes.
 - [Architecture](docs/architecture/index.md): code boundaries and detailed subsystem references.
 - [Engineering notebooks](docs/reference/index.md): retained investigations and the original design draft.
+
+Documentation maintainers: read the [living roadmap](DOCUMENTATION_PLAN.md),
+[audit evidence](DOCUMENTATION_AUDIT.md) and [documentation rules](DOCUMENTATION_RULES.md).
 
 ## Credits
 

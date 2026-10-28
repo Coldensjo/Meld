@@ -3,6 +3,21 @@
 Lua scripts and the Scripts window (`docs/architecture/scripting.md`). The general methods these
 entries use (the dev page in headless Chrome, probes) are in `docs/TESTS.md`; read that first.
 
+## Evidence and safe selection
+
+The 2026-10-28 documentation pass ran luaScript.test.ts and scriptGround.test.ts plus the Go
+internal/scripts tests on synthetic/temp data. It also executed the manual's read-only camera/model
+example and the exact shipped ScriptWindow hill starter through runScript on the existing fake-host
+shape; the first made no height writes and the starter made one block write with raised heights.
+This did not run Engine.runScript in the desktop app or the lua-script/script-brush/lua-chunks probes.
+Use a disposable editable map for those checks; the world view refuses scripts. Save script text
+and the map separately, and test Undo after success and a returned error before trusting a new script.
+
+A returned Lua error keeps earlier map changes, not database/client writes. For brushes, release
+the pointer and wait for queued callbacks before checking the undo step. A timeout or closing the
+window is not an atomic cancellation guarantee. Unexpected host/import failures and the full
+native shutdown/cancellation matrix remain unverified (DA-06).
+
 ## Lua scripts: the API, undo and the Scripts window (#28, probe `lua-script`)
 
 Checks: `tests/luaScript.test.ts` runs the script API under `bun test` against a fake host (flat

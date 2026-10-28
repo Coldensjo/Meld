@@ -37,11 +37,19 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   rotations are Noggit Red's degrees: y is the file's yaw, the editor's `rotY` plus 90 (as
   `adt.EditorTurn` reads it), x and z the tilts. `get_filename` gives the path lower case with `/`, as
   Noggit Red does; `add_m2` takes either slash and turns `.mdx` into `.m2`.
+- **Returned errors and completion**: the 10 s count-hook limit applies to Lua execution, with
+  another limit per brush event; it is not a hard cancellation deadline for awaited host work.
+  Engine.runScript calls host.finish after openScript returns its result, even when that result
+  contains a Lua error. Closing the Scripts window is not rollback. Unexpected host/import
+  exceptions outside this returned-result path are not certified by the ordinary Lua-error tests.
+  Do not treat the selected libraries as a security guarantee for untrusted scripts.
 - **The host** for the open map is `lib/engine/ScriptRun.ts` `EngineScriptHost`. Heights go through a
   `TerrainStroke`; models through `ObjectLayer.add`, `place` and `remove` (with what hangs on them), noting
   what was added, the map's own models as they were before a move, and the removed ones. `finish` makes
   one undo step of it all (heights, moves, removals, additions, undone in reverse), named
-  `Script <name>`, pushed even when the script failed half way, so its edits so far can be undone.
+  `Script <name>`, pushed after a returned Lua error too, so retained edits can be undone. The
+  compound command also includes palette, chunk metadata and liquid changes; undo visits its
+  parts in reverse order. No changed parts means no new history command.
   `Engine.runScript` refuses in a world view (`refuseInWorld`) and while another script runs.
 - **Chunks, texture layers, holes, zones and water** (#760): `get_chunk(pos)` and `sel:chunks()` give
   paint chunks (8 by 8 cells, an MCNK). A chunk's texture layers are its paint slots that hold a
@@ -110,8 +118,9 @@ the scripts are kept, and the script brushes, noise and images built on it (#29)
   `set_inner_radius` write them back (`onRadius`). The events run one at a time on a promise chain, as
   a handler may wait for a file (`load_png`); a hold is skipped while the last event still runs and its
   time goes to the next. A stroke's edits gather in one `EngineScriptHost` and become one undo step,
-  `Script brush <name>`, pushed after the release's handler; a handler's error ends the stroke (its
-  edits so far are still the step) and goes to the Scripts window's output and the status bar.
+  `Script brush <name>`, pushed after release and queued events finish. A returned handler error
+  marks the stroke failed and suppresses further callbacks; its retained edits are finished as
+  the step when the stroke ends. It reports to the Scripts output and status bar, not rollback.
   `holding_shift`, `holding_ctrl` (or Cmd) and `holding_alt` come from the pointer events, `holding_space`
   from the keyboard while the tool is active, and `holding_left_mouse` is true during the stroke. The
   right mouse button is the camera's, so the left button stands in for it (#762): a stroke sends
