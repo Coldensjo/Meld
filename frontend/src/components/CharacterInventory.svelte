@@ -30,6 +30,7 @@
 		type Place,
 	} from '../lib/wow/inventory'
 	import type { CreatureField } from '../lib/world/creatureFields'
+	import CharacterModelView from './CharacterModelView.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import ItemTooltip from './ItemTooltip.svelte'
 	import RefField from './RefField.svelte'
@@ -40,9 +41,11 @@
 	// what is there), pick a square to change the item's stack, durability, enchantment and random
 	// property or take it out, and find items to add. Saved with its own Save, like the creature
 	// editor's list tabs: Go checks the places again and writes character_inventory and item_instance
-	// (internal/vmangos/inventory.go).
+	// (internal/vmangos/inventory.go). Between the equipment's two columns the character wears what they
+	// hold (#880), in the look being edited (`look`); `worn` hands the equipment to the Character tab's
+	// picture too.
 
-	let { guid, race, cls, level, dirty = $bindable(false) }: { guid: number; race: number; cls: number; level: number; dirty?: boolean } = $props()
+	let { guid, race, cls, level, look, dirty = $bindable(false), worn = $bindable([]) }: { guid: number; race: number; cls: number; level: number; look: vmangos.CharacterAppearance; dirty?: boolean; worn?: vmangos.WornItem[] } = $props()
 
 	type Item = vmangos.InventoryItem
 	const QUALITY = QUALITY_VARS
@@ -67,6 +70,16 @@
 	const changed = $derived(rows.dirty || bankBags !== savedBankBags)
 	$effect(() => {
 		dirty = changed
+	})
+	/** What the equipment slots hold, for the character's picture: unsaved moves show before Save. */
+	const equipped = $derived(
+		rows.rows
+			.filter((i) => i.container === 0 && i.slot >= 0 && i.slot < BAG_SLOTS[0])
+			.map((i) => ({ slot: i.slot, display: i.template.displayId, invType: i.template.invType }))
+			.sort((a, b) => a.slot - b.slot),
+	)
+	$effect(() => {
+		worn = equipped
 	})
 
 	/** Drops the unsaved edits (the editor's Revert and Discard). */
@@ -239,6 +252,7 @@
 				<div class="side">
 					{#each DOLL.left as s (s)}{@render square({ container: 0, slot: s }, EQUIP_SLOTS[s].short)}{/each}
 				</div>
+				<div class="figure"><CharacterModelView {look} items={equipped} /></div>
 				<div class="side">
 					{#each DOLL.right as s (s)}{@render square({ container: 0, slot: s }, EQUIP_SLOTS[s].short)}{/each}
 				</div>
@@ -404,9 +418,12 @@
 	}
 	.doll {
 		display: grid;
-		grid-template-columns: auto auto;
-		column-gap: 96px;
+		grid-template-columns: auto 220px auto;
+		column-gap: 8px;
 		row-gap: 8px;
+	}
+	.figure {
+		display: flex;
 	}
 	.side {
 		display: flex;

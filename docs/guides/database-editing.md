@@ -207,9 +207,11 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    one goes into the picked square (the bank and keyring too), or the first free place on the
    character that takes it. A new item rolls its random property as the server's `.additem` does.
    Then **Save equipment**. Adding items needs the world server stopped; an item the character
-   can't wear goes to it by mail at login.
+   can't wear goes to it by mail at login. Between the equipment slots the character stands
+   wearing what they hold, unsaved changes too (drag it to turn it).
 5. The **Character** tab also holds the look (skin color, face, hair style and color, facial hair,
-   from the choices the game's character creation offers the race and gender), the honor (rank
+   from the choices the game's character creation offers the race and gender, with a picture of the
+   character that changes with it), the honor (rank
    points, highest rank, lifetime kills) and the home the hearthstone takes the character to
    (**Put home at the camera** takes the camera's spot and zone).
 6. The **Skills** tab lists the skills by group with their values; add one the race and class may

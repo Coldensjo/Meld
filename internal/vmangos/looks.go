@@ -222,18 +222,28 @@ func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
 			worn[i] = row
 		}
 	}
-	m.dress(out, er, worn, -1, m.creatureExtra.str(er, 18))
+	m.dress(out, m.extraLook(er), worn, -1, m.creatureExtra.str(er, 18))
 }
 
-// dress dresses a character model as the CreatureDisplayInfoExtra row er's race, sex, skin, face and
-// hair, in worn (an ItemDisplayInfo row per wear slot, -1 for none) and the cloak of ItemDisplayInfo
+// charLook is a character's race, sex (0 male, 1 female), skin colour, face, hair style, hair colour
+// and facial hair: a CreatureDisplayInfoExtra row's fields 1-7, or a player's characters row.
+type charLook struct {
+	race, sex, skin, face, hairStyle, hairColor, facial uint32
+}
+
+// extraLook is the CreatureDisplayInfoExtra row er's look.
+func (m *modelTables) extraLook(er int) charLook {
+	x := m.creatureExtra
+	return charLook{x.u32(er, 1), x.u32(er, 2), x.u32(er, 3), x.u32(er, 4), x.u32(er, 5), x.u32(er, 6), x.u32(er, 7)}
+}
+
+// dress dresses a character model as cl's race, sex, skin, face and hair, in worn (an ItemDisplayInfo row per wear slot, -1 for none) and the cloak of ItemDisplayInfo
 // row cloak (-1 for none). bake is the baked body texture, "" for none: then the body texture is
 // built as the game builds a player's (bodyLayers).
-func (m *modelTables) dress(out *creatureDisplay, er int, worn [wearSlots]int, cloak int, bake string) {
-	x := m.creatureExtra
-	race, sex := int(x.u32(er, 1)), x.u32(er, 2)
+func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]int, cloak int, bake string) {
+	race, sex := int(cl.race), cl.sex
 	female := sex == 1
-	skin, hairStyle, hairColor, facial := x.u32(er, 3), x.u32(er, 5), x.u32(er, 6), x.u32(er, 7)
+	skin, hairStyle, hairColor, facial := cl.skin, cl.hairStyle, cl.hairColor, cl.facial
 
 	if bake != "" {
 		out.setTexture(wow.TexBody, bakedTextures+bake)
@@ -242,7 +252,7 @@ func (m *modelTables) dress(out *creatureDisplay, er int, worn [wearSlots]int, c
 	if row, ok := m.section(uint32(race), sex, 0, 0, skin); ok {
 		if _, baked := out.look.Textures[wow.TexBody]; !baked {
 			body := m.sections.str(row, 6)
-			if layers := m.bodyLayers(er, worn); body != "" && len(layers) > 0 {
+			if layers := m.bodyLayers(cl, worn); body != "" && len(layers) > 0 {
 				body = wow.ComposedTexture(append([]wow.SkinLayer{{Region: wow.RegionBase, Path: body}}, layers...))
 			}
 			out.setTexture(wow.TexBody, body)

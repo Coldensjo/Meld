@@ -253,3 +253,46 @@ func TestItemLookPaintsBodyArmour(t *testing.T) {
 		t.Fatal("a display without body textures shows nothing as a chest piece")
 	}
 }
+
+// TestCharacterModelWearsItsEquipment dresses a player character (#880) in its own look and its
+// equipment slots, none of the stand-in NPC's clothes, its melee weapons drawn, or its bow when it
+// holds nothing else.
+func TestCharacterModelWearsItsEquipment(t *testing.T) {
+	m := humanTables(t)
+	m.sections = testDBC(t, 10,
+		[]any{1, 1, 0, 0, 0, 0, "Skin.blp", "", ""},
+		[]any{2, 1, 0, 3, 2, 1, "Hair.blp", "", ""},
+		[]any{3, 1, 0, 3, 4, 0, "OtherHair.blp", "", ""})
+	m.hairGeosets = testDBC(t, 6, []any{1, 1, 0, 2, 5, 0}, []any{2, 1, 0, 4, 7, 0})
+	parse := func(c CharacterModel) wow.Look {
+		q, err := url.ParseQuery(c.Look)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return wow.ParseLook(q)
+	}
+	a := CharacterAppearance{Race: 1, Gender: 0, HairStyle: 4, HairColor: 0}
+	c := m.characterModel(a, []WornItem{{Slot: 0, Display: 100, InvType: 1}, {Slot: 15, Display: 104, InvType: 13}, {Slot: 16, Display: 105, InvType: invShield}, {Slot: 17, Display: 106, InvType: invRanged}})
+	if c.Model != `Character\Human\Male\HumanMale.mdx` {
+		t.Fatalf("model %q", c.Model)
+	}
+	l := parse(c)
+	if l.Textures[wow.TexHair] != "OtherHair.blp" || l.Textures[wow.TexBody] != "Skin.blp" {
+		t.Fatalf("the character's own hair and skin, not the NPC's bake: %+v", l.Textures)
+	}
+	want := []wow.Attachment{
+		{Point: wow.AttachHelm, Model: headItems + "Helm_A_HuM.mdx", Texture: headItems + "HelmTex.blp"},
+		{Point: wow.AttachHandRight, Model: weaponItems + "Sword_A.mdx", Texture: weaponItems + "SwordTex.blp"},
+		{Point: wow.AttachShield, Model: shieldItems + "Shield_A.mdx", Texture: shieldItems + "ShieldTex.blp"},
+	}
+	if !slices.Equal(l.Attach, want) {
+		t.Fatalf("attachments %+v, want %+v", l.Attach, want)
+	}
+	if slices.Contains(l.Geosets, 1302) {
+		t.Fatalf("the NPC's robe isn't the character's: %v", l.Geosets)
+	}
+	bow := parse(m.characterModel(a, []WornItem{{Slot: 17, Display: 106, InvType: invRanged}}))
+	if len(bow.Attach) != 1 || bow.Attach[0].Point != wow.AttachHandLeft || !slices.Contains(bow.Geosets, 7) {
+		t.Fatalf("a bow alone is drawn, and hair style 4 shown: %+v", bow)
+	}
+}

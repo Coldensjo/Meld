@@ -111,6 +111,16 @@ func (a *App) CharacterLooks(race, gender int) (vmangos.CharLooks, error) {
 	return vmangos.CharacterLooks(dataDir, race, gender)
 }
 
+// CharacterModelLook is a character of a look wearing items (its equipment slots), for the
+// Characters tool's picture of it (#880).
+func (a *App) CharacterModelLook(look vmangos.CharacterAppearance, items []vmangos.WornItem) (vmangos.CharacterModel, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.CharacterModel{}, err
+	}
+	return vmangos.CharacterModelLook(dataDir, look, items)
+}
+
 // ReadCharacterSkills reads a character's skills, with the skill lines its race and class may have.
 func (a *App) ReadCharacterSkills(guid int) (vmangos.CharacterSkills, error) {
 	server, dataDir, err := a.serverAndData()

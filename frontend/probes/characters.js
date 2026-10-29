@@ -1,5 +1,5 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked, the count bought an edit, #886) and the keyring and gives an item added to the bank a random property from its choices (#879), the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
-// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/components/CharacterQuests.svelte, frontend/src/components/CharacterExploration.svelte, frontend/src/components/CharacterTaxi.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, internal/vmangos/charquests.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked, the count bought an edit, #886) and the keyring and gives an item added to the bank a random property from its choices (#879), draws the character wearing its equipment between the equipment's columns (#880), the Character tab's look (#875) offers the client's choices and its picture redraws as the look changes and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
+// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterModelView.svelte, internal/vmangos/charmodel.go, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/components/CharacterQuests.svelte, frontend/src/components/CharacterExploration.svelte, frontend/src/components/CharacterTaxi.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, internal/vmangos/charquests.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
 const accounts = await App.ListAccounts().catch((err) => String(err))
@@ -162,6 +162,14 @@ if (rolls?.randomChoices?.length && bankFree) {
 	button(head(), 'Revert').click()
 	await P.until(() => button(head(), 'Saved'), WAIT, 'the revert')
 } else items.random = 'skipped: no item 727 with random properties, or no free bank square'
+// The character's picture (#880): between the equipment's columns, its model in its look wearing what
+// its equipment slots hold (CharacterModelLook, given the slots' displays).
+const figure = (el) => el?.querySelector('[aria-label="The character"]')
+await P.until(() => figure(inventory())?.querySelector('canvas') || figure(inventory())?.querySelector('.empty')?.textContent.includes('no model'), WAIT, 'the character picture')
+const equipped = inv.items.filter((i) => i.container === 0 && i.slot < 19).map((i) => ({ slot: i.slot, display: i.template.displayId, invType: i.template.invType }))
+const charRace = Number((await App.ReadCharacter(guid)).values.race)
+const drawn = await App.CharacterModelLook({ race: charRace, gender: 0, skin: 0, face: 0, hairStyle: 0, hairColor: 0, facialHair: 0 }, equipped)
+items.figure = { canvas: !!figure(inventory()).querySelector('canvas'), model: drawn.model }
 button(root().querySelector('nav.tabs'), 'Character').click()
 await P.frames(1)
 
@@ -175,6 +183,30 @@ const sheet = {
 	skinShown: Number(lookLabel.querySelector('select').value) === Number(record.values.skin),
 	home: label('Zone')?.querySelector('input')?.value === record.values.home_zone,
 	honor: !!label('Rank points') && !!label('Highest rank'),
+}
+// The Look section's picture (#880) redraws as a part of the look changes, before Save, and wears the
+// Equipment and bags tab's items.
+{
+	const realLook = App.CharacterModelLook
+	let call = null
+	App.CharacterModelLook = async (l, w) => {
+		call = { l, w }
+		return realLook(l, w)
+	}
+	try {
+		const sel = lookLabel.querySelector('select')
+		const other = [...sel.options].find((o) => o.value !== sel.value)
+		if (other) {
+			sel.value = other.value
+			sel.dispatchEvent(new Event('change', { bubbles: true }))
+			await P.until(() => call && call.l.skin === Number(other.value), WAIT, 'the redrawn picture')
+		}
+		sheet.figure = { shown: !!figure(root()), redrawn: !other || call?.l.skin === Number(other.value), wears: !call || call.w.length === equipped.length }
+	} finally {
+		App.CharacterModelLook = realLook
+	}
+	button(root().querySelector('header .actions'), 'Revert').click()
+	await P.frames(1)
 }
 const listTab = async (name, sel, wait) => {
 	button(root().querySelector('nav.tabs'), name).click()
@@ -329,6 +361,9 @@ button(root().querySelector('nav.tabs'), 'Character').click()
 await P.frames(1)
 const sheetOk =
 	sheet.skins > 1 &&
+	sheet.figure.shown &&
+	sheet.figure.redrawn &&
+	sheet.figure.wears &&
 	sheet.skinShown &&
 	sheet.home &&
 	sheet.honor &&
@@ -353,6 +388,8 @@ const sheetOk =
 
 const itemsOk =
 	items.shown === items.read &&
+	items.figure.canvas &&
+	/^Character\\/i.test(items.figure.model) &&
 	(!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
 	items.bank &&
 	items.keyring &&

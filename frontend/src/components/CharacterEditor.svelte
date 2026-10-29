@@ -12,6 +12,7 @@
 	import ClassIcon from './ClassIcon.svelte'
 	import CharacterExploration from './CharacterExploration.svelte'
 	import CharacterInventory from './CharacterInventory.svelte'
+	import CharacterModelView from './CharacterModelView.svelte'
 	import CharacterQuests from './CharacterQuests.svelte'
 	import CharacterReputation from './CharacterReputation.svelte'
 	import CharacterSkills from './CharacterSkills.svelte'
@@ -260,6 +261,19 @@
 		values[col] = String(v)
 	}
 
+	// The look being edited, for the character's picture (#880) here and in the Equipment and bags tab,
+	// which hands back what its equipment slots hold (`worn`).
+	const appearance = $derived<vmangos.CharacterAppearance>({
+		race: Number(values.race ?? 0),
+		gender: Number(values.gender ?? 0),
+		skin: Number(values.skin ?? 0),
+		face: Number(values.face ?? 0),
+		hairStyle: Number(values.hair_style ?? 0),
+		hairColor: Number(values.hair_color ?? 0),
+		facialHair: Number(values.facial_hair ?? 0),
+	})
+	let worn = $state<vmangos.WornItem[]>([])
+
 	// The look: the skins, faces and hair the race and gender being edited may have (CharSections).
 	let looks = $state<vmangos.CharLooks | null>(null)
 	let looksFor = ''
@@ -463,7 +477,7 @@
 							</nav>
 							<!-- The list tabs stay mounted once shown, so their unsaved edits survive a switch to another tab. -->
 							<div class:hidden={tab !== 'items'}>
-								<CharacterInventory bind:this={tabs.items} bind:dirty={tabDirty.items} guid={record.guid} race={Number(saved.race)} cls={Number(saved.class)} level={Number(saved.level)} />
+								<CharacterInventory bind:this={tabs.items} bind:dirty={tabDirty.items} bind:worn look={appearance} guid={record.guid} race={Number(saved.race)} cls={Number(saved.class)} level={Number(saved.level)} />
 							</div>
 							{#if visited.skills}
 								<div class:hidden={tab !== 'skills'}><CharacterSkills bind:this={tabs.skills} bind:dirty={tabDirty.skills} guid={record.guid} /></div>
@@ -523,19 +537,22 @@
 									starting spells gives the new pair's).
 								</p>
 								<h3>Look</h3>
-								<div class="grid">
-									{#each LOOK_PARTS as [col, label] (col)}
-										{@const opts = lookOpts?.[col] ?? []}
-										<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
-											>{label}
-											<select value={Number(values[col] ?? 0)} onchange={(e) => setLook(col, e.currentTarget.value)}>
-												{#if !opts.includes(Number(values[col] ?? 0))}<option value={Number(values[col] ?? 0)}>{values[col]} (not offered)</option>{/if}
-												{#each opts as n (n)}<option value={n}>{n}</option>{/each}
-											</select>
-										</label>
-									{/each}
+								<div class="looks">
+									<div class="figure"><CharacterModelView look={appearance} items={worn} /></div>
+									<div class="grid">
+										{#each LOOK_PARTS as [col, label] (col)}
+											{@const opts = lookOpts?.[col] ?? []}
+											<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
+												>{label}
+												<select value={Number(values[col] ?? 0)} onchange={(e) => setLook(col, e.currentTarget.value)}>
+													{#if !opts.includes(Number(values[col] ?? 0))}<option value={Number(values[col] ?? 0)}>{values[col]} (not offered)</option>{/if}
+													{#each opts as n (n)}<option value={n}>{n}</option>{/each}
+												</select>
+											</label>
+										{/each}
+									</div>
 								</div>
-								<p class="dim">The choices of the game's character creation for this race and gender (CharSections). Meld draws no picture of it yet: check it in the game.</p>
+								<p class="dim">The choices of the game's character creation for this race and gender (CharSections). The picture wears the equipment of the Equipment and bags tab, unsaved changes too.</p>
 								<h3>Honor</h3>
 								<div class="grid">
 									<label class:changed={changes.honor_rank_points !== undefined} class:refused={focusCol === 'honor_rank_points'}
@@ -760,6 +777,20 @@
 		gap: 3px;
 		padding: 2px 4px;
 		border-radius: 3px;
+	}
+	.looks {
+		display: flex;
+		gap: 12px;
+		align-items: flex-start;
+	}
+	.looks .grid {
+		flex: 1;
+	}
+	.looks .figure {
+		flex: none;
+		width: 220px;
+		height: 300px;
+		display: flex;
 	}
 	.grid .wide {
 		grid-column: 1 / -1;

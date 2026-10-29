@@ -880,6 +880,13 @@ account, Delete account, Save character and Delete character.
   `inventoryScript`'s deletes, moves, inserts and a new bag's contents, the refusals of a character
   in the world and of a new item while mangosd runs) and `frontend/tests/inventory.test.ts` (moves,
   bags taking their contents along, special bags, where an added item goes).
+- The character's picture (#880): the probe waits for the canvas between the equipment columns,
+  calls `CharacterModelLook` with the slots' displays (a `Character\...` model back), then on the
+  Character tab changes the skin and checks the Look section's picture asks again with the new skin
+  and the tab's equipment. Unit: `TestCharacterModelWearsItsEquipment` in `looks_test.go` (the
+  character's own hair and skin, none of the stand-in NPC's clothes, a sword and shield drawn, a bow
+  alone). To look at it: a scratch probe that opens a character on Equipment and bags and waits a few
+  seconds, run with `--shot <dir>` (the runner captures the page as the probe ends).
 - Bank, keyring and random properties (#879): the probe checks the Bank grid's 24 squares, the
   keyring's (at least 4), the dashed bank bag slots (6 less `bankBagSlots`), and adds item 727
   (Notched Shortsword, `random_property` 5168) into a picked free bank square: it rolls a property,

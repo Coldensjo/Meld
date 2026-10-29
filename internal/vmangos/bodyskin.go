@@ -65,14 +65,12 @@ func (m *modelTables) robed(worn [wearSlots]int) bool {
 	return false
 }
 
-// bodyLayers are the layers painted over the skin of the CreatureDisplayInfoExtra row er's
-// character in worn: its face (CharSections section 1, by face and skin colour), underwear (4, by
+// bodyLayers are the layers painted over the skin of a character of look cl in worn: its face (CharSections section 1, by face and skin colour), underwear (4, by
 // skin colour), facial hair (2, by style and hair colour) and scalp (3, the hair style's second and
 // third textures), then the worn items' body textures by slotLayers.
-func (m *modelTables) bodyLayers(er int, worn [wearSlots]int) []wow.SkinLayer {
-	x := m.creatureExtra
-	race, sex := x.u32(er, 1), x.u32(er, 2)
-	skin, face, hairStyle, hairColor, facial := x.u32(er, 3), x.u32(er, 4), x.u32(er, 5), x.u32(er, 6), x.u32(er, 7)
+func (m *modelTables) bodyLayers(cl charLook, worn [wearSlots]int) []wow.SkinLayer {
+	race, sex := cl.race, cl.sex
+	skin, face, hairStyle, hairColor, facial := cl.skin, cl.face, cl.hairStyle, cl.hairColor, cl.facial
 	var out []wow.SkinLayer
 	add := func(region int, path string) {
 		if path != "" {

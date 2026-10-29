@@ -164,11 +164,33 @@ export interface CharLooks {
 }
 
 /**
+ * CharacterAppearance is a character's look as its characters row has it.
+ */
+export interface CharacterAppearance {
+    "race": number;
+    "gender": number;
+    "skin": number;
+    "face": number;
+    "hairStyle": number;
+    "hairColor": number;
+    "facialHair": number;
+}
+
+/**
  * CharacterExploration is the exploration bits a character has, with the client's zones.
  */
 export interface CharacterExploration {
     "explored": number[] | null;
     "zones": ExploreZone[] | null;
+}
+
+/**
+ * CharacterModel is a character's model dressed in its look and equipment (wow.Look's query).
+ */
+export interface CharacterModel {
+    "model": string;
+    "look": string;
+    "scale": number;
 }
 
 /**
@@ -2410,6 +2432,15 @@ export interface WorldSpawn {
     "followDist": number;
     "followAngle": number;
     "groupFlags": number;
+}
+
+/**
+ * WornItem is an item in one of a character's equipment slots (0 to 18): its display and inventory type.
+ */
+export interface WornItem {
+    "slot": number;
+    "display": number;
+    "invType": number;
 }
 
 /**

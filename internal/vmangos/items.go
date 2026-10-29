@@ -301,7 +301,7 @@ func (m *modelTables) plainLook(display uint32, worn [wearSlots]int, cloak int, 
 	if r, ok := m.creatureDisplay.row(display); ok && display != 0 && m.creatureExtra != nil && m.creatureExtra.fields > 18 {
 		if er, ok := m.creatureExtra.row(m.creatureDisplay.u32(r, 3)); ok {
 			out.look.Textures, out.look.Attach, out.look.Geosets = nil, nil, nil
-			m.dress(&out, er, worn, cloak, "")
+			m.dress(&out, m.extraLook(er), worn, cloak, "")
 		}
 	}
 	m.holdWeapons(&out, g)

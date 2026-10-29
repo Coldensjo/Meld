@@ -36,6 +36,7 @@ export const BrowseProjectFolder: Call<AppApi['BrowseProjectFolder']> = (...a) =
 export const BrowseVmangosFolder: Call<AppApi['BrowseVmangosFolder']> = (...a) => api().BrowseVmangosFolder(...a) as never
 export const BrowseWowFolder: Call<AppApi['BrowseWowFolder']> = (...a) => api().BrowseWowFolder(...a) as never
 export const CharacterLooks: Call<AppApi['CharacterLooks']> = (...a) => api().CharacterLooks(...a) as never
+export const CharacterModelLook: Call<AppApi['CharacterModelLook']> = (...a) => api().CharacterModelLook(...a) as never
 export const CheckSpawnIDs: Call<AppApi['CheckSpawnIDs']> = (...a) => api().CheckSpawnIDs(...a) as never
 export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) => api().ClassLevelStats(...a) as never
 export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) => api().ClearThumbnailCache(...a) as never

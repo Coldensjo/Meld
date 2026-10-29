@@ -156,6 +156,14 @@ export function CharacterLooks(race: number, gender: number): $CancellablePromis
 }
 
 /**
+ * CharacterModelLook is a character of a look wearing items (its equipment slots), for the
+ * Characters tool's picture of it (#880).
+ */
+export function CharacterModelLook(look: vmangos$0.CharacterAppearance, items: vmangos$0.WornItem[] | null): $CancellablePromise<vmangos$0.CharacterModel> {
+    return $Call.ByID(1333828246, look, items);
+}
+
+/**
  * CheckSpawnIDs tells File › Check Map what the world database has under the unsaved spawns' guids
  * and entries (#195).
  */

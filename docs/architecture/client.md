@@ -429,7 +429,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   columns (rank points, highest rank as `HonorMgr` numbers it: 1-4 dishonored, 5-18 rank 1 to 14,
   lifetime kills), and the **home** (`character_homebind`, values `home_*` in the record, written
   with `REPLACE`; a map whose `map_template.map_type` is not 0 is refused, as the server moves such
-  a home to the race's start). There is no picture of the look yet. The **Skills**, **Spells** and
+  a home to the race's start). The **picture** (#880, `components/CharacterModelView.svelte`,
+  `CharacterModelLook` in `internal/vmangos/charmodel.go`) sits between the Equipment and bags tab's
+  two columns of slots and beside the Look section: the race and gender's model (the Items editor's
+  `standIn` display, for its model and scale) dressed by `dress` in the look being edited (a
+  `charLook`, which an NPC's CreatureDisplayInfoExtra row gives through `extraLook`) and the items in
+  the equipment slots (armour by slot, the cloak, the melee weapons drawn, or the ranged one alone),
+  with unsaved changes. The **Skills**, **Spells** and
   **Reputation** tabs (`CharacterSkills`, `CharacterSpells`, `CharacterReputation.svelte`, each a
   `RowList` with its own Save, mounted the first time it is shown) write their table whole
   (`DELETE` then `INSERT`, in one script). Skills follow `Player::_LoadSkills`: the choices are the
