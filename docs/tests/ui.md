@@ -199,6 +199,8 @@ order on Creatures and NPCs; no tab has a search box of its own; a creature name
 narrows the Creatures tab's count. Probe: `bun run probe browser-header` (needs the world database for
 the Creatures count). Trap: the Sets tab's rename box is a text input outside the header, by design.
 
+Right-click Edit on a Creatures, NPCs or Objects tile (#848): the menu's first entry opens the creature or game object editor on the template (key null). Probe: `bun run probe browser-edit` (needs the world database).
+
 ## Model sets (the asset browser's Sets tab, #124)
 
 Hand check: in headless Chrome, as below; no probe covers it.

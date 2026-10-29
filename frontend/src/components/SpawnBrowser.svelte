@@ -187,6 +187,11 @@
 		if (editor.tool !== 'place') editor.tool = 'place'
 	}
 
+	/** Opens the creature or game object editor on the template itself (key null), not on a spawn (#848). */
+	function editTemplate(entry: number) {
+		if (kind === 'object') ui.objectEditor = { key: null, entry }
+		else ui.creatureEditor = { key: null, entry }
+	}
 	const asItem = (t: Tile): SearchItem => ({ kind: 'm2', key: t.thumb, path: t.path, name: t.name, category: t.category, zone: t.sub || (t.creature ? `Level ${t.badge}` : ''), tokens: [], nameTokens: [], text: '' })
 
 	// The grid renders only the rows in view.
@@ -289,7 +294,8 @@
 							active={t.key === activeKey}
 							onclick={() => pick(t)}
 							onhover={(on) => on && onhover(asItem(t))}
-							onmenu={(e) => openIdMenu(e, { ids: [idOf(kind === 'object' ? 'object' : 'creature', t.entry)], name: t.name })}
+							onmenu={(e) =>
+								openIdMenu(e, { ids: [idOf(kind === 'object' ? 'object' : 'creature', t.entry)], name: t.name }, [{ label: kind === 'object' ? 'Edit game object…' : 'Edit creature…', run: () => editTemplate(t.entry) }])}
 						/>
 					{/snippet}
 				</VirtualGrid>
