@@ -399,7 +399,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   database's `bag` is the bag item's guid. Only the buyback slots (69 to 80) are not reached
   (`elsewhere`). Where an item fits follows the server (`Player::FindEquipSlot`, `ItemCanGoIntoBag`,
   the off hand empty beside a two-hander, `CanBankItem`: a bank bag slot takes a bag, not a quiver,
-  and only the first `characters.bank_bag_slots` of them; the keyring takes only keys, bag family
+  and only the first `characters.bank_bag_slots` of them, a count the tab edits beside the bank
+  bags and saves with the items (#886: `SaveInventory`'s `bankBags`, checked against the bags in one
+  save, so none is left past it for the server to mail); the keyring takes only keys, bag family
   9), in `lib/wow/inventory.ts` for the page and again in Go's `checkInventory`, which refuses with
   the place (`container:slot`) as the column. The keyring shows the slots the game shows at the
   character's level (`keyringSize`, `Player::GetMaxKeyringSize`); the server loads a key in any of

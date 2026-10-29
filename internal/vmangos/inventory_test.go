@@ -242,7 +242,7 @@ func TestInventoryScript(t *testing.T) {
 	if !newRandomProperty(kept, invCur()) {
 		t.Fatal("new random properties not seen")
 	}
-	sql := inventoryScript(7, kept, invCur(), invTemplates, invTestRules.props, 100)
+	sql := inventoryScript(7, kept, invCur(), invTemplates, invTestRules.props, 100, 2)
 	for _, want := range []string{
 		"DELETE FROM character_inventory WHERE item_guid IN (9);",
 		"DELETE FROM item_instance WHERE guid IN (9);",
@@ -262,7 +262,7 @@ func TestInventoryScript(t *testing.T) {
 		"(7, 0, 82, 103, 5396)",
 		"(104, 25, 7, 1, 0, '0 0 0 0 0 ', 0, '0 0 0 0 0 0 0 0 0 101 0 0 102 0 0 0 0 0 0 0 0 ', 6, 20, 0, 0)",
 		"(7, 0, 41, 104, 25)",
-		"UPDATE characters SET equipment_cache = '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 25 41 2362 80871424 0 0 0 0 4496 0 ' WHERE guid = 7;",
+		"UPDATE characters SET equipment_cache = '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 25 41 2362 80871424 0 0 0 0 4496 0 ', bank_bag_slots = 2 WHERE guid = 7;",
 	} {
 		if !strings.Contains(sql, want) {
 			t.Errorf("no %s in\n%s", want, sql)
@@ -307,8 +307,11 @@ func TestInventoryScriptLive(t *testing.T) {
 	if n, err := readBankBagSlots(db, 7); err != nil || n != 1 {
 		t.Fatalf("bank bag slots %d, %v", n, err)
 	}
-	if err := runScript(db, inventoryScript(7, changedItems(), invCur(), invTemplates, invTestRules.props, 100)); err != nil {
+	if err := runScript(db, inventoryScript(7, changedItems(), invCur(), invTemplates, invTestRules.props, 100, 3)); err != nil {
 		t.Fatal(err)
+	}
+	if n, err := readBankBagSlots(db, 7); err != nil || n != 3 {
+		t.Errorf("bank bag slots saved as %d, %v; want 3", n, err)
 	}
 	rows, err := readInvRows(db, 7)
 	if err != nil {
@@ -355,11 +358,16 @@ func TestSaveInventoryRefuses(t *testing.T) {
 		return nil, nil
 	}
 	running := func() bool { return true }
-	if _, err := SaveInventory(root, "", 4, nil, running); err == nil || !strings.Contains(err.Error(), "in the world") {
+	for _, n := range []int{-1, 7} {
+		if r := Refused(func() error { _, err := SaveInventory(root, "", 4, nil, n, running); return err }()); r == nil || r.Column != "bankBagSlots" {
+			t.Errorf("saved %d bank bag slots bought", n)
+		}
+	}
+	if _, err := SaveInventory(root, "", 4, nil, 0, running); err == nil || !strings.Contains(err.Error(), "in the world") {
 		t.Fatalf("saved a character in the world: %v", err)
 	}
 	online = "0"
-	_, err := SaveInventory(root, "", 4, []InventoryItem{{Container: 0, Slot: 23, Entry: 117, Count: 1}}, running)
+	_, err := SaveInventory(root, "", 4, []InventoryItem{{Container: 0, Slot: 23, Entry: 117, Count: 1}}, 0, running)
 	if r := Refused(err); r == nil || r.Column != "0:23" || !strings.Contains(r.Message, "Stop the world server") {
 		t.Fatalf("added an item while the world server runs: %v", err)
 	}

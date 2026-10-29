@@ -1496,12 +1496,12 @@ export function SaveImageDialog(title: string, suggested: string): $CancellableP
 }
 
 /**
- * SaveInventory makes a character's equipment, bags, bank and keyring the items given, while it is
- * out of the world (and, to add items, while the world server is stopped), and returns the SQL it
+ * SaveInventory makes a character's equipment, bags, bank and keyring the items given, and the bank's
+ * bag slots it has bought bankBags, while it is out of the world (and, to add items, while the world server is stopped), and returns the SQL it
  * ran, or the place ("container:slot") of an item it refused.
  */
-export function SaveInventory(guid: number, items: vmangos$0.InventoryItem[] | null): $CancellablePromise<$models.TemplateSaved> {
-    return $Call.ByID(493395892, guid, items);
+export function SaveInventory(guid: number, items: vmangos$0.InventoryItem[] | null, bankBags: number): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(493395892, guid, items, bankBags);
 }
 
 /**

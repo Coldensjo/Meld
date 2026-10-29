@@ -256,15 +256,15 @@ func (a *App) InventoryItemTemplate(entry int) (vmangos.InventoryTemplate, error
 	return vmangos.InventoryItemTemplate(server, a.optionalDataDir(), entry)
 }
 
-// SaveInventory makes a character's equipment, bags, bank and keyring the items given, while it is
-// out of the world (and, to add items, while the world server is stopped), and returns the SQL it
+// SaveInventory makes a character's equipment, bags, bank and keyring the items given, and the bank's
+// bag slots it has bought bankBags, while it is out of the world (and, to add items, while the world server is stopped), and returns the SQL it
 // ran, or the place ("container:slot") of an item it refused.
-func (a *App) SaveInventory(guid int, items []vmangos.InventoryItem) (TemplateSaved, error) {
+func (a *App) SaveInventory(guid int, items []vmangos.InventoryItem, bankBags int) (TemplateSaved, error) {
 	s, err := a.serverSession()
 	if err != nil {
 		return TemplateSaved{}, err
 	}
-	return templateSaved(vmangos.SaveInventory(s.ServerRoot, a.optionalDataDir(), guid, items, s.WorldRunning))
+	return templateSaved(vmangos.SaveInventory(s.ServerRoot, a.optionalDataDir(), guid, items, bankBags, s.WorldRunning))
 }
 
 // optionalDataDir is the client's Data folder, or "" when no client is set: the equipment editor

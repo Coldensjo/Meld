@@ -48,21 +48,25 @@
 	const QUALITY = QUALITY_VARS
 
 	let elsewhere = $state(0)
+	// How many of the bank's bag slots the character has bought (characters.bank_bag_slots, #886), saved
+	// with the items, so Go checks the bank's bags against the new count.
 	let bankBags = $state(0)
+	let savedBankBags = $state(0)
 	const lim = $derived({ bankBags })
 	const rows = new RowList<Item[]>({
 		empty: [],
 		read: async () => {
 			const inv = await ReadInventory(guid)
 			elsewhere = inv.elsewhere
-			bankBags = inv.bankBagSlots
+			bankBags = savedBankBags = inv.bankBagSlots
 			return inv.items ?? []
 		},
 		key: (list) => JSON.stringify(list.map((i) => [i.guid, i.container, i.slot, i.entry, i.count, i.durability, i.enchant, i.randomProperty]).sort((a, b) => a[1] - b[1] || a[2] - b[2])),
 	})
 	rows.follow(() => guid)
+	const changed = $derived(rows.dirty || bankBags !== savedBankBags)
 	$effect(() => {
-		dirty = rows.dirty
+		dirty = changed
 	})
 
 	/** Drops the unsaved edits (the editor's Revert and Discard). */
@@ -86,7 +90,7 @@
 	function save() {
 		refused = ''
 		void rows.save('Saving the equipment', async (items) => {
-			const r = await SaveInventory(guid, items)
+			const r = await SaveInventory(guid, items, bankBags)
 			if (r.refused) {
 				refused = r.refused.column
 				throw new Error(r.refused.message)
@@ -96,6 +100,17 @@
 			await rows.load()
 			setStatus(`Saved the equipment and bags (${n} ${n === 1 ? 'item' : 'items'}). The character has them at its next login.`, 10000)
 		})
+	}
+
+	/** Sets how many of the bank's bag slots are bought, refusing a count below a slot that holds a bag. */
+	function setBought(v: number) {
+		const n = Math.min(BANK_BAG_SLOTS.length, Math.max(0, Math.floor(Number.isFinite(v) ? v : 0)))
+		const last = Math.max(0, ...BANK_BAG_SLOTS.filter((s) => itemAt(rows.rows, { container: 0, slot: s })).map((s) => s - BANK_BAG_SLOTS[0] + 1))
+		if (n < last) {
+			setStatus(`Bank bag slot ${last} holds a bag: take it out or move it before selling the slot back.`, 6000)
+			return
+		}
+		bankBags = n
 	}
 
 	function set(items: Item[] | string) {
@@ -213,8 +228,8 @@
 	{#if rows.error}<p class="error">{rows.error}</p>{/if}
 	<div class="head">
 		<h3>Equipment and bags</h3>
-		<button disabled={!rows.dirty || rows.saving} onclick={revert}>Revert</button>
-		<button class="active" disabled={!rows.dirty || rows.saving} onclick={save}>{rows.saving ? 'Saving…' : rows.dirty ? 'Save equipment' : 'Saved'}</button>
+		<button disabled={!changed || rows.saving} onclick={revert}>Revert</button>
+		<button class="active" disabled={!changed || rows.saving} onclick={save}>{rows.saving ? 'Saving…' : changed ? 'Save equipment' : 'Saved'}</button>
 	</div>
 	{#if rows.loading && !rows.rows.length}
 		<p class="dim">Reading the items…</p>
@@ -256,7 +271,23 @@
 				<div class="grid wide" aria-label="Bank">
 					{#each range(BANK_START, BANK_END) as s (s)}{@render square({ container: 0, slot: s }, '')}{/each}
 				</div>
-				<div class="label dim">Bank bags <span title="characters.bank_bag_slots">({bankBags} of {BANK_BAG_SLOTS.length} bought)</span></div>
+				<div class="label dim">
+					Bank bags (<input
+						class="bought"
+						type="number"
+						min="0"
+						max={BANK_BAG_SLOTS.length}
+						aria-label="Bank bag slots bought"
+						title="characters.bank_bag_slots: the bank's bag slots the character has bought"
+						class:refused={refused === 'bankBagSlots'}
+						value={bankBags}
+						onchange={(e) => {
+							setBought(e.currentTarget.valueAsNumber)
+							e.currentTarget.value = String(bankBags)
+						}}
+					/>
+					of {BANK_BAG_SLOTS.length} bought)
+				</div>
 				<div class="row" aria-label="Bank bag slots">
 					{#each BANK_BAG_SLOTS as s (s)}{@render square({ container: 0, slot: s }, 'Bag')}{/each}
 				</div>
@@ -407,6 +438,12 @@
 	}
 	.label {
 		margin-top: 4px;
+	}
+	.bought {
+		width: 3.5em;
+	}
+	.bought.refused {
+		outline: 1px solid var(--danger-text);
 	}
 	.sq.locked {
 		opacity: 0.45;

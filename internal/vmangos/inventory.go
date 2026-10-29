@@ -583,7 +583,7 @@ func equipmentCache(items []InventoryItem, enchantments map[int]string) string {
 // Item::SaveToDB does), moves and changes the ones that stay, inserts the new ones (numbered from
 // next, as Item::Create makes them) and writes the character select screen's equipment_cache. A
 // random property's enchantments come from props (ItemRandomProperties.dbc's, by ID).
-func inventoryScript(guid int, items []InventoryItem, cur map[int]invRow, templates map[int]InventoryTemplate, props map[int][3]int, next int) string {
+func inventoryScript(guid int, items []InventoryItem, cur map[int]invRow, templates map[int]InventoryTemplate, props map[int][3]int, next, bankBags int) string {
 	items = append([]InventoryItem(nil), items...)
 	for i := range items {
 		if items[i].Guid == 0 {
@@ -669,17 +669,21 @@ func inventoryScript(guid int, items []InventoryItem, cur map[int]invRow, templa
 			"INSERT INTO item_instance (guid, item_id, owner_guid, count, duration, charges, flags, enchantments, random_property_id, durability, text, generated_loot) VALUES\n"+strings.Join(inserts, ",\n")+";",
 			"INSERT INTO character_inventory (guid, bag, slot, item_guid, item_id) VALUES\n"+strings.Join(places, ",\n")+";")
 	}
-	sql = append(sql, fmt.Sprintf("UPDATE characters SET equipment_cache = %s WHERE guid = %d;", sqlQuote(equipmentCache(items, enchantments)), guid))
+	sql = append(sql, fmt.Sprintf("UPDATE characters SET equipment_cache = %s, bank_bag_slots = %d WHERE guid = %d;", sqlQuote(equipmentCache(items, enchantments)), bankBags, guid))
 	return strings.Join(sql, "\n")
 }
 
-// SaveInventory makes character guid's equipment, bags, bank and keyring items, and returns the SQL
-// it ran, or a ColumnError (its column the place, "container:slot") for an item the server would
-// not load there. The character must be out of the world while the world server runs
+// SaveInventory makes character guid's equipment, bags, bank and keyring items, and the bank's bag
+// slots it has bought bankBags (0 to 6, characters.bank_bag_slots), and returns the SQL it ran, or a
+// ColumnError (its column the place, "container:slot", or "bankBagSlots") for an item the server
+// would not load there. The character must be out of the world while the world server runs
 // (worldRunning), as for SaveCharacter; a new item needs the world server stopped, since it numbers
 // new items on from the highest number it read at start and would give this one's number to
 // another. A new random property's enchantments come from the client's tables in dataDir.
-func SaveInventory(serverRoot, dataDir string, guid int, items []InventoryItem, worldRunning func() bool) (string, error) {
+func SaveInventory(serverRoot, dataDir string, guid int, items []InventoryItem, bankBags int, worldRunning func() bool) (string, error) {
+	if bankBags < 0 || bankBags > invBankBagEnd-invBankBagStart {
+		return "", refuse("bankBagSlots", "The bank has %d bag slots to buy, not %d", invBankBagEnd-invBankBagStart, bankBags)
+	}
 	db, err := characterDatabase(serverRoot)
 	if err != nil {
 		return "", err
@@ -701,10 +705,9 @@ func SaveInventory(serverRoot, dataDir string, guid int, items []InventoryItem, 
 	if err != nil {
 		return "", err
 	}
-	rules := invRules{}
-	if rules.bankBags, err = readBankBagSlots(db, guid); err != nil {
-		return "", err
-	}
+	// The count bought is saved with the items, so a bag can't be left in a slot past it (CanBankItem
+	// would refuse it at login and mail it).
+	rules := invRules{bankBags: bankBags}
 	reached := placeRows(rows)
 	cur := map[int]invRow{}
 	for _, r := range rows {
@@ -752,6 +755,6 @@ func SaveInventory(serverRoot, dataDir string, guid int, items []InventoryItem, 
 		}
 		next = top + 1
 	}
-	sql := inventoryScript(guid, items, cur, templates, rules.props, next)
+	sql := inventoryScript(guid, items, cur, templates, rules.props, next, bankBags)
 	return sql, runScript(db, sql)
 }

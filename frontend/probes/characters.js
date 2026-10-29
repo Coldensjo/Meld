@@ -1,4 +1,4 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked) and the keyring and gives an item added to the bank a random property from its choices (#879), the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked, the count bought an edit, #886) and the keyring and gives an item added to the bank a random property from its choices (#879), the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
 // touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/components/CharacterQuests.svelte, frontend/src/components/CharacterExploration.svelte, frontend/src/components/CharacterTaxi.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, internal/vmangos/charquests.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
@@ -115,6 +115,31 @@ if (from && to) {
 items.bank = inventory().querySelectorAll('[aria-label="Bank"] .sq').length === 24
 items.keyring = inventory().querySelectorAll('[aria-label="Keyring"] .sq').length >= 4
 items.locked = inventory().querySelectorAll('[aria-label="Bank bag slots"] .sq.locked').length === 6 - inv.bankBagSlots
+// The count bought (#886) is an edit saved with the items: one more unlocks a slot, the Save sends it,
+// and a refused count is outlined (SaveInventory stood in).
+const bought = inventory().querySelector('input[aria-label="Bank bag slots bought"]')
+if (bought && inv.bankBagSlots < 6) {
+	bought.value = String(inv.bankBagSlots + 1)
+	bought.dispatchEvent(new Event('change', { bubbles: true }))
+	await P.frames(1)
+	items.bought = { unlocked: inventory().querySelectorAll('[aria-label="Bank bag slots"] .sq.locked').length === 5 - inv.bankBagSlots, save: !button(head(), 'Save')?.disabled }
+	const realSave = App.SaveInventory
+	App.SaveInventory = async (g, list, n) => {
+		items.bought.sent = n
+		return { sql: '', refused: { column: 'bankBagSlots', message: 'Probe: refused' } }
+	}
+	try {
+		button(head(), 'Save').click()
+		await P.until(() => inventory().querySelector('.error'), WAIT, 'the refusal')
+	} finally {
+		App.SaveInventory = realSave
+	}
+	items.bought.outlined = bought.classList.contains('refused')
+	button(head(), 'Revert').click()
+	await P.until(() => button(head(), 'Saved'), WAIT, 'the revert')
+	items.bought.reverted = Number(bought.value) === inv.bankBagSlots
+	items.bought.ok = items.bought.unlocked && items.bought.save && items.bought.sent === inv.bankBagSlots + 1 && items.bought.outlined && items.bought.reverted
+} else items.bought = bought ? { ok: true, skipped: 'all six bought' } : { ok: false }
 const rolls = await App.InventoryItemTemplate(727).catch(() => null)
 const bankFree = [...inventory().querySelectorAll('[aria-label="Bank"] .sq')].find((s) => s.getAttribute('draggable') !== 'true')
 if (rolls?.randomChoices?.length && bankFree) {
@@ -332,6 +357,7 @@ const itemsOk =
 	items.bank &&
 	items.keyring &&
 	items.locked &&
+	items.bought.ok &&
 	items.random !== false
 
 // Delete character… (#876) asks first, Keep it backs out, and Delete character sends the guid and goes
