@@ -85,12 +85,13 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 }
 
 // SpawnSQL turns a region's spawn edits into SQL for the server's world database. The region is
-// the block of size tiles at (x, y) of map mapName.
-func SpawnSQL(serverRoot, mapName string, x, y, size int, edits []SpawnEdit, now time.Time) (Result, error) {
+// the block of size tiles at (x, y) of map mapName; dataDir is the client's Data folder, whose Map.dbc
+// gives the map ID when no server folder is set.
+func SpawnSQL(serverRoot, dataDir, mapName string, x, y, size int, edits []SpawnEdit, now time.Time) (Result, error) {
 	if err := checkRegion(x, y, size); err != nil {
 		return Result{}, err
 	}
-	mapID, err := serverMapID(serverRoot, mapName)
+	mapID, err := serverMapID(serverRoot, dataDir, mapName)
 	if err != nil {
 		return Result{}, err
 	}

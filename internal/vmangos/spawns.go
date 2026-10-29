@@ -159,7 +159,8 @@ func mariadbError(stderr string) string {
 }
 
 // ReadSpawns returns the creatures and game objects the world database places in the block of
-// size tiles at (x, y) of the named map. The server's map ID comes from its Map.dbc.
+// size tiles at (x, y) of the named map. The map ID comes from the server's Map.dbc, or the client's
+// without a server folder.
 func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpawn, error) {
 	if err := checkRegion(x, y, size); err != nil {
 		return nil, err
@@ -168,7 +169,7 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 	if err != nil {
 		return nil, err
 	}
-	mapID, err := serverMapID(serverRoot, mapName)
+	mapID, err := serverMapID(serverRoot, dataDir, mapName)
 	if err != nil {
 		return nil, err
 	}
@@ -523,11 +524,15 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 	return out, nil
 }
 
-// serverMapID finds the map ID of a map directory in the server's Map.dbc.
-func serverMapID(serverRoot, mapName string) (int, error) {
+// serverMapID finds the map ID of a map directory in the server's Map.dbc. Without a server folder
+// (an external database, #856) it reads the client's Map.dbc in dataDir instead: a 1.12.1 client and a
+// 5875 server number their maps alike, and Publish adds a custom map to both (#883).
+func serverMapID(serverRoot, dataDir, mapName string) (int, error) {
 	if serverRoot == "" {
-		// Connected to an external database without a server folder (#856).
-		return 0, errors.New("the spawns need the VMaNGOS server folder's Map.dbc: set the folder (Edit › Preferences › Folders)")
+		if id, ok := ClientMapID(dataDir, mapName); ok {
+			return int(id), nil
+		}
+		return 0, errors.New("the client has no map " + mapName)
 	}
 	dbc, err := os.ReadFile(filepath.Join(serverRoot, "data", "5875", "dbc", "Map.dbc"))
 	if err != nil {

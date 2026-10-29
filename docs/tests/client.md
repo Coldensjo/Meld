@@ -31,6 +31,7 @@ database bindings answer from the external conf, and Disconnect goes back. Probe
 (`bun run probe external-db`) does the menu round with `BrowseExternalConf` stood in by the server
 folder's own `run/mangosd.conf`, so the "external" database is the local one and no other server is
 reached; it skips when no server folder is set or its database doesn't answer. Unit tests:
+`internal/vmangos/spawns_mapid_test.go` (the spawns' map ID read from the client's Map.dbc with no server folder, #883),
 `internal/vmangos/external_test.go` (the conf replacing the folder's databases, no start or stop, the
 cached lists dropped) and `app_external_test.go` (the bindings refused while connected, a database
 that doesn't answer refused). A real second machine is not needed: a second MariaDB on another port,

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,15 +9,10 @@ import (
 )
 
 // LoadSpawns reads the creatures and game objects the server's world database places in a block of
-// tiles. It needs the VMaNGOS server folder, and the server's database running.
+// tiles. It needs the VMaNGOS server folder and the server's database running, or an external
+// database (#856), whose map IDs then come from the client's Map.dbc (#883).
 func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, error) {
-	a.cfgMu.Lock()
-	server := a.cfg.VmangosPath
-	a.cfgMu.Unlock()
-	if server == "" {
-		return nil, errors.New("set the VMaNGOS server folder first (Edit › Preferences › Folders)")
-	}
-	dataDir, err := a.clientDataDir()
+	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return nil, err
 	}
@@ -173,17 +167,17 @@ func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
 
 // SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
 func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
-	server, _, err := a.serverAndData()
+	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return vmangos.Result{}, err
 	}
-	return vmangos.SpawnSQL(server, mapName, x, y, size, edits, time.Now())
+	return vmangos.SpawnSQL(server, dataDir, mapName, x, y, size, edits, time.Now())
 }
 
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
 // <user cache>/Meld/spawn-sql first, so what changed can be looked up (or undone by hand).
 func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
-	server, _, err := a.serverForWrite()
+	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return vmangos.Result{}, err
 	}
@@ -191,7 +185,7 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 	if err := vmangos.CheckCreatedGUIDs(server, edits); err != nil {
 		return vmangos.Result{}, err
 	}
-	res, err := vmangos.SpawnSQL(server, mapName, x, y, size, edits, time.Now())
+	res, err := vmangos.SpawnSQL(server, dataDir, mapName, x, y, size, edits, time.Now())
 	if err != nil {
 		return res, err
 	}

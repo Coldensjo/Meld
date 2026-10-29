@@ -155,8 +155,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `ServerStatus` (`serverSession`), Compile to Server and Publish, Play here and Turn on SOAP, the
   account and character writes (they go through `serverSession`), the flight routes
   (`errExternalRoutes`; the stops still save); `gameSession` drops its server folder, so Launch only
-  starts the game, and `worldRunning`/`reloadSpells` ignore the local world server. The spawns still
-  need a server folder for its `Map.dbc` (`serverMapID`). The status bar shows the connection
+  starts the game, and `worldRunning`/`reloadSpells` ignore the local world server. Without a server folder the
+  spawns take a region's map ID from the client's `Map.dbc` instead of the server's (`serverMapID`, #883;
+  a 1.12.1 client and a 5875 server number their maps alike). The status bar shows the connection
   (`[data-external-db]`) the whole time, and a switch either way waits for the database editors to
   close and for unsaved spawn edits, then reads every open region's spawns again
   (`lib/io/external.ts`, `reloadAllSpawns`).
