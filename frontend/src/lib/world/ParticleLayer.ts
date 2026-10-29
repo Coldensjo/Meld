@@ -448,6 +448,25 @@ export class ParticleLayer {
 			this.live.delete(key)
 		}
 		this.list = [...this.live.values()]
+		this.dropUnusedBatches()
+	}
+
+	/**
+	 * Disposes the draws no pool or trail uses any more, so a closed map's particle looks leave the GPU
+	 * with it (#851): the layer is the Engine's, shared by every map, and kept each look's draw for the session.
+	 */
+	private dropUnusedBatches() {
+		const used = new Set<Batch>()
+		for (const l of this.list) {
+			used.add(l.batch)
+			for (const c of l.childBatches) used.add(c)
+		}
+		for (const [key, b] of this.batches) {
+			if (used.has(b)) continue
+			this.group.remove(b.mesh)
+			b.dispose()
+			this.batches.delete(key)
+		}
 	}
 
 	/** Moves the pools and trails of spawns changed in place to where their models are now; the rest are kept as they are. */

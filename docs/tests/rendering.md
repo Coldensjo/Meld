@@ -820,6 +820,12 @@ own materials, so GPU memory and the per-frame animated lists don't grow over a 
   buildings one, closes it, and checks the kept models, shared materials, model textures and the
   renderer's geometries and own textures are back where the first map had them. Trap (#658): the client
   textures the cache keeps are uploaded when first drawn, so they are left out of the renderer's count.
+  Trap (#851): the particle layer's draws (one a look, the Engine's, shared by every map) upload their
+  geometry as their emitters first emit, which goes on for seconds after `P.loadBenchMap` settles (419
+  geometries just after the first map's load, 430 eight frames on), so they are left out of the
+  geometry count too and checked by number instead (`particleDraws`, back to the first map's after the
+  close). A scratch probe that hooks `addEventListener('dispose')` on geometries, with the stack where
+  each was first uploaded, names what a closed map left behind.
 - Probe: `bun run probe release-asset` (#506): a model with a moving texture or colour, built and
   released as a thumbnail, and the Preview window opened and closed on it, leave the per-frame animated
   lists as they were.

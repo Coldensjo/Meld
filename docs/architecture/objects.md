@@ -254,7 +254,7 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   quad writer; world-space particles stay where born, flag 0x10 ones ride the emitter) and
   `world/ParticleLayer.ts` runs a pool per emitter of each placed object within `RANGE` and in view,
   frozen otherwise (an emitter whose object's origin is farther than `RANGE` plus its `reach`, the
-  emitter's rest offset and the model's bounding diameter, is skipped before its bone math, #330), and draws one dynamic mesh per texture, blend, lighting and fog. Graphics › Particles
+  emitter's rest offset and the model's bounding diameter, is skipped before its bone math, #330), and draws one dynamic mesh per texture, blend, lighting and fog; a rebuild disposes the meshes no pool or trail uses any more, so a closed map's looks leave the GPU (#851). Graphics › Particles
   (`prefs.particles`); with it on, `PropEffects` draws no procedural flame on a model that has
   emitters (its fire effects only light). With animations off the tracks hold at time 0 but the
   particles still fly. Spawns and the tools' previews run particles too (#110); a geometry emitter draws each particle as its model (`ModelCloud`, tumbling), a recursion emitter drives up to four child emitters of another model at its particles, and alpha draws are sorted back to front (#118). In 1.12's world models the geometry and recursion emitters are silent in the idle loop the editor plays.
