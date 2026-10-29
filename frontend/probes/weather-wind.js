@@ -53,24 +53,32 @@ const bare = await P.shot(() => {
 	e.renderer.render(e.scene, e.camera)
 })
 P.save(withSplash, 'splashes')
-// The live splashes (this frame's: the probe's frames are slower than a splash's 0.25 s): on the ground or a model, never under the ground.
-const live = () => {
-	const a = layer.splash.geometry.getAttribute('splash').array
-	const clock = Math.fround(layer.splash.material.uniforms.clock.value)
+// The live splashes (or settled flakes), born within their 0.25 s (#871: SwiftShader's frames are slower than that, so only
+// this frame's live there, but the GPU's are 10 to 20 ms, a few each): on the ground or a model, never under the ground. Over
+// a hole they land on a model, which may lie under the hole's terrain (a canal, a cellar).
+const { SPLASH_LIFE, SETTLE_LIFE } = await P.app('/src/lib/wow/weather.ts')
+const landed = (part, name, n, lift, life) => {
+	const a = part.geometry.getAttribute(name).array
+	const clock = Math.fround(part.material.uniforms.clock.value)
 	const r = { live: 0, onTerrain: 0, onModels: 0, under: 0 }
-	for (let i = 0; i < layer.splash.geometry.instanceCount; i++) {
-		if (a[i * 4 + 3] !== clock) continue
+	for (let i = 0; i < n; i++) {
+		const age = clock - a[i * 4 + 3]
+		if (!(age >= 0 && age < life)) continue
 		r.live++
-		const d = a[i * 4 + 1] - 0.02 - e.terrain.heightAt(a[i * 4], a[i * 4 + 2])
-		if (Math.abs(d) < 0.01) r.onTerrain++
+		const x = a[i * 4],
+			z = a[i * 4 + 2]
+		const d = a[i * 4 + 1] - lift - e.terrain.heightAt(x, z)
+		if (e.terrain.isHole(x, z)) r.onModels++
+		else if (Math.abs(d) < 0.01) r.onTerrain++
 		else if (d > 0) r.onModels++
 		else r.under++
 	}
 	return r
 }
+const live = () => landed(layer.splash, 'splash', layer.splash.geometry.instanceCount, 0.02, SPLASH_LIFE)
 out.splash = { spot: spot.map(Math.round), ...live(), drawn: P.diff(bare, withSplash, 2).off }
 
-// Snow's settled flakes (#316) on the same ground: this frame's lie on the terrain, none under it, and they change pixels.
+// Snow's settled flakes (#316) on the same ground: the live ones lie on the terrain, none under it, and they change pixels.
 ui.weather = 'snow'
 await P.until(() => layer.settled?.material.visible, 30_000, 'the settled flakes texture')
 await P.frames(3)
@@ -80,19 +88,7 @@ const unsettled = await P.shot(() => {
 	e.renderer.render(e.scene, e.camera)
 })
 P.save(withSettled, 'settled-flakes')
-const settled = { live: 0, onTerrain: 0, onModels: 0, under: 0, splashes: layer.splash.geometry.instanceCount }
-{
-	const a = layer.settled.geometry.getAttribute('ground').array
-	const clock = Math.fround(layer.settled.material.uniforms.clock.value)
-	for (let i = 0; i < layer.settled.geometry.drawRange.count; i++) {
-		if (a[i * 4 + 3] !== clock) continue
-		settled.live++
-		const d = a[i * 4 + 1] - 0.05 - e.terrain.heightAt(a[i * 4], a[i * 4 + 2])
-		if (Math.abs(d) < 0.01) settled.onTerrain++
-		else if (d > 0) settled.onModels++
-		else settled.under++
-	}
-}
+const settled = { ...landed(layer.settled, 'ground', layer.settled.geometry.drawRange.count, 0.05, SETTLE_LIFE), splashes: layer.splash.geometry.instanceCount }
 out.settled = { ...settled, drawn: P.diff(unsettled, withSettled, 2).off }
 ui.weather = 'rain'
 await P.frames(2)
@@ -111,7 +107,10 @@ for (let i = 0; i < 8; i++) {
 	await P.frames(1)
 }
 const moving = { speed: +layer.wind.speed.toFixed(2), lead: +lead().x.toFixed(2), leadZ: +lead().z.toFixed(2), tipX: +tipX().toFixed(3) }
+// Still for 4 frames and at least 0.3 s, twice the wind's 149 ms window (#871: 4 of the GPU's frames are well inside it).
+const stillFrom = performance.now()
 await P.frames(4)
+while (performance.now() - stillFrom < 300) await P.frames(1)
 const still = { speed: +layer.wind.speed.toFixed(3), lead: +lead().x.toFixed(3), tipX: +tipX().toFixed(3) }
 out.wind = { moving, still }
 
