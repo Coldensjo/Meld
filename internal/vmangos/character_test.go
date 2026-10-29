@@ -8,12 +8,14 @@ import (
 	"time"
 )
 
-// characterServer is a server folder whose mangosd.conf names the character and login databases.
+// characterServer is a server folder whose mangosd.conf names the character and login databases. They
+// are on port 1, where nothing answers: a test that stands in runSQL but not pipeMariadb (or the
+// reverse) once ran a character delete on the machine's real databases through port 3307 (#876).
 func characterServer(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	conf := "LoginDatabase.Info = \"127.0.0.1;3307;mangos;mangos;realmd\"\n" +
-		"CharacterDatabase.Info = \"127.0.0.1;3307;mangos;mangos;characters\"\n"
+	conf := "LoginDatabase.Info = \"127.0.0.1;1;mangos;mangos;realmd\"\n" +
+		"CharacterDatabase.Info = \"127.0.0.1;1;mangos;mangos;characters\"\n"
 	if err := os.MkdirAll(filepath.Join(root, "run"), 0o755); err != nil {
 		t.Fatal(err)
 	}
