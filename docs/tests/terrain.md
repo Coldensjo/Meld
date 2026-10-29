@@ -735,7 +735,8 @@ creature's way round obstacles.
   works out only the placements' boxes and the workers place the faces: longest frame 7.2 ms, the
   main thread's share 23 ms. On the view's first turn on in a session `refreshModels` takes about
   7 ms twice (the first call starts the 83 collision fetches; the second works out the boxes, 5 ms
-  of it Stormwind's 15 MB WMO), Stormwind's type goes to the workers in a 3.4 ms frame and
+  of it Stormwind's 15 MB WMO); since #865 the first starts only 8 of them (1.3 ms, the rest 8 a
+  task after it, `LoadCache`'s `perTask`, the build done as soon as before), Stormwind's type goes to the workers in a 3.4 ms frame and
   `syncWorkers` takes 2.5 ms; turned on again, with the boxes kept, no frame passes 2.3 ms (before:
   9.6, 8.3 and 8.2 ms the first time, 7.1 and 5.9 the next).
   Dropping the ground rows from a settle's `sceneUpdates` makes the probe fail, so it catches a copy

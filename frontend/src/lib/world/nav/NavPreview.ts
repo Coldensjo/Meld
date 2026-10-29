@@ -38,6 +38,8 @@ const MODEL_REACH = KEEP + 400
 const BUDGET_MS = 6
 /** How long the ground and the models must stay unchanged before the tiles are built again (ms). */
 const QUIET_MS = 400
+/** Collision fetches started in one task: 83 at once took 6 ms of the view's first frame (#865). */
+const FETCHES_PER_TASK = 8
 /** The drawn surface's lift over the ground (yd), against z-fighting. */
 const LIFT = 0.08
 /** How far from a clicked point the path test looks for the navmesh (yd). */
@@ -134,9 +136,12 @@ export class NavPreview {
 	private continent = true
 	private tiles = new Map<number, NavTile>()
 	private queue: NavTile[] = []
-	/** Collision faces (and a WMO's liquids) by model type: null while loading or when the model has none. */
-	/** Each model type's collision faces (#515: a failure is warned, counted and retried; the Engine sets `onFail`). */
-	readonly collisions = new LoadCache<LocalFaces>('model collision', fetchCollision)
+	/**
+	 * Each model type's collision faces and a WMO's liquids, null while loading or when the model has
+	 * none (#515: a failure is warned, counted and retried; the Engine sets `onFail`). At most
+	 * FETCHES_PER_TASK start in one task, the rest in tasks of their own (#865).
+	 */
+	readonly collisions = new LoadCache<LocalFaces>('model collision', fetchCollision, undefined, FETCHES_PER_TASK)
 	/**
 	 * The placed models (#849): their boxes, worked out here, and their faces, placed here only for a
 	 * main-thread gather. Kept while the view is off, so turning it on again works out only what moved.

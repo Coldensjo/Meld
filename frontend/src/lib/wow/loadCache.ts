@@ -17,15 +17,29 @@ export class LoadCache<T> {
 	onFail: ((key: string, err: unknown) => void) | null = null
 	/** Called when a load ends, either way, after the value is stored. */
 	onSettle: (() => void) | null = null
+	/** The loads this task may still start. */
+	private startsLeft: number
+	/** The keys asked for past `perTask`, with their `arg`, waiting for the next task to start them. */
+	private queue = new Map<string, string>()
+	private timer: ReturnType<typeof setTimeout> | null = null
 	private values = new Map<string, T | null>()
 	private failedAt = new Map<string, number>()
 
-	/** `what` names the data in the console's warning; `load` reads it from the `arg` of `get`. */
+	/**
+	 * `what` names the data in the console's warning; `load` reads it from the `arg` of `get`. At most
+	 * `perTask` loads start in one task (#865: a fetch() costs about 0.07 ms, so the walkable-ground
+	 * view's first ask for 83 models' collision took 6 ms of one frame); the rest wait in a queue,
+	 * counted in `loading`, and the next ones start in a task of their own (a zero timeout), so the
+	 * frames between run short. Infinity (the default) starts each at once.
+	 */
 	constructor(
 		private what: string,
 		private load: (arg: string) => Promise<T>,
 		private now: () => number = () => performance.now(),
-	) {}
+		private perTask = Infinity,
+	) {
+		this.startsLeft = perTask
+	}
 
 	/** The keys whose last load failed (and that were not forgotten since). */
 	get failed(): number {
@@ -40,6 +54,25 @@ export class LoadCache<T> {
 		if (t !== undefined && this.now() - t < RETRY_MS) return null
 		this.values.set(key, null)
 		this.loading++
+		if (this.startsLeft <= 0) this.queue.set(key, arg)
+		else this.start(key, arg)
+		return null
+	}
+
+	/** In a task of its own: starts up to `perTask` of the queued loads, in the order they were asked. */
+	private next() {
+		this.timer = null
+		this.startsLeft = this.perTask
+		for (const [key, arg] of this.queue) {
+			if (this.startsLeft <= 0) break
+			this.queue.delete(key)
+			this.start(key, arg)
+		}
+	}
+
+	private start(key: string, arg: string) {
+		// The task's starts spent: the next task gets its own, and starts what is queued by then.
+		if (--this.startsLeft <= 0 && this.timer === null) this.timer = setTimeout(() => this.next(), 0)
 		this.load(arg)
 			.then(
 				(value) => {
@@ -60,11 +93,14 @@ export class LoadCache<T> {
 				this.settled++
 				this.onSettle?.()
 			})
-		return null
 	}
 
-	/** Forgets the value at `key`, and any failure there. */
+	/** Forgets the value at `key`, and any failure there; a queued load of it is dropped unstarted. */
 	forget(key: string) {
+		if (this.queue.delete(key)) {
+			this.loading--
+			this.settled++
+		}
 		this.values.delete(key)
 		this.failedAt.delete(key)
 	}

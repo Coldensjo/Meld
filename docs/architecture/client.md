@@ -67,7 +67,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     A WMO's room data and a model's collision faces do the same through `wow/loadCache.ts`'s
     `LoadCache` (#515): a failure, the server's or the decoder's, is warned, counted (`failed`) and
     handed to `onFail` (the Engine's status bar and Log line), and the first ask after `RETRY_MS`
-    loads it again.
+    loads it again. Its `perTask` caps the loads started in one task, the rest queued (counted in
+    `loading`) and started a few a task in zero timeouts: a `fetch()` costs about 0.07 ms, and the
+    walkable-ground view asked for 83 models' collision in one frame (#865, 8 a task there).
     An M2 the client draws nothing of (no batch shown, no light, emitter or ribbon: an open door's
     collision blocker, an invisible trigger) is not a failure (#333): `ParseM2` returns
     `wow.ErrNothingToDraw`, `Client.Model` answers it with its collision hull as vertices and

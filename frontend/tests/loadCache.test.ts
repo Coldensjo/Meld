@@ -82,3 +82,32 @@ test('a value forgotten while it loads is dropped when it arrives', async () => 
 	await settle()
 	expect(cache.get('a')).toBe(1)
 })
+
+test('past perTask, loads wait in a queue counted in loading, and the next ones start in a task of their own (#865)', async () => {
+	const started: string[] = []
+	const cache = new LoadCache<string>(
+		'test',
+		async (arg) => {
+			started.push(arg)
+			return arg
+		},
+		undefined,
+		2,
+	)
+	for (const k of ['a', 'b', 'c', 'd', 'e']) expect(cache.get(k)).toBeNull()
+	expect(started).toEqual(['a', 'b'])
+	expect(cache.loading).toBe(5)
+	// Asked again while queued, it is neither started nor queued twice.
+	expect(cache.get('c')).toBeNull()
+	cache.forget('d')
+	expect(cache.loading).toBe(4)
+	await settle()
+	expect(started).toEqual(['a', 'b', 'c', 'e'])
+	await settle()
+	expect(cache.loading).toBe(0)
+	expect(cache.get('e')).toBe('e')
+	// A later task starts at once again.
+	await settle()
+	expect(cache.get('f')).toBeNull()
+	expect(started).toEqual(['a', 'b', 'c', 'e', 'f'])
+})
