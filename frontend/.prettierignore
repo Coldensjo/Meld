@@ -9,3 +9,5 @@ bun.lock
 # JSON and Markdown keep the two-space indent .editorconfig gives them.
 *.json
 *.md
+# Gitignored throwaway measuring probes.
+probes/scratch/
