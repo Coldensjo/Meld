@@ -886,6 +886,11 @@ account, Delete account, Save character and Delete character.
   character's own hair and skin, none of the stand-in NPC's clothes, a sword and shield drawn, a bow
   alone). To look at it: a scratch probe that opens a character on Equipment and bags and waits a few
   seconds, run with `--shot <dir>` (the runner captures the page as the probe ends).
+- The picture holds its size (#889): the probe sets Interface size to 1.25, reopens Equipment and
+  bags and checks the canvas's height is the same a second later. Trap: at Interface size 1 (the
+  dev page's default) it never grew, so the probe must set the zoom before the canvas mounts (the
+  preview takes its pixel ratio then). A preview canvas in a box of no fixed height grows that box a
+  pixel a frame under a zoom; give the box a height or `contain: size`.
 - Bank, keyring and random properties (#879): the probe checks the Bank grid's 24 squares, the
   keyring's (at least 4), the dashed bank bag slots (6 less `bankBagSlots`), and adds item 727
   (Notched Shortsword, `random_property` 5168) into a picked free bank square: it rolls a property,

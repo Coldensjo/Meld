@@ -170,6 +170,30 @@ const equipped = inv.items.filter((i) => i.container === 0 && i.slot < 19).map((
 const charRace = Number((await App.ReadCharacter(guid)).values.race)
 const drawn = await App.CharacterModelLook({ race: charRace, gender: 0, skin: 0, face: 0, hairStyle: 0, hairColor: 0, facialHair: 0 }, equipped)
 items.figure = { canvas: !!figure(inventory()).querySelector('canvas'), model: drawn.model }
+// The picture holds its size (#889): its canvas sat in a cell of no fixed height, and under an
+// Interface size above 1 (the canvas's pixel ratio times the zoom, set as it mounts) each frame's
+// buffer grew the cell a pixel, so the model looked to zoom in without end. Reopened at 1.25.
+const { prefs } = await P.state()
+const scaleBefore = prefs.uiScale
+const figSize = () => {
+	const c = figure(inventory())?.querySelector('canvas')
+	return c ? c.clientHeight : 0
+}
+const pause = (ms) => new Promise((r) => setTimeout(r, ms))
+try {
+	prefs.uiScale = 1.25
+	button(root().querySelector('nav.tabs'), 'Character').click()
+	await P.frames(2)
+	button(root().querySelector('nav.tabs'), 'Equipment and bags').click()
+	await P.until(() => figure(inventory())?.querySelector('canvas'), WAIT, 'the character picture again')
+	await pause(500)
+	const before = figSize()
+	await pause(1000)
+	items.figure.size = { before, after: figSize() }
+} finally {
+	prefs.uiScale = scaleBefore
+}
+items.figure.steady = items.figure.size.before > 0 && items.figure.size.before === items.figure.size.after
 button(root().querySelector('nav.tabs'), 'Character').click()
 await P.frames(1)
 
@@ -389,6 +413,7 @@ const sheetOk =
 const itemsOk =
 	items.shown === items.read &&
 	items.figure.canvas &&
+	items.figure.steady &&
 	/^Character\\/i.test(items.figure.model) &&
 	(!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
 	items.bank &&

@@ -422,8 +422,13 @@
 		column-gap: 8px;
 		row-gap: 8px;
 	}
+	/* The picture takes the height of the slot columns beside it and never sizes the row itself (#889):
+	   its canvas's buffer, a pixel off its laid-out size under an Interface size above 1, grew the
+	   row a frame at a time and the model looked to zoom in without end. */
 	.figure {
 		display: flex;
+		contain: size;
+		min-height: 300px;
 	}
 	.side {
 		display: flex;
