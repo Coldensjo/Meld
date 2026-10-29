@@ -174,6 +174,13 @@ export interface CharacterAppearance {
     "hairStyle": number;
     "hairColor": number;
     "facialHair": number;
+
+    /**
+     * HideHelm and HideCloak are the character's Show Helm and Show Cloak turned off (character_flags
+     * CHARACTER_FLAG_HIDE_HELM and CHARACTER_FLAG_HIDE_CLOAK, #888): the picture leaves them off.
+     */
+    "hideHelm": boolean;
+    "hideCloak": boolean;
 }
 
 /**
@@ -225,6 +232,11 @@ export interface CharacterRecord {
     "zone": number;
     "xp": number;
     "playedTime": number;
+
+    /**
+     * CharacterFlags is the row's character_flags (CHARACTER_FLAG_HIDE_HELM, _HIDE_CLOAK), read for the picture's Show Helm and Show Cloak (#888); not edited.
+     */
+    "characterFlags": number;
     "values": { [_ in string]?: string } | null;
 }
 

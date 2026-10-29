@@ -13,6 +13,10 @@ type CharacterAppearance struct {
 	HairStyle  int `json:"hairStyle"`
 	HairColor  int `json:"hairColor"`
 	FacialHair int `json:"facialHair"`
+	// HideHelm and HideCloak are the character's Show Helm and Show Cloak turned off (character_flags
+	// CHARACTER_FLAG_HIDE_HELM and CHARACTER_FLAG_HIDE_CLOAK, #888): the picture leaves them off.
+	HideHelm  bool `json:"hideHelm"`
+	HideCloak bool `json:"hideCloak"`
 }
 
 // WornItem is an item in one of a character's equipment slots (0 to 18): its display and inventory type.
@@ -103,6 +107,8 @@ func (m *modelTables) characterModel(a CharacterAppearance, items []WornItem) Ch
 		}
 		held := heldItem{display: uint32(it.Display), invType: it.InvType}
 		switch {
+		case it.Slot == slotHead && a.HideHelm:
+		case it.Slot == slotBack && a.HideCloak:
 		case wearSlotOfEquip(it.Slot) >= 0:
 			worn[wearSlotOfEquip(it.Slot)] = row
 		case it.Slot == slotBack:

@@ -44,13 +44,15 @@ type AccountCharacter struct {
 // CharacterRecord is a character's row for the editor: the columns it edits (characterColumns) as
 // strings, as the template editors have them, and what it only shows.
 type CharacterRecord struct {
-	Guid       int               `json:"guid"`
-	Account    int               `json:"account"`
-	Online     bool              `json:"online"`
-	Zone       int               `json:"zone"`
-	XP         int               `json:"xp"`
-	PlayedTime int               `json:"playedTime"`
-	Values     map[string]string `json:"values"`
+	Guid       int  `json:"guid"`
+	Account    int  `json:"account"`
+	Online     bool `json:"online"`
+	Zone       int  `json:"zone"`
+	XP         int  `json:"xp"`
+	PlayedTime int  `json:"playedTime"`
+	// CharacterFlags is the row's character_flags (CHARACTER_FLAG_HIDE_HELM, _HIDE_CLOAK), read for the picture's Show Helm and Show Cloak (#888); not edited.
+	CharacterFlags int               `json:"characterFlags"`
+	Values         map[string]string `json:"values"`
 }
 
 // characterColumns are the characters table's columns the editor changes, in the order it reads them:
@@ -374,16 +376,16 @@ func ReadCharacter(serverRoot string, guid int) (CharacterRecord, error) {
 
 func readCharacter(db worldDB, guid int) (CharacterRecord, error) {
 	n := len(characterColumns)
-	raw, err := runSQL(db, fmt.Sprintf("SELECT %s, account, online, zone, xp, played_time_total FROM characters WHERE guid = %d", strings.Join(characterColumns, ", "), guid))
+	raw, err := runSQL(db, fmt.Sprintf("SELECT %s, account, online, zone, xp, played_time_total, character_flags FROM characters WHERE guid = %d", strings.Join(characterColumns, ", "), guid))
 	if err != nil {
 		return CharacterRecord{}, err
 	}
-	rows := batchRows(raw, n+5)
+	rows := batchRows(raw, n+6)
 	if len(rows) == 0 {
 		return CharacterRecord{}, fmt.Errorf("there is no character %d", guid)
 	}
 	f := rows[0]
-	r := CharacterRecord{Guid: guid, Account: f.num(n), Online: f[n+1] != "0", Zone: f.num(n + 2), XP: f.num(n + 3), PlayedTime: f.num(n + 4), Values: map[string]string{}}
+	r := CharacterRecord{Guid: guid, Account: f.num(n), Online: f[n+1] != "0", Zone: f.num(n + 2), XP: f.num(n + 3), PlayedTime: f.num(n + 4), CharacterFlags: f.num(n + 5), Values: map[string]string{}}
 	for i, c := range characterColumns {
 		r.Values[c] = f[i]
 	}

@@ -291,6 +291,11 @@ func TestCharacterModelWearsItsEquipment(t *testing.T) {
 	if slices.Contains(l.Geosets, 1302) {
 		t.Fatalf("the NPC's robe isn't the character's: %v", l.Geosets)
 	}
+	hidden := a
+	hidden.HideHelm, hidden.HideCloak = true, true
+	if h := parse(m.characterModel(hidden, []WornItem{{Slot: 0, Display: 100, InvType: 1}, {Slot: 15, Display: 104, InvType: 13}})); slices.ContainsFunc(h.Attach, func(x wow.Attachment) bool { return x.Point == wow.AttachHelm }) {
+		t.Fatalf("Show Helm off leaves the helm off: %+v", h.Attach)
+	}
 	bow := parse(m.characterModel(a, []WornItem{{Slot: 17, Display: 106, InvType: invRanged}}))
 	if len(bow.Attach) != 1 || bow.Attach[0].Point != wow.AttachHandLeft || !slices.Contains(bow.Geosets, 7) {
 		t.Fatalf("a bow alone is drawn, and hair style 4 shown: %+v", bow)

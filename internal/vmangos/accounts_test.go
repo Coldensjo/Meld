@@ -79,11 +79,11 @@ func TestCreateAccount(t *testing.T) {
 // characterRow is readCharacter's row for testCharacter as the mariadb client prints it, online or not.
 func characterRow(online string) []byte {
 	c := testCharacter()
-	f := make([]string, 0, len(characterColumns)+5)
+	f := make([]string, 0, len(characterColumns)+6)
 	for _, col := range characterColumns {
 		f = append(f, c.Values[col])
 	}
-	f = append(f, "3", online, "12", "0", "50")
+	f = append(f, "3", online, "12", "0", "50", "0")
 	return []byte(strings.Join(f, "\t") + "\n")
 }
 

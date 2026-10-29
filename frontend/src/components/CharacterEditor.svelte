@@ -271,6 +271,9 @@
 		hairStyle: Number(values.hair_style ?? 0),
 		hairColor: Number(values.hair_color ?? 0),
 		facialHair: Number(values.facial_hair ?? 0),
+		// Show Helm and Show Cloak off (character_flags 0x400 and 0x800, #888)
+		hideHelm: ((record?.characterFlags ?? 0) & 0x400) !== 0,
+		hideCloak: ((record?.characterFlags ?? 0) & 0x800) !== 0,
 	})
 	let worn = $state<vmangos.WornItem[]>([])
 
