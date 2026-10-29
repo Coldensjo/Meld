@@ -190,9 +190,14 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    `_`, a password of up to 16 characters, and a GM level. Both are kept in upper case, as the
    game's login screen sends them, and the password is stored only as the server stores it.
 2. Open an account to change its GM level or password (**Save account**), or to delete it.
-   **Delete account…** is off while the account has characters; delete those in the game first.
+   **Delete account…** deletes its characters with it, as **Delete character…** below does, and
+   then needs the world server stopped.
 3. Open a character to change its name, race, class, gender, level, money or where it stands
-   (**Put at the camera** takes the editor's camera spot), then **Save character**.
+   (**Put at the camera** takes the editor's camera spot), then **Save character**. **Delete
+   character…** deletes it as the server's `.character erase` does: with its items, mail and pets;
+   its guild passes to its best-ranked member (or ends with its last), its group to another member
+   (or ends under two), and its cash-on-delivery mail with items goes back to the senders. It needs
+   the world server stopped.
 4. Its **Equipment and bags** tab shows the equipment slots, the bag slots, the backpack and each
    bag. Drag an item to move it (it swaps with what is there), pick a square to change the item's
    count, durability or enchantment or to **Take out** the item (a bag takes its contents with it),

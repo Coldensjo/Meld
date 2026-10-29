@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // The Characters and Accounts tool (#855): the realm's accounts in the login database (realmd's
@@ -290,9 +291,10 @@ func SetAccount(serverRoot string, id, gm int, password string) error {
 	return err
 }
 
-// DeleteAccount removes account id and its realmcharacters rows. It refuses an account that still
-// has characters (deleting one takes its items, mail and pets out of many tables, which the server
-// does) or is logged in while the world server runs.
+// DeleteAccount removes account id, its characters (as DeleteCharacter does, #876) and its
+// realmcharacters rows, as AccountMgr::DeleteAccount does. An account with characters needs the world
+// server stopped, as a character delete does; one without is refused only while it is logged in with
+// the world server running.
 func DeleteAccount(serverRoot string, id int, worldRunning func() bool) error {
 	login, err := loginDatabase(serverRoot)
 	if err != nil {
@@ -315,16 +317,22 @@ func DeleteAccount(serverRoot string, id int, worldRunning func() bool) error {
 			return errors.New("the account is logged in: log out of the game first")
 		}
 	}
-	out, err = runSQL(chars, fmt.Sprintf("SELECT COUNT(*) FROM characters WHERE account = %d", id))
+	out, err = runSQL(chars, fmt.Sprintf("SELECT guid FROM characters WHERE account = %d ORDER BY guid", id))
 	if err != nil {
 		return err
 	}
-	switch n := strings.TrimSpace(string(out)); n {
-	case "0":
-	case "1":
-		return errors.New("the account has a character: delete it in the game first")
-	default:
-		return fmt.Errorf("the account has %s characters: delete them in the game first", n)
+	if guids := batchRows(out, 1); len(guids) > 0 {
+		if worldRunning() {
+			return errDeleteRunning
+		}
+		var script []string
+		now, delay := time.Now().Unix(), mailDeliveryDelay(serverRoot)
+		for _, g := range guids {
+			script = append(script, deleteCharacterSQL(g.num(0), id, now, delay))
+		}
+		if err := runScript(chars, strings.Join(script, "\n")); err != nil {
+			return err
+		}
 	}
 	if err := runScript(login, fmt.Sprintf("DELETE FROM account WHERE id = %d;\nDELETE FROM realmcharacters WHERE acctid = %d;", id, id)); err != nil {
 		return err

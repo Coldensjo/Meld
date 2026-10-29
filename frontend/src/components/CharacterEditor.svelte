@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CharacterLooks, CreateAccount, DeleteAccount, ListAccounts, ListCharacters, MapEntries, ReadCharacter, SaveCharacter, SetAccount } from '../lib/wails/App'
+	import { CharacterLooks, CreateAccount, DeleteAccount, DeleteCharacter, ListAccounts, ListCharacters, MapEntries, ReadCharacter, SaveCharacter, SetAccount } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -18,12 +18,13 @@
 
 	// Tools › Characters and Accounts (#855): the realm's accounts (the login database) and their
 	// characters (the character database). Make, change and delete accounts; open a character and
-	// change its name, race, class, gender, level, money and where it stands. The world server writes a
-	// character in the world over its row when it logs out, so Go refuses to change one that is in the
-	// world while the world server runs, and a rename while it runs at all. The Character tab also
-	// holds the look, honor and home (#875). The Equipment and bags tab (#874, CharacterInventory.svelte)
-	// puts items into its slots and bags, and the Skills, Spells and Reputation tabs (#875) edit those
-	// lists, each with a Save of its own.
+	// change its name, race, class, gender, level, money and where it stands, or delete it (#876, which
+	// Go does with the world server stopped, as its `.character erase` would; an account's delete takes
+	// its characters along). The world server writes a character in the world over its row when it logs
+	// out, so Go refuses to change one that is in the world while the world server runs, and a rename
+	// while it runs at all. The Character tab also holds the look, honor and home (#875). The Equipment
+	// and bags tab (#874, CharacterInventory.svelte) puts items into its slots and bags, and the Skills,
+	// Spells and Reputation tabs (#875) edit those lists, each with a Save of its own.
 
 	const target = $derived(ui.characterEditor)
 
@@ -49,6 +50,7 @@
 		dirty: () => Object.values(tabDirty).some(Boolean),
 		onopen: () => {
 			confirmDelete = false
+			confirmDeleteCharacter = false
 			focusCol = ''
 			tab = 'character'
 			tabDirty = { items: false, skills: false, spells: false, reputation: false }
@@ -203,10 +205,33 @@
 		ed.error = ''
 		try {
 			await DeleteAccount(account.id)
-			ed.note = `Deleted account ${account.name}.`
+			const n = account.characters
+			ed.note = `Deleted account ${account.name}${n ? ` and its ${n === 1 ? 'character' : `${n} characters`}` : ''}.`
 			setStatus(ed.note, 8000)
 			confirmDelete = false
 			ui.characterEditor = { account: 0, guid: 0 }
+			await readAccounts()
+		} catch (err) {
+			ed.error = String(err)
+		} finally {
+			busy = false
+		}
+	}
+
+	// Deleting the open character: its unsaved edits go with it.
+	let confirmDeleteCharacter = $state(false)
+	async function deleteCharacter() {
+		if (!record) return
+		const { guid, account: id } = record
+		busy = true
+		ed.error = ''
+		try {
+			const name = await DeleteCharacter(guid)
+			confirmDeleteCharacter = false
+			ui.characterEditor = { account: id, guid: 0 }
+			charactersOf = 0
+			ed.note = `Deleted ${name}.`
+			setStatus(ed.note, 8000)
 			await readAccounts()
 		} catch (err) {
 			ed.error = String(err)
@@ -354,6 +379,9 @@
 		{/snippet}
 		{#snippet actions()}
 			{#if record}
+				<button class="danger" disabled={busy || ed.saving} onclick={() => (confirmDeleteCharacter = true)} title="Delete this character, with its items, mail and pets, as the server's .character erase does"
+					>Delete character…</button
+				>
 				<button disabled={!changeCount || ed.saving} onclick={() => ed.revert()}>Revert</button>
 				<button class="active" disabled={!changeCount || ed.saving} onclick={save}>{ed.saving ? 'Saving…' : changeCount ? `Save character (${changeCount})` : 'Saved'}</button>
 			{/if}
@@ -361,9 +389,20 @@
 		{#snippet bars()}
 			{#if confirmDelete && account}
 				<div class="bar warn">
-					<span>Delete the account {account.name} from the login database? This cannot be undone.</span>
+					<span
+						>Delete the account {account.name}{account.characters
+							? ` and its ${account.characters === 1 ? 'character' : `${account.characters} characters`}, with their items, mail and pets (the world server must be stopped)`
+							: ' from the login database'}? This cannot be undone.</span
+					>
 					<button onclick={() => (confirmDelete = false)}>Keep it</button>
 					<button class="danger" disabled={busy} onclick={deleteAccount}>Delete account</button>
+				</div>
+			{/if}
+			{#if confirmDeleteCharacter && record}
+				<div class="bar warn">
+					<span>Delete {saved.name} with its items, mail and pets? It leaves its guild and group, and its cash-on-delivery mail goes back to the senders. The world server must be stopped. This cannot be undone.</span>
+					<button onclick={() => (confirmDeleteCharacter = false)}>Keep it</button>
+					<button class="danger" disabled={busy} onclick={deleteCharacter}>Delete character</button>
 				</div>
 			{/if}
 			{#if record?.online}
@@ -575,9 +614,9 @@
 							<button class="active" disabled={!accountDirty || busy} onclick={saveAccount}>Save account</button>
 							<button
 								class="danger"
-								disabled={busy || account.characters > 0}
+								disabled={busy}
 								onclick={() => (confirmDelete = true)}
-								title={account.characters > 0 ? 'Delete its characters in the game first: deleting one takes its items, mail and pets with it, which the server does' : 'Remove this account from the login database'}
+								title={account.characters > 0 ? 'Remove this account and its characters, with their items, mail and pets (the world server must be stopped)' : 'Remove this account from the login database'}
 								>Delete account…</button
 							>
 						</div>

@@ -49,13 +49,24 @@ func (a *App) SetAccount(id, gmLevel int, password string) error {
 	return vmangos.SetAccount(s.ServerRoot, id, gmLevel, password)
 }
 
-// DeleteAccount removes an account that has no characters and is not logged in.
+// DeleteAccount removes an account with its characters (which needs the world server stopped), or one
+// without characters that is not logged in.
 func (a *App) DeleteAccount(id int) error {
 	s, err := a.serverSession()
 	if err != nil {
 		return err
 	}
 	return vmangos.DeleteAccount(s.ServerRoot, id, s.WorldRunning)
+}
+
+// DeleteCharacter deletes a character and everything that is its (#876), with the world server
+// stopped, and returns its name.
+func (a *App) DeleteCharacter(guid int) (string, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.DeleteCharacter(s.ServerRoot, guid, s.WorldRunning)
 }
 
 // ListCharacters lists an account's characters.

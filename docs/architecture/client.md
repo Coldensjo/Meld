@@ -369,9 +369,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   little-endian, SHA1(NAME:PASSWORD)) read little-endian, v = 7^x mod N, upper-case hex;
   `TestSrpVerifierMatchesTheServer` holds the server's own self-test vector) and a `realmcharacters`
   row; the password itself is never stored. Names and passwords are upper case, as the login screen
-  sends them. Delete refuses an account with characters (the server's `Player::DeleteFromDB` clears
-  some twenty tables and returns mail; a character delete is #876) or logged in while the world
-  server runs. A character is a `TemplateEditor` row of `characterColumns` (name, race, class,
+  sends them. Delete character (#876, `chardelete.go`) does what the server's `.character erase`
+  does (`Player::DeleteFromDB` with `deleteFinally`, whatever `CharDelete.Method` says), in one
+  script (`deleteCharacterSQL`): the guild passes to the member of the best rank or is disbanded with
+  its last member, the group passes to its lowest guid with the instance binds or is disbanded under
+  two members, petitions and signatures go, cash-on-delivery mail with items from a character goes
+  back to the sender (returned, from the deleted character, after `MailDeliveryDelay` across
+  accounts), pets go, and then its rows in every table of `characterTables`; `realmcharacters` is
+  recounted for mangosd.conf's `RealmID`. It needs the world server stopped (it holds names, guilds
+  and groups in memory). Delete account takes the account's characters along the same way (with the
+  world server stopped when it has any), and refuses one without characters only while it is logged
+  in with the world server running. A character is a `TemplateEditor` row of `characterColumns` (name, race, class,
   gender, level, money, map, position, facing); `SaveCharacter` returns a refused value as
   `refused`, as the template saves do. The rules, from the world server: a character in the world is
   never written while mangosd runs (it writes its copy over the row at logout; the `online` flag a

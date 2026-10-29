@@ -76,27 +76,6 @@ func TestCreateAccount(t *testing.T) {
 	}
 }
 
-func TestDeleteAccountRefusesOneWithCharacters(t *testing.T) {
-	root := characterServer(t)
-	old := runSQL
-	defer func() { runSQL = old }()
-	runSQL = func(db worldDB, sql string) ([]byte, error) {
-		switch {
-		case strings.HasPrefix(sql, "SELECT online"):
-			return []byte("0\n"), nil
-		case strings.HasPrefix(sql, "SELECT COUNT(*) FROM characters"):
-			return []byte("2\n"), nil
-		case strings.Contains(sql, "DELETE"):
-			t.Fatalf("deleted: %s", sql)
-		}
-		return []byte("1\n"), nil
-	}
-	err := DeleteAccount(root, 3, func() bool { return false })
-	if err == nil || !strings.Contains(err.Error(), "2 characters") {
-		t.Fatalf("got %v", err)
-	}
-}
-
 // characterRow is readCharacter's row for testCharacter as the mariadb client prints it, online or not.
 func characterRow(online string) []byte {
 	c := testCharacter()
@@ -188,8 +167,8 @@ func TestDeleteAccount(t *testing.T) {
 		case strings.HasPrefix(sql, "DELETE FROM character_tutorial"):
 			tutorial = sql
 			return nil, nil
-		case strings.HasPrefix(sql, "SELECT COUNT(*) FROM characters"):
-			return []byte("0\n"), nil
+		case strings.HasPrefix(sql, "SELECT guid FROM characters"):
+			return nil, nil // no characters
 		}
 		return []byte("1\n"), nil // online, but the world server is down
 	}

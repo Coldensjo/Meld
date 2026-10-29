@@ -258,10 +258,19 @@ export function CreateSpell(base: number, starter: string, name: string): $Cance
 }
 
 /**
- * DeleteAccount removes an account that has no characters and is not logged in.
+ * DeleteAccount removes an account with its characters (which needs the world server stopped), or one
+ * without characters that is not logged in.
  */
 export function DeleteAccount(id: number): $CancellablePromise<void> {
     return $Call.ByID(436436941, id);
+}
+
+/**
+ * DeleteCharacter deletes a character and everything that is its (#876), with the world server
+ * stopped, and returns its name.
+ */
+export function DeleteCharacter(guid: number): $CancellablePromise<string> {
+    return $Call.ByID(2888080821, guid);
 }
 
 /**

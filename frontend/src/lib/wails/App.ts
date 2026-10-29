@@ -50,6 +50,7 @@ export const CreateObject: Call<AppApi['CreateObject']> = (...a) => api().Create
 export const CreateQuest: Call<AppApi['CreateQuest']> = (...a) => api().CreateQuest(...a) as never
 export const CreateSpell: Call<AppApi['CreateSpell']> = (...a) => api().CreateSpell(...a) as never
 export const DeleteAccount: Call<AppApi['DeleteAccount']> = (...a) => api().DeleteAccount(...a) as never
+export const DeleteCharacter: Call<AppApi['DeleteCharacter']> = (...a) => api().DeleteCharacter(...a) as never
 export const DeleteConditionText: Call<AppApi['DeleteConditionText']> = (...a) => api().DeleteConditionText(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never

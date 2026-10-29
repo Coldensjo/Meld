@@ -1,5 +1,5 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, and the New account form asks for a name and password. Nothing is saved: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, and the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts.
-// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/accounts.go, internal/vmangos/charsheet.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, and the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts.
+// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
 const accounts = await App.ListAccounts().catch((err) => String(err))
@@ -23,7 +23,8 @@ const listed = root().querySelectorAll('[aria-label="Accounts"] button').length
 button(root().querySelector('[aria-label="Accounts"]'), withChars.name).click()
 await P.until(() => root().querySelector('[aria-label="Characters"] button'), WAIT, 'the characters')
 const chars = root().querySelectorAll('[aria-label="Characters"] button').length
-const deleteOff = button(root(), 'Delete account').disabled
+// Delete account… is offered with characters too (#876: it takes them along).
+const deleteOn = !button(root(), 'Delete account').disabled
 
 root().querySelector('[aria-label="Characters"] button').click()
 await P.until(() => label('Level')?.querySelector('input')?.value, WAIT, 'the character')
@@ -224,6 +225,33 @@ const sheetOk =
 
 const itemsOk = items.shown === items.read && (!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted))
 
+// Delete character… (#876) asks first, Keep it backs out, and Delete character sends the guid and goes
+// back to the account's page (DeleteCharacter stood in, so nothing is deleted).
+const del = {}
+const actions = () => root().querySelector('header .actions')
+button(actions(), 'Delete character').click()
+await P.until(() => button(root().querySelector('.bar.warn'), 'Keep it'), WAIT, 'the delete question')
+del.asked = root().querySelector('.bar.warn').textContent.includes(name)
+button(root().querySelector('.bar.warn'), 'Keep it').click()
+await P.frames(1)
+del.kept = !root().querySelector('.bar.warn') && ui.characterEditor.guid === guid
+const realDelete = App.DeleteCharacter
+App.DeleteCharacter = async (g) => {
+	del.sent = g
+	return name
+}
+try {
+	button(actions(), 'Delete character').click()
+	await P.until(() => button(root().querySelector('.bar.warn'), 'Delete character'), WAIT, 'the delete question')
+	button(root().querySelector('.bar.warn'), 'Delete character').click()
+	await P.until(() => ui.characterEditor.guid === 0 && root().querySelector('[aria-label="Characters"] button') && root().querySelector('.bar.ok'), WAIT, 'the account page')
+} finally {
+	App.DeleteCharacter = realDelete
+}
+del.back = ui.characterEditor.account === withChars.id && root().querySelector('.bar.ok').textContent.includes(`Deleted ${name}.`)
+del.note = root().querySelector('.bar.ok').textContent.trim()
+const delOk = del.asked && del.kept && del.sent === guid && del.back
+
 button(root().querySelector('aside'), 'New account').click()
 await P.until(() => button(root(), 'Make account'), WAIT, 'the new account form')
 const makeOff = button(root(), 'Make account').disabled
@@ -232,5 +260,6 @@ button(root().querySelector('header .actions'), 'Close').click()
 await P.frames(1)
 const closed = !root() && ui.characterEditor === null
 
-const ok = listed > 0 && chars === withChars.characters && deleteOff && !!name && saveText === 'Save character (1)' && marked && sent?.level !== undefined && refusedShown && outlined && reverted && itemsOk && sheetOk && makeOff && closed
-return { ok, listed, account: withChars.name, chars, deleteOff, name, level, saveText, marked, sent, refusedShown, outlined, reverted, items, sheet, makeOff, closed }
+const ok =
+	listed > 0 && chars === withChars.characters && deleteOn && !!name && saveText === 'Save character (1)' && marked && sent?.level !== undefined && refusedShown && outlined && reverted && itemsOk && sheetOk && delOk && makeOff && closed
+return { ok, listed, account: withChars.name, chars, deleteOn, name, level, saveText, marked, sent, refusedShown, outlined, reverted, items, sheet, del, makeOff, closed }

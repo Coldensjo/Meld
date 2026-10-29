@@ -830,11 +830,13 @@ new icon) in Meld's patch only on Save or New spell.
 
 Checks: Tools › Characters and Accounts… lists the accounts, opens an account's characters and a
 character's fields, and writes the login and character databases only on Make account, Save
-account, Delete account and Save character.
+account, Delete account, Save character and Delete character.
 - Probe: `characters` (about 4 s; nothing written): the accounts list, the first account with
-  characters and its character list (Delete account… is off while it has any), a character's level
+  characters and its character list (Delete account… is offered with characters too, #876), a character's level
   as an unsaved edit (Save character (1)), a refused value outlining its field (`SaveCharacter`
-  stood in through `window.go.main.App`), Revert, the New account form, Close. It skips when the
+  stood in through `window.go.main.App`), Revert, Delete character… (asks, Keep it backs out, Delete
+  sends the guid and goes back to the account; `DeleteCharacter` stood in), the New account form,
+  Close. It skips when the
   server's databases can't be read or no account has a character.
 - Unit: `accounts_test.go`: the SRP6 verifier against the server's own self-test vector
   (`InitializeCrypto.cpp`, VMANGOS / 4EVER), `CreateAccount`'s SQL (upper case, no password stored,
@@ -850,6 +852,19 @@ account, Delete account and Save character.
   race: '1', class: '11' })` is refused (no Human Druid). Clean up: `DELETE FROM characters WHERE
   guid = 9001`, then `DeleteAccount(id)` (refused while the character is there). Done on 2026-10-29
   with the world server stopped.
+- Character delete (#876): `chardelete_test.go`. `TestDeleteCharacterSQLLive` (needs the server's
+  database; about 2 s) copies the character tables' structure into a scratch `test_meld_chardelete`
+  database (the server's mariadb lets any user make `test_` databases), sets up a guild, a group with
+  instance binds, cash-on-delivery and other mail, a pet and petitions around two characters, runs
+  `deleteCharacterSQL` and checks every table; the others check the refusal while mangosd runs, the
+  `realmcharacters` recount and Delete account's script per character. By hand on 2026-10-29
+  (mangosd stopped): an account MELDPROBE with two copies of a character (guid 9001 leading a guild,
+  9002 in it) in the real databases; a scratch probe ran `DeleteCharacter(9001)` (9002 then led),
+  then `DeleteAccount(id)`, and no row of either, the guild, the home or `realmcharacters` was left.
+- Trap: `characterServer` (the Go tests' server folder) names the databases on port 1, where nothing
+  answers. A test that stands in `runSQL` but not `pipeMariadb` (or the reverse) talked to the
+  machine's real databases through it while it named port 3307, and deleted a character and an
+  account there (#876). Stand in both, or neither.
 - In the game (the owner): log in with a made account and its password (the verifier is checked
   only against the server's test vector here), and enter the world with an edited character.
 - Trap: the probe's page runs without the client sandbox, so writes from a scratch probe go to the
