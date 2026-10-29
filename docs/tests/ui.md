@@ -349,6 +349,14 @@ its range, and pointerup, pointercancel and lostpointercapture all end the drag,
 `bun test tests/dragResize.test.ts`. By hand: drag either edge, Alt-Tab mid-drag, come back and hover
 the edge; the panel must not move.
 
+## Wheel over a slider (#847)
+
+Checks: scrolling over any `input[type=range]` steps it one `step` a notch (up on scroll up), clamped,
+with no click and without scrolling the panel; one document listener does it (`lib/ui/wheelValue.ts`,
+started in `App.svelte`) and fires pointerdown (for a `Slider`'s `onstart`), input and change, so each
+slider's undo commit runs once a notch. Ctrl+wheel and disabled sliders are left alone. `bun run probe
+slider-wheel` (the options bar's Size slider). Trap: the canvas's wheel is not a range input, so it still zooms.
+
 ## Find fields and number inputs (#594)
 
 No probe: the unit test below, and a hand check in the app.

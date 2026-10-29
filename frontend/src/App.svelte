@@ -58,10 +58,12 @@
 	import { AckClose, SetUnsaved } from './lib/wails/App'
 	import { hasBackend } from './lib/io/backend'
 	import { refreshProjects } from './lib/io/project'
+	import { startWheelValue } from './lib/ui/wheelValue'
 
 	let prefsLoaded = $state(false)
 	onMount(() => {
 		const stopLogFile = startSessionLog()
+		const stopWheelValue = startWheelValue()
 		const debugLog = startDebugLog()
 		void refreshGameClient()
 		void refreshProjects()
@@ -83,6 +85,7 @@
 			stopSaving()
 			stopAutosave()
 			stopLogFile()
+			stopWheelValue()
 			void debugLog.then((stop) => stop())
 		}
 	})
