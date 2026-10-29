@@ -65,7 +65,7 @@ written to the throwaway client's scratch folder (`P.sandboxClient`, `P.sandboxF
   repo or a test. To try one, save it in the scripts folder and pick it in the Script Brush tool's
   options bar; `height_noise.lua` (the FRACTAL fallback), `prop_placer.lua` (set a Prop 1 model path)
   and `clean.lua` run (its Shift part clears and lays the chunks' textures, #760).
-- After adding a binding, `wails dev` may not rebuild the Go side (#387): the probe's `load_png` then
+- After adding a binding, `make dev-page` may not rebuild the Go side (#387): the probe's `load_png` then
   fails with "LoadScriptImage is not a function"; stop `Meld-dev.exe` and the `bun` processes and rerun.
 
 ## Files: read_file, write_file, append_file, path_exists and image:save (#761)

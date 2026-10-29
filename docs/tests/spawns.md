@@ -116,7 +116,7 @@ editor's title follows. It needs the world database up, and takes about 6 s.
   entry = …`); the next free entry was 182122 on this database.
 - Traps: `layer.get(key)` is the drawn spawn itself, which an undo changes in place; copy it before
   comparing. After adding a binding while `make dev` runs, the page may fail with "does not provide
-  an export named …" (the stale `wailsjs` trap in docs/TESTS.md).
+  an export named …" (the stale `lib/wails/App.ts` trap in docs/TESTS.md).
 
 ## Game object editor: Find object, with no spawn (#351)
 
@@ -342,8 +342,9 @@ left out of `SpawnLayer`'s batches unless Show › World events shows their even
 - Frontend in the dev page: set `events` on a few of `e.doc.spawnLayer.spawns`, call the layer's
   `rebuild()`, then `setEvents([...])`, and count `batches[].all.length`: a positive event's spawn
   shows only with it, a negative one leaves with it.
-- `wails dev` rebuilds the Go side when a Go file changes, so a new binding usually works in the
-  dev page after a reload; if it doesn't, see the stale `wailsjs` trap in `docs/TESTS.md`.
+- `make dev-page` regenerates the bindings and rebuilds the Go side when a Go file changes, so a new
+  binding usually works in the dev page after a reload; if it doesn't, see the stale
+  `lib/wails/App.ts` trap in `docs/TESTS.md`.
 
 ## Creature editor: Looks opens on the creature's display (#206)
 
@@ -389,10 +390,10 @@ read back on a creature with none (805, Cameron).
 - The Quests tab (creature_questrelation / creature_involvedrelation) the same way: entry 197 (Marshal
   McBride) starts 10 and ends 4; test a save on 805 with Kobold Camp Cleanup (7) as start and end,
   read back with `ReadCreatureQuests(805)`, remove both and save again.
-- Trap: after `wails generate module` the dev page can fail to mount (the body stays empty) because
-  Vite keeps serving the old `wailsjs/go/main/App.js` without the new exports, even after an in-place
+- Trap: after `make bindings` the dev page can fail to mount (the body stays empty) because
+  Vite keeps serving the old `src/lib/wails/App.ts` without the new exports, even after an in-place
   rewrite. Deleting the file and copying it back (an add event for the watcher) fixed it; check with
-  `curl localhost:34115/wailsjs/go/main/App.js | grep <NewBinding>`.
+  `curl localhost:34115/src/lib/wails/App.ts | grep <NewBinding>`.
 - The Messages tab (the greeting: gossip_menu, npc_text, broadcast_text): 931 reads gossip menu 6944,
   shared by 42 creatures ("Where would you like to fly to?", 2 options). A save adds rows to three
   tables and changes `creature_template`, so note `max(entry)` of broadcast_text and gossip_menu and
@@ -484,7 +485,7 @@ server's names and teleports, draws them, and saves them to the client's patch a
   Rift Crystal (object 180601, gossip to Molten Core), Morridune (creature 6729, gossip to
   Darnassus), Johnny McWeaksauce (16999, Naxxramas), Archmage Arugal (4275, three Shadow Port spots
   from AI scripts), Magistrate Barthilas (10435, a waypoint script with map 0, shown on Stratholme's
-  map 329). Trap: a new Go binding needs the Go side of `wails dev` rebuilt; when it isn't, stub the
+  map 329). Trap: a new Go binding needs the Go side of `make dev-page` rebuilt; when it isn't, stub the
   binding in the page (`window.go.main.App.X = async () => ...`, restored in a `finally`) to check
   the frontend, and run the SQL itself against the database. Spawned
   portals to test by hand: `SELECT entry, type, name FROM gameobject_template WHERE type IN (10, 22)`
@@ -652,7 +653,7 @@ Import or New item.
   Equip bonuses adds Healing +22 (spell 9408) into effect slot 1 as Equip, read in the tooltip as
   "Equip: Increases healing done by spells and effects by up to 22.", then Remove; the Worn Shortsword's search result
   right-clicked shows Open and Copy .additem 25, and the copy puts `.additem 25` on the clipboard
-  (read back with `window.runtime.ClipboardGetText()`, the Wails runtime, which works on the dev
+  (read back with `window.runtime.ClipboardGetText()`, lib/wails/runtime.ts's, which works on the dev
   page; the probe overwrites the system clipboard); the Worn Shortsword (25) reads Main Hand | Sword,
   1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
   quality and damage change the tooltip; a chest slot gives the armour note; the probe enters level
@@ -675,7 +676,7 @@ Import or New item.
   entry: a bow got display 32079, delay 2300, durability 65; a cloth chest 24546, cloth, 70; a bag
   1183, 10 slots; none had damage, armour, stats, level or price.
   Trap: editing a Go file while `make dev` runs rebuilds it; when that build fails (Meld-dev.exe
-  locked) it leaves `frontend/wailsjs/go/main` missing, so `make check` reports every binding import
+  locked) it can leave `frontend/bindings` half written, so `make check` reports every binding import
   missing and probes say "the page never set up __engine": stop the dev server and run `wails
   generate module`.
 - Shot visuals: the probe makes the Worn Shortsword a bow (slot 15, subclass 2) on display 35578

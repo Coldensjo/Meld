@@ -179,10 +179,10 @@ Graphics and camera preferences are saved in the user config file
 
 All platforms:
 
-- Go ≥ 1.26
+- Go ≥ 1.27.3
 - Bun ≥ 1.4 (bun.sh); it runs the frontend tooling, so Node.js isn't needed
-- Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
-- Check with `wails doctor`
+- Wails v3 CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0` (for `make dev`, `make dev-page` and `make bindings`; the builds need only Go)
+- Check with `wails3 doctor`
 - golangci-lint v2 for `make check` (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`); without it the lint is skipped
 - GNU Make; on Windows its recipes run through Git for Windows' `sh.exe`
 
@@ -190,20 +190,19 @@ All platforms:
 
 - Arch: `sudo pacman -S gtk3 webkit2gtk-4.1`
 - Debian/Ubuntu: `sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev`
-- Builds need the `webkit2_41` build tag (the Makefile adds it).
+- Builds need the `gtk3` build tag, Wails v3's GTK 3 and WebKitGTK 4.1 stack (the Makefile adds it).
 
 **Windows:** WebView2 runtime (preinstalled on Windows 10/11). No C compiler is required.
 
 ### Development
 
 ```bash
-make dev            # = wails dev -tags webkit2_41   (hot reload)
+make dev            # the desktop window, hot reload (wails3 dev -config build/dev.yml)
+make dev-page       # the app as a browser page at http://localhost:34115 (Wails' server mode)
 ```
 
-On Windows: `wails dev`.
-
-`wails dev` also serves the app at <http://localhost:34115>, so you can debug it in a browser
-with Go bindings still working.
+`make dev-page` serves the app at <http://localhost:34115>, so you can debug it in a browser
+with the Go bindings working; it has no native dialogs or clipboard.
 
 ### Building
 
@@ -212,7 +211,8 @@ make build-linux     # → build/bin/Meld
 make build-windows   # → build/bin/Meld.exe  (cross-compiles from Linux)
 ```
 
-On Windows, natively: `wails build`. To build an NSIS installer: `wails build -nsis`.
+Both are plain `go build`s with the `production` tag after the frontend build; the Windows one links
+in the icon and manifest through a `.syso` (`wails3 generate syso`).
 
 ### Tests & checks
 

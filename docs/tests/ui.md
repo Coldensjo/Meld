@@ -33,7 +33,7 @@ Go tests cover the alive file going stale). In the dev page:
 - Set `prefs.autosaveMinutes = 0.05` (from the loaded `editor.svelte.ts` URL), push an edit with a
   real change (`h[1000] += 7` plus `__engine.history.push({label, undo, redo})`), and within ~20 s
   `<session>_<doc>.wmap` and `.json` appear beside `<session>.alive`.
-- A crash without killing `wails dev` (it may be the owner's): copy the pair under another session name
+- A crash without killing `make dev` or `make dev-page` (it may be the owner's): copy the pair under another session name
   (`20261016-000000-aaaaaa_7`, with `id` and `session` changed in the JSON) and open a new page. The
   Recover dialog lists only that one; Recover opens it dirty (height -5 at index 1000 of a fresh ocean
   map) and drops the copy.
@@ -59,7 +59,7 @@ Go tests cover the alive file going stale). In the dev page:
   same Chrome (`activate-same attach-follow autosave` under `PROBE_GPU=1` failed every time), never
   with `autosave` alone: the race is between the palette's fetch and the probe's edit.
 - Traps: the page's session is the Go process's, so a page reload never offers its own copies, and two
-  dev pages on one `wails dev` share the session (their doc ids can collide). `preview_click` on the
+  dev pages on one `make dev-page` share the session (their doc ids can collide). `preview_click` on the
   dialog's buttons does nothing in a hidden preview tab; click through `preview_evaluate`. Delete the
   probe copies afterwards, or the owner's next start offers them.
 
@@ -653,7 +653,8 @@ Checks: a right-click copies a thing's id and name.
   items, creatures and objects, id for the rest), the menu under a row's own actions, a spawn's
   Copy creature entry, Copy spawn guid and Copy name.
 - `bun run probe item-editor` right-clicks the Worn Shortsword's search result and checks Copy item
-  entry 25 puts `25` on the clipboard (`window.runtime.ClipboardGetText()`).
+  entry 25 puts `25` on the clipboard (`window.runtime.ClipboardGetText()`; on the dev page the browser's
+  clipboard, or the page's copy when the browser refuses the write).
 - By hand in a probe: dispatch `contextmenu` on a RefField's `.name` (Hogger, 448, Loot gives "Copy
   creature loot id 448" and no Copy name), then Escape on `.menu[role=menu]`: the editor stays.
   Trap: an Escape dispatched on `document` reaches the menu's and the editor's window handlers

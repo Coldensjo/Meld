@@ -1,6 +1,6 @@
 # Building and development
 
-Meld is a Wails v2 desktop application with a Go backend and a Svelte 5, TypeScript and Three.js
+Meld is a Wails v3 desktop application with a Go backend and a Svelte 5, TypeScript and Three.js
 frontend. Windows and Linux are the supported platforms. Game assets are read from a local
 WoW 1.12.1 installation; they are not part of the source or build.
 
@@ -14,20 +14,20 @@ Cross-platform editor builds do not imply that every server operation is availab
 | Git | Clone the source repository; Git for Windows also supplies the shell for Make |
 | Go 1.27.3 or newer | Backend, tests and command-line tools |
 | Bun 1.4 or newer | Frontend dependencies, development server and documentation |
-| Wails v2 CLI | Desktop development and builds |
+| Wails v3 CLI (`wails3`) | `make dev`, `make dev-page` and `make bindings`; the builds need only Go |
 | GNU Make | Repository convenience commands |
 | golangci-lint v2 | Go lint checks; `make check` reports a skip if it is absent |
 
 Install the Go-based tools:
 
 ```sh
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0   # the version in go.mod
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 # Rebuild it after a Go toolchain bump: it refuses a go.mod newer than the Go it was built with.
-wails doctor
+wails3 doctor
 ```
 
-Ensure the Go tools directory is on your `PATH`. `wails doctor` checks platform dependencies.
+Ensure the Go tools directory is on your `PATH`. `wails3 doctor` checks platform dependencies.
 
 ### Windows
 
@@ -50,7 +50,9 @@ sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev
 sudo pacman -S gtk3 webkit2gtk-4.1
 ```
 
-Linux Wails commands need `-tags webkit2_41`; the Make targets add it for you.
+Wails v3 builds Linux on GTK4 and WebKitGTK 6.0 unless built with `-tags gtk3`, the GTK 3 and
+WebKitGTK 4.1 stack above; the Make targets add it (`LINUX_TAGS`). Wails v3.1 drops `gtk3`: on a
+system with `webkitgtk-6.0`, run the targets with `LINUX_TAGS=`.
 
 ## Get the source
 
@@ -81,8 +83,13 @@ cd ..
 make dev
 ```
 
-Without Make, run `wails dev` on Windows or `wails dev -tags webkit2_41` on Linux.
-The development app is also available at `http://localhost:34115`, with the Go bindings connected.
+This runs `wails3 dev -config build/dev.yml`: Vite with hot reload, and the app in a window, rebuilt
+and restarted when a Go file changes.
+
+For the browser, run `make dev-page` (`wails3 dev -config build/dev-page.yml -port 9246`): the same
+app built in Wails' server mode (`-tags server`), served at `http://localhost:34115` with the Go
+bindings connected. It has no window, no native file dialogs and no native clipboard (the page uses
+the browser's). The probes drive this page, and start it when it is down. The two can run at once.
 Use a configured development client if you want to inspect real assets.
 
 ### Debug a focused failure
@@ -94,7 +101,7 @@ For a native failure, record **Help › Log…**, exact steps and the build revi
 failure, capture **Help › Copy Scene** and, when relevant, **Help › Copy Performance Report**.
 Review logs and scene text for private paths or credentials before sharing them.
 
-The development browser endpoint shares the Go backend. It is not a disposable database or client:
+The development browser page runs the real Go backend. It is not a disposable database or client:
 do not use it for an integration write merely because its page can be closed. Follow the
 [probe isolation rules](TESTS.md#probes-repeatable-checks-in-the-live-app) and distinguish pure-test failures, backend
 failures and real GPU/native behavior. See [architecture](architecture/index.md) to locate the
@@ -102,14 +109,19 @@ responsible layer rather than duplicating a backend workaround in the UI.
 
 ## Build a desktop executable
 
-| Platform | Make command | Direct Wails command | Output |
-| --- | --- | --- | --- |
-| Windows | `make build-windows` | `wails build -platform windows/amd64` | `build/bin/Meld.exe` |
-| Linux | `make build-linux` | `wails build -tags webkit2_41` | `build/bin/Meld` |
+| Platform | Make command | Output |
+| --- | --- | --- |
+| Windows | `make build-windows` | `build/bin/Meld.exe` |
+| Linux | `make build-linux` | `build/bin/Meld` |
 
-The Windows target can also cross-compile from Linux. On Windows, `wails build -nsis` builds an
-installer when the NSIS tooling is installed. Building a different platform does not verify that
-the application runs correctly on it.
+Both build the frontend, then run `go build -tags production` (with `gtk3` on Linux). The Windows
+target first writes a `.syso` with the icon, manifest and version info from `build/windows`
+(`wails3 generate syso`), which `go build` links in.
+
+The Windows target can also cross-compile from Linux. The NSIS installer inputs in
+`build/windows/installer` are Wails v2
+templates, which no target builds since the move to Wails v3. Building a different platform does
+not verify that the application runs correctly on it.
 
 ### Installer and distribution precautions
 

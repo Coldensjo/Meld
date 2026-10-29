@@ -95,7 +95,7 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   (0xB4..0x143 bytes, synthetic) is an error, not a panic, and that `/wow/model` answers it, and any
   handler panic (`RecoverPanics`), with a 500. A request needs `c.set` non-nil (`&mpq.Set{}` in the
   package's tests) before the overlay (`SetOverlay`) is asked. Trap: the panic only kills the app in
-  the desktop build; `wails dev`'s net/http server recovers it, so the dev page never shows the crash.
+  the desktop build; the dev page's net/http server recovers it, so the dev page never shows the crash.
 - The same locator runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestClientAreaTable`). On the owner's machine the
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
@@ -209,7 +209,10 @@ Its own tests (`cmd/meldtool/meldtool_test.go`, synthetic tiles and archives) ru
 
 Checks: anything visual (shaders, shadows, lighting, models, UI) against the real client assets.
 
-- `make dev` (`wails dev`) serves the app at http://localhost:34115. The page exposes
+- `make dev-page` serves the app at http://localhost:34115: the app built in Wails v3's server mode
+  (`-tags server`, #854), so it has no window, no native file dialogs and no native clipboard (the page
+  uses the browser's, and keeps a write the browser refuses for the next read). `make dev` is the
+  desktop window and serves no page; the two can run at once. The page exposes
   `window.__engine` (the Engine), `window.__loadScene(text)` and `window.__sceneText()`.
   `__loadScene` checks the whole line first (`parseScene`, tests/scene.test.ts): a scene must be complete
   (`v`, `map`, `view`, `prefs`, `tool`, `selectedIds`, `selected`, `viewport`), or it throws naming the field and changes nothing.
@@ -239,18 +242,17 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
     `javascript_tool`, then take the screenshot.
   - `javascript_tool` results that contain shader source are blocked as "cookie/query data".
     `console.log` them and read them with `read_console_messages` and a pattern.
-  - If `/wow/status` gives no response, the Go side of the user's `wails dev` has died (its Vite
-    child lingers on port 5391 and blocks a new `wails dev`). Tell the user their dev session is
-    gone before starting one.
-  - Vite's watcher misses files replaced by rename, such as by `sed -i` and Wails' binding
-    regeneration (`wails generate module`). Vite then serves the stale module and the page fails with
-    "does not provide an export named …". Edit with the Edit tool or an in-place write, and re-save a
-    missed file in place to fix it. Check what is served through the Wails proxy, `curl
-    localhost:34115/<file>`: Vite's own port moves (5173, 5174…), and an old dead Vite can linger on
-    5173. After a regeneration even an in-place re-save may not reach it (the watcher has lost the
-    file): move `wailsjs/go/main/App.js` out of the folder and copy it back a second later, which
-    Vite sees as a new file. The owner's own dev window is broken the same way until then.
-  - `make build-windows` while `wails dev` runs is fine. It runs from PowerShell too: on Windows the
+  - If `/wow/status` gives no response, the Go side of `make dev-page` has died (its Vite child may
+    linger on port 9246 and block a new one). If the session may be the user's, tell them before
+    starting one.
+  - Vite's watcher misses files replaced by rename, such as by `sed -i`. Vite then serves the stale
+    module and the page fails with "does not provide an export named …". Edit with the Edit tool or an
+    in-place write, and re-save a missed file in place to fix it. Check what is served through the
+    Wails proxy, `curl localhost:34115/<file>`. Vite listens on 127.0.0.1 at a fixed port (9245 for
+    `make dev`, 9246 for `make dev-page`; Wails' proxy dials IPv4 only, so a Vite on IPv6 `localhost`
+    gives every page request a 502). If a regenerated `frontend/src/lib/wails/App.ts` is not picked up,
+    move it out of the folder and back a second later, which Vite sees as a new file.
+  - `make build-windows` while `make dev-page` runs is fine. It runs from PowerShell too: on Windows the
     makefile runs its recipes through Git for Windows' sh (`GIT_SH`, by default
     `C:/Program Files/Git/usr/bin/sh.exe`); without it, make fails with "CreateProcess sh.exe".
   - After editing `lib/state/editor.svelte.ts` with the page open, HMR gives later modules a new
@@ -272,8 +274,8 @@ Checks: a feature still works in the real app against the client's assets, in on
 a few lines of JSON as the result. **Reach for a probe first**: run the existing ones that touch your
 change, and write a new probe instead of an ad-hoc CDP script when the check is worth repeating.
 
-- `make dev` should be running. The runner checks `/wow/status` and the page itself (a dead Vite
-  leaves `/wow/status` answering while the page is a 502); if either fails it starts `make dev`
+- `make dev-page` should be running. The runner checks `/wow/status` and the page itself (a dead Vite
+  leaves `/wow/status` answering while the page is a 502); if either fails it starts `make dev-page`
   detached (log: `meld-dev.log` in the temp folder) and waits up to 10 minutes, a few minutes in
   practice. It stays up for the next run; with `MELD_URL` set it never starts one. Keep it running across items.
 - `cd frontend && bun run probe <name...>` runs those probes, `bun run probe --all` (or `make probe`)
@@ -289,12 +291,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and
   `object-loot` timed out once the owner's session held a region). It prints `probe: starting N probes` to stderr, one JSON line a probe, then a closing `{"summary":true,"run","passed","failed":[names],"flaky":[names],"seconds"}` line (a log without it is a run cut short, #616; a run stopped by a signal prints it with `stopped` and `notRun`, #669), and exits 1 if any failed. A page
-  error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
-  is left out).
-- **`[Unhandled error] TypeError: Cannot read properties of null (reading 'nodes')` in the `make dev`
-  terminal** on every page load (stack in `/wails/ipc.js`) is Wails v2.16.0's, not Meld's (#335): its
-  injected "disconnected" overlay is compiled with Svelte 5 but mounted with the old `new Component()`
-  call (reported as wailsapp/wails#6317). It is harmless, dev-only, and the probe runner already skips it; don't chase it.
+  error also fails the probe.
 - **The smoke set** (#398): `make probe-smoke` (or `cd frontend && bun run probe --smoke`) runs the probes whose leading comment block holds a `// tier: smoke` line (next to `touches`), so the list lives in the probes: `attach-follow`, `compile-launch`, `compile-spawns`, `dialog-focus`, `hide-panels`, `hotkeys`, `menu-keys`, `path-road`, `shadow-redraw`, `shortcut-table`, `terrain-cell-tex`, `tool-hints`, `undo-sculpt`. They are fast (a flat map or a dialog, no benchmark scene), deterministic (no pixel diffs or timing thresholds) and guard shared code (`App.svelte`, `Modal`, the menu bar, `History`, `ObjectLayer` attachments, the compile state, the terrain shader's sampler budget, shadow redraws). About 100 s in all (81 s without `shadow-redraw`, 19 s). Add a probe only if it is under about 10 s and loads no scene; `--smoke` combines with names and `--touching`.
 - **Quarantine** (#399): a probe whose leading comment block holds a `// quarantine: #<issue>` line (a flake parked while
   its issue is open) is left out of `--all`, `--smoke` and `--touching`, and those runs print `probe: N quarantined, left
@@ -311,7 +308,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   docs) runs nothing and exits 0. `--list` prints each probe's line. When writing a probe, list the
   component and the engine module it drives and the Go file behind the bindings it calls, not
   `Engine.ts` unless the probe checks the engine itself (most probes go through it) and never
-  `frontend/wailsjs/` (`wails dev` regenerates it on any binding change, which would pick every probe).
+  `frontend/bindings/` or `frontend/src/lib/wails/` (`make bindings` rewrites them on any binding change, which would pick every probe).
 - **A hung or throwing probe names its place** (#301): a probe running over 5 minutes (`PROBE_TIMEOUT`, seconds; a probe whose own setup is slow raises its limit with a `// timeout: <seconds>` line in its leading comment block, which can only raise it over `PROBE_TIMEOUT`, #635) is stopped with `timed out after N s` and `step`, the `P.until` it waited in (its `what`) or the `P.settle` with its client reads pending (`window.__probeStep`); a throw prints `line`, `<file>:<line>:<col>` of the probe body where it stopped. Give every `P.until` a `what`.
 - **A lost page does not stall the run, and a failure is retried once** (#388): every CDP command times out or fails when the page's socket closes, so a probe whose page timed out, navigated away or closed no longer leaves `--all` waiting for ever. After such a loss (`lostPage` in the line) the runner kills its own headless Chrome (found by its port and profile, never the dev window) and starts a new one, ends a throwaway client the lost page had left on, and runs the probe again. Any other failed probe gets that one retry in a fresh page, and the runner first prints the failed attempt's line to stderr (`probe: <name> failed after N s, retrying in a fresh page: {...}`), so a shell timeout during the retry does not lose it: if only the retry passes, its line has `flaky: true` and `firstFailure` (and `firstStep`) and counts as passed; a failure twice has `retried: true` and fails the run. Both lines hold `first`, the failed attempt's own fields (#624: what it returned and the runner's `error`, `step`, `pageErrors` and such, less its `profile`), so the numbers a flaky probe missed on are not lost. Not retried (#628), with `notRetried` in the line: a probe whose own body ran past its timeout (`timedOut: true`; a retry would only wait as long again in silence), and a `SyntaxError` or `ReferenceError` in the probe's code. A timeout at the page's setup is still retried. A shell timeout round a run of one probe still wants more than twice `PROBE_TIMEOUT` plus a minute, for a failure that is retried. Read a `flaky` as a page or load problem to look at, not as a pass to ignore. Trap: a trivial probe that returns at once (`return { ok: true }`) leaves the app half booted, and the next probe's page can then hang at setup; that is the same stall, and the retry covers it.
 - **On the real GPU** (#747): `PROBE_GPU=1 bun run probe <name>` starts the probes' Chrome on the machine's GPU (D3D11 through ANGLE here) instead of SwiftShader. A fault of a real rasteriser (depth precision, a huge triangle clipped round the camera) never shows on SwiftShader: the sea's one-quad flicker in flight counted 551 jumping pixels on the GPU and 3 on SwiftShader. Frames are also many times faster (`coast-flight` 5 s against 150 s). The probes' timings and the bench baseline are SwiftShader's, so don't compare those across the two; `WEBGL_debug_renderer_info` in the page names the renderer.
@@ -321,11 +318,12 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   `frontend/probes/scratch/` is git-ignored: put diagnostics and throwaway views there, so they never
   land in a commit or in `--all`.
 - Trap: a probe run that outlives its shell (a background `--all` stopped at its time limit) keeps running with its Chrome and doubles SwiftShader's load, so every timing is wrong (#257: a 2 s fence that is 0.6 s alone). The runner now lists other live runs at start (`probe: warning: another probe run seems alive`, with pids). Stop one with `Stop-Process -Id <pid>` (Windows; `Get-CimInstance Win32_Process -Filter "Name='bun.exe'" | ? CommandLine -match 'probes.run.mjs'` finds it) or `kill <pid>` (Linux).
-- Trap: don't run `make build-windows` (or `wails generate module`) while probes run. The build
-  regenerates `wailsjs`, Vite hot-reloads the page in the middle of a probe and it fails on a page
-  error from `App.svelte?t=…` at `@vite/client`. Run the build before or after.
-- After a new Go binding, the page can fail on a stale `wailsjs` App.js (the trap above); the runner
-  sees "does not provide an export named", moves App.js out and back so Vite reloads it, and runs the
+- Trap: don't run `make bindings` while probes run, and know that a Go edit does it too (`make
+  dev-page` regenerates the bindings and restarts the Go side on each Go change): Vite hot-reloads the
+  page in the middle of a probe and it fails on a page error from `App.svelte?t=…` at `@vite/client`.
+  `make build-windows` rebuilds `frontend/dist` only, which the page doesn't serve.
+- After a new Go binding, the page can fail on a stale `lib/wails/App.ts` (the trap above); the runner
+  sees "does not provide an export named", moves App.ts out and back so Vite reloads it, and runs the
   probe once more (`refreshedWailsjs: true` in its line).
 - A probe is `frontend/probes/<name>.js`: the body of an async function run in the page, whose first
   line is a `//` comment saying what it checks (`--list` shows it). It returns an object; `ok: false`
@@ -360,7 +358,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     A pixel on an antialiased edge reports a neighbour (`near: true`).
   - Viewport input: `P.click(x, y, opts, frames)` moves, presses and releases the pointer on the canvas and steps a frame; `P.drag([x, y], [x, y], steps, opts)` strokes; `x`, `y` are shares of the viewport, y = 0 the top, `opts` the event's `button`, `altKey`, `ctrlKey`, `shiftKey`. Setting `e.ndc` does not do this: the handlers overwrite it from the event. The status bar and tool state are read after the helper returns (its frame lets the handlers' messages land); `walkable` uses it.
   - Aiming and menus (#309): `P.lookAt({ x, y, z }, { yaw, pitch, back })` flies the camera `back` yards from an editor point, looking at it, whatever Follow the Ground says (a flying camera is its own target, so a view "on" a point puts the camera inside it; a following one lifts the target onto the terrain, above a cave). `P.contextMenu(x, y)` right-clicks the viewport at shares of it (default the centre) and returns `ui.contextMenu` (null for no menu); `teleport-trigger` uses both. Trap: on the benchmark scene (Follow the Ground on) the view still moves for a few frames after `P.lookAt`, so a probe comparing two states frame by frame steps `P.frames(3)` first and checks the first state again after the second (`particles-reach` failed once without it, #330).
-  - Writing the client (#368): `await P.sandboxClient()` points every client read and write of the Go side (`clientDataDir`, the asset server's archives) at a throwaway copy of the client's Data folder in the user's cache (`Meld/probe-client`: the archives hard links to the real ones, a symbolic link across volumes, and `patch-3.MPQ` a copy made afresh at each call), so a probe can press what writes Meld's patch (Import PNG…, Save in the spell editor, Generate) and check the result in the app. It throws when it can't, so a probe never writes the real client by mistake. `P.endSandbox()` ends it and returns `realUnchanged` (the real patch kept its size and time), which a probe should check; the runner ends it after every probe anyway. `P.sandboxFile(name, bytes)` writes a file (a `Blob` or bytes made in the page) into its scratch folder and returns the path, for a binding that reads a file the user picked; stub the dialog binding (`window.go.main.App.OpenIconsDialog = async () => [path]`, restored in a `finally`), since the wailsjs wrappers look it up at call time. `icons` is the example (`loading-screen` and `world-map` too). Traps: only `wails dev` offers it; the owner's dev window shares the Go process, so while it is on that window reads and writes the copy too, which is why it ends by itself after 10 minutes; and nothing that closes the game, starts the servers or writes the server's tables runs meanwhile (`gameSession`, `clientRoot`, an `installClient` with server tables and every binding that writes the world database answer with an error: a saving binding takes its server folder from `serverForWrite` or `optionalServerForWrite`, never `serverAndData`, and `TestSandboxRefusesWorldDatabaseWrites` lists them, #383), so a check of those still needs the real client and database. A new binding that writes the world database belongs in that test (`make test` runs it when `frontend/dist` exists; by hand, `go test -run TestSandbox .` at the repo root).
+  - Writing the client (#368): `await P.sandboxClient()` points every client read and write of the Go side (`clientDataDir`, the asset server's archives) at a throwaway copy of the client's Data folder in the user's cache (`Meld/probe-client`: the archives hard links to the real ones, a symbolic link across volumes, and `patch-3.MPQ` a copy made afresh at each call), so a probe can press what writes Meld's patch (Import PNG…, Save in the spell editor, Generate) and check the result in the app. It throws when it can't, so a probe never writes the real client by mistake. `P.endSandbox()` ends it and returns `realUnchanged` (the real patch kept its size and time), which a probe should check; the runner ends it after every probe anyway. `P.sandboxFile(name, bytes)` writes a file (a `Blob` or bytes made in the page) into its scratch folder and returns the path, for a binding that reads a file the user picked; stub the dialog binding (`window.go.main.App.OpenIconsDialog = async () => [path]`, restored in a `finally`), since the wailsjs wrappers look it up at call time. `icons` is the example (`loading-screen` and `world-map` too). Traps: only a dev build offers it (`make dev` or `make dev-page`, no `production` tag); the dev page and a `make dev` window are separate Go processes since Wails v3 (#854), so a window running beside the page keeps the real client while the page's sandbox is on; it still ends by itself after 10 minutes; and nothing that closes the game, starts the servers or writes the server's tables runs meanwhile (`gameSession`, `clientRoot`, an `installClient` with server tables and every binding that writes the world database answer with an error: a saving binding takes its server folder from `serverForWrite` or `optionalServerForWrite`, never `serverAndData`, and `TestSandboxRefusesWorldDatabaseWrites` lists them, #383), so a check of those still needs the real client and database. A new binding that writes the world database belongs in that test (`make test` runs it when `frontend/dist` exists; by hand, `go test -run TestSandbox .` at the repo root).
   - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
     during the wait (`P.stalls`), so a stall doesn't look like a broken feature.
   - `P.frames` waits after each frame until the GPU has drawn it (`P.drawn`, a WebGL2 fence). Without
@@ -390,7 +388,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 Checks: the same as above, when the Chrome extension isn't connected (a `claude -p` loop run). The
 probes above are this route packaged; use the raw route below for a one-off look (a screenshot
 sequence, a question no probe asks). Start
-`make dev` in the background, wait until `curl localhost:34115/wow/status` answers, then drive a
+`make dev-page` in the background, wait until `curl localhost:34115/wow/status` answers, then drive a
 headless Chrome over the DevTools protocol from a scratch folder (not the repo):
 `uv run -q --with websocket-client python -u cdp.py "http://localhost:34115/?nosave" shot step1.js step2.js`.
 The script (about 40 lines) starts `chrome.exe --headless=new --remote-debugging-port=0
@@ -649,13 +647,13 @@ the same scene, the report before and after.
     To see where programs cost, wrap `getProgramInfoLog`, `getShaderInfoLog`, `getProgramParameter`
     and `getShaderParameter` on the context with timers and time each `frame()`.
   - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set
-    up __engine"; rerun those, and the runner starts `make dev` again. The runner also checks the server when a probe fails, and waits a minute for a rebuild, then starts `make dev` before the retry (`devRestarted` in the result, #391). When the app restarted during a probe (`/wow/status` reports a new `started`, as when a Go change, maybe another session's, makes wails dev rebuild), the runner prints `probe: <name>: the dev server restarted during this probe` and the line has `devRebuilt` (#656): read a lost page or a failure there as the restart, and rerun the probe. The opposite trap (#387): `wails dev` sometimes does not rebuild at all after a Go change (its `Meld-dev.exe` keeps its start time, even after a `touch`), so a new binding fails with "window.go.main.App.X is not a function". The runner warns at start, and a failing probe's result has `staleBackend`, when a non-test .go file is newer than `/wow/status`' `started`; the fix is to kill `wails.exe`, `Meld-dev.exe` and the two `bun` processes and rerun, which starts `make dev` again.
+    up __engine"; rerun those, and the runner starts `make dev-page` again. The runner also checks the server when a probe fails, and waits a minute for a rebuild, then starts `make dev-page` before the retry (`devRestarted` in the result, #391). When the app restarted during a probe (`/wow/status` reports a new `started`, as when a Go change, maybe another session's, makes `make dev-page` rebuild), the runner prints `probe: <name>: the dev server restarted during this probe` and the line has `devRebuilt` (#656): read a lost page or a failure there as the restart, and rerun the probe. The opposite trap (#387): `make dev-page` may not rebuild at all after a Go change (its `Meld-page.exe` keeps its start time, even after a `touch`), so a new binding fails with "window.go.main.App.X is not a function". The runner warns at start, and a failing probe's result has `staleBackend`, when a non-test .go file is newer than `/wow/status`' `started`; the fix is to kill `wails.exe`, `Meld-dev.exe` and the two `bun` processes and rerun, which starts `make dev` again.
   - Trap: "the page never set up __engine" while `/wow/status` answers (a dev server that is alive but whose page is
-    stuck, #727): the result now has `pageState` (`readyState`, `window.go`, `window.runtime`, body children) and
+    stuck, #727): the result now has `pageState` (`readyState`, `window.go`, `window.runtime` (lib/wails/runtime.ts sets it), body children) and
     `pageLog` (the console at every level, failed requests and 4xx/5xx responses), so read those first. `window.go`
     `undefined` with an `ipc.js` error means the Wails host is half dead: kill `wails.exe`, the `bun --bun vite`
-    process and `Meld-dev.exe`, and let the runner start `make dev` again (that fixed #481's run); a 404 or failed
-    request for a module means Vite is stale. Do not restart `make dev` for an app error in `pageLog` that a code change caused.
+    process and `Meld-page.exe`, and let the runner start `make dev-page` again (that fixed #481's run); a 404 or failed
+    request for a module means Vite is stale. Do not restart `make dev-page` for an app error in `pageLog` that a code change caused.
   - **The rule for using them**: a change measured as faster on a stress map is kept only if
     `perf-everything` and `bench` (Northshire) are not slower. Give the stress map's numbers and those
     two, before and after, in the done comment.

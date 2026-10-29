@@ -5,7 +5,7 @@ textures, place models, water and creatures, and compile the result into your ow
 VMaNGOS server. Models and textures are read live from your client's MPQ archives; nothing from the
 game is bundled.
 
-Built with [Wails v2](https://wails.io) (Go), Svelte 5 and Three.js.
+Built with [Wails v3](https://wails.io) (Go), Svelte 5 and Three.js.
 
 ## Getting started
 
@@ -13,8 +13,8 @@ To build Meld you need:
 
 - [Go](https://go.dev/dl/) 1.27.3+.
 - [Bun](https://bun.sh), which runs the frontend tooling.
-- The [Wails v2 CLI](https://wails.io/docs/gettingstarted/installation)
-  (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`); `wails doctor` checks the rest.
+- The Wails v3 CLI, `wails3` (`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0`, the version in
+  `go.mod`) for `make dev`, `make dev-page` and `make bindings`; `wails3 doctor` checks the rest. The builds need only Go.
 - [golangci-lint](https://golangci-lint.run) v2 for `make check`
   (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`); without it `make check` skips the lint.
 - `make` ([GNU Make](https://www.gnu.org/software/make/); the makefile also lists the plain
@@ -31,7 +31,8 @@ First follow [source checkout and dependency setup](docs/development.md#get-the-
 development guide. Run these commands from the repository root:
 
 ```bash
-make dev             # run with hot reload (also served at http://localhost:34115)
+make dev             # run in a window with hot reload
+make dev-page        # the same app as a browser page at http://localhost:34115 (the probes use it)
 make build-windows   # build/bin/Meld.exe
 make build-linux     # build/bin/Meld
 make test            # Go and frontend unit tests

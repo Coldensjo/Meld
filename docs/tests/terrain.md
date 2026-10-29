@@ -104,7 +104,7 @@ under the brush goes to the level under the first click.
 
 - Set `prefs.autosaveMinutes = 0` in a probe page that edits for minutes, or autosave (#177) leaves
   recovery copies in the dev session for the next start to offer.
-- A probe edit that breaks a Svelte file's parse breaks the owner's own `wails dev` window too until
+- A probe edit that breaks a Svelte file's parse breaks the owner's own `make dev` window too until
   it is fixed: check `curl localhost:34115/src/components/<File>.svelte` gives 200 after editing.
 
 ## Terrain › Smooth Selection (#713), with Raise, Lower, Flatten and Roughen (#721)
@@ -165,7 +165,7 @@ ground). In the live app, `bun run probe new-world-image --shot <dir>` stubs `Op
 sandbox), picks it, sets Black -40 and White 200 and makes a Small world: its middle near 200 yd, its
 corners at -40 under a sea at 0. About 25 s.
 
-- Stubbing a file binding: the generated `wailsjs` functions look `window.go.main.App.<Name>` up at
+- Stubbing a file binding: the page's binding functions (`lib/wails/App.ts`) look `window.go.main.App.<Name>` up at
   call time, so assigning it in the probe (and putting it back in a `finally`) reaches the dialog's
   imports too; a stubbed `ReadHeightmap` returns `{ side, heights }` with heights from -1024 (black) to
   1024 (white), as `internal/heightmap` decodes them.
@@ -488,9 +488,9 @@ names the tile under the camera target, `__engine.heightRange('tile' | 'map')` i
 fills in, and the export can be driven without its dialog:
 `window.go.main.App.WriteNormalMap('<path>.png', side, toBase64(normalMapPixels(e.outerHeights(), side, e.terrain.cellSize)))`
 (from `/src/lib/io/normalMap.ts`), then `magick identify` the file (side x side, 8-bit RGB).
-- Trap: after adding a Go binding, a dev page loaded before Wails regenerated `wailsjs` keeps importing
+- Trap: after adding a Go binding, a dev page loaded before `make bindings` rewrote `lib/wails/App.ts` keeps importing
   a stale `App.js` (Vite pins its `?t=`), and the app fails to start with "does not provide an export
-  named ...". Touching the file does not help; restart `make dev`.
+  named ...". Touching the file does not help; restart `make dev-page`.
 
 ## Reference image (View › Reference Image, #184)
 

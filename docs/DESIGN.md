@@ -15,7 +15,7 @@ The primary user is the repo owner, who makes maps for their own client and serv
 
 1. **Fast.** Editing and rendering stay smooth on large maps. No per-frame allocations in hot
    paths, and no per-frame writes to reactive state (CLAUDE.md).
-2. **Cross-platform.** Builds on Windows and Linux. Linux uses `-tags webkit2_41`.
+2. **Cross-platform.** Builds on Windows and Linux. Linux uses `-tags gtk3` (Wails v3's GTK 3 and WebKitGTK 4.1 stack).
 3. **Undoable.** Every edit that changes a map goes through `History`.
 4. **No Blizzard assets** in the repo, the binary, test fixtures or map files. Maps store paths only.
 5. **Client writes are checked.** Anything that writes client files is verified against the

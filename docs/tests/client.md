@@ -198,11 +198,12 @@ before the server rebuild, a failed write stops the rebuild, and Compile to Clie
 - Probe: `compile-spawns` (`bun run probe compile-spawns`, about 8 s): opens Azeroth 31_50 and swaps the
   bindings the compile calls (`VmangosPath`, `SaveRegion`, `ApplySpawnEdits`, `UpdateRegionServer` on
   `window.go.main.App`) and `Engine.spawnEdits` for stand-ins that record the call order, so it writes
-  nothing and never restarts mangosd. The wailsjs wrappers look the binding up at call time, which is
+  nothing and never restarts mangosd. The page's binding wrappers (`lib/wails/App.ts`) look the binding up in `window.go.main.App` at call time, which is
   what makes the swap work; restore them in a `finally`.
 - Trap: the rebuild flag (`serverMapsRunning`) stays set until Go sends `servermaps:done`, so a second
   compile in the same page says "still being rebuilt" and skips `UpdateRegionServer`. The probe sends
-  the event itself (`window.runtime.EventsEmit('servermaps:done', '')`) after each compile.
+  the event itself (`window.runtime.EventsEmit('servermaps:done', '')`, which hands it to the page's own
+  listeners) after each compile.
 - Against the live database, by hand with the owner's go-ahead (it rebuilds the server's map data once mangosd is stopped): move a spawn,
   Compile to Server, read the row back with mariadb (port 3307), then move it back and compile again.
 

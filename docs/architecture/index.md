@@ -118,7 +118,7 @@ do not expose Go, filesystem or database access merely to add a map operation.
    expose only the narrow operation through App in the relevant root app_<area>.go file.
    main.go binds the App instance and routes asset requests; validate paths and write permissions
    at this boundary rather than trusting a picker or a stale frontend preview.
-2. Regenerate frontend/wailsjs with **make bindings** after changing the bound method signature;
+2. Regenerate frontend/bindings and frontend/src/lib/wails with **make bindings** after changing the bound method signature;
    do not hand-edit generated exports/models. Run **make bindings-check** to detect method-name
    drift, and frontend type checks for shape/call-site errors. Binding generation is a development
    operation with the platform/Wails prerequisites in [development](../development.md), not a
