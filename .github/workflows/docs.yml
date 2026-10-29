@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0 # the pages' "Last updated" comes from the git history
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.4.3'
+          bun-version: '1.4.4'
       - uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache

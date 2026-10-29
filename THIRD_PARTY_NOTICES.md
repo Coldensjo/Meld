@@ -88,7 +88,7 @@ Compiled into the app's frontend bundle (`frontend/dist`, embedded in the binary
 | simplex-noise | 4.0.3 | MIT |
 | smol-toml | 1.9.1 | BSD-3-Clause |
 | three | 0.186.1 | MIT |
-| three-mesh-bvh | 0.9.16 | MIT |
+| three-mesh-bvh | 0.9.17 | MIT |
 | wasmoon | 1.16.0 | MIT |
 
 ### @recast-navigation/core 0.43.1
@@ -328,7 +328,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### three-mesh-bvh 0.9.16
+### three-mesh-bvh 0.9.17
 
 ```
 MIT License
