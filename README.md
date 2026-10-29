@@ -11,7 +11,7 @@ Built with [Wails v2](https://wails.io) (Go), Svelte 5 and Three.js.
 
 To build Meld you need:
 
-- [Go](https://go.dev/dl/) 1.26+.
+- [Go](https://go.dev/dl/) 1.27.3+.
 - [Bun](https://bun.sh), which runs the frontend tooling.
 - The [Wails v2 CLI](https://wails.io/docs/gettingstarted/installation)
   (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`); `wails doctor` checks the rest.

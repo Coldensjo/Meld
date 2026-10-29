@@ -12,7 +12,7 @@ Cross-platform editor builds do not imply that every server operation is availab
 | Dependency | Used for |
 | --- | --- |
 | Git | Clone the source repository; Git for Windows also supplies the shell for Make |
-| Go 1.26 or newer | Backend, tests and command-line tools |
+| Go 1.27.3 or newer | Backend, tests and command-line tools |
 | Bun 1.4 or newer | Frontend dependencies, development server and documentation |
 | Wails v2 CLI | Desktop development and builds |
 | GNU Make | Repository convenience commands |
@@ -23,6 +23,7 @@ Install the Go-based tools:
 ```sh
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+# Rebuild it after a Go toolchain bump: it refuses a go.mod newer than the Go it was built with.
 wails doctor
 ```
 

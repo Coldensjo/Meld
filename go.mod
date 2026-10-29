@@ -1,6 +1,6 @@
 module Meld
 
-go 1.26.0
+go 1.27.3
 
 require (
 	github.com/JoshVarga/blast v0.0.0-20210808061142-eadad17358e8
