@@ -22,6 +22,7 @@ export type {
     ProjectList,
     SandboxEnded,
     ScriptImage,
+    ServerStatusInfo,
     SoundsSaved,
     SpellSaved,
     TemplateSaved,

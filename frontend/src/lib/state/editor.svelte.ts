@@ -11,6 +11,7 @@ import type { AreaShapeMode } from '../terrain/smoothArea'
 import type { Bookmark } from '../engine/MapDocument'
 import type { PerfReport } from '../engine/perfMeter'
 import type { vmangos } from '../wails/models'
+import type { ServerAction, ServerState } from '../io/serverMenu'
 
 // Moved out of this file (#459); re-exported so the older imports keep working. New code imports them
 // from their own modules.
@@ -623,6 +624,10 @@ export const ui = $state({
 	/** How the game's window opens when Meld starts it (Preferences › Game): '' the game's own setting. */
 	gameWindow: '' as '' | 'windowed' | 'fullscreen',
 	gameResolution: '1280x720',
+	/** The local VMaNGOS server's state for the File menu (#857, io/serverMenu.ts), read each time the menu opens; null before. */
+	serverStatus: null as ServerState | null,
+	/** The File menu's server control running now ('' for none). */
+	serverAction: '' as ServerAction | '',
 	/** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */
 	texturePalette: false,
 	/** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */

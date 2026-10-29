@@ -157,6 +157,32 @@ export interface ScriptImage {
 }
 
 /**
+ * ServerStatusInfo is what the File menu shows of the local server.
+ */
+export interface ServerStatusInfo {
+    /**
+     * Available says the controls work here; Reason says why not when they don't (no server folder,
+     * not Windows, a probe's sandbox).
+     */
+    "available": boolean;
+    "reason": string;
+
+    /**
+     * Database says the world database answers, OwnDatabase that it is the server folder's own (the one
+     * Stop shuts down); Auth and World that realmd and mangosd run.
+     */
+    "database": boolean;
+    "ownDatabase": boolean;
+    "auth": boolean;
+    "world": boolean;
+
+    /**
+     * Busy says a Start, Stop or Restart is running.
+     */
+    "busy": boolean;
+}
+
+/**
  * SoundsSaved is what SaveObjectDisplaySounds did: whether it changed anything, and whether the
  * patch waits for the game to close.
  */

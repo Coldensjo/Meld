@@ -18,6 +18,7 @@ export type PrefabFile = V2<M.PrefabFile>
 export type ProjectList = V2<M.ProjectList>
 export type SandboxEnded = V2<M.SandboxEnded>
 export type ScriptImage = V2<M.ScriptImage>
+export type ServerStatusInfo = V2<M.ServerStatusInfo>
 export type SoundsSaved = V2<M.SoundsSaved>
 export type SpellSaved = V2<M.SpellSaved>
 export type TemplateSaved = V2<M.TemplateSaved>

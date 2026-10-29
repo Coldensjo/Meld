@@ -62,6 +62,8 @@ type App struct {
 	// serverBusy is whether UpdateRegionServer or PublishVmangosMap runs: both rewrite the server's map
 	// data, so a second one is refused (#486).
 	serverBusy atomic.Bool
+	// serverControl is whether the File menu's Start, Stop or Restart Server runs (app_server.go, #857).
+	serverControl atomic.Bool
 
 	// The probes' throwaway client (app_sandbox.go, #368). sandboxData, under cfgMu, is its Data
 	// folder while it is on; the rest is under sandboxMu.

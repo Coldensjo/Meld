@@ -4,7 +4,8 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { compileRegion, exportSpawnSql } from '../lib/io/compile'
-	import { launchGame, playHere, exportPortCoords } from '../lib/io/game'
+	import { launchGame, playHere, exportPortCoords, controlServer, refreshServerStatus } from '../lib/io/game'
+	import { serverControls, serverHeader } from '../lib/io/serverMenu'
 	import { exportAlphamap, importAlphamap, exportHeightmap, exportNormalMap, writeMinimapTiles } from '../lib/io/images'
 	import { exportDoodadBrush, exportObjectList, importDoodadBrushes, importObjectList } from '../lib/io/lists'
 	import { requestRevert } from '../lib/io/mapio'
@@ -22,7 +23,7 @@
 	import { MANUAL_URL } from './AppDialogs.svelte'
 	import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../lib/state/graphicsPresets'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
-	import { tick } from 'svelte'
+	import { tick, untrack } from 'svelte'
 	import { keysOf, type CommandId } from '../lib/ui/commands'
 	import { runCommand } from '../lib/ui/runCommand'
 	import { CAMERA_VIEWS, cameraView, setCameraView, type CameraView } from '../lib/ui/cameraView'
@@ -162,6 +163,12 @@
 							{ kind: 'action' as const, label: 'Export Spawn SQL…', disabled: !hasBackend() || ui.busy || !ui.spawnChanges, run: withEngine((e: Engine) => exportSpawnSql(e)) },
 						]
 					: []),
+				{ kind: 'sep' },
+				// The local server (#857): its database, login and world servers together, as start-server.bat does.
+				{ kind: 'header', label: serverHeader(ui.serverStatus, ui.serverAction) },
+				{ kind: 'action', label: 'Start Server', disabled: !serverControls(ui.serverStatus, ui.serverAction).start, run: () => controlServer('start') },
+				{ kind: 'action', label: 'Stop Server', disabled: !serverControls(ui.serverStatus, ui.serverAction).stop, run: () => controlServer('stop') },
+				{ kind: 'action', label: 'Restart Server', disabled: !serverControls(ui.serverStatus, ui.serverAction).restart, run: () => controlServer('restart') },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Close Map', ...cmd('closeMap') },
 				{ kind: 'sep' },
@@ -633,6 +640,11 @@
 	// Escape closes the menu back onto its title and Tab closes it and moves on. Keys pressed in an
 	// open menu stop there, so the map's hotkeys don't fire while a menu holds the focus.
 	let open = $state<string | null>(null)
+	// The server group's state is read each time the File menu opens (#857): it costs a database query and
+	// two task list reads, too much to poll.
+	$effect(() => {
+		if (open === 'File') untrack(() => void refreshServerStatus())
+	})
 	let bar: HTMLElement
 	let dropdown = $state<HTMLElement | undefined>()
 	const titles: Record<string, HTMLButtonElement> = {}

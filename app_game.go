@@ -29,13 +29,8 @@ func (a *App) gameSession() (game.Session, error) {
 		ServerRoot: a.cfg.VmangosPath,
 		Login:      a.cfg.Login,
 		Run:        vmangos.OSRunner{},
-		Log: func(msg string) {
-			a.logInfo(msg)
-			if a.slog != nil {
-				_ = a.slog.Append([]string{time.Now().Format("15:04:05") + " " + msg})
-			}
-		},
-		Stale: &a.stale,
+		Log:        a.logStep,
+		Stale:      &a.stale,
 	}
 	if a.cfg.GameClient == "benilla" && a.cfg.BenillaPath != "" {
 		s.Benilla = a.cfg.BenillaPath
@@ -46,6 +41,14 @@ func (a *App) gameSession() (game.Session, error) {
 	}
 	s.Window = game.Window{Mode: a.cfg.GameWindow, Resolution: a.cfg.GameResolution}
 	return s, nil
+}
+
+// logStep writes a game or server step to the log and to the session's log file.
+func (a *App) logStep(msg string) {
+	a.logInfo(msg)
+	if a.slog != nil {
+		_ = a.slog.Append([]string{time.Now().Format("15:04:05") + " " + msg})
+	}
 }
 
 // GameWindowInfo is how the game's window opens when Meld starts it (game.Window).

@@ -105,6 +105,19 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `game.Session`'s server stop and `App.PlayHere` return instead of "not running"; `ensureDatabase`
   starts the server folder's mariadbd only on Windows. A test's fake runner is always supported, and
   tests set `hostOS` to check the guard on any machine.
+- **Start, Stop and Restart Server** (#857, File menu): `game.Session`'s `StartServer`, `StopServer`
+  and `RestartServer` (`internal/game/server.go`), bound as `App.StartServer` and the others in
+  `app_server.go`, with `App.ServerStatus` for the menu's header (read each time the File menu opens,
+  `lib/io/serverMenu.ts`). Start brings up the database (`vmangos.StartDatabase`, the same
+  `ensureDatabase` a query uses), then realmd and mangosd, and waits for their ports. Stop closes the
+  world server through its SOAP console first (`vmangos.ShutdownWorld`, `.server shutdown 0`, so it
+  saves the characters; with SOAP off or no Game Login account, the close a console window gets),
+  forces it only when it still runs after that, then the auth server, then the database. The database
+  is stopped only when it is the server folder's own: `vmangos.DatabaseState` compares its
+  `@@datadir` with `<server>\database` (`ErrForeignDatabase` otherwise, logged, not an error), and
+  `mariadb-admin -u root shutdown` stops it, as `stop-server.bat` does. They are the author's own
+  action; no compile calls them (#661). The controls are off without a server folder, off Windows
+  (`Supported`) and in a probe's sandbox, and one runs at a time, never beside a compile to the server.
 
 - **Reading the world database's output** (#478): `runSQL` gives mariadb's batch output (`-B -N`),
   which escapes tabs, newlines, backslashes and NULs in a field. Read it only through

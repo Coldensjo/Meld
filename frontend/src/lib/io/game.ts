@@ -1,6 +1,25 @@
 // The game: which client Meld starts and how its window opens, the Benilla and VMaNGOS folders, Launch,
 // Play Here and the port commands.
-import { BrowseVmangosFolder, SaveTextDialog, WriteTextFile, GameClient, SetGameClient, GameWindow, SetGameWindow, BrowseBenillaFolder, SetBenillaPath, LaunchGame, LaunchGameAt, PlayHere, EnableSoap, SetVmangosPath } from '../wails/App'
+import {
+	BrowseVmangosFolder,
+	SaveTextDialog,
+	WriteTextFile,
+	GameClient,
+	SetGameClient,
+	GameWindow,
+	SetGameWindow,
+	BrowseBenillaFolder,
+	SetBenillaPath,
+	LaunchGame,
+	LaunchGameAt,
+	PlayHere,
+	EnableSoap,
+	SetVmangosPath,
+	ServerStatus,
+	StartServer,
+	StopServer,
+	RestartServer,
+} from '../wails/App'
 import { guarded, hasBackend } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
@@ -8,6 +27,7 @@ import { formatPortCoords } from './portCoords'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../wails/models'
 import { compileRegion, regionName, regionUncompiled } from './compile'
+import type { ServerAction } from './serverMenu'
 
 /** Reads which game client Meld uses into ui.gameClient (Edit › Preferences › Game). */
 export async function refreshGameClient() {
@@ -153,6 +173,43 @@ export async function enableSoap() {
 		setStatus('The SOAP console is on and the world server restarted. Enter the world, then Play here.', 10000)
 	} catch (e) {
 		setStatus(`The SOAP console wasn't turned on: ${e}`, 12000)
+	}
+}
+
+/** Reads the local server's state into ui.serverStatus, for the File menu's server group (#857). */
+export async function refreshServerStatus() {
+	if (!hasBackend()) return
+	try {
+		ui.serverStatus = await ServerStatus()
+	} catch (e) {
+		ui.serverStatus = { available: false, reason: `${e}`, database: false, ownDatabase: false, auth: false, world: false, busy: false }
+	}
+}
+
+const SERVER_CONTROL: Record<ServerAction, { run: () => Promise<void>; doing: string; done: string; failed: string }> = {
+	start: { run: StartServer, doing: 'Starting the VMaNGOS server: the database, then the login and world servers…', done: 'The VMaNGOS server is running.', failed: "The VMaNGOS server didn't start" },
+	stop: { run: StopServer, doing: 'Stopping the VMaNGOS server: the world server (saving the characters), the login server, then the database…', done: 'The VMaNGOS server is stopped.', failed: "The VMaNGOS server didn't stop" },
+	restart: { run: RestartServer, doing: 'Restarting the VMaNGOS server…', done: 'The VMaNGOS server restarted.', failed: "The VMaNGOS server didn't restart" },
+}
+
+/**
+ * The File menu's Start, Stop and Restart Server (#857): the local server's database, login (realmd)
+ * and world (mangosd) servers together, as start-server.bat and stop-server.bat do. The steps go to
+ * Help › Log.
+ */
+export async function controlServer(action: ServerAction) {
+	if (!hasBackend() || ui.serverAction) return
+	const c = SERVER_CONTROL[action]
+	ui.serverAction = action
+	setStatus(c.doing, 120000)
+	try {
+		await c.run()
+		setStatus(c.done, 5000)
+	} catch (e) {
+		setStatus(`${c.failed}: ${e}`, 12000)
+	} finally {
+		ui.serverAction = ''
+		await refreshServerStatus()
 	}
 }
 

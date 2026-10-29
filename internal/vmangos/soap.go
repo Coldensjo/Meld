@@ -191,6 +191,25 @@ func teleSQL(s CharacterSpot) string {
 // ErrSoapOff says the world server's SOAP console is off in mangosd.conf.
 var ErrSoapOff = errors.New("the world server's SOAP console is off (SOAP.Enabled in mangosd.conf)")
 
+// ShutdownWorld asks the running world server to shut down now (`.server shutdown 0`, GM level 3)
+// through its SOAP console, logged in as account: the server saves the characters in the world and
+// exits, which a closed console window does not wait for. It fails when SOAP is off, no account is
+// saved or the console refuses; the caller then closes the server another way.
+func ShutdownWorld(serverRoot, account, password string) error {
+	if strings.TrimSpace(account) == "" {
+		return errors.New("Game Login has no account to send the command with")
+	}
+	soap, err := confSoap(serverRoot)
+	if err != nil {
+		return err
+	}
+	if !soap.enabled {
+		return ErrSoapOff
+	}
+	_, err = soapCommand(soap, account, password, "server shutdown 0")
+	return err
+}
+
 // ReloadSpells has the running world server read spell_template again (`.reload spell_template`,
 // which needs GM level 5) through its SOAP console, logged in as account, so a saved spell works
 // without restarting it.

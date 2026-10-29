@@ -3,6 +3,26 @@
 What Meld writes for the client and server, and launching the game. The general methods these entries use (the dev page in headless
 Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that first.
 
+## Start, Stop and Restart Server (#857, File menu)
+
+Checks: Start brings up the server folder's database, realmd and mangosd; Stop closes all three
+(the world server through SOAP when it is on); Restart does both; the File menu's header says what
+runs, and a database whose `@@datadir` is not `<server>\database` is never stopped. Unit tests:
+`internal/game/server_test.go` (the order, SOAP then close then force, a foreign database left
+running, no server folder), `internal/vmangos/dbcontrol_test.go` (`DatabaseState`'s datadir match,
+`StopDatabase`, `ShutdownWorld`), `tests/serverMenu.test.ts` (the header and which entries are on).
+Against the real server, a throwaway test in `internal/game` that builds a `Session` from
+`config.Load()` (`ServerRoot: cfg.VmangosPath`, `Login: cfg.Login`, `vmangos.OSRunner{}`) and calls
+`StartServer`, `RestartServer`, `StopServer`, logging `ServerState()` between them, runs the whole
+round in about 20 seconds; `tasklist | grep -i "mangosd\|realmd\|mariadbd"` shows the result.
+Start the database again afterwards (`vmangos.StartDatabase`) if it ran before. The menu itself:
+in the dev page, swap `window.go.main.App.ServerStatus` (and `StartServer`, ...) for stand-ins,
+open File and read the header and the entries' `disabled`.
+- Trap: the dev page refuses the controls while a probe's sandbox is on (the header says why), so a
+  probe can't stop the owner's server.
+- Trap: the world server's `.server shutdown` reply may never come (the server exits first), so a
+  SOAP error is given a moment before Meld falls back to closing the window.
+
 ## Launch where the camera is (character placement)
 
 Hand check: needs the game and the server running; the unit tests below cover the parts.

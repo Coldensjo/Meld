@@ -1155,6 +1155,13 @@ export function RegionShadows(mapName: string, x: number, y: number, size: numbe
 }
 
 /**
+ * RestartServer stops the local server and starts it again.
+ */
+export function RestartServer(): $CancellablePromise<void> {
+    return $Call.ByID(3691977863);
+}
+
+/**
  * SandboxWriteFile writes a file a probe made (base64 data) into the throwaway client's folder of
  * scratch files and returns its path, for a binding that reads a file the user picked (an icon's
  * PNG). Only while the sandbox is on.
@@ -1531,6 +1538,13 @@ export function SearchWorldRefs(kind: string, text: string): $CancellablePromise
 }
 
 /**
+ * ServerStatus says whether the local server's database, auth and world servers run.
+ */
+export function ServerStatus(): $CancellablePromise<$models.ServerStatusInfo> {
+    return $Call.ByID(1550968644);
+}
+
+/**
  * SessionLog gives what the session's log file holds so far.
  */
 export function SessionLog(): $CancellablePromise<string> {
@@ -1697,6 +1711,21 @@ export function SpellsWithVisual(visual: number): $CancellablePromise<vmangos$0.
  */
 export function StartClientSandbox(): $CancellablePromise<$models.ClientSandbox> {
     return $Call.ByID(3877588295);
+}
+
+/**
+ * StartServer starts the local server: its database, then the auth and world servers.
+ */
+export function StartServer(): $CancellablePromise<void> {
+    return $Call.ByID(1592333068);
+}
+
+/**
+ * StopServer stops the local server: the world server (saving the characters), the auth server, then
+ * the server folder's own database.
+ */
+export function StopServer(): $CancellablePromise<void> {
+    return $Call.ByID(3845928010);
 }
 
 /**

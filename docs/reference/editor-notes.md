@@ -111,13 +111,18 @@ Also included:
 ### Menus
 
 - **File**: New World / Open / Open Part of Azeroth, Project… and the recent projects, Save / Save As / Revert, Map Properties,
-  Compile to Client / Compile to Server / Compile All, Close Map, Exit. Compile to Client writes the
+  Compile to Client / Compile to Server / Compile All, Start / Stop / Restart Server, Close Map, Exit. Compile to Client writes the
   open region into the client's tiles, Compile to Server rebuilds the server's map data from those
   tiles, and Compile All does both. Compile to Server and Compile All also save the region's
   creature and game object edits into the world database, as File › Save Spawns to Database does. Launch asks first when the open region has edits the client lacks.
   Meld never closes or starts the game or the servers: while the game runs, what a compile or save
   writes into the client waits for you to close it (the status bar says how many files wait), and the
-  server's map data is rebuilt once you stop the world server. Start them again yourself.
+  server's map data is rebuilt once you stop the world server. Start them again yourself, the servers
+  with File › Start Server: it starts the server folder's database, the login server (realmd) and the
+  world server (mangosd), as `start-server.bat` does. Stop Server closes the world server first (through
+  its SOAP console when that is on, so it saves the characters), then the login server, then the
+  database, but only a database whose data is in the server folder; Restart Server does both. The
+  header above them says what runs.
   Everything Meld writes into the client goes into `Data\patch-3.MPQ`, and each write keeps the patch
   it replaced as `Data\patch-3.MPQ.prev` (only the last one). If a write lost something (a spell, an
   icon, a zone, a flight path), close the game and Meld and rename `patch-3.MPQ.prev` back to

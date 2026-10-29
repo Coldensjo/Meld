@@ -167,6 +167,7 @@ export const RegionInner: NonNullCall<AppApi['RegionInner']> = (...a) => api().R
 export const RegionMapID: Call<AppApi['RegionMapID']> = (...a) => api().RegionMapID(...a) as never
 export const RegionPending: Call<AppApi['RegionPending']> = (...a) => api().RegionPending(...a) as never
 export const RegionShadows: NonNullCall<AppApi['RegionShadows']> = (...a) => api().RegionShadows(...a) as never
+export const RestartServer: Call<AppApi['RestartServer']> = (...a) => api().RestartServer(...a) as never
 export const SandboxWriteFile: Call<AppApi['SandboxWriteFile']> = (...a) => api().SandboxWriteFile(...a) as never
 export const SaveAreaTriggers: Call<AppApi['SaveAreaTriggers']> = (...a) => api().SaveAreaTriggers(...a) as never
 export const SaveAreas: Call<AppApi['SaveAreas']> = (...a) => api().SaveAreas(...a) as never
@@ -214,6 +215,7 @@ export const SearchItemsSorted: NonNullCall<AppApi['SearchItemsSorted']> = (...a
 export const SearchQuests: NonNullCall<AppApi['SearchQuests']> = (...a) => api().SearchQuests(...a) as never
 export const SearchSpells: NonNullCall<AppApi['SearchSpells']> = (...a) => api().SearchSpells(...a) as never
 export const SearchWorldRefs: NonNullCall<AppApi['SearchWorldRefs']> = (...a) => api().SearchWorldRefs(...a) as never
+export const ServerStatus: Call<AppApi['ServerStatus']> = (...a) => api().ServerStatus(...a) as never
 export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog(...a) as never
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
 export const SetGameClient: Call<AppApi['SetGameClient']> = (...a) => api().SetGameClient(...a) as never
@@ -236,6 +238,8 @@ export const SpellTexts: NonNullCall<AppApi['SpellTexts']> = (...a) => api().Spe
 export const SpellsWithIcon: Call<AppApi['SpellsWithIcon']> = (...a) => api().SpellsWithIcon(...a) as never
 export const SpellsWithVisual: NonNullCall<AppApi['SpellsWithVisual']> = (...a) => api().SpellsWithVisual(...a) as never
 export const StartClientSandbox: Call<AppApi['StartClientSandbox']> = (...a) => api().StartClientSandbox(...a) as never
+export const StartServer: Call<AppApi['StartServer']> = (...a) => api().StartServer(...a) as never
+export const StopServer: Call<AppApi['StopServer']> = (...a) => api().StopServer(...a) as never
 export const TaxiNetwork: Call<AppApi['TaxiNetwork']> = (...a) => api().TaxiNetwork(...a) as never
 export const TemplateNames: NonNullCall<AppApi['TemplateNames']> = (...a) => api().TemplateNames(...a) as never
 export const UpdateRegionServer: Call<AppApi['UpdateRegionServer']> = (...a) => api().UpdateRegionServer(...a) as never
