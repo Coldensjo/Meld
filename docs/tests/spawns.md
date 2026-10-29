@@ -192,7 +192,9 @@ one row's slots) in `internal/vmangos/objectsounds_test.go`.
   display's own sound already sits in first.
 - Traps: the slots belong to the display, so a change reaches every object that shares it (the
   Forge's display 197 is used by 156 templates); the tab names them. The sound list has thousands of
-  rows: the picker draws the first 200 matches.
+  rows: the picker draws the first 200 matches. The slots arrive before the sound names (two reads),
+  and a slot shows `Sound <id> (<id>)` until the names do: wait for the name, not for the `(`, or a
+  fast page (`PROBE_GPU=1`) reads the fallback (#852).
 
 ## Game object editor: Text, a readable object's pages (#139)
 

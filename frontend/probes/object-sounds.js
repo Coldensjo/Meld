@@ -20,7 +20,8 @@ const out = {}
 ui.objectEditor = { key: null, entry: FORGE }
 await P.until(() => tabButton('Sounds'), WAIT, 'the forge opened')
 tabButton('Sounds').click()
-await P.until(() => slotRows().length === 10 && slotText('Custom 0').includes('('), WAIT, 'the slots')
+// The slots show `Sound <id> (<id>)` until the SoundEntries names arrive (a separate read), so wait for the name (#852).
+await P.until(() => slotRows().length === 10 && slotText('Custom 0').includes('(') && !slotText('Custom 0').startsWith('Sound '), WAIT, 'the slots and their names')
 out.read = {
 	slots: slotRows().map((li) => li.querySelector('.slot').textContent.trim()),
 	stand: slotText('Stand'),
