@@ -95,6 +95,7 @@ export type {
     QuestLists,
     QuestRef,
     QuestTables,
+    RandomChoice,
     RegionEdit,
     RegionInner,
     RegionPaint,

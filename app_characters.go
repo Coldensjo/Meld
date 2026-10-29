@@ -180,13 +180,13 @@ func (a *App) SaveCharacterReputation(guid int, reps []vmangos.CharacterReputati
 	return templateSaved(vmangos.SaveCharacterReputation(s.ServerRoot, guid, reps, s.WorldRunning))
 }
 
-// ReadInventory reads a character's equipment and bags (#874).
+// ReadInventory reads a character's equipment, bags, bank and keyring (#874, #879).
 func (a *App) ReadInventory(guid int) (vmangos.Inventory, error) {
 	server, err := a.serverRoot()
 	if err != nil {
 		return vmangos.Inventory{}, err
 	}
-	return vmangos.ReadInventory(server, guid)
+	return vmangos.ReadInventory(server, a.optionalDataDir(), guid)
 }
 
 // InventoryItemTemplate reads what the equipment editor needs of an item it adds.
@@ -195,16 +195,26 @@ func (a *App) InventoryItemTemplate(entry int) (vmangos.InventoryTemplate, error
 	if err != nil {
 		return vmangos.InventoryTemplate{}, err
 	}
-	return vmangos.InventoryItemTemplate(server, entry)
+	return vmangos.InventoryItemTemplate(server, a.optionalDataDir(), entry)
 }
 
-// SaveInventory makes a character's equipment and bags the items given, while it is out of the world
-// (and, to add items, while the world server is stopped), and returns the SQL it ran, or the place
-// ("container:slot") of an item it refused.
+// SaveInventory makes a character's equipment, bags, bank and keyring the items given, while it is
+// out of the world (and, to add items, while the world server is stopped), and returns the SQL it
+// ran, or the place ("container:slot") of an item it refused.
 func (a *App) SaveInventory(guid int, items []vmangos.InventoryItem) (TemplateSaved, error) {
 	s, err := a.serverSession()
 	if err != nil {
 		return TemplateSaved{}, err
 	}
-	return templateSaved(vmangos.SaveInventory(s.ServerRoot, guid, items, s.WorldRunning))
+	return templateSaved(vmangos.SaveInventory(s.ServerRoot, a.optionalDataDir(), guid, items, s.WorldRunning))
+}
+
+// optionalDataDir is the client's Data folder, or "" when no client is set: the equipment editor
+// reads the random properties' names and enchantments from it, and works without them.
+func (a *App) optionalDataDir() string {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return ""
+	}
+	return dataDir
 }

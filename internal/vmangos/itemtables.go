@@ -27,9 +27,11 @@ type ItemTables struct {
 var itemTables = struct {
 	sync.Mutex
 	by map[string]*ItemTables
-	// props are ItemRandomProperties.dbc's suffixes by ID ("of the Bear"), per data folder.
-	props map[string]map[int]string
-}{by: map[string]*ItemTables{}, props: map[string]map[int]string{}}
+	// props are ItemRandomProperties.dbc's suffixes by ID ("of the Bear"), per data folder, and
+	// propEnch each one's three enchantments.
+	props    map[string]map[int]string
+	propEnch map[string]map[int][3]int
+}{by: map[string]*ItemTables{}, props: map[string]map[int]string{}, propEnch: map[string]map[int][3]int{}}
 
 // namedList joins up to three names and says how many more there are: "A, B, C and 4 more".
 func namedList(names []string) string {
@@ -95,6 +97,22 @@ func randomPropertyNames(t *dbcTable) map[int]string {
 	return out
 }
 
+// randomPropertyEnchants reads ItemRandomProperties.dbc's three enchantments (SpellItemEnchantment
+// IDs) by ID: what Item::SetItemRandomProperties puts in an item's random property slots.
+func randomPropertyEnchants(t *dbcTable) map[int][3]int {
+	out := make(map[int][3]int, t.records)
+	for r := 0; r < t.records; r++ {
+		var e [3]int
+		for i := range e {
+			if 2+i < t.fields {
+				e[i] = int(t.u32(r, 2+i))
+			}
+		}
+		out[int(t.u32(r, 0))] = e
+	}
+	return out
+}
+
 // LoadItemTables reads the tables, once per client data folder.
 func LoadItemTables(dataDir string) (ItemTables, error) {
 	itemTables.Lock()
@@ -147,6 +165,7 @@ func loadItemDBCs(dataDir string) error {
 	}
 	itemTables.by[dataDir] = &out
 	itemTables.props[dataDir] = randomPropertyNames(tables["ItemRandomProperties"])
+	itemTables.propEnch[dataDir] = randomPropertyEnchants(tables["ItemRandomProperties"])
 	return nil
 }
 
@@ -160,6 +179,18 @@ func randomProperties(dataDir string) (map[int]string, error) {
 		}
 	}
 	return itemTables.props[dataDir], nil
+}
+
+// randomPropertyEnchantments gives ItemRandomProperties.dbc's enchantments for dataDir.
+func randomPropertyEnchantments(dataDir string) (map[int][3]int, error) {
+	itemTables.Lock()
+	defer itemTables.Unlock()
+	if _, ok := itemTables.by[dataDir]; !ok {
+		if err := loadItemDBCs(dataDir); err != nil {
+			return nil, err
+		}
+	}
+	return itemTables.propEnch[dataDir], nil
 }
 
 // enchantmentNames are the distinct names of an item_enchantment_template entry's enchantments

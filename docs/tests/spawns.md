@@ -880,6 +880,20 @@ account, Delete account, Save character and Delete character.
   `inventoryScript`'s deletes, moves, inserts and a new bag's contents, the refusals of a character
   in the world and of a new item while mangosd runs) and `frontend/tests/inventory.test.ts` (moves,
   bags taking their contents along, special bags, where an added item goes).
+- Bank, keyring and random properties (#879): the probe checks the Bank grid's 24 squares, the
+  keyring's (at least 4), the dashed bank bag slots (6 less `bankBagSlots`), and adds item 727
+  (Notched Shortsword, `random_property` 5168) into a picked free bank square: it rolls a property,
+  the details' Random property select offers the template's choices and None, and the title carries
+  the suffix. Unit: `inventory_test.go` (the bank, bank bag, keyring and buyback refusals,
+  `withRandomProperty`, a kept property not needing the DBC) and `TestInventoryScriptLive` (needs
+  the server's database; under a second): it copies the character tables' structure into a scratch
+  `test_meld_inventory` database, writes the fixture's rows, runs `inventoryScript` (moves into a
+  bank bag, a new key, a new sword with a property) and reads them back as the editor does, so no
+  real character is written; `frontend/tests/inventory.test.ts` (bank moves, bags swapped between
+  a bag slot and a bank bag slot, `rollRandomProperty`).
+- Trap: a random property's stats are the enchantments in slots 3 to 5 of `enchantments`;
+  `Item::LoadFromDB` reads `random_property_id` as is and doesn't fill them from it, so a write
+  that sets only the id gives the suffix without the stats.
 - An inventory write, by hand (mangosd stopped): copy a character to guid 9001 as above, then a
   scratch probe with `SaveInventory(9001, [...])` of new items (`guid: 0`, each with its
   `InventoryItemTemplate(entry)`): a sword at `0:15`, a shield at `0:16`, a Small Brown Pouch (4496)

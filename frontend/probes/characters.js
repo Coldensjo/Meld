@@ -1,5 +1,5 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, and the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts.
-// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked) and the keyring and gives an item added to the bank a random property from its choices (#879), the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, and the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts.
+// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
 const accounts = await App.ListAccounts().catch((err) => String(err))
@@ -109,6 +109,34 @@ if (from && to) {
 	await P.until(() => button(head(), 'Saved'), WAIT, 'the revert')
 	items.reverted = filled() === shownItems && !inventory().querySelector('.sq.new')
 }
+// The bank, the bank's bag slots (those not bought marked) and the keyring (#879); an item with a
+// random property (727, Notched Shortsword, rolls "of the Bear" and the like) added into a picked
+// bank square rolls one and offers the template's choices.
+items.bank = inventory().querySelectorAll('[aria-label="Bank"] .sq').length === 24
+items.keyring = inventory().querySelectorAll('[aria-label="Keyring"] .sq').length >= 4
+items.locked = inventory().querySelectorAll('[aria-label="Bank bag slots"] .sq.locked').length === 6 - inv.bankBagSlots
+const rolls = await App.InventoryItemTemplate(727).catch(() => null)
+const bankFree = [...inventory().querySelectorAll('[aria-label="Bank"] .sq')].find((s) => s.getAttribute('draggable') !== 'true')
+if (rolls?.randomChoices?.length && bankFree) {
+	const place = bankFree.dataset.place
+	bankFree.click()
+	const search = inventory().querySelector('input.search')
+	search.value = '727'
+	search.dispatchEvent(new Event('input', { bubbles: true }))
+	await P.until(() => [...inventory().querySelectorAll('.results button')].find((b) => b.textContent.includes('727')), WAIT, 'the search for 727')
+	;[...inventory().querySelectorAll('.results button')].find((b) => b.textContent.includes('727')).click()
+	await P.until(() => inventory().querySelector(`[data-place="${place}"].new`), WAIT, 'the sword in the bank')
+	const select = inventory().querySelector('.details label.random select')
+	items.random =
+		!!select &&
+		select.options.length === rolls.randomChoices.length + 1 &&
+		Number(select.value) > 0 &&
+		inventory()
+			.querySelector('.details strong')
+			.textContent.includes(select.selectedOptions[0].textContent.replace(/ \(.*\)$/, ''))
+	button(head(), 'Revert').click()
+	await P.until(() => button(head(), 'Saved'), WAIT, 'the revert')
+} else items.random = 'skipped: no item 727 with random properties, or no free bank square'
 button(root().querySelector('nav.tabs'), 'Character').click()
 await P.frames(1)
 
@@ -223,7 +251,13 @@ const sheetOk =
 	sheet.factions === repsRead.length &&
 	(!repsRead.length || (sheet.repDirty && sheet.repOutlined))
 
-const itemsOk = items.shown === items.read && (!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted))
+const itemsOk =
+	items.shown === items.read &&
+	(!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
+	items.bank &&
+	items.keyring &&
+	items.locked &&
+	items.random !== false
 
 // Delete character… (#876) asks first, Keep it backs out, and Delete character sends the guid and goes
 // back to the account's page (DeleteCharacter stood in, so nothing is deleted).

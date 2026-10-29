@@ -198,12 +198,15 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    its guild passes to its best-ranked member (or ends with its last), its group to another member
    (or ends under two), and its cash-on-delivery mail with items goes back to the senders. It needs
    the world server stopped.
-4. Its **Equipment and bags** tab shows the equipment slots, the bag slots, the backpack and each
-   bag. Drag an item to move it (it swaps with what is there), pick a square to change the item's
-   count, durability or enchantment or to **Take out** the item (a bag takes its contents with it),
-   and find items by name or entry below to add them: one goes into the picked square, or the first
-   free place that takes it. Then **Save equipment**. Adding items needs the world server stopped;
-   an item the character can't wear goes to it by mail at login.
+4. Its **Equipment and bags** tab shows the equipment slots, the bag slots, the backpack, each
+   bag, the keyring, the bank, the bank's bag slots (those the character hasn't bought are dashed)
+   and each bank bag. Drag an item to move it (it swaps with what is there), pick a square to change
+   the item's count, durability, enchantment or random property ("of the Bear") or to **Take out**
+   the item (a bag takes its contents with it), and find items by name or entry below to add them:
+   one goes into the picked square (the bank and keyring too), or the first free place on the
+   character that takes it. A new item rolls its random property as the server's `.additem` does.
+   Then **Save equipment**. Adding items needs the world server stopped; an item the character
+   can't wear goes to it by mail at login.
 5. The **Character** tab also holds the look (skin color, face, hair style and color, facial hair,
    from the choices the game's character creation offers the race and gender), the honor (rank
    points, highest rank, lifetime kills) and the home the hearthstone takes the character to

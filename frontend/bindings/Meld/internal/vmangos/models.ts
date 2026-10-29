@@ -665,17 +665,19 @@ export interface IconSpells {
 }
 
 /**
- * Inventory is a character's equipment and bags, and how many more items it keeps where the editor
- * doesn't reach (the bank, the keyring, the buyback slots).
+ * Inventory is a character's equipment, bags, bank and keyring, how many of the bank's bag slots it
+ * has bought, and how many more items it keeps where the editor doesn't reach (the buyback slots).
  */
 export interface Inventory {
     "items": InventoryItem[] | null;
+    "bankBagSlots": number;
     "elsewhere": number;
 }
 
 /**
  * InventoryItem is one item on the character: where it is, what of it the editor changes, and its
- * template. Guid is 0 for an item the editor adds.
+ * template. Guid is 0 for an item the editor adds. RandomProperty is item_instance.random_property_id
+ * (an ItemRandomProperties.dbc ID, 0 for none) and RandomName its suffix, which Save ignores.
  */
 export interface InventoryItem {
     "guid": number;
@@ -685,6 +687,8 @@ export interface InventoryItem {
     "count": number;
     "durability": number;
     "enchant": number;
+    "randomProperty": number;
+    "randomName": string;
     "template": InventoryTemplate;
 }
 
@@ -707,6 +711,13 @@ export interface InventoryTemplate {
     "requiredLevel": number;
     "allowableClass": number;
     "allowableRace": number;
+
+    /**
+     * RandomProperty is the item_enchantment_template entry the item rolls its random property from
+     * ("of the Bear"), 0 for none; RandomChoices are that entry's properties.
+     */
+    "randomProperty": number;
+    "randomChoices": RandomChoice[] | null;
 }
 
 /**
@@ -1362,6 +1373,16 @@ export interface QuestTables {
      * table has no subject).
      */
     "mailTemplates": NamedID[] | null;
+}
+
+/**
+ * RandomChoice is a random property an item may roll (an item_enchantment_template ench), with its
+ * suffix from the client's ItemRandomProperties.dbc and its chance in percent.
+ */
+export interface RandomChoice {
+    "id": number;
+    "name": string;
+    "chance": number;
 }
 
 /**

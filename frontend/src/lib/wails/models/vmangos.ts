@@ -96,6 +96,7 @@ export type QuestLink = V2<M.QuestLink>
 export type QuestLists = V2<M.QuestLists>
 export type QuestRef = V2<M.QuestRef>
 export type QuestTables = V2<M.QuestTables>
+export type RandomChoice = V2<M.RandomChoice>
 export type RegionEdit = V2<M.RegionEdit>
 export type RegionInner = V2<M.RegionInner>
 export type RegionPaint = V2<M.RegionPaint>

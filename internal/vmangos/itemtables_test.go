@@ -42,6 +42,9 @@ func TestRandomPropertyNames(t *testing.T) {
 	if got[5] != "of the Bear" || got[6] != "Internal" {
 		t.Fatalf("got %+v", got)
 	}
+	if e := randomPropertyEnchants(tbl); e[5] != [3]int{1, 2, 0} || e[6] != [3]int{} {
+		t.Fatalf("enchantments %+v", e)
+	}
 }
 
 func TestEnchantments(t *testing.T) {

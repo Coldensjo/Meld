@@ -1146,7 +1146,7 @@ export function ReadImageFile(path: string): $CancellablePromise<string> {
 }
 
 /**
- * ReadInventory reads a character's equipment and bags (#874).
+ * ReadInventory reads a character's equipment, bags, bank and keyring (#874, #879).
  */
 export function ReadInventory(guid: number): $CancellablePromise<vmangos$0.Inventory> {
     return $Call.ByID(908333639, guid);
@@ -1451,9 +1451,9 @@ export function SaveImageDialog(title: string, suggested: string): $CancellableP
 }
 
 /**
- * SaveInventory makes a character's equipment and bags the items given, while it is out of the world
- * (and, to add items, while the world server is stopped), and returns the SQL it ran, or the place
- * ("container:slot") of an item it refused.
+ * SaveInventory makes a character's equipment, bags, bank and keyring the items given, while it is
+ * out of the world (and, to add items, while the world server is stopped), and returns the SQL it
+ * ran, or the place ("container:slot") of an item it refused.
  */
 export function SaveInventory(guid: number, items: vmangos$0.InventoryItem[] | null): $CancellablePromise<$models.TemplateSaved> {
     return $Call.ByID(493395892, guid, items);

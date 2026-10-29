@@ -393,18 +393,31 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   The character's **Equipment and bags** tab (#874, `components/CharacterInventory.svelte`, a
   `RowList` with its own Save, kept mounted across the tab switch; `internal/vmangos/inventory.go`)
   edits `character_inventory` and `item_instance`. A place is a container and a slot: container 0
-  is the character (equipment 0 to 18, bag slots 19 to 22, backpack 23 to 38) and 19 to 22 the bag
-  in that slot, so a new bag's contents can be placed before the bag has a guid; the database's
-  `bag` is the bag item's guid. The bank, keyring and buyback are not reached (`elsewhere`). Where an
-  item fits follows the server (`Player::FindEquipSlot`, `ItemCanGoIntoBag`, the off hand empty
-  beside a two-hander), in `lib/wow/inventory.ts` for the page and again in Go's `checkInventory`,
-  which refuses with the place (`container:slot`) as the column. Save sends the whole list: Go
+  is the character (equipment 0 to 18, bag slots 19 to 22, backpack 23 to 38, bank 39 to 62, the
+  bank's bag slots 63 to 68, keyring 81 to 96; #879 added the last three) and 19 to 22 and 63 to 68
+  the bag in that slot, so a new bag's contents can be placed before the bag has a guid; the
+  database's `bag` is the bag item's guid. Only the buyback slots (69 to 80) are not reached
+  (`elsewhere`). Where an item fits follows the server (`Player::FindEquipSlot`, `ItemCanGoIntoBag`,
+  the off hand empty beside a two-hander, `CanBankItem`: a bank bag slot takes a bag, not a quiver,
+  and only the first `characters.bank_bag_slots` of them; the keyring takes only keys, bag family
+  9), in `lib/wow/inventory.ts` for the page and again in Go's `checkInventory`, which refuses with
+  the place (`container:slot`) as the column. The keyring shows the slots the game shows at the
+  character's level (`keyringSize`, `Player::GetMaxKeyringSize`); the server loads a key in any of
+  the 16. Save sends the whole list: Go
   deletes the items gone (with their gift, loot and text rows), moves and changes the rest
   (count, durability, the permanent enchantment, token 0 of `enchantments`), inserts the new ones as
   `Item::Create` makes them, and rewrites `characters.equipment_cache` (each equipment slot's entry
   and enchantments, then bag slot 19's entry, as `Player::SaveToDB`). New items need mangosd
   stopped: it hands out item guids from `MAX(guid)` read at start. An item the character can't wear
   (class, race, level, skill) is accepted; the server mails it at login, and the page marks it.
+  **Random properties** (#879, "of the Bear"): `item_instance.random_property_id` is an
+  `ItemRandomProperties.dbc` ID, and the server also writes that row's three enchantments into
+  enchantment slots 3 to 5 (`Item::SetItemRandomProperties`); the stats come from those slots and
+  `Item::LoadFromDB` doesn't fill them from the ID, so Go writes both (`withRandomProperty`, the enchantments from `randomPropertyEnchants`).
+  The choices are the template's `random_property` entry of `item_enchantment_template`, the rows
+  whose `patch_max` is the table's highest, named from the DBC (`randomChoices`); a new item rolls
+  one by chance as `.additem` does (`rollRandomProperty`). The client folder is optional for reading
+  (names fall back to "property N") but needed to save a new property.
 - The rest of a character (#875, `internal/vmangos/charsheet.go`): the Character tab also edits the
   **look** (`skin`, `face`, `hair_style`, `hair_color`, `facial_hair`), checked as the server's
   `Player::ValidateAppearance` checks a new character's (CharSections rows not flagged unavailable,

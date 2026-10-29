@@ -6,18 +6,41 @@
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { QUALITY_VARS } from '../lib/wow/itemTooltip'
-	import { BAG_SLOTS, DOLL, EQUIP_SLOTS, PACK_END, PACK_START, itemAt, moveItem, newItem, placeFor, placeKey, placeName, removeItem, samePlace, wearProblem, type Place } from '../lib/wow/inventory'
+	import {
+		BAG_SLOTS,
+		BANK_BAG_SLOTS,
+		BANK_END,
+		BANK_START,
+		DOLL,
+		EQUIP_SLOTS,
+		KEY_END,
+		KEY_START,
+		PACK_END,
+		PACK_START,
+		itemAt,
+		keyringSize,
+		moveItem,
+		newItem,
+		placeFor,
+		placeKey,
+		placeName,
+		removeItem,
+		samePlace,
+		wearProblem,
+		type Place,
+	} from '../lib/wow/inventory'
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import ItemIcon from './ItemIcon.svelte'
 	import ItemTooltip from './ItemTooltip.svelte'
 	import RefField from './RefField.svelte'
 
 	// The character editor's Equipment and bags (#874): the character's equipment slots laid out as the
-	// game's character frame, its bag slots, backpack and bags, with the Items editor's icons and
-	// tooltips. Drag an item to move it (swapping with what is there), pick a square to change the
-	// item's stack, durability and enchantment or take it out, and find items to add. Saved with its
-	// own Save, like the creature editor's list tabs: Go checks the places again and writes
-	// character_inventory and item_instance (internal/vmangos/inventory.go).
+	// game's character frame, its bag slots, backpack and bags, its bank, the bank's bags and its
+	// keyring (#879), with the Items editor's icons and tooltips. Drag an item to move it (swapping with
+	// what is there), pick a square to change the item's stack, durability, enchantment and random
+	// property or take it out, and find items to add. Saved with its own Save, like the creature
+	// editor's list tabs: Go checks the places again and writes character_inventory and item_instance
+	// (internal/vmangos/inventory.go).
 
 	let { guid, race, cls, level, dirty = $bindable(false) }: { guid: number; race: number; cls: number; level: number; dirty?: boolean } = $props()
 
@@ -25,14 +48,17 @@
 	const QUALITY = QUALITY_VARS
 
 	let elsewhere = $state(0)
+	let bankBags = $state(0)
+	const lim = $derived({ bankBags })
 	const rows = new RowList<Item[]>({
 		empty: [],
 		read: async () => {
 			const inv = await ReadInventory(guid)
 			elsewhere = inv.elsewhere
+			bankBags = inv.bankBagSlots
 			return inv.items ?? []
 		},
-		key: (list) => JSON.stringify(list.map((i) => [i.guid, i.container, i.slot, i.entry, i.count, i.durability, i.enchant]).sort((a, b) => a[1] - b[1] || a[2] - b[2])),
+		key: (list) => JSON.stringify(list.map((i) => [i.guid, i.container, i.slot, i.entry, i.count, i.durability, i.enchant, i.randomProperty]).sort((a, b) => a[1] - b[1] || a[2] - b[2])),
 	})
 	rows.follow(() => guid)
 	$effect(() => {
@@ -50,8 +76,12 @@
 	let refused = $state('')
 	const sel = $derived(selected ? (itemAt(rows.rows, selected) ?? null) : null)
 
-	const bags = $derived(BAG_SLOTS.map((s) => ({ slot: s, bag: itemAt(rows.rows, { container: 0, slot: s }) ?? null })).filter((b) => b.bag && b.bag.template.containerSlots > 0))
+	const bagsIn = (slots: readonly number[]) => slots.map((s) => ({ slot: s, bag: itemAt(rows.rows, { container: 0, slot: s }) ?? null })).filter((b) => b.bag && b.bag.template.containerSlots > 0)
+	const bags = $derived(bagsIn(BAG_SLOTS))
+	const bankBagList = $derived(bagsIn(BANK_BAG_SLOTS))
 	const range = (a: number, b: number) => Array.from({ length: Math.max(0, b - a) }, (_, i) => a + i)
+	// The keyring shows the slots the game shows at the character's level, and any slot past them that holds a key.
+	const keyEnd = $derived(Math.min(KEY_END, Math.max(KEY_START + keyringSize(level), ...rows.rows.filter((i) => i.container === 0 && i.slot >= KEY_START).map((i) => i.slot + 1))))
 
 	function save() {
 		refused = ''
@@ -83,7 +113,7 @@
 		const from = dragFrom
 		dragFrom = null
 		if (!from || samePlace(from, to)) return
-		if (set(moveItem(rows.rows, from, to))) selected = to
+		if (set(moveItem(rows.rows, from, to, lim))) selected = to
 	}
 
 	function takeOut(p: Place) {
@@ -101,6 +131,12 @@
 		rows.rows = rows.rows.map((i) => (samePlace(i, p) ? { ...i, [field]: n } : i))
 	}
 
+	/** Gives the picked item random property `id` ("of the Bear"; 0 for none), named `name`. */
+	function setRandom(id: number, name: string) {
+		const p = selected
+		if (p) rows.rows = rows.rows.map((i) => (samePlace(i, p) ? { ...i, randomProperty: id, randomName: name } : i))
+	}
+
 	// Adding: a search over item_template by name or entry, as the Shop tab's.
 	let query = $state('')
 	const search = createSearch((q: string) => SearchItems(q).then((r) => r ?? []), { empty: [] as vmangos.ItemRef[], onError: (err) => (rows.error = String(err)) })
@@ -111,7 +147,7 @@
 	async function add(r: vmangos.ItemRef) {
 		try {
 			const t = await InventoryItemTemplate(r.entry)
-			const p = placeFor(rows.rows, t, selected)
+			const p = placeFor(rows.rows, t, selected, lim)
 			if (!p) {
 				setStatus(`No free place takes ${t.name}.`, 5000)
 				return
@@ -139,14 +175,16 @@
 {#snippet square(p: Place, label: string)}
 	{@const it = itemAt(rows.rows, p)}
 	{@const worn = it && p.container === 0 && p.slot < BAG_SLOTS[0] ? wearProblem(it.template, race, cls, level) : ''}
+	{@const locked = p.container === 0 && p.slot >= BANK_BAG_SLOTS[0] && p.slot <= BANK_BAG_SLOTS[5] && p.slot - BANK_BAG_SLOTS[0] >= bankBags}
 	<button
 		class="sq"
+		class:locked
 		class:sel={selected && samePlace(selected, p)}
 		class:refused={refused === placeKey(p)}
 		class:warn={!!worn}
 		class:new={it?.guid === 0}
 		data-place={placeKey(p)}
-		title={it ? '' : `${placeName(p)} (empty)`}
+		title={it ? '' : `${placeName(p)} (${locked ? 'not bought' : 'empty'})`}
 		draggable={!!it}
 		ondragstart={(e) => {
 			dragFrom = p
@@ -208,6 +246,26 @@
 						{#each range(0, b.bag?.template.containerSlots ?? 0) as s (s)}{@render square({ container: b.slot, slot: s }, '')}{/each}
 					</div>
 				{/each}
+				<div class="label dim">Keyring</div>
+				<div class="grid" aria-label="Keyring">
+					{#each range(KEY_START, keyEnd) as s (s)}{@render square({ container: 0, slot: s }, 'Key')}{/each}
+				</div>
+			</div>
+			<div class="bags">
+				<div class="label dim">Bank</div>
+				<div class="grid wide" aria-label="Bank">
+					{#each range(BANK_START, BANK_END) as s (s)}{@render square({ container: 0, slot: s }, '')}{/each}
+				</div>
+				<div class="label dim">Bank bags <span title="characters.bank_bag_slots">({bankBags} of {BANK_BAG_SLOTS.length} bought)</span></div>
+				<div class="row" aria-label="Bank bag slots">
+					{#each BANK_BAG_SLOTS as s (s)}{@render square({ container: 0, slot: s }, 'Bag')}{/each}
+				</div>
+				{#each bankBagList as b (b.slot)}
+					<div class="label" style:color={QUALITY[b.bag?.template.quality ?? 1] ?? QUALITY[1]}>{b.bag?.template.name}</div>
+					<div class="grid" aria-label="Bank bag {b.slot - BANK_BAG_SLOTS[0] + 1}">
+						{#each range(0, b.bag?.template.containerSlots ?? 0) as s (s)}{@render square({ container: b.slot, slot: s }, '')}{/each}
+					</div>
+				{/each}
 			</div>
 		</div>
 
@@ -221,7 +279,7 @@
 				{@const worn = selected.container === 0 && selected.slot < BAG_SLOTS[0] ? wearProblem(t, race, cls, level) : ''}
 				<div class="title" use:idMenu={{ ids: [idOf('item', sel.entry)], name: t.name }} {...hoverItem(sel.entry, t.displayId)}>
 					<ItemIcon displayId={t.displayId} size={28} />
-					<strong style:color={QUALITY[t.quality] ?? QUALITY[1]}>{t.name || '(unknown item)'}</strong>
+					<strong style:color={QUALITY[t.quality] ?? QUALITY[1]}>{t.name || '(unknown item)'}{sel.randomProperty ? ` ${sel.randomName}` : ''}</strong>
 					<span class="dim">{sel.entry} · {placeName(selected)}{sel.guid ? ` · item ${sel.guid}` : ' · new'}</span>
 				</div>
 				{#if worn}<p class="warnText">The character can't wear it ({worn}): the server sends it by mail at login.</p>{/if}
@@ -234,6 +292,23 @@
 					<div class="ench">
 						<RefField f={ENCHANT} value={String(sel.enchant)} changed={false} onset={(v) => change('enchant', Number(v), 0xffff)} />
 					</div>
+					{#if t.randomProperty > 0 || sel.randomProperty}
+						{@const choices = t.randomChoices ?? []}
+						<label class="random"
+							>Random property
+							<select
+								value={sel.randomProperty}
+								onchange={(e) => {
+									const id = Number(e.currentTarget.value)
+									setRandom(id, choices.find((c) => c.id === id)?.name ?? sel?.randomName ?? '')
+								}}
+							>
+								<option value={0}>None</option>
+								{#if sel.randomProperty && !choices.some((c) => c.id === sel.randomProperty)}<option value={sel.randomProperty}>{sel.randomName || `property ${sel.randomProperty}`}</option>{/if}
+								{#each choices as c (c.id)}<option value={c.id}>{c.name} ({c.chance}%)</option>{/each}
+							</select></label
+						>
+					{/if}
 				</div>
 				<div class="row">
 					<button disabled={!t.maxDurability || sel.durability === t.maxDurability} onclick={() => change('durability', t.maxDurability, t.maxDurability)}>Repair</button>
@@ -243,7 +318,7 @@
 		</div>
 		<p class="dim">
 			Saved items are what the character has at its next login. Adding items needs the world server stopped (it numbers new items from the highest number it read at start); moving, changing and taking out need only the character out
-			of the world.{elsewhere ? ` ${elsewhere} more ${elsewhere === 1 ? 'item is' : 'items are'} in its bank, keyring or buyback, which this leaves as they are.` : ''}
+			of the world. An added item rolls its random property as the server's .additem does.{elsewhere ? ` ${elsewhere} more ${elsewhere === 1 ? 'item is' : 'items are'} in its buyback slots, which this leaves as they are.` : ''}
 		</p>
 
 		<h3>Add items</h3>
@@ -327,8 +402,18 @@
 		grid-template-columns: repeat(4, 42px);
 		gap: 4px;
 	}
+	.grid.wide {
+		grid-template-columns: repeat(6, 42px);
+	}
 	.label {
 		margin-top: 4px;
+	}
+	.sq.locked {
+		opacity: 0.45;
+		border-style: dashed;
+	}
+	.fields .random {
+		grid-column: 1 / span 2;
 	}
 	.sq {
 		position: relative;
