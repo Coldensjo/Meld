@@ -22,7 +22,7 @@ import {
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
-import { TileGatherer, adtHeightSpan, cellLift, liquidTypeArea, placeFaces, placedBox, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
+import { TileGatherer, adtHeightSpan, cellLift, groupStarts, liquidTypeArea, placeFaces, placeGroups, placedBox, placedBoxes, typeIndex, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
 import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
@@ -494,21 +494,27 @@ test("a worker's copy of the scene (#633) gathers the same triangles as the main
 	map.set(1, [lake])
 	const liquids = new NavLiquids()
 	liquids.reset(map, g, 9.5)
-	// Three model types: a crate, a wall in two groups, and a far tower no gathered box meets, first in
-	// the order, so the others' groups are numbered after its own.
+	// Four model types: a crate, a wall in two groups, a far tower no gathered box meets, first in the
+	// order, so the others' groups are numbered after its own, and a city whose box meets the job's but
+	// whose middle group lies far off (#866), so it is neither sent nor placed.
+	const city = new Float32Array([...box(44, 5, 5, 46, 14, 30), ...box(300, 0, 300, 310, 50, 310), ...box(50, 5, 40, 52, 12, 60)])
 	const types = new Map<string, LocalFaces>([
 		['m2:crate', { tris: box(10, 9, 10, 14, 13, 14), groups: Uint32Array.of(12), liquid: null }],
 		['wmo:wall', { tris: box(40, 5, 5, 42, 16, 60), groups: Uint32Array.of(6, 6), liquid: null }],
 		['wmo:tower', { tris: box(0, 0, 0, 10, 60, 10), groups: Uint32Array.of(4, 4, 4), liquid: null }],
+		['wmo:city', { tris: city, groups: Uint32Array.of(12, 12, 12), liquid: null }],
 	])
 	const placement = (id: number, type: string, m: THREE.Matrix4): ScenePlacement => {
 		const l = types.get(type)!
-		return { id, type, matrix: new Float64Array(m.elements), groups: l.groups.length, box: placedBox(l.tris, m.elements, l.liquid) }
+		const b = placedBoxes(l.tris, typeIndex(l.tris, l.groups, l.liquid), m.elements, l.liquid)
+		assert.deepEqual(b.box, placedBox(l.tris, m.elements, l.liquid))
+		return { id, type, matrix: new Float64Array(m.elements), groups: l.groups.length, box: b.box, groupBoxes: b.groups }
 	}
 	const placements = new Map<number, ScenePlacement>([
 		[3, placement(3, 'wmo:tower', new THREE.Matrix4().setPosition(400, 0, 400))],
 		[1, placement(1, 'm2:crate', new THREE.Matrix4())],
 		[2, placement(2, 'wmo:wall', new THREE.Matrix4().makeRotationY(0.3).setPosition(5, 0, 3))],
+		[4, placement(4, 'wmo:city', new THREE.Matrix4().makeRotationY(-0.1))],
 	])
 	// The main thread before #849: every model's faces placed.
 	const allPlaced = () => [...placements.values()].map((p) => placeFaces(types.get(p.type)!.tris, p.matrix, types.get(p.type)!.groups))
@@ -521,9 +527,14 @@ test("a worker's copy of the scene (#633) gathers the same triangles as the main
 		for (const x of c.updates) scene.apply(x)
 		return c
 	}
-	// The tower's type is never sent: its box misses the job's.
-	const typeUpdate = (type: string): SceneUpdate => ({ kind: 'type', type, faces: types.get(type)! })
-	const sent = send([groundUpdate(g), liquidsUpdate(map, 9.5), typeUpdate('m2:crate'), typeUpdate('wmo:wall'), { kind: 'models', list: [...placements.values()] }])
+	// The tower's type is never sent: its box misses the job's; nor is the city's far group.
+	const typeUpdate = (type: string, parts?: number[]): SceneUpdate => {
+		const l = types.get(type)!
+		const all = [...l.groups.keys()]
+		const tris = parts ? new Float32Array(parts.flatMap((g) => [...l.tris.subarray(g * 12 * 9, (g + 1) * 12 * 9)])) : l.tris
+		return { kind: 'type', type, groups: l.groups, liquid: l.liquid, parts: Uint32Array.from(parts ?? all), tris }
+	}
+	const sent = send([groundUpdate(g), liquidsUpdate(map, 9.5), typeUpdate('m2:crate'), typeUpdate('wmo:wall'), typeUpdate('wmo:city', [0, 2]), { kind: 'models', list: [...placements.values()] }])
 	assert.ok(sent.transfer.length > 8)
 	const job = { continent: true, tx: 0, tz: 0, x0: 0, z0: 0, x1: 80, z1: 70, floorY: -3, ceilY: 30 }
 	// The main thread's own list places the faces only where the gather needs them too.
@@ -564,8 +575,53 @@ test("a worker's copy of the scene (#633) gathers the same triangles as the main
 	send([{ kind: 'drop', id: 2 }])
 	same('after the wall went')
 
-	// A gather that meets a model whose type the worker lacks throws, so the workers give way to the main thread.
+	// A gather that meets a model whose type the worker lacks throws, so the workers give way to the main
+	// thread; so does one that meets a group it was not sent, until it is.
 	assert.throws(() => scene.gather({ ...job, x0: 390, z0: 390, x1: 420, z1: 420 }), /no collision faces for wmo:tower/)
+	const far = { ...job, x0: 250, z0: 250, x1: 330, z1: 330 }
+	assert.throws(() => scene.gather(far), /no collision faces for wmo:city/)
+	send([typeUpdate('wmo:city', [1])])
+	const farHere = new TileGatherer().gather(g, allPlaced(), far.x0, far.z0, far.x1, far.z1, at, liquids)
+	const farThere = scene.gather(far)
+	assert.ok(farHere.triCount > 0)
+	assert.equal(farThere.triCount, farHere.triCount)
+	assert.deepEqual(farThere.pos.subarray(0, farThere.vertCount * 3), farHere.pos.subarray(0, farHere.vertCount * 3))
+	// The near job again, with the city's far group now placed beside the others.
+	same('after the far group came')
+})
+
+test("a placement's box from its groups' (#866) is placedBox's to the bit, turned, mirrored and with liquids, and each group's box holds its faces", () => {
+	const local = new Float32Array([...box(-3, 0, -2, 5, 7, 4), ...box(20, -4, 1, 21, 30, 2), ...box(0.5, 1, 0.5, 1, 2, 1), ...box(-40, 3, 9, -39, 4, 60)])
+	const groups = Uint32Array.of(12, 12, 0, 12, 12)
+	const liquid = { verts: new Float32Array([0, 2, 0, 4, 2, 0, 0, 2, 3, 9, -30, 9]), idx: new Uint32Array([0, 2, 1]), types: new Uint32Array([1]) }
+	const index = typeIndex(local, groups, liquid)
+	const starts = groupStarts(groups)
+	const matrices = [
+		new THREE.Matrix4(),
+		new THREE.Matrix4().makeRotationY(2.2).setPosition(-8123.4, 12.5, 4410.75),
+		new THREE.Matrix4().compose(new THREE.Vector3(123.4, 56.7, 890.1), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.2, 1.1, -0.4)), new THREE.Vector3(1.3, 1.3, -1.3)),
+	]
+	for (const m of matrices) {
+		for (const l of [liquid, null]) {
+			const b = placedBoxes(local, index, m.elements, l)
+			assert.deepEqual(b.box, placedBox(local, m.elements, l))
+			const faces = placeFaces(local, m.elements, groups, l)
+			for (let g = 0; g < groups.length; g++) {
+				for (let k = starts[g] * 9; k < starts[g + 1] * 9; k += 3) {
+					for (let a = 0; a < 3; a++) assert.ok(faces.tris[k + a] >= b.groups[g * 6 + a] && faces.tris[k + a] <= b.groups[g * 6 + 3 + a], `group ${g}`)
+				}
+			}
+			// Placing the groups bit by bit, a mirror wound back, gives placeFaces's own.
+			const want = new Uint8Array(groups.length)
+			want[1] = 1
+			let some = placeGroups(local, groups, m.elements, want, b.box, l, null)
+			want.fill(1)
+			some = placeGroups(local, groups, m.elements, want, b.box, l, some)
+			assert.deepEqual(some.tris, faces.tris)
+			assert.deepEqual(some.groups, groups)
+			assert.deepEqual(some.liquid, faces.liquid)
+		}
+	}
 })
 
 test("a placement's box (#849) is the one its placed faces get, liquids and a mirror too", () => {

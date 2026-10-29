@@ -232,22 +232,26 @@ mask/liquid, image codec or native/game rendering contracts.
     worker keeps a copy of the gather's inputs (`NavScene` in `navScene.ts`: the ground's heights,
     holes and inner heights, the liquids and the sea, every placement in the main thread's order), so
     a job (`GatherJob`) is just the tile's box and its client tile's height span. A placement
-    (`ScenePlacement`, #849) is the model type, its matrix and its box: the main thread works out only
-    the box (`placedBox`, the same sums as `placeFaces`, so the box is the same to the bit), which the
-    spans and `markChanged` need, and keeps the boxes while the view is off. Each side places a model's
-    faces (`PlacedModels.forGather`) only once a gathered box, a cell wider all round (`gatherReach`),
-    meets the model's, and passes the others to the gather as stand-ins holding their box and group
-    count, since the gather numbers every model's groups in order. A model type's local faces go to
-    the workers once a start (`sentTypes`), just before the first job whose reach meets a placement of
-    it (`sendTypes`); a worker that meets a model whose type it lacks throws, and the workers give way
-    to the main thread. The main thread works out the spans and keeps the copies current with `sendNavScene`:
+    (`ScenePlacement`, #849) is the model type, its matrix, its box and each group's box (#866): the
+    main thread works out only the boxes (`placedBoxes`), which the spans and `markChanged` need, and
+    keeps them while the view is off. The whole box must be `placeFaces`' to the bit (the height span
+    reads it), so it is the union of the groups' exact boxes, but only the groups whose box, from the
+    corners of their box in the model's frame (`typeIndex`, worked out as the faces arrive) and a
+    millimetre wider, reaches past the union so far are moved vertex by vertex: 7 of Stormwind's 4016.
+    Each side places a model's faces (`PlacedModels.forGather`) only once a gathered box, a cell wider
+    all round (`gatherReach`), meets the model's, and then only the groups whose box it meets
+    (`placeGroups`, a group left out counting 0 triangles), and passes the others to the gather as
+    stand-ins holding their box and group count, since the gather numbers every model's groups in
+    order. A model type's groups' local faces go to the workers once a start (`sentGroups`), just
+    before the first job whose reach meets a placed group of them (`sendTypes`); a worker that meets a
+    model whose type or group it lacks throws, and the workers give way to the main thread. The main thread works out the spans and keeps the copies current with `sendNavScene`:
     the whole scene in a frame of its own (`syncWorkers`) when the workers started anew or a full
     rebuild started over (`synced` against `navWorkerGeneration`), and at each partial settle only
     what changed (`sceneUpdates`: a placement added, moved or dropped, the ground rows
     `addGroundChange` took and the liquid chunks it forgot). `sceneCopy` copies each update's arrays
     for each worker and hands the copies over, since postMessage's structured clone of the abbey
     scene's 16 MB of placed faces took 14 to 18 ms (15 MB of it Stormwind's WMO, which only sets
-    Northshire's height span, still sent once since its box meets a tile's reach). The main thread takes back Detour's tile bytes,
+    Northshire's height span; its box ends 250 yd west of the block, so none of it is sent). The main thread takes back Detour's tile bytes,
     which it copies into its own navmesh (kept there for the path test, as in server mode; added
     without `DT_TILE_FREE_DATA`, the tile's `data` freed by `dropTile`), and the surface to draw. A
     job whose inputs a settled change made stale is dropped when it returns (`tile.job`); without

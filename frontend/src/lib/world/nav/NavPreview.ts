@@ -24,7 +24,7 @@ import { LIQUID_CELLS, type LiquidMap } from '../../water/liquids'
 import { AREA_MAGMA, AREA_SLIME, AREA_STEEP, AREA_WATER, AREA_WATER_TRANSITION, NAV_GROUND, NAV_MAGMA, NAV_SLIME, NAV_WATER, TileBuilder, loadRecast, vmangosSettings, type NavSettings, type Recast, type TileOutput } from './navBuild'
 import { buildInWorker, navWorkerGeneration, navWorkerRoom, navWorkersReady, sendNavScene, stopNavWorkers } from './navJobs'
 import { PlacedModels, boxMeets, gatherReach, groundUpdate, liquidsUpdate, rowsUpdate, type LocalFaces, type SceneUpdate } from './navScene'
-import { TileGatherer, adtHeightSpan, placedBox, type PlacedBox } from './navGeometry'
+import { TileGatherer, adtHeightSpan, groupMeets, groupStarts, placedBoxes, typeIndex, type PlacedBox } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
 import { ZERO_POINT } from '../../wow/format'
@@ -139,16 +139,17 @@ export class NavPreview {
 	/**
 	 * Each model type's collision faces and a WMO's liquids, null while loading or when the model has
 	 * none (#515: a failure is warned, counted and retried; the Engine sets `onFail`). At most
-	 * FETCHES_PER_TASK start in one task, the rest in tasks of their own (#865).
+	 * FETCHES_PER_TASK start in one task, the rest in tasks of their own (#865). Each type's groups'
+	 * boxes (typeIndex, #866) are worked out as its faces arrive, in that task rather than in a frame.
 	 */
-	readonly collisions = new LoadCache<LocalFaces>('model collision', fetchCollision, undefined, FETCHES_PER_TASK)
+	readonly collisions = new LoadCache<LocalFaces>('model collision', loadCollision, undefined, FETCHES_PER_TASK)
 	/**
 	 * The placed models (#849): their boxes, worked out here, and their faces, placed here only for a
 	 * main-thread gather. Kept while the view is off, so turning it on again works out only what moved.
 	 */
 	private placed = new PlacedModels((t) => this.collision(t))
-	/** The model types whose faces the workers of start `typesGen` hold (#849): sent before the first job that needs them. */
-	private sentTypes = new Set<string>()
+	/** Each model type's groups whose faces the workers of start `typesGen` hold (#849, #866): sent before the first job whose reach meets them. */
+	private sentGroups = new Map<string, Uint8Array>()
 	private typesGen = -1
 	private reach = [0, 0, 0, 0]
 	/** Each client tile's height span (adtHeightSpan) by tile, for the current build. */
@@ -412,8 +413,10 @@ export class NavPreview {
 			const old = this.placed.get(o.id)
 			if (old && old.type === o.type && sameMatrix(old.matrix, e)) continue
 			if (old) this.addChanged(old.box)
-			// Only the box: the faces are placed where a gather needs them (#849).
-			const p = { id: o.id, type: o.type, matrix: new Float64Array(e), groups: local.groups.length, box: placedBox(local.tris, e, local.liquid) }
+			// Only the boxes: the faces are placed where a gather needs them (#849), and only the groups
+			// that may reach past the others are moved for the whole box (#866).
+			const boxes = placedBoxes(local.tris, typeIndex(local.tris, local.groups, local.liquid), e, local.liquid)
+			const p = { id: o.id, type: o.type, matrix: new Float64Array(e), groups: local.groups.length, box: boxes.box, groupBoxes: boxes.groups }
 			this.addChanged(p.box)
 			this.placed.set(p)
 			this.sceneUpdates.push({ kind: 'place', placement: p })
@@ -548,25 +551,48 @@ export class NavPreview {
 		if (this.synced === gen) return
 		// Workers started anew hold no model types; those of a full rebuild keep theirs.
 		if (this.typesGen !== gen) {
-			this.sentTypes.clear()
+			this.sentGroups.clear()
 			this.typesGen = gen
 		}
 		sendNavScene([groundUpdate(this.terrain!), liquidsUpdate(this.liquidMap, this.sea), { kind: 'models', list: [...this.placed.values()] }])
 		this.synced = gen
 	}
 
-	/** Sends the workers, ahead of a job gathering [x0, x1] × [z0, z1], the faces of the model types it meets that they lack (#849). */
+	/**
+	 * Sends the workers, ahead of a job gathering [x0, x1] × [z0, z1], the faces of the placed models'
+	 * groups its reach meets that they lack (#849, #866), with a type's group sizes and liquids the
+	 * first time; the groups of a type in a run go as a view of its faces, others copied together.
+	 */
 	private sendTypes(x0: number, z0: number, x1: number, z1: number) {
 		const r = gatherReach(this.terrain!.cellSize, x0, z0, x1, z1, this.reach)
-		let types: SceneUpdate[] | null = null
+		let picked: Map<string, { first: boolean; parts: number[] }> | null = null
 		for (const p of this.placed.values()) {
-			if (this.sentTypes.has(p.type) || !boxMeets(p.box, r[0], r[1], r[2], r[3])) continue
+			if (!boxMeets(p.box, r[0], r[1], r[2], r[3])) continue
 			const local = this.collision(p.type)
 			if (!local) continue
-			this.sentTypes.add(p.type)
-			;(types ??= []).push({ kind: 'type', type: p.type, faces: { tris: local.tris, groups: local.groups, liquid: local.liquid } })
+			let sent = this.sentGroups.get(p.type)
+			let pick = picked?.get(p.type)
+			if (!sent) {
+				sent = new Uint8Array(p.groups)
+				this.sentGroups.set(p.type, sent)
+				// The type goes even when no group meets, for its group sizes and liquids.
+				;(picked ??= new Map()).set(p.type, (pick = { first: true, parts: [] }))
+			}
+			for (let g = 0; g < p.groups; g++) {
+				if (sent[g] || !groupMeets(p.groupBoxes, g, r[0], r[1], r[2], r[3])) continue
+				sent[g] = 1
+				if (!pick) (picked ??= new Map()).set(p.type, (pick = { first: false, parts: [] }))
+				pick.parts.push(g)
+			}
 		}
-		if (types) sendNavScene(types)
+		if (!picked) return
+		const types: SceneUpdate[] = []
+		for (const [type, pick] of picked) {
+			const local = this.collision(type)!
+			const parts = Uint32Array.from(pick.parts).sort()
+			types.push({ kind: 'type', type, groups: local.groups, liquid: pick.first ? local.liquid : null, parts, tris: groupFaces(local, parts) })
+		}
+		sendNavScene(types)
 	}
 
 	/**
@@ -878,6 +904,30 @@ export class NavPreview {
 		this.markers.push(m)
 		this.group.add(m)
 	}
+}
+
+/** A model type's collision faces, its groups' boxes worked out as they arrive (typeIndex, #866). */
+async function loadCollision(path: string): Promise<LocalFaces> {
+	const c = await fetchCollision(path)
+	typeIndex(c.tris, c.groups, c.liquid)
+	return c
+}
+
+/** The faces of `local`'s groups `parts` (ascending), one after another: a view where they run on, a copy elsewhere. */
+function groupFaces(local: LocalFaces, parts: Uint32Array): Float32Array {
+	const starts = groupStarts(local.groups)
+	const n = parts.length
+	if (n === 0) return new Float32Array(0)
+	if (parts[n - 1] - parts[0] === n - 1) return local.tris.subarray(starts[parts[0]] * 9, starts[parts[n - 1] + 1] * 9)
+	let size = 0
+	for (const g of parts) size += starts[g + 1] - starts[g]
+	const out = new Float32Array(size * 9)
+	let at = 0
+	for (const g of parts) {
+		out.set(local.tris.subarray(starts[g] * 9, starts[g + 1] * 9), at)
+		at += (starts[g + 1] - starts[g]) * 9
+	}
+	return out
 }
 
 function sameSource(a: ServerSource | null, b: ServerSource | null): boolean {

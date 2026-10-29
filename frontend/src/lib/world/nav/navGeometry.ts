@@ -114,11 +114,11 @@ export function liquidTypeArea(t: number): number {
 }
 
 /**
- * Moves the points of `local` by the column-major matrix `m` into `out` (or nowhere, for the box
- * alone: #849), growing the box [min, max]. The matrix and the box sit in locals through the loop,
- * which runs over a 15 MB WMO (Stormwind's) in a few ms.
+ * Moves the points of `local` from float `from` to `to` by the column-major matrix `m` into `out` from
+ * `outAt` (or nowhere, for the box alone: #849), growing the box [min, max]. The matrix and the box sit
+ * in locals through the loop, which runs over a 15 MB WMO (Stormwind's) in a few ms.
  */
-function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array | null, min: number[], max: number[]) {
+function movePoints(local: Float32Array, from: number, to: number, m: ArrayLike<number>, out: Float32Array | null, outAt: number, min: number[], max: number[]) {
 	const m0 = m[0],
 		m1 = m[1],
 		m2 = m[2],
@@ -137,8 +137,8 @@ function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array
 		hx = max[0],
 		hy = max[1],
 		hz = max[2]
-	const n = local.length
-	for (let i = 0; i < n; i += 3) {
+	const shift = outAt - from
+	for (let i = from; i < to; i += 3) {
 		const x = local[i],
 			y = local[i + 1],
 			z = local[i + 2]
@@ -146,9 +146,10 @@ function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array
 		const wy = m1 * x + m5 * y + m9 * z + m13
 		const wz = m2 * x + m6 * y + m10 * z + m14
 		if (out) {
-			out[i] = wx
-			out[i + 1] = wy
-			out[i + 2] = wz
+			const o = i + shift
+			out[o] = wx
+			out[o + 1] = wy
+			out[o + 2] = wz
 		}
 		if (wx < lx) lx = wx
 		if (wy < ly) ly = wy
@@ -172,9 +173,156 @@ function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array
 export function placedBox(local: Float32Array, m: ArrayLike<number>, liquid?: ModelLiquid | null): PlacedBox {
 	const min: [number, number, number] = [Infinity, Infinity, Infinity]
 	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
-	movePoints(local, m, null, min, max)
-	if (liquid && liquid.types.length > 0) movePoints(liquid.verts, m, null, min, max)
+	movePoints(local, 0, local.length, m, null, 0, min, max)
+	if (liquid && liquid.types.length > 0) movePoints(liquid.verts, 0, liquid.verts.length, m, null, 0, min, max)
 	return { min, max, origin: [m[12], m[14]] }
+}
+
+/**
+ * What the main thread keeps of a model type beyond its faces (#866): where each group's triangles
+ * start (`groupStarts`), each group's box in the model's frame (six floats: the lowest x, y and z of
+ * its faces, then the highest; Infinity and -Infinity for an empty group), and its liquids' box, null
+ * without liquids. The groups' sizes add up to the faces (collision.go).
+ */
+export interface TypeIndex {
+	starts: Uint32Array
+	boxes: Float32Array
+	liquidBox: Float32Array | null
+}
+
+const startsOf = new WeakMap<Uint32Array, Uint32Array>()
+const indexOf = new WeakMap<Float32Array, TypeIndex>()
+
+/** Where each of a model type's groups starts, in triangles, and the end of the last: kept for each `groups` array. */
+export function groupStarts(groups: Uint32Array): Uint32Array {
+	let s = startsOf.get(groups)
+	if (!s) {
+		s = new Uint32Array(groups.length + 1)
+		for (let g = 0; g < groups.length; g++) s[g + 1] = s[g] + groups[g]
+		startsOf.set(groups, s)
+	}
+	return s
+}
+
+/** The box of the points of `local` from float `from` to `to`, into `out` at `o`. */
+function localBox(local: Float32Array, from: number, to: number, out: Float32Array, o: number) {
+	let lx = Infinity,
+		ly = Infinity,
+		lz = Infinity,
+		hx = -Infinity,
+		hy = -Infinity,
+		hz = -Infinity
+	for (let i = from; i < to; i += 3) {
+		const x = local[i],
+			y = local[i + 1],
+			z = local[i + 2]
+		if (x < lx) lx = x
+		if (y < ly) ly = y
+		if (z < lz) lz = z
+		if (x > hx) hx = x
+		if (y > hy) hy = y
+		if (z > hz) hz = z
+	}
+	out[o] = lx
+	out[o + 1] = ly
+	out[o + 2] = lz
+	out[o + 3] = hx
+	out[o + 4] = hy
+	out[o + 5] = hz
+}
+
+/**
+ * A model type's index (`TypeIndex`), worked out on the first ask for its faces `tris` and kept: one
+ * pass over every vertex, which NavPreview takes as the faces arrive rather than in a frame.
+ */
+export function typeIndex(tris: Float32Array, groups: Uint32Array, liquid?: ModelLiquid | null): TypeIndex {
+	let ix = indexOf.get(tris)
+	if (ix) return ix
+	const starts = groupStarts(groups)
+	const boxes = new Float32Array(groups.length * 6)
+	for (let g = 0; g < groups.length; g++) localBox(tris, starts[g] * 9, Math.min(tris.length, starts[g + 1] * 9), boxes, g * 6)
+	let liquidBox: Float32Array | null = null
+	if (liquid && liquid.types.length > 0) {
+		liquidBox = new Float32Array(6)
+		localBox(liquid.verts, 0, liquid.verts.length, liquidBox, 0)
+	}
+	ix = { starts, boxes, liquidBox }
+	indexOf.set(tris, ix)
+	return ix
+}
+
+/** How much wider than its moved corners a group's placed box is kept, against the rounding of each vertex's move (yd). */
+const WIDE = 1e-3
+
+/** Local box `b` at `o` moved by `m`, the box of its eight corners WIDE wider all round, into `out` at `w`; an empty box stays empty. */
+function wideBox(b: Float32Array, o: number, m: ArrayLike<number>, out: Float64Array, w: number) {
+	if (!(b[o] <= b[o + 3])) {
+		out[w] = out[w + 1] = out[w + 2] = Infinity
+		out[w + 3] = out[w + 4] = out[w + 5] = -Infinity
+		return
+	}
+	for (let k = 0; k < 3; k++) {
+		// Each axis's lowest and highest over the corners: each term's lesser and greater of the box's two ends.
+		let lo = m[12 + k],
+			hi = lo
+		for (let a = 0; a < 3; a++) {
+			const c = m[a * 4 + k]
+			const p = c * b[o + a],
+				q = c * b[o + 3 + a]
+			lo += Math.min(p, q)
+			hi += Math.max(p, q)
+		}
+		out[w + k] = lo - WIDE
+		out[w + 3 + k] = hi + WIDE
+	}
+}
+
+/**
+ * The box `placedBox` gives a placement by `m` of a model type's faces `local` (indexed by `index`,
+ * with its `liquid`), to the bit, and each of its groups' boxes, a little wider than the group's moved
+ * faces (six numbers a group, as `TypeIndex.boxes`) (#866). Only the groups that may reach past the
+ * others are moved vertex by vertex: the box is the union of the groups', so a group whose wider box
+ * lies inside the union so far changes nothing. Of Stormwind's WMO, 15 MB, a few groups are moved
+ * rather than all 1.2M triangles.
+ */
+export function placedBoxes(local: Float32Array, index: TypeIndex, m: ArrayLike<number>, liquid?: ModelLiquid | null): { box: PlacedBox; groups: Float64Array } {
+	const n = index.starts.length - 1
+	const wet = !!(liquid && liquid.types.length > 0 && index.liquidBox)
+	const parts = n + (wet ? 1 : 0)
+	// The groups' boxes, then the liquids'.
+	const wide = new Float64Array(parts * 6)
+	for (let g = 0; g < n; g++) wideBox(index.boxes, g * 6, m, wide, g * 6)
+	if (wet) wideBox(index.liquidBox!, 0, m, wide, n * 6)
+	const min: [number, number, number] = [Infinity, Infinity, Infinity]
+	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
+	const done = new Uint8Array(parts)
+	const move = (g: number) => {
+		done[g] = 1
+		if (g < n) movePoints(local, index.starts[g] * 9, Math.min(local.length, index.starts[g + 1] * 9), m, null, 0, min, max)
+		else movePoints(liquid!.verts, 0, liquid!.verts.length, m, null, 0, min, max)
+	}
+	// First the part reaching furthest each way, so the union starts near its end and most parts are passed by.
+	for (let k = 0; k < 6; k++) {
+		let best = -1
+		for (let g = 0; g < parts; g++) {
+			const v = wide[g * 6 + k]
+			if (!isFinite(v)) continue
+			if (best < 0 || (k < 3 ? v < wide[best * 6 + k] : v > wide[best * 6 + k])) best = g
+		}
+		if (best >= 0 && !done[best]) move(best)
+	}
+	for (let g = 0; g < parts; g++) {
+		if (done[g] || !isFinite(wide[g * 6])) continue
+		const o = g * 6
+		if (wide[o] < min[0] || wide[o + 1] < min[1] || wide[o + 2] < min[2] || wide[o + 3] > max[0] || wide[o + 4] > max[1] || wide[o + 5] > max[2]) move(g)
+	}
+	return { box: { min, max, origin: [m[12], m[14]] }, groups: wet ? wide.slice(0, n * 6) : wide }
+}
+
+/** Whether group `g`'s box in `boxes` (six numbers a group) meets [x0, x1] × [z0, z1], as boxMeets tests a placement's. */
+export function groupMeets(boxes: ArrayLike<number>, g: number, x0: number, z0: number, x1: number, z1: number): boolean {
+	const o = g * 6
+	return !(boxes[o + 3] < x0 || boxes[o] > x1 || boxes[o + 5] < z0 || boxes[o + 2] > z1)
 }
 
 /**
@@ -185,27 +333,73 @@ export function placeFaces(local: Float32Array, m: ArrayLike<number>, groups?: U
 	const tris = new Float32Array(local.length)
 	const min: [number, number, number] = [Infinity, Infinity, Infinity]
 	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
-	movePoints(local, m, tris, min, max)
-	let placedLiquid: PlacedLiquid | null = null
-	if (liquid && liquid.types.length > 0) {
-		const verts = new Float32Array(liquid.verts.length)
-		movePoints(liquid.verts, m, verts, min, max)
-		const areas = new Uint8Array(liquid.types.length)
-		for (let t = 0; t < areas.length; t++) areas[t] = liquidTypeArea(liquid.types[t])
-		placedLiquid = { verts, idx: liquid.idx, areas }
-	}
-	// A mirrored placement (a negative scale) turns the faces inside out: wind them back.
-	const det = m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2])
-	if (det < 0) {
-		for (let i = 0; i < tris.length; i += 9) {
-			for (let k = 0; k < 3; k++) {
-				const t = tris[i + 3 + k]
-				tris[i + 3 + k] = tris[i + 6 + k]
-				tris[i + 6 + k] = t
-			}
+	movePoints(local, 0, local.length, m, tris, 0, min, max)
+	const placedLiquid = placeLiquid(liquid, m, min, max)
+	if (mirrored(m)) windBack(tris, 0, tris.length)
+	return { tris, min, max, origin: [m[12], m[14]], groups: groups ?? Uint32Array.of(local.length / 9), liquid: placedLiquid }
+}
+
+/** A model's liquid moved by `m`, growing [min, max]; null without one. */
+function placeLiquid(liquid: ModelLiquid | null | undefined, m: ArrayLike<number>, min: number[], max: number[]): PlacedLiquid | null {
+	if (!liquid || liquid.types.length === 0) return null
+	const verts = new Float32Array(liquid.verts.length)
+	movePoints(liquid.verts, 0, liquid.verts.length, m, verts, 0, min, max)
+	const areas = new Uint8Array(liquid.types.length)
+	for (let t = 0; t < areas.length; t++) areas[t] = liquidTypeArea(liquid.types[t])
+	return { verts, idx: liquid.idx, areas }
+}
+
+/** Whether `m` mirrors (a negative scale), which turns the faces inside out: they are wound back. */
+function mirrored(m: ArrayLike<number>): boolean {
+	return m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]) < 0
+}
+
+/** Winds the triangles of `tris` from float `from` to `to` the other way round. */
+function windBack(tris: Float32Array, from: number, to: number) {
+	for (let i = from; i < to; i += 9) {
+		for (let k = 0; k < 3; k++) {
+			const t = tris[i + 3 + k]
+			tris[i + 3 + k] = tris[i + 6 + k]
+			tris[i + 6 + k] = t
 		}
 	}
-	return { tris, min, max, origin: [m[12], m[14]], groups: groups ?? Uint32Array.of(local.length / 9), liquid: placedLiquid }
+}
+
+/**
+ * The faces of the groups of a model type flagged in `want`, moved by `m` as `placeFaces` moves them,
+ * one after another in `groups`' order, with the placement's `box` and the type's `liquid` (#866). A
+ * group left out counts 0 triangles, so a gather still numbers every group, and a gather whose reach
+ * misses a group's box (`groupMeets`) gets the same triangles with it left out. `local` need hold only
+ * the groups wanted (a worker's copy of a type holds those it was sent); `old`, faces of the same
+ * placement placed before, gives the groups it holds without moving them again.
+ */
+export function placeGroups(local: Float32Array, groups: Uint32Array, m: ArrayLike<number>, want: Uint8Array, box: PlacedBox, liquid: ModelLiquid | null, old: PlacedCollision | null): PlacedCollision {
+	const starts = groupStarts(groups)
+	const n = groups.length
+	let size = 0
+	for (let g = 0; g < n; g++) if (want[g]) size += starts[g + 1] - starts[g]
+	const tris = new Float32Array(size * 9)
+	const counts = new Uint32Array(n)
+	const flip = mirrored(m)
+	const min = [Infinity, Infinity, Infinity]
+	const max = [-Infinity, -Infinity, -Infinity]
+	let at = 0
+	let oldAt = 0
+	for (let g = 0; g < n; g++) {
+		const c = starts[g + 1] - starts[g]
+		const had = old ? old.groups[g] : 0
+		if (want[g]) {
+			if (had) tris.set(old!.tris.subarray(oldAt * 9, (oldAt + c) * 9), at * 9)
+			else {
+				movePoints(local, starts[g] * 9, starts[g + 1] * 9, m, tris, at * 9, min, max)
+				if (flip) windBack(tris, at * 9, (at + c) * 9)
+			}
+			counts[g] = c
+			at += c
+		}
+		oldAt += had
+	}
+	return { tris, min: box.min, max: box.max, origin: box.origin, groups: counts, liquid: old ? old.liquid : placeLiquid(liquid, m, min, max) }
 }
 
 /**

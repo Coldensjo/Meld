@@ -736,8 +736,10 @@ creature's way round obstacles.
   main thread's share 23 ms. On the view's first turn on in a session `refreshModels` takes about
   7 ms twice (the first call starts the 83 collision fetches; the second works out the boxes, 5 ms
   of it Stormwind's 15 MB WMO); since #865 the first starts only 8 of them (1.3 ms, the rest 8 a
-  task after it, `LoadCache`'s `perTask`, the build done as soon as before), Stormwind's type goes to the workers in a 3.4 ms frame and
-  `syncWorkers` takes 2.5 ms; turned on again, with the boxes kept, no frame passes 2.3 ms (before:
+  task after it, `LoadCache`'s `perTask`, the build done as soon as before); since #866 the second
+  takes 3.1 to 3.9 ms (Stormwind's box from 7 of its 4016 groups, 0.9 ms warm against 4.6), the first
+  tile's frame about 3.5 ms (most of it the first client tile's `adtHeightSpan`, cold) and
+  `syncWorkers` 2.5 ms; turned on again, with the boxes kept, no frame passes 2.3 ms (before:
   9.6, 8.3 and 8.2 ms the first time, 7.1 and 5.9 the next).
   Dropping the ground rows from a settle's `sceneUpdates` makes the probe fail, so it catches a copy
   gone stale. A breakdown of the longest frames: wrap `nav.refreshModels`, `nav.syncWorkers`,
@@ -745,7 +747,9 @@ creature's way round obstacles.
   `tests/navmesh.test.ts` (a job's copies and `runTileJob` against a main-thread build, byte for
   byte; a `NavScene` fed through `sceneCopy` and a main-thread `PlacedModels` gather what every
   model's placed faces gather, after the whole scene, a sculpt's rows and a hole, a moved and a
-  dropped model, with a far model whose type is never sent; `placedBox` is `placeFaces`' box). Trap: Bun has no `window`, so the
+  dropped model, with a far model whose type is never sent and a model whose far group is sent only
+  for a job that meets it; `placedBox` is `placeFaces`' box, and `placedBoxes`' is `placedBox`'s to
+  the bit, turned, mirrored and with liquids). Trap: Bun has no `window`, so the
   unit tests always take the main-thread path; only the probe runs the workers.
 - Server mode (#240, Show › Server's mmaps): `bun run probe walkable-server` (about 45 s) in the
   benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k
