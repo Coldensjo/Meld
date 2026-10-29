@@ -11,7 +11,7 @@ const { appLog } = await P.state()
 await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
 const sw = [...e.objects.objects.values()].find((o) => o.type.includes('stormwind.wmo'))
 const key = sw.type.slice('wmo:'.length).split('?')[0].toLowerCase()
-// The Trade District street (wmo-collide's spot), where the camera is in group 49.
+// The Trade District street (wmo-camera's collide spot), where the camera is in group 49.
 const m = e.camera.matrixWorld.clone()
 e.objects.matrixOf(sw, m)
 const spot = e.camera.position.clone().set(-51, 3.78, -249.13).applyMatrix4(m)

@@ -1,7 +1,7 @@
 // Run with: bun test tests/cameraMove.test.ts
 // The camera's collision step (#434) against a toy WMO room, through the same wmoRoom.ts queries the
 // Engine's hooks use (`WmoRooms.collide` and `floorAt`), with the editor's axes taken to WoW's as
-// `toModel` does. The live checks are the `wmo-collide` and `walk-wmo` probes.
+// `toModel` does. The live check is the `wmo-camera` probe.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { nearNum } from './support/near.ts'

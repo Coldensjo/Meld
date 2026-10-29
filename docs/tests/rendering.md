@@ -638,11 +638,13 @@ Checks: a WMO group's MLIQ (`internal/wow/wmoliquid.go`) reaches the frontend af
 
 ## A camera over a building is in none of its rooms (#300)
 
+One probe, `wmo-camera` (#416), runs this and the next section's collide and walk checks on one load of the benchmark scene (the load is most of the time); its result holds `over`, `collide` and `walk`, each with its own `ok`, and each check puts Follow the Ground, Camera Collision and the walking camera back before the next.
+
 Checks: `WmoRooms.update` counts the eye in a room only when the down-ray's room box holds it; an eye
 over the building's footprint otherwise (no room found, above the top of the room found, or above the
 whole building) puts the WMO in `e.rooms.over`, which is drawn whole and left out of the outside flood.
 The client keeps its camera near the player, so its flood never meets this; Meld's flying camera does.
-- Probe: `bun run probe wmo-over` (about 45 s): the benchmark scene's Stormwind from 52 yd over the
+- Probe: `bun run probe wmo-camera` (about 80 s with the other two checks, the `over` part of its result): the benchmark scene's Stormwind from 52 yd over the
   canals (the issue's view: before the fix the Command Center's floor 70 yd below claimed the eye and
   the walls had holes to the sky) and from 250 yd over the city (before, the outside flood from the
   city's one exterior shell drew almost nothing), each compared with the gate off (within the two-shot
@@ -672,7 +674,7 @@ The client keeps its camera near the player, so its flood never meets this; Meld
 Checks: with View › Camera Collision on, `WmoRooms.collide` (`wmoRoom.ts` `collideSphere`) stops the
 flying camera the near plane's corner reach (about 0.9 yd at a wide window) off a WMO's collision
 faces, however far it moves in a frame, and slides it along them; with it off the camera flies through.
-- Probe: `bun run probe wmo-collide` (about 20 s with the scene loaded): from 3 yd inside Stormwind's
+- Probe: `bun run probe wmo-camera` (its `collide` part, a few seconds after the scene loads): from 3 yd inside Stormwind's
   Trade District room (group 49) the target is moved 13 yd at the room's south wall in one frame,
   through it. On, the eye ends in room 49, on the room's side, `rooms.wallDist` at least the radius
   and the near plane at 0.5 yd; off, it ends 9.5 yd past the wall in SI:7 (group 111).
@@ -700,7 +702,7 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   probe's start, 7.5 yd under it 14 yd away), so a check of the camera's height there must measure from
   `rooms.floorAt`, not `terrain.heightAt`. A view set by `setSceneView`
   or `focus` is a jump and is not collided, so an eye placed inside a wall stays there until it moves.
-- Camera › Walking View on the WMO floor (#312): `bun run probe walk-wmo` (about 60 s, most of it loading the
+- Camera › Walking View on the WMO floor (#312): `bun run probe wmo-camera` (its `walk` part; the whole probe takes about 80 s, most of it loading the
   scene) starts the walk 1 yd over the probe's start and walks 20 yd each way along the street, one
   frame a 0.5 yd step: in rooms 49, 48 and 50 the eye stays 3 yd over `rooms.floorAt` while its height
   over the terrain runs from -0.5 to 8.7 yd. On the old code (eye 3 yd over the terrain) it is 3.5 yd

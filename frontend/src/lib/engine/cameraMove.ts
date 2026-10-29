@@ -2,7 +2,7 @@ import * as THREE from 'three'
 
 /**
  * The camera's collision step (#434), out of `CameraController.update` so the order its rules hang on
- * is unit-tested (tests/cameraMove.test.ts) rather than only by the `wmo-collide` and `walk-wmo` probes:
+ * is unit-tested (tests/cameraMove.test.ts) rather than only by the `wmo-camera` probe:
  * the walker's walls before its floor (#312, #313), the flying camera's floor clamp before its walls
  * (#305, #310), and the near plane pulled in for a face within its reach (#304).
  */
