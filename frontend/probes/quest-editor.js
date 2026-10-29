@@ -5,7 +5,7 @@ P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 // The waits give room for a slow database; the whole probe takes about 10 s.
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Quest editor"]')
+const root = () => document.querySelector('[data-editor="quest"]')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const type = (input, value) => {
 	input.value = value
@@ -86,7 +86,7 @@ ui.questEditor = null
 await P.frames(1)
 
 // From the creature editor's Quests tab, over it.
-const ce = () => document.querySelector('[aria-label="Creature editor"]')
+const ce = () => document.querySelector('[data-editor="creature"]')
 ui.creatureEditor = { key: null, entry: 196 }
 await P.until(() => button(ce()?.querySelector('nav.tabs'), 'Quests'), WAIT, 'the creature editor')
 button(ce().querySelector('nav.tabs'), 'Quests').click()

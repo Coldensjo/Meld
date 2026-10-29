@@ -5,7 +5,7 @@ P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 // The waits give room for a slow database; the whole probe takes about 25 s.
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Creature editor"]')
+const root = () => document.querySelector('[data-editor="creature"]')
 const tab = () => root()?.querySelector('.spells')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const names = () => [...(tab()?.querySelectorAll('.list > li .name') ?? [])].map((n) => n.textContent.replace(/\s+/g, ' ').trim())

@@ -8,7 +8,7 @@ const loaded = (el) => !!el && [...el.querySelectorAll('img')].length > 0 && [..
 const tab = (root, name) => [...(root?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim().startsWith(name))
 
 // The item editor: the title's icon, and the class ticks' icons.
-const item = () => document.querySelector('[aria-label="Item editor"]')
+const item = () => document.querySelector('[data-editor="item"]')
 ui.itemEditor = { entry: 25 }
 await P.until(() => item()?.querySelector('h2')?.textContent.includes('Worn Shortsword') && tab(item(), 'Requirements'), WAIT, 'the item')
 await P.until(() => loaded(item().querySelector('h2')), WAIT, 'the item title icon')
@@ -23,7 +23,7 @@ ui.itemEditor = null
 await P.frames(1)
 
 // The spell editor: the title's icon, and the reagents as item pickers.
-const spell = () => document.querySelector('[aria-label="Spell editor"]')
+const spell = () => document.querySelector('[data-editor="spell"]')
 ui.spellEditor = { entry: 133 }
 await P.until(() => spell()?.querySelector('h2')?.textContent.includes('Fireball') && tab(spell(), 'Spell'), WAIT, 'the spell')
 await P.until(() => loaded(spell().querySelector('h2')), WAIT, 'the spell title icon')
@@ -34,7 +34,7 @@ ui.spellEditor = null
 await P.frames(1)
 
 // The creature editor: Trainer class with its icon.
-const creature = () => document.querySelector('[aria-label="Creature editor"]')
+const creature = () => document.querySelector('[data-editor="creature"]')
 ui.creatureEditor = { key: null, entry: 911 }
 await P.until(() => tab(creature(), 'Creature'), WAIT, 'the creature')
 tab(creature(), 'Creature').click()

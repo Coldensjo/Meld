@@ -22,7 +22,7 @@ se.syncSpawnUi(layer, true)
 // The waits give 120 s, room for a slow database; the whole probe takes about 30 s.
 const WAIT = 120_000
 
-const root = () => document.querySelector('[aria-label="Game object editor"]')
+const root = () => document.querySelector('[data-editor="object"]')
 const loot = () => root()?.querySelector('.loot')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const actions = () => root()?.querySelector('header .actions')

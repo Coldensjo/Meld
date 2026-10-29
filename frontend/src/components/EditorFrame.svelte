@@ -14,6 +14,8 @@
 		ed: EditorFlow
 		/** The dialog's name, for screen readers and the probes. */
 		label: string
+		/** Which editor this is: the probes find it through `data-editor`, not the label. */
+		kind: 'creature' | 'object' | 'item' | 'quest' | 'spell' | 'character'
 		/** Its layer among the full-screen editors (app.css's --z-editor tokens; the quest editor opens over the creature editor). */
 		z: 'editor' | 'editor-2' | 'editor-3'
 		/** What the Discard bar says is unsaved, as a sentence. */
@@ -29,7 +31,7 @@
 		children: Snippet
 	}
 
-	let { ed, label, z, unsavedText, blocked, back, title, actions, bars, children }: Props = $props()
+	let { ed, kind, label, z, unsavedText, blocked, back, title, actions, bars, children }: Props = $props()
 
 	let root = $state<HTMLElement>()
 
@@ -47,7 +49,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="editor" style:z-index={`var(--z-${z})`} role="dialog" aria-modal="true" aria-label={label} bind:this={root} use:dialogFocus>
+<div class="editor" style:z-index={`var(--z-${z})`} role="dialog" aria-modal="true" aria-label={label} data-editor={kind} bind:this={root} use:dialogFocus>
 	<header>
 		<div class="title">{@render title()}</div>
 		<div class="actions">

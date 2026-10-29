@@ -13,7 +13,7 @@ const loaded = (el) => {
 }
 
 // The item editor.
-const item = () => document.querySelector('[aria-label="Item editor"]')
+const item = () => document.querySelector('[data-editor="item"]')
 ui.itemEditor = { entry: 25 }
 await P.until(() => item()?.querySelector('h2')?.textContent.includes('Worn Shortsword') && label(item(), 'Buy price'), WAIT, 'the item')
 const buy = () => label(item(), 'Buy price')
@@ -38,7 +38,7 @@ ui.itemEditor = null
 await P.frames(1)
 
 // The quest editor: a quest that costs money.
-const quest = () => document.querySelector('[aria-label="Quest editor"]')
+const quest = () => document.querySelector('[data-editor="quest"]')
 ui.questEditor = { entry: 2945 }
 await P.until(() => quest()?.querySelector('h2')?.textContent.includes('Grime-Encrusted Ring') && button(quest().querySelector('nav.tabs'), 'Rewards'), WAIT, 'the quest')
 button(quest().querySelector('nav.tabs'), 'Rewards').click()

@@ -4,11 +4,11 @@ const { ui, prefs } = await P.state()
 const was = { docked: prefs.minimapDocked, hidden: prefs.dockHidden, minimap: ui.minimap }
 const r = {}
 const press = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true }))
-const docked = () => document.querySelector('[data-ui="Dock"] [aria-label="Minimap"]')
-const floating = () => document.querySelector('aside[aria-label="Minimap"]')
+const docked = () => document.querySelector('[data-ui="Dock"] [data-panel="minimap"]')
+const floating = () => document.querySelector('[data-ui="MinimapWindow"]')
 /** The share of the minimap's pixels drawn as water. */
 const blueShare = () => {
-	const c = document.querySelector('[aria-label="Minimap"] canvas')
+	const c = document.querySelector('[data-ui="MinimapWindow"] canvas, [data-panel="minimap"] canvas')
 	const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
 	let blue = 0
 	for (let i = 0; i < d.length; i += 4) if (d[i + 2] > d[i] + 30) blue++

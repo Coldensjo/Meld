@@ -4,7 +4,7 @@ const { ui, prefs } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Item editor"]')
+const root = () => document.querySelector('[data-editor="item"]')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const type = (input, value) => {
 	input.value = value

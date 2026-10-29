@@ -4,8 +4,8 @@ const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
-const oe = () => document.querySelector('[aria-label="Game object editor"]')
-const qe = () => document.querySelector('[aria-label="Quest editor"]')
+const oe = () => document.querySelector('[data-editor="object"]')
+const qe = () => document.querySelector('[data-editor="quest"]')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const type = (input, value) => {
 	input.value = value

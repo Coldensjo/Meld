@@ -27,7 +27,7 @@
 				{/if}
 				<button class="detach" onclick={detachMinimap} title="Detach into a floating window" aria-label="Detach the minimap">⇱</button>
 			{/snippet}
-			<div class="minimap" role="region" aria-label="Minimap">
+			<div class="minimap" role="region" aria-label="Minimap" data-panel="minimap">
 				<MinimapView />
 			</div>
 		</DockPanel>

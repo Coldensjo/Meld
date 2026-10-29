@@ -7,7 +7,7 @@ editor.selectedSpawn = null
 const WAIT = 60_000
 const FORGE = 1743
 const DISPLAY = 197
-const root = () => document.querySelector('[aria-label="Game object editor"]')
+const root = () => document.querySelector('[data-editor="object"]')
 const tabButton = (text) => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const slotRows = () => [...(root()?.querySelectorAll('[aria-label="Sound slots"] > li:not(.pick)') ?? [])]
 const slot = (name) => slotRows().find((li) => li.querySelector('.slot')?.textContent.trim() === name)

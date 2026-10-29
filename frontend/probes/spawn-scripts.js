@@ -22,9 +22,9 @@ layer.set([doorSpawn, altarSpawn, walker, innkeeper, giver])
 se.syncSpawnUi(layer, true)
 
 /** The rows of the Scripts list of the open editor, as text. */
-const rows = (label) => [...(document.querySelector(`[aria-label="${label}"]`)?.querySelectorAll('[data-testid="spawn-scripts"] li') ?? [])].map((li) => li.textContent.replace(/\s+/g, ' ').trim())
+const rows = (label) => [...(document.querySelector(`[data-editor="${label}"]`)?.querySelectorAll('[data-testid="spawn-scripts"] li') ?? [])].map((li) => li.textContent.replace(/\s+/g, ' ').trim())
 const settled = (label) => {
-	const box = document.querySelector(`[aria-label="${label}"] [data-testid="spawn-scripts"]`)
+	const box = document.querySelector(`[data-editor="${label}"] [data-testid="spawn-scripts"]`)
 	return box && !box.textContent.includes('Reading')
 }
 async function scriptsOf(spawn, editor, label) {
@@ -36,18 +36,18 @@ async function scriptsOf(spawn, editor, label) {
 	await P.frames(2)
 	return got
 }
-const doorRows = await scriptsOf(doorSpawn, 'objectEditor', 'Game object editor')
-const altarRows = await scriptsOf(altarSpawn, 'objectEditor', 'Game object editor')
-const walkerRows = await scriptsOf(walker, 'creatureEditor', 'Creature editor')
-const innRows = await scriptsOf(innkeeper, 'creatureEditor', 'Creature editor')
+const doorRows = await scriptsOf(doorSpawn, 'objectEditor', 'object')
+const altarRows = await scriptsOf(altarSpawn, 'objectEditor', 'object')
+const walkerRows = await scriptsOf(walker, 'creatureEditor', 'creature')
+const innRows = await scriptsOf(innkeeper, 'creatureEditor', 'creature')
 // Open the quest giver's Quest start script: its three commands list under the row.
 se.selectSpawn(giver)
 ui.creatureEditor = { key: spawnKey(giver), entry: giver.entry }
-await P.until(() => settled('Creature editor'), 30_000, 'the quest giver scripts')
-const startBtn = [...document.querySelectorAll('[aria-label="Creature editor"] [data-testid="spawn-scripts"] button.open')].find((b) => b.textContent.includes('Quest start'))
+await P.until(() => settled('creature'), 30_000, 'the quest giver scripts')
+const startBtn = [...document.querySelectorAll('[data-editor="creature"] [data-testid="spawn-scripts"] button.open')].find((b) => b.textContent.includes('Quest start'))
 startBtn?.click()
-await P.until(() => document.querySelectorAll('[aria-label="Creature editor"] [data-testid="script-commands"] li').length > 0, 30_000, 'the commands')
-const commandRows = [...document.querySelectorAll('[aria-label="Creature editor"] [data-testid="script-commands"] li')].map((li) => li.textContent.replace(/\s+/g, ' ').trim())
+await P.until(() => document.querySelectorAll('[data-editor="creature"] [data-testid="script-commands"] li').length > 0, 30_000, 'the commands')
+const commandRows = [...document.querySelectorAll('[data-editor="creature"] [data-testid="script-commands"] li')].map((li) => li.textContent.replace(/\s+/g, ' ').trim())
 ui.creatureEditor = null
 await P.frames(2)
 return {

@@ -4,7 +4,7 @@ const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Creature editor"]')
+const root = () => document.querySelector('[data-editor="creature"]')
 const tab = (name) => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim() === name)
 ui.creatureEditor = { key: null, entry: 68 }
 await P.frames(1)

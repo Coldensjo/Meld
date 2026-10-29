@@ -5,7 +5,7 @@ P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 editor.selectedSpawn = null
 const WAIT = 60_000
-const root = () => document.querySelector('[aria-label="Game object editor"]')
+const root = () => document.querySelector('[data-editor="object"]')
 const tabOn = () => root()?.querySelector('nav.tabs button.on')?.textContent.trim() ?? ''
 const tabButton = (text) => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const grid = () => root()?.querySelector('[aria-label="Object displays"]')

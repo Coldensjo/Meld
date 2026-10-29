@@ -4,7 +4,7 @@ const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Spell editor"]')
+const root = () => document.querySelector('[data-editor="spell"]')
 const tab = (name) => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim().startsWith(name))
 const ref = (label) => [...(root()?.querySelectorAll('.ref') ?? [])].find((r) => r.querySelector('.label')?.textContent === label)
 const named = (label) => ref(label)?.querySelector('.name span:not(.dim)')

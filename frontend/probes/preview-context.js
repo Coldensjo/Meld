@@ -95,7 +95,7 @@ for (const t of types.slice(0, 150)) {
 	}
 }
 ui.modelPreview = { title: 'probe', type, scale: 1 }
-const winCanvas = await P.until(() => document.querySelector('[role="dialog"][aria-label="Model preview"] canvas'), 30_000, 'the Preview window')
+const winCanvas = await P.until(() => document.querySelector('[data-ui="ModelPreviewWindow"] canvas'), 30_000, 'the Preview window')
 const preview = await loseAndRestore('Preview window', winCanvas)
 
 // Closing releases the context (#201); nothing brings it back.

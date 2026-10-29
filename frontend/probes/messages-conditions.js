@@ -4,7 +4,7 @@ const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Creature editor"]')
+const root = () => document.querySelector('[data-editor="creature"]')
 const tab = () => root()?.querySelector('.messages')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const head = () => [...(tab()?.querySelectorAll('.head') ?? [])].find((h) => h.textContent.includes('Shown under a condition'))

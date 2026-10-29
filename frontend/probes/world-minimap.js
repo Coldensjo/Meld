@@ -13,7 +13,7 @@ ui.minimap = true
 openWorldView(e, 'Azeroth', { x: 31, y: 48, size: 3 })
 await P.until(() => (editor.worldMap === 'Azeroth' && e.worldTiles()?.size ? true : null), 30000, "Azeroth's world tab and its tile list")
 await P.until(() => (e.worldStats()?.loaded >= 1 ? true : null), 60000, 'the first tile')
-const box = () => document.querySelector('aside[aria-label="Minimap"]')
+const box = () => document.querySelector('[data-ui="MinimapWindow"]')
 const svg = await P.until(() => box()?.querySelector('svg[data-world="Azeroth"]'), 10000, "the world view's minimap")
 const r = {}
 const tiles = e.worldTiles()

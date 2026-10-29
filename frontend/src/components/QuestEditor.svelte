@@ -178,7 +178,7 @@
 </script>
 
 {#if target}
-	<EditorFrame {ed} label="Quest editor" z="editor-2" unsavedText={`Unsaved changes to ${[changeCount ? 'the quest' : '', giversDirty ? 'its givers' : ''].filter(Boolean).join(' and ')}.`}>
+	<EditorFrame {ed} kind="quest" label="Quest editor" z="editor-2" unsavedText={`Unsaved changes to ${[changeCount ? 'the quest' : '', giversDirty ? 'its givers' : ''].filter(Boolean).join(' and ')}.`}>
 		{#snippet title()}
 			{#if target.entry > 0}
 				<h2>{values.Title || saved.Title || 'Quest'}</h2>

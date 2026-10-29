@@ -233,7 +233,7 @@
 </script>
 
 {#if target}
-	<EditorFrame {ed} label="Creature editor" z="editor" {unsavedText} blocked={() => !!ui.questEditor}>
+	<EditorFrame {ed} kind="creature" label="Creature editor" z="editor" {unsavedText} blocked={() => !!ui.questEditor}>
 		{#snippet title()}
 			{#if target.entry > 0}
 				<h2>{values.name || saved.name || 'Creature'}{values.subname ? ` <${values.subname}>` : ''}</h2>

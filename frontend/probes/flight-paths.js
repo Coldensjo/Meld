@@ -18,7 +18,7 @@ try {
 	ui.flightPaths = true
 	await P.until(() => L.stops.find((s) => s.id === 5) ?? null, 60_000, "Lakeshire's stop drawn")
 	const counts = { stops: L.stops.length, routes: L.routes.length, visible: L.group.visible }
-	const win = document.querySelector('aside[aria-label="Flight paths"]')
+	const win = document.querySelector('[data-ui="FlightPathsWindow"]')
 	const button = (label) => [...win.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
 
 	// Lakeshire's marker, from 40 yd off: a click picks the stop, a drag moves it over the ground.

@@ -133,8 +133,10 @@ When adding a probe:
 5. Find a dialog or component through its F8 `data-ui` attribute, not through aria attributes or text (#415): `P.dialog(heading)`
    finds a Modal by `[data-ui="Modal"] header h2`, and a bare dialog is `[data-ui="Modal"]`. Accessibility work moves `aria-*`
    (#369 broke `zones-fit` and `weather`); `data-ui` is the component's name. Only a root element carries it, so an inner control
-   keeps a stable attribute. Keep an aria lookup where the probe is about accessibility (`aria-state`, `dialog-focus`) or the
-   dialog is not a Modal (the editors, labelled by `aria-label`).
+   keeps a stable attribute. Keep an aria lookup where the probe is about accessibility (`aria-state`, `dialog-focus`).
+   The editors share `EditorFrame`, so each root carries `data-editor="creature|object|item|quest|spell|character"`; the other
+   windows are found by their component's `data-ui` (`FlightPathsWindow`, `MinimapWindow`, `IconsWindow`, `ModelPreviewWindow`),
+   and the docked minimap by `[data-panel="minimap"]`. Inner lists and fields keep their `aria-label` (#870).
 6. Record how to run it in the appropriate feature-check page below.
 7. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
    `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints

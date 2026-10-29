@@ -19,7 +19,7 @@ layer.set([posterSpawn, genericSpawn])
 se.syncSpawnUi(layer, true)
 const WAIT = 120_000
 
-const root = () => document.querySelector('[aria-label="Game object editor"]')
+const root = () => document.querySelector('[data-editor="object"]')
 const text = () => root()?.querySelector('.text')
 const button = (el, t) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(t))
 const actions = () => root()?.querySelector('header .actions')

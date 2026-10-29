@@ -4,7 +4,7 @@ P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const { ui } = await P.state()
 const WAIT = 120_000
-const root = () => document.querySelector('[aria-label="Spell editor"]')
+const root = () => document.querySelector('[data-editor="spell"]')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const type = (input, value) => {
 	input.value = value
@@ -63,7 +63,7 @@ const after = { realHasIt: real.some((n) => n.toLowerCase() === 'meld_probe_icon
 // Tools › Icons…: the shared grid lists every icon, a search and a click pick one, and the side shows
 // its name, SpellIcon ID and spells; Copy name copies it.
 ui.iconsTool = { icon: '' }
-const tool = () => document.querySelector('[aria-label="Icons"][role="dialog"]')
+const tool = () => document.querySelector('[data-ui="IconsWindow"]')
 await P.until(() => tool()?.querySelectorAll('.icon-btn').length > 10, WAIT, 'the Icons tool')
 const toolAll = button(tool(), 'Export')?.textContent.trim()
 type(tool().querySelector('[aria-label="Search the icons"]'), 'Spell_Fire_FlameBolt')

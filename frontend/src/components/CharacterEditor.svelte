@@ -337,7 +337,7 @@
 </script>
 
 {#if target}
-	<EditorFrame {ed} label="Characters and accounts" z="editor" unsavedText="Unsaved changes to the character.">
+	<EditorFrame {ed} kind="character" label="Characters and accounts" z="editor" unsavedText="Unsaved changes to the character.">
 		{#snippet title()}
 			{#if record}
 				<h2>{values.name || saved.name}</h2>

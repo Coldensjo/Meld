@@ -66,7 +66,7 @@ try {
 
 	// The Preview window on a still shape: one frame, then nothing until Turn is checked.
 	ui.modelPreview = { title: 'probe', type: 'helper:cube:4', scale: 1 }
-	const win = await P.until(() => document.querySelector('[role="dialog"][aria-label="Model preview"]'), 30_000, 'the Preview window')
+	const win = await P.until(() => document.querySelector('[data-ui="ModelPreviewWindow"]'), 30_000, 'the Preview window')
 	const winCanvas = win.querySelector('canvas')
 	const preview = counter(winCanvas)
 	await wait(1500)

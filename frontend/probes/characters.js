@@ -8,7 +8,7 @@ const withChars = (accounts ?? []).find((a) => a.characters > 0)
 if (!withChars) return { ok: true, skipped: 'no account on the server has a character' }
 
 const WAIT = 60_000
-const root = () => document.querySelector('[aria-label="Characters and accounts"]')
+const root = () => document.querySelector('[data-editor="character"]')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
 const label = (text) => [...root().querySelectorAll('.grid > label, .grid > .field')].find((l) => l.textContent.trim().startsWith(text))
 const type = (input, value) => {

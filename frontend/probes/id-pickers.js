@@ -39,7 +39,7 @@ ui.dialog = null
 await P.frames(1)
 
 // The Spells tab: each target's parameters.
-const root = () => document.querySelector('[aria-label="Creature editor"]')
+const root = () => document.querySelector('[data-editor="creature"]')
 const tab = () => root()?.querySelector('.spells')
 const button = (el, t) => [...(el?.querySelectorAll('button') ?? [])].find((b) => text(b).startsWith(t))
 ui.creatureEditor = { key: null, entry: 3976 }
@@ -112,7 +112,7 @@ const L = P.e.taxiLayer
 ui.flightPaths = true
 try {
 	await P.until(() => L.stops.find((s) => s.id === 5) ?? null, 60_000, "Lakeshire's stop")
-	const win = () => document.querySelector('aside[aria-label="Flight paths"]')
+	const win = () => document.querySelector('[data-ui="FlightPathsWindow"]')
 	const listed = await P.until(() => [...(win()?.querySelectorAll('ul[aria-label="Stops"] button') ?? [])].find((b) => text(b.querySelector('.id')) === '5'), WAIT, 'Lakeshire in the list')
 	listed.click()
 	await P.until(() => win()?.querySelector('#fp-ally'), 5000, 'a stop picked').catch(() => null)

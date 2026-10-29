@@ -21,7 +21,7 @@ se.syncSpawnUi(layer, true)
 const key = spawnKey(vein)
 se.selectSpawn(vein)
 ui.objectEditor = { key, entry: 324 }
-const root = () => document.querySelector('[aria-label="Game object editor"]')
+const root = () => document.querySelector('[data-editor="object"]')
 const title = () => root()?.querySelector('h2')?.textContent ?? ''
 const rows = () => [...(root()?.querySelectorAll('[aria-label="Game objects"] button.row') ?? [])]
 await P.until(() => rows().length > 0 && title() === 'Small Thorium Vein', 60_000, 'the editor and its object list')
