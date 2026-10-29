@@ -1,16 +1,19 @@
 // The walkable-ground workers' copy of what a tile's triangles are gathered from (#633): the ground's
-// heights, holes and inner heights, the liquids and the sea, and every placed model's faces in world
-// space. NavPreview keeps the workers' copies up to date with `SceneUpdate`s (the whole ground and
-// liquids on a full rebuild, the rows a sculpt or hole stroke changed, a placement added, moved or
-// dropped) and posts each tile as a `GatherJob`, its box and height span only, so the gathering
-// (TileGatherer, the cut under the models) runs in the worker beside Recast's build. The main thread
-// still places the models' faces (it needs their boxes for the height spans and the changed tiles)
-// and gathers itself where the workers can't run.
+// heights, holes and inner heights, the liquids and the sea, and every placed model. NavPreview keeps
+// the workers' copies up to date with `SceneUpdate`s (the whole ground and liquids on a full rebuild,
+// the rows a sculpt or hole stroke changed, a placement added, moved or dropped) and posts each tile as
+// a `GatherJob`, its box and height span only, so the gathering (TileGatherer, the cut under the
+// models) runs in the worker beside Recast's build. A placement is its model type, matrix and box only
+// (#849): the main thread works out the boxes (it needs them for the height spans and the changed
+// tiles), sends a model type's faces once, before the first job whose box meets a placement of it, and
+// each side places a model's faces (`PlacedModels`) only once a gathered box meets it, so a far model
+// that only sets a tile's height span (Stormwind's WMO, seen from Northshire) is never placed or
+// copied. The main thread gathers itself where the workers can't run.
 
 import { heightAt } from '../../terrain/heightField'
 import type { LiquidLayer } from '../../water/liquids'
 import type { TileInput } from './navBuild'
-import { TileGatherer, type NavGround, type PlacedCollision } from './navGeometry'
+import { TileGatherer, placeFaces, type ModelLiquid, type NavGround, type PlacedBox, type PlacedCollision } from './navGeometry'
 import { NavLiquids, type NavLiquidSource } from './navLiquids'
 
 /** One change to the workers' copy of the gather's inputs, applied in the order sent. */
@@ -23,11 +26,32 @@ export type SceneUpdate =
 	| { kind: 'liquids'; side: number; chunks: [number, LiquidLayer[]][]; sea: number | null }
 	/** The liquid chunks over cells gx0..gx1, gz0..gz1 (inclusive) to work out again (NavLiquids.forget). */
 	| { kind: 'forget'; gx0: number; gz0: number; gx1: number; gz1: number }
-	/** Every placed model's faces, in the main thread's order, replacing those held. */
-	| { kind: 'models'; list: [number, PlacedCollision][] }
+	/** A model type's faces in its own frame, sent before the first job that needs them and kept across a `models`. */
+	| { kind: 'type'; type: string; faces: LocalFaces }
+	/** Every placement, in the main thread's order, replacing those held. */
+	| { kind: 'models'; list: ScenePlacement[] }
 	/** A model placed, or moved (keeping its place in the order). */
-	| { kind: 'place'; id: number; faces: PlacedCollision }
+	| { kind: 'place'; placement: ScenePlacement }
 	| { kind: 'drop'; id: number }
+
+/** A model type's collision faces in its own frame (nine floats a triangle), its groups' sizes and its liquids, as /wow/collision sends them. */
+export interface LocalFaces {
+	tris: Float32Array
+	groups: Uint32Array
+	liquid: ModelLiquid | null
+}
+
+/**
+ * A placed model: its type, its column-major matrix (the Engine's doubles, so each side places the
+ * same faces), how many groups its type has, and the box `placeFaces` gives it (`placedBox`).
+ */
+export interface ScenePlacement {
+	id: number
+	type: string
+	matrix: Float64Array
+	groups: number
+	box: PlacedBox
+}
 
 /** A tile for a worker to gather and build from its copy: the box gathered (its border too) and the voxels' height span. */
 export interface GatherJob {
@@ -80,10 +104,8 @@ export function sceneCopy(updates: readonly SceneUpdate[]): { updates: SceneUpda
 		transfer.push(b.buffer as ArrayBuffer)
 		return b
 	}
-	const faces = (f: PlacedCollision): PlacedCollision => {
-		const l = f.liquid
-		return { tris: c(f.tris), min: f.min, max: f.max, origin: f.origin, groups: c(f.groups), liquid: l ? { verts: c(l.verts), idx: c(l.idx), areas: c(l.areas) } : null }
-	}
+	// A placement is small: the structured clone copies it; its matrix is made its own here too.
+	const placement = (p: ScenePlacement): ScenePlacement => ({ ...p, matrix: p.matrix.slice() })
 	const out = updates.map((u): SceneUpdate => {
 		switch (u.kind) {
 			case 'ground': {
@@ -97,10 +119,15 @@ export function sceneCopy(updates: readonly SceneUpdate[]): { updates: SceneUpda
 				return { kind: 'rows', hz: u.hz, heights: c(u.heights), cz: u.cz, holes: c(u.holes) }
 			case 'liquids':
 				return { kind: 'liquids', side: u.side, sea: u.sea, chunks: u.chunks.map(([k, layers]) => [k, layers.map((l) => ({ id: l.id, heights: c(l.heights), depth: c(l.depth), cells: c(l.cells) }))]) }
+			case 'type': {
+				const f = u.faces
+				const l = f.liquid
+				return { kind: 'type', type: u.type, faces: { tris: c(f.tris), groups: c(f.groups), liquid: l ? { verts: c(l.verts), idx: c(l.idx), types: c(l.types) } : null } }
+			}
 			case 'models':
-				return { kind: 'models', list: u.list.map(([id, f]) => [id, faces(f)]) }
+				return { kind: 'models', list: u.list.map(placement) }
 			case 'place':
-				return { kind: 'place', id: u.id, faces: faces(u.faces) }
+				return { kind: 'place', placement: placement(u.placement) }
 			default:
 				return u
 		}
@@ -108,7 +135,116 @@ export function sceneCopy(updates: readonly SceneUpdate[]): { updates: SceneUpda
 	return { updates: out, transfer }
 }
 
+/** Whether a placement's box meets [x0, x1] × [z0, z1], as the gather tests it. */
+export function boxMeets(b: PlacedBox, x0: number, z0: number, x1: number, z1: number): boolean {
+	return !(b.max[0] < x0 || b.min[0] > x1 || b.max[2] < z0 || b.min[2] > z1)
+}
+
+/**
+ * The box a gather over [x0, x1] × [z0, z1] of ground with `cellSize` cells looks for model faces in
+ * (TileGatherer.gather: a cell wider all round); a model whose box misses it is passed by.
+ */
+export function gatherReach(cellSize: number, x0: number, z0: number, x1: number, z1: number, out: number[]): number[] {
+	out[0] = x0 - cellSize
+	out[1] = z0 - cellSize
+	out[2] = x1 + cellSize
+	out[3] = z1 + cellSize
+	return out
+}
+
 const NO_LAYERS: readonly LiquidLayer[] = []
+const NO_TRIS = new Float32Array(0)
+
+interface PlacedEntry {
+	p: ScenePlacement
+	/** Its faces once placed, and a stand-in with only its box and group count for the gathers that pass it by. */
+	faces: PlacedCollision | null
+	standIn: PlacedCollision | null
+}
+
+/**
+ * The placed models in order, each one's faces placed (`placeFaces`) from its type's local faces only
+ * once a gathered box meets it (#849). A gather numbers every model's groups in this order, so one it
+ * passes by still counts its groups, through a stand-in that holds only its box and group count.
+ */
+export class PlacedModels {
+	private entries = new Map<number, PlacedEntry>()
+	private boxList: PlacedBox[] = []
+	private boxesStale = false
+	private gatherList: PlacedCollision[] = []
+	private reach = [0, 0, 0, 0]
+
+	/** `local` gives a model type's faces; it must have them for every model a gathered box meets. */
+	constructor(private local: (type: string) => LocalFaces | null) {}
+
+	get size(): number {
+		return this.entries.size
+	}
+
+	get(id: number): ScenePlacement | undefined {
+		return this.entries.get(id)?.p
+	}
+
+	keys(): IterableIterator<number> {
+		return this.entries.keys()
+	}
+
+	*values(): IterableIterator<ScenePlacement> {
+		for (const e of this.entries.values()) yield e.p
+	}
+
+	/** Adds a placement, or replaces one (keeping its place in the order). */
+	set(p: ScenePlacement) {
+		this.entries.set(p.id, { p, faces: null, standIn: null })
+		this.boxesStale = true
+	}
+
+	delete(id: number) {
+		if (this.entries.delete(id)) this.boxesStale = true
+	}
+
+	clear() {
+		this.entries.clear()
+		this.boxesStale = true
+	}
+
+	/** Frees the placed faces (placed again when a gather needs them), keeping the placements. */
+	dropFaces() {
+		for (const e of this.entries.values()) e.faces = e.standIn = null
+	}
+
+	/** Every placement's box, in order (adtHeightSpan). */
+	boxes(): readonly PlacedBox[] {
+		if (this.boxesStale) {
+			this.boxList = []
+			for (const e of this.entries.values()) this.boxList.push(e.p.box)
+			this.boxesStale = false
+		}
+		return this.boxList
+	}
+
+	/**
+	 * The models for `TileGatherer.gather` over [x0, x1] × [z0, z1] of `ground`: placed where their box
+	 * meets the gather's reach (`gatherReach`), stand-ins elsewhere. The list is reused by the next call.
+	 */
+	forGather(ground: NavGround, x0: number, z0: number, x1: number, z1: number): readonly PlacedCollision[] {
+		const r = gatherReach(ground.cellSize, x0, z0, x1, z1, this.reach)
+		const list = this.gatherList
+		list.length = 0
+		for (const e of this.entries.values()) {
+			const b = e.p.box
+			if (boxMeets(b, r[0], r[1], r[2], r[3])) list.push((e.faces ??= this.place(e.p)))
+			else list.push((e.standIn ??= { tris: NO_TRIS, groups: new Uint32Array(e.p.groups), min: b.min, max: b.max, origin: b.origin, liquid: null }))
+		}
+		return list
+	}
+
+	private place(p: ScenePlacement): PlacedCollision {
+		const l = this.local(p.type)
+		if (!l) throw new Error(`no collision faces for ${p.type}`)
+		return placeFaces(l.tris, p.matrix, l.groups, l.liquid)
+	}
+}
 
 /** A worker's copy of the gather's inputs, and the gatherer that reads it. */
 export class NavScene {
@@ -118,9 +254,8 @@ export class NavScene {
 	private liquidSource: NavLiquidSource = { side: 0, layers: (c) => this.liquidChunks.get(c) ?? NO_LAYERS }
 	private sea: number | null = null
 	private liquids = new NavLiquids()
-	private models = new Map<number, PlacedCollision>()
-	private list: PlacedCollision[] = []
-	private listStale = false
+	private types = new Map<string, LocalFaces>()
+	private models = new PlacedModels((t) => this.types.get(t) ?? null)
 	private gatherer = new TileGatherer()
 	private groundAt = (x: number, z: number): number | null => {
 		const g = this.ground!
@@ -150,29 +285,26 @@ export class NavScene {
 			case 'forget':
 				this.liquids.forget(u.gx0, u.gz0, u.gx1, u.gz1)
 				break
+			case 'type':
+				this.types.set(u.type, u.faces)
+				break
 			case 'models':
 				this.models.clear()
-				for (const [id, f] of u.list) this.models.set(id, f)
-				this.listStale = true
+				for (const p of u.list) this.models.set(p)
 				break
 			case 'place':
-				this.models.set(u.id, u.faces)
-				this.listStale = true
+				this.models.set(u.placement)
 				break
 			case 'drop':
 				this.models.delete(u.id)
-				this.listStale = true
 				break
 		}
 	}
 
 	/** A job's triangles, in the gatherer's buffers (good until the next gather), with the job's height span. */
 	gather(job: GatherJob): TileInput {
-		if (this.listStale) {
-			this.list = [...this.models.values()]
-			this.listStale = false
-		}
-		const input = this.gatherer.gather(this.ground!, this.list, job.x0, job.z0, job.x1, job.z1, this.groundAt, this.liquids)
+		const g = this.ground!
+		const input = this.gatherer.gather(g, this.models.forGather(g, job.x0, job.z0, job.x1, job.z1), job.x0, job.z0, job.x1, job.z1, this.groundAt, this.liquids)
 		input.floorY = job.floorY
 		input.ceilY = job.ceilY
 		return input

@@ -731,15 +731,20 @@ creature's way round obstacles.
   some tiles but under half, the surfaces and a path round the abbey match, and the longest frame's
   `NavPreview.update` is shorter in the workers. With #633's gathering in the workers: longest
   frame 10.7 ms against 63.8 on the main thread (38.8 with #508's main-thread gathering), the main
-  thread's share of the whole build 32 ms against 706 (195 with #508's). What stays on the main
-  thread is `refreshModels` (13 ms on the view's first settle, placing every model's faces) and
-  `syncWorkers` (9 ms on the next frame, copying the 16 MB of placed faces for two workers).
+  thread's share of the whole build 32 ms against 706 (195 with #508's). Since #849 the main thread
+  works out only the placements' boxes and the workers place the faces: longest frame 7.2 ms, the
+  main thread's share 23 ms. On the view's first turn on in a session `refreshModels` takes about
+  7 ms twice (the first call starts the 83 collision fetches; the second works out the boxes, 5 ms
+  of it Stormwind's 15 MB WMO), Stormwind's type goes to the workers in a 3.4 ms frame and
+  `syncWorkers` takes 2.5 ms; turned on again, with the boxes kept, no frame passes 2.3 ms (before:
+  9.6, 8.3 and 8.2 ms the first time, 7.1 and 5.9 the next).
   Dropping the ground rows from a settle's `sceneUpdates` makes the probe fail, so it catches a copy
   gone stale. A breakdown of the longest frames: wrap `nav.refreshModels`, `nav.syncWorkers`,
   `nav.markChanged` and `nav.buildTile` with timers in a `probes/scratch` probe. Unit:
   `tests/navmesh.test.ts` (a job's copies and `runTileJob` against a main-thread build, byte for
-  byte; a `NavScene` fed through `sceneCopy` gathers what the main thread gathers, after the whole
-  scene, a sculpt's rows and a hole, a moved and a dropped model). Trap: Bun has no `window`, so the
+  byte; a `NavScene` fed through `sceneCopy` and a main-thread `PlacedModels` gather what every
+  model's placed faces gather, after the whole scene, a sculpt's rows and a hole, a moved and a
+  dropped model, with a far model whose type is never sent; `placedBox` is `placeFaces`' box). Trap: Bun has no `window`, so the
   unit tests always take the main-thread path; only the probe runs the workers.
 - Server mode (#240, Show › Server's mmaps): `bun run probe walkable-server` (about 45 s) in the
   benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k

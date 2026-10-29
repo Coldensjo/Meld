@@ -230,21 +230,29 @@ mask/liquid, image codec or native/game rendering contracts.
     and Recast's build run in up to two Web Workers (#508, #633: `navJobs.ts` posts the jobs,
     `navWorker.ts` runs `runTileJob` with a WASM instance of its own, three jobs out a worker). Each
     worker keeps a copy of the gather's inputs (`NavScene` in `navScene.ts`: the ground's heights,
-    holes and inner heights, the liquids and the sea, every placed model's faces in the main thread's
-    order), so a job (`GatherJob`) is just the tile's box and its client tile's height span. The
-    main thread still places the models' faces (`refreshModels`, whose boxes the spans and
-    `markChanged` need) and works out the spans, and keeps the copies current with `sendNavScene`:
+    holes and inner heights, the liquids and the sea, every placement in the main thread's order), so
+    a job (`GatherJob`) is just the tile's box and its client tile's height span. A placement
+    (`ScenePlacement`, #849) is the model type, its matrix and its box: the main thread works out only
+    the box (`placedBox`, the same sums as `placeFaces`, so the box is the same to the bit), which the
+    spans and `markChanged` need, and keeps the boxes while the view is off. Each side places a model's
+    faces (`PlacedModels.forGather`) only once a gathered box, a cell wider all round (`gatherReach`),
+    meets the model's, and passes the others to the gather as stand-ins holding their box and group
+    count, since the gather numbers every model's groups in order. A model type's local faces go to
+    the workers once a start (`sentTypes`), just before the first job whose reach meets a placement of
+    it (`sendTypes`); a worker that meets a model whose type it lacks throws, and the workers give way
+    to the main thread. The main thread works out the spans and keeps the copies current with `sendNavScene`:
     the whole scene in a frame of its own (`syncWorkers`) when the workers started anew or a full
     rebuild started over (`synced` against `navWorkerGeneration`), and at each partial settle only
     what changed (`sceneUpdates`: a placement added, moved or dropped, the ground rows
     `addGroundChange` took and the liquid chunks it forgot). `sceneCopy` copies each update's arrays
     for each worker and hands the copies over, since postMessage's structured clone of the abbey
-    scene's 16 MB of placed faces took 14 to 18 ms. The main thread takes back Detour's tile bytes,
+    scene's 16 MB of placed faces took 14 to 18 ms (15 MB of it Stormwind's WMO, which only sets
+    Northshire's height span, still sent once since its box meets a tile's reach). The main thread takes back Detour's tile bytes,
     which it copies into its own navmesh (kept there for the path test, as in server mode; added
     without `DT_TILE_FREE_DATA`, the tile's `data` freed by `dropTile`), and the surface to draw. A
     job whose inputs a settled change made stale is dropped when it returns (`tile.job`); without
     workers (Bun's tests) or after one fails, the gathering and the build run on the main thread
-    within the 6 ms budget, from the main thread's own placed faces and the live terrain. `Engine.updateNav` calls it only while the view is on and
+    within the 6 ms budget, from the main thread's own `PlacedModels` and the live terrain. `Engine.updateNav` calls it only while the view is on and
     `clear()`s it (frees the WASM navmesh and stops the workers) when it goes off. Show › Test a Path arms `Engine.navPick`:
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
     drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's

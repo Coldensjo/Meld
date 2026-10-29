@@ -22,12 +22,12 @@ import {
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
-import { TileGatherer, adtHeightSpan, cellLift, liquidTypeArea, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
+import { TileGatherer, adtHeightSpan, cellLift, liquidTypeArea, placeFaces, placedBox, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
 import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
 import { LIQUID_OCEAN, LIQUID_WATER, LiquidMap, newLayer } from '../src/lib/water/liquids.ts'
-import { NavScene, groundUpdate, liquidsUpdate, rowsUpdate, sceneCopy, type SceneUpdate } from '../src/lib/world/nav/navScene.ts'
+import { NavScene, PlacedModels, groundUpdate, liquidsUpdate, rowsUpdate, sceneCopy, type LocalFaces, type ScenePlacement, type SceneUpdate } from '../src/lib/world/nav/navScene.ts'
 import { heightAt } from '../src/lib/terrain/heightField.ts'
 
 const CELL = 1600 / 3 / 128
@@ -482,7 +482,7 @@ test("a worker's job (#508) builds the same tile as the main thread, from copies
 	builder.destroy()
 })
 
-test("a worker's copy of the scene (#633) gathers the same triangles as the main thread, after whole and partial updates", () => {
+test("a worker's copy of the scene (#633) gathers the same triangles as the main thread, after whole and partial updates, placing only the models it meets (#849)", () => {
 	const g = flat(32)
 	g.innerLift = new Float32Array(32 * 32).fill(0.25)
 	g.innerBase = g.heights.slice()
@@ -494,12 +494,24 @@ test("a worker's copy of the scene (#633) gathers the same triangles as the main
 	map.set(1, [lake])
 	const liquids = new NavLiquids()
 	liquids.reset(map, g, 9.5)
-	const crate = placeFaces(box(10, 9, 10, 14, 13, 14), new THREE.Matrix4().elements)
-	const wall = placeFaces(box(40, 5, 5, 42, 16, 60), new THREE.Matrix4().makeRotationY(0.3).setPosition(5, 0, 3).elements)
-	const placed = new Map<number, PlacedCollision>([
-		[1, crate],
-		[2, wall],
+	// Three model types: a crate, a wall in two groups, and a far tower no gathered box meets, first in
+	// the order, so the others' groups are numbered after its own.
+	const types = new Map<string, LocalFaces>([
+		['m2:crate', { tris: box(10, 9, 10, 14, 13, 14), groups: Uint32Array.of(12), liquid: null }],
+		['wmo:wall', { tris: box(40, 5, 5, 42, 16, 60), groups: Uint32Array.of(6, 6), liquid: null }],
+		['wmo:tower', { tris: box(0, 0, 0, 10, 60, 10), groups: Uint32Array.of(4, 4, 4), liquid: null }],
 	])
+	const placement = (id: number, type: string, m: THREE.Matrix4): ScenePlacement => {
+		const l = types.get(type)!
+		return { id, type, matrix: new Float64Array(m.elements), groups: l.groups.length, box: placedBox(l.tris, m.elements, l.liquid) }
+	}
+	const placements = new Map<number, ScenePlacement>([
+		[3, placement(3, 'wmo:tower', new THREE.Matrix4().setPosition(400, 0, 400))],
+		[1, placement(1, 'm2:crate', new THREE.Matrix4())],
+		[2, placement(2, 'wmo:wall', new THREE.Matrix4().makeRotationY(0.3).setPosition(5, 0, 3))],
+	])
+	// The main thread before #849: every model's faces placed.
+	const allPlaced = () => [...placements.values()].map((p) => placeFaces(types.get(p.type)!.tris, p.matrix, types.get(p.type)!.groups))
 	const worldSize = g.size * g.cellSize
 	const at = (x: number, z: number) => (x >= 0 && z >= 0 && x <= worldSize && z <= worldSize ? heightAt(g.heights, g.size, g.cellSize, x, z) : null)
 	const scene = new NavScene()
@@ -509,20 +521,31 @@ test("a worker's copy of the scene (#633) gathers the same triangles as the main
 		for (const x of c.updates) scene.apply(x)
 		return c
 	}
-	const sent = send([groundUpdate(g), liquidsUpdate(map, 9.5), { kind: 'models', list: [...placed] }])
+	// The tower's type is never sent: its box misses the job's.
+	const typeUpdate = (type: string): SceneUpdate => ({ kind: 'type', type, faces: types.get(type)! })
+	const sent = send([groundUpdate(g), liquidsUpdate(map, 9.5), typeUpdate('m2:crate'), typeUpdate('wmo:wall'), { kind: 'models', list: [...placements.values()] }])
 	assert.ok(sent.transfer.length > 8)
 	const job = { continent: true, tx: 0, tz: 0, x0: 0, z0: 0, x1: 80, z1: 70, floorY: -3, ceilY: 30 }
+	// The main thread's own list places the faces only where the gather needs them too.
+	const mainModels = new PlacedModels((t) => types.get(t) ?? null)
 	const same = (why: string) => {
-		const here = new TileGatherer().gather(g, [...placed.values()], job.x0, job.z0, job.x1, job.z1, at, liquids)
+		mainModels.clear()
+		for (const p of placements.values()) mainModels.set(p)
+		const here = new TileGatherer().gather(g, allPlaced(), job.x0, job.z0, job.x1, job.z1, at, liquids)
 		const there = scene.gather(job)
+		const mine = new TileGatherer().gather(g, mainModels.forGather(g, job.x0, job.z0, job.x1, job.z1), job.x0, job.z0, job.x1, job.z1, at, liquids)
 		assert.equal(there.floorY, -3)
 		assert.equal(there.ceilY, 30)
 		assert.ok(here.triCount > 0 && here.liquidTriCount! > 0, why)
-		for (const k of ['vertCount', 'triCount', 'modelFrom', 'minY', 'maxY', 'liquidVertCount', 'liquidTriCount'] as const) assert.equal(there[k], here[k], `${why}: ${k}`)
-		assert.deepEqual(there.pos.subarray(0, there.vertCount * 3), here.pos.subarray(0, here.vertCount * 3), why)
-		assert.deepEqual(there.idx.subarray(0, there.triCount * 3), here.idx.subarray(0, here.triCount * 3), why)
-		assert.deepEqual(there.liquidPos!.subarray(0, there.liquidVertCount! * 3), here.liquidPos!.subarray(0, here.liquidVertCount! * 3), why)
-		assert.deepEqual(there.liquidAreas!.subarray(0, there.liquidTriCount!), here.liquidAreas!.subarray(0, here.liquidTriCount!), why)
+		for (const other of [there, mine]) {
+			for (const k of ['vertCount', 'triCount', 'modelFrom', 'minY', 'maxY', 'liquidVertCount', 'liquidTriCount'] as const) assert.equal(other[k], here[k], `${why}: ${k}`)
+			assert.deepEqual(other.pos.subarray(0, other.vertCount * 3), here.pos.subarray(0, here.vertCount * 3), why)
+			assert.deepEqual(other.idx.subarray(0, other.triCount * 3), here.idx.subarray(0, here.triCount * 3), why)
+			assert.deepEqual(other.liquidPos!.subarray(0, other.liquidVertCount! * 3), here.liquidPos!.subarray(0, here.liquidVertCount! * 3), why)
+			assert.deepEqual(other.liquidAreas!.subarray(0, other.liquidTriCount!), here.liquidAreas!.subarray(0, here.liquidTriCount!), why)
+		}
+		// The height span from the boxes alone is the one from the placed faces.
+		assert.deepEqual(adtHeightSpan(g, mainModels.boxes(), 0, 0, 16 * CELL, null, [0, 0]), adtHeightSpan(g, allPlaced(), 0, 0, 16 * CELL, null, [0, 0]), why)
 	}
 	same('the whole scene')
 
@@ -534,11 +557,25 @@ test("a worker's copy of the scene (#633) gathers the same triangles as the main
 	same('after the sculpt and the hole')
 
 	// A model moved (keeping its place in the order) and one dropped.
-	const moved = placeFaces(box(10, 9, 10, 14, 13, 14), new THREE.Matrix4().setPosition(6, 0, 4).elements)
-	placed.set(1, moved)
-	send([{ kind: 'place', id: 1, faces: moved }])
+	placements.set(1, placement(1, 'm2:crate', new THREE.Matrix4().setPosition(6, 0, 4)))
+	send([{ kind: 'place', placement: placements.get(1)! }])
 	same('after the crate moved')
-	placed.delete(2)
+	placements.delete(2)
 	send([{ kind: 'drop', id: 2 }])
 	same('after the wall went')
+
+	// A gather that meets a model whose type the worker lacks throws, so the workers give way to the main thread.
+	assert.throws(() => scene.gather({ ...job, x0: 390, z0: 390, x1: 420, z1: 420 }), /no collision faces for wmo:tower/)
+})
+
+test("a placement's box (#849) is the one its placed faces get, liquids and a mirror too", () => {
+	const local = box(-3, 0, -2, 5, 7, 4)
+	const liquid = { verts: new Float32Array([0, 2, 0, 4, 2, 0, 0, 2, 3, 9, -30, 9]), idx: new Uint32Array([0, 2, 1]), types: new Uint32Array([1]) }
+	const m = new THREE.Matrix4().compose(new THREE.Vector3(123.4, 56.7, 890.1), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.2, 1.1, -0.4)), new THREE.Vector3(1.3, 1.3, -1.3))
+	const faces = placeFaces(local, m.elements, undefined, liquid)
+	const b = placedBox(local, m.elements, liquid)
+	assert.deepEqual(b.min, faces.min)
+	assert.deepEqual(b.max, faces.max)
+	assert.deepEqual(b.origin, faces.origin)
+	assert.deepEqual(placedBox(local, m.elements).max, placeFaces(local, m.elements).max)
 })

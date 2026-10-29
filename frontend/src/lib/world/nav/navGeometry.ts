@@ -77,17 +77,21 @@ export interface PlacedLiquid {
 	areas: Uint8Array
 }
 
+/** A placed model's box (every vertex of its faces and liquids) and the placement's x and z. */
+export interface PlacedBox {
+	min: [number, number, number]
+	max: [number, number, number]
+	origin: [number, number]
+}
+
 /**
  * A placed model's collision faces in world space, nine floats a triangle, their box, the placement's
  * x and z, and how many triangles each of its groups holds in turn (the server's GroupModels: an M2's
  * hull is one, a WMO's groups and doodads one each). A WMO's liquids come too; the box holds their
  * vertices, dry ones as well, as the server's height span does.
  */
-export interface PlacedCollision {
+export interface PlacedCollision extends PlacedBox {
 	tris: Float32Array
-	min: [number, number, number]
-	max: [number, number, number]
-	origin: [number, number]
 	groups: Uint32Array
 	liquid?: PlacedLiquid | null
 }
@@ -109,25 +113,68 @@ export function liquidTypeArea(t: number): number {
 	}
 }
 
-/** Moves the points of `local` by the column-major matrix `m` into `out`, growing the box [min, max]. */
-function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array, min: number[], max: number[]) {
-	for (let i = 0; i < local.length; i += 3) {
+/**
+ * Moves the points of `local` by the column-major matrix `m` into `out` (or nowhere, for the box
+ * alone: #849), growing the box [min, max]. The matrix and the box sit in locals through the loop,
+ * which runs over a 15 MB WMO (Stormwind's) in a few ms.
+ */
+function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array | null, min: number[], max: number[]) {
+	const m0 = m[0],
+		m1 = m[1],
+		m2 = m[2],
+		m4 = m[4],
+		m5 = m[5],
+		m6 = m[6],
+		m8 = m[8],
+		m9 = m[9],
+		m10 = m[10],
+		m12 = m[12],
+		m13 = m[13],
+		m14 = m[14]
+	let lx = min[0],
+		ly = min[1],
+		lz = min[2],
+		hx = max[0],
+		hy = max[1],
+		hz = max[2]
+	const n = local.length
+	for (let i = 0; i < n; i += 3) {
 		const x = local[i],
 			y = local[i + 1],
 			z = local[i + 2]
-		const wx = m[0] * x + m[4] * y + m[8] * z + m[12]
-		const wy = m[1] * x + m[5] * y + m[9] * z + m[13]
-		const wz = m[2] * x + m[6] * y + m[10] * z + m[14]
-		out[i] = wx
-		out[i + 1] = wy
-		out[i + 2] = wz
-		if (wx < min[0]) min[0] = wx
-		if (wy < min[1]) min[1] = wy
-		if (wz < min[2]) min[2] = wz
-		if (wx > max[0]) max[0] = wx
-		if (wy > max[1]) max[1] = wy
-		if (wz > max[2]) max[2] = wz
+		const wx = m0 * x + m4 * y + m8 * z + m12
+		const wy = m1 * x + m5 * y + m9 * z + m13
+		const wz = m2 * x + m6 * y + m10 * z + m14
+		if (out) {
+			out[i] = wx
+			out[i + 1] = wy
+			out[i + 2] = wz
+		}
+		if (wx < lx) lx = wx
+		if (wy < ly) ly = wy
+		if (wz < lz) lz = wz
+		if (wx > hx) hx = wx
+		if (wy > hy) hy = wy
+		if (wz > hz) hz = wz
 	}
+	min[0] = lx
+	min[1] = ly
+	min[2] = lz
+	max[0] = hx
+	max[1] = hy
+	max[2] = hz
+}
+
+/**
+ * The box `placeFaces` gives the faces of `local` (and the model's `liquid`) moved by `m`, to the bit,
+ * without placing them: what the main thread needs of a placement while the workers place the faces (#849).
+ */
+export function placedBox(local: Float32Array, m: ArrayLike<number>, liquid?: ModelLiquid | null): PlacedBox {
+	const min: [number, number, number] = [Infinity, Infinity, Infinity]
+	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
+	movePoints(local, m, null, min, max)
+	if (liquid && liquid.types.length > 0) movePoints(liquid.verts, m, null, min, max)
+	return { min, max, origin: [m[12], m[14]] }
 }
 
 /**
@@ -173,7 +220,7 @@ export function placeFaces(local: Float32Array, m: ArrayLike<number>, groups?: U
  * server's. `deep` tells a cell of a deep chunk; `out` is [min, max], Infinity and -Infinity when
  * nothing is there.
  */
-export function adtHeightSpan(ground: NavGround, models: readonly PlacedCollision[], ax: number, az: number, adtYards: number, deep: ((gx: number, gz: number) => boolean) | null, out: [number, number]): [number, number] {
+export function adtHeightSpan(ground: NavGround, models: readonly PlacedBox[], ax: number, az: number, adtYards: number, deep: ((gx: number, gz: number) => boolean) | null, out: [number, number]): [number, number] {
 	let lo = Infinity
 	let hi = -Infinity
 	const per = Math.round(adtYards / ground.cellSize)
@@ -251,6 +298,7 @@ export class TileGatherer {
 		this.addGround(ground, x0, z0, x1, z1, liquids)
 		const groundVerts = this.vc
 		// The faces over the whole cells the ground came from, so a cut comes out the same in each tile.
+		// navScene.ts's gatherReach is this box: a model whose box misses it may come as a stand-in (#849).
 		const cs = ground.cellSize
 		this.gatherNear(models, x0 - cs, z0 - cs, x1 + cs, z1 + cs)
 		if (this.nc > 0) this.cutUnderModels(groundVerts)

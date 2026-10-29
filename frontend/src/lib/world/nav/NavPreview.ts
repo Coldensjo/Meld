@@ -4,7 +4,8 @@
 // built again QUIET_MS after the ground or the models stop changing: only those a changed model (#509)
 // or a sculpt or hole stroke (#620) meets, and all of them for a change to the liquids or the sea. A
 // Web Worker (navJobs.ts, #508) gathers a tile's triangles from its copy of the ground, liquids and
-// placed faces, which this keeps up to date (navScene.ts, #633), and Recast builds it there; its
+// placed models, which this keeps up to date (navScene.ts, #633; this works out only the models'
+// boxes, and the worker places their faces where a tile needs them, #849), and Recast builds it there; its
 // Detour bytes go into the navmesh kept here for the path test. Without workers the gathering and the
 // build run here. Nothing runs while the view is
 // off: the Engine calls `update` only while it is on, and `clear` frees the WASM side when it goes off.
@@ -22,8 +23,8 @@ import type { Terrain } from '../../terrain/Terrain'
 import { LIQUID_CELLS, type LiquidMap } from '../../water/liquids'
 import { AREA_MAGMA, AREA_SLIME, AREA_STEEP, AREA_WATER, AREA_WATER_TRANSITION, NAV_GROUND, NAV_MAGMA, NAV_SLIME, NAV_WATER, TileBuilder, loadRecast, vmangosSettings, type NavSettings, type Recast, type TileOutput } from './navBuild'
 import { buildInWorker, navWorkerGeneration, navWorkerRoom, navWorkersReady, sendNavScene, stopNavWorkers } from './navJobs'
-import { groundUpdate, liquidsUpdate, rowsUpdate, type SceneUpdate } from './navScene'
-import { TileGatherer, adtHeightSpan, placeFaces, type ModelLiquid, type PlacedCollision } from './navGeometry'
+import { PlacedModels, boxMeets, gatherReach, groundUpdate, liquidsUpdate, rowsUpdate, type LocalFaces, type SceneUpdate } from './navScene'
+import { TileGatherer, adtHeightSpan, placedBox, type PlacedBox } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
 import { ZERO_POINT } from '../../wow/format'
@@ -106,18 +107,6 @@ export interface ServerSource {
 	tileY: number
 }
 
-interface ModelCollision {
-	tris: Float32Array
-	groups: Uint32Array
-	liquid: ModelLiquid | null
-}
-
-interface Placed {
-	type: string
-	matrix: Float32Array
-	faces: PlacedCollision
-}
-
 /** What the path test found, for the status bar. */
 export type PathResult =
 	| { kind: 'start' }
@@ -147,9 +136,16 @@ export class NavPreview {
 	private queue: NavTile[] = []
 	/** Collision faces (and a WMO's liquids) by model type: null while loading or when the model has none. */
 	/** Each model type's collision faces (#515: a failure is warned, counted and retried; the Engine sets `onFail`). */
-	readonly collisions = new LoadCache<ModelCollision>('model collision', fetchCollision)
-	private placed = new Map<number, Placed>()
-	private placedList: PlacedCollision[] = []
+	readonly collisions = new LoadCache<LocalFaces>('model collision', fetchCollision)
+	/**
+	 * The placed models (#849): their boxes, worked out here, and their faces, placed here only for a
+	 * main-thread gather. Kept while the view is off, so turning it on again works out only what moved.
+	 */
+	private placed = new PlacedModels((t) => this.collision(t))
+	/** The model types whose faces the workers of start `typesGen` hold (#849): sent before the first job that needs them. */
+	private sentTypes = new Set<string>()
+	private typesGen = -1
+	private reach = [0, 0, 0, 0]
 	/** Each client tile's height span (adtHeightSpan) by tile, for the current build. */
 	private spans = new Map<number, [number, number]>()
 	private deep = (gx: number, gz: number) => this.liquids.deep(gx, gz)
@@ -325,15 +321,14 @@ export class NavPreview {
 		}
 	}
 
-	/** Frees the navmesh, the tiles and the path; the collision faces stay for next time. */
+	/** Frees the navmesh, the tiles, the placed faces and the path; the collision faces and the placements' boxes stay for next time. */
 	clear() {
 		this.reset()
 		stopNavWorkers()
 		this.terrain = null
 		this.objects = null
 		this.liquidMap = null
-		this.placed.clear()
-		this.placedList.length = 0
+		this.placed.dropFaces()
 		this.synced = -1
 		this.signature = ''
 		this.groundSignature = ''
@@ -411,23 +406,24 @@ export class NavPreview {
 			keep.add(o.id)
 			const old = this.placed.get(o.id)
 			if (old && old.type === o.type && sameMatrix(old.matrix, e)) continue
-			if (old) this.addChanged(old.faces)
-			const faces = placeFaces(local.tris, e, local.groups, local.liquid)
-			this.addChanged(faces)
-			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces })
-			this.sceneUpdates.push({ kind: 'place', id: o.id, faces })
+			if (old) this.addChanged(old.box)
+			// Only the box: the faces are placed where a gather needs them (#849).
+			const p = { id: o.id, type: o.type, matrix: new Float64Array(e), groups: local.groups.length, box: placedBox(local.tris, e, local.liquid) }
+			this.addChanged(p.box)
+			this.placed.set(p)
+			this.sceneUpdates.push({ kind: 'place', placement: p })
 		}
-		for (const [id, p] of this.placed) {
-			if (keep.has(id)) continue
-			this.addChanged(p.faces)
-			this.placed.delete(id)
-			this.sceneUpdates.push({ kind: 'drop', id })
+		const gone: number[] = []
+		for (const p of this.placed.values()) {
+			if (keep.has(p.id)) continue
+			this.addChanged(p.box)
+			gone.push(p.id)
+			this.sceneUpdates.push({ kind: 'drop', id: p.id })
 		}
-		this.placedList.length = 0
-		for (const p of this.placed.values()) this.placedList.push(p.faces)
+		for (const id of gone) this.placed.delete(id)
 	}
 
-	private addChanged(f: PlacedCollision) {
+	private addChanged(f: PlacedBox) {
 		this.changed.push(f.min[0], f.min[2], f.max[0], f.max[2])
 	}
 
@@ -473,7 +469,7 @@ export class NavPreview {
 		for (const [key, old] of this.spans) {
 			const ax = key % 64
 			const az = (key - ax) / 64
-			const span = adtHeightSpan(this.terrain!, this.placedList, ax, az, ADT_YARDS, this.deep, [0, 0])
+			const span = adtHeightSpan(this.terrain!, this.placed.boxes(), ax, az, ADT_YARDS, this.deep, [0, 0])
 			if (span[0] === old[0] && span[1] === old[1]) continue
 			this.spans.set(key, span)
 			moved.add(key)
@@ -500,7 +496,7 @@ export class NavPreview {
 	 * A model type's collision faces, their groups and its liquids, fetched on first ask (null until
 	 * they arrive, and after they failed: #515, warned, counted in `counts.failed` and retried after RETRY_MS).
 	 */
-	private collision(type: string): ModelCollision | null {
+	private collision(type: string): LocalFaces | null {
 		return this.collisions.get(type, type.slice(type.indexOf(':') + 1))
 	}
 
@@ -545,10 +541,27 @@ export class NavPreview {
 	private syncWorkers() {
 		const gen = navWorkerGeneration()
 		if (this.synced === gen) return
-		const models: [number, PlacedCollision][] = []
-		for (const [id, p] of this.placed) models.push([id, p.faces])
-		sendNavScene([groundUpdate(this.terrain!), liquidsUpdate(this.liquidMap, this.sea), { kind: 'models', list: models }])
+		// Workers started anew hold no model types; those of a full rebuild keep theirs.
+		if (this.typesGen !== gen) {
+			this.sentTypes.clear()
+			this.typesGen = gen
+		}
+		sendNavScene([groundUpdate(this.terrain!), liquidsUpdate(this.liquidMap, this.sea), { kind: 'models', list: [...this.placed.values()] }])
 		this.synced = gen
+	}
+
+	/** Sends the workers, ahead of a job gathering [x0, x1] × [z0, z1], the faces of the model types it meets that they lack (#849). */
+	private sendTypes(x0: number, z0: number, x1: number, z1: number) {
+		const r = gatherReach(this.terrain!.cellSize, x0, z0, x1, z1, this.reach)
+		let types: SceneUpdate[] | null = null
+		for (const p of this.placed.values()) {
+			if (this.sentTypes.has(p.type) || !boxMeets(p.box, r[0], r[1], r[2], r[3])) continue
+			const local = this.collision(p.type)
+			if (!local) continue
+			this.sentTypes.add(p.type)
+			;(types ??= []).push({ kind: 'type', type: p.type, faces: { tris: local.tris, groups: local.groups, liquid: local.liquid } })
+		}
+		if (types) sendNavScene(types)
 	}
 
 	/**
@@ -567,10 +580,11 @@ export class NavPreview {
 		const az = Math.floor(tile.tz / per)
 		let span = this.spans.get(az * 64 + ax)
 		if (!span) {
-			span = adtHeightSpan(this.terrain!, this.placedList, ax, az, ADT_YARDS, this.deep, [0, 0])
+			span = adtHeightSpan(this.terrain!, this.placed.boxes(), ax, az, ADT_YARDS, this.deep, [0, 0])
 			this.spans.set(az * 64 + ax, span)
 		}
 		if (workers) {
+			this.sendTypes(x0, z0, x1, z1)
 			const id = ++this.jobs
 			const key = tile.tz * 4096 + tile.tx
 			tile.job = id
@@ -591,7 +605,7 @@ export class NavPreview {
 			)
 			return
 		}
-		const input = this.gather.gather(this.terrain!, this.placedList, x0, z0, x1, z1, this.groundAt, this.liquids)
+		const input = this.gather.gather(this.terrain!, this.placed.forGather(this.terrain!, x0, z0, x1, z1), x0, z0, x1, z1, this.groundAt, this.liquids)
 		input.floorY = span[0]
 		input.ceilY = span[1]
 		this.builder ??= new TileBuilder(this.r!, s)
@@ -878,7 +892,7 @@ function tileDistance(ax: number, ay: number, x: number, z: number): number {
 	return Math.hypot(dx, dz)
 }
 
-function sameMatrix(a: Float32Array, b: ArrayLike<number>): boolean {
+function sameMatrix(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
 	for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) > 1e-4) return false
 	return true
 }

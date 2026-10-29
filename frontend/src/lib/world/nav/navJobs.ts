@@ -1,6 +1,6 @@
 // Runs the walkable-ground view's Recast tile builds in Web Workers (navWorker.ts, #508), so a dense
 // tile (the abbey's, a city's) no longer holds a frame for its whole build. Each worker keeps a copy
-// of the ground, the liquids and the placed models' faces (navScene.ts, #633), which NavPreview keeps
+// of the ground, the liquids and the placed models (navScene.ts, #633; it places their faces, #849), which NavPreview keeps
 // up to date with `sendNavScene`, and gathers each tile's triangles from it too; NavPreview keeps the
 // navmesh and the path test on the main thread, and a worker hands back Detour's tile bytes and the
 // surface to draw. Where workers can't run (Bun's tests) or a worker fails, `navWorkersReady` says
