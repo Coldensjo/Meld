@@ -140,7 +140,7 @@ export class NavPreview {
 	 * Each model type's collision faces and a WMO's liquids, null while loading or when the model has
 	 * none (#515: a failure is warned, counted and retried; the Engine sets `onFail`). At most
 	 * FETCHES_PER_TASK start in one task, the rest in tasks of their own (#865). Each type's groups'
-	 * boxes (typeIndex, #866) are worked out as its faces arrive, in that task rather than in a frame.
+	 * boxes (typeIndex, #866) come with its faces from Go (#869), so indexing it costs no pass here.
 	 */
 	readonly collisions = new LoadCache<LocalFaces>('model collision', loadCollision, undefined, FETCHES_PER_TASK)
 	/**
@@ -969,10 +969,10 @@ export class NavPreview {
 	}
 }
 
-/** A model type's collision faces, its groups' boxes worked out as they arrive (typeIndex, #866). */
+/** A model type's collision faces, indexed by the groups' boxes that come with them (typeIndex, #866, #869). */
 async function loadCollision(path: string): Promise<LocalFaces> {
 	const c = await fetchCollision(path)
-	typeIndex(c.tris, c.groups, c.liquid)
+	typeIndex(c.tris, c.groups, c.liquid, c)
 	return c
 }
 

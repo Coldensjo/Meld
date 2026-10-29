@@ -7,6 +7,7 @@ import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseCollision, parseMesh } from '../src/lib/wow/meshReply.ts'
+import { typeIndex } from '../src/lib/world/nav/navGeometry.ts'
 import { decodeWmoNav } from '../src/lib/world/wmoRoom.ts'
 import { parseNavTile } from '../src/lib/world/nav/navServer.ts'
 
@@ -55,7 +56,13 @@ test('parseCollision reads the faces, groups and liquids of collision.encode', (
 	assert.deepEqual(Array.from(c.liquid.verts.slice(9, 12)), [3, 2, 3])
 	assert.deepEqual(Array.from(c.liquid.idx), [0, 2, 1, 1, 2, 3])
 	assert.deepEqual(Array.from(c.liquid.types), [1, 3])
-	assert.equal(end(c.liquid.types), buf.byteLength, 'the liquid types end the reply')
+	assert.deepEqual(Array.from(c.boxes), [0, 0, 0, 1, 0, 1, 5, 5, 5, 6, 5, 6])
+	assert.deepEqual(Array.from(c.liquidBox), [0, 2, 0, 3, 2, 3])
+	assert.equal(end(c.liquidBox), buf.byteLength, 'the boxes end the reply')
+	// Go's boxes are typeIndex's own, to the bit (#869).
+	const own = typeIndex(c.tris.slice(), c.groups, c.liquid)
+	assert.deepEqual(Array.from(own.boxes), Array.from(c.boxes))
+	assert.deepEqual(Array.from(own.liquidBox!), Array.from(c.liquidBox))
 })
 
 test('decodeWmoNav reads WMONav.Encode', () => {

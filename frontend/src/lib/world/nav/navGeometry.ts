@@ -233,19 +233,26 @@ function localBox(local: Float32Array, from: number, to: number, out: Float32Arr
 }
 
 /**
- * A model type's index (`TypeIndex`), worked out on the first ask for its faces `tris` and kept: one
- * pass over every vertex, which NavPreview takes as the faces arrive rather than in a frame.
+ * A model type's index (`TypeIndex`), worked out on the first ask for its faces `tris` and kept. The
+ * boxes come with the /wow/collision reply (`sent`, collision.go's pointsBox, the same to the bit,
+ * #869); without them, one pass over every vertex works them out.
  */
-export function typeIndex(tris: Float32Array, groups: Uint32Array, liquid?: ModelLiquid | null): TypeIndex {
+export function typeIndex(tris: Float32Array, groups: Uint32Array, liquid?: ModelLiquid | null, sent?: { boxes: Float32Array; liquidBox: Float32Array }): TypeIndex {
 	let ix = indexOf.get(tris)
 	if (ix) return ix
 	const starts = groupStarts(groups)
-	const boxes = new Float32Array(groups.length * 6)
-	for (let g = 0; g < groups.length; g++) localBox(tris, starts[g] * 9, Math.min(tris.length, starts[g + 1] * 9), boxes, g * 6)
+	let boxes = sent?.boxes
+	if (!boxes || boxes.length !== groups.length * 6) {
+		boxes = new Float32Array(groups.length * 6)
+		for (let g = 0; g < groups.length; g++) localBox(tris, starts[g] * 9, Math.min(tris.length, starts[g + 1] * 9), boxes, g * 6)
+	}
 	let liquidBox: Float32Array | null = null
 	if (liquid && liquid.types.length > 0) {
-		liquidBox = new Float32Array(6)
-		localBox(liquid.verts, 0, liquid.verts.length, liquidBox, 0)
+		liquidBox = sent?.liquidBox ?? null
+		if (!liquidBox) {
+			liquidBox = new Float32Array(6)
+			localBox(liquid.verts, 0, liquid.verts.length, liquidBox, 0)
+		}
 	}
 	ix = { starts, boxes, liquidBox }
 	indexOf.set(tris, ix)

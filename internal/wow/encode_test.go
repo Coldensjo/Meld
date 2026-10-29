@@ -3,6 +3,7 @@ package wow
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"testing"
 )
 
@@ -88,8 +89,22 @@ func TestCollisionEncodeLayout(t *testing.T) {
 	binary.Write(&want, le, uint32(1))
 	binary.Write(&want, le, col.liquid.tris)
 	binary.Write(&want, le, col.liquid.types)
+	binary.Write(&want, le, []float32{1, 2, 3, 7, 8, 9.5})
+	binary.Write(&want, le, []float32{1, 2, 3, 7, 8, 9})
 	if !bytes.Equal(b, want.Bytes()) || len(b) != cap(b) {
 		t.Fatalf("encode differs from the binary.Write layout (len %d cap %d)", len(b), cap(b))
+	}
+}
+
+func TestCollisionBoxes(t *testing.T) {
+	inf := float32(math.Inf(1))
+	nan := float32(math.NaN())
+	got := pointsBox([]float32{1, nan, -2, -3, 4, 5})
+	if got != [6]float32{-3, 4, -2, 1, 4, 5} {
+		t.Fatalf("box %v", got)
+	}
+	if pointsBox(nil) != [6]float32{inf, inf, inf, -inf, -inf, -inf} {
+		t.Fatal("an empty box is not +Inf to -Inf")
 	}
 }
 

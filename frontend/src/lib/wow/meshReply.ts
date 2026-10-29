@@ -57,17 +57,23 @@ export function parseMesh(buf: ArrayBuffer): WowMesh {
 	return mesh
 }
 
-/** A model's collision faces, each group's triangle count and its liquids (`fetchCollision`). */
+/**
+ * A model's collision faces, each group's triangle count and its liquids (`fetchCollision`), with each
+ * group's box and the liquids' box in the model's frame, as `typeIndex` (navGeometry.ts) takes them (#869).
+ */
 export interface CollisionReply {
 	tris: Float32Array
 	groups: Uint32Array
 	liquid: { verts: Float32Array; idx: Uint32Array; types: Uint32Array } | null
+	boxes: Float32Array
+	liquidBox: Float32Array
 }
 
 /**
  * The collision endpoint's reply (Go's `collision.encode`): the face count and the faces (nine
  * floats each), the group count and each group's triangle count, the liquid's vertex count and its
- * vertices, then its triangle count, the triangles' indices and their liquid types.
+ * vertices, then its triangle count, the triangles' indices and their liquid types, and last each
+ * group's box and the liquids' (six floats each: the lowest x, y and z, then the highest).
  */
 export function parseCollision(buf: ArrayBuffer): CollisionReply {
 	const v = new DataView(buf)
@@ -81,5 +87,8 @@ export function parseCollision(buf: ArrayBuffer): CollisionReply {
 	const verts = new Float32Array(buf, at + 4, nv * 3)
 	const idx = new Uint32Array(buf, at + 8 + nv * 12, nt * 3)
 	const types = new Uint32Array(buf, at + 8 + nv * 12 + nt * 12, nt)
-	return { tris: new Float32Array(buf, 4, n * 9), groups, liquid: nt > 0 ? { verts, idx, types } : null }
+	at += 8 + nv * 12 + nt * 16
+	const boxes = new Float32Array(buf, at, groups.length * 6)
+	const liquidBox = new Float32Array(buf, at + groups.length * 24, 6)
+	return { tris: new Float32Array(buf, 4, n * 9), groups, liquid: nt > 0 ? { verts, idx, types } : null, boxes, liquidBox }
 }

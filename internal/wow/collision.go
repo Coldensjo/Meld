@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -54,8 +55,10 @@ func m2HullFaces(b []byte) ([]float32, error) {
 // GroupModel its mmap builder asks whether ground lies under it (#282): an M2's hull is one, a
 // WMO's groups and its doodads' hulls one each. Then the liquids inside a WMO (#281; none for an
 // M2): a u32 vertex count and three float32 a vertex, a u32 triangle count, three u32 vertex
-// indices a triangle, and each triangle's liquid type (u32, collisionLiquids). set is a WMO
-// placement's doodad set, as for Model.
+// indices a triangle, and each triangle's liquid type (u32, collisionLiquids). Last, each group's
+// box and then the liquids' (six float32 each: the lowest x, y and z, then the highest; +Inf and -Inf
+// when empty), the walkable-ground view's TypeIndex (navGeometry.ts), so the page need not pass over
+// every vertex for them (#869). set is a WMO placement's doodad set, as for Model.
 func (c *Client) Collision(path string, set int) ([]byte, error) {
 	key := fmt.Sprintf("col:%s|%d", strings.ToLower(path), set)
 	return c.cached(key, func() ([]byte, error) {
@@ -97,7 +100,7 @@ type collisionLiquids struct {
 func (col *collision) encode() []byte {
 	l := &col.liquid
 	le := binary.LittleEndian
-	b := make([]byte, 0, 16+4*(len(col.faces)+len(col.groups)+len(l.verts)+len(l.tris)+len(l.types)))
+	b := make([]byte, 0, 16+4*(len(col.faces)+len(col.groups)+len(l.verts)+len(l.tris)+len(l.types)+6*len(col.groups)+6))
 	b = le.AppendUint32(b, uint32(len(col.faces)/9))
 	b = appendF32(b, col.faces)
 	b = le.AppendUint32(b, uint32(len(col.groups)))
@@ -107,7 +110,36 @@ func (col *collision) encode() []byte {
 	b = le.AppendUint32(b, uint32(len(l.types)))
 	b = appendU32(b, l.tris)
 	b = appendU32(b, l.types)
-	return b
+	start := 0
+	for _, n := range col.groups {
+		end := min(len(col.faces), start+int(n)*9)
+		box := pointsBox(col.faces[min(start, end):end])
+		b = appendF32(b, box[:])
+		start = end
+	}
+	box := pointsBox(l.verts)
+	return appendF32(b, box[:])
+}
+
+// pointsBox is the box of the points pts (three float32 each): the lowest x, y and z, then the
+// highest, +Inf and -Inf when there are none. It must match localBox in navGeometry.ts to the bit,
+// since the whole box sets a client tile's height span (#282, #866): float32 compared as it is
+// there, a NaN passed over.
+func pointsBox(pts []float32) [6]float32 {
+	inf := float32(math.Inf(1))
+	box := [6]float32{inf, inf, inf, -inf, -inf, -inf}
+	for i := 0; i+2 < len(pts); i += 3 {
+		for k := 0; k < 3; k++ {
+			v := pts[i+k]
+			if v < box[k] {
+				box[k] = v
+			}
+			if v > box[3+k] {
+				box[3+k] = v
+			}
+		}
+	}
+	return box
 }
 
 // serverLiquidType is the liquid type the vmap extractor gives a group's MLIQ

@@ -240,7 +240,8 @@ mask/liquid, image codec or native/game rendering contracts.
     main thread works out only the boxes (`placedBoxes`), which the spans and `markChanged` need, and
     keeps them while the view is off. The whole box must be `placeFaces`' to the bit (the height span
     reads it), so it is the union of the groups' exact boxes, but only the groups whose box, from the
-    corners of their box in the model's frame (`typeIndex`, worked out as the faces arrive) and a
+    corners of their box in the model's frame (`typeIndex`; Go sends those boxes with the faces, `pointsBox`
+    in `collision.go`, the same to the bit, #869) and a
     millimetre wider, reaches past the union so far are moved vertex by vertex: 7 of Stormwind's 4016.
     Each side places a model's faces (`PlacedModels.forGather`) only once a gathered box, a cell wider
     all round (`gatherReach`), meets the model's, and then only the groups whose box it meets
