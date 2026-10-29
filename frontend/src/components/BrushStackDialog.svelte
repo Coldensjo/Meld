@@ -5,6 +5,7 @@
 	import { askConfirm } from '../lib/state/confirm'
 	import { activeBrushStack } from '../lib/tools/StampTool'
 	import { STACK_SCULPT_MODES, freeStackName, newStackItem, type BrushStack, type StackItem } from '../lib/tools/brushStack'
+	import { texName as shortName } from '../lib/wow/texName'
 
 	// The Stamp tool's brush stack editor (Noggit Red's brush stack): the stack's brushes in the order a
 	// stroke applies them, each a sculpt mode or a paint texture with its own size, strength, falloff and
@@ -22,7 +23,7 @@
 	}
 	const stack = $derived(activeBrushStack())
 
-	const texName = (p: string) => (!p ? 'none' : p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
+	const texName = (p: string) => (p ? shortName(p) : 'none')
 	const MODE_NAMES: Record<string, string> = { raise: 'Raise', lower: 'Lower', smooth: 'Smooth', blur: 'Blur', flatten: 'Flatten', noise: 'Noise', mountain: 'Mountain', crevice: 'Crevice', terrace: 'Terrace' }
 
 	/** Changes the stack in place and hands prefs a new list, so the change is saved. */

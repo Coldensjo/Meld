@@ -7,6 +7,7 @@ import { layerAt } from './BrushTool'
 import { loadCreatureTemplates, loadObjectTemplates, creatureKey, objectKey } from '../../components/SpawnBrowser.svelte'
 import { spawnType } from '../world/spawnInfo'
 import type { vmangos } from '../wails/models'
+import { texName } from '../wow/texName'
 
 // The pipette: Alt+click picks what is under the cursor. In the Select and Place tools, a model's type
 // becomes the model to place and the ground's texture becomes the paint texture; in Paint and Road,
@@ -25,7 +26,7 @@ export function pickLayer(t: Terrain, hit: THREE.Vector3): boolean {
 	editor.paintLayer = i
 	const p = editor.palette[i]
 	if (!p.startsWith('#')) revealAsset(`tex:${p}`)
-	const name = p.startsWith('#') ? p : p.slice(p.search(/[^\/]*$/)).replace(/\.blp$/i, '')
+	const name = texName(p)
 	setStatus(`Picked ${name}`, 2000)
 	return true
 }

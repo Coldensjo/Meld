@@ -9,6 +9,7 @@ import { combineMask, featherMask, growMask, shrinkMask, wandSelect, type MaskOp
 import { dominantTexel, textureWeightTexel } from '../terrain/chunkPaint'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { TerrainStroke } from './brush'
+import { texName } from '../wow/texName'
 
 /** Runs `fn` on the whole mask as one undo step labelled `label`. */
 export function editWholeMask(t: Terrain, history: History, label: string, fn: (m: Uint8Array) => void) {
@@ -51,7 +52,7 @@ export function wandClick(t: Terrain, liquids: LiquidMap, history: History, hit:
 		const min = Math.max(1 / 255, s.minWeight)
 		inside = (p) => textureWeightTexel(t.paintChunksPerSide, R, t.chunkSlots, t.weights, p, tex) >= min
 		const path = editor.palette[tex] ?? ''
-		what = path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+		what = texName(path)
 	} else if (s.by === 'height') {
 		const h0 = t.heightAt(hit.x, hit.z)
 		inside = (p) => {

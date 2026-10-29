@@ -8,6 +8,7 @@
 	import { effectAt, effectFor, knownEffects, tileKey, type GroundEffectTables, type ScopedEffects, type TextureEffects } from '../lib/world/groundEffects'
 	import { AddGroundEffect } from '../lib/wails/App'
 	import { hasBackend } from '../lib/io/backend'
+	import { texName as textureName } from '../lib/wow/texName'
 	// World › Ground Effects: what the game grows on each of the map's textures (grass tufts, flowers,
 	// pebbles). Each texture shows the effect the client's own tiles give it; the map may choose another,
 	// or none, for the whole map, or (B-151) for the zone or the tile the camera is over, a tile's choice
@@ -26,7 +27,6 @@
 		return groundEffectTables()
 	})
 	const textures = $derived(editor.palette.map((p, i) => ({ i, path: p })).filter((t) => !t.path.startsWith('#')))
-	const textureName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
 
 	// The scope the choices go to: the whole map, or the zone or the tile under the camera now.
 	const at = engineRef.current?.effectScopeAtCamera() ?? { areaId: 0, tx: 0, tz: 0 }

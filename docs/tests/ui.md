@@ -322,7 +322,9 @@ The Sculpt bar fits the row with no More in all twelve modes, even Flatten with 
 paint by slope on (#715); so do every Water, Doodad and Paint mode (Water's lock, follow ground,
 spray and mask by slope on, a spawn brush of any number of creatures, which is one "n creatures" chip on the bar and a chip each in the Spawns panel; #734, #735). The panel button opens the
 panel of the tool's other settings below the bar, inside the window, and Esc closes it (Sculpt
-Flatten and Water paint are checked).
+Flatten and Water paint are checked). The bar's shared styles reach each tool's component in
+`components/options/` (#593): joined segmented buttons, framed chips, Sculpt's narrow icon buttons,
+and ScriptBrushBar's buttons keep the app's padding (`styles` in the result).
 Probe: `bun run probe options-more` (every Sculpt, Water, Doodad and Paint mode, and Place). The
 More and Tab checks narrow the bar's window to 700 px, since no bar overflows at 1400 px;
 `--shot <dir>` leaves that bar open in the picture.

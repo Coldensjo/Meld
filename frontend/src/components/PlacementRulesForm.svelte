@@ -2,6 +2,7 @@
 	import { clamp, num } from '../lib/ui/inputs'
 	import { editor } from '../lib/state/editor.svelte'
 	import { newRules, type PlacementRules } from '../lib/tools/doodadBrush'
+	import { texName } from '../lib/wow/texName'
 
 	// A brush's placement rules (#169): slope and height ranges, on and not-on textures, water and
 	// holes. Shared by the doodad brush editor and the spawn brush's rules (#196). A brush without
@@ -21,7 +22,6 @@
 		if (which === 'on') rules().onTextures = list
 		else rules().offTextures = list
 	}
-	const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
 </script>
 
 <div class="rules">

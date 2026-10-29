@@ -5,6 +5,7 @@
 	import { LAYERS } from '../lib/terrain/layers'
 	import { isColor } from '../lib/terrain/paletteArray'
 	import { SLOTS } from '../lib/terrain/chunkPaint'
+	import { texName } from '../lib/wow/texName'
 
 	// The texture layers of the paint chunk under the cursor, as the game has them: four slots, an
 	// unused one shown as an empty layer. With an area selected (the Select tool's drag on the
@@ -12,7 +13,6 @@
 	// together. Replace on a layer waits for the next texture picked in the asset browser and puts it
 	// in that layer's place; Delete empties the layer. Both act on the hovered chunk, or on all the
 	// selected chunks, and are one undo step.
-	const texName = (p: string) => p.slice(p.search(/[^\\/]*$/)).replace(/\.blp$/i, '')
 	const colorName = (p: string) => LAYERS.find((l) => l.swatch.toLowerCase() === p.toLowerCase())?.name ?? p
 	const label = (p: string) => (isColor(p) ? colorName(p) : texName(p))
 

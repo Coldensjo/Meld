@@ -1,5 +1,5 @@
 // The options bar keeps one row at 1400 px (#254): the brush's Size and Strength sit on it next to the tool's modes, what doesn't fit wraps under More, which opens the bar over the viewport with every control in view; Esc closes it, and Tab onto a clipped control opens it. The Sculpt, Water, Doodad and Paint bars fit one row in every mode, with no More (#715, #734), and their panel button (Sculpt's Brush) opens the panel of their other settings, which Esc closes.
-// touches: frontend/src/components/OptionsBar.svelte, frontend/src/lib/ui/optionsVisibility.ts
+// touches: frontend/src/components/OptionsBar.svelte, frontend/src/components/options/*.svelte, frontend/src/lib/ui/optionsVisibility.ts
 const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')
@@ -108,6 +108,26 @@ const panelCloses = !root().querySelector('.brushpanel')
 editor.flattenLock.on = false
 editor.flattenAngled.on = false
 editor.sculptPaint = 'off'
+// The bar's shared styles (global under .optbar) reach each tool's component in options/ (#593): the
+// segmented buttons join, the chips are framed, Sculpt's icons keep their narrow padding, and
+// ScriptBrushBar's buttons keep the app's own padding.
+const css = (el, prop) => (el ? getComputedStyle(el)[prop] : '')
+Object.assign(editor, { tool: 'sculpt', sculptMode: 'raise' })
+await P.frames(3)
+const iconPad = css(bar().querySelector('.seg.icons button'), 'paddingLeft')
+Object.assign(editor, { tool: 'paint', paintMode: 'texture' })
+await P.frames(3)
+const segJoin = css(bar().querySelector('.seg button:nth-child(2)'), 'marginLeft')
+const chipBorder = css(bar().querySelector('.chip'), 'borderTopWidth')
+const checkFlex = css(bar().querySelector('.check'), 'display')
+Object.assign(editor, { tool: 'script' })
+await P.frames(3)
+const scriptPad = css(
+	[...bar().querySelectorAll('button')].find((b) => b.textContent.trim() === 'Reload'),
+	'paddingLeft',
+)
+const styles = { iconPad, segJoin, chipBorder, checkFlex, scriptPad }
+const stylesOk = iconPad === '4px' && segJoin === '-1px' && chipBorder === '1px' && checkFlex === 'flex' && scriptPad === '10px'
 const results = []
 for (const [name, set, keep] of cases) {
 	Object.assign(editor, set)
@@ -149,8 +169,10 @@ prefs.spawnBrush.entries = spawnEntries
 root().style.maxWidth = ''
 await P.frames(2)
 return {
-	ok: results.every((r) => r.ok) && focusOpens && !fits.length && panelOk && panelCloses && waterPanelOk && waterPanelCloses && spawnChipsOk,
+	ok: results.every((r) => r.ok) && focusOpens && !fits.length && panelOk && panelCloses && waterPanelOk && waterPanelCloses && spawnChipsOk && stylesOk,
 	focusOpens,
+	stylesOk,
+	styles,
 	spawnChipsOk,
 	chipsOnBar,
 	barOneRow,

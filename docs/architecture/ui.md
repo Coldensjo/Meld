@@ -11,7 +11,17 @@ The window layout, the asset browser and the dock panels and floating windows.
     (`.toolbar-right`); the DOM order stays, so the tab order and the probes don't change. The
     toolbar's border and its hover description (#130) flip with it: the tip is placed by the
     toolbar's left edge and translated by its own width.
-  - Per-tool settings go in `OptionsBar` (use `OptSlider`). The bar is one row: its controls wrap
+  - Per-tool settings go in the options bar (use `OptSlider`): `OptionsBar.svelte` holds the bar, its
+    More measuring, the settings panel and the brush controls several tools share (snippets
+    `sizeStrength`, `falloffCurve`, `brushShape`, `editLimit`, `imageBrush`), and each tool's controls
+    are a component in `components/options/` (`SculptOptions`, `PaintOptions` for Paint and Road,
+    `PathOptions`, `WaterOptions`, `PlaceOptions`, `StampOptions`, `DoodadOptions` with
+    `SpawnBrushOptions`, `SelectOptions`, `ClearOptions`, `MapDataOptions`, #593), given the shared
+    snippets as props; a tool with a panel renders it with `panel` set. A tool component renders its
+    controls without a wrapper element, since More counts the bar's direct children. The shared
+    classes (`.seg`, `.chip`, `.check`, `.dim`, `.divider`, the panel's `.row` and `.head`, and the
+    buttons' padding) are global under `.optbar` in `OptionsBar.svelte`; a class one tool uses alone is
+    styled in its component. Texture names go through `lib/wow/texName.ts`. The bar is one row: its controls wrap
     and the rows below the first are clipped until its More (n) button opens the bar over the
     viewport (#254), so put a tool's most used controls first; the brush's Size and Strength
     (`sizeStrength`) follow right after a tool's modes. Aim for a tool's controls to fit the row at 1400 px with

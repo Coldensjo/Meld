@@ -3,6 +3,7 @@
 	import { editor } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { lookFlags, lookOf, type Look } from '../lib/world/textureLooks'
+	import { texName as textureName } from '../lib/wow/texName'
 
 	// World › Texture Looks (Noggit Red's texture animation and overbright settings): per texture of the
 	// map, whether the client scrolls it (direction and speed) and draws it overbright. A texture left on
@@ -14,7 +15,6 @@
 	let { onclose }: Props = $props()
 
 	const textures = $derived(editor.palette.filter((p) => !p.startsWith('#')))
-	const textureName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
 	const TURNS = [0, 1, 2, 3, 4, 5, 6, 7]
 
 	/** Sets (or with null clears) a texture's own look, as one undo step. */

@@ -16,8 +16,7 @@
 	import { hasBackend } from '../lib/io/backend'
 	import { base64ToBytes, wailsBytes } from '../lib/io/base64'
 	import { fetchImage } from '../lib/wow/api'
-
-	const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
+	import { texName as textureName } from '../lib/wow/texName'
 
 	// The map's facts and its world settings (File > Map Properties). The sea is one level for the
 	// whole map, so it is set here and nowhere else; a part of Azeroth keeps the client's ocean.

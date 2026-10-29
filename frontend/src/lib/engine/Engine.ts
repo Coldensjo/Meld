@@ -126,7 +126,7 @@ import {
 	replacePalette,
 	resetTexel,
 } from '../terrain/chunkPaint'
-import { isColor, retryFailedPalettes, setPaletteFailHandler } from '../terrain/paletteArray'
+import { retryFailedPalettes, setPaletteFailHandler } from '../terrain/paletteArray'
 import { listAssets, setCompressedTextures, setMaxAnisotropy } from '../wow/api'
 import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
@@ -193,6 +193,7 @@ import { clampUiScale } from '../ui/uiScale'
 import { copyItems, copyValue } from '../ui/copyId'
 import { firstKeyOf, isKeyOf, keysOf, pressed } from '../ui/commands'
 import { yieldToFrame } from './yieldToFrame'
+import { texName } from '../wow/texName'
 
 /** A world view's side (#15): the whole map, 64 tiles. */
 const WORLD_SIDE = MAP_TILES * TILE_YARDS
@@ -4001,7 +4002,7 @@ export class Engine {
 		const cmd = stroke.finish()
 		if (cmd) this.history.push(cmd)
 		const tex = editor.palette[layer] ?? ''
-		const name = isColor(tex) ? tex : tex.slice(tex.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+		const name = texName(tex)
 		setStatus(refused ? `Filled the mask with ${name}, except where a chunk already has four textures.` : `Filled the mask with ${name}.`)
 	}
 
@@ -6392,7 +6393,7 @@ export class Engine {
 
 	/** A texture layer of the Detail info readout: its short name, its share (0 to 1) as a percent, and its ground effect. */
 	private detailTexture(path: string, share: number, tables: ReturnType<typeof groundEffectTables>): DetailInfo['textures'][number] {
-		const name = path.startsWith('#') ? path : path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+		const name = texName(path)
 		return { name, weight: Math.round(share * 100), effect: effectFor(path, editor.textureEffects, tables) }
 	}
 

@@ -13,7 +13,7 @@
 	import { chooseReferenceFile, readReferenceFile } from '../lib/io/referenceLoad'
 	import { colourHex, copyReference, fitPlace, type ReferenceImage, type ReferenceMode } from '../lib/terrain/referenceImage'
 	import { areaName, loadAreas } from '../lib/wow/areas'
-	import { isColor } from '../lib/terrain/paletteArray'
+	import { texName as textureName } from '../lib/wow/texName'
 
 	// View › Reference Image (#184): the author's own plan of a zone (a PNG or JPEG of theirs, kept by
 	// path in the map file) laid over the map to trace, draped on the ground or over the top-down view,
@@ -135,8 +135,6 @@
 		const id = m ? Number(m[1]) : text.trim() ? (areas.find((a) => a.name.toLowerCase() === text.trim().toLowerCase())?.id ?? 0) : 0
 		choice.areas[k] = id
 	}
-
-	const textureName = (path: string) => (isColor(path) ? path : path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 
 	function apply() {
 		const e = engineRef.current

@@ -2,13 +2,13 @@
 	import PaletteTile from './PaletteTile.svelte'
 	import { editor, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
+	import { texName as name } from '../lib/wow/texName'
 
 	// A floating quick texture palette (Noggit Red's Quick Access Texture Palette): the map's own textures,
 	// kept with the map, where a click makes one the paint texture and switches to Paint, without going
 	// through the asset browser. It floats over the viewport like the History window and can be closed.
 
 	const entries = $derived(editor.palette.map((p, i) => ({ p, i })))
-	const name = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 
 	function pick(i: number) {
 		const e = engineRef.current

@@ -4,8 +4,7 @@
 	import { editor, prefs, stats, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { scriptBrush } from '../lib/script/scriptBrush.svelte'
-
-	const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
+	import { texName } from '../lib/wow/texName'
 </script>
 
 {#if editor.tool === 'sculpt'}

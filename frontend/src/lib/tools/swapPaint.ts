@@ -6,9 +6,7 @@ import { TILE_CHUNKS } from '../wow/format'
 import { editor, texelAt } from './BrushTool'
 import { forEachTexel, type Rect, type TerrainStroke } from './brush'
 import type { ToolContext } from './Tool'
-
-/** A texture's file name without its folders and extension, for messages. */
-const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
+import { texName } from '../wow/texName'
 
 /**
  * Paint's Swap mode, owned by the Paint tool: a stroke replaces the texture under its start (or the

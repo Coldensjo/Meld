@@ -1,5 +1,5 @@
 // The options bar holds only controls (the controls that wrap under its More button are reported per tool as `hidden`; options-more checks them, #254); each tool's hint shows in the status bar's message slot, and a status message takes the slot and gives it back (#238).
-// touches: frontend/src/components/OptionsBar.svelte, frontend/src/components/StatusBar.svelte, frontend/src/components/ToolHint.svelte, frontend/src/lib/ui/optionsVisibility.ts
+// touches: frontend/src/components/OptionsBar.svelte, frontend/src/components/options/*.svelte, frontend/src/components/StatusBar.svelte, frontend/src/components/ToolHint.svelte, frontend/src/lib/ui/optionsVisibility.ts
 // tier: smoke
 const e = P.e
 const { editor, ui, setStatus } = await P.state()
