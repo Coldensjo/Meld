@@ -825,3 +825,32 @@ new icon) in Meld's patch only on Save or New spell.
   patch only when it starts, and a file saved while it runs waits until it has closed.
 - Trap: in a heredoc or sed, `Interface\Icons` and regexes lose their backslashes; edit them with
   the Edit tool (a probe's `\w` became `w` that way).
+
+## Characters and accounts (#855, probe `characters`)
+
+Checks: Tools › Characters and Accounts… lists the accounts, opens an account's characters and a
+character's fields, and writes the login and character databases only on Make account, Save
+account, Delete account and Save character.
+- Probe: `characters` (about 4 s; nothing written): the accounts list, the first account with
+  characters and its character list (Delete account… is off while it has any), a character's level
+  as an unsaved edit (Save character (1)), a refused value outlining its field (`SaveCharacter`
+  stood in through `window.go.main.App`), Revert, the New account form, Close. It skips when the
+  server's databases can't be read or no account has a character.
+- Unit: `accounts_test.go`: the SRP6 verifier against the server's own self-test vector
+  (`InitializeCrypto.cpp`, VMANGOS / 4EVER), `CreateAccount`'s SQL (upper case, no password stored,
+  the `realmcharacters` row), Delete's refusal of an account with characters, `characterSet`'s
+  rules and carry-alongs, and `SaveCharacter`'s refusals (in the world while mangosd runs, a rename
+  while it runs).
+- A write, by hand in the dev page (a scratch probe, `bun run probe probes/scratch/<name>.js`):
+  `CreateAccount('meldprobe', 'secret', 0)`, `SetAccount(id, 3, 'other')`; copy a character into it
+  in SQL (`CREATE TEMPORARY TABLE t SELECT * FROM characters WHERE guid = 1; UPDATE t SET guid =
+  9001, account = <id>, name = 'Meldprobe'; INSERT INTO characters SELECT * FROM t`), then
+  `SaveCharacter(9001, { name: 'probezug', level: '12', race: '2', gender: '1', map: '1', ... })`
+  and read the row back (name Probezug, xp 0, skin and face 0, instance 0); `SaveCharacter(9001, {
+  race: '1', class: '11' })` is refused (no Human Druid). Clean up: `DELETE FROM characters WHERE
+  guid = 9001`, then `DeleteAccount(id)` (refused while the character is there). Done on 2026-10-29
+  with the world server stopped.
+- In the game (the owner): log in with a made account and its password (the verifier is checked
+  only against the server's test vector here), and enter the world with an edited character.
+- Trap: the probe's page runs without the client sandbox, so writes from a scratch probe go to the
+  real databases; `serverSession` refuses them only while a probe has the sandbox on.

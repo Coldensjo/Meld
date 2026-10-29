@@ -20,6 +20,33 @@ export interface AILine {
 }
 
 /**
+ * Account is one row of the login database's account table, with how many characters it has.
+ */
+export interface Account {
+    "id": number;
+    "name": string;
+    "gmLevel": number;
+    "online": boolean;
+    "locked": boolean;
+    "joinDate": string;
+    "lastLogin": string;
+    "characters": number;
+}
+
+/**
+ * AccountCharacter is a character as the tool's list shows it.
+ */
+export interface AccountCharacter {
+    "guid": number;
+    "name": string;
+    "race": number;
+    "class": number;
+    "gender": number;
+    "level": number;
+    "online": boolean;
+}
+
+/**
  * AnimInfo is an animation a model has: its AnimationData ID and name.
  */
 export interface AnimInfo {
@@ -104,6 +131,20 @@ export interface AreaTrigger {
      * Teleport is where it sends a player, or nil when it doesn't.
      */
     "teleport": TriggerTeleport | null;
+}
+
+/**
+ * CharacterRecord is a character's row for the editor: the columns it edits (characterColumns) as
+ * strings, as the template editors have them, and what it only shows.
+ */
+export interface CharacterRecord {
+    "guid": number;
+    "account": number;
+    "online": boolean;
+    "zone": number;
+    "xp": number;
+    "playedTime": number;
+    "values": { [_ in string]?: string } | null;
 }
 
 /**

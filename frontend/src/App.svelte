@@ -17,6 +17,7 @@
 	let ItemEditor = $state<Component | null>(null)
 	let SpellEditor = $state<Component | null>(null)
 	let IconsWindow = $state<Component | null>(null)
+	let CharacterEditor = $state<Component | null>(null)
 	$effect(() => {
 		if (ui.creatureEditor && !CreatureEditor) void import('./components/CreatureEditor.svelte').then((m) => (CreatureEditor = m.default))
 		if (ui.objectEditor && !ObjectEditor) void import('./components/ObjectEditor.svelte').then((m) => (ObjectEditor = m.default))
@@ -24,6 +25,7 @@
 		if (ui.itemEditor && !ItemEditor) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
 		if (ui.spellEditor && !SpellEditor) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
 		if (ui.iconsTool && !IconsWindow) void import('./components/IconsWindow.svelte').then((m) => (IconsWindow = m.default))
+		if (ui.characterEditor && !CharacterEditor) void import('./components/CharacterEditor.svelte').then((m) => (CharacterEditor = m.default))
 	})
 	import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
 	import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
@@ -232,8 +234,8 @@
 			e.preventDefault()
 			return
 		}
-		// The quest, item and spell editors and the Icons tool have no undo steps of their own (their Save writes the database), and no key reaches the map.
-		if (ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool) return
+		// The quest, item, spell and character editors and the Icons tool have no undo steps of their own (their Save writes the database), and no key reaches the map.
+		if (ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool || ui.characterEditor) return
 		if (ui.creatureEditor || ui.objectEditor) {
 			const id = commandFor(e, true)
 			if (id === 'undo' || id === 'redo') {
@@ -311,6 +313,7 @@
 {#if ItemEditor}{@const Editor = ItemEditor}<Editor />{/if}
 {#if SpellEditor}{@const Editor = SpellEditor}<Editor />{/if}
 {#if IconsWindow}{@const Editor = IconsWindow}<Editor />{/if}
+{#if CharacterEditor}{@const Editor = CharacterEditor}<Editor />{/if}
 <ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />

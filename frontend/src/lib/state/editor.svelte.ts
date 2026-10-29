@@ -617,6 +617,11 @@ export const ui = $state({
 	spellEditor: null as { entry: number } | null,
 	/** The Icons tool (#683, Tools › Icons…), open on `icon` ('' for none picked yet). */
 	iconsTool: null as { icon: string } | null,
+	/**
+	 * The Characters and Accounts tool (#855, Tools › Characters and Accounts…): the `account` open (0 for
+	 * none, -1 while making one) and its character `guid` open (0 for the account's own page).
+	 */
+	characterEditor: null as { account: number; guid: number } | null,
 	/** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
 	brushEditor: false,
 	/** The game Meld closes and opens around an export (Preferences › Game): Wow.exe or Benilla. */

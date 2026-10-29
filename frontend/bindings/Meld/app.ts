@@ -172,6 +172,13 @@ export function CloseProject(): $CancellablePromise<void> {
 }
 
 /**
+ * CreateAccount adds an account with a password and GM level, and returns its id.
+ */
+export function CreateAccount(name: string, password: string, gmLevel: number): $CancellablePromise<number> {
+    return $Call.ByID(1109213500, name, password, gmLevel);
+}
+
+/**
  * CreateCreature adds a creature template named name, a copy of template base (or the defaults
  * for 0), and returns its entry.
  */
@@ -218,6 +225,13 @@ export function CreateQuest(base: number, title: string): $CancellablePromise<nu
  */
 export function CreateSpell(base: number, starter: string, name: string): $CancellablePromise<number> {
     return $Call.ByID(11642537, base, starter, name);
+}
+
+/**
+ * DeleteAccount removes an account that has no characters and is not logged in.
+ */
+export function DeleteAccount(id: number): $CancellablePromise<void> {
+    return $Call.ByID(436436941, id);
 }
 
 /**
@@ -495,10 +509,24 @@ export function LiquidTypes(): $CancellablePromise<vmangos$0.LiquidTypeEntry[] |
 }
 
 /**
+ * ListAccounts lists the realm's accounts, each with its count of characters.
+ */
+export function ListAccounts(): $CancellablePromise<vmangos$0.Account[] | null> {
+    return $Call.ByID(2919187697);
+}
+
+/**
  * ListBrushImages names the PNG and JPEG images in the brush image folder.
  */
 export function ListBrushImages(dir: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(176687453, dir);
+}
+
+/**
+ * ListCharacters lists an account's characters.
+ */
+export function ListCharacters(account: number): $CancellablePromise<vmangos$0.AccountCharacter[] | null> {
+    return $Call.ByID(2046772093, account);
 }
 
 /**
@@ -952,6 +980,13 @@ export function ReadBrushImage(dir: string, name: string): $CancellablePromise<h
 }
 
 /**
+ * ReadCharacter reads a character's row for the editor.
+ */
+export function ReadCharacter(guid: number): $CancellablePromise<vmangos$0.CharacterRecord> {
+    return $Call.ByID(3441959672, guid);
+}
+
+/**
  * ReadCreature reads a creature template's row (its newest patch) for the creature editor.
  */
 export function ReadCreature(entry: number): $CancellablePromise<vmangos$0.TemplateRecord> {
@@ -1196,6 +1231,14 @@ export function SaveAreas(rows: vmangos$0.AreaRow[] | null, weather: vmangos$0.Z
  */
 export function SaveBrushDialog(suggested: string): $CancellablePromise<string> {
     return $Call.ByID(1867366880, suggested);
+}
+
+/**
+ * SaveCharacter writes a character's changed values (by column) while it is out of the world, and
+ * returns the SQL it ran, or the value it refused.
+ */
+export function SaveCharacter(guid: number, values: { [_ in string]?: string } | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(1988835663, guid, values);
 }
 
 /**
@@ -1549,6 +1592,13 @@ export function ServerStatus(): $CancellablePromise<$models.ServerStatusInfo> {
  */
 export function SessionLog(): $CancellablePromise<string> {
     return $Call.ByID(3700704495);
+}
+
+/**
+ * SetAccount changes an account's GM level and, unless password is empty, its password.
+ */
+export function SetAccount(id: number, gmLevel: number, password: string): $CancellablePromise<void> {
+    return $Call.ByID(3870876910, id, gmLevel, password);
 }
 
 /**

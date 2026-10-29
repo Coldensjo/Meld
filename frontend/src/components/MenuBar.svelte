@@ -298,6 +298,7 @@
 				{ kind: 'action', label: 'Items…', disabled: !hasBackend(), run: () => (ui.itemEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Spells…', disabled: !hasBackend(), run: () => (ui.spellEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Icons…', disabled: !hasBackend(), run: () => (ui.iconsTool = { icon: '' }) },
+				{ kind: 'action', label: 'Characters and Accounts…', disabled: !hasBackend(), run: () => (ui.characterEditor = { account: 0, guid: 0 }) },
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Scripts (Lua)', checked: ui.scripts, toggle: () => (ui.scripts = !ui.scripts) },
 			],

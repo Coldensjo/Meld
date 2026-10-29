@@ -38,12 +38,14 @@ export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) =>
 export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) => api().ClearThumbnailCache(...a) as never
 export const ClientFilesWaiting: Call<AppApi['ClientFilesWaiting']> = (...a) => api().ClientFilesWaiting(...a) as never
 export const CloseProject: Call<AppApi['CloseProject']> = (...a) => api().CloseProject(...a) as never
+export const CreateAccount: Call<AppApi['CreateAccount']> = (...a) => api().CreateAccount(...a) as never
 export const CreateCreature: Call<AppApi['CreateCreature']> = (...a) => api().CreateCreature(...a) as never
 export const CreateItem: Call<AppApi['CreateItem']> = (...a) => api().CreateItem(...a) as never
 export const CreateItemOfKind: Call<AppApi['CreateItemOfKind']> = (...a) => api().CreateItemOfKind(...a) as never
 export const CreateObject: Call<AppApi['CreateObject']> = (...a) => api().CreateObject(...a) as never
 export const CreateQuest: Call<AppApi['CreateQuest']> = (...a) => api().CreateQuest(...a) as never
 export const CreateSpell: Call<AppApi['CreateSpell']> = (...a) => api().CreateSpell(...a) as never
+export const DeleteAccount: Call<AppApi['DeleteAccount']> = (...a) => api().DeleteAccount(...a) as never
 export const DeleteConditionText: Call<AppApi['DeleteConditionText']> = (...a) => api().DeleteConditionText(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never
@@ -79,7 +81,9 @@ export const ItemTables: Call<AppApi['ItemTables']> = (...a) => api().ItemTables
 export const LaunchGame: Call<AppApi['LaunchGame']> = (...a) => api().LaunchGame(...a) as never
 export const LaunchGameAt: Call<AppApi['LaunchGameAt']> = (...a) => api().LaunchGameAt(...a) as never
 export const LiquidTypes: NonNullCall<AppApi['LiquidTypes']> = (...a) => api().LiquidTypes(...a) as never
+export const ListAccounts: NonNullCall<AppApi['ListAccounts']> = (...a) => api().ListAccounts(...a) as never
 export const ListBrushImages: NonNullCall<AppApi['ListBrushImages']> = (...a) => api().ListBrushImages(...a) as never
+export const ListCharacters: NonNullCall<AppApi['ListCharacters']> = (...a) => api().ListCharacters(...a) as never
 export const ListCreatureTemplates: NonNullCall<AppApi['ListCreatureTemplates']> = (...a) => api().ListCreatureTemplates(...a) as never
 export const ListDisplays: NonNullCall<AppApi['ListDisplays']> = (...a) => api().ListDisplays(...a) as never
 export const ListItemDisplays: NonNullCall<AppApi['ListItemDisplays']> = (...a) => api().ListItemDisplays(...a) as never
@@ -140,6 +144,7 @@ export const PublishVmangosMap: Call<AppApi['PublishVmangosMap']> = (...a) => ap
 export const QuestTables: Call<AppApi['QuestTables']> = (...a) => api().QuestTables(...a) as never
 export const Quit: Call<AppApi['Quit']> = (...a) => api().Quit(...a) as never
 export const ReadBrushImage: NonNullCall<AppApi['ReadBrushImage']> = (...a) => api().ReadBrushImage(...a) as never
+export const ReadCharacter: Call<AppApi['ReadCharacter']> = (...a) => api().ReadCharacter(...a) as never
 export const ReadCreature: Call<AppApi['ReadCreature']> = (...a) => api().ReadCreature(...a) as never
 export const ReadCreatureQuests: Call<AppApi['ReadCreatureQuests']> = (...a) => api().ReadCreatureQuests(...a) as never
 export const ReadCreatureSpells: Call<AppApi['ReadCreatureSpells']> = (...a) => api().ReadCreatureSpells(...a) as never
@@ -172,6 +177,7 @@ export const SandboxWriteFile: Call<AppApi['SandboxWriteFile']> = (...a) => api(
 export const SaveAreaTriggers: Call<AppApi['SaveAreaTriggers']> = (...a) => api().SaveAreaTriggers(...a) as never
 export const SaveAreas: Call<AppApi['SaveAreas']> = (...a) => api().SaveAreas(...a) as never
 export const SaveBrushDialog: Call<AppApi['SaveBrushDialog']> = (...a) => api().SaveBrushDialog(...a) as never
+export const SaveCharacter: Call<AppApi['SaveCharacter']> = (...a) => api().SaveCharacter(...a) as never
 export const SaveConditionText: Call<AppApi['SaveConditionText']> = (...a) => api().SaveConditionText(...a) as never
 export const SaveCreature: Call<AppApi['SaveCreature']> = (...a) => api().SaveCreature(...a) as never
 export const SaveCreatureQuests: Call<AppApi['SaveCreatureQuests']> = (...a) => api().SaveCreatureQuests(...a) as never
@@ -217,6 +223,7 @@ export const SearchSpells: NonNullCall<AppApi['SearchSpells']> = (...a) => api()
 export const SearchWorldRefs: NonNullCall<AppApi['SearchWorldRefs']> = (...a) => api().SearchWorldRefs(...a) as never
 export const ServerStatus: Call<AppApi['ServerStatus']> = (...a) => api().ServerStatus(...a) as never
 export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog(...a) as never
+export const SetAccount: Call<AppApi['SetAccount']> = (...a) => api().SetAccount(...a) as never
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
 export const SetGameClient: Call<AppApi['SetGameClient']> = (...a) => api().SetGameClient(...a) as never
 export const SetGameLogin: Call<AppApi['SetGameLogin']> = (...a) => api().SetGameLogin(...a) as never

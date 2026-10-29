@@ -1,6 +1,6 @@
 # Database and client-table authoring
 
-Use this guide to edit creatures, game objects, quests, items, spells and world tables. These
+Use this guide to edit creatures, game objects, quests, items, spells, accounts, characters and world tables. These
 editors write shared server or client data; they are not just another layer in a region's undo history.
 The steps and write boundaries below are source-verified and covered by selected synthetic tests,
 not a completed live database/UI/game walkthrough. Test gameplay separately on a disposable setup.
@@ -160,6 +160,23 @@ with your backup, and repair only the affected data rather than blindly rerunnin
 4. Select the imported icon in the parent editor and save that item/spell to update its references.
 5. For **Export PNG…**, choose a disposable or backed-up output folder: same-name PNGs are
    overwritten. Export is an image conversion, not a database or complete client-asset backup.
+
+## Accounts and characters
+
+1. Open **Tools › Characters and Accounts…**. The list on the left is the realm's accounts from
+   the login database. Choose **New account…** to make one: a name of up to 16 letters, digits or
+   `_`, a password of up to 16 characters, and a GM level. Both are kept in upper case, as the
+   game's login screen sends them, and the password is stored only as the server stores it.
+2. Open an account to change its GM level or password (**Save account**), or to delete it.
+   **Delete account…** is off while the account has characters; delete those in the game first.
+3. Open a character to change its name, race, class, gender, level, money or where it stands
+   (**Put at the camera** takes the editor's camera spot), then **Save character**.
+
+The world server writes a character that is in the world over its row when it logs out, so Meld
+refuses to change one while it is in the world and the world server runs. Renaming needs the world
+server stopped. A new level starts with no experience; a new race or gender takes the first skin,
+face and hair; a new race or class keeps the spells and skills the old one had. These writes have
+no undo: back up the character database first.
 
 ## Spawn routes, formations, pools and scripts
 

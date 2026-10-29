@@ -321,6 +321,27 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   and every `nav.tabs`; the rest of each editor's layout stays in its own file. The editors read
   the row through `$derived` aliases (`const values = $derived(ed.values)`): mutate `values[col]`,
   but replace it through `ed.values`, `ed.markSaved()` or `ed.revert()`.
+- **Characters and accounts** (#855, `components/CharacterEditor.svelte`, `ui.characterEditor` =
+  `{ account, guid }`, Tools › Characters and Accounts…): the realm's accounts (the login database's
+  `account`) and their characters (the character database's `characters`), in
+  `internal/vmangos/accounts.go` behind `app_characters.go`. An account is made with its SRP6
+  verifier and salt as `AccountMgr::CreateAccount` makes them (`srpVerifier`: x = SHA1(salt read
+  little-endian, SHA1(NAME:PASSWORD)) read little-endian, v = 7^x mod N, upper-case hex;
+  `TestSrpVerifierMatchesTheServer` holds the server's own self-test vector) and a `realmcharacters`
+  row; the password itself is never stored. Names and passwords are upper case, as the login screen
+  sends them. Delete refuses an account with characters (the server's `Player::DeleteFromDB` clears
+  some twenty tables and returns mail; a character delete is #876) or logged in while the world
+  server runs. A character is a `TemplateEditor` row of `characterColumns` (name, race, class,
+  gender, level, money, map, position, facing); `SaveCharacter` returns a refused value as
+  `refused`, as the template saves do. The rules, from the world server: a character in the world is
+  never written while mangosd runs (it writes its copy over the row at logout; the `online` flag a
+  stopped server left at 1 is ignored, as in `PlaceCharacter`), a rename needs mangosd stopped
+  (`ObjectMgr` keeps a name-to-guid cache it fills only at start), a race and class must be a
+  `playercreateinfo` pair of the world database, the level is 1 to mangosd.conf's `MaxPlayerLevel`.
+  A change carries along: a new level sets `xp = 0`, a new race or gender resets skin, face and hair
+  to 0 (every race and gender has a 0), and a new spot clears the instance, transport and flight as
+  `placeSQL` does. Put at the camera fills the spot from `Engine.playerSpot`, as Launch does.
+  Equipment and the rest of a character are #874 and #875.
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

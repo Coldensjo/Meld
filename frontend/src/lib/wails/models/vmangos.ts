@@ -4,10 +4,13 @@ import type * as M from '../../../../bindings/Meld/internal/vmangos/models'
 import type { V2 } from '../v2'
 
 export type AILine = V2<M.AILine>
+export type Account = V2<M.Account>
+export type AccountCharacter = V2<M.AccountCharacter>
 export type AnimInfo = V2<M.AnimInfo>
 export type Area = V2<M.Area>
 export type AreaRow = V2<M.AreaRow>
 export type AreaTrigger = V2<M.AreaTrigger>
+export type CharacterRecord = V2<M.CharacterRecord>
 export type CharacterSpot = V2<M.CharacterSpot>
 export type ChunkView = V2<M.ChunkView>
 export type ClassLevelStats = V2<M.ClassLevelStats>

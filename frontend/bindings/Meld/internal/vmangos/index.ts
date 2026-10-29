@@ -3,10 +3,13 @@
 
 export type {
     AILine,
+    Account,
+    AccountCharacter,
     AnimInfo,
     Area,
     AreaRow,
     AreaTrigger,
+    CharacterRecord,
     CharacterSpot,
     ChunkView,
     ClassLevelStats,
