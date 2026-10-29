@@ -28,7 +28,11 @@ const errorText = () => select.closest('[data-ui="Modal"]')?.querySelector('.err
 const out = { screens: select.options.length, chosen: select.value, lit: +(lit / (px.length / 4)).toFixed(2), size: `${canvas.width}x${canvas.height}`, button: !!button && !button.disabled }
 
 // Picture… for real, into a throwaway copy of the client (#382).
+const App = window.go.main.App
+const list = async () => (await App.LoadingScreens()) ?? []
+const realBefore = await list()
 const sb = await P.sandboxClient()
+const before = await list()
 out.sandbox = sb.dataDir
 const pic = document.createElement('canvas')
 pic.width = pic.height = 256
@@ -37,14 +41,20 @@ g.fillStyle = 'rgb(30, 60, 220)'
 g.fillRect(0, 0, 256, 256)
 const png = await new Promise((r) => pic.toBlob(r, 'image/png'))
 const file = await P.sandboxFile('Meld Probe Screen.png', png)
-const App = window.go.main.App
 const dialog = App.OpenImageDialog
 App.OpenImageDialog = async () => file
 try {
 	picture().click()
 	await P.until(() => errorText() || (picture()?.textContent.trim() === 'Picture…' && select.value !== '142'), 120000, 'Picture… to write the loading screen')
 	out.error = errorText()
-	out.written = { screens: select.options.length, chosen: select.value, name: select.selectedOptions[0]?.textContent }
+	const after = await list()
+	const added = after.filter((a) => !before.some((b) => b.id === a.id))
+	out.written = {
+		listed: [before.length, after.length],
+		added: added.map((a) => a.name),
+		chosen: select.value,
+		name: select.selectedOptions[0]?.textContent,
+	}
 	// The preview redraws from the written BLP once the list has it.
 	const blue = () => {
 		const c = preview()
@@ -69,7 +79,7 @@ try {
 	await P.frames(1)
 }
 out.ended = await P.endSandbox()
-out.realScreens = ((await App.LoadingScreens()) ?? []).length
+out.realScreens = [realBefore.length, (await list()).length]
 
 out.ok =
 	out.chosen === '142' &&
@@ -77,11 +87,13 @@ out.ok =
 	out.size === '160x120' &&
 	out.button &&
 	!out.error &&
-	out.written.screens === out.screens + 1 &&
+	out.written.listed[1] === out.written.listed[0] + 1 &&
+	out.written.added.length === 1 &&
+	out.written.added[0] === out.written.name &&
 	out.written.chosen !== '142' &&
 	/ProbeMap/.test(out.written.name ?? '') &&
 	Array.isArray(out.written.preview) &&
 	out.ended.wasOn &&
 	out.ended.realUnchanged &&
-	out.realScreens === out.screens - 1
+	out.realScreens[0] === out.realScreens[1]
 return out
