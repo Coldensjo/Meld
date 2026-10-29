@@ -6,6 +6,7 @@
 	import { fetchMesh } from '../lib/wow/api'
 	import { ModelAnimation, modelMesh } from '../lib/world/Animator'
 	import { ParticleLayer, PreviewSet } from '../lib/world/ParticleLayer'
+	import { newFrameView } from '../lib/world/frameView'
 	import { prefs } from '../lib/state/editor.svelte'
 	import { spawnType } from '../lib/world/spawnInfo'
 	import { materialsMove, PREVIEW_SPIN, PreviewRenderer } from '../lib/ui/previewRenderer'
@@ -64,8 +65,9 @@
 	const particles = new ParticleLayer(unplaced)
 	particles.light.setRGB(0.95, 0.95, 0.95)
 	scene.add(particles.group)
-	const frustum = new THREE.Frustum()
 	const viewProj = new THREE.Matrix4()
+	// The particles' view: no room, no gate (#563).
+	const frame = newFrameView(camera)
 
 	function drop() {
 		if (mesh) {
@@ -84,9 +86,11 @@
 		animation?.update(now - start)
 		view.place()
 		camera.updateMatrixWorld()
-		frustum.setFromProjectionMatrix(viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
+		frame.frustum.setFromProjectionMatrix(viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
+		frame.dt = dt
+		frame.animMs = prefs.animations === false ? 0 : now - start
 		particles.enabled = prefs.particles !== false
-		particles.update(null, null, dt, prefs.animations === false ? 0 : now - start, camera, frustum)
+		particles.update(frame, null, null)
 		return spinning || animation !== null || moves || (particles.enabled && !!shown && (shown.emitters.length > 0 || shown.ribbons.length > 0))
 	}
 

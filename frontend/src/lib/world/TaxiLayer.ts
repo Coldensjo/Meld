@@ -118,12 +118,14 @@ export class TaxiLayer {
 	}
 
 	/**
-	 * Draws `stops` and `routes` (server coordinates) in the block whose first tile is (tileX, tileY),
-	 * with `pick` highlighted. Only what differs from the last call is redrawn (#588): the Flight Paths
+	 * Draws `stops` and `routes` (server coordinates) in the block whose first tile is `block` (a
+	 * region's; null for a map of its own, whose first tile is 0, 0), with `pick` highlighted. Only what differs from the last call is redrawn (#588): the Flight Paths
 	 * window hands over its whole network on every pick and edit, and after a drag, which the layer
 	 * has drawn already, so a pick redraws the stops or the picked route and a release nothing.
 	 */
-	set(stops: TaxiStopShape[], routes: TaxiRouteShape[], tileX: number, tileY: number, pick: TaxiPick, ground: GroundAt) {
+	set(stops: TaxiStopShape[], routes: TaxiRouteShape[], block: { x: number; y: number } | null, pick: TaxiPick, ground: GroundAt) {
+		const tileX = block?.x ?? 0
+		const tileY = block?.y ?? 0
 		const all = tileX !== this.tileX || tileY !== this.tileY || ground !== this.ground
 		const stopsChanged = all || pick.stop !== this.pick.stop || !sameStops(stops, this.stops)
 		let routesChanged = all || pick.route !== this.pick.route || routes.length !== this.routes.length

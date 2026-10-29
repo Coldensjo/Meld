@@ -1,5 +1,22 @@
 import * as THREE from 'three'
 import { disposeTree } from './disposeTree'
+import type { FrameView } from '../world/frameView'
+
+/** The object the handles stand on (`TransformGizmo.update`). */
+export interface GizmoFit {
+	/** Its origin. */
+	at: THREE.Vector3
+	/** Its footprint's radius. */
+	radius: number
+	/** The height of its top. */
+	top: number
+	/** False hides the scale knob (a WMO is always full size in the client). */
+	scalable: boolean
+	/** The x and z move arrows stand out from the ring, turned by `yaw`. */
+	movable: boolean
+	/** The model's yaw, in local space; 0 along the world axes. */
+	yaw: number
+}
 
 export type GizmoHandle = 'ring' | 'arrow' | 'scale' | 'moveX' | 'moveZ'
 
@@ -156,13 +173,12 @@ export class TransformGizmo {
 	}
 
 	/**
-	 * Position the handles for an object whose origin is at `base`, with a
-	 * footprint `radius` and top at `topY`. `camPos` keeps them a sensible
-	 * on-screen size and puts the scale knob at the camera's right; `scalable`
-	 * false hides the knob (a WMO is always full size in the client). With `movable` the x and z move
-	 * arrows stand out from the ring, turned by `yaw` (the model's, in local space; 0 along the world axes).
+	 * Positions the handles for the object `fit` describes. The view's eye (`view.viewEye`) keeps them
+	 * a sensible on-screen size and puts the scale knob at the camera's right.
 	 */
-	update(base: THREE.Vector3, radius: number, topY: number, camPos: THREE.Vector3, scalable: boolean, movable = false, yaw = 0) {
+	update(view: Pick<FrameView, 'viewEye'>, fit: GizmoFit) {
+		const { at: base, radius, top: topY, scalable, movable, yaw } = fit
+		const camPos = view.viewEye
 		this.group.visible = true
 		const camDist = camPos.distanceTo(base)
 		const r = Math.max(1, radius)

@@ -3,7 +3,7 @@ import { ui } from '../state/editor.svelte'
 import type { Terrain } from '../terrain/Terrain'
 import type { MapDocument } from './MapDocument'
 import type { ClientSky, Environment } from './Environment'
-import { CloudDome } from './CloudDome'
+import { CloudDome, type CloudSky } from './CloudDome'
 import { fileFrameOffset } from './MapIdentity'
 import { setLiquidLight } from '../water/liquidMaterial'
 import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
@@ -60,6 +60,8 @@ export class ClientLighting {
 	private celestialOut = [0, 1, 0]
 	private moonOut = [0, 1, 0]
 	private offset = { x: 0, y: 0 }
+	/** The clouds' sky, refilled each frame. */
+	private cloudSky: CloudSky = { light: this.lightOut, minute: 0, sunDir: this.celestialOut, moonDir: this.moonOut, on: false, storm: 0 }
 	private sky: ClientSky = {
 		colors: this.lightOut.colors,
 		skyAt: BAND.skyTop * 3,
@@ -150,7 +152,11 @@ export class ClientLighting {
 		env.setClientSky(sky, time)
 		const dt = Math.min(0.1, Math.max(0, time - this.cloudsAt))
 		this.cloudsAt = time
-		this.clouds.update(dt, light, minute, this.celestialOut, this.moonOut, cam, clouds, storm)
+		const cs = this.cloudSky
+		cs.minute = minute
+		cs.on = clouds
+		cs.storm = storm
+		this.clouds.update(dt, cam, cs)
 		s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
 		s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
 		s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)

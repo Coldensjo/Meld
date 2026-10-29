@@ -26,6 +26,18 @@ asset directly from one instance. This source trace is not a measured GPU memory
 `lod.test.ts` exercises simplification; native model-worker/resource probes in the
 [rendering recipes](../tests/rendering.md) remain separate, unexecuted evidence here.
 
+## The frame's view
+
+The per-frame layer updates (`ParticleLayer`, `GroundEffectLayer`, `WeatherLayer`, `SpawnLabels`,
+`NavPreview`, `TransformGizmo`) take the Engine's one `FrameView` (`world/frameView.ts`, #563) first,
+and their own inputs after it, as an options object where several numbers would otherwise sit side
+by side (`GroundEffectInput`, `NavInput`, `GizmoFit`). `Engine.fillFrameView` fills it at the start
+of `simulate`, once the camera has stopped moving (the camera, `eye`, `viewEye`, the target, the
+clocks, the view's size), and `cullInstances` adds the room's gate, `gateAdmits` and `roomId`, so a
+layer updated before the cull (`NavPreview`) must not read those. Each layer types its parameter as a
+`Pick` of the fields it reads, so a test or the creature preview passes only those. The view and the
+options objects are reused: nothing is allocated per frame.
+
 ## Detailed object reference
 
 Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms), and model animation, lights, flames, particles and ribbons.

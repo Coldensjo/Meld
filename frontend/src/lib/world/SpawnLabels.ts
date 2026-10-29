@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { vmangos } from '../wails/models'
 import { levelText, rankName } from './spawnInfo'
 import { SPAWN_COLORS, type SpawnKind, type SpawnLayer } from './SpawnLayer'
+import type { FrameView } from './frameView'
 
 // Names over the spawns, as the game draws them over heads (#125): the name in the kind's colour,
 // the subname in angle brackets, and a creature's level and rank. Only the nearest spawns among those
@@ -117,9 +118,10 @@ export class SpawnLabels {
 
 	/**
 	 * Picks the labelled spawns when it is time (or the spawns changed), then puts each label over
-	 * its spawn. Call after the frame's cull, with the camera that drew it.
+	 * its spawn. Call after the frame's cull, with the view of the camera that drew it.
 	 */
-	update(layer: SpawnLayer, camera: THREE.Camera, eye: THREE.Vector3, width: number, height: number, dt: number) {
+	update(view: Pick<FrameView, 'camera' | 'eye' | 'width' | 'height' | 'dt'>, layer: SpawnLayer) {
+		const { camera, eye, width, height, dt } = view
 		if (!this.enabled) {
 			if (this.bySpawn.size) this.release()
 			return

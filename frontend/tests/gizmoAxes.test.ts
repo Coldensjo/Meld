@@ -9,7 +9,8 @@ test("the move arrows point along the world axes, or along a model's own turned 
 	const base = new THREE.Vector3(10, 0, 10)
 	const eye = new THREE.Vector3(10, 50, 60)
 	const v = new THREE.Vector3()
-	g.update(base, 2, 4, eye, true, true, 0)
+	const view = { viewEye: eye }
+	g.update(view, { at: base, radius: 2, top: 4, scalable: true, movable: true, yaw: 0 })
 	assert.deepEqual(
 		g
 			.axisDir('moveX', v)
@@ -25,7 +26,7 @@ test("the move arrows point along the world axes, or along a model's own turned 
 		[0, 0, 1],
 	)
 	// A model turned a quarter turn (yaw +90°, as three turns about y): its x points to -z, its z to +x.
-	g.update(base, 2, 4, eye, true, true, Math.PI / 2)
+	g.update(view, { at: base, radius: 2, top: 4, scalable: true, movable: true, yaw: Math.PI / 2 })
 	assert.deepEqual(
 		g
 			.axisDir('moveX', v)

@@ -78,8 +78,7 @@ export class TaxiEditing {
 				return id === null ? null : TaxiNetwork(id)
 			},
 			apply: (doc, n) => {
-				const reg = doc.meta.region
-				this.layer.set(n?.nodes ?? [], n?.routes ?? [], reg?.x ?? 0, reg?.y ?? 0, NO_PICK, this.ground)
+				this.layer.set(n?.nodes ?? [], n?.routes ?? [], doc.meta.region, NO_PICK, this.ground)
 			},
 			failed: (err) => setStatus(`Show › Flight paths: the map's flight paths could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 		})
@@ -99,8 +98,7 @@ export class TaxiEditing {
 	show(stops: TaxiStopShape[], routes: TaxiRouteShape[], pick: TaxiPick, hooks: TaxiHooks) {
 		this.hooks = hooks
 		this.overlay.edited = true
-		const r = this.host.doc.meta.region
-		this.layer.set(stops, routes, r?.x ?? 0, r?.y ?? 0, pick, this.ground)
+		this.layer.set(stops, routes, this.host.doc.meta.region, pick, this.ground)
 	}
 
 	/** The Flight Paths window closed: Show › Flight paths reads the map's stops again (they may have been saved). */

@@ -3,6 +3,21 @@ import type { LightAt } from '../wow/clientLight'
 import { CloudKernel, COLS, domeMesh, type CloudFrame } from '../wow/clouds'
 import { cloudGlowIsSun, cloudGlowTrack } from '../wow/dayNight'
 
+/** The sky the clouds are drawn under (`CloudDome.update`). */
+export interface CloudSky {
+	/** The client's light at the camera. */
+	light: LightAt
+	/** The game minute. */
+	minute: number
+	/** The client's visible sun and moon, which the clouds glow toward. */
+	sunDir: ArrayLike<number>
+	moonDir: ArrayLike<number>
+	/** Lighting › Clouds. */
+	on: boolean
+	/** The weather's storm blend (0 clear). */
+	storm: number
+}
+
 /** The light's cloud density, float band 3. */
 const CLOUD_DENSITY = 3
 /** The light's cloud colour bands: the sun glow, the slope and the base. */
@@ -83,11 +98,11 @@ export class CloudDome {
 	}
 
 	/**
-	 * Per frame while the client's sky shows: advances the clouds by dt seconds under `light` at game
-	 * `minute`, toward the sun or the moon (`sunDir`, `moonDir`, the client's visible bodies), around
-	 * the camera at `eye`. `on` is Lighting › Clouds; `storm` the weather's storm blend (0 clear).
+	 * Per frame while the client's sky shows: advances the clouds by dt seconds under `sky`'s light,
+	 * around the camera at `eye`.
 	 */
-	update(dt: number, light: LightAt, minute: number, sunDir: ArrayLike<number>, moonDir: ArrayLike<number>, eye: THREE.Vector3, on: boolean, storm = 0) {
+	update(dt: number, eye: THREE.Vector3, sky: CloudSky) {
+		const { light, minute, sunDir, moonDir, on, storm } = sky
 		this.mesh.visible = on
 		if (!on) return
 		this.mesh.position.copy(eye)

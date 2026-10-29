@@ -107,17 +107,18 @@ function world() {
 		ndc.set(q.x, q.y)
 	}
 	/** Puts the handles where the Engine would for the selection: round the model, the group's pivot or the spawn. */
+	const view = { viewEye: camera.position }
 	const place = () => {
 		const sel = editor.selectedIds.map((id) => objects.objects.get(id)!)
 		if (sel.length > 1) {
 			const p = host.selectionPivot(sel)
-			gizmo.update(new THREE.Vector3(p.x, 6, p.z), 10, 10, camera.position, true, true, 0)
+			gizmo.update(view, { at: new THREE.Vector3(p.x, 6, p.z), radius: 10, top: 10, scalable: true, movable: true, yaw: 0 })
 		} else if (sel.length === 1) {
 			const at = objects.worldPosition(sel[0], new THREE.Vector3())
-			gizmo.update(at, 3, at.y + 2, camera.position, true, true, 0)
+			gizmo.update(view, { at, radius: 3, top: at.y + 2, scalable: true, movable: true, yaw: 0 })
 		} else if (editor.selectedSpawn) {
 			const s = editor.selectedSpawn
-			gizmo.update(new THREE.Vector3(s.x, s.y, s.z), 2, s.y + 2, camera.position, false)
+			gizmo.update(view, { at: new THREE.Vector3(s.x, s.y, s.z), radius: 2, top: s.y + 2, scalable: false, movable: false, yaw: 0 })
 		}
 	}
 	return { objects, cubes, spawnLayer, history, gizmo, raycaster, camera, ndc, drag, aim, place }

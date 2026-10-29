@@ -6,6 +6,7 @@ import type { vmangos } from '../wails/models'
 import { spawnKey, type SpawnLayer } from './SpawnLayer'
 import { blendOf, fogOf, litOf, overLife, PARTICLE_FLOATS, ParticlePool, sortQuads, VERTEX_FLOATS, type GroundProbe, type LifeSample, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
+import type { FrameView } from './frameView'
 
 /**
  * How far from the camera an emitter runs, in yards. Beyond it, or out of view, its particles freeze
@@ -349,6 +350,9 @@ function seedOf(key: string, i: number): number {
  * emitter and one trail per ribbon of each, simulated each frame while near and in view
  * (world/particles.ts, world/ribbons.ts), and drawn as one dynamic mesh per material.
  */
+/** What `ParticleLayer.update` reads of the frame's view. */
+export type ParticleView = Pick<FrameView, 'camera' | 'frustum' | 'gate' | 'gateAdmits' | 'roomId' | 'spawnsThroughWalls' | 'dt' | 'animMs'>
+
 export class ParticleLayer {
 	readonly group = new THREE.Group()
 	enabled = true
@@ -359,6 +363,9 @@ export class ParticleLayer {
 	private live = new Map<string, Live>()
 	/** `live`'s entries as an array, for the frame's walk; remade by `rebuild`. */
 	private list: Live[] = []
+	/** The room whose own emitters the gate leaves alone, and their keys' prefix, kept between frames. */
+	private exemptId = -1
+	private exempt = '-1:'
 	private batches = new Map<string, Batch>()
 	private layer: ObjectLayer | null = null
 	private shapeVersion = -1
@@ -524,26 +531,22 @@ export class ParticleLayer {
 		}
 	}
 
-	/** Advances and draws the particles: dt seconds have passed and the models' clock reads `ms`. */
 	/**
-	 * `gate`, with the camera in a WMO room, are its doorways' frustums: an emitter outside them all is
-	 * frozen and hidden, except those of the building itself, the object `gateExempt`, and with
-	 * `spawnsUngated` those of the spawns, which are drawn through walls then. `gateAdmits` lets through
-	 * an emitter standing in a room the flood reached (#156).
+	 * Advances and draws the particles of `layer`'s models and `spawns`: `view.dt` seconds have passed
+	 * and the models' clock reads `view.animMs`. With the camera in a WMO room, an emitter outside the
+	 * view's gate (its doorways' frustums) is frozen and hidden, except those of the building itself
+	 * (`view.roomId`), and with `view.spawnsThroughWalls` those of the spawns, which are drawn through
+	 * walls then. `view.gateAdmits` lets through an emitter standing in a room the flood reached (#156).
 	 */
-	update(
-		layer: ObjectLayer | null,
-		spawns: SpawnLayer | null,
-		dt: number,
-		ms: number,
-		camera: THREE.Camera,
-		frustum: THREE.Frustum,
-		gate: THREE.Frustum[] | null = null,
-		gateExempt = -1,
-		spawnsUngated = false,
-		gateAdmits: ((s: THREE.Sphere) => boolean) | null = null,
-	) {
-		const exempt = `${gateExempt}:`
+	update(view: ParticleView, layer: ObjectLayer | null, spawns: SpawnLayer | null) {
+		const { dt, camera, frustum, gate, gateAdmits } = view
+		const ms = view.animMs
+		const spawnsUngated = view.spawnsThroughWalls
+		if (view.roomId !== this.exemptId) {
+			this.exemptId = view.roomId
+			this.exempt = `${view.roomId}:`
+		}
+		const exempt = this.exempt
 		this.group.visible = this.enabled
 		if (!this.enabled) return
 		const spawnsVersion = spawns?.version ?? -1

@@ -144,7 +144,7 @@ test('TaxiLayer.set redraws only what differs from the last call (#588)', () => 
 		const n = net()
 		edit?.(n)
 		drawn.length = 0
-		L.set(n.stops, n.routes, 36, 49, pick, ground)
+		L.set(n.stops, n.routes, { x: 36, y: 49 }, pick, ground)
 		return [...drawn].filter((d) => d !== 'drawPicked' || !drawn.includes('drawRoutes'))
 	}
 	assert.deepEqual(set({ stop: null, route: 7, point: -1 }), ['drawStops', 'drawRoutes'])
@@ -184,7 +184,7 @@ test('TaxiLayer.set redraws only what differs from the last call (#588)', () => 
 	)
 	// A new block or ground draws everything again.
 	drawn.length = 0
-	L.set(L.stops, L.routes, 37, 49, L.pick, ground)
+	L.set(L.stops, L.routes, { x: 37, y: 49 }, L.pick, ground)
 	assert.ok(drawn.includes('drawStops') && drawn.includes('drawRoutes'))
 	L.dispose()
 })

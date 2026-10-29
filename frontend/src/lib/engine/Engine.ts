@@ -97,7 +97,7 @@ import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, t
 const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
 import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
 import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
-import { blockedCells } from '../world/GroundEffectLayer'
+import { blockedCells, type GroundEffectInput } from '../world/GroundEffectLayer'
 import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
 import { SpawnBrushTool } from '../tools/SpawnBrushTool'
 import { spawnType } from '../world/spawnInfo'
@@ -160,7 +160,7 @@ import { GpuTimer } from './gpuTimer'
 import { updateTerrainOverlays, withOverlaysOff, type OverlayState } from '../terrain/terrainOverlays'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
-import { NavPreview, RANGE as NAV_RANGE, type PathResult, type ServerSource } from '../world/nav/NavPreview'
+import { NavPreview, RANGE as NAV_RANGE, type NavInput, type PathResult, type ServerSource } from '../world/nav/NavPreview'
 import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, publishMoved, selectObjects, selectedObjects, withGroups } from '../state/selection'
@@ -169,8 +169,9 @@ import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { fitHeights, type FitOptions } from '../terrain/fitGround'
 
 import { nearScreenBox } from '../world/screenBox'
-import { TransformGizmo } from './TransformGizmo'
+import { TransformGizmo, type GizmoFit } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
+import { newFrameView, type FrameView } from '../world/frameView'
 import { spawnKey, spawnMatrix } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
@@ -641,8 +642,8 @@ export class Engine {
 	private gizmo = new TransformGizmo()
 	/** The drag of the selection's handles (GizmoDrag.ts). */
 	private gizmoDrag: GizmoDrag
-	/** Where a selected spawn's handles stand (updateSelectionVisuals). */
-	private spawnGizmoAt = new THREE.Vector3()
+	/** Where the handles stand this frame, on the selection or a selected spawn, reused (updateSelectionVisuals). */
+	private gizmoFit: GizmoFit = { at: new THREE.Vector3(), radius: 0, top: 0, scalable: true, movable: false, yaw: 0 }
 	private tmpBox = new THREE.Box3()
 	private otherBox = new THREE.Box3()
 	private tmpV = new THREE.Vector3()
@@ -690,6 +691,8 @@ export class Engine {
 	/** What is in view this frame, for culling the models and spawns (see world/instanceCull.ts). */
 	private cullView: CullView = { frustums: [], spheres: [], eye: new THREE.Vector3(), pxPerUnit: 1, cutoffPx: 0 }
 	private viewFrustum = new THREE.Frustum()
+	/** This frame's view for the per-frame layer updates (#563), filled by `fillFrameView` and the cull. */
+	private frameView: FrameView = newFrameView(this.ortho)
 	private viewProj = new THREE.Matrix4()
 	/** The two shadowed sun lights `cullInstances` walks, set once the environment is built. */
 	private shadowLights: THREE.DirectionalLight[] = []
@@ -1553,7 +1556,7 @@ export class Engine {
 		if (m.on) this.gpu.poll()
 		this.simulate(dt, time)
 		if (m.on) this.shadowPasses.beginFrame()
-		this.draw(dt)
+		this.draw()
 		const calls = this.drawnCalls
 		const triangles = this.drawnTriangles
 		if (m.on) this.shadowPasses.endFrame()
@@ -1608,6 +1611,7 @@ export class Engine {
 		this.updateWorld()
 		this.taxi.updateFlight()
 		this.updateTopDown()
+		this.fillFrameView(dt, time)
 		this.updateEnvironment(dt, time)
 		m.mark(SECTION['Camera and sky'])
 
@@ -1734,8 +1738,8 @@ export class Engine {
 		m.mark(SECTION['Paths and baked shadows'])
 		this.animateModels(time)
 		m.mark(SECTION.Animation)
-		this.updateParticles(dt, time)
-		this.updateWeather(time)
+		this.updateParticles()
+		this.updateWeather()
 		m.mark(SECTION.Particles)
 		this.updateSelectionVisuals()
 		this.updateDoomVisuals()
@@ -1745,15 +1749,39 @@ export class Engine {
 		this.markShadows()
 	}
 
+	/**
+	 * Fills `frameView` for this frame once the camera has stopped moving: the camera and where it
+	 * stands, the clocks and the view's size. The cull adds the room's gate. No allocation.
+	 */
+	private fillFrameView(dt: number, time: number) {
+		const v = this.frameView
+		v.camera = this.camera
+		v.eye.copy(this.camera.position)
+		v.viewEye.copy(this.viewEye())
+		v.target.copy(this.controller.target)
+		v.frustum = this.viewFrustum
+		v.spawnsThroughWalls = this.prefs.spawnsThroughWalls
+		v.topDown = this.topDown
+		v.time = time
+		v.animMs = this.prefs.animations ? time * 1000 : 0
+		v.now = performance.now()
+		v.dt = dt
+		v.width = this.container.clientWidth
+		v.height = this.container.clientHeight
+		const c = this.renderer.domElement
+		v.bufferWidth = c.width
+		v.bufferHeight = c.height
+	}
+
 	/** Draws what `simulate` readied to the canvas: the scene, the spawn labels and the outline passes. */
-	private draw(dt: number) {
+	private draw() {
 		const m = this.meter
 		// The far WMOs' texture layers that came in since the last frame (#691).
 		drawFarLayers()
 		if (m.on) this.gpu.begin(1)
 		this.renderer.render(this.scene, this.camera)
 		m.mark(SECTION['Render (CPU)'])
-		this.spawnLabels.update(this.doc.spawnLayer, this.camera, this.camera.position, this.container.clientWidth, this.container.clientHeight, dt)
+		this.spawnLabels.update(this.frameView, this.doc.spawnLayer)
 		m.mark(SECTION['Spawn labels'])
 		// The counters describe the last render call, so read the scene's before the outline passes.
 		this.drawnCalls = this.renderer.info.render.calls
@@ -1827,6 +1855,10 @@ export class Engine {
 			v.gate = null
 			v.gateAdmits = null
 		}
+		const fv = this.frameView
+		fv.gate = v.gate
+		fv.gateAdmits = v.gateAdmits
+		fv.roomId = this.rooms.current?.id ?? -1
 		this.terrain.gate(v.gate)
 		v.eye.copy(this.camera.position)
 		// Pixels per unit at a distance of one. The top-down camera stands ORTHO_HEIGHT above the ground,
@@ -1874,7 +1906,7 @@ export class Engine {
 	}
 
 	/** Runs the models' particles on the animations' clock, after the bones they ride are posed. */
-	private updateParticles(dt: number, time: number) {
+	private updateParticles() {
 		const p = this.particles
 		p.enabled = this.prefs.particles
 		p.ground = this.particleGround
@@ -1884,18 +1916,7 @@ export class Engine {
 		p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
 		p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
 		// With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
-		p.update(
-			this.objects,
-			this.doc.spawnLayer,
-			dt,
-			this.prefs.animations ? time * 1000 : 0,
-			this.camera,
-			this.viewFrustum,
-			this.cullView.gate ?? null,
-			this.rooms.current?.id ?? -1,
-			this.prefs.spawnsThroughWalls,
-			this.cullView.gateAdmits ?? null,
-		)
+		p.update(this.frameView, this.objects, this.doc.spawnLayer)
 	}
 
 	/**
@@ -2111,6 +2132,8 @@ export class Engine {
 	private navStatus = ''
 	/** Show › Server's mmaps (#240): the open map the server's tiles are read for, reused each frame. */
 	private navSource: ServerSource = { mapId: 0, tileX: 0, tileY: 0 }
+	/** What the walkable-ground view is built from, reused each frame. */
+	private navInput: NavInput | null = null
 
 	/** Builds the walkable-ground view's tiles while it is on, and frees them when it goes off. */
 	private updateNav() {
@@ -2124,7 +2147,7 @@ export class Engine {
 			return
 		}
 		this.navOn = true
-		const now = performance.now()
+		const now = this.frameView.now
 		const id = this.openMapId()
 		this.nav.group.visible = !this.topDown
 		let source: ServerSource | null = null
@@ -2139,7 +2162,14 @@ export class Engine {
 			source.tileY = m.region ? m.region.y : (m.vmangos?.tileY ?? 0)
 		}
 		if (!this.prefs.navServer) this.updateInnerLift()
-		this.nav.update(this.terrain, this.objects, this.doc.liquids, editor.waterEnabled ? editor.waterLevel : null, this.controller.target, id === null || id <= 1, now, source)
+		const input = (this.navInput ??= { terrain: this.terrain, objects: this.objects, liquids: this.doc.liquids, sea: null, continent: false, server: null })
+		input.terrain = this.terrain
+		input.objects = this.objects
+		input.liquids = this.doc.liquids
+		input.sea = editor.waterEnabled ? editor.waterLevel : null
+		input.continent = id === null || id <= 1
+		input.server = source
+		this.nav.update(this.frameView, input)
 		if (now - this.navStatusAt < 500 || this.navPick) return
 		this.navStatusAt = now
 		const c = this.nav.counts
@@ -2409,14 +2439,13 @@ export class Engine {
 	 * updateRoomGate, on this frame's windows); a room with none in view hides it. The storm light is
 	 * ClientLighting's.
 	 */
-	private updateWeather(time: number) {
+	private updateWeather() {
 		const kind = ui.weather
 		const show = kind !== 'clear' && !this.topDown
 		const r = this.rooms.current
 		const open = !r || this.topDown || (r.nav.groups[r.group]?.flags ?? 0) & SKY_GROUP || (r.across !== null && (r.nav.groups[r.across]?.flags ?? 0) & SKY_GROUP)
 		this.weather.gate(open ? null : this.roomFlood.skyWindows)
-		const c = this.renderer.domElement
-		this.weather.update(kind, WEATHER_GRADE[ui.weatherGrade], this.camera.position, time, this.env.state.horizon, c.width, c.height, this.splashGround, show)
+		this.weather.update(this.frameView, kind, WEATHER_GRADE[ui.weatherGrade], this.env.state.horizon, this.splashGround, show)
 	}
 
 	/**
@@ -4616,7 +4645,14 @@ export class Engine {
 		this.outline.setTerrain(this.terrain)
 		const g = this.selGizmo
 		if (g.on) {
-			this.gizmo.update(g.at, g.radius, g.top, this.viewEye(), g.scalable, true, editor.gizmoLocal ? g.yaw : 0)
+			const fit = this.gizmoFit
+			fit.at.copy(g.at)
+			fit.radius = g.radius
+			fit.top = g.top
+			fit.scalable = g.scalable
+			fit.movable = true
+			fit.yaw = editor.gizmoLocal ? g.yaw : 0
+			this.gizmo.update(this.frameView, fit)
 			// A group's handles work the group as one: no hover cursor from a single model's.
 			if (g.group && this.canvas.style.cursor && !this.gizmoDrag.active) this.canvas.style.cursor = ''
 			return
@@ -4625,7 +4661,14 @@ export class Engine {
 		const s = this.gizmoDrag.selectedSpawn()
 		if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
 			const size = this.tmpBox.getSize(this.tmpV)
-			this.gizmo.update(this.spawnGizmoAt.set(s.x, s.y, s.z), Math.max(size.x, size.z) * GIZMO_MODEL_RADIUS, this.tmpBox.max.y, this.viewEye(), false)
+			const fit = this.gizmoFit
+			fit.at.set(s.x, s.y, s.z)
+			fit.radius = Math.max(size.x, size.z) * GIZMO_MODEL_RADIUS
+			fit.top = this.tmpBox.max.y
+			fit.scalable = false
+			fit.movable = false
+			fit.yaw = 0
+			this.gizmo.update(this.frameView, fit)
 		} else this.gizmo.hide()
 		if (this.canvas.style.cursor && !this.gizmoDrag.active) this.canvas.style.cursor = ''
 	}
@@ -4942,6 +4985,8 @@ export class Engine {
 	private scopedFrom: ScopedEffects | null = null
 	private scopedKey = ''
 	private geKey = ''
+	/** What the tufts are built from, reused each frame. */
+	private geInput: GroundEffectInput | null = null
 	private geDensity = ''
 	private geVersion = -1
 	private gePalette: unknown = null
@@ -5531,11 +5576,19 @@ export class Engine {
 			this.geKey = k + this.scopedKey
 		}
 		const key = this.geKey
+		const input = (this.geInput ??= { palette: editor.palette, own: editor.textureEffects, tables, key, objects: this.objects, frill: 0, scoped: editor.scopedEffects, origin: { x: 0, y: 0 } })
+		input.palette = editor.palette
+		input.own = editor.textureEffects
+		input.tables = tables
+		input.key = key
+		input.objects = this.objects
+		input.frill = frillDensity(density)
+		input.scoped = editor.scopedEffects
 		// The client seeds each chunk's tufts by its place in the client's map: a region's tiles start at its first.
-		const origin = this.tileOrigin(this.doc)
+		tileOrigin(this.doc.meta, input.origin)
 		// Tufts show as far as the fade lets them, which is farther at the corners of a wide view.
 		layer.reach = tuftReach(this.persp.fov, this.persp.aspect)
-		layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, frillDensity(density), editor.scopedEffects, origin.x, origin.y)
+		layer.update(this.frameView, input)
 	}
 
 	/** Keyboard editing of the selected objects applies in the Select and Place tools. */

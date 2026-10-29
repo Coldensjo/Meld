@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { loadTexture } from '../wow/api'
 import { PROBE_ABOVE, roofChunk, WeatherRoof, type SplashGround } from './WeatherRoof'
+import type { FrameView } from './frameView'
 import {
 	effectDensity,
 	MAX_MIST,
@@ -618,12 +619,13 @@ export class WeatherLayer {
 	}
 
 	/**
-	 * Per frame: shows `kind` at `grade` around `eye` at `time` (seconds), the mist in `fog`'s colour;
-	 * `viewWidth` and `viewHeight` are the drawing buffer's size in pixels, `ground` where the drops
-	 * land (their roofs, the splashes and the settled flakes). `show` false (the weather off, the top-down view) hides it all and costs nothing;
-	 * so does a room's gate (`gate`) with no doorway in view.
+	 * Per frame: shows `kind` at `grade` around the view's eye at `view.time` (seconds), sized to the
+	 * drawing buffer, the mist in `fog`'s colour; `ground` is where the drops land (their roofs, the
+	 * splashes and the settled flakes). `show` false (the weather off, the top-down view) hides it all
+	 * and costs nothing; so does a room's gate (`gate`) with no doorway in view.
 	 */
-	update(kind: WeatherKind, grade: number, eye: THREE.Vector3, time: number, fog: THREE.Color, viewWidth: number, viewHeight: number, ground: SplashGround, show: boolean) {
+	update(view: Pick<FrameView, 'eye' | 'time' | 'bufferWidth' | 'bufferHeight'>, kind: WeatherKind, grade: number, fog: THREE.Color, ground: SplashGround, show: boolean) {
+		const { eye, time } = view
 		const density = effectDensity(grade)
 		const counts = weatherCounts(kind, density)
 		const shown = show && (counts.drops > 0 || counts.mist > 0)
@@ -643,7 +645,7 @@ export class WeatherLayer {
 			return
 		}
 		this.eye.copy(eye)
-		this.viewport.value.set(viewWidth, viewHeight)
+		this.viewport.value.set(view.bufferWidth, view.bufferHeight)
 		const clock = time % CLOCK_WRAP
 		if (kind === 'rain') {
 			this.rain ??= this.buildRain()
@@ -682,7 +684,7 @@ export class WeatherLayer {
 			const u = this.snow.material.uniforms
 			u.clock.value = clock
 			u.density.value = density
-			u.pxScale.value = viewHeight / 800
+			u.pxScale.value = view.bufferHeight / 800
 			this.setLead(this.snow, SNOW_BOX[0])
 		}
 		if (this.settled) {
@@ -690,7 +692,7 @@ export class WeatherLayer {
 			if (kind === 'snow') {
 				const u = this.settled.material.uniforms
 				u.clock.value = clock
-				u.pxScale.value = viewHeight / 800
+				u.pxScale.value = view.bufferHeight / 800
 				this.setLead(this.settled, SETTLE_FIELD)
 				this.settled.geometry.setDrawRange(0, this.land(this.settleRing!, settleRate('snow', density), SETTLE_FIELD, SETTLE_LIFT, clock, dt, ground))
 			} else this.clearGround(false, true)

@@ -5,6 +5,7 @@ import { TILE_CHUNKS } from '../wow/format'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import type { ObjectLayer } from './ObjectLayer'
+import type { FrameView } from './frameView'
 import {
 	BlizzardRandomizer,
 	cellTexture,
@@ -13,7 +14,6 @@ import {
 	effectAt,
 	effectFor,
 	hasScopedEffects,
-	noScopedEffects,
 	scatterChunk,
 	TUFT_ALPHA_REF,
 	TUFT_FADE_FAR,
@@ -106,6 +106,26 @@ function tuftMaterial(src: THREE.Material): THREE.Material {
 	return twin
 }
 
+/** What a ground effects build depends on besides the ground and the view (`GroundEffectLayer.update`). */
+export interface GroundEffectInput {
+	/** The map's texture palette. */
+	palette: readonly string[]
+	/** The map's own effect per texture. */
+	own: TextureEffects
+	/** The client's ground effect tables; null while they load, which builds nothing. */
+	tables: GroundEffectTables | null
+	/** Names everything above (and the density and the objects' version), so a change of any redraws. */
+	key: string
+	/** The buildings, under which nothing grows. */
+	objects: ObjectLayer
+	/** The client's cells per chunk (`frillDensity`). */
+	frill: number
+	/** The effects scoped to zones and areas. */
+	scoped: ScopedEffects
+	/** The client tile at the map's north-west corner (a region's first tile, 0 for a map of its own), which seeds each chunk. */
+	origin: { x: number; y: number }
+}
+
 /**
  * Draws the ground effects of one map: the grass tufts, flowers and pebbles the game scatters on
  * each chunk by the texture on top of each cell, placed as the client places them (`scatterChunk`,
@@ -150,24 +170,14 @@ export class GroundEffectLayer {
 	}
 
 	/**
-	 * Keeps the tufts around `eye` current. `key` names everything else the build depends on (the
-	 * palette, the map's own effects and the tables), so a change of any redraws. `frill` is the
-	 * client's cells per chunk (`frillDensity`), and (`tileX`, `tileY`) the client tile at the map's
-	 * north-west corner (a region's first tile, 0 for a map of its own), which seeds each chunk.
+	 * Keeps the tufts around the view's eye (`view.viewEye`) current, rebuilding at most every
+	 * REBUILD_MS of `view.now`. `input.key` names everything else the build depends on, so a change of
+	 * any redraws.
 	 */
-	update(
-		eye: THREE.Vector3,
-		palette: readonly string[],
-		own: TextureEffects,
-		tables: GroundEffectTables | null,
-		key: string,
-		now: number,
-		objects: ObjectLayer,
-		frill: number,
-		scoped: ScopedEffects = noScopedEffects(),
-		tileX = 0,
-		tileY = 0,
-	) {
+	update(view: Pick<FrameView, 'viewEye' | 'now'>, input: GroundEffectInput) {
+		const { tables, key } = input
+		const eye = view.viewEye
+		const now = view.now
 		if (!this.group.visible || !tables) return
 		this.syncTextures()
 		const t = this.terrain
@@ -183,10 +193,13 @@ export class GroundEffectLayer {
 		this.paintVersion = t.paintVersion
 		this.chunkDataVersion = t.chunkDataVersion
 		this.assetsChanged = false
-		this.build(eye, palette, own, tables, objects, frill, scoped, tileX, tileY)
+		this.build(eye, input, tables)
 	}
 
-	private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables, objects: ObjectLayer, frill: number, scoped: ScopedEffects, tileX: number, tileY: number) {
+	private build(eye: THREE.Vector3, input: GroundEffectInput, tables: GroundEffectTables) {
+		const { palette, own, objects, frill, scoped } = input
+		const tileX = input.origin.x
+		const tileY = input.origin.y
 		const t = this.terrain
 		const cs = t.cellSize
 		const cells = t.size

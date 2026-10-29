@@ -28,6 +28,7 @@ import { TileGatherer, adtGroundSpan, adtModelSpan, groupMeets, groupStarts, pla
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
 import { ZERO_POINT } from '../../wow/format'
+import type { FrameView } from '../frameView'
 
 /** How far around the camera's target tiles are built (yd), and how far they are kept. */
 export const RANGE = 160
@@ -100,6 +101,19 @@ interface ServerNavTile {
 	ref: number
 	/** Its Detour data in the WASM heap, which the navmesh reads from while the tile is in it. */
 	data: RecastModule.UnsignedCharArray | null
+}
+
+/** What the walkable-ground view is built from (`NavPreview.update`). */
+export interface NavInput {
+	terrain: Terrain
+	objects: ObjectLayer
+	liquids: LiquidMap
+	/** The sea's level in yards, null for none. */
+	sea: number | null
+	/** Whether the server's settings for maps 0 and 1 apply. */
+	continent: boolean
+	/** The server's movement maps to show instead of the browser's own build, or null. */
+	server: ServerSource | null
 }
 
 /** Where the server's tiles come from: the open map's ID and its first client tile. */
@@ -247,12 +261,15 @@ export class NavPreview {
 	}
 
 	/**
-	 * Builds what the view needs around `focus` this frame, with the map's `liquids` and the sea at
-	 * `sea` yards (null for none). `continent` picks the server's settings for maps 0 and 1. A new
-	 * terrain or object layer (another tab) starts over. With `server` the tiles are the server's
-	 * movement maps for that map instead (#240), and a switch between the two starts over too.
+	 * Builds what the view needs around its target (`view.target`) this frame, from `input`'s ground,
+	 * models and liquids. A new terrain or object layer (another tab) starts over. With `input.server`
+	 * the tiles are the server's movement maps for that map instead (#240), and a switch between the
+	 * two starts over too.
 	 */
-	update(terrain: Terrain, objects: ObjectLayer, liquids: LiquidMap, sea: number | null, focus: THREE.Vector3, continent: boolean, now: number, server: ServerSource | null = null) {
+	update(view: Pick<FrameView, 'target' | 'now'>, input: NavInput) {
+		const { terrain, objects, liquids, sea, continent, server } = input
+		const focus = view.target
+		const now = view.now
 		if (!this.r) {
 			if (!this.loading) {
 				this.loading = true
