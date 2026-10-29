@@ -437,9 +437,13 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   drawn means a neighbour was rewritten: Stormwind's, Goldshire's, Tower of Azora's and Stonecairn
   Lake's soft edges spill over the block's band, which #278's clearing must leave alone. Then Write to
   Client in the throwaway client (#382), and the dialog opened again reads it back: within 0.11 a
-  channel of the generated preview, 1.34 from the client's. Trap: wait for the button to read Working…
-  before waiting for Write to Client again; checked at once, it still reads Write to Client, and
-  closing the dialog then reads the map back before it is written. Also wait for the button to be enabled before the click (#882): a click on the disabled button (`ui.busy` still set after the sandbox switch) does nothing, and the wait for Working… then timed out. To see the
+  channel of the generated preview, 1.34 from the client's. Traps (#882): wait for the button to be enabled
+  before the click (a click on the disabled button, `ui.busy` still set after the sandbox switch, does
+  nothing), then wait on the write itself (the probe swaps `window.go.main.App.WriteWorldMap` for a
+  wrapper that keeps its promise) before waiting for Write to Client again: checked at once, the button
+  still reads Write to Client, and closing the dialog then reads the map back before it is written. Don't
+  wait for the button's Working… label instead: at SwiftShader's 3 FPS the write ends within one frame,
+  so a per-frame `P.until` never sees it, and the probe timed out on both attempts. To see the
   preview, copy the probe into `probes/scratch/`, return `canvas.toDataURL()` and decode it.
 - Dev page, Northshire (Azeroth 32_48): wait for the models, then `ed.ui.dialog = 'worldMap'`. The zone
   list is Elwynn Forest (12), "3471 × 2315 yd · the client's (row 30)", the canvas shows the client's

@@ -51,8 +51,19 @@ out.sandbox = sb.dataDir
 try {
 	// A click on the disabled button (the page still busy after the sandbox switch) does nothing, so click once it is enabled.
 	await P.until(() => button('Write to Client') && !button('Write to Client').disabled, 60000, 'Write to Client to be enabled')
-	button('Write to Client').click()
-	await P.until(() => button('Working…'), 30000, 'Write to Client to start')
+	// Wait on the binding's own call, not on the button's Working… label: at SwiftShader's few frames a
+	// second the write ends within one frame, so a per-frame poll never sees the label (#882).
+	const app = window.go.main.App
+	const writeWorldMap = app.WriteWorldMap
+	let writing = null
+	app.WriteWorldMap = (...args) => (writing = writeWorldMap(...args))
+	try {
+		button('Write to Client').click()
+		await P.until(() => writing !== null, 30000, 'Write to Client to call WriteWorldMap')
+	} finally {
+		app.WriteWorldMap = writeWorldMap
+	}
+	await writing.catch(() => {})
 	await P.until(() => button('Write to Client') && !button('Write to Client').disabled, 240000, 'Write to Client')
 	out.error = grid.parentElement.querySelector('.error')?.textContent ?? ''
 	ui.dialog = null
