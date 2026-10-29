@@ -1,5 +1,5 @@
 // A reference image (#184) on a flat map: drawn over the ground and over the top-down view, dragged in it, turned into zones, heights, textures and the mask, each undone, and kept by the map's save data.
-// touches: frontend/src/lib/terrain/referenceImage.ts, frontend/src/lib/io/referenceLoad.ts, frontend/src/components/ReferenceWindow.svelte
+// touches: frontend/src/lib/terrain/referenceImage.ts, frontend/src/lib/io/referenceLoad.ts, frontend/src/components/ReferenceWindow.svelte, frontend/src/lib/engine/ReferencePlacement.ts
 const e = P.e
 const { editor, ui } = await P.state()
 const { referenceFrom } = await P.app('/src/lib/io/referenceLoad.ts')

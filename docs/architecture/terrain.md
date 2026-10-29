@@ -283,20 +283,21 @@ mask/liquid, image codec or native/game rendering contracts.
   #184): the author's own plan of a zone, a PNG or JPEG of theirs. The map file keeps only its path and
   where it lies (`Header.Reference`, `mapfile.ReferenceImage`: an optional header field, no version
   bump, as the paths' `Header.Paths` (#167, tools.md) is too; `editor.reference`, per map in `DocMeta.reference`, an undo step for every change through
-  `Engine.setReference`). `ReadReferenceImage` returns the file's bytes and the page decodes them
+  `Engine.setReference`; the read, the undo steps, the placing and the conversions live in
+  `engine/ReferencePlacement.ts` over a `ReferenceHost`, and Engine forwards its public names, #558). `ReadReferenceImage` returns the file's bytes and the page decodes them
   (`io/referenceLoad.ts`, at most `REF_MAX_SIDE` 2048 a side) into the pixels the conversions read and
   a texture, held by the document (`MapDocument.referenceImage`, read again when the map opens). On
   the ground the terrain shader drapes it (`refTex` and its place, set each frame by
-  `Engine.updateReference` through `Terrain.setReference`; with it and the shadow maps the shader
+  `ReferencePlacement.update` through `Terrain.setReference`; with it and the shadow maps the shader
   samples 15 textures, one under WebGL2's least guaranteed 16, which ANGLE gives WebView2 on Windows;
   the probe `terrain-cell-tex` counts them); over the view it is an `<img>` over the top-down view
   in `Viewport.svelte`, which Lay on the ground as shown turns into a ground place
   (`Engine.referenceFromScreen`). With Place by dragging (`ui.referenceAdjust`) the top-down view's
-  presses go to `Engine.referencePress`: the image moves, a corner scales it from the opposite one
+  presses go to `ReferencePlacement.press`: the image moves, a corner scales it from the opposite one
   (Shift frees its shape), Ctrl+drag turns it. `terrain/referenceImage.ts` is the arithmetic: the
   image's frame (`refUV`, row 0 toward -z), the drags, its flat colours (`dominantColours`, 5-bit
-  buckets merged within 40 RGB) and the conversions, each one undo step in the Engine
-  (`referenceToHeights`, `referenceToZones`, `referenceToTextures`, `referenceToMask`): brightness to
+  buckets merged within 40 RGB) and the conversions, each one undo step in
+  `engine/ReferencePlacement.ts` (Engine's `referenceToHeights`, `referenceToZones`, `referenceToTextures`, `referenceToMask`): brightness to
   heights under the image (set or add), a zone per colour by a 4x4 vote a chunk, a palette texture per
   colour painted alone (`texturesFromImage`: a chunk keeps the slots its other texels use and a colour
   with no slot left keeps its old paint), and colours into the mask. Transparent pixels and colours
