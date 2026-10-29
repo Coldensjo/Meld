@@ -12,36 +12,15 @@ const POSTS = 'World\\Generic\\Human\\Passive Doodads\\SignPosts\\'
 const FROM = `m2:${POSTS}HumanSignPostPointer01.m2`
 const sign = L.add({ type: FROM, x: 128, z: 128, yOff: 0, rotY: 0.7, scale: 1.3 })
 const barrel = L.add({ type: 'm2:World\\Generic\\Human\\Passive Doodads\\Barrels\\Barrel01.m2', x: 140, z: 128, yOff: 0, rotY: 0, scale: 1 })
-// The right-click menu on the sign, once its model is loaded: a signpost is thin, so the clicks try a
-// grid of spots over its box on the screen until one lands on it.
-const V3 = e.controller.target.constructor
-const Box3 = e.tmpBox.constructor
-let wb = null
-await P.until(() => (wb = L.surfaceBox(sign.id, new Box3())), WAIT, 'the sign model')
-const c = new V3((wb.min.x + wb.max.x) / 2, (wb.min.y + wb.max.y) / 2, (wb.min.z + wb.max.z) / 2)
-await P.lookAt(c, { pitch: 0.15, back: 6 })
-await P.frames(2)
+// The right-click menu on the sign (P.contextMenuOn sweeps spots over a thin model until one lands on it).
 let menu = null
 let seen = 'no menu'
-const lo = { x: 1, y: 1 }
-const hi = { x: 0, y: 0 }
-for (const x of [wb.min.x, wb.max.x])
-	for (const yy of [wb.min.y, wb.max.y])
-		for (const z of [wb.min.z, wb.max.z]) {
-			const q = new V3(x, yy, z).project(e.camera)
-			const sx = (q.x + 1) / 2
-			const sy = (1 - q.y) / 2
-			lo.x = Math.min(lo.x, sx)
-			lo.y = Math.min(lo.y, sy)
-			hi.x = Math.max(hi.x, sx)
-			hi.y = Math.max(hi.y, sy)
-		}
-grid: for (let i = 1; i < 12; i++)
-	for (let j = 1; j < 12; j++) {
-		menu = await P.contextMenu(lo.x + ((hi.x - lo.x) * i) / 12, lo.y + ((hi.y - lo.y) * j) / 12)
-		if (menu) seen = `${menu.title}: ${menu.items.map((it) => it.label ?? '-').join('|')}`
-		if (menu?.items.some((it) => it.label === 'Swap sign…')) break grid
-	}
+try {
+	menu = await P.contextMenuOn(sign.id, { timeout: WAIT })
+	seen = `${menu.title}: ${menu.items.map((it) => it.label ?? '-').join('|')}`
+} catch (err) {
+	seen = String(err.message)
+}
 const menuTitle = menu?.title ?? seen
 ui.contextMenu = null
 sel.selectObjects(L, [sign.id, barrel.id])

@@ -130,6 +130,7 @@ When adding a probe:
 3. Assert an observable outcome, including undo/redo when it edits a map.
 4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene, and
    `tier: manual` for a slow check of a rarely touched path that `--all` should skip (`--touching` still picks it).
+5a. To right-click a placed model, use `await P.contextMenuOn(id)` (#892), not `P.contextMenu` at the screen centre: it waits for the model to load, aims the camera at its box and tries a grid of spots over it until the menu opened is the model's (the click selected it alone). A thin model such as a signpost has air at its box centre, and each missed attempt used to cost a probe timeout (see `sign-swap`).
 5. Find a dialog or component through its F8 `data-ui` attribute, not through aria attributes or text (#415): `P.dialog(heading)`
    finds a Modal by `[data-ui="Modal"] header h2`, and a bare dialog is `[data-ui="Modal"]`. Accessibility work moves `aria-*`
    (#369 broke the Zones dialog checks now in `weather`); `data-ui` is the component's name. Only a root element carries it, so an inner control

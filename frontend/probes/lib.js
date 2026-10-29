@@ -117,6 +117,46 @@ const P = {
 		return ui.contextMenu
 	},
 
+	/**
+	 * Right-clicks the placed model `id` (of `ObjectLayer`, `layer` defaults to the active document's)
+	 * wherever its mesh is on screen (#892): waits for it to load (`surfaceBox`), aims the camera at its
+	 * box, then right-clicks a grid of spots over its projected box until the menu that opens is the
+	 * model's (the click selected it alone). A thin model (a signpost) has air at its box centre, so one
+	 * click at the centre often misses. Returns `ui.contextMenu`; throws naming the last menu seen.
+	 */
+	async contextMenuOn(id, { layer = window.__engine.objects, timeout = 60_000, pitch = 0.15, back = 6, steps = 12 } = {}) {
+		const e = window.__engine
+		const V3 = e.controller.target.constructor
+		const Box3 = e.tmpBox.constructor
+		const { ui, editor } = await P.state()
+		const sel = await P.app('/src/lib/state/selection.ts')
+		let wb = null
+		await P.until(() => (wb = layer.surfaceBox(id, new Box3())), timeout, `model ${id} to load`)
+		await P.lookAt(new V3((wb.min.x + wb.max.x) / 2, (wb.min.y + wb.max.y) / 2, (wb.min.z + wb.max.z) / 2), { pitch, back })
+		await P.frames(2)
+		const lo = { x: 1, y: 1 }
+		const hi = { x: 0, y: 0 }
+		for (const x of [wb.min.x, wb.max.x])
+			for (const y of [wb.min.y, wb.max.y])
+				for (const z of [wb.min.z, wb.max.z]) {
+					const q = new V3(x, y, z).project(e.camera)
+					lo.x = Math.min(lo.x, (q.x + 1) / 2)
+					lo.y = Math.min(lo.y, (1 - q.y) / 2)
+					hi.x = Math.max(hi.x, (q.x + 1) / 2)
+					hi.y = Math.max(hi.y, (1 - q.y) / 2)
+				}
+		let seen = 'no menu'
+		for (let i = 1; i < steps; i++)
+			for (let j = 1; j < steps; j++) {
+				ui.contextMenu = null
+				sel.selectObjects(layer, [])
+				const menu = await P.contextMenu(lo.x + ((hi.x - lo.x) * i) / steps, lo.y + ((hi.y - lo.y) * j) / steps)
+				if (menu) seen = `${menu.title}: ${menu.items.map((it) => it.label ?? '-').join('|')}`
+				if (menu && editor.selectedIds.length === 1 && editor.selectedIds[0] === id) return menu
+			}
+		throw new Error(`P.contextMenuOn: no spot over model ${id} opened its menu (last: ${seen})`)
+	},
+
 	/** A macrotask without setTimeout's throttling in a hidden page. */
 	tick() {
 		return new Promise((r) => {
