@@ -118,8 +118,13 @@ When adding a probe:
 3. Assert an observable outcome, including undo/redo when it edits a map.
 4. Keep it deterministic. Add `tier: smoke` only for a fast check that needs no heavy scene, and
    `tier: manual` for a slow check of a rarely touched path that `--all` should skip (`--touching` still picks it).
-5. Record how to run it in the appropriate feature-check page below.
-6. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
+5. Find a dialog or component through its F8 `data-ui` attribute, not through aria attributes or text (#415): `P.dialog(heading)`
+   finds a Modal by `[data-ui="Modal"] header h2`, and a bare dialog is `[data-ui="Modal"]`. Accessibility work moves `aria-*`
+   (#369 broke `zones-fit` and `weather`); `data-ui` is the component's name. Only a root element carries it, so an inner control
+   keeps a stable attribute. Keep an aria lookup where the probe is about accessibility (`aria-state`, `dialog-focus`) or the
+   dialog is not a Modal (the editors, labelled by `aria-label`).
+6. Record how to run it in the appropriate feature-check page below.
+7. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
    `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints
    `probe: <name> skipped: <reason>` and lists it under `skipped` in the summary line, apart from `passed`.
 

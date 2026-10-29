@@ -141,7 +141,7 @@ editor.smoothArea.mode = 'smooth'
 ui.dialog = 'smoothArea'
 await P.frames(2)
 const select = document.querySelector('#smooth-mode')
-const box = select?.closest('[role="dialog"], .modal') ?? select?.parentElement?.parentElement?.parentElement
+const box = select?.closest('[data-ui="Modal"]') ?? select?.parentElement?.parentElement?.parentElement
 const modal = () => box ?? document.body
 const modes = select ? [...select.options].map((x) => x.value) : []
 if (select) {

@@ -24,7 +24,7 @@ let lit = 0
 for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 30) lit++
 const picture = () => [...document.querySelectorAll('.screen button')].find((b) => /^(Picture|Writing)/.test(b.textContent.trim()))
 const button = picture()
-const errorText = () => select.closest('[role=dialog]')?.querySelector('.error')?.textContent ?? ''
+const errorText = () => select.closest('[data-ui="Modal"]')?.querySelector('.error')?.textContent ?? ''
 const out = { screens: select.options.length, chosen: select.value, lit: +(lit / (px.length / 4)).toFixed(2), size: `${canvas.width}x${canvas.height}`, button: !!button && !button.disabled }
 
 // Picture… for real, into a throwaway copy of the client (#382).

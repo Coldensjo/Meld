@@ -9,7 +9,7 @@ prefs.keymap = {}
 await P.frames(2)
 const r = {}
 const press = (target, key, init = {}) => target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }))
-const row = (id) => document.querySelector(`[role="dialog"] tr[data-row="${id}"]`)
+const row = (id) => document.querySelector(`[data-ui="Modal"] tr[data-row="${id}"]`)
 
 ui.dialog = 'hotkeys'
 await P.frames(3)
@@ -39,7 +39,7 @@ await P.frames(2)
 press(row('camForward').querySelector('.capture'), 'i', { code: 'KeyI' })
 await P.frames(2)
 r.cameraKeys = cmds.CAMERA_KEYS.camForward.join() === 'KeyI'
-r.inspectorLeft = cmds.keysOf('inspector') === '' && /moved here/.test(document.querySelector('[role="dialog"] .note')?.textContent ?? '')
+r.inspectorLeft = cmds.keysOf('inspector') === '' && /moved here/.test(document.querySelector('[data-ui="Modal"] .note')?.textContent ?? '')
 
 // A reserved key is refused.
 row('grid').querySelector('.add').click()
@@ -74,7 +74,7 @@ const sculptBtn = document.querySelector('.toolbar button[aria-label="Sculpt Ter
 r.toolbarKey = sculptBtn?.textContent.trim() === 'L'
 ui.dialog = 'shortcuts'
 await P.frames(3)
-const gridRow = [...document.querySelectorAll('[role="dialog"] tbody tr')].find((tr) => tr.textContent.includes('Toggle grid'))
+const gridRow = [...document.querySelectorAll('[data-ui="Modal"] tbody tr')].find((tr) => tr.textContent.includes('Toggle grid'))
 r.shortcutsDialog = gridRow?.querySelector('kbd')?.textContent.trim() === 'G / Ctrl+K'
 
 // The camera flies on I now, and no longer on W.
@@ -114,7 +114,7 @@ r.xDeletes = !exists()
 // Reset all.
 ui.dialog = 'hotkeys'
 await P.frames(3)
-;[...document.querySelectorAll('[role="dialog"] footer button')].find((b) => b.textContent.trim() === 'Reset all').click()
+;[...document.querySelectorAll('[data-ui="Modal"] footer button')].find((b) => b.textContent.trim() === 'Reset all').click()
 await P.frames(2)
 r.resetAll = Object.keys(prefs.keymap).length === 0 && cmds.CAMERA_KEYS.camForward.join() === 'KeyW' && cmds.keysOf('grid') === 'G' && cmds.keysOf('tool:sculpt') === '2'
 ui.dialog = null

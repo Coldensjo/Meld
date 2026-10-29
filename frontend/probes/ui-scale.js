@@ -44,7 +44,7 @@ await P.frames(2)
 ui.prefsPage = 'general'
 ui.dialog = 'preferences'
 await P.frames(3)
-const prefsDlg = document.querySelector('[role="dialog"]')
+const prefsDlg = document.querySelector('[data-ui="Modal"]')
 const pr = prefsDlg?.getBoundingClientRect()
 r.prefsFits = !!pr && pr.top >= -1 && pr.bottom <= innerHeight + 1 && pr.right <= innerWidth + 1
 r.menuHasSize = [...(document.querySelector('#pref-uiScale')?.options ?? [])].some((o) => o.textContent.includes('150 %'))

@@ -30,7 +30,7 @@ try {
 					return [b.x + b.width / 2, b.y + b.height / 2]
 				})(),
 			)
-			?.closest('[role=dialog]') === ask
+			?.closest('[data-ui="Modal"] .dialog') === ask
 	press('Escape')
 	await P.frames(2)
 	r.closedOnEsc = !P.dialog('Delete stack')

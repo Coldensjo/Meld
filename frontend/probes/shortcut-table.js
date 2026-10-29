@@ -56,7 +56,7 @@ if (document.querySelector('.menubar .dropdown')) press('Escape')
 // The Shortcuts dialog lists every row.
 ui.dialog = 'shortcuts'
 await P.frames(3)
-const rows = document.querySelectorAll('[role="dialog"] tbody tr').length
+const rows = document.querySelectorAll('[data-ui="Modal"] tbody tr').length
 ui.dialog = null
 r.dialogRows = rows === cmds.SHORTCUTS.length
 await P.frames(2)

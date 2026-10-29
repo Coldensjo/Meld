@@ -54,15 +54,13 @@ const P = {
 		return await window.go.main.App.SandboxWriteFile(name, btoa(bin))
 	},
 
-	/** The open dialog with this accessible name: `aria-label`, or the text of its `aria-labelledby` heading (Modal, #369). Null when none. */
+	/**
+	 * The open Modal dialog with this heading, found through the F8 `data-ui="Modal"` attribute and its `h2`, not through aria
+	 * attributes, which accessibility work moves (#415, after #369 broke zones-fit). Returns the `.dialog` element; null when none.
+	 */
 	dialog(name) {
-		return (
-			[...document.querySelectorAll('[role=dialog]')].find((d) => {
-				if (d.getAttribute('aria-label') === name) return true
-				const id = d.getAttribute('aria-labelledby')
-				return !!id && document.getElementById(id)?.textContent.trim() === name
-			}) ?? null
-		)
+		const h = [...document.querySelectorAll('[data-ui="Modal"] header h2')].find((e) => e.textContent.trim() === name)
+		return h?.closest('.dialog') ?? null
 	},
 
 	/** An app module by path, through the URL the page loaded it from (a bare path gives a second copy). */

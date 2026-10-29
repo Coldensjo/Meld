@@ -3,7 +3,7 @@
 // tier: smoke
 const { ui, prefs, wow } = await P.state()
 const r = {}
-const dlg = () => document.querySelector('[role="dialog"]')
+const dlg = () => document.querySelector('[data-ui="Modal"]')
 const rows = () => [...(dlg()?.querySelectorAll('[data-pref]') ?? [])].map((el) => el.dataset.pref)
 const pageButton = (name) => [...(dlg()?.querySelectorAll('nav .page') ?? [])].find((b) => b.textContent.trim() === name)
 const titles = () => [...document.querySelectorAll('.menubar .menu > .title')]
