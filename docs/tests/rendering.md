@@ -555,15 +555,17 @@ storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|Cl
   fog's own colour, so with the camera high over fogged ground it is invisible; the probe lowers it.
 - In the game: Save a chance, `.reload game_weather` (or restart the world server), then a GM's
   `.wchange <type> <grade>` (1 rain, 2 snow, 3 storm) forces the weather to compare with the preview.
-- Splashes, wind and doorways (#244): `bun run probe weather-wind` (about 40 s) on the bench scene:
-  heavy rain's splashes land on open ground west of Stormwind (this frame's, all on the terrain or a
+- Splashes, wind and doorways (#244, split in three by #420, each about 20 s on the bench scene):
+  `bun run probe weather-splash`: heavy rain's splashes land on open ground west of Stormwind (this frame's, all on the terrain or a
   model, none under it, and they change pixels; the live ones, born within their 0.25 s), heavy snow's settled flakes (#316) do the same there
-  (none under the ground, the splashes emptied, and none left once it rains), a camera stepped 2 yd a frame along +X leads the
-  rain's box along +X and tips the streaks' tails that way, and both settle when it stops (read after 4 frames and 0.3 s, twice the
-  wind's 149 ms window); the rain
-  shows whole on the Trade District's street (group 49, 0x40) with splashes on Stormwind's models, none under the terrain,
-  and from SI:7 (group 113) only while its door is in view, where the same frame with and without
-  the weather differs in the doorway and not on the wall; and (#315) from the street 6 yd outside the
+  (none under the ground, the splashes emptied, and none left once it rains).
+  `bun run probe weather-wind`: a camera stepped 2 yd a frame along +X leads the rain's box along +X and tips the streaks' tails that way,
+  and both settle when it stops (read after 4 frames and 0.3 s, twice the wind's 149 ms window); the arithmetic itself is in
+  `tests/weather.test.ts`, the probe only checks the layer applies it.
+  `bun run probe weather-roof`: the rain shows whole on the Trade District's street (group 49, 0x40) with splashes on Stormwind's models,
+  none under the terrain, and from SI:7 (group 113) only while its door is in view, where the same frame with and without
+  the weather differs in the doorway and, on the room's wall, by no more than the noise floor (two shots of the same dry frame, 0.2 % slack,
+  as wmo-cull does; the old exact zero failed on any swaying tree); and (#315) from the street 6 yd outside the
   shop's way out (group 118's portal onto group 122), over 80% of the shop's cells are roofed over its
   floor and the same frames drawn with the roof grid emptied have more drops in the doorway. Unit tests:
   `tests/weather.test.ts` (the wind's window, lead and tilt, the splash and settled-flake rates),
