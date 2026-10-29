@@ -764,6 +764,9 @@ batches join a cube face or the near cascade).
   a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
   until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
   (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
+  The probe loads both maps with `P.loadBenchMap` (no perf windows: 9 s on the GPU, a minute or so on SwiftShader against
+  about 4 min with `P.benchMap`) and counts a window of six frames again, up to three times, when a late spawn made
+  one of them a full redraw (#392/#393); the counts stay exact. `shadow-sun-drift` only reports its pixel diff.
 - The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
   sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
   light follows the live sun. The probe steps the hour (`e.debug.setHour`) by 0.0005 a frame with the clock frozen and

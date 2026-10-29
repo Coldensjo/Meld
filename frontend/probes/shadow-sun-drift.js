@@ -1,10 +1,10 @@
 // #366: between redraws of the near sun shadow map (held while the sun turns under 0.1°, #324), its
 // lookup matrix stays the one the map was drawn with, though the key light follows the live sun for the
 // lighting. Steps the hour a little a frame on a flat map with cubes round the near box, and checks that
-// on every frame without a near redraw the lookup matrix equals the one after the last redraw, and that
-// the view then stays within the threshold of the shot taken just after that redraw. The pixel test is
-// weak (the lighting also turns, and a 0.1° slide is a few texels: mean 0.07 before the fix, 0.03 after),
-// so the matrix is the real check.
+// on every frame without a near redraw the lookup matrix equals the one after the last redraw. The
+// view's pixel comparison with the shot after that redraw is only reported (worstHeld), not checked: it
+// is weak (the lighting also turns, and a 0.1° slide is a few texels: mean 0.07 before the fix, 0.03
+// after), so the matrix is the real check.
 // touches: frontend/src/lib/engine/shadowCascades.ts, frontend/src/lib/engine/Environment.ts
 const e = P.e
 const { prefs } = await P.state()
@@ -68,5 +68,5 @@ try {
 	e.markShadows = mark
 	prefs.dayCycle = wasCycle
 }
-r.ok = r.held > 10 && r.redraws > 0 && r.matrixOff === 0 && r.worstHeld.off <= r.noise.off + 0.001
+r.ok = r.held > 10 && r.redraws > 0 && r.matrixOff === 0
 return r
