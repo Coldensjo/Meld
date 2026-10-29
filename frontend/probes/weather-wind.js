@@ -55,7 +55,8 @@ const bare = await P.shot(() => {
 P.save(withSplash, 'splashes')
 // The live splashes (or settled flakes), born within their 0.25 s (#871: SwiftShader's frames are slower than that, so only
 // this frame's live there, but the GPU's are 10 to 20 ms, a few each): on the ground or a model, never under the ground. Over
-// a hole they land on a model, which may lie under the hole's terrain (a canal, a cellar).
+// a hole, or off the map's terrain (Stormwind's walls past its edge, where `heightAt` gives the edge's height, #872),
+// they land on a model, which may lie under that height (a canal, a cellar).
 const { SPLASH_LIFE, SETTLE_LIFE } = await P.app('/src/lib/wow/weather.ts')
 const landed = (part, name, n, lift, life) => {
 	const a = part.geometry.getAttribute(name).array
@@ -68,7 +69,7 @@ const landed = (part, name, n, lift, life) => {
 		const x = a[i * 4],
 			z = a[i * 4 + 2]
 		const d = a[i * 4 + 1] - lift - e.terrain.heightAt(x, z)
-		if (e.terrain.isHole(x, z)) r.onModels++
+		if (!e.terrain.contains(x, z) || e.terrain.isHole(x, z)) r.onModels++
 		else if (Math.abs(d) < 0.01) r.onTerrain++
 		else if (d > 0) r.onModels++
 		else r.under++
@@ -225,6 +226,7 @@ out.ok =
 	out.street.gate === -1 &&
 	out.street.visible &&
 	out.street.splash.onModels > 0 &&
+	out.street.splash.under === 0 &&
 	out.shopDoor.group === 113 &&
 	out.shopDoor.gate > 0 &&
 	out.shopDoor.visible &&

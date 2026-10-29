@@ -561,7 +561,7 @@ storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|Cl
   (none under the ground, the splashes emptied, and none left once it rains), a camera stepped 2 yd a frame along +X leads the
   rain's box along +X and tips the streaks' tails that way, and both settle when it stops (read after 4 frames and 0.3 s, twice the
   wind's 149 ms window); the rain
-  shows whole on the Trade District's street (group 49, 0x40) with splashes on Stormwind's models,
+  shows whole on the Trade District's street (group 49, 0x40) with splashes on Stormwind's models, none under the terrain,
   and from SI:7 (group 113) only while its door is in view, where the same frame with and without
   the weather differs in the doorway and not on the wall; and (#315) from the street 6 yd outside the
   shop's way out (group 118's portal onto group 122), over 80% of the shop's cells are roofed over its
@@ -580,7 +580,9 @@ storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|Cl
   the GPU's (`PROBE_GPU=1`) are 10 to 20 ms: count a splash or settled flake as live by its age (`Math.fround(clock)`
   minus its birth, the attribute is float32, under `SPLASH_LIFE`), not by being born this frame, and wait for the
   wind by time, not frames, or the GPU run reads a few dozen splashes and a still camera at 90 yd/s. Over a terrain
-  hole a splash lands on the model under it, which may lie below the hole's terrain height: count it on a model. Splashes are
+  hole a splash lands on the model under it, which may lie below the hole's terrain height: count it on a model. So does a splash off the map's
+  terrain (#872: the street's edge reaches past the bench map, `terrain.contains` is false there and `heightAt` gives the
+  edge's height, up to 2 yd over the model it lands on). Splashes are
   tiny (1/6 yd, the shape a third of that) and faint (Mod2x on a grey atlas): at heavy rain about 0.2
   live a square yard, so a view looking down from 2 yd shows few or none; look along the ground.
 
