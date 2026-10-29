@@ -1,5 +1,5 @@
 // A tab switch in the middle of a gizmo drag ends the drag on the tab it began in (#549): the turned model keeps its turn with one undo step in that tab's History, the other tab's History gets nothing, and moves after the switch touch neither tab; the same for a group of two, and a brush-size drag is dropped.
-// touches: frontend/src/lib/engine/TransformGizmo.ts, frontend/src/lib/engine/GizmoDrag.ts, frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/engine/Engine.ts
+// touches: frontend/src/lib/engine/TransformGizmo.ts, frontend/src/lib/engine/GizmoDrag.ts, frontend/src/lib/world/objectCommands.ts, frontend/src/lib/engine/Engine.ts
 const e = P.e
 const { editor } = await P.state()
 const { selectObjects } = await P.app('/src/lib/state/selection.ts')

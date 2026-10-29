@@ -248,7 +248,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   that stops leading, and a deleted creature's rows as member and leader.
 - **Picking spawns on the map** (`ui.spawnPick`, `SpawnActions.startSpawnPick`, `SpawnActions.pickSpawn`): like
   path editing, the Select tool's click on a spawn goes to `pickSpawn` instead of selecting
-  (`ObjectTools` hook), each click one undo step through `spawnsChange` (several spawns, one
+  (`SelectTool` hook), each click one undo step through `spawnsChange` (several spawns, one
   command); `SpawnPickBar.svelte` says what a click does, Esc or Done stops, and selecting another
   spawn ends it. There is no multi-spawn selection: building a formation or pool by clicks stands in
   for "select several, then Make".

@@ -1,5 +1,5 @@
 // The Select tool's gizmo drags (one model's spin ring, height arrow, scale knob and move arrow, a group's ring and arrow, a spawn's ring and arrow) each leave one History step that Undo and Redo restore (#694, #696; the tool's own drags are in tests/toolUndo.test.ts); the spawn part needs the world database.
-// touches: frontend/src/lib/engine/TransformGizmo.ts, frontend/src/lib/engine/GizmoDrag.ts, frontend/src/lib/state/history.ts, frontend/src/lib/state/historyCore.ts, frontend/src/lib/tools/ObjectTools.ts
+// touches: frontend/src/lib/engine/TransformGizmo.ts, frontend/src/lib/engine/GizmoDrag.ts, frontend/src/lib/state/history.ts, frontend/src/lib/state/historyCore.ts, frontend/src/lib/world/objectCommands.ts
 const e = P.e
 const { editor } = await P.state()
 const sel = await P.app('/src/lib/state/selection.ts')

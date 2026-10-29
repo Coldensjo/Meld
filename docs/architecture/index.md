@@ -95,7 +95,7 @@ do not expose Go, filesystem or database access merely to add a map operation.
 2. Register a new ID in state/editor.svelte.ts:ToolId, its instance in Engine.ts's tools map,
    and its toolbar metadata in ui/tools.ts:TOOLS. Add the options UI where appropriate. The
    toolbar and shortcut rows use that metadata; a class alone does not make a tool selectable.
-3. Follow an existing edit from input to history. SculptTool in tools/TerrainTools.ts is a useful
+3. Follow an existing edit from input to history. SculptTool in tools/SculptTool.ts is a useful
    example: BrushTool starts a TerrainStroke on press and finishes/pushes its command on release.
    History.push accepts an **already-applied** command; undo restores the previous state and redo
    restores the result. Capture every changed array/placement and any dependent visual refresh,

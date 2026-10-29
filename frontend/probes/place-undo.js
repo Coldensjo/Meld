@@ -1,5 +1,5 @@
 // Undoing a placement with the cursor still over the model (#719): with the Place tool on a bumpy map and Fit ground on, a click places an 8 yd helper cube with the ground fitted under it in one undo step, and Ctrl+Z (`e.undo()`) takes both away while the next frames run without a throw (the preview's surface raycast met the removed model's instance, still in its batch until ObjectLayer.update, and threw every frame, so the view froze until the cursor left it), the ground comes back exactly, and the undo and its first frame take under 100 ms of script.
-// touches: frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/engine/Engine.ts
+// touches: frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/tools/PlaceTool.ts, frontend/src/lib/engine/Engine.ts
 const e = P.e
 const { editor, prefs } = await P.state()
 const { selectObjects } = await P.app('/src/lib/state/selection.ts')

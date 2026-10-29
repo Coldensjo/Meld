@@ -208,7 +208,7 @@ frames running: no throw, no model left, every height back, and the undo with it
 Probe: `place-spawn-size`.
 
 Checks: with a template from the browser's Creatures, NPCs or Objects tab, the Place tool's preview is
-drawn at the size the spawn takes (`placingSpawnScale` in `ObjectTools.ts`: the template's scale times
+drawn at the size the spawn takes (`placingSpawnScale` in `PlaceTool.ts`: the template's scale times
 its display's, an object's `size`), not at 1, Shift+scroll leaves it be, and the clicked spawn's
 `scale` matches. Probe `place-spawn-size` (`bun run probe place-spawn-size`) picks the first object
 and creature templates sized away from 1 on the benchmark scene; needs the world database. The spawn

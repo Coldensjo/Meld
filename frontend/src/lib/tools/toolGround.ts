@@ -2,7 +2,7 @@ import type { ToolContext } from './Tool'
 import { editor } from '../state/editor.svelte'
 import { groundSlopeDeg } from '../world/groundTilt'
 import type { GroundProbe } from './doodadBrush'
-import { textureWeightAt } from './TerrainTools'
+import { textureWeightAt } from './BrushTool'
 import type { Terrain } from '../terrain/Terrain'
 
 // The ground under a brush placement, as the placement rules (`rulesAllow` in doodadBrush.ts) see it,

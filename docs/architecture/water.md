@@ -3,7 +3,7 @@
 ## Editing scope and exchange
 
 Follow the [manual](../MANUAL.md#start-with-generated-ground) for sea versus generated lakes/rivers.
-`WaterTool` in `tools/TerrainTools.ts` paints/removes `LiquidMap` cells through `LiquidStroke`;
+`WaterTool` in `tools/WaterTool.ts` paints/removes `LiquidMap` cells through `LiquidStroke`;
 Dig/Shore instead change terrain relative to the sea level. The texture paint mask is not a liquid
 brush constraint. `maskWand.wandClick` can read sea/painted-liquid coverage to select texture texels;
 it does not modify either liquid representation.

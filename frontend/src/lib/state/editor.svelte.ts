@@ -326,7 +326,7 @@ export const editor = $state({
 })
 
 /**
- * The editor fields the brush tools of TerrainTools.ts read their settings from (`ToolSettings`). A new
+ * The editor fields the brush tools (BrushTool.ts and the tools on it) read their settings from (`ToolSettings`). A new
  * setting read there fails to compile until it is listed here, so the Stamp tool's per-brush copy has it.
  */
 export const TOOL_SETTING_KEYS = [

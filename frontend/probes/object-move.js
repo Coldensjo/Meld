@@ -1,5 +1,5 @@
 // A moved model rewrites only its own instance row (#510): dragging one of 3000 cubes of one type packs nothing again and its drawn row matches it, a sculpt re-snap leaves every drawn row matching its object, and the moved cube is picked where it went.
-// touches: frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/world/instanceBatch.ts, frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/world/instanceCull.ts
+// touches: frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/world/instanceBatch.ts, frontend/src/lib/tools/SelectTool.ts, frontend/src/lib/world/instanceCull.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

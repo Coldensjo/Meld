@@ -1,5 +1,5 @@
 // Drags write the editor's reactive state at most once a frame, not on every pointer move (#448): a model dragged by the Select tool reaches the Inspector's copy (editor.selected) at the next frame, an area drag reaches editor.selection then, a dragged path point reaches editor.paths on release, the Sculpt vertex slope slider records its undo step at most every 100 ms and once more when it rests,, a paint stroke over a full chunk says so once, not every tick, and the viewport hint of a gizmo or brush-size drag is published once a frame (#621).
-// touches: frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/TerrainTools.ts, frontend/src/lib/engine/TransformGizmo.ts, frontend/src/lib/state/editor.svelte.ts
+// touches: frontend/src/lib/tools/SelectTool.ts, frontend/src/lib/tools/PlaceTool.ts, frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/BrushTool.ts, frontend/src/lib/tools/SculptTool.ts, frontend/src/lib/engine/TransformGizmo.ts, frontend/src/lib/state/editor.svelte.ts
 const e = P.e
 const { editor, ui } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

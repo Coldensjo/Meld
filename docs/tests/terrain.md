@@ -284,8 +284,8 @@ Probe: `terrain-cell-tex` (a shape's tint covers its cells, #394); the marching 
 Checks: free-form areas (`terrain/areaShape.ts`, `state/areaSelection.ts`; unit tests in
 `areaShape.test.ts`: the raster, bounds, edge distance, a clip's cells turning with it, a liquid paste
 inside a shape). In the dev page on Northshire, skip the pointer and close an outline directly:
-`s = __engine.debug.tools.select; s.outline = { pts, op: 'replace' | 'add' | 'subtract', polygon: false };
-s.closeOutline(__engine.debug.ctx)`, with `pts` a ring of world x, z pairs around (150, 300). Then
+`s = __engine.debug.tools.select; s.outline.shape = { pts, op: 'replace' | 'add' | 'subtract', polygon: false };
+s.outline.close(__engine.debug.ctx)` (the outline is an `AreaOutline`, `tools/areaOutline.ts`), with `pts` a ring of world x, z pairs around (150, 300). Then
 `editor.selection` is the bounds, `terrain.material.uniforms.selMode` is 3 after a frame, and
 `setHoleInSelection`, `holesInSelection`, `maskFromSelection`, `selectedChunks` and
 `resizeSelection(±1)` follow the cells. Copy and paste: clear the selected models first (Copy prefers

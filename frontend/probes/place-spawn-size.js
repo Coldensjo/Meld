@@ -1,5 +1,5 @@
 // (#673: the spawn also takes the preview's rotation.) Placing a creature or game object template (#672): the Place tool's preview is drawn at the size the spawn takes once placed (the template's scale times its display's, or the object's size), not at the model's own size; Shift+scroll leaves it be.
-// touches: frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/world/spawnInfo.ts, frontend/src/lib/world/SpawnLayer.ts, internal/vmangos/templates_list.go, frontend/src/lib/engine/SpawnActions.ts
+// touches: frontend/src/lib/tools/PlaceTool.ts, frontend/src/lib/world/spawnInfo.ts, frontend/src/lib/world/SpawnLayer.ts, internal/vmangos/templates_list.go, frontend/src/lib/engine/SpawnActions.ts
 await P.scene(P.BENCH)
 const e = P.e
 const { editor, ui } = await P.state()

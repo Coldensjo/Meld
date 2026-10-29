@@ -4,7 +4,7 @@
 // PropEffects.update, ParticleLayer.update and WmoRooms.update during each, for before/after. With View › Bounding boxes on, the
 // drag rewrites the moved box in place and the lines match a full rebuild. Each shadowed light's cube map is redrawn in turn during
 // both (#629), not light 0's every frame: `redraws` counts the frames each light's shadow.needsUpdate was set.
-// touches: frontend/src/lib/world/PropEffects.ts, frontend/src/lib/world/ParticleLayer.ts, frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/tools/TerrainTools.ts
+// touches: frontend/src/lib/world/PropEffects.ts, frontend/src/lib/world/ParticleLayer.ts, frontend/src/lib/tools/SelectTool.ts, frontend/src/lib/tools/PlaceTool.ts, frontend/src/lib/tools/BrushTool.ts, frontend/src/lib/tools/SculptTool.ts
 const { buildBenchMap, benchView, benchMap } = await P.app('/src/lib/bench/benchMaps.ts')
 const { getAsset } = await P.app('/src/lib/models/assets.ts')
 const { prefs, editor } = await P.state()

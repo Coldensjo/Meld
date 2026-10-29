@@ -89,16 +89,19 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
     "Raise selection" and so on. With the falloff off, Raise and Lower make a cliff at the area's
     edge: that is expected, the falloff is what blends.
   - Object tools push `Command`s: `addedCommand` and `removedCommand` (`world/objectCommands.ts`) for
-    models added or removed, `transformCommand` (`tools/ObjectTools.ts`) for a move.
+    models added or removed, `transformCommand` and `groupTransformCommand` (same file) for a move.
   - **Every edit must be undoable** through `History`.
 - **Stamp** (`tools/StampTool.ts`, tool `stamp`, key 0) applies a brush stack (`tools/brushStack.ts`,
   `prefs.brushStacks`, edited in `BrushStackDialog.svelte`): each brush of the stack runs a pooled Sculpt or
   Paint tool on one shared `TerrainStroke` (`useStroke`/`releaseStroke`), one undo step a stroke. The brush
-  tools in `TerrainTools.ts` read their settings from a module binding named `editor`, which
-  `withSettings` points at a brush's own copy of the editor state for the call, so a stack never writes
-  the reactive editor each frame; keep new settings reads in that module going through it. The copy (`copyToolSettings`, `editor.svelte.ts`) holds only the
+  tools (`BrushTool` in `tools/BrushTool.ts`, and `SculptTool`, `PaintTool`, `RoadTool`, `WaterTool`
+  in their own files, with Sculpt's Vertex mode in `tools/vertexMode.ts` and Paint's Swap mode in
+  `tools/swapPaint.ts`) read their settings from `editor`, a live module binding `BrushTool.ts` exports,
+  which `withSettings` (its only writer) points at a brush's own copy of the editor state for the call,
+  so a stack never writes the reactive editor each frame. Those files import `editor` from
+  `./BrushTool`, never from `state/editor.svelte`: a read of the reactive one would miss the swap. The copy (`copyToolSettings`, `editor.svelte.ts`) holds only the
   fields in `TOOL_SETTING_KEYS`, which `ToolSettings` is a `Pick` of: a new `editor.x` read in
-  `TerrainTools.ts` fails to compile until `x` is listed there.
+  those files fails to compile until `x` is listed there.
 - **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint
   lays down textures. A brush (`tools/doodadBrush.ts`, `DoodadBrush`) is a named list of models with
   a weight, scale range, sink and tilt each, plus a spacing (a multiple of the models' footprints).
@@ -151,7 +154,7 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
 
 ## Selection, clipboard & nudging
 
-- **Select tool** (`tools/ObjectTools.ts`, `SelectTool`) does both kinds of selection:
+- **Select tool** (`tools/SelectTool.ts`, its lasso and polygon in `tools/areaOutline.ts`; the Place tool is `tools/PlaceTool.ts`) does both kinds of selection:
   - A click on a model selects it, Shift+click adds or removes one, and a drag moves the whole
     selection (the clicked model leads, the others keep their offsets).
   - A drag on the ground selects an **area**, `editor.selection` in cell/vertex coordinates, and
@@ -181,7 +184,7 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
     `SelectTool.publishRect` puts it in `editor.selection` from `frame` and `onUp`. The Path tool drags
     a point in a plain copy of the paths (`drag.paths`, drawn by its view) and puts it in `editor.paths`
     on release. Sculpt's vertex slope lays the heights each frame its slider moves but records its undo
-    step at most every 100 ms and once when the slider rests (`recordOrient`), and a paint stroke over a
+    step at most every 100 ms and once when the slider rests (`VertexMode.recordOrient`, `tools/vertexMode.ts`), and a paint stroke over a
     full chunk shows its message once a stroke (`BrushTool.chunkFull`).
 - **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, holes, splat texels plus the
   source slot texture paths, and objects relative to the corner. `pasteRegion` remaps texture

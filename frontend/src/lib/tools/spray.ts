@@ -1,5 +1,5 @@
 // Spray painting, after noggit3's World::sprayTexture: while the button is held, small paint dabs land at
-// random points inside the brush circle. Kept apart from TerrainTools so it can be tested on its own.
+// random points inside the brush circle. Kept apart from PaintTool so it can be tested on its own.
 
 /** Width of one 1.12 alpha-map texel in world units: a chunk is 100/3 yards and 64 texels across. */
 const ALPHA_TEXEL = 100 / 3 / 64
