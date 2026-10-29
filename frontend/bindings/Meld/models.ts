@@ -34,6 +34,23 @@ export interface AreaTriggerList {
 }
 
 /**
+ * AssetsImported is what ImportOtherAssets did (wow.ImportPlan, less the files): the assets copied,
+ * those the current client has already and those refused, the needed files kept as the current
+ * client has them and those neither client has, how many files and bytes it wrote, and whether they
+ * wait for the game to close before the patch has them.
+ */
+export interface AssetsImported {
+    "imported": string[] | null;
+    "present": string[] | null;
+    "refused": string[] | null;
+    "kept": string[] | null;
+    "missing": string[] | null;
+    "files": number;
+    "bytes": number;
+    "waiting": boolean;
+}
+
+/**
  * ClientSandbox is the throwaway client StartClientSandbox turned on: its Data folder, and the stamp
  * of the real patch, which EndClientSandbox compares.
  */

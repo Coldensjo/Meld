@@ -116,6 +116,7 @@ const shapes: Record<string, Check> = {
 	doodadBrushes: arr(doodadBrush),
 	brushStacks: arr(obj({ name: str, items: arr(stackItem) })),
 	modelSets: arr(obj({ name: str, models: arr(str) })),
+	otherClients: arr(obj({ name: str, path: str })),
 	spawnBrush,
 	fitGround: obj({ margin: num, falloff: num, mode: oneOf('lower', 'raise', 'both'), holes: bool, reach: num }),
 	prefabVary: obj({ on: bool, turn: num, scale: num, drop: num }),

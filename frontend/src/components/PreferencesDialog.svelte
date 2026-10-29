@@ -199,6 +199,16 @@
 				await refresh()
 			},
 		},
+		{
+			page: 'folders',
+			id: 'otherClients',
+			label: 'Other clients',
+			desc: `Clients to import models and textures from, read only (Tools › Import from Another Client…): ${prefs.otherClients.length ? prefs.otherClients.map((c) => c.name).join(', ') : 'none yet'}.`,
+			kind: 'button',
+			button: 'Edit…',
+			disabled: !hasBackend(),
+			run: () => (ui.dialog = 'otherClient'),
+		},
 
 		// Camera and input.
 		choice(

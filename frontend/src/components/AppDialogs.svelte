@@ -25,6 +25,7 @@
 	import SmoothAreaDialog from './SmoothAreaDialog.svelte'
 	import HotkeyManager from './HotkeyManager.svelte'
 	import PreferencesDialog from './PreferencesDialog.svelte'
+	import OtherClientDialog from './OtherClientDialog.svelte'
 	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
 	import { EquipmentFor } from '../lib/wails/App'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -379,6 +380,8 @@
 	<FolderSetupDialog onclose={close} />
 {:else if ui.dialog === 'preferences'}
 	<PreferencesDialog onclose={close} />
+{:else if ui.dialog === 'otherClient'}
+	<OtherClientDialog onclose={close} />
 {/if}
 
 <!-- Over every other dialog and editor, so it can ask for the one that is open (#581). -->

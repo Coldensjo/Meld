@@ -871,6 +871,7 @@ the same scene, the report before and after.
 - A map's own loading screen (Map Properties › Picture…, #218)
 - World map of a zone (World › World Map, #181; exploration overlays, #219)
 - Icons from PNG files and back, and the Icons tool (#364, #683, probe `icons`)
+- Import from another client (#858, probe `other-client`)
 - Icons beside item, spell and class names (#682, probe `editor-icons`)
 - Money as gold, silver and copper (#679, probe `money-fields`)
 - The creature editor's faction, family, race, AI, mount and mask pickers (#699, probe `creature-pickers`)

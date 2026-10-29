@@ -11,7 +11,7 @@ Open **Edit › Preferences…** (`Ctrl+,` by default). Search there to locate a
 | Page | What to look for |
 | --- | --- |
 | General | Appearance and what the editor keeps, including autosave |
-| Folders | WoW client, VMaNGOS server and optional Benilla folders; projects select their own client |
+| Folders | WoW client, VMaNGOS server and optional Benilla folders (projects select their own client), and the other clients you import models and textures from (Tools › Import from Another Client…) |
 | Camera and input | Camera behavior, tablet input and keyboard shortcuts |
 | Graphics | Quality-related preferences; current rendering controls also live in Graphics and Lighting menus |
 | Compile and export | Map checking and additional compile/export behavior |

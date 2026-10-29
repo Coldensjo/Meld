@@ -101,6 +101,14 @@ Assets stay in your client archives. Thumbnails are generated on demand and cach
 stores asset paths rather than copies, so another installation needs the corresponding assets
 to display it correctly.
 
+To use models and textures from another 1.12 client (a modded or older install), open
+**Tools › Import from Another Client…**, add that client's folder and pick it. Its models,
+buildings and textures show as thumbnails; **Only what this client lacks** hides what your client
+has already. Click thumbnails to choose them and press **Import**: each one is copied into your
+client's `patch-3.MPQ` under the same path, with the textures, building groups and doodads it
+needs, and then appears in the asset browser. Meld only reads the other client, and never replaces
+a file your client already has a different copy of; the result lists any it left out.
+
 ## Tool reference
 
 | Tool | Default key | Use it to |
@@ -404,7 +412,7 @@ For implementation boundaries, use [placed models](architecture/objects.md#loadi
 | Terrain cleanup and shaping | Terrain |
 | Auto-paint and texture replacement | Paint |
 | Doodad brushes, ground effects, zones and lights | World |
-| Creature, game object, quest, item, spell, icon and Lua editors | Tools |
+| Creature, game object, quest, item, spell, icon and Lua editors; importing models and textures from another client | Tools |
 | Heightmaps, watermaps, alphamaps, object lists and minimap images | Import/Export |
 | Grid, reference image, horizon and editor display aids | View |
 | Visible world layers, spawns, routes and navigation display | Show |

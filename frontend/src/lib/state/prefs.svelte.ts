@@ -180,6 +180,8 @@ export function defaultPrefs() {
 		favoriteAssets: [] as string[],
 		/** Preferences › Camera and input › Hotkey Manager (#396): the shortcut rows the user rebound, row id → its keys (lib/ui/commands.ts `Keymap`). Only changed rows; replace it, never edit it in place. */
 		keymap: {} as Record<string, string[]>,
+		/** The other clients Tools › Import from Another Client… imports models and textures from (#858, wow/otherClient.svelte.ts), a name and a folder each. Replace it, never edit it in place. */
+		otherClients: [] as Array<{ name: string; path: string }>,
 		/** The author's model sets (wow/modelSets.ts), shown in the asset browser's Sets tab, and the name of the one shown. */
 		modelSets: [] as ModelSet[],
 		modelSet: '',

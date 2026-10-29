@@ -469,6 +469,29 @@ as `<name>.png` files.
   caches nothing by icon name across a restart, but Meld's own previews do (`forgetIconImages`,
   `forgetSpellIcons` drop them after an import).
 
+## Import from another client (#858, probe `other-client`)
+Checks: Tools › Import from Another Client… opens a second client read-only, shows its models,
+buildings and tilesets as thumbnails drawn from its own files (`/wowx/*`), and copies the chosen ones
+with every file they need into the current client's patch under the same paths.
+- Go: `wow.TestPlanImport` (two temporary clients: a WMO brings its group, its material's texture and
+  its doodad with the doodad's textures; a tileset brings its `_s` twin; a needed texture the current
+  client has a different copy of is kept, a chosen model it has a different copy of is refused, one it
+  has the same is `present`, one the other client lacks refused, a texture neither has `missing`; a
+  client into itself refused). `TestImportOtherAssets` (in the root package: no other client open is
+  an error, the current client's folder can't be opened as the other one, the tileset and its twin
+  land in `patch-3.MPQ`, and a second import finds them present).
+- Probe: `other-client`: the real client is read as the other one while the throwaway client
+  (`P.sandboxClient`) is the current one, so the two hold the same files. Adding the real folder in the
+  dialog opens it; "Only what this client lacks" leaves nothing; unticked, "barrel" lists tiles with the
+  `has` badge and a thumbnail; `fetchMesh` of an `@<id>:` path gives textures with the same prefix that
+  load; importing the chosen tile reports it as one the client has already, nothing is written (the
+  real patch keeps its size and time), and Close closes the other client. About 5 s.
+- Trap: the probe page can't open the current client as the other one (refused), so a probe needs the
+  sandbox on to read the real client beside it. The dev page has no folder dialog: type the folder and
+  press Add.
+- Not checked by the loop: an import of an asset the current client lacks into the real client, then
+  the asset placed on a map and seen in the game (needs a second, different client on the machine).
+
 ## Money as gold, silver and copper (#679, probe `money-fields`)
 
 Checks: the item editor's Buy price for the Worn Shortsword (25, 35 copper) shows three amounts with

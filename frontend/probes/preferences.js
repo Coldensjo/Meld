@@ -112,7 +112,7 @@ r.ok =
 	r.pages.join('|') === 'General|Folders|Camera and input|Graphics|Compile and export|Game' &&
 	r.general.includes('theme') &&
 	r.general.includes('uiScale') &&
-	r.folders.join('|') === 'wowFolder|vmangosFolder|benillaFolder' &&
+	r.folders.join('|') === 'wowFolder|vmangosFolder|benillaFolder|otherClients' &&
 	r.wowPathShown &&
 	r.search.join('|') === 'buildMoveMaps' &&
 	r.searchPagesOff === 5 &&

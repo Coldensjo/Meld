@@ -29,6 +29,7 @@ export const AreaTriggers: Call<AppApi['AreaTriggers']> = (...a) => api().AreaTr
 export const Areas: NonNullCall<AppApi['Areas']> = (...a) => api().Areas(...a) as never
 export const BrowseBenillaFolder: Call<AppApi['BrowseBenillaFolder']> = (...a) => api().BrowseBenillaFolder(...a) as never
 export const BrowseBrushImageFolder: Call<AppApi['BrowseBrushImageFolder']> = (...a) => api().BrowseBrushImageFolder(...a) as never
+export const BrowseOtherClient: Call<AppApi['BrowseOtherClient']> = (...a) => api().BrowseOtherClient(...a) as never
 export const BrowsePrefabFolder: Call<AppApi['BrowsePrefabFolder']> = (...a) => api().BrowsePrefabFolder(...a) as never
 export const BrowseProjectFolder: Call<AppApi['BrowseProjectFolder']> = (...a) => api().BrowseProjectFolder(...a) as never
 export const BrowseVmangosFolder: Call<AppApi['BrowseVmangosFolder']> = (...a) => api().BrowseVmangosFolder(...a) as never
@@ -71,6 +72,7 @@ export const GameWindow: Call<AppApi['GameWindow']> = (...a) => api().GameWindow
 export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api().GroundEffects(...a) as never
 export const ImportIcons: Call<AppApi['ImportIcons']> = (...a) => api().ImportIcons(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
+export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
 export const ImportSpells: NonNullCall<AppApi['ImportSpells']> = (...a) => api().ImportSpells(...a) as never
 export const InstallMapPatch: Call<AppApi['InstallMapPatch']> = (...a) => api().InstallMapPatch(...a) as never
 export const ItemDisplayVariant: Call<AppApi['ItemDisplayVariant']> = (...a) => api().ItemDisplayVariant(...a) as never
@@ -130,10 +132,12 @@ export const OpenImageDialog: Call<AppApi['OpenImageDialog']> = (...a) => api().
 export const OpenItemsDialog: Call<AppApi['OpenItemsDialog']> = (...a) => api().OpenItemsDialog(...a) as never
 export const OpenMapDialog: Call<AppApi['OpenMapDialog']> = (...a) => api().OpenMapDialog(...a) as never
 export const OpenModelSetDialog: NonNullCall<AppApi['OpenModelSetDialog']> = (...a) => api().OpenModelSetDialog(...a) as never
+export const OpenOtherClient: Call<AppApi['OpenOtherClient']> = (...a) => api().OpenOtherClient(...a) as never
 export const OpenProject: Call<AppApi['OpenProject']> = (...a) => api().OpenProject(...a) as never
 export const OpenReferenceImageDialog: Call<AppApi['OpenReferenceImageDialog']> = (...a) => api().OpenReferenceImageDialog(...a) as never
 export const OpenSpellsDialog: Call<AppApi['OpenSpellsDialog']> = (...a) => api().OpenSpellsDialog(...a) as never
 export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().OpenTextDialog(...a) as never
+export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
 export const PlanItemImport: Call<AppApi['PlanItemImport']> = (...a) => api().PlanItemImport(...a) as never
 export const PlanQuestDelete: Call<AppApi['PlanQuestDelete']> = (...a) => api().PlanQuestDelete(...a) as never
 export const PlanSpellImport: Call<AppApi['PlanSpellImport']> = (...a) => api().PlanSpellImport(...a) as never

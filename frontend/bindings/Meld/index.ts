@@ -9,6 +9,7 @@ export {
 export type {
     AreaSaveResult,
     AreaTriggerList,
+    AssetsImported,
     ClientSandbox,
     GameClientInfo,
     GameLoginInfo,

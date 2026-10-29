@@ -211,6 +211,15 @@ export async function clearWowFolder(): Promise<void> {
 
 const lists = new Map<string, Promise<string[]>>()
 
+/**
+ * Reads the client's lists again, as after a client change, for a write that added files to it (an
+ * import from another client, #858): the asset browser and the catalog list them afresh.
+ */
+export function refreshAssetLists() {
+	lists.clear()
+	wow.revision++
+}
+
 /** The client's paths of a kind, read once a client (`sheen`: the tilesets' `_s` twins, #336). */
 export function listAssets(kind: 'm2' | 'wmo' | 'tileset' | 'sheen'): Promise<string[]> {
 	let p = lists.get(kind)
@@ -224,13 +233,29 @@ export function listAssets(kind: 'm2' | 'wmo' | 'tileset' | 'sheen'): Promise<st
 }
 
 /**
+ * A path of the client assets are imported from (#858, `wow/otherClient.svelte.ts`) starts with
+ * `@<id>:`, the id standing for that client's folder: it is fetched from `/wowx/*`, and its textures
+ * and its thumbnails are cached apart from the current client's under the same path. No client path
+ * starts with `@`.
+ */
+const OTHER_PATH = /^@[0-9a-z]+:/
+
+/** `path` as a path of the other client whose id is `id`. */
+export function otherPath(id: string, path: string): string {
+	return `@${id}:${path}`
+}
+
+/**
  * The server URL for a client path. A model path may carry a query after '?' (a spawn's look, see
  * `spawnType`), which goes to the server as it is.
  */
 const url = (endpoint: string, path: string) => {
+	const other = OTHER_PATH.exec(path)
+	const root = other ? '/wowx' : '/wow'
+	if (other) path = path.slice(other[0].length)
 	const q = path.indexOf('?')
-	if (q < 0) return `/wow/${endpoint}?path=${encodeURIComponent(path)}`
-	return `/wow/${endpoint}?path=${encodeURIComponent(path.slice(0, q))}&${path.slice(q + 1)}`
+	if (q < 0) return `${root}/${endpoint}?path=${encodeURIComponent(path)}`
+	return `${root}/${endpoint}?path=${encodeURIComponent(path.slice(0, q))}&${path.slice(q + 1)}`
 }
 
 async function fetchBinary(endpoint: string, path: string): Promise<ArrayBuffer> {
@@ -413,5 +438,21 @@ export async function texturePreview(path: string, size = 64): Promise<string> {
 }
 
 export async function fetchMesh(path: string): Promise<WowMesh> {
-	return parseMesh(await fetchBinary('model', path))
+	const mesh = parseMesh(await fetchBinary('model', path))
+	const other = OTHER_PATH.exec(path)
+	if (other) {
+		// The other client's model maps the other client's textures.
+		const tag = (t: string) => (t ? other[0] + t : t)
+		for (const g of mesh.groups) g.texture = tag(g.texture)
+		const emitters = (list: MeshEmitter[]) => {
+			for (const e of list) {
+				e.texture = tag(e.texture)
+				if (e.geometry) e.geometry = tag(e.geometry)
+				if (e.children) emitters(e.children)
+			}
+		}
+		emitters(mesh.emitters)
+		for (const r of mesh.ribbons) r.texture = tag(r.texture)
+	}
+	return mesh
 }

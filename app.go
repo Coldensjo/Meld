@@ -33,6 +33,8 @@ type App struct {
 	app *application.App
 	win *application.WebviewWindow
 	wow *wow.Client
+	// other is the client assets are imported from (app_otherclient.go, #858), read-only.
+	other *wow.Client
 	// handoffs holds the binary parts of bound replies until the page fetches them (#636).
 	handoffs handoff.Store
 
@@ -76,7 +78,7 @@ type App struct {
 }
 
 func NewApp() *App {
-	a := &App{wow: wow.NewClient(), cfg: config.Load(), debugLog: debugLogOn()}
+	a := &App{wow: wow.NewClient(), other: wow.NewClient(), cfg: config.Load(), debugLog: debugLogOn()}
 	// The asset server previews an icon added while the game ran before the patch has it (#364).
 	a.wow.SetOverlay(a.clientOverlay)
 	// A patch write closes the client's archives for its rename only, and the asset server forgets

@@ -106,6 +106,13 @@ export function BrowseBrushImageFolder(current: string): $CancellablePromise<str
 }
 
 /**
+ * BrowseOtherClient asks for another client's folder. Returns "" if cancelled.
+ */
+export function BrowseOtherClient(): $CancellablePromise<string> {
+    return $Call.ByID(2953115484);
+}
+
+/**
  * BrowsePrefabFolder lets the user pick the folder their prefabs are kept in (#170). Returns "" if cancelled.
  */
 export function BrowsePrefabFolder(current: string): $CancellablePromise<string> {
@@ -425,6 +432,16 @@ export function ImportIcons(paths: string[] | null): $CancellablePromise<$models
  */
 export function ImportItems(path: string): $CancellablePromise<number[] | null> {
     return $Call.ByID(2642875024, path);
+}
+
+/**
+ * ImportOtherAssets copies the other client's assets at paths (models, buildings, tilesets), with
+ * every file each needs, into the current client's patch under the same paths, without closing the
+ * game: at once, or once it has closed (#661). A file the current client has a different copy of is
+ * never replaced (wow.PlanImport).
+ */
+export function ImportOtherAssets(paths: string[] | null): $CancellablePromise<$models.AssetsImported> {
+    return $Call.ByID(3220663819, paths);
 }
 
 /**
@@ -870,6 +887,15 @@ export function OpenModelSetDialog(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * OpenOtherClient opens the client at path read-only as the one to import from, closing the one
+ * open before; "" closes it, freeing what was decoded from it. The current client can't be opened
+ * as the other one.
+ */
+export function OpenOtherClient(path: string): $CancellablePromise<wow$0.Status> {
+    return $Call.ByID(2370619194, path);
+}
+
+/**
  * OpenProject opens the client at client and makes dir the open project, named name: the folder
  * (made if needed) gets its project file and the project goes to the front of the recent list.
  * The client is opened first, so a folder that isn't a client leaves the open project as it was.
@@ -898,6 +924,13 @@ export function OpenSpellsDialog(): $CancellablePromise<string> {
  */
 export function OpenTextDialog(): $CancellablePromise<string> {
     return $Call.ByID(1146260322);
+}
+
+/**
+ * OtherClientStatus is the other client's status: its folder, and whether it is open.
+ */
+export function OtherClientStatus(): $CancellablePromise<wow$0.Status> {
+    return $Call.ByID(1038336184);
 }
 
 /**

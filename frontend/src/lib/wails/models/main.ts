@@ -5,6 +5,7 @@ import type { V2 } from '../v2'
 
 export type AreaSaveResult = V2<M.AreaSaveResult>
 export type AreaTriggerList = V2<M.AreaTriggerList>
+export type AssetsImported = V2<M.AssetsImported>
 export type ClientSandbox = V2<M.ClientSandbox>
 export type GameClientInfo = V2<M.GameClientInfo>
 export type GameLoginInfo = V2<M.GameLoginInfo>

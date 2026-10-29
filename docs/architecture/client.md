@@ -49,6 +49,25 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   reading a file whose size differs.
 
 - The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
+- **Another client's assets** (#858, Tools › Import from Another Client…, `components/OtherClientDialog.svelte`,
+  `lib/wow/otherClient.svelte.ts`, `app_otherclient.go`): a second `wow.Client` (`App.other`), opened
+  read-only by `OpenOtherClient` (refused for the current client's folder) and closed when the dialog
+  closes, so its decoded replies don't sit beside the current client's. `main.go` serves it at `/wowx/*`
+  (its `/wow/*` with the prefix swapped). On the page its paths are written `@<id>:<path>` (`api.ts`
+  `otherPath`, the id a hash of its folder): `url()` sends them to `/wowx`, and `fetchMesh` gives such a
+  model's textures the same prefix, so its textures, materials and thumbnails (`<kind>:@<id>:<path>`,
+  kept in the current client's thumbnail folder) never mix with the current client's of the same path.
+  The clients are `prefs.otherClients` (a name and a folder each; Preferences › Folders › Other clients
+  opens the dialog). `ImportOtherAssets` runs `wow.PlanImport` (`internal/wow/import.go`): each chosen
+  asset's own file and what it names, read from the other client: an M2's hardcoded textures and its
+  particles' geometry and recursion models (vanilla M2s have no `.skin` files), a WMO's groups,
+  materials' textures, doodads of every set and skybox, a tileset's `_s` twin, each walked in turn. A
+  file the current client has the same is skipped; one it has a different copy of is never replaced
+  (the owner's choice A on #858 is a copy into the patch; the loop's rule): a chosen asset whose own
+  file differs is refused, a needed file that differs is kept as it is (`kept`), so nothing the current
+  client already shows changes. A file neither has is reported (`missing`). The files go into Meld's
+  patch through `queueClientFiles` (at once, or once the game has closed, #661), at most 512 MB an
+  import, and the page lists the client again (`refreshAssetLists`) once they are in.
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so
   triangle winding is unchanged. 1 world unit ≈ 1 yard.
 - The 1.12 format's sizes (tile yards, chunks, cells, slots, liquid records, shadow bytes), the

@@ -35,6 +35,8 @@ func main() {
 			// /wow/* is served from the user's local WoW client (see internal/wow).
 			Middleware: func(next http.Handler) http.Handler {
 				wowHandler := app.wow.Handler()
+				// The client assets are imported from (#858) answers at /wowx/* as the current one does at /wow/*.
+				otherHandler := app.other.Handler()
 				// The nav tiles parse the client's files too, so a panic there answers a 500 as well (#487).
 				// With MELD_DEBUG_LOG set, each request goes to the session log too (#626).
 				return app.logRequests(wow.RecoverPanics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +55,12 @@ func main() {
 					}
 					if r.URL.Path == handoff.Path {
 						app.handoffs.ServeHTTP(w, r)
+						return
+					}
+					if rest, ok := strings.CutPrefix(r.URL.Path, otherPrefix); ok {
+						r2 := r.Clone(r.Context())
+						r2.URL.Path = "/wow/" + rest
+						otherHandler.ServeHTTP(w, r2)
 						return
 					}
 					if strings.HasPrefix(r.URL.Path, "/wow/") {
