@@ -1,6 +1,5 @@
 // World › World Map's exploration overlays (#219): on Northshire (Azeroth 32_48), Elwynn Forest lists the client's twelve overlays (WorldMapOverlay.dbc, their art read) and the preview shows them over the base; Generate redraws the open block's subzones into them: Northshire Valley's piece, with Echo Ridge Mine and the vineyards drawn into it (its art covers them), and no new overlay. Write to Client then writes it in a throwaway client (#382): the dialog opened again reads the written map back, the twelve overlays and the generated picture; the real client is left alone.
 // touches: frontend/src/components/WorldMapDialog.svelte, frontend/src/lib/io/worldMap.ts, internal/vmangos/worldmap.go, internal/vmangos/worldmapoverlay.go
-// quarantine: #882
 await P.scene(P.BENCH)
 await P.settle()
 const { ui } = await P.state()
@@ -50,6 +49,8 @@ const out = { before, exploredBefore, baseOnly, after: count(), exploredAfter: g
 const sb = await P.sandboxClient()
 out.sandbox = sb.dataDir
 try {
+	// A click on the disabled button (the page still busy after the sandbox switch) does nothing, so click once it is enabled.
+	await P.until(() => button('Write to Client') && !button('Write to Client').disabled, 60000, 'Write to Client to be enabled')
 	button('Write to Client').click()
 	await P.until(() => button('Working…'), 30000, 'Write to Client to start')
 	await P.until(() => button('Write to Client') && !button('Write to Client').disabled, 240000, 'Write to Client')
