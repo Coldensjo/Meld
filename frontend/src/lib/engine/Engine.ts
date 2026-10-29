@@ -54,6 +54,7 @@ import { editWholeMask, modifyMask } from '../tools/maskWand'
 import { ChunkDataStroke } from '../tools/chunkDataStroke'
 import { copyPaths, newPath, RIVER_BANK, type MapPath } from '../terrain/paths'
 import { PathTool } from '../tools/PathTool'
+import { loadMeta, stashMeta } from './docMeta'
 import {
 	areasFromImage,
 	colourIndices,
@@ -2706,27 +2707,7 @@ export class Engine {
 	private stashActive() {
 		const d = this.doc
 		if (!d) return
-		d.meta = {
-			mapName: editor.mapName,
-			filePath: editor.filePath,
-			dirty: editor.dirty,
-			palette: [...editor.palette],
-			waterLevel: editor.waterLevel,
-			waterEnabled: editor.waterEnabled,
-			paintLayer: editor.paintLayer,
-			sculptPaintLayer: editor.sculptPaintLayer,
-			roles: { ...editor.roles },
-			textureEffects: { ...editor.textureEffects },
-			textureLooks: { ...editor.textureLooks },
-			scopedEffects: structuredClone(plainScoped(editor.scopedEffects)),
-			reference: copyReference(editor.reference),
-			paths: copyPaths(editor.paths),
-			region: d.meta.region,
-			vmangos: d.meta.vmangos,
-			bookmarks: [...editor.bookmarks],
-			flattenLock: { ...editor.flattenLock },
-			waterLock: { on: editor.water.lock, pos: { ...editor.water.lockPos } },
-		}
+		d.meta = stashMeta(editor, d.meta)
 		const c = this.controller
 		d.camera = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, distance: c.distance }
 	}
@@ -2782,26 +2763,7 @@ export class Engine {
 		this.doc = d
 		this.scene.add(...d.sceneObjects())
 		const m = d.meta
-		editor.mapName = m.mapName
-		editor.filePath = m.filePath
-		editor.palette = [...m.palette]
-		editor.bookmarks = [...m.bookmarks]
-		editor.waterLevel = m.waterLevel
-		editor.waterEnabled = m.waterEnabled
-		editor.paintLayer = m.paintLayer
-		editor.sculptPaintLayer = m.sculptPaintLayer
-		editor.roles = { ...m.roles }
-		editor.textureEffects = { ...m.textureEffects }
-		editor.textureLooks = { ...m.textureLooks }
-		editor.scopedEffects = structuredClone(m.scopedEffects ?? noScopedEffects())
-		editor.reference = copyReference(m.reference)
-		editor.paths = copyPaths(m.paths ?? [])
-		editor.pathId = -1
-		editor.pathPoint = -1
-		// The locked points are positions on one map; another map starts unlocked (#449).
-		editor.flattenLock = { ...(m.flattenLock ?? { on: false, x: 0, y: 0, z: 0 }) }
-		editor.water.lock = m.waterLock?.on ?? true
-		editor.water.lockPos = { ...(m.waterLock?.pos ?? { x: 0, y: 0, z: 0 }) }
+		loadMeta(editor, m)
 		ui.referenceUrl = d.referenceImage?.url ?? ''
 		ui.referenceVersion++
 		this.refDrag = null
@@ -2837,6 +2799,7 @@ export class Engine {
 		this.applyViewDistance()
 		d.history.refresh()
 		this.refreshMaskState()
+		// Again, last: what ran since loadMeta may mark the map changed.
 		editor.dirty = m.dirty
 		this.syncTabs()
 	}

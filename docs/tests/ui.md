@@ -752,3 +752,14 @@ Checks: activating the tab that is already active (Ctrl+Tab with one tab; `openR
 the active file) keeps what the editor holds since the last stash, rather than loading the document's
 older `meta` over it (`Engine.activate`, `stashActive`).
 - Probe: `bun run probe activate-same` (two flat maps).
+
+## A tab switch keeps each map's settings and undo (#437, `tests/docMeta.test.ts`)
+
+Checks: every `DocMeta` field makes the round trip through a tab switch (`engine/docMeta.ts`
+`stashMeta` and `loadMeta`, which `Engine.stashActive` and `activate` call), the editor and the stashed
+meta share no arrays, and an undo recorded on one tab applies to that tab's map after a switch away and
+back. Run: `cd frontend && bun test tests/docMeta.test.ts`.
+- A new `DocMeta` field fails to compile in `DOC_META_KEYS` and in the test's `fullMeta` until it is
+  added there; give it a value that differs with `n`, or the first test fails.
+- The test's `switchTo` copies only the meta and the history's state, not the rest of `activate` (the
+  scene, camera, region labels); the `activate-same` and `tab-switch-drag` probes cover those in the app.

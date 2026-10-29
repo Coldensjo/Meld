@@ -196,8 +196,9 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
   - `engine.terrain`, `engine.objects` and `engine.history` are getters for the active
     document.
   - On tab switch, `Engine.activate` stashes the live `editor` per-map fields into the old
-    document's `meta` and loads the new one's. Add any new per-map editor field to `DocMeta`,
-    `stashActive` and `activate`.
+    document's `meta` and loads the new one's. Add any new per-map editor field to `DocMeta`
+    and to `engine/docMeta.ts` (`DOC_META_KEYS`, `stashMeta`, `loadMeta`, which those two call; `tests/docMeta.test.ts`
+    checks the round trip).
   - The tab list for the UI is `docs` in `editor.svelte.ts`.
   - A document's scene objects are listed once, in `MapDocument.sceneObjects()`, which `activate` and
     `closeDocument` add and remove. A new per-map layer goes there.
