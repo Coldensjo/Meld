@@ -16,7 +16,7 @@ const P = {
 	 * Points every client read and write at a fresh throwaway copy of the client (#368), so a probe can press
 	 * what writes Meld's patch: the copy's archives are links to the real ones and its patch a copy, made
 	 * again at each call. Throws when it can't, so a probe never writes the real client by mistake. Returns
-	 * `{ dataDir, realPatch }`. The runner ends it after the probe; `P.endSandbox()` ends it sooner and says
+	 * `{ dataDir, realPatch }`: the throwaway Data folder and the real patch's stamp (`{ size, modTime }`, not its path; the real client's folder is `WowStatus().path`, read before the sandbox starts). The runner ends it after the probe; `P.endSandbox()` ends it sooner and says
 	 * whether the real patch kept its size and time (`realUnchanged`). While it is on, nothing closes the
 	 * game, starts the servers or writes the server's tables (they answer with an error).
 	 */
