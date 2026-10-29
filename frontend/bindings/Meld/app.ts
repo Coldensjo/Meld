@@ -1075,6 +1075,20 @@ export function ReadCharacter(guid: number): $CancellablePromise<vmangos$0.Chara
 }
 
 /**
+ * ReadCharacterExploration reads the areas a character has explored, with the client's zones (#881).
+ */
+export function ReadCharacterExploration(guid: number): $CancellablePromise<vmangos$0.CharacterExploration> {
+    return $Call.ByID(4148485381, guid);
+}
+
+/**
+ * ReadCharacterQuests reads a character's quests (#881), in the order the server fills the quest log in.
+ */
+export function ReadCharacterQuests(guid: number): $CancellablePromise<vmangos$0.CharacterQuest[] | null> {
+    return $Call.ByID(3694114555, guid);
+}
+
+/**
  * ReadCharacterReputation reads a character's standing with every faction.
  */
 export function ReadCharacterReputation(guid: number): $CancellablePromise<vmangos$0.CharacterReputation[] | null> {
@@ -1093,6 +1107,13 @@ export function ReadCharacterSkills(guid: number): $CancellablePromise<vmangos$0
  */
 export function ReadCharacterSpells(guid: number): $CancellablePromise<vmangos$0.CharacterSpell[] | null> {
     return $Call.ByID(843983699, guid);
+}
+
+/**
+ * ReadCharacterTaxi reads the flight paths a character knows, with the server's stops (#881).
+ */
+export function ReadCharacterTaxi(guid: number): $CancellablePromise<vmangos$0.CharacterTaxi> {
+    return $Call.ByID(2934347588, guid);
 }
 
 /**
@@ -1366,6 +1387,22 @@ export function SaveCharacter(guid: number, values: { [_ in string]?: string } |
 }
 
 /**
+ * SaveCharacterExploration makes the areas a character has explored the exploration bits given, while
+ * it is out of the world, and returns the SQL it ran.
+ */
+export function SaveCharacterExploration(guid: number, explored: number[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(426968664, guid, explored);
+}
+
+/**
+ * SaveCharacterQuests makes a character's quests the ones given while it is out of the world, and
+ * returns the SQL it ran, or the quest it refused.
+ */
+export function SaveCharacterQuests(guid: number, quests: vmangos$0.CharacterQuest[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(3265773076, guid, quests);
+}
+
+/**
  * SaveCharacterReputation writes a character's standings and faction flags while it is out of the
  * world, and returns the SQL it ran, or the faction it refused.
  */
@@ -1387,6 +1424,14 @@ export function SaveCharacterSkills(guid: number, skills: vmangos$0.CharacterSki
  */
 export function SaveCharacterSpells(guid: number, spells: vmangos$0.CharacterSpell[] | null): $CancellablePromise<$models.TemplateSaved> {
     return $Call.ByID(1626439144, guid, spells);
+}
+
+/**
+ * SaveCharacterTaxi makes the stops a character knows the taxi_nodes IDs given, while it is out of the
+ * world, and returns the SQL it ran, or the stop it refused.
+ */
+export function SaveCharacterTaxi(guid: number, known: number[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(1679313843, guid, known);
 }
 
 /**

@@ -10,10 +10,13 @@
 	import { RACES } from '../lib/world/creatureFields'
 	import EditorFrame from './EditorFrame.svelte'
 	import ClassIcon from './ClassIcon.svelte'
+	import CharacterExploration from './CharacterExploration.svelte'
 	import CharacterInventory from './CharacterInventory.svelte'
+	import CharacterQuests from './CharacterQuests.svelte'
 	import CharacterReputation from './CharacterReputation.svelte'
 	import CharacterSkills from './CharacterSkills.svelte'
 	import CharacterSpells from './CharacterSpells.svelte'
+	import CharacterTaxi from './CharacterTaxi.svelte'
 	import MoneyField from './MoneyField.svelte'
 
 	// Tools › Characters and Accounts (#855): the realm's accounts (the login database) and their
@@ -24,7 +27,8 @@
 	// out, so Go refuses to change one that is in the world while the world server runs, and a rename
 	// while it runs at all. The Character tab also holds the look, honor and home (#875). The Equipment
 	// and bags tab (#874, CharacterInventory.svelte) puts items into its slots and bags, and the Skills,
-	// Spells and Reputation tabs (#875) edit those lists, each with a Save of its own.
+	// Spells and Reputation tabs (#875) and the Quests, Explored and Flight paths tabs (#881) edit those
+	// lists, each with a Save of its own.
 
 	const target = $derived(ui.characterEditor)
 
@@ -53,8 +57,8 @@
 			confirmDeleteCharacter = false
 			focusCol = ''
 			tab = 'character'
-			tabDirty = { items: false, skills: false, spells: false, reputation: false }
-			visited = { skills: false, spells: false, reputation: false }
+			tabDirty = { items: false, skills: false, spells: false, reputation: false, quests: false, explored: false, taxi: false }
+			visited = { skills: false, spells: false, reputation: false, quests: false, explored: false, taxi: false }
 		},
 		// The list tabs read their rows again, so the next character shows no stale edits.
 		ondiscard: () => {
@@ -63,20 +67,21 @@
 	})
 	/**
 	 * The character page's tab, and the list tabs' unsaved edits (each keeps them across a tab switch).
-	 * The Skills, Spells and Reputation tabs are mounted the first time they are shown, since each reads
-	 * the server's databases.
+	 * The tabs after Equipment and bags are mounted the first time they are shown, since each reads the
+	 * server's databases.
 	 */
-	type Tab = 'character' | 'items' | 'skills' | 'spells' | 'reputation'
+	type Tab = 'character' | 'items' | 'skills' | 'spells' | 'reputation' | 'quests' | 'explored' | 'taxi'
 	type ListTab = Exclude<Tab, 'character'>
-	const LIST_TABS: ListTab[] = ['items', 'skills', 'spells', 'reputation']
-	const TAB_NAMES: Record<Tab, string> = { character: 'Character', items: 'Equipment and bags', skills: 'Skills', spells: 'Spells', reputation: 'Reputation' }
+	type LazyTab = Exclude<ListTab, 'items'>
+	const LIST_TABS: ListTab[] = ['items', 'skills', 'spells', 'reputation', 'quests', 'explored', 'taxi']
+	const TAB_NAMES: Record<Tab, string> = { character: 'Character', items: 'Equipment and bags', skills: 'Skills', spells: 'Spells', reputation: 'Reputation', quests: 'Quests', explored: 'Explored', taxi: 'Flight paths' }
 	let tab = $state<Tab>('character')
-	let tabDirty = $state<Record<ListTab, boolean>>({ items: false, skills: false, spells: false, reputation: false })
-	let visited = $state({ skills: false, spells: false, reputation: false })
+	let tabDirty = $state<Record<ListTab, boolean>>({ items: false, skills: false, spells: false, reputation: false, quests: false, explored: false, taxi: false })
+	let visited = $state<Record<LazyTab, boolean>>({ skills: false, spells: false, reputation: false, quests: false, explored: false, taxi: false })
 	const tabs = $state<Partial<Record<ListTab, { revert: () => void }>>>({})
 	function show(t: Tab) {
 		tab = t
-		if (t === 'skills' || t === 'spells' || t === 'reputation') visited[t] = true
+		if (t !== 'character' && t !== 'items') visited[t] = true
 	}
 	ed.follow(() => target)
 	const record = $derived(ed.record)
@@ -470,6 +475,15 @@
 							{/if}
 							{#if visited.reputation}
 								<div class:hidden={tab !== 'reputation'}><CharacterReputation bind:this={tabs.reputation} bind:dirty={tabDirty.reputation} guid={record.guid} /></div>
+							{/if}
+							{#if visited.quests}
+								<div class:hidden={tab !== 'quests'}><CharacterQuests bind:this={tabs.quests} bind:dirty={tabDirty.quests} guid={record.guid} /></div>
+							{/if}
+							{#if visited.explored}
+								<div class:hidden={tab !== 'explored'}><CharacterExploration bind:this={tabs.explored} bind:dirty={tabDirty.explored} guid={record.guid} /></div>
+							{/if}
+							{#if visited.taxi}
+								<div class:hidden={tab !== 'taxi'}><CharacterTaxi bind:this={tabs.taxi} bind:dirty={tabDirty.taxi} guid={record.guid} race={Number(saved.race)} /></div>
 							{/if}
 							{#if tab === 'character'}
 								<h3>Character</h3>

@@ -8,7 +8,8 @@ import (
 
 // Tools › Characters and Accounts (#855): the realm's accounts and their characters, in the server's
 // login and character databases (internal/vmangos/accounts.go), with a character's equipment
-// (inventory.go, #874) and its look, skills, spells and reputation (charsheet.go, #875).
+// (inventory.go, #874), its look, skills, spells and reputation (charsheet.go, #875), and its quests,
+// explored areas and flight paths (charquests.go, #881).
 
 // serverRoot is the VMaNGOS server folder, for a binding that reads the server's databases only; ""
 // while an external database (#856) is connected without a folder set.
@@ -178,6 +179,63 @@ func (a *App) SaveCharacterReputation(guid int, reps []vmangos.CharacterReputati
 		return TemplateSaved{}, err
 	}
 	return templateSaved(vmangos.SaveCharacterReputation(s.ServerRoot, guid, reps, s.WorldRunning))
+}
+
+// ReadCharacterQuests reads a character's quests (#881), in the order the server fills the quest log in.
+func (a *App) ReadCharacterQuests(guid int) ([]vmangos.CharacterQuest, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadCharacterQuests(server, guid)
+}
+
+// SaveCharacterQuests makes a character's quests the ones given while it is out of the world, and
+// returns the SQL it ran, or the quest it refused.
+func (a *App) SaveCharacterQuests(guid int, quests []vmangos.CharacterQuest) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacterQuests(s.ServerRoot, guid, quests, s.WorldRunning))
+}
+
+// ReadCharacterExploration reads the areas a character has explored, with the client's zones (#881).
+func (a *App) ReadCharacterExploration(guid int) (vmangos.CharacterExploration, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CharacterExploration{}, err
+	}
+	return vmangos.ReadCharacterExploration(server, dataDir, guid)
+}
+
+// SaveCharacterExploration makes the areas a character has explored the exploration bits given, while
+// it is out of the world, and returns the SQL it ran.
+func (a *App) SaveCharacterExploration(guid int, explored []int) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacterExploration(s.ServerRoot, guid, explored, s.WorldRunning))
+}
+
+// ReadCharacterTaxi reads the flight paths a character knows, with the server's stops (#881).
+func (a *App) ReadCharacterTaxi(guid int) (vmangos.CharacterTaxi, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return vmangos.CharacterTaxi{}, err
+	}
+	return vmangos.ReadCharacterTaxi(server, a.optionalDataDir(), guid)
+}
+
+// SaveCharacterTaxi makes the stops a character knows the taxi_nodes IDs given, while it is out of the
+// world, and returns the SQL it ran, or the stop it refused.
+func (a *App) SaveCharacterTaxi(guid int, known []int) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacterTaxi(s.ServerRoot, guid, known, s.WorldRunning))
 }
 
 // ReadInventory reads a character's equipment, bags, bank and keyring (#874, #879).

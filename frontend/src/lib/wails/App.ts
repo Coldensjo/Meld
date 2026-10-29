@@ -156,9 +156,12 @@ export const QuestTables: Call<AppApi['QuestTables']> = (...a) => api().QuestTab
 export const Quit: Call<AppApi['Quit']> = (...a) => api().Quit(...a) as never
 export const ReadBrushImage: NonNullCall<AppApi['ReadBrushImage']> = (...a) => api().ReadBrushImage(...a) as never
 export const ReadCharacter: Call<AppApi['ReadCharacter']> = (...a) => api().ReadCharacter(...a) as never
+export const ReadCharacterExploration: Call<AppApi['ReadCharacterExploration']> = (...a) => api().ReadCharacterExploration(...a) as never
+export const ReadCharacterQuests: NonNullCall<AppApi['ReadCharacterQuests']> = (...a) => api().ReadCharacterQuests(...a) as never
 export const ReadCharacterReputation: NonNullCall<AppApi['ReadCharacterReputation']> = (...a) => api().ReadCharacterReputation(...a) as never
 export const ReadCharacterSkills: Call<AppApi['ReadCharacterSkills']> = (...a) => api().ReadCharacterSkills(...a) as never
 export const ReadCharacterSpells: NonNullCall<AppApi['ReadCharacterSpells']> = (...a) => api().ReadCharacterSpells(...a) as never
+export const ReadCharacterTaxi: Call<AppApi['ReadCharacterTaxi']> = (...a) => api().ReadCharacterTaxi(...a) as never
 export const ReadCreature: Call<AppApi['ReadCreature']> = (...a) => api().ReadCreature(...a) as never
 export const ReadCreatureQuests: Call<AppApi['ReadCreatureQuests']> = (...a) => api().ReadCreatureQuests(...a) as never
 export const ReadCreatureSpells: Call<AppApi['ReadCreatureSpells']> = (...a) => api().ReadCreatureSpells(...a) as never
@@ -194,9 +197,12 @@ export const SaveAreaTriggers: Call<AppApi['SaveAreaTriggers']> = (...a) => api(
 export const SaveAreas: Call<AppApi['SaveAreas']> = (...a) => api().SaveAreas(...a) as never
 export const SaveBrushDialog: Call<AppApi['SaveBrushDialog']> = (...a) => api().SaveBrushDialog(...a) as never
 export const SaveCharacter: Call<AppApi['SaveCharacter']> = (...a) => api().SaveCharacter(...a) as never
+export const SaveCharacterExploration: Call<AppApi['SaveCharacterExploration']> = (...a) => api().SaveCharacterExploration(...a) as never
+export const SaveCharacterQuests: Call<AppApi['SaveCharacterQuests']> = (...a) => api().SaveCharacterQuests(...a) as never
 export const SaveCharacterReputation: Call<AppApi['SaveCharacterReputation']> = (...a) => api().SaveCharacterReputation(...a) as never
 export const SaveCharacterSkills: Call<AppApi['SaveCharacterSkills']> = (...a) => api().SaveCharacterSkills(...a) as never
 export const SaveCharacterSpells: Call<AppApi['SaveCharacterSpells']> = (...a) => api().SaveCharacterSpells(...a) as never
+export const SaveCharacterTaxi: Call<AppApi['SaveCharacterTaxi']> = (...a) => api().SaveCharacterTaxi(...a) as never
 export const SaveConditionText: Call<AppApi['SaveConditionText']> = (...a) => api().SaveConditionText(...a) as never
 export const SaveCreature: Call<AppApi['SaveCreature']> = (...a) => api().SaveCreature(...a) as never
 export const SaveCreatureQuests: Call<AppApi['SaveCreatureQuests']> = (...a) => api().SaveCreatureQuests(...a) as never

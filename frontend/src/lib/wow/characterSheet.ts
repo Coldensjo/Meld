@@ -41,6 +41,9 @@ export const FACTION_INACTIVE = 0x20
 /** The races of the Alliance (the rest are the Horde's), for the honor ranks' names. */
 const ALLIANCE = new Set([1, 3, 4, 7])
 
+/** Whether a race is the Alliance's. */
+export const isAlliance = (race: number) => ALLIANCE.has(race)
+
 const ALLIANCE_RANKS = [
 	'Private',
 	'Corporal',
@@ -151,4 +154,45 @@ export function fixSkill(s: vmangos.CharacterSkill, c: vmangos.SkillChoice | und
 /** A new skill at its start: 1 of what the range allows (a profession's first rank, Apprentice, is 75). */
 export function newSkill(c: vmangos.SkillChoice, level: number): vmangos.CharacterSkill {
 	return fixSkill({ skill: c.id, value: 1, max: c.range === 'rank' ? Math.min(75, c.top || 75) : 1 }, c, level)
+}
+
+// Quests (#881, internal/vmangos/charquests.go): a character_queststatus row's status (0 none,
+// 1 objectives complete, 3 in progress, 5 failed) and whether it was turned in (rewarded).
+
+/** How many quests the quest log holds (QuestDef.h MAX_QUEST_LOG_SIZE). */
+export const QUEST_LOG_SIZE = 20
+
+/** A quest's state as the Quests tab offers it. */
+export type QuestState = 'progress' | 'complete' | 'failed' | 'done' | 'none'
+
+/** The states, their names and what each means in the game. */
+export const QUEST_STATES: Array<[QuestState, string, string]> = [
+	['progress', 'In progress', 'In the quest log, its objectives to do'],
+	['complete', 'Ready to turn in', 'In the quest log, its objectives done'],
+	['failed', 'Failed', 'In the quest log, failed'],
+	['done', 'Done', 'Turned in: the giver offers it no more (a repeatable quest can be taken again)'],
+	['none', 'Not taken', 'Out of the log and not done, as an abandoned quest'],
+]
+
+const STATUS_OF: Record<Exclude<QuestState, 'done'>, number> = { none: 0, complete: 1, progress: 3, failed: 5 }
+
+/** Whether the server puts a quest into the quest log (Player::_LoadQuestStatus). */
+export function inQuestLog(q: Pick<vmangos.CharacterQuest, 'status' | 'rewarded' | 'repeatable'>): boolean {
+	return (q.status === 1 || q.status === 3 || q.status === 5) && (!q.rewarded || q.repeatable)
+}
+
+/** The state a quest row shows: a repeatable quest done before and taken again shows its log state. */
+export function questState(q: Pick<vmangos.CharacterQuest, 'status' | 'rewarded' | 'repeatable'>): QuestState {
+	if (q.rewarded && !inQuestLog(q)) return 'done'
+	return q.status === 3 ? 'progress' : q.status === 1 ? 'complete' : q.status === 5 ? 'failed' : 'none'
+}
+
+/**
+ * A quest row put into a state. Done is status complete with rewarded set, as the server's RewardQuest
+ * leaves a quest (none for a repeatable one, which Go sets for a new row whose quest it knows to be
+ * repeatable). A repeatable quest done before keeps that mark when it is taken again.
+ */
+export function withQuestState(q: vmangos.CharacterQuest, s: QuestState): vmangos.CharacterQuest {
+	if (s === 'done') return { ...q, status: q.repeatable ? 0 : 1, rewarded: true }
+	return { ...q, status: STATUS_OF[s], rewarded: q.repeatable && q.rewarded }
 }

@@ -2,7 +2,7 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import type { vmangos } from '../src/lib/wails/models'
-import { fixSkill, honorRankOf, honorRanks, lookOptions, newSkill, repProgress, repRank, REP_RANKS } from '../src/lib/wow/characterSheet.ts'
+import { fixSkill, honorRankOf, honorRanks, inQuestLog, lookOptions, newSkill, questState, repProgress, repRank, REP_RANKS, withQuestState } from '../src/lib/wow/characterSheet.ts'
 
 test('a standing falls in the rank the server gives it', () => {
 	const name = (s: number) => REP_RANKS[repRank(s)][0]
@@ -71,4 +71,23 @@ test('a skill gets the range the server sets', () => {
 	assert.deepEqual(fixSkill({ skill: 1, value: 400, max: 400 }, c('rank', 300), 10), { skill: 1, value: 300, max: 300 })
 	assert.deepEqual(newSkill(c('rank', 300), 10), { skill: 1, value: 1, max: 75 })
 	assert.deepEqual(newSkill(c('level'), 4), { skill: 1, value: 1, max: 20 })
+})
+
+test('a quest row shows the state the server reads it as, and takes a new one as the server writes it', () => {
+	const q = (status: number, rewarded: boolean, repeatable = false) => ({ quest: 7, title: '', level: 1, status, rewarded, repeatable, timeLimit: 0, known: true }) as vmangos.CharacterQuest
+	assert.equal(questState(q(3, false)), 'progress')
+	assert.equal(questState(q(1, false)), 'complete')
+	assert.equal(questState(q(5, false)), 'failed')
+	assert.equal(questState(q(1, true)), 'done')
+	assert.equal(questState(q(0, true, true)), 'done')
+	// A repeatable quest done before and taken again is in the log.
+	assert.equal(questState(q(3, true, true)), 'progress')
+	assert.equal(questState(q(0, false)), 'none')
+	assert.equal(inQuestLog(q(3, true)), false)
+	assert.equal(inQuestLog(q(3, true, true)), true)
+	assert.deepEqual([withQuestState(q(3, false), 'done').status, withQuestState(q(3, false), 'done').rewarded], [1, true])
+	assert.deepEqual([withQuestState(q(3, false, true), 'done').status, withQuestState(q(3, false, true), 'done').rewarded], [0, true])
+	assert.deepEqual([withQuestState(q(1, true), 'progress').status, withQuestState(q(1, true), 'progress').rewarded], [3, false])
+	assert.deepEqual([withQuestState(q(0, true, true), 'progress').status, withQuestState(q(0, true, true), 'progress').rewarded], [3, true])
+	assert.equal(questState(withQuestState(q(3, false), 'failed')), 'failed')
 })

@@ -1,5 +1,5 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked) and the keyring and gives an item added to the bank a random property from its choices (#879), the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, and the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts.
-// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked) and the keyring and gives an item added to the bank a random property from its choices (#879), the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
+// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/components/CharacterQuests.svelte, frontend/src/components/CharacterExploration.svelte, frontend/src/components/CharacterTaxi.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, internal/vmangos/charquests.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
 const accounts = await App.ListAccounts().catch((err) => String(err))
@@ -236,6 +236,70 @@ if (repsRead.length) {
 	button(head, 'Revert').click()
 	await P.until(() => button(head, 'Saved'), WAIT, 'the reputation revert')
 }
+// Quests, Explored and Flight paths (#881): each lists what its Read binding gives, takes an edit,
+// outlines what a stood-in Save refuses and reverts.
+const questsRead = (await App.ReadCharacterQuests(guid)) ?? []
+const questEl = await listTab('Quests', '.sheet:has([aria-label="Find a quest to add"])', 'the quests')
+const questRows = () => questEl.querySelectorAll('li[data-quest]').length
+await P.until(() => questRows() === questsRead.length, WAIT, 'the quest rows')
+sheet.quests = questRows()
+const found = ((await App.SearchQuests('the')) ?? []).find((r) => !questsRead.some((q) => q.quest === r.quest))
+if (found) {
+	type(questEl.querySelector('[aria-label="Find a quest to add"]'), String(found.quest))
+	await P.until(() => questEl.querySelector(`li[data-add="${found.quest}"] button`), WAIT, 'the quest search')
+	button(questEl.querySelector(`li[data-add="${found.quest}"]`), 'Take').click()
+	await P.frames(1)
+	const head = questEl.querySelector('.head')
+	sheet.questAdded = !!questEl.querySelector(`li[data-quest="${found.quest}"]`) && !!button(head, 'Save quests') && button(root().querySelector('nav.tabs'), 'Quests').textContent.includes('•')
+	await stand('SaveCharacterQuests', String(found.quest), async () => {
+		button(head, 'Save').click()
+		await P.until(() => questEl.querySelector('.error'), WAIT, 'the quest refusal')
+	})
+	sheet.questOutlined = questEl.querySelector(`li[data-quest="${found.quest}"]`)?.classList.contains('refused')
+	button(head, 'Revert').click()
+	await P.until(() => questRows() === questsRead.length && button(head, 'Saved'), WAIT, 'the quests revert')
+	sheet.questReverted = true
+} else {
+	sheet.questAdded = sheet.questOutlined = sheet.questReverted = 'no quest to add'
+}
+
+const exploreRead = await App.ReadCharacterExploration(guid)
+const exploreEl = await listTab('Explored', '.sheet:has([aria-label="Find a zone"])', 'the explored areas')
+await P.until(() => exploreEl.querySelectorAll('li[data-zone]').length === exploreRead.zones.length, WAIT, 'the zones')
+sheet.zones = exploreEl.querySelectorAll('li[data-zone]').length
+{
+	const head = exploreEl.querySelector('.head')
+	const box = exploreEl.querySelector('li[data-zone] input[type="checkbox"]')
+	box.click()
+	await P.frames(1)
+	sheet.zoneMarked = !!button(head, 'Save explored areas')
+	button(head, 'Revert').click()
+	await P.until(() => button(head, 'Saved'), WAIT, 'the explored revert')
+	sheet.exploreReverted = true
+}
+
+const taxiRead = await App.ReadCharacterTaxi(guid)
+const taxiEl = await listTab('Flight paths', '.sheet:has([aria-label="Find a stop"])', 'the flight paths')
+taxiEl.querySelector('.row label input[type="checkbox"]').click()
+await P.until(() => taxiEl.querySelectorAll('li[data-stop]').length === taxiRead.stops.length, WAIT, 'the stops')
+sheet.stops = taxiEl.querySelectorAll('li[data-stop]').length
+if (sheet.stops) {
+	const head = taxiEl.querySelector('.head')
+	const stop = taxiEl.querySelector('li[data-stop]').dataset.stop
+	taxiEl.querySelector(`li[data-stop="${stop}"] input`).click()
+	await P.frames(1)
+	sheet.stopMarked = !!button(head, 'Save flight paths')
+	await stand('SaveCharacterTaxi', stop, async () => {
+		button(head, 'Save').click()
+		await P.until(() => taxiEl.querySelector('.error'), WAIT, 'the stop refusal')
+	})
+	sheet.stopOutlined = taxiEl.querySelector(`li[data-stop="${stop}"]`).classList.contains('refused')
+	button(head, 'Revert').click()
+	await P.until(() => button(head, 'Saved'), WAIT, 'the flight paths revert')
+	sheet.taxiReverted = true
+} else {
+	sheet.stopMarked = sheet.stopOutlined = sheet.taxiReverted = 'no stops'
+}
 button(root().querySelector('nav.tabs'), 'Character').click()
 await P.frames(1)
 const sheetOk =
@@ -249,7 +313,18 @@ const sheetOk =
 	sheet.spellsDirty &&
 	sheet.spellOutlined !== false &&
 	sheet.factions === repsRead.length &&
-	(!repsRead.length || (sheet.repDirty && sheet.repOutlined))
+	(!repsRead.length || (sheet.repDirty && sheet.repOutlined)) &&
+	sheet.quests === questsRead.length &&
+	sheet.questAdded &&
+	sheet.questOutlined &&
+	sheet.questReverted &&
+	sheet.zones === exploreRead.zones.length &&
+	sheet.zoneMarked &&
+	sheet.exploreReverted &&
+	sheet.stops === taxiRead.stops.length &&
+	sheet.stopMarked &&
+	sheet.stopOutlined &&
+	sheet.taxiReverted
 
 const itemsOk =
 	items.shown === items.read &&

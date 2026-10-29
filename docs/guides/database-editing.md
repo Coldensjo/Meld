@@ -220,6 +220,13 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    from every character.
 8. The **Reputation** tab shows the standing with each faction as the game does; pick a rank or type
    a standing, set whether the faction is listed, at war or inactive, then **Save reputation**.
+9. The **Quests** tab lists the quest log (up to 20), the quests done and the ones not taken; set
+   each one's state, find a quest on the right to **Take** it or mark it **Done**, or take one out
+   so the character can take it again, then **Save quests**. A quest marked done gives none of its
+   rewards but its spell.
+10. The **Explored** tab marks the zones and subzones the world map uncovers, and the **Flight
+    paths** tab the flight masters the character knows (a stop no flight leaves is grayed: the
+    server forgets it). Each has its own Save.
 
 The world server writes a character that is in the world over its row when it logs out, so Meld
 refuses to change one while it is in the world and the world server runs. Renaming needs the world

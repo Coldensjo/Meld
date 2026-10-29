@@ -442,6 +442,24 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the race and class's base (`FactionEntry::GetIndexFitTo`) plus the stored one, which is the
   difference; a faction gets a row only when its standing or the player flags (visible, at war,
   inactive) differ from the start, and a stored row is always kept.
+- Quests, explored areas and flight paths (#881, `internal/vmangos/charquests.go`;
+  `CharacterQuests`, `CharacterExploration`, `CharacterTaxi.svelte`, mounted like the #875 tabs).
+  **Quests** writes `character_queststatus` whole, in the list's order (the order
+  `Player::_LoadQuestStatus` fills the log in): status 0 none, 1 objectives complete, 3 in progress,
+  5 failed (`QuestDef.h`; 2 and 4 are never stored), `rewarded` is done; a quest is in the log when
+  its status is 1, 3 or 5 and it is not done or is repeatable, and the log holds 20 (the 21st is
+  refused). A row kept as stored keeps every column; a changed one keeps its counts, explored flag
+  and reward choice, and gets the timer the server would write (now, plus `LimitTime` for a timed
+  quest not done, which the server would otherwise fail at login). A quest newly done takes
+  `RewardQuest`'s status (none for a repeatable one, complete otherwise); none of its rewards is
+  given, but the server teaches its reward spell at login. A new quest `quest_template` lacks is
+  refused; a stored one is kept (the server skips it). **Explored** and **Flight paths** are the
+  `characters` columns `explored_zones` (64 numbers, an AreaTable.dbc explore flag a bit; the server
+  reads none of it unless all 64 are there) and `known_taxi_mask` (8 numbers, stop ID n is bit n-1),
+  both written as the server writes them (each number followed by a space). The page sends the set
+  bits (Explored) or stop IDs (Flight paths). The stops are the world database's `taxi_nodes` (its
+  newest row up to 5875); one no flight leaves in the client's TaxiPath.dbc is marked, since
+  `PlayerTaxi::LoadTaxiMask` drops it (`sTaxiNodesMask`).
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

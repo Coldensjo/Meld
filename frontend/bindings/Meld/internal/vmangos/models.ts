@@ -164,6 +164,35 @@ export interface CharLooks {
 }
 
 /**
+ * CharacterExploration is the exploration bits a character has, with the client's zones.
+ */
+export interface CharacterExploration {
+    "explored": number[] | null;
+    "zones": ExploreZone[] | null;
+}
+
+/**
+ * CharacterQuest is a row of character_queststatus with what quest_template says of the quest:
+ * Status (0 none, 1 objectives complete, 3 in progress, 5 failed) and Rewarded (turned in: done).
+ * A quest is in the quest log when its status is 1, 3 or 5 and it is not done, or is repeatable.
+ * Known is false for a quest quest_template lacks, which the server skips.
+ */
+export interface CharacterQuest {
+    "quest": number;
+    "title": string;
+    "level": number;
+    "status": number;
+    "rewarded": boolean;
+    "repeatable": boolean;
+
+    /**
+     * TimeLimit is the quest's time limit in seconds (quest_template.LimitTime), 0 for none.
+     */
+    "timeLimit": number;
+    "known": boolean;
+}
+
+/**
  * CharacterRecord is a character's row for the editor: the columns it edits (characterColumns) as
  * strings, as the template editors have them, and what it only shows.
  */
@@ -233,6 +262,14 @@ export interface CharacterSpot {
     "y": number;
     "z": number;
     "o": number;
+}
+
+/**
+ * CharacterTaxi is the stops a character knows, with the server's stops.
+ */
+export interface CharacterTaxi {
+    "known": number[] | null;
+    "stops": TaxiStop[] | null;
 }
 
 /**
@@ -456,6 +493,28 @@ export interface EquipBonusKind {
 export interface EquipBonusSpell {
     "spell": number;
     "amount": number;
+}
+
+/**
+ * ExploreArea is an area with an exploration bit (AreaTable.dbc's explore flag), which the world
+ * map uncovers once the character has been there.
+ */
+export interface ExploreArea {
+    "id": number;
+    "name": string;
+    "bit": number;
+}
+
+/**
+ * ExploreZone is a zone with its subzones, on its map.
+ */
+export interface ExploreZone {
+    "id": number;
+    "name": string;
+    "bit": number;
+    "mapId": number;
+    "mapName": string;
+    "subzones": ExploreArea[] | null;
 }
 
 /**
@@ -1934,6 +1993,20 @@ export interface TaxiRoute {
     "to": number;
     "cost": number;
     "points": TaxiPoint[] | null;
+}
+
+/**
+ * TaxiStop is a flight master's stop a character can know: the world database's taxi_nodes row (the
+ * server reads the stops there), the sides that can fly from it (a mount for each), and whether a
+ * flight leaves it in the client's TaxiPath.dbc (the server forgets a stop no flight leaves).
+ */
+export interface TaxiStop {
+    "id": number;
+    "mapId": number;
+    "name": string;
+    "horde": boolean;
+    "alliance": boolean;
+    "routes": boolean;
 }
 
 /**

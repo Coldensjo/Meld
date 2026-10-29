@@ -922,3 +922,19 @@ account, Delete account, Save character and Delete character.
   spell 99999. Pick a character that is out of the world.
 - In the game (the owner): log in with a changed look, skill, taught spell, standing and home, and
   see each in the character frame, spell book, reputation frame and hearthstone.
+- Quests, explored areas and flight paths (#881): the probe also opens the Quests, Explored and
+  Flight paths tabs, checks they show as many rows as `ReadCharacterQuests`,
+  `ReadCharacterExploration` (its zones) and `ReadCharacterTaxi` (its stops, once "Only the
+  Alliance's/Horde's" is cleared) give, takes a quest found by its entry (rows carry `data-quest`,
+  the search's `data-add`), marks a zone and a stop (`data-zone`, `data-stop`), outlines what a
+  stood-in Save refuses and reverts. Unit: `charquests_test.go` (`questsScript`'s kept and changed
+  rows, timers, a new repeatable quest done, the 20-quest log, `maskBits` and `maskText` against
+  rows the server wrote, `exploreZones`' grouping) and `frontend/tests/characterSheet.test.ts`
+  (`questState`, `withQuestState`). `TestCharacterQuestsLive` (needs the server's database; under a
+  second) copies `characters` and `character_queststatus` into a scratch `test_meld_charquests`
+  database and writes and reads back quests and both masks there, so no real character is written.
+- Reading a character's quests with titles: guid 4 (Kek) has quests 7 (in progress), 783 and 9666
+  (done), and explored and taxi bits; guid 2 (Sizzan) has none.
+- In the game (the owner): log in with a quest taken, one marked done and one taken out, an area
+  marked explored and a flight path added, and check the quest log (and the givers' marks), the
+  world map and the flight master's map.
