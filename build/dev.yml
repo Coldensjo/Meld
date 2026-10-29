@@ -1,0 +1,33 @@
+# make dev: wails3 dev runs Vite (on the port it gives in WAILS_VITE_PORT, its FRONTEND_DEVSERVER_URL),
+# builds the app and runs it in a window, and builds and restarts it when a Go file changes (#854).
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - .claude
+      - node_modules
+      - frontend
+      - build
+      - docs
+      - _scratch
+    file:
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+  executes:
+    - cmd: make bindings dev-build
+      type: blocking
+    - command: [bun, run, dev]
+      dir: frontend
+      type: background
+      readiness:
+        http: "http://localhost:9245/"
+        timeout: "60s"
+        interval: "200ms"
+    - command: [build/bin/Meld-dev]
+      type: primary
+      exit_policy: shutdown

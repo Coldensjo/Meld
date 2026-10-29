@@ -13,7 +13,7 @@
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { activeBrushStack } from '../lib/tools/StampTool'
 	import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import type { vmangos } from '../lib/wails/models'
 	import { NARROW_WIDTH, PATH_KINDS, type MapPath, type PathKind } from '../lib/terrain/paths'
 	import type { PathField } from '../lib/tools/PathTool'
 

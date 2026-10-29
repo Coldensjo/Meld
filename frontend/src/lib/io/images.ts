@@ -1,6 +1,6 @@
 // The image imports and exports: heightmaps, watermaps, alphamaps, the normal map, the minimap image,
 // and the minimap tiles written into the client.
-import { OpenHeightmapDialog, OpenImageDialog, ReadHeightmap, SaveHeightmapDialog, SaveImageDialog, WritePNG, WriteHeightmap, WriteNormalMap, WriteMinimapTiles } from '../../../wailsjs/go/main/App'
+import { OpenHeightmapDialog, OpenImageDialog, ReadHeightmap, SaveHeightmapDialog, SaveImageDialog, WritePNG, WriteHeightmap, WriteNormalMap, WriteMinimapTiles } from '../wails/App'
 import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'

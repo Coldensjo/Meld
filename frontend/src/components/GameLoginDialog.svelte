@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte'
 	import Modal from './Modal.svelte'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
-	import { GameLogin, SetGameLogin } from '../../wailsjs/go/main/App'
+	import { GameLogin, SetGameLogin } from '../lib/wails/App'
 
 	const close = () => (ui.dialog = null)
 

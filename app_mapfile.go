@@ -11,18 +11,16 @@ import (
 	"Meld/internal/mapfile"
 	"Meld/internal/recovery"
 	"Meld/internal/sessionlog"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-var mapFilters = []runtime.FileFilter{{DisplayName: "Meld Map (*.wmap)", Pattern: "*.wmap"}}
+var mapFilters = []fileFilter{{DisplayName: "Meld Map (*.wmap)", Pattern: "*.wmap"}}
 
 // SaveMapDialog asks for a destination path. Returns "" if cancelled.
 func (a *App) SaveMapDialog(suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "untitled"
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	path, err := a.saveFile(dialogOptions{
 		Title:            "Save Map",
 		DefaultDirectory: a.projectDir(),
 		DefaultFilename:  suggested + ".wmap",
@@ -39,7 +37,7 @@ func (a *App) SaveMapDialog(suggested string) (string, error) {
 
 // OpenMapDialog asks for a map to open. Returns "" if cancelled.
 func (a *App) OpenMapDialog() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openFile(dialogOptions{
 		Title:            "Open Map",
 		DefaultDirectory: a.projectDir(),
 		Filters:          mapFilters,
@@ -51,7 +49,7 @@ func (a *App) SaveMap(path string, data mapfile.MapData) error {
 	if err := mapfile.Save(path, &data); err != nil {
 		return err
 	}
-	runtime.WindowSetTitle(a.ctx, "Meld — "+filepath.Base(path))
+	a.setTitle("Meld — " + filepath.Base(path))
 	return nil
 }
 
@@ -61,7 +59,7 @@ func (a *App) LoadMap(path string) (*mapfile.MapData, error) {
 	if err != nil {
 		return nil, err
 	}
-	runtime.WindowSetTitle(a.ctx, "Meld — "+filepath.Base(path))
+	a.setTitle("Meld — " + filepath.Base(path))
 	return m, nil
 }
 

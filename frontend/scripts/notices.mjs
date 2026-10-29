@@ -125,7 +125,7 @@ function goModules() {
 		['windows', '0'],
 		['linux', '1'],
 	]) {
-		const out = execFileSync('go', ['list', '-deps', '-e', '-tags', 'desktop,production,webkit2_41', '-f', '{{with .Module}}{{if not .Main}}{{.Path}}|{{.Version}}|{{.Dir}}{{end}}{{end}}', '.'], {
+		const out = execFileSync('go', ['list', '-deps', '-e', '-tags', 'production,gtk3', '-f', '{{with .Module}}{{if not .Main}}{{.Path}}|{{.Version}}|{{.Dir}}{{end}}{{end}}', '.'], {
 			cwd: root,
 			encoding: 'utf8',
 			env: { ...process.env, GOOS: goos, CGO_ENABLED: cgo },
@@ -142,14 +142,20 @@ function goModules() {
 
 // ---- build the report ---------------------------------------------------------------------
 
+// npm packages that ship no licence file of their own but come from a Go module that does: Wails'
+// runtime is published from the same repository and licence as github.com/wailsapp/wails/v3 (#854).
+const LICENCE_FROM_GO = { '@wailsio/runtime': 'github.com/wailsapp/wails/v3' }
+
 const entries = []
+const goMods = goModules()
 for (const p of [...npm.values()].sort((a, b) => a.name.localeCompare(b.name))) {
-	const f = licenceFile(p.dir)
+	const from = LICENCE_FROM_GO[p.name] && goMods.find((m) => m.name === LICENCE_FROM_GO[p.name])
+	const f = licenceFile(p.dir) ?? (from ? licenceFile(from.dir) : null)
 	const text = f ? readText(f) : ''
 	let lic = p.licence || (text ? detect(text) : '')
 	entries.push({ kind: 'npm', name: p.name, version: p.version, licence: lic, text })
 }
-for (const m of goModules()) {
+for (const m of goMods) {
 	const f = licenceFile(m.dir)
 	const text = f ? readText(f) : ''
 	entries.push({ kind: 'go', name: m.name, version: m.version, licence: text ? detect(text) : '', text })
@@ -175,7 +181,7 @@ function section(kind, title, intro) {
 const generated =
 	`${MARK}\n\n` +
 	section('npm', 'Bundled npm packages', "Compiled into the app's frontend bundle (`frontend/dist`, embedded in the binary): the runtime dependencies of `frontend/package.json` and theirs.") +
-	section('go', 'Linked Go modules', 'Linked into the Windows and Linux binaries (`go list -deps`, the `desktop,production,webkit2_41` build tags).') +
+	section('go', 'Linked Go modules', 'Linked into the Windows and Linux binaries (`go list -deps`, the `production,gtk3` build tags).') +
 	'## Build-time tools\n\nThe frontend build uses tools that are not shipped, among them `lightningcss` (MPL-2.0, pulled in by Vite as its CSS minifier). They are used unmodified and none of their code is in the app.\n'
 
 const current = existsSync(outFile) ? readFileSync(outFile, 'utf8').replace(/\r\n/g, '\n') : ''

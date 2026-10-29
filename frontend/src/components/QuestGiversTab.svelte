@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
-	import { ReadQuestGivers, SaveQuestGivers, SearchCreatures } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { ReadQuestGivers, SaveQuestGivers, SearchCreatures } from '../lib/wails/App'
+	import { vmangos } from '../lib/wails/models'
 	import { editor } from '../lib/state/editor.svelte'
 	import { RowList, removeRow } from '../lib/ui/rowList.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'

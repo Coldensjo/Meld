@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { idMenu, idOf } from '../lib/ui/copyId'
-	import { ReadCreatureSpells, SaveCreatureSpells } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { ReadCreatureSpells, SaveCreatureSpells } from '../lib/wails/App'
+	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { CAST_FLAGS, CAST_TARGETS, SELECT_FLAGS, castTarget, paramKind, spellLabel } from '../lib/wow/creatureSpellNames'
 	import { spellRef } from '../lib/wow/spells'

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { createSearch } from '../lib/ui/search.svelte'
 	import { copyItems } from '../lib/ui/copyId'
-	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItemsSorted } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItemsSorted } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'

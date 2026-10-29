@@ -1,4 +1,4 @@
-import { BrowseBrushImageFolder, ListBrushImages, ReadBrushImage } from '../../../wailsjs/go/main/App'
+import { BrowseBrushImageFolder, ListBrushImages, ReadBrushImage } from '../wails/App'
 import { editor, prefs, setStatus } from '../state/editor.svelte'
 import { setBrushImage } from '../tools/brushImage'
 import { base64ToBytes } from './base64'

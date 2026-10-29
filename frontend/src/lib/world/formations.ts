@@ -1,4 +1,4 @@
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { SpawnFields } from './spawnEdits'
 
 // Creature formations (creature_groups, #172): a leader and its followers, each in a slot at a

@@ -7,8 +7,6 @@ import (
 
 	"Meld/internal/config"
 	"Meld/internal/wow"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Projects (#48): a project folder, where the user's maps of it go, with the client folder it edits.
@@ -47,7 +45,7 @@ func (a *App) projectDir() string {
 
 // BrowseProjectFolder lets the user pick (or make) a project folder. Returns "" if cancelled.
 func (a *App) BrowseProjectFolder() (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openDirectory(dialogOptions{
 		Title:                "Select the project folder",
 		DefaultDirectory:     a.projectDir(),
 		CanCreateDirectories: true,

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { SpawnLayer } from './SpawnLayer'
 
 /** How far above its point a path is drawn, so it isn't buried in the ground it follows. */

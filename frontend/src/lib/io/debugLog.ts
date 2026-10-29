@@ -2,7 +2,7 @@
 // and errors to the session's log file (and Go writes each asset request there, app_debuglog.go), so a
 // check in the built app, whose console can't be reached, needs no throwaway build. The lines go
 // straight to the file, not to the Log window, which they would flood.
-import { AppendLog } from '../../../wailsjs/go/main/App'
+import { AppendLog } from '../wails/App'
 import { hasBackend } from './backend'
 
 /** Where Go answers whether the debug log is on ("1" or "0"). */

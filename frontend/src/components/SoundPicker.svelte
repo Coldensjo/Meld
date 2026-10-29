@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import { idMenu, idOf } from '../lib/ui/copyId'
-	import { SoundEntries } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { SoundEntries } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	// The client's SoundEntries.dbc rows, read once for the session; a sound import (#684) forgets them.
 	let soundsPromise: Promise<vmangos.SoundOption[]> | null = null

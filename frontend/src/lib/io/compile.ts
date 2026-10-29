@@ -1,6 +1,6 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import { ApplySpawnEdits, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateRegionServer, VmangosPath } from '../../../wailsjs/go/main/App'
+import { ApplySpawnEdits, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateRegionServer, VmangosPath } from '../wails/App'
 import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
@@ -9,8 +9,8 @@ import { cachedPending } from './regionKey'
 import { floatsToBase64 } from './base64'
 import { mapToTiles } from './vmangosExport'
 import { TILE_CHUNKS } from '../wow/format'
-import { vmangos } from '../../../wailsjs/go/models'
-import { EventsOn } from '../../../wailsjs/runtime/runtime'
+import { vmangos } from '../wails/models'
+import { EventsOn } from '../wails/runtime'
 import { applyNote } from './applyNote'
 
 /**

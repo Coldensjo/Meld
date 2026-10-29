@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { fieldGroups, withBit } from '../lib/world/creatureFields'
 	import { creatureTemplateOf, selectSpawn } from '../lib/world/spawnEdits'

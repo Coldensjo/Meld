@@ -1,5 +1,5 @@
 // The probe runner (docs/TESTS.md, "Probes"): runs named checks in the dev page over a headless
-// Chrome and prints one JSON line a probe. Needs `make dev` running (http://localhost:34115).
+// Chrome and prints one JSON line a probe. Needs `make dev-page` running (http://localhost:34115), which it starts when it is down.
 //
 //   bun run probe smoke undo-sculpt      run these probes
 //   bun run probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
@@ -47,7 +47,7 @@ const GPU = process.env.PROBE_GPU === '1'
 // shows. The page reads `meld.antialias` (display.ts) before the renderer is made, earlier than window.__probeEnv arrives,
 // so launch() sets it in every new document; a relaunched Chrome's fresh profile gets it again.
 const NO_AA = process.env.PROBE_AA === '0'
-const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
+const APP_JS = join(here, '..', 'src', 'lib', 'wails', 'App.ts')
 
 const args = process.argv.slice(2)
 let shotDir = null
@@ -208,7 +208,7 @@ async function devDown() {
 	return ''
 }
 
-/** When the dev server's Go side started (/wow/status `started`, Unix ms), or 0 when it doesn't answer. A change between two calls means wails dev rebuilt and restarted it (#656). */
+/** When the dev server's Go side started (/wow/status `started`, Unix ms), or 0 when it doesn't answer. A change between two calls means wails3 dev rebuilt and restarted it (#656). */
 async function devStarted() {
 	try {
 		const s = await fetch(new URL('/wow/status', PAGE), { signal: AbortSignal.timeout(5000) })
@@ -238,23 +238,23 @@ function newestGo() {
 	return best
 }
 
-/** Says so when a Go source file is newer than the running Go side: wails dev did not rebuild (#387), so a new binding is missing in the page. Returns '' or the message. */
+/** Says so when a Go source file is newer than the running Go side: wails3 dev did not rebuild (#387), so a new binding is missing in the page. Returns '' or the message. */
 async function staleBackend() {
 	const started = await devStarted()
 	const g = newestGo()
 	if (!started || !g || g.mtime <= started + 5000) return ''
-	return `the dev server's Go side started at ${new Date(started).toLocaleTimeString()}, before ${basename(g.file)} changed (${new Date(g.mtime).toLocaleTimeString()}): wails dev did not rebuild it, so a new binding is missing in the page. Stop wails.exe, Meld-dev.exe and the bun processes and rerun, and the runner starts \`make dev\` again`
+	return `the dev server's Go side started at ${new Date(started).toLocaleTimeString()}, before ${basename(g.file)} changed (${new Date(g.mtime).toLocaleTimeString()}): wails3 dev did not rebuild it, so a new binding is missing in the page. Stop wails3.exe, Meld-page.exe and the bun processes and rerun, and the runner starts \`make dev-page\` again`
 }
 
-/** Starts `make dev` detached (it outlives this run, for the next one) when the server is down, and waits for it. Only for the default local URL. */
+/** Starts `make dev-page` detached (it outlives this run, for the next one) when the server is down, and waits for it. Only for the default local URL. */
 async function ensureDev() {
 	const why = await devDown()
 	if (!why) return
 	if (process.env.MELD_URL) fail(`the dev server doesn't answer at ${PAGE} (${why})`)
 	const log = join(tmpdir(), 'meld-dev.log')
-	console.error(`probe: the dev server is down (${why}); starting \`make dev\` (log ${log}), which takes a few minutes`)
+	console.error(`probe: the dev server is down (${why}); starting \`make dev-page\` (log ${log}), which takes a few minutes`)
 	const out = openSync(log, 'w')
-	spawn('make', ['dev'], { cwd: join(here, '..', '..'), detached: true, stdio: ['ignore', out, out], shell: process.platform === 'win32' }).unref()
+	spawn('make', ['dev-page'], { cwd: join(here, '..', '..'), detached: true, stdio: ['ignore', out, out], shell: process.platform === 'win32' }).unref()
 	for (let i = 0; i < 120; i++) {
 		await sleep(5000)
 		if (!(await devDown())) return
@@ -310,7 +310,7 @@ async function main() {
 		} catch {
 			/* Chrome may still hold it */
 		}
-		// A stop during the App.js refresh (below) would leave the app without it until Wails regenerates it.
+		// A stop during the App.ts refresh (below) would leave the app without it until make bindings writes it again.
 		try {
 			if (existsSync(APP_JS + '.probe-refresh')) renameSync(APP_JS + '.probe-refresh', APP_JS)
 		} catch {
@@ -443,9 +443,7 @@ async function main() {
 				note(`HTTP ${msg.params.response.status} ${msg.params.response.url}`)
 			} else if (msg.method === 'Runtime.exceptionThrown') {
 				const d = msg.params.exceptionDetails
-				// The message and its first frames, enough to find the code. Wails' runtime throws in
-				// /wails/ipc.js in a plain browser page (no desktop host); that is not the app's.
-				if (d.exception?.description?.includes('/wails/ipc.js')) return
+				// The message and its first frames, enough to find the code.
 				pageErrors.push(
 					d.exception?.description
 						?.split('\n')
@@ -586,9 +584,9 @@ async function main() {
 				await evaluate(`(async () => { for (let i = 0; i < 300; i++) { if (window.go?.main?.App) return window.go.main.App.EndClientSandbox(); await new Promise((r) => setTimeout(r, 100)) } })()`, 60_000).catch(() => null)
 			}
 		}
-		// After a new Go binding, wails dev replaces wailsjs' App.js by rename, Vite's watcher misses it
-		// and the page fails on "does not provide an export named" (docs/TESTS.md). Moving the file out
-		// and back makes Vite see a new file; then run the probe again, once.
+		// After a new Go binding, a page Vite served before make bindings rewrote lib/wails/App.ts can fail on
+		// "does not provide an export named" (docs/TESTS.md). Moving the file out and back makes Vite see a
+		// new file; then run the probe again, once.
 		if (!out.ok && out.pageErrors?.some((e) => e.includes('does not provide an export named')) && existsSync(APP_JS)) {
 			renameSync(APP_JS, APP_JS + '.probe-refresh')
 			await sleep(1000)
@@ -606,7 +604,7 @@ async function main() {
 			// Say so now: the retry can take as long again, and a shell timeout in that time would lose this line (#628).
 			console.error(`probe: ${p.name} failed after ${Math.round((Date.now() - t0) / 1000)} s, retrying in a fresh page: ${JSON.stringify(first)}`)
 			// A dev server that died under the probe (or is rebuilding) fails the retry too: wait a minute for a rebuild to
-			// finish, then start `make dev` again as at the start of the run (#391).
+			// finish, then start `make dev-page` again as at the start of the run (#391).
 			if (!process.env.MELD_URL && (await devDown())) {
 				for (let i = 0; i < 12 && (await devDown()); i++) await sleep(5000)
 				const why = await devDown()
@@ -623,11 +621,11 @@ async function main() {
 			else out = { ...out, retried: true, first: firstAttempt(first) }
 		}
 		await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
-		// The app restarted under the probe (a Go change rebuilt by wails dev, maybe another session's, #656): name it, so a
+		// The app restarted under the probe (a Go change rebuilt by wails3 dev, maybe another session's, #656): name it, so a
 		// lost page or a failure here is read as the restart rather than the probe's own fault.
 		const bootAfter = await devStarted()
 		if (bootBefore && bootAfter && bootAfter !== bootBefore) {
-			out.devRebuilt = `the dev server restarted during this probe (at ${new Date(bootAfter).toLocaleTimeString()}): wails dev rebuilt the Go side, so a lost page or failure here may come from that`
+			out.devRebuilt = `the dev server restarted during this probe (at ${new Date(bootAfter).toLocaleTimeString()}): wails3 dev rebuilt the Go side, so a lost page or failure here may come from that`
 			console.error(`probe: ${p.name}: ${out.devRebuilt}`)
 		}
 		if (!out.ok && !process.env.MELD_URL) {

@@ -11,14 +11,12 @@ import (
 	"strings"
 
 	"Meld/internal/heightmap"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // BrowseBrushImageFolder lets the user pick the folder of greyscale images that shape the image
 // brushes (Noggit Red's Samples folder). Returns "" if cancelled.
 func (a *App) BrowseBrushImageFolder(current string) (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openDirectory(dialogOptions{
 		Title:            "Select the folder of brush images",
 		DefaultDirectory: current,
 	})
@@ -26,7 +24,7 @@ func (a *App) BrowseBrushImageFolder(current string) (string, error) {
 
 // BrowsePrefabFolder lets the user pick the folder their prefabs are kept in (#170). Returns "" if cancelled.
 func (a *App) BrowsePrefabFolder(current string) (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openDirectory(dialogOptions{
 		Title:            "Select the folder for prefabs",
 		DefaultDirectory: current,
 	})
@@ -73,11 +71,11 @@ func (a *App) SavePrefabDialog(dir, suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "prefab"
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	path, err := a.saveFile(dialogOptions{
 		Title:            "Save Selection as Prefab",
 		DefaultDirectory: dir,
 		DefaultFilename:  suggested + ".toml",
-		Filters:          []runtime.FileFilter{{DisplayName: "Meld prefab (*.toml)", Pattern: "*.toml"}},
+		Filters:          []fileFilter{{DisplayName: "Meld prefab (*.toml)", Pattern: "*.toml"}},
 	})
 	if err != nil || path == "" {
 		return "", err
@@ -107,10 +105,10 @@ func (a *App) ReadBrushImage(dir, name string) (*heightmap.GreyView, error) {
 
 // SaveSQLDialog asks where to save an SQL file. Returns "" if cancelled.
 func (a *App) SaveSQLDialog(suggested string) (string, error) {
-	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	return a.saveFile(dialogOptions{
 		Title:           "Export Spawn SQL",
 		DefaultFilename: suggested + ".sql",
-		Filters:         []runtime.FileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}},
+		Filters:         []fileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}},
 	})
 }
 
@@ -132,14 +130,14 @@ type HeightmapData struct {
 	Heights []float32 `json:"heights"`
 }
 
-var heightmapFilters = []runtime.FileFilter{{DisplayName: "PNG heightmap (*.png)", Pattern: "*.png"}}
+var heightmapFilters = []fileFilter{{DisplayName: "PNG heightmap (*.png)", Pattern: "*.png"}}
 
 // SaveHeightmapDialog asks where to save a heightmap image. Returns "" if cancelled.
 func (a *App) SaveHeightmapDialog(suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "heightmap"
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	path, err := a.saveFile(dialogOptions{
 		Title:           "Export Heightmap",
 		DefaultFilename: suggested + ".png",
 		Filters:         heightmapFilters,
@@ -155,15 +153,15 @@ func (a *App) SaveHeightmapDialog(suggested string) (string, error) {
 
 // OpenImageDialog asks for a PNG image to read, under the given dialog title. Returns "" if cancelled.
 func (a *App) OpenImageDialog(title string) (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: imageFilters})
+	return a.openFile(dialogOptions{Title: title, Filters: imageFilters})
 }
 
-var referenceFilters = []runtime.FileFilter{{DisplayName: "Image (*.png, *.jpg)", Pattern: "*.png;*.jpg;*.jpeg"}}
+var referenceFilters = []fileFilter{{DisplayName: "Image (*.png, *.jpg)", Pattern: "*.png;*.jpg;*.jpeg"}}
 
 // OpenReferenceImageDialog asks for the reference image to lay over the map (View › Reference
 // Image, #184). Returns "" if cancelled.
 func (a *App) OpenReferenceImageDialog() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Reference Image", Filters: referenceFilters})
+	return a.openFile(dialogOptions{Title: "Reference Image", Filters: referenceFilters})
 }
 
 // referenceMaxBytes skips a file too big to be a reference image, so a stray pick can't stall the bridge.
@@ -193,7 +191,7 @@ func (a *App) ReadReferenceImage(path string) (string, error) {
 
 // OpenHeightmapDialog asks for a heightmap image to import. Returns "" if cancelled.
 func (a *App) OpenHeightmapDialog() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openFile(dialogOptions{
 		Title:   "Import Heightmap",
 		Filters: heightmapFilters,
 	})
@@ -234,14 +232,14 @@ func (a *App) ReadHeightmap(path string) (HeightmapData, error) {
 	return HeightmapData{Side: side, Heights: heights}, nil
 }
 
-var textFilters = []runtime.FileFilter{{DisplayName: "Text file (*.txt)", Pattern: "*.txt"}}
+var textFilters = []fileFilter{{DisplayName: "Text file (*.txt)", Pattern: "*.txt"}}
 
 // SaveTextDialog asks where to save a text file. Returns "" if cancelled.
 func (a *App) SaveTextDialog(suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "list"
 	}
-	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	return a.saveFile(dialogOptions{
 		Title:           "Export Object List",
 		DefaultFilename: suggested + ".txt",
 		Filters:         textFilters,
@@ -250,20 +248,20 @@ func (a *App) SaveTextDialog(suggested string) (string, error) {
 
 // OpenTextDialog asks for a text file to import. Returns "" if cancelled.
 func (a *App) OpenTextDialog() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openFile(dialogOptions{
 		Title:   "Import Object List",
 		Filters: textFilters,
 	})
 }
 
-var brushFilters = []runtime.FileFilter{{DisplayName: "Doodad brush (*.toml)", Pattern: "*.toml"}}
+var brushFilters = []fileFilter{{DisplayName: "Doodad brush (*.toml)", Pattern: "*.toml"}}
 
 // SaveBrushDialog asks where to save a doodad brush. Returns "" if cancelled.
 func (a *App) SaveBrushDialog(suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "brush"
 	}
-	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	return a.saveFile(dialogOptions{
 		Title:           "Export Doodad Brush",
 		DefaultFilename: suggested + ".toml",
 		Filters:         brushFilters,
@@ -272,20 +270,20 @@ func (a *App) SaveBrushDialog(suggested string) (string, error) {
 
 // OpenBrushDialog asks for doodad brush files to import. Returns none if cancelled.
 func (a *App) OpenBrushDialog() ([]string, error) {
-	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openFiles(dialogOptions{
 		Title:   "Import Doodad Brushes",
 		Filters: brushFilters,
 	})
 }
 
-var setFilters = []runtime.FileFilter{{DisplayName: "Model set (*.toml)", Pattern: "*.toml"}}
+var setFilters = []fileFilter{{DisplayName: "Model set (*.toml)", Pattern: "*.toml"}}
 
 // SaveModelSetDialog asks where to save a model set. Returns "" if cancelled.
 func (a *App) SaveModelSetDialog(suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "set"
 	}
-	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	return a.saveFile(dialogOptions{
 		Title:           "Export Model Set",
 		DefaultFilename: suggested + ".toml",
 		Filters:         setFilters,
@@ -294,7 +292,7 @@ func (a *App) SaveModelSetDialog(suggested string) (string, error) {
 
 // OpenModelSetDialog asks for model set files to import. Returns none if cancelled.
 func (a *App) OpenModelSetDialog() ([]string, error) {
-	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openFiles(dialogOptions{
 		Title:   "Import Model Sets",
 		Filters: setFilters,
 	})
@@ -305,14 +303,14 @@ func (a *App) WriteTextFile(path, text string) error {
 	return os.WriteFile(path, []byte(text), 0o644)
 }
 
-var imageFilters = []runtime.FileFilter{{DisplayName: "PNG image (*.png)", Pattern: "*.png"}}
+var imageFilters = []fileFilter{{DisplayName: "PNG image (*.png)", Pattern: "*.png"}}
 
 // SaveImageDialog asks where to save a PNG image. Returns "" if cancelled.
 func (a *App) SaveImageDialog(title, suggested string) (string, error) {
 	if suggested == "" {
 		suggested = "image"
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	path, err := a.saveFile(dialogOptions{
 		Title:           title,
 		DefaultFilename: suggested + ".png",
 		Filters:         imageFilters,

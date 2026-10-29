@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import OptSlider from './OptSlider.svelte'
-	import { ListScripts } from '../../wailsjs/go/main/App'
+	import { ListScripts } from '../lib/wails/App'
 	import { MAX_BRUSH_RADIUS, editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'

@@ -1,4 +1,4 @@
-import { BrowsePrefabFolder, ListPrefabs, SavePrefabDialog, WriteTextFile } from '../../../wailsjs/go/main/App'
+import { BrowsePrefabFolder, ListPrefabs, SavePrefabDialog, WriteTextFile } from '../wails/App'
 import type { Engine } from '../engine/Engine'
 import { prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatPrefab, parsePrefab, prefabHash, type Prefab } from '../wow/prefabs'

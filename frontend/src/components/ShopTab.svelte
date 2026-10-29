@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
-	import { ReadVendor, SaveVendor, SearchItems } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { ReadVendor, SaveVendor, SearchItems } from '../lib/wails/App'
+	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'
 	import { QUALITY_VARS } from '../lib/wow/itemTooltip'

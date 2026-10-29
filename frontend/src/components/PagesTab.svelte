@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { NextPage, ReadObjectPages, SavePages } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { NextPage, ReadObjectPages, SavePages } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'

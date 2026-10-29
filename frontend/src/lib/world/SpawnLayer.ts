@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { vmangos } from '../../../wailsjs/go/models'
+import { vmangos } from '../wails/models'
 import { getAsset, isWowType, onAssetLoaded } from '../models/assets'
 import { spawnType } from './spawnInfo'
 import type { CullView } from './instanceCull'

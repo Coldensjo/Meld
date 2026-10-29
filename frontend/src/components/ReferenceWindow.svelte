@@ -6,7 +6,7 @@
 </script>
 
 <script lang="ts">
-	import type { vmangos } from '../../wailsjs/go/models'
+	import type { vmangos } from '../lib/wails/models'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'

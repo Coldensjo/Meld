@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { RegionHorizon } from '../../../wailsjs/go/main/App'
+import { RegionHorizon } from '../wails/App'
 import type { RegionRef } from '../engine/MapDocument'
 import { TILE_YARDS } from '../terrain/Terrain'
 import { horizonMesh, type HorizonTile } from './horizonMesh'

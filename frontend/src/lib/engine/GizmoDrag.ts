@@ -9,7 +9,7 @@ import { clampScale } from '../world/placement'
 import { turnAbout, type Point2 } from '../world/pivot'
 import { spawnKey, spawnOrientation, spawnRotation, type SpawnLayer } from '../world/SpawnLayer'
 import { applySpawn, syncSpawnUi, type SpawnFields } from '../world/spawnEdits'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { GizmoHandle, TransformGizmo } from './TransformGizmo'
 
 /** The step a ring drag snaps to with Shift held: 15 degrees. */

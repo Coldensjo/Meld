@@ -4,7 +4,7 @@
 </script>
 
 <script lang="ts">
-	import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+	import { BrowserOpenURL } from '../lib/wails/runtime'
 	import Modal from './Modal.svelte'
 	import GameLoginDialog from './GameLoginDialog.svelte'
 	import ProjectDialog from './ProjectDialog.svelte'
@@ -26,7 +26,7 @@
 	import HotkeyManager from './HotkeyManager.svelte'
 	import PreferencesDialog from './PreferencesDialog.svelte'
 	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
-	import { EquipmentFor } from '../../wailsjs/go/main/App'
+	import { EquipmentFor } from '../lib/wails/App'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'

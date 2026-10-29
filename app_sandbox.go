@@ -10,8 +10,6 @@ import (
 	"Meld/internal/sandbox"
 	"Meld/internal/vmangos"
 	"Meld/internal/wow"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // The probes' throwaway client (#368): a probe that checks a feature writing Meld's patch first turns
@@ -75,10 +73,10 @@ type ClientSandbox struct {
 }
 
 // StartClientSandbox points every client read and write at a fresh throwaway copy of the client, for
-// a probe; only in `wails dev`. A sandbox already on starts again from a fresh copy.
+// a probe; only in a dev build (make dev or make dev-page). A sandbox already on starts again from a fresh copy.
 func (a *App) StartClientSandbox() (ClientSandbox, error) {
-	if a.ctx == nil || runtime.Environment(a.ctx).BuildType != "dev" {
-		return ClientSandbox{}, errors.New("the throwaway client is only for the probes, in wails dev")
+	if a.ctx == nil || !devBuild {
+		return ClientSandbox{}, errors.New("the throwaway client is only for the probes, in a dev build")
 	}
 	a.sandboxMu.Lock()
 	defer a.sandboxMu.Unlock()
@@ -121,7 +119,7 @@ func (a *App) StartClientSandbox() (ClientSandbox, error) {
 		defer a.sandboxMu.Unlock()
 		if a.sandboxGen == gen {
 			a.endSandboxLocked()
-			runtime.LogWarning(a.ctx, "The probes' throwaway client was on for 10 minutes and has ended.")
+			a.logWarning("The probes' throwaway client was on for 10 minutes and has ended.")
 		}
 	})
 	if err := a.wow.Open(data); err != nil {

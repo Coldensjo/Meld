@@ -4,7 +4,7 @@
 	import { hasBackend } from '../lib/io/backend'
 	import { chooseBenillaFolder, chooseVmangosFolder, setGameClient, setGameWindow } from '../lib/io/game'
 	import { chooseWowFolder } from '../lib/wow/api'
-	import { ClearThumbnailCache, GameClient, VmangosPath } from '../../wailsjs/go/main/App'
+	import { ClearThumbnailCache, GameClient, VmangosPath } from '../lib/wails/App'
 	import { rememberAntialias } from '../lib/engine/display'
 	import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
 	import { UI_SCALES } from '../lib/ui/uiScale'

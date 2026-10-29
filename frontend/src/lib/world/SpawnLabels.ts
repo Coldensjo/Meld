@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import { levelText, rankName } from './spawnInfo'
 import { SPAWN_COLORS, type SpawnKind, type SpawnLayer } from './SpawnLayer'
 

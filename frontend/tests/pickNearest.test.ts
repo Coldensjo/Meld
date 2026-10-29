@@ -2,7 +2,7 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import type * as THREE from 'three'
-import type { vmangos } from '../wailsjs/go/models'
+import type { vmangos } from '../src/lib/wails/models'
 import type { ObjectLayer } from '../src/lib/world/ObjectLayer.ts'
 import type { SpawnLayer } from '../src/lib/world/SpawnLayer.ts'
 import { pickNearest } from '../src/lib/world/pickNearest.ts'

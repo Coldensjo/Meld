@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
-	import { DeleteConditionText, ReadGossip, SaveConditionText, SaveGossipOptions, SaveGreeting } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { DeleteConditionText, ReadGossip, SaveConditionText, SaveGossipOptions, SaveGreeting } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import MoneyField from './MoneyField.svelte'
 	import RefField from './RefField.svelte'
 	import type { CreatureField } from '../lib/world/creatureFields'

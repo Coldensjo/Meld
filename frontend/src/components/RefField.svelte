@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { idMenu, idOf } from '../lib/ui/copyId'
-	import { SearchCreatures, SearchItems, SearchQuests, SearchWorldRefs } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { SearchCreatures, SearchItems, SearchQuests, SearchWorldRefs } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { ownListIds, type CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_VARS } from '../lib/wow/itemTooltip'

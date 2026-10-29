@@ -1,5 +1,6 @@
-import { GroundEffects } from '../../../wailsjs/go/main/App'
-import { EventsOn } from '../../../wailsjs/runtime/runtime'
+import { GroundEffects } from '../wails/App'
+import { goMap } from '../wails/maps'
+import { EventsOn } from '../wails/runtime'
 import { hasBackend } from '../io/backend'
 import { setStatus, wow } from '../state/editor.svelte'
 import type { GroundEffectTables } from '../world/groundEffects'
@@ -34,7 +35,7 @@ export function loadGroundEffectTables(): Promise<void> {
 	}
 	loading = GroundEffects()
 		.then((t) => {
-			tables = { effects: {}, textures: t.textures ?? {}, terrains: (t.terrains ?? []).map((r) => ({ id: r.id, name: r.name, footprints: r.footprints })) }
+			tables = { effects: {}, textures: goMap(t.textures ?? {}), terrains: (t.terrains ?? []).map((r) => ({ id: r.id, name: r.name, footprints: r.footprints })) }
 			for (const [id, e] of Object.entries(t.effects ?? {})) {
 				const row = e as { doodads?: string[]; slots?: number[]; density?: number; terrain?: number }
 				const doodads = row.doodads ?? []

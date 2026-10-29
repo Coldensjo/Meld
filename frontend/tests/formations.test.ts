@@ -2,7 +2,7 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { nearNum } from './support/near.ts'
-import type { vmangos } from '../wailsjs/go/models'
+import type { vmangos } from '../src/lib/wails/models'
 import { disbandChanges, FORMATION_DEFAULT, joinChanges, leaveChanges, slotAt, slotFieldsAt, slotPosition } from '../src/lib/world/formations.ts'
 import { chanceProblem, joinMotherChanges, joinPoolChanges, leaveMotherChanges, motherLimitChanges, poolLegend, poolRule, poolSize } from '../src/lib/world/pools.ts'
 

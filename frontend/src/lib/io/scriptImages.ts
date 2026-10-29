@@ -1,6 +1,6 @@
 // The images a Lua script loads with load_png (#29): Go reads and decodes the PNG (LoadScriptImage, a path
 // relative to the scripts folder or a whole one) and hands its RGBA pixels over as one GET.
-import { LoadScriptImage } from '../../../wailsjs/go/main/App'
+import { LoadScriptImage } from '../wails/App'
 import { hasBackend } from './backend'
 import type { ScriptImage } from '../script/scriptApi'
 

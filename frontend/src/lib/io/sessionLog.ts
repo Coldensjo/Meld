@@ -1,4 +1,4 @@
-import { AppendLog } from '../../../wailsjs/go/main/App'
+import { AppendLog } from '../wails/App'
 import { flushLog, startLogFile } from '../state/editor.svelte'
 import { hasBackend } from './backend'
 // The Log window's lines also go to a file in the user cache (`internal/sessionlog`, #319), one file

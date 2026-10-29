@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte'
-	import { DeleteScript, ListScripts, SaveScript, ScriptsFolder } from '../../wailsjs/go/main/App'
+	import { DeleteScript, ListScripts, SaveScript, ScriptsFolder } from '../lib/wails/App'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { clearScriptLog, scriptLog, scriptSay } from '../lib/script/scriptBrush.svelte'
 	import { engineRef } from '../lib/state/engineRef'

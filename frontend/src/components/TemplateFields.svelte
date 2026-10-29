@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { vmangos } from '../../wailsjs/go/models'
+	import type { vmangos } from '../lib/wails/models'
 	import { withBit, type CreatureField } from '../lib/world/creatureFields'
 	import { classOfBit } from '../lib/wow/classes'
 	import AuraField from './AuraField.svelte'

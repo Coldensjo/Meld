@@ -1,6 +1,7 @@
 import { untrack } from 'svelte'
 import { startSaving } from '../state/saving'
 import { changedValues } from '../world/creatureFields'
+import { goMap } from '../wails/maps'
 
 // The flow the database editors share (#576): the creature, game object, quest, item and spell
 // editors each edit one template row of the world database (its columns as strings, `values`, beside
@@ -11,8 +12,9 @@ import { changedValues } from '../world/creatureFields'
 // so these are not History edits: Revert drops the unsaved values.
 
 /** What a template row read from the world database has: its columns, as strings. */
+/** Go's map of the columns, which Wails types as possibly undefined (goMap). */
 export interface TemplateRow {
-	values: Record<string, string>
+	values: { [col: string]: string | undefined }
 }
 
 export interface TemplateEditorOptions<T, R extends TemplateRow> {
@@ -128,8 +130,8 @@ export class TemplateEditor<T, R extends TemplateRow> implements EditorFlow {
 			const r = await this.#o.read(entry)
 			if (mine !== this.#token) return false
 			this.record = r
-			this.values = { ...r.values }
-			this.saved = { ...r.values }
+			this.values = { ...goMap(r.values) }
+			this.saved = { ...goMap(r.values) }
 			return true
 		} catch (err) {
 			if (mine === this.#token) this.error = String(err)
@@ -229,7 +231,7 @@ export class RefusedError extends Error {
  * Throws the value a save binding refused (its result's `refused`; Wails passes a returned error as
  * its message only, so Go hands the column over in the result), and returns the result otherwise.
  */
-export function checkRefused<T extends { refused?: { column: string; message: string } }>(result: T): T {
+export function checkRefused<T extends { refused?: { column: string; message: string } | null }>(result: T): T {
 	if (result.refused) throw new RefusedError(result.refused.column, result.refused.message)
 	return result
 }

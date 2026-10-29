@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { ListItemDisplays } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ListItemDisplays } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	// The list is read once a session; forgetLooks drops it after a display was added.
 	let displays: Promise<vmangos.ItemDisplayEntry[]> | null = null

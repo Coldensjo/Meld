@@ -14,7 +14,7 @@ import type { Command } from '../state/history'
 import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, defaultPrefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
-import { type adt, type main, vmangos } from '../../../wailsjs/go/models'
+import { type adt, type main, vmangos } from '../wails/models'
 import {
 	cropLiquids,
 	decodeLiquids,
@@ -194,7 +194,7 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import type { SpawnChange } from '../world/formations'
 import { poolMates } from '../world/pools'
 import { selectSpawn, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../wails/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'

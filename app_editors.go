@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // SearchCreatures lists up to 100 creature templates of the world database whose name has text
@@ -180,7 +178,7 @@ func (a *App) forgetStale() {
 		return
 	}
 	if err := sess.ForgetStale(); err != nil {
-		runtime.LogWarning(a.ctx, "The game's cache of changed templates wasn't cleared: "+err.Error())
+		a.logWarning("The game's cache of changed templates wasn't cleared: " + err.Error())
 	}
 }
 

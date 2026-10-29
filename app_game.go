@@ -11,8 +11,6 @@ import (
 	"Meld/internal/config"
 	"Meld/internal/game"
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // gameSession is the game and server a region export restarts, with the saved login.
@@ -32,7 +30,7 @@ func (a *App) gameSession() (game.Session, error) {
 		Login:      a.cfg.Login,
 		Run:        vmangos.OSRunner{},
 		Log: func(msg string) {
-			runtime.LogInfo(a.ctx, msg)
+			a.logInfo(msg)
 			if a.slog != nil {
 				_ = a.slog.Append([]string{time.Now().Format("15:04:05") + " " + msg})
 			}
@@ -137,7 +135,7 @@ func (a *App) BrowseBenillaFolder() (string, error) {
 	a.cfgMu.Lock()
 	dir := a.cfg.BenillaPath
 	a.cfgMu.Unlock()
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select the Benilla folder", DefaultDirectory: dir})
+	return a.openDirectory(dialogOptions{Title: "Select the Benilla folder", DefaultDirectory: dir})
 }
 
 // SetBenillaPath saves the Benilla folder: the repository, with its Cargo.toml (the program is built

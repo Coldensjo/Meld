@@ -21,13 +21,17 @@ import (
 	"Meld/internal/vmangos"
 	"Meld/internal/wow"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // App is bound to the frontend. Go owns everything that touches the file
 // system; rendering and editing live entirely in the frontend.
 type App struct {
+	// ctx is the app's context, cancelled when it shuts down; app and win are the Wails app and its
+	// window. All three are nil in the Go tests, which construct App directly.
 	ctx context.Context
+	app *application.App
+	win *application.WebviewWindow
 	wow *wow.Client
 	// handoffs holds the binary parts of bound replies until the page fetches them (#636).
 	handoffs handoff.Store
@@ -79,8 +83,7 @@ func NewApp() *App {
 	return a
 }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+func (a *App) startup() {
 	a.startRecovery()
 	a.startSessionLog()
 	// Client files saved while the game ran last time go into the patch once it isn't running.
@@ -88,7 +91,7 @@ func (a *App) startup(ctx context.Context) {
 	if a.cfg.WowPath != "" {
 		go func() {
 			_ = a.wow.Open(a.cfg.WowPath)
-			runtime.EventsEmit(a.ctx, "wow:status", a.wow.Status())
+			a.emit("wow:status", a.wow.Status())
 		}()
 	}
 }
@@ -103,12 +106,12 @@ func (a *App) SetUnsaved(unsaved bool) {
 // and asks the frontend to show the "Unsaved changes" dialog, as File › Quit does (#188).
 // A frontend that hangs never answers, so a second close after closeAckWait without an answer
 // (AckClose) goes through; the autosaved copies then hold the unsaved maps.
-func (a *App) beforeClose(ctx context.Context) bool {
-	a.saveWindow(ctx)
+func (a *App) beforeClose() bool {
+	a.saveWindow()
 	if !a.stopClose(time.Now()) {
 		return false
 	}
-	runtime.EventsEmit(ctx, "app:close")
+	a.emit("app:close")
 	return true
 }
 
@@ -131,18 +134,21 @@ func (a *App) AckClose() {
 	a.closeAsked.Store(0)
 }
 
-func (a *App) saveWindow(ctx context.Context) {
+func (a *App) saveWindow() {
+	if a.win == nil {
+		return
+	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	w := &a.cfg.Window
 	switch {
-	case runtime.WindowIsMinimised(ctx):
+	case a.win.IsMinimised():
 		// Keep the size from before it was minimised.
-	case runtime.WindowIsMaximised(ctx) || runtime.WindowIsFullscreen(ctx):
+	case a.win.IsMaximised() || a.win.IsFullscreen():
 		// The unmaximised size isn't available, so the last one saved stays.
 		w.Maximised = true
 	default:
-		w.Width, w.Height = runtime.WindowGetSize(ctx)
+		w.Width, w.Height = a.win.Size()
 		w.Maximised = false
 	}
 	_ = config.Update(func(c *config.Config) error {
@@ -158,7 +164,7 @@ func (a *App) WowStatus() wow.Status {
 
 // BrowseWowFolder lets the user pick a WoW 1.x client folder. Returns "" if cancelled.
 func (a *App) BrowseWowFolder() (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openDirectory(dialogOptions{
 		Title:            "Select World of Warcraft 1.x client folder",
 		DefaultDirectory: a.cfg.WowPath,
 	})
@@ -239,12 +245,14 @@ func (a *App) SavePrefs(prefs string) error {
 
 // Quit closes the application.
 func (a *App) Quit() {
-	runtime.Quit(a.ctx)
+	if a.app != nil {
+		a.app.Quit()
+	}
 }
 
 // shutdown ends the session; its copies stay unless the editor quit through Quit, which drops them
 // first (EndRecovery), so closing the window on unsaved maps still leaves them to recover.
-func (a *App) shutdown(ctx context.Context) {
+func (a *App) shutdown() {
 	if a.rec != nil {
 		_ = a.rec.End()
 	}
@@ -259,7 +267,7 @@ func (a *App) VmangosPath() string {
 
 // BrowseVmangosFolder lets the user pick a VMaNGOS server folder. Returns "" if cancelled.
 func (a *App) BrowseVmangosFolder() (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openDirectory(dialogOptions{
 		Title:            "Select the VMaNGOS server folder",
 		DefaultDirectory: a.VmangosPath(),
 	})

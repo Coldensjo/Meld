@@ -2,8 +2,9 @@
 	import { numOr0 as num } from '../lib/ui/inputs'
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
-	import { MapLights, NewLightIDs, SaveLights } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { MapLights, NewLightIDs, SaveLights } from '../lib/wails/App'
+	import { goIntMap } from '../lib/wails/maps'
+	import { vmangos } from '../lib/wails/models'
 	import { prefs, setStatus } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
 	import { engineRef } from '../lib/state/engineRef'
@@ -74,7 +75,7 @@
 			cam = e.cameraInFileFrame()
 			const set = await MapLights(mapId)
 			lights = set.lights ?? []
-			params = set.params ?? {}
+			params = goIntMap(set.params ?? {})
 			// The light the camera is in (the nearest one reaching it), else the global light.
 			const inside = lights.filter((l) => !l.global && lightWeight(l, dist(l)) > 0).sort((a, b) => dist(a) - dist(b))[0]
 			picked = (inside ?? lights.find((l) => l.global) ?? lights[0])?.id ?? null

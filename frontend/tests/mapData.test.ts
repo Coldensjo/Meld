@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { MapSnapshot } from '../src/lib/engine/Engine'
 import { dropOrphanParents, fromMapData, toMapData } from '../src/lib/io/mapData'
 import { bytesToBase64 } from '../src/lib/io/base64'
-import type { mapfile } from '../wailsjs/go/models'
+import type { mapfile } from '../src/lib/wails/models'
 import { encodeLiquids, LIQUID_MAGMA, liquidKindsOf, LiquidMap, liquidType, newLayer, rememberLiquidKinds, tileLiquidType } from '../src/lib/water/liquids'
 
 const SIZE = 16

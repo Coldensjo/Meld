@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
 	import { onDestroy, tick } from 'svelte'
-	import { MapEntries, ReadCreature, SaveCreature, SaveTaxi, TaxiNetwork } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { MapEntries, ReadCreature, SaveCreature, SaveTaxi, TaxiNetwork } from '../lib/wails/App'
+	import { vmangos } from '../lib/wails/models'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
 	import { engineRef } from '../lib/state/engineRef'

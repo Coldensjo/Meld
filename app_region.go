@@ -10,8 +10,6 @@ import (
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // serveNavTile serves /wow/navtile?map=&x=&y= (#240): a tile of the server's movement maps for the
@@ -242,7 +240,7 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) (err error) {
 	started = true
 	go func() {
 		defer a.serverBusy.Store(false)
-		logf := func(line string) { runtime.EventsEmit(a.ctx, "servermaps:log", line) }
+		logf := func(line string) { a.emit("servermaps:log", line) }
 		msg := ""
 		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server, SkipMoveMaps: !a.buildMoveMaps()}
 		dataDir := filepath.Join(clientDir, "Data")
@@ -251,7 +249,7 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) (err error) {
 		} else if err := vmangos.UpdateServerMaps(plan, dataDir, uint32(mapID), tiles, logf); err != nil {
 			msg = err.Error()
 		}
-		runtime.EventsEmit(a.ctx, "servermaps:done", msg)
+		a.emit("servermaps:done", msg)
 	}()
 	return nil
 }
@@ -300,14 +298,14 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) (err error) {
 	started = true
 	go func() {
 		defer a.serverBusy.Store(false)
-		logf := func(line string) { runtime.EventsEmit(a.ctx, "publish:log", line) }
+		logf := func(line string) { a.emit("publish:log", line) }
 		msg := ""
 		if err := a.waitForGameClosed(filepath.Join(clientDir, "Data"), logf); err != nil {
 			msg = err.Error()
 		} else if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server, SkipMoveMaps: !a.buildMoveMaps()}, m, logf); err != nil {
 			msg = err.Error()
 		}
-		runtime.EventsEmit(a.ctx, "publish:done", msg)
+		a.emit("publish:done", msg)
 	}()
 	return nil
 }

@@ -6,8 +6,6 @@ import (
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // SpellTexts gives the description of each spell, its $ tokens filled in, for the Shop tab's tooltips.
@@ -142,7 +140,7 @@ func (a *App) ExportSpells(entries []int, suggested string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Export Spells", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	path, err := a.saveFile(dialogOptions{Title: "Export Spells", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
 	if err != nil || path == "" {
 		return "", err
 	}
@@ -151,7 +149,7 @@ func (a *App) ExportSpells(entries []int, suggested string) (string, error) {
 
 // OpenSpellsDialog asks for an SQL script of spells to import. Returns "" if cancelled.
 func (a *App) OpenSpellsDialog() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Import Spells", Filters: sqlFilters})
+	return a.openFile(dialogOptions{Title: "Import Spells", Filters: sqlFilters})
 }
 
 // PlanSpellImport says what importing the spells of the SQL script at path would write.

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ObjectDisplaySounds, SaveObjectDisplaySounds } from '../../wailsjs/go/main/App'
-	import type { main, vmangos } from '../../wailsjs/go/models'
+	import { ObjectDisplaySounds, SaveObjectDisplaySounds } from '../lib/wails/App'
+	import type { main, vmangos } from '../lib/wails/models'
 	import { playSound, soundPlayer, stopSound } from '../lib/ui/soundPlayer.svelte'
 	import { loadDisplays } from './DisplayPicker.svelte'
 	import SoundPicker, { loadSoundEntries } from './SoundPicker.svelte'

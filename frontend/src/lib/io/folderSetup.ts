@@ -1,4 +1,4 @@
-import { VmangosPath } from '../../../wailsjs/go/main/App'
+import { VmangosPath } from '../wails/App'
 import { prefs, ui, wow } from '../state/editor.svelte'
 import { hasBackend } from './backend'
 import { folderGaps } from './folderGaps'

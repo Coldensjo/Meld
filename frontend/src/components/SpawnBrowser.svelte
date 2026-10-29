@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { ListCreatureTemplates, ListObjectTemplates } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ListCreatureTemplates, ListObjectTemplates } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { spawnType, creatureTypeName, objectTypeName, rankName } from '../lib/world/spawnInfo'
 
 	// The world database's creature and game object templates, read once for the whole session (the

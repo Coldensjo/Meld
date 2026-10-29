@@ -10,7 +10,7 @@ import type { MaskPick } from '../terrain/maskSelect'
 import type { AreaShapeMode } from '../terrain/smoothArea'
 import type { Bookmark } from '../engine/MapDocument'
 import type { PerfReport } from '../engine/perfMeter'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 
 // Moved out of this file (#459); re-exported so the older imports keep working. New code imports them
 // from their own modules.

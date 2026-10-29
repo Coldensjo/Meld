@@ -1,5 +1,5 @@
-import { DropRecovery, DropRecoveryParts, EndRecovery, ListRecovery, LoadRecovery, SaveRecovery, SaveRecoveryPart } from '../../../wailsjs/go/main/App'
-import { mapfile, recovery } from '../../../wailsjs/go/models'
+import { DropRecovery, DropRecoveryParts, EndRecovery, ListRecovery, LoadRecovery, SaveRecovery, SaveRecoveryPart } from '../wails/App'
+import { mapfile, recovery } from '../wails/models'
 import type { Engine } from '../engine/Engine'
 import { regionLabel, type MapDocument, type RegionRef } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'

@@ -8,8 +8,6 @@ import (
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
@@ -33,7 +31,7 @@ func (a *App) GroundEffects() (*vmangos.GroundEffectTables, error) {
 	if err != nil {
 		return nil, err
 	}
-	return vmangos.LoadGroundEffects(dataDir, cacheDir, func(line string) { runtime.EventsEmit(a.ctx, "effects:log", line) })
+	return vmangos.LoadGroundEffects(dataDir, cacheDir, func(line string) { a.emit("effects:log", line) })
 }
 
 // AddGroundEffect writes a new ground effect (GroundEffectTexture row) growing the given detail models

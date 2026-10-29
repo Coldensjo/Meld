@@ -20,8 +20,8 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { openWorldView, openWowBuilding, openWowRegion } from '../lib/io/region'
-	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap, ZoneDoodads, ZoneTextures } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { MapEntries, MapZones, OpenHeightmapDialog, ReadHeightmap, ZoneDoodads, ZoneTextures } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	// Every map Meld makes is a map for the 1.12 client and the VMaNGOS server. It starts
 	// either as a new world of its own (an island, hills, mountains…), reachable from Azeroth by a

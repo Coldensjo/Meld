@@ -6,7 +6,7 @@ import './runes.ts'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { vmangos } from '../wailsjs/go/models'
+import { vmangos } from '../src/lib/wails/models'
 import type { CullView } from '../src/lib/world/instanceCull.ts'
 
 const { InstanceBatch, instancedMesh, RANGES_MAX } = await import('../src/lib/world/instanceBatch.ts')

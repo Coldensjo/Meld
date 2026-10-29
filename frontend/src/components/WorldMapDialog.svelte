@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Modal from './Modal.svelte'
-	import { MapEntries, OpenImageDialog, ReadImageFile, ReadWorldMap, SaveImageDialog, WritePNG, WriteWorldMap } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { MapEntries, OpenImageDialog, ReadImageFile, ReadWorldMap, SaveImageDialog, WritePNG, WriteWorldMap } from '../lib/wails/App'
+	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'

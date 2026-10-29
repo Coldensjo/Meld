@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { ListVisualEffects } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ListVisualEffects } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	// The client's effect models, read once a session.
 	let effectList: Promise<vmangos.VisualEffect[]> | null = null
@@ -38,7 +38,7 @@
 </script>
 
 <script lang="ts">
-	import { ReadSpellVisual } from '../../wailsjs/go/main/App'
+	import { ReadSpellVisual } from '../lib/wails/App'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import SpellIcon from './SpellIcon.svelte'
 	import SpellPicker from './SpellPicker.svelte'

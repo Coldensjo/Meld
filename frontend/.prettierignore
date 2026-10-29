@@ -1,5 +1,7 @@
 # Generated, installed or built: never formatted by hand.
-wailsjs/
+bindings/
+src/lib/wails/App.ts
+src/lib/wails/models.ts
 dist/
 node_modules/
 bun.lock

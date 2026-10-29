@@ -2,7 +2,7 @@
  * The `.wmap` snapshot as the Go side reads and writes it (`internal/mapfile`), kept apart from
  * mapio.ts so the conversion can be unit-tested without the runes state.
  */
-import { mapfile } from '../../../wailsjs/go/models'
+import { mapfile } from '../wails/models'
 import type { MapSnapshot } from '../engine/Engine'
 import { defaultMapInfo, type MapInfo } from '../engine/mapInfo'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'

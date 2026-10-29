@@ -1,6 +1,6 @@
 import { pressed } from '../ui/commands'
 import * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
 import { markMoved, movableSelection, selectObjects, withGroups } from '../state/selection'
 import { getAsset } from '../models/assets'

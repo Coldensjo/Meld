@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Modal from './Modal.svelte'
-	import { recovery } from '../../wailsjs/go/models'
+	import { recovery } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { discard, recover, recoveryCopies } from '../lib/io/recovery'

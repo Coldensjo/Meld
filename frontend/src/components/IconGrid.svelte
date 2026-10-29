@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { ExportIcons, ExportIconsDialog, ImportIcons, ListItemIcons, OpenIconsDialog } from '../../wailsjs/go/main/App'
+	import { ExportIcons, ExportIconsDialog, ImportIcons, ListItemIcons, OpenIconsDialog } from '../lib/wails/App'
 
 	// The list is read once a session; forgetIcons drops it after icons were added.
 	let icons: Promise<string[]> | null = null

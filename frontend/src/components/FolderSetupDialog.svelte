@@ -3,7 +3,7 @@
 	import { prefs, wow } from '../lib/state/editor.svelte'
 	import { chooseVmangosFolder } from '../lib/io/game'
 	import { chooseWowFolder } from '../lib/wow/api'
-	import { VmangosPath } from '../../wailsjs/go/main/App'
+	import { VmangosPath } from '../lib/wails/App'
 	import { onMount } from 'svelte'
 
 	// Shown at the start while the client or the server folder is unset (#689). Skip closes it for this

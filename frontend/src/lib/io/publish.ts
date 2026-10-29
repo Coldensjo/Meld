@@ -1,5 +1,5 @@
 // Publishing a map made for the client, and Save, which publishes one.
-import { PublishVmangosMap } from '../../../wailsjs/go/main/App'
+import { PublishVmangosMap } from '../wails/App'
 import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
@@ -8,8 +8,8 @@ import { mapToTiles, type ExportObject } from './vmangosExport'
 import { TILE_SIZE, teleportCommand, wmoOnlyTiles } from './portCoords'
 import { maskBytes } from '../terrain/tileMask'
 import { TILE_CELLS } from '../wow/format'
-import { vmangos } from '../../../wailsjs/go/models'
-import { EventsOn } from '../../../wailsjs/runtime/runtime'
+import { vmangos } from '../wails/models'
+import { EventsOn } from '../wails/runtime'
 import { saveMap } from './mapio'
 
 /** The `.go` line the last publish's message gives: the map's start, or a WMO-only map's building. */

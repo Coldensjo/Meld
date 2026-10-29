@@ -1,7 +1,7 @@
 // Run with: bun test tests/spellFields.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { vmangos } from '../wailsjs/go/models.ts'
+import { vmangos } from '../src/lib/wails/models.ts'
 import { withBit } from '../src/lib/world/creatureFields.ts'
 import { FORM_MASK, SPELL_ATTRIBUTES, SPELL_ATTRIBUTES_EX, SPELL_ATTRIBUTES_EX2, SPELL_ATTRIBUTES_EX3, effectSummary, expandSpellText, miscField, spellTabs, spellTooltip, subclassMask } from '../src/lib/world/spellFields.ts'
 

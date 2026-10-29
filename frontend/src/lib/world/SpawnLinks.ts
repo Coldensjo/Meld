@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { SpawnLayer } from './SpawnLayer'
 import { creatureOf, followersOf, follows, groupOptions, leads, slotPosition } from './formations'
 import { poolHue, topPool } from './pools'

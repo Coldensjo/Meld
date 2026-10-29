@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { Tool, ToolContext } from './Tool'
 import { editor, prefs, setStatus } from '../state/editor.svelte'
 import type { Command } from '../state/history'

@@ -13,3 +13,4 @@ frontend/probes/scratch/
 *.probe-refresh
 docs/.vitepress/cache
 docs/.vitepress/dist
+meld_windows_amd64.syso

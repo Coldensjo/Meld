@@ -1,4 +1,4 @@
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 
 // Lock.dbc as the game object and item editors name it (#702): kept apart from refNames.ts, which
 // reads the editor's state, so the unit tests can load it.

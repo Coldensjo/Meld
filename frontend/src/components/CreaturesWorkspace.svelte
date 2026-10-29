@@ -4,8 +4,9 @@
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { leaveField, takeEscape } from '../lib/state/escape'
-	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
+	import { goMap } from '../lib/wails/maps'
 	import { untrack } from 'svelte'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -215,7 +216,7 @@
 			const rec = await ReadCreature(entry)
 			await SaveCreature(entry, rec.patch, v)
 			forgetCreatureDisplays()
-			made = { entry, values: { ...rec.values, ...v } }
+			made = { entry, values: { ...goMap(rec.values), ...v } }
 			setStatus(`Made creature ${entry}, ${v.name}. Restart the world server to see it in the game.`, 10000)
 		} catch (err) {
 			error = String(err)

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ScriptCommands, SpawnScripts } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ScriptCommands, SpawnScripts } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { scriptCommandName } from '../lib/world/scriptCommands'
 
 	// The scripts the world database attaches to a spawn (#137), read-only: its template's C++ script

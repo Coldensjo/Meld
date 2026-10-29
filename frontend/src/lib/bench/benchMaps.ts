@@ -10,8 +10,8 @@ import { CHUNK_CELLS, SLOTS } from '../terrain/chunkPaint'
 import type { GenerateKind } from '../terrain/Terrain'
 import { LIQUID_CELLS, LIQUID_MAGMA, LIQUID_OCEAN, LIQUID_SLIME, LIQUID_VERTS, LIQUID_WATER, newLayer, type LiquidLayer } from '../water/liquids'
 import { listAssets } from '../wow/api'
-import { vmangos } from '../../../wailsjs/go/models'
-import { ListDisplays } from '../../../wailsjs/go/main/App'
+import { vmangos } from '../wails/models'
+import { ListDisplays } from '../wails/App'
 
 export type BenchKind = 'objects-same' | 'objects-mixed' | 'wmo' | 'lights' | 'creatures' | 'terrain' | 'water' | 'everything'
 

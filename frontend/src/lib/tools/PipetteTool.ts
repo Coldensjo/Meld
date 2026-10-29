@@ -6,7 +6,7 @@ import type { WorldObject } from '../world/ObjectLayer'
 import { layerAt } from './TerrainTools'
 import { loadCreatureTemplates, loadObjectTemplates, creatureKey, objectKey } from '../../components/SpawnBrowser.svelte'
 import { spawnType } from '../world/spawnInfo'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 
 // The pipette: Alt+click picks what is under the cursor. In the Select and Place tools, a model's type
 // becomes the model to place and the ground's texture becomes the paint texture; in Paint and Road,

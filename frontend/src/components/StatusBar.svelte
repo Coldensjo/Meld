@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte'
 	import { editor, setStatus, stats, ui } from '../lib/state/editor.svelte'
 	import { hasBackend } from '../lib/io/backend'
-	import { ClientFilesWaiting } from '../../wailsjs/go/main/App'
-	import { EventsOn } from '../../wailsjs/runtime/runtime'
+	import { ClientFilesWaiting } from '../lib/wails/App'
+	import { EventsOn } from '../lib/wails/runtime'
 	import ToolHint from './ToolHint.svelte'
 
 	const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))

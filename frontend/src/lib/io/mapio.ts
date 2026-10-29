@@ -1,5 +1,5 @@
 // The map file: File › Save, Open and Revert of a .wmap (mapData.ts converts it).
-import { LoadMap, OpenMapDialog, SaveMap, SaveMapDialog } from '../../../wailsjs/go/main/App'
+import { LoadMap, OpenMapDialog, SaveMap, SaveMapDialog } from '../wails/App'
 import { guarded } from './backend'
 import { fromMapData, toMapData } from './mapData'
 import type { Engine } from '../engine/Engine'

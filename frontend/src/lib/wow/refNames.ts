@@ -1,5 +1,6 @@
-import { EquipmentDisplays, Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, SpellTables, SpellsWithVisual, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
-import type { vmangos } from '../../../wailsjs/go/models'
+import { EquipmentDisplays, Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, SpellTables, SpellsWithVisual, TemplateNames, WorldRefNames } from '../wails/App'
+import { goIntMap } from '../wails/maps'
+import type { vmangos } from '../wails/models'
 import { areaName, loadAreas } from './areas'
 import { lockText } from './locks'
 import { spellRef } from './spells'
@@ -95,14 +96,6 @@ export interface RefName {
 
 type TemplateKind = 'item' | 'creature' | 'object' | 'quest'
 
-/** Go's vmangos.NamedRef, which Wails leaves out of models.ts since only a map's values use it. */
-interface NamedRef {
-	name: string
-	quality: number
-	displayId: number
-	level: number
-}
-
 const cache = new Map<string, Promise<RefName | null>>()
 const pending = new Map<TemplateKind | WorldKind, Map<number, (r: RefName | null) => void>>()
 let flush = 0
@@ -114,8 +107,9 @@ function flushNames() {
 	for (const [kind, ids] of asked) {
 		if (isWorldKind(kind)) {
 			WorldRefNames(kind, [...ids.keys()])
-				.then((got: Record<number, string> | null) => {
-					for (const [id, done] of ids) done(got?.[id] !== undefined ? { name: got[id] } : null)
+				.then((m) => {
+					const got = goIntMap(m)
+					for (const [id, done] of ids) done(got[id] !== undefined ? { name: got[id] } : null)
 				})
 				.catch(() => {
 					for (const done of ids.values()) done(null)
@@ -123,9 +117,10 @@ function flushNames() {
 			continue
 		}
 		TemplateNames(kind, [...ids.keys()])
-			.then((got: Record<number, NamedRef> | null) => {
+			.then((m) => {
+				const got = goIntMap(m)
 				for (const [id, done] of ids) {
-					const r = got?.[id]
+					const r = got[id]
 					done(r ? { name: r.name, quality: r.quality, displayId: r.displayId, level: r.level } : null)
 				}
 			})
@@ -422,8 +417,9 @@ export function equipmentDisplays(id: number): Promise<number[]> {
 				const asked = new Map(gearAsked)
 				gearAsked.clear()
 				EquipmentDisplays([...asked.keys()])
-					.then((got: Record<number, number[]> | null) => {
-						for (const [k, done] of asked) done(got?.[k] ?? [])
+					.then((m) => {
+						const got = goIntMap(m)
+						for (const [k, done] of asked) done(got[k] ?? [])
 					})
 					.catch(() => {
 						for (const [k, done] of asked) {

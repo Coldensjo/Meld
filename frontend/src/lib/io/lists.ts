@@ -1,5 +1,5 @@
 // The text files: object lists, doodad brushes and model sets.
-import { OpenBrushDialog, OpenModelSetDialog, OpenTextDialog, ReadTextFile, SaveBrushDialog, SaveModelSetDialog, SaveTextDialog, WriteTextFile } from '../../../wailsjs/go/main/App'
+import { OpenBrushDialog, OpenModelSetDialog, OpenTextDialog, ReadTextFile, SaveBrushDialog, SaveModelSetDialog, SaveTextDialog, WriteTextFile } from '../wails/App'
 import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus } from '../state/editor.svelte'

@@ -4,7 +4,7 @@
 	import { chanceProblem, leaveMotherChanges, leavePoolChanges, motherLimitChanges, poolMates, poolRule, poolSettingChanges, poolSize } from '../lib/world/pools'
 	import { selectSpawn } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import type { vmangos } from '../lib/wails/models'
 
 	// A spawn's pool (pool_template, pool_creature, pool_gameobject; #136, #172): how many of its
 	// members the server spawns at a time, the region's other members (outlined on the map), the

@@ -5,7 +5,7 @@
 import './runes.ts'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { vmangos } from '../wailsjs/go/models'
+import { vmangos } from '../src/lib/wails/models'
 import type { Command } from '../src/lib/state/history'
 
 const { SpawnLayer, spawnKey } = await import('../src/lib/world/SpawnLayer.ts')

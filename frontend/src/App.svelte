@@ -54,8 +54,8 @@
 	import { bindKeymap, commandFor, syncKeymap } from './lib/ui/commands'
 	import { runCommand } from './lib/ui/runCommand'
 	import { engineRef } from './lib/state/engineRef'
-	import { EventsOn, WindowSetTitle } from '../wailsjs/runtime/runtime'
-	import { AckClose, SetUnsaved } from '../wailsjs/go/main/App'
+	import { EventsOn, WindowSetTitle } from './lib/wails/runtime'
+	import { AckClose, SetUnsaved } from './lib/wails/App'
 	import { hasBackend } from './lib/io/backend'
 	import { refreshProjects } from './lib/io/project'
 

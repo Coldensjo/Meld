@@ -5,7 +5,7 @@ import { buildWowAsset, getAsset, releaseWowAsset, texturesReady, wowPath, type 
 import { placementEuler } from '../world/placement'
 import type { Prefab } from './prefabs'
 import { fetchMesh, texturePreview } from './api'
-import { SaveThumbnail } from '../../../wailsjs/go/main/App'
+import { SaveThumbnail } from '../wails/App'
 import { bytesToBase64 } from '../io/base64'
 import { ThumbQueue } from './thumbQueue'
 

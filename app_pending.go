@@ -8,8 +8,6 @@ import (
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Client files that wait for the game to close (#365): no save or compile closes the game or the
@@ -98,7 +96,7 @@ func (a *App) worldRunning() bool {
 func (a *App) emitPending(dataDir string) {
 	pending, err := vmangos.PendingFiles(dataDir)
 	if err == nil && a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "client:pending", len(pending))
+		a.emit("client:pending", len(pending))
 	}
 }
 
@@ -156,7 +154,7 @@ func (a *App) flushPending() {
 		return
 	}
 	if _, err := vmangos.InstallWithPending(dataDir, nil); err != nil {
-		runtime.LogWarning(a.ctx, "The client files waiting for the game to close weren't written: "+err.Error())
+		a.logWarning("The client files waiting for the game to close weren't written: " + err.Error())
 		return
 	}
 	a.emitPending(dataDir)
@@ -204,8 +202,8 @@ func (a *App) runPendingWatch() {
 				if !vmangos.InUse(err) || failed >= pendingTries {
 					msg := "The client files waiting for the game to close weren't written, and Meld stopped trying: " + err.Error() + ". They still wait: the next save to the client takes them along."
 					if a.ctx != nil {
-						runtime.LogWarning(a.ctx, msg)
-						runtime.EventsEmit(a.ctx, "client:pending-failed", msg)
+						a.logWarning(msg)
+						a.emit("client:pending-failed", msg)
 					}
 					return
 				}
@@ -226,6 +224,6 @@ func (a *App) reloadSpells(server string) {
 		return
 	}
 	if err := vmangos.ReloadSpells(server, sess.Login.Account, sess.Login.Password); err != nil {
-		runtime.LogInfo(a.ctx, "The world server didn't reload its spells (it reads them at its next start): "+err.Error())
+		a.logInfo("The world server didn't reload its spells (it reads them at its next start): " + err.Error())
 	}
 }

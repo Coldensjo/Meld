@@ -1,4 +1,5 @@
-import { ItemIcons, ItemSets, ReadItem, SpellTexts } from '../../../wailsjs/go/main/App'
+import { ItemIcons, ItemSets, ReadItem, SpellTexts } from '../wails/App'
+import { goIntMap, goMap } from '../wails/maps'
 import { texturePreview } from './api'
 import type { TooltipNames, TooltipSet } from './itemTooltip'
 import { refName } from './refNames'
@@ -18,7 +19,7 @@ function flushIcons() {
 	pending.clear()
 	ItemIcons([...asked.keys()])
 		.then((names) => {
-			for (const [id, done] of asked) done(names?.[id] ?? null)
+			for (const [id, done] of asked) done(goIntMap(names)[id] ?? null)
 		})
 		.catch(() => {
 			for (const done of asked.values()) done(null)
@@ -66,7 +67,7 @@ const rows = new Map<number, Promise<Record<string, string>>>()
 export function itemRow(entry: number): Promise<Record<string, string>> {
 	let p = rows.get(entry)
 	if (!p) {
-		p = ReadItem(entry)
+		p = ReadItem(entry).then(goMap)
 		p.catch(() => rows.delete(entry))
 		rows.set(entry, p)
 	}
@@ -86,7 +87,7 @@ export async function itemSpellTexts(row: Record<string, string>): Promise<Recor
 		if (id > 0) ids.push(id)
 	}
 	if (!ids.length) return {}
-	return (await SpellTexts(ids).catch(() => null)) ?? {}
+	return goIntMap((await SpellTexts(ids).catch(() => null)) ?? {})
 }
 
 const sets = new Map<number, Promise<TooltipSet | undefined>>()
@@ -107,7 +108,7 @@ export function itemSet(id: number): Promise<TooltipSet | undefined> {
 			return {
 				name: set.name,
 				members,
-				bonuses: set.bonuses.map((b) => ({ threshold: b.threshold, text: texts?.[b.spell] ?? `spell ${b.spell}` })),
+				bonuses: set.bonuses.map((b) => ({ threshold: b.threshold, text: (texts ? goIntMap(texts)[b.spell] : undefined) ?? `spell ${b.spell}` })),
 				skill: skill?.name ?? undefined,
 				skillRank: set.requiredSkillRank,
 			}

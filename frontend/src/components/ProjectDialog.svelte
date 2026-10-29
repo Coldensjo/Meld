@@ -4,7 +4,7 @@
 	import { ui, wow, type ProjectInfo } from '../lib/state/editor.svelte'
 	import { closeProject, forgetProject, openProject, refreshProjects } from '../lib/io/project'
 	import { hasBackend } from '../lib/io/backend'
-	import { BrowseProjectFolder, BrowseWowFolder, ProjectInFolder } from '../../wailsjs/go/main/App'
+	import { BrowseProjectFolder, BrowseWowFolder, ProjectInFolder } from '../lib/wails/App'
 
 	// File › Project… (#48): a project is a folder for the maps of it and the client folder it edits.
 	// Opening a part of Azeroth needs one; a new world of its own does not.

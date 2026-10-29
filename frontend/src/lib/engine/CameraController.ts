@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { MouseLookBegin, MouseLookEnd, MouseLookRecenter } from '../../../wailsjs/go/main/App'
+import { MouseLookBegin, MouseLookEnd, MouseLookRecenter } from '../wails/App'
 import { LookWarp } from './lookWarp'
 import { moveStep, walkFloor, WALK_HEIGHT, type CameraMoveScratch } from './cameraMove'
 import { CAMERA_KEYS } from '../ui/commands'

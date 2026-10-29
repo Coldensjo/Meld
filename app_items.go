@@ -5,8 +5,6 @@ import (
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
@@ -173,7 +171,7 @@ func (a *App) EquipBonuses() ([]vmangos.EquipBonusKind, error) {
 	return vmangos.EquipBonuses(server, dataDir)
 }
 
-var sqlFilters = []runtime.FileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}}
+var sqlFilters = []fileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}}
 
 // ExportItems asks where to save an SQL script of items and writes their item_template rows there.
 // Returns the path, or "" if cancelled.
@@ -186,7 +184,7 @@ func (a *App) ExportItems(entries []int, suggested string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Export Items", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	path, err := a.saveFile(dialogOptions{Title: "Export Items", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
 	if err != nil || path == "" {
 		return "", err
 	}
@@ -195,7 +193,7 @@ func (a *App) ExportItems(entries []int, suggested string) (string, error) {
 
 // OpenItemsDialog asks for an SQL script of items to import. Returns "" if cancelled.
 func (a *App) OpenItemsDialog() (string, error) {
-	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Import Items", Filters: sqlFilters})
+	return a.openFile(dialogOptions{Title: "Import Items", Filters: sqlFilters})
 }
 
 // PlanItemImport says what importing the items of the SQL script at path would write.

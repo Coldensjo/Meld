@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
-	import { AreaTriggers, MapEntries, SaveAreaTriggers } from '../../wailsjs/go/main/App'
-	import { vmangos } from '../../wailsjs/go/models'
+	import { AreaTriggers, MapEntries, SaveAreaTriggers } from '../lib/wails/App'
+	import { vmangos } from '../lib/wails/models'
 	import { untrack } from 'svelte'
 	import { docs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -165,7 +165,7 @@
 
 	function setTeleport(on: boolean) {
 		if (!t) return
-		t.teleport = on ? vmangos.TriggerTeleport.createFrom({ map: here?.map ?? t.mapId, x: here?.x ?? t.x, y: here?.y ?? t.y, z: here?.z ?? t.z, o: here?.o ?? 0, level: 0, message: '' }) : undefined
+		t.teleport = on ? vmangos.TriggerTeleport.createFrom({ map: here?.map ?? t.mapId, x: here?.x ?? t.x, y: here?.y ?? t.y, z: here?.z ?? t.z, o: here?.o ?? 0, level: 0, message: '' }) : null
 		touch(t.id)
 	}
 

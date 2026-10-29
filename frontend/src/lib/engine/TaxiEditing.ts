@@ -6,8 +6,8 @@ import { DocOverlay } from './docOverlay'
 import { TaxiLayer, type TaxiHooks, type TaxiPick, type TaxiRouteShape, type TaxiStopShape } from '../world/TaxiLayer'
 import { airPoint, flightAt, segmentLengths, type Vec3 } from '../world/taxiRoute'
 import { serverSpot } from '../io/portCoords'
-import type { vmangos } from '../../../wailsjs/go/models'
-import { TaxiNetwork } from '../../../wailsjs/go/main/App'
+import type { vmangos } from '../wails/models'
+import { TaxiNetwork } from '../wails/App'
 
 /** The camera's view and hour, as Engine.sceneView gives it. */
 export interface CameraView {

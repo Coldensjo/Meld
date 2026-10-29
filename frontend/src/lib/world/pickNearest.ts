@@ -1,5 +1,5 @@
 import type * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { ObjectLayer } from './ObjectLayer'
 import type { SpawnLayer } from './SpawnLayer'
 

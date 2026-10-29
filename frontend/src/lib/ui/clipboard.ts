@@ -1,4 +1,4 @@
-import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
+import { ClipboardSetText } from '../wails/runtime'
 import { hasBackend } from '../io/backend'
 
 /** Writes `text` to the clipboard (the app's, or the browser's on the dev page). */

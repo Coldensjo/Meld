@@ -1,4 +1,4 @@
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import { REP_RANKS } from '../wow/itemTooltip'
 import type { CreatureField } from './creatureFields'
 import { MECHANICS, MECHANIC_MASK, SCHOOL_MASK, fieldGroups } from './creatureFields'

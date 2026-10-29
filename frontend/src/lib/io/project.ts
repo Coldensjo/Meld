@@ -2,7 +2,7 @@
 // dialogs start there), with the client folder it edits. Meld opens straight into a map; only
 // opening a part of Azeroth asks for a project first (the owner's limit on the approval).
 
-import { CloseProject, ForgetProject, OpenProject, Projects } from '../../../wailsjs/go/main/App'
+import { CloseProject, ForgetProject, OpenProject, Projects } from '../wails/App'
 import { setStatus, ui, wow, type ProjectInfo } from '../state/editor.svelte'
 import { applyStatus } from '../wow/api'
 import { hasBackend } from './backend'

@@ -2,7 +2,7 @@
 // image:save go to Go bindings (internal/scripts), never a POST. A path is relative to the scripts folder,
 // or a whole one; a write stays in the scripts folder unless prefs.scriptWriteAnyFile, which goes with
 // each call so Go never takes it from the script.
-import { ReadScriptFile, SaveScriptImage, ScriptPathExists, WriteScriptFile } from '../../../wailsjs/go/main/App'
+import { ReadScriptFile, SaveScriptImage, ScriptPathExists, WriteScriptFile } from '../wails/App'
 import { hasBackend } from './backend'
 import { prefs } from '../state/editor.svelte'
 import type { ScriptFiles, ScriptImage } from '../script/scriptApi'

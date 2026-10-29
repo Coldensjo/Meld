@@ -1,27 +1,12 @@
 // The game: which client Meld starts and how its window opens, the Benilla and VMaNGOS folders, Launch,
 // Play Here and the port commands.
-import {
-	BrowseVmangosFolder,
-	SaveTextDialog,
-	WriteTextFile,
-	GameClient,
-	SetGameClient,
-	GameWindow,
-	SetGameWindow,
-	BrowseBenillaFolder,
-	SetBenillaPath,
-	LaunchGame,
-	LaunchGameAt,
-	PlayHere,
-	EnableSoap,
-	SetVmangosPath,
-} from '../../../wailsjs/go/main/App'
+import { BrowseVmangosFolder, SaveTextDialog, WriteTextFile, GameClient, SetGameClient, GameWindow, SetGameWindow, BrowseBenillaFolder, SetBenillaPath, LaunchGame, LaunchGameAt, PlayHere, EnableSoap, SetVmangosPath } from '../wails/App'
 import { guarded, hasBackend } from './backend'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { formatPortCoords } from './portCoords'
 import { areaName, loadAreas } from '../wow/areas'
-import { vmangos } from '../../../wailsjs/go/models'
+import { vmangos } from '../wails/models'
 import { compileRegion, regionName, regionUncompiled } from './compile'
 
 /** Reads which game client Meld uses into ui.gameClient (Edit › Preferences › Game). */

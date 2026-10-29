@@ -4,7 +4,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { displayName, isWowType, wowPath } from '../lib/models/assets'
 	import { baseType, doodadSetOf } from '../lib/models/wmoSet'
-	import { WMODoodadSets } from '../../wailsjs/go/main/App'
+	import { WMODoodadSets } from '../lib/wails/App'
 	import { hasBackend } from '../lib/io/backend'
 	import { copyToClipboard } from '../lib/ui/clipboard'
 	import type { WorldObject } from '../lib/world/ObjectLayer'

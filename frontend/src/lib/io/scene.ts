@@ -9,8 +9,8 @@ import { parseScene, PREFIX, VIEW_PREFS, type Scene, type ViewPrefs } from './sc
 import { hasBackend } from './backend'
 import { fromMapData, toMapData } from './mapData'
 import { openWowRegion } from './region'
-import { LoadMap, SaveSceneMap } from '../../../wailsjs/go/main/App'
-import { ClipboardGetText } from '../../../wailsjs/runtime/runtime'
+import { LoadMap, SaveSceneMap } from '../wails/App'
+import { ClipboardGetText } from '../wails/runtime'
 
 // A scene is the editor's state as one line of text (Help > Copy Scene), so a view can be handed to
 // someone else on this machine (or to Claude, through `window.__loadScene`) and opened again exactly:

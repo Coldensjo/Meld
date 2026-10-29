@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { ListDisplays, ListObjectDisplays } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ListDisplays, ListObjectDisplays } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	export type DisplayKind = 'creature' | 'object'
 

@@ -4,7 +4,7 @@
 	import { creatureOf, disbandChanges, FORMATION_FLAGS, flagChanges, followersOf, follows, groupOptions, leads, leaveChanges } from '../lib/world/formations'
 	import { selectSpawn } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import type { vmangos } from '../lib/wails/models'
 
 	// A creature's formation (creature_groups, #172): whom it follows and in which slot, or whom it
 	// leads and how the group behaves; and the buttons that build one on the map. Every change is

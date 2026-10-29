@@ -1,5 +1,5 @@
-import { Areas } from '../../../wailsjs/go/main/App'
-import type { vmangos } from '../../../wailsjs/go/models'
+import { Areas } from '../wails/App'
+import type { vmangos } from '../wails/models'
 import { hasBackend } from '../io/backend'
 // The client's zones and subzones (AreaTable.dbc), read once through the Areas binding, which the
 // Map data tool paints into chunks and the readouts name chunks by.

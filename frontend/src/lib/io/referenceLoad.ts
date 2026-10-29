@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { OpenReferenceImageDialog, ReadReferenceImage } from '../../../wailsjs/go/main/App'
+import { OpenReferenceImageDialog, ReadReferenceImage } from '../wails/App'
 import { dominantColours, type RefColour, type RefPixels } from '../terrain/referenceImage'
 import { base64ToBytes } from './base64'
 

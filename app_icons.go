@@ -6,8 +6,6 @@ import (
 	"os"
 
 	"Meld/internal/vmangos"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Icons from PNG files and back (#364): the icon pickers' Import PNG… and Export PNG….
@@ -26,7 +24,7 @@ func (a *App) clientOverlay(path string) ([]byte, bool) {
 
 // OpenIconsDialog asks for the PNG files to add as icons. Returns none if cancelled.
 func (a *App) OpenIconsDialog() ([]string, error) {
-	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+	return a.openFiles(dialogOptions{
 		Title:   "Import Icons",
 		Filters: imageFilters,
 	})
@@ -88,7 +86,7 @@ func (a *App) ImportIcons(paths []string) (IconsImported, error) {
 
 // ExportIconsDialog asks for the folder to save icons in. Returns "" if cancelled.
 func (a *App) ExportIconsDialog() (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Export Icons as PNG", CanCreateDirectories: true})
+	return a.openDirectory(dialogOptions{Title: "Export Icons as PNG", CanCreateDirectories: true})
 }
 
 // IconsExported is what ExportIcons wrote: how many PNG files, and the icons it could not read.

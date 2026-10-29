@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { EquipBonuses } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { EquipBonuses } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	// The bonuses and their spells, read once a session.
 	let kinds: Promise<vmangos.EquipBonusKind[]> | null = null

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { vmangos } from '../../wailsjs/go/models'
+	import type { vmangos } from '../lib/wails/models'
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { spellRef } from '../lib/wow/spells'
 	import SpellIcon from './SpellIcon.svelte'

@@ -1,4 +1,4 @@
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { vmangos } from '../wails/models'
 import type { SpawnChange } from './formations'
 import type { SpawnFields } from './spawnEdits'
 

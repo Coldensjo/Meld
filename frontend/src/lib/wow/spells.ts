@@ -1,5 +1,6 @@
-import { SpellCategories, SpellRefs } from '../../../wailsjs/go/main/App'
-import type { vmangos } from '../../../wailsjs/go/models'
+import { SpellCategories, SpellRefs } from '../wails/App'
+import { goIntMap } from '../wails/maps'
+import type { vmangos } from '../wails/models'
 import { texturePreview } from './api'
 
 // Client spells for the creature editor's Spells tab (#243): each spell's name, rank, icon and text
@@ -15,7 +16,7 @@ function flushRefs() {
 	pending.clear()
 	SpellRefs([...asked.keys()])
 		.then((got) => {
-			for (const [id, done] of asked) done(got?.[id] ?? null)
+			for (const [id, done] of asked) done(goIntMap(got)[id] ?? null)
 		})
 		.catch(() => {
 			for (const done of asked.values()) done(null)

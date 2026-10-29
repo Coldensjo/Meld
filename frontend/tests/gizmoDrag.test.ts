@@ -7,7 +7,7 @@
 import './runes.ts'
 import { afterEach, expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { vmangos } from '../wailsjs/go/models'
+import { vmangos } from '../src/lib/wails/models'
 import type { WorldObject } from '../src/lib/world/ObjectLayer.ts'
 
 const { editor } = await import('../src/lib/state/editor.svelte.ts')

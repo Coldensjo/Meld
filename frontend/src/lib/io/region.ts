@@ -1,6 +1,6 @@
 // Blocks of the client's tiles: opening a region or a building, its spawns, growing it, Teleport to
 // destination, the world view and Edit Here, and Restore the Client's Paint.
-import { LoadBuildingMap, LoadBaseRegionPaint, LoadRegion, LoadSpawns, MapEntries } from '../../../wailsjs/go/main/App'
+import { LoadBuildingMap, LoadBaseRegionPaint, LoadRegion, LoadSpawns, MapEntries } from '../wails/App'
 import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import type { MapDocument, RegionRef } from '../engine/MapDocument'
@@ -15,7 +15,7 @@ import { TILE_CELLS, TILE_CHUNKS } from '../wow/format'
 import { tileKey } from './mapTiles'
 import { blockAround, blockHolds, spotTile } from '../world/teleport'
 import type { TriggerDestination } from '../world/areaTriggers'
-import { vmangos } from '../../../wailsjs/go/models'
+import { vmangos } from '../wails/models'
 import { regionUncompiled } from './compile'
 
 /**

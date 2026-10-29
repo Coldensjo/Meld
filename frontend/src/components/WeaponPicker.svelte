@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { ListWeapons } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ListWeapons } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 
 	// The world database's holdable items, read once for the whole session (the Go side caches them
 	// too). The spawn fields use the list for the names of a spawn's items.

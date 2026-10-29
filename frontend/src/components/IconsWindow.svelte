@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ExportIcons, ExportIconsDialog, SpellsWithIcon } from '../../wailsjs/go/main/App'
-	import type { vmangos } from '../../wailsjs/go/models'
+	import { ExportIcons, ExportIconsDialog, SpellsWithIcon } from '../lib/wails/App'
+	import type { vmangos } from '../lib/wails/models'
 	import { ui } from '../lib/state/editor.svelte'
 	import { leaveField, takeEscape } from '../lib/state/escape'
 	import { copyToClipboard } from '../lib/ui/clipboard'
