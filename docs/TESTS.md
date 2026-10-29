@@ -103,6 +103,17 @@ the dev server and may start or restart it when no explicit `MELD_URL` is set. D
 someone else relies on the shared development backend. With an explicit `MELD_URL`, the runner
 uses that server rather than managing one itself.
 
+To ask whether a probe already failed at an older commit (a full-run check's failure, say), run it with
+`--at <commit>` (#873): `bun run probe weather-wind --at 03c23de4`. The runner checks that commit out into a
+temporary git worktree in the user cache (`Meld/probe-at`), runs `bun install` there and serves its frontend
+from its own Vite on a free port, proxying `/wow`, `/wowx`, `/meld` and `/wails` to the running dev page; the
+summary line names the commit in `at`, and the worktree goes when the run ends. It never touches the checkout,
+which the agent shell refuses for `git checkout <old> -- frontend`. Only the frontend is the old one: the
+Go side, the probe files and `lib.js` are this checkout's, so a probe that needs a binding the Go side lacks
+cannot run this way. To run the probe as it was at that commit too, put its old copy in the git-ignored
+scratch folder and run it by path: `git show 03c23de4:frontend/probes/weather-wind.js > probes/scratch/ww-old.js`,
+then `bun run probe probes/scratch/ww-old.js --at 03c23de4`. Setting up adds about 25 seconds.
+
 Probe pages use `?nosave&nosession&defaults` to avoid restoring the normal editing session or
 persisting preferences. This does **not** isolate client writes by itself. A probe that writes client
 files must use `P.sandboxClient()` and check the `realUnchanged` field returned by

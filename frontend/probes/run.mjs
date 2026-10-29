@@ -12,6 +12,8 @@
 //   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
 //   bun run probe --touching <range> --list  name those probes without running them
 //   bun run probe --all --shard 1/2      every second probe of the picked set, from the first (#669); --shard 2/2 runs the rest
+//   bun run probe weather-wind --at 03c23de  run against that commit's frontend (probes/at.mjs, #873): a temporary worktree and its own
+//                                        Vite, proxying the Go side to the running dev page; the probes and lib.js stay this checkout's
 //
 // A probe whose header holds `// quarantine: #<issue>` (#399), a flake parked while its issue is open, is left out of --all,
 // --smoke and --touching; it still runs when named, and --list shows it with its issue.
@@ -27,12 +29,13 @@ import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync,
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { startAt } from './at.mjs'
 import { firstAttempt, noRetryReason } from './retry.mjs'
 import { globRe, parseHeader } from './touches.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 // `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250); `defaults`: every preference at its default, not the owner's (#253).
-const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
+let PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
 // Chrome picks its own DevTools port (--remote-debugging-port=0, read back from DevToolsActivePort, #602), so two runs never share one; DEBUG_PORT forces a port.
 const DEBUG_PORT = process.env.DEBUG_PORT ?? '0'
 // A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit,
@@ -56,6 +59,7 @@ let traceDir = null
 let touching = null
 let smoke = false
 let shard = null
+let at = null
 const names = []
 for (let i = 0; i < args.length; i++) {
 	if (args[i] === '--shot') {
@@ -66,6 +70,7 @@ for (let i = 0; i < args.length; i++) {
 		traceDir = args[++i]
 		if (!traceDir || traceDir.startsWith('--')) fail('--trace needs a folder to save the traces in, e.g. --trace out')
 	} else if (args[i] === '--smoke') smoke = true
+	else if (args[i] === '--at') at = args[++i] ?? fail('--at needs a commit, e.g. --at HEAD~3')
 	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
 	else if (args[i] === '--shard') {
 		const m = /^(\d+)\/(\d+)$/.exec(args[++i] ?? '')
@@ -266,6 +271,14 @@ async function main() {
 	await ensureDev()
 	const stale = process.env.MELD_URL ? '' : await staleBackend()
 	if (stale) console.error(`probe: warning: ${stale}`)
+	// --at <commit> (#873): the page comes from that commit's frontend in a temporary worktree, the Go side stays the dev page's.
+	let atRun = null
+	if (at) {
+		const goPage = new URL(PAGE)
+		atRun = await startAt(at, goPage.origin, join(here, '..', '..'), fail)
+		process.on('exit', atRun.stop)
+		PAGE = atRun.url + goPage.pathname + goPage.search
+	}
 
 	const others = otherRuns()
 	if (others.length) {
@@ -329,7 +342,9 @@ async function main() {
 		const seconds = Math.round((Date.now() - runStart) / 100) / 10
 		const notRun = stopped ? run.map((p) => p.name).filter((n) => !doneNames.includes(n)) : []
 		const passed = doneNames.length - failedNames.length - skippedNames.length
-		console.log(JSON.stringify({ summary: true, run: run.length, passed, failed: failedNames, skipped: skippedNames, flaky: flakyNames, seconds, ...(stopped ? { stopped, notRun } : {}) }))
+		console.log(
+			JSON.stringify({ summary: true, run: run.length, passed, failed: failedNames, skipped: skippedNames, flaky: flakyNames, seconds, ...(atRun ? { at: atRun.sha.slice(0, 10) } : {}), ...(stopped ? { stopped, notRun } : {}) }),
+		)
 	}
 	// Node and Bun skip 'exit' handlers when a signal ends the process, so Ctrl-C, kill and a harness timeout left Chrome running (#601).
 	for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP'])
@@ -587,7 +602,7 @@ async function main() {
 		// After a new Go binding, a page Vite served before make bindings rewrote lib/wails/App.ts can fail on
 		// "does not provide an export named" (docs/TESTS.md). Moving the file out and back makes Vite see a
 		// new file; then run the probe again, once.
-		if (!out.ok && out.pageErrors?.some((e) => e.includes('does not provide an export named')) && existsSync(APP_JS)) {
+		if (!atRun && !out.ok && out.pageErrors?.some((e) => e.includes('does not provide an export named')) && existsSync(APP_JS)) {
 			renameSync(APP_JS, APP_JS + '.probe-refresh')
 			await sleep(1000)
 			renameSync(APP_JS + '.probe-refresh', APP_JS)
