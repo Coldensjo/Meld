@@ -592,6 +592,8 @@ export const ui = $state({
 	 * its set, `helper:`, or a spawn's dressed type), its name and its scale; null while closed.
 	 */
 	modelPreview: null as { title: string; type: string; scale: number } | null,
+	/** Swap sign (#843, the right-click menu on a sign doodad): the picker of the client's sign models is open. */
+	signSwap: false,
 	/** Camera › Walking View (#21, #750): the FPS camera, 3 yd above the ground; off returns to the camera it started from. */
 	walkCamera: false,
 	/**

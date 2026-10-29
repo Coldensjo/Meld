@@ -124,6 +124,12 @@ The window layout, the asset browser and the dock panels and floating windows.
     writes one, and a click places it as a model paste (`Engine.placeObjectClip`; R and Ctrl+scroll
     turn a model paste, `world/clipTurn.ts`), varied when `prefs.prefabVary.on`. Its thumbnail draws
     all its models (`registerPrefab`, keyed by a hash of the file).
+  - **Swap sign** (#843, `components/SignSwapWindow.svelte`, `ui.signSwap`): the right-click menu on a sign
+    doodad (`wow/signs.ts` `isSignModel`: an `m2:` path with "sign", not "design") opens a picker of the
+    catalog's sign doodads, the selected sign's folder first and Road signs (posts, pointers, directional
+    signs) on by default, beside the hovered sign in an `AssetPreview` large enough to read its words,
+    which 1.12 paints in the texture. A click is `Engine.swapSelectedSigns` (`retype`, one undo step, the
+    placement kept, non-sign models skipped); the window stays open and blocks the map's keys.
   - Thumbnails (`lib/wow/thumbs.ts`) render lazily into a render target on the **main**
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading

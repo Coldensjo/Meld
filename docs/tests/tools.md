@@ -518,3 +518,14 @@ answer.
 - Probe: `bun run probe select-groups` (#630, the same map, every root in a group of ten): `withGroups`
   for each grouped model under a Select brush, and the Ungroup command's member list and its undo, match
   a scan; prints the brush's ms a spot against the scan's.
+
+## Swap sign (#843, probe `sign-swap`)
+
+Checks: a right-click on a road sign doodad offers Swap sign…; its window lists only road signs (Road
+signs ticked for a road sign), the selected sign's folder first and its own tile marked; hovering a tile
+shows it in the preview; a click swaps the selected sign as one History step with its place, turn and
+scale kept, a selected barrel left alone; Undo brings the old model back.
+- Probe: `bun run probe sign-swap` (a flat map, `HumanSignPostPointer01` swapped for a `WoodSignPointer`).
+- Unit test: `bun test tests/signs.test.ts` (which paths are signs and road signs, the list's order).
+- Trap: the menu needs the sign's model loaded to pick it, so the probe retries the right-click until it
+  is; `P.until` takes no async condition.

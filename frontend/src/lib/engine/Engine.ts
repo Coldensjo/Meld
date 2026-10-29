@@ -35,6 +35,7 @@ import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, setLiquidFailHandler, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import type { ClientLights } from '../wow/clientLight'
 import { lightingSunDir } from '../wow/dayNight'
+import { isSignModel } from '../wow/signs'
 import { MAP_TILES, TILE_CELLS, TILE_CHUNKS, TILE_YARDS } from '../wow/format'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
@@ -3021,6 +3022,8 @@ export class Engine {
 			items.push({ label: 'Preview', run: () => (ui.modelPreview = { title: displayName(o.type), type: o.type, scale: o.scale }) })
 			items.push({ label: 'Duplicate', shortcut: 'Ctrl+Shift+D', run: () => this.duplicateSelected() })
 			items.push({ label: 'Place more of this', run: () => pickModel(o) })
+			// A road sign's words are in its texture (#843): swap the model for another sign instead.
+			if (isSignModel(o.type)) items.push({ label: n > 1 ? 'Swap signs…' : 'Swap sign…', run: () => (ui.signSwap = true) })
 			items.push({ label: 'Unselect', run: () => this.deselect() })
 			// Copy id (#681): a model of the client's region has its unique ID there; one added here has none yet.
 			if (n === 1) {
@@ -6161,6 +6164,23 @@ export class Engine {
 		}
 		this.retype(changed, changed.length === 1 ? 'Replace model' : `Replace ${changed.length} models`)
 		setStatus(`Replaced ${changed.length} ${changed.length === 1 ? 'model' : 'models'} with ${displayName(type)}.${skipped}`, 6000)
+	}
+
+	/**
+	 * Swap sign (#843): replaces each selected sign doodad with sign model `type` (`m2:`), keeping its
+	 * place, turn, tilt, scale and attachments, as Replace with Copied Model does. Models that are not
+	 * signs are left as they are. One undo step.
+	 */
+	swapSelectedSigns(type: string) {
+		if (!isSignModel(type)) return
+		const changed: Array<{ id: number; from: string; to: string }> = []
+		for (const id of editor.selectedIds) {
+			const o = this.objects.objects.get(id)
+			if (o && o.type !== type && isSignModel(o.type)) changed.push({ id, from: o.type, to: type })
+		}
+		if (!changed.length) return
+		this.retype(changed, changed.length === 1 ? 'Swap sign' : `Swap ${changed.length} signs`)
+		setStatus(`Swapped ${changed.length === 1 ? 'the sign' : `${changed.length} signs`} for ${displayName(type)}.`, 4000)
 	}
 
 	/**

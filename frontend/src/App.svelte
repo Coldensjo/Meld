@@ -28,6 +28,7 @@
 		if (ui.characterEditor && !CharacterEditor) void import('./components/CharacterEditor.svelte').then((m) => (CharacterEditor = m.default))
 	})
 	import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
+	import SignSwapWindow from './components/SignSwapWindow.svelte'
 	import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
 	import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
 	import Inspector from './components/Inspector.svelte'
@@ -191,7 +192,7 @@
 		if (field === 'control' && controlKeepsKey(e)) return
 		const engine = engineRef.current
 		const route = keyRoute(e, {
-			blocked: !engine || ui.showNewDialog || !!ui.dialog,
+			blocked: !engine || ui.showNewDialog || !!ui.dialog || ui.signSwap,
 			brushEditor: ui.brushEditor,
 			modelPreview: !!ui.modelPreview,
 			inspector: ui.inspector,
@@ -283,6 +284,7 @@
 {#if IconsWindow}{@const Editor = IconsWindow}<Editor />{/if}
 {#if CharacterEditor}{@const Editor = CharacterEditor}<Editor />{/if}
 <ModelPreviewWindow />
+{#if ui.signSwap}<SignSwapWindow />{/if}
 <DoodadBrushEditor />
 <AppDialogs />
 <SavingBar />
