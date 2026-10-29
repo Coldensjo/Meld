@@ -388,8 +388,9 @@ Linked into the Windows and Linux binaries (`go list -deps`, the `desktop,produc
 |---|---|---|
 | git.sr.ht/~jackmordaunt/go-toast/v2 | v2.0.3 | MIT |
 | github.com/bep/debounce | v1.2.1 | MIT |
+| github.com/gabriel-vasile/mimetype | v1.4.16 | MIT |
 | github.com/go-ole/go-ole | v1.3.0 | MIT |
-| github.com/godbus/dbus/v5 | v5.1.0 | BSD-2-Clause |
+| github.com/godbus/dbus/v5 | v5.2.4 | BSD-2-Clause |
 | github.com/google/uuid | v1.6.0 | BSD-3-Clause |
 | github.com/JoshVarga/blast | v0.0.0-20210808061142-eadad17358e8 | Zlib |
 | github.com/leaanthony/go-ansi-parser | v1.6.1 | MIT |
@@ -398,14 +399,13 @@ Linked into the Windows and Linux binaries (`go list -deps`, the `desktop,produc
 | github.com/pkg/browser | v0.0.0-20240102092130-5ac0b6a4141c | BSD-2-Clause |
 | github.com/pkg/errors | v0.9.1 | BSD-2-Clause |
 | github.com/rivo/uniseg | v0.4.7 | MIT |
-| github.com/samber/lo | v1.49.1 | MIT |
+| github.com/samber/lo | v1.53.0 | MIT |
 | github.com/tkrajina/go-reflector | v0.5.8 | Apache-2.0 |
-| github.com/wailsapp/go-webview2 | v1.0.22 | MIT |
-| github.com/wailsapp/mimetype | v1.4.1 | MIT |
-| github.com/wailsapp/wails/v2 | v2.16.0 | MIT |
-| golang.org/x/net | v0.60.0 | BSD-3-Clause |
-| golang.org/x/sys | v0.48.0 | BSD-3-Clause |
-| golang.org/x/text | v0.42.0 | BSD-3-Clause |
+| github.com/wailsapp/go-webview2 | v1.0.23 | MIT |
+| github.com/wailsapp/wails/v2 | v2.17.0 | MIT |
+| golang.org/x/net | v0.62.0 | BSD-3-Clause |
+| golang.org/x/sys | v0.49.0 | BSD-3-Clause |
+| golang.org/x/text | v0.43.0 | BSD-3-Clause |
 
 ### git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3
 
@@ -499,6 +499,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+### github.com/gabriel-vasile/mimetype v1.4.16
+
+```
+MIT License
+
+Copyright (c) 2018 Gabriel Vasile
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ### github.com/go-ole/go-ole v1.3.0
 
 ```
@@ -525,7 +551,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### github.com/godbus/dbus/v5 v5.1.0
+### github.com/godbus/dbus/v5 v5.2.4
 
 ```
 Copyright (c) 2013, Georg Reinke (<guelfey at gmail dot com>), Google
@@ -776,7 +802,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### github.com/samber/lo v1.49.1
+### github.com/samber/lo v1.53.0
 
 ```
 MIT License
@@ -1008,7 +1034,7 @@ Apache License
    limitations under the License.
 ```
 
-### github.com/wailsapp/go-webview2 v1.0.22
+### github.com/wailsapp/go-webview2 v1.0.23
 
 ```
 MIT License
@@ -1035,33 +1061,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### github.com/wailsapp/mimetype v1.4.1
-
-```
-MIT License
-
-Copyright (c) 2018-2020 Gabriel Vasile
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### github.com/wailsapp/wails/v2 v2.16.0
+### github.com/wailsapp/wails/v2 v2.17.0
 
 ```
 MIT License
@@ -1087,7 +1087,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### golang.org/x/net v0.60.0
+### golang.org/x/net v0.62.0
 
 ```
 Copyright 2009 The Go Authors.
@@ -1119,7 +1119,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### golang.org/x/sys v0.48.0
+### golang.org/x/sys v0.49.0
 
 ```
 Copyright 2009 The Go Authors.
@@ -1151,7 +1151,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### golang.org/x/text v0.42.0
+### golang.org/x/text v0.43.0
 
 ```
 Copyright 2009 The Go Authors.
