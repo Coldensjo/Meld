@@ -3,8 +3,9 @@
 ## Preview and verification boundary
 
 For practical controls and limitations, see the [manual](../MANUAL.md#understand-the-viewport-preview).
-`Engine.applyClientLight` uses `openMapId`, client Light tables and camera coordinates to blend
-lighting. Missing map context/tables clears the client-light override and hides the client cloud
+`ClientLighting.update` (`engine/ClientLighting.ts`, called from `Engine.updateEnvironment`) takes the
+open map's ID (`Engine.openMapId`, from `engine/MapIdentity.ts`), its client Light tables and the camera's
+place in the tiles' frame (`fileFrameOffset`) to blend lighting. Missing map context/tables clears the client-light override and hides the client cloud
 layer; fallback Environment lighting remains. `ui.weather`/`weatherGrade` are temporary preview
 state, not writes to server `game_weather`. Storm colours require client-light data; `updateWeather`
 draws precipitation separately, gated by top-down view, roofs and room visibility.
@@ -91,8 +92,12 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   LightIntBand and LightFloatBand rows (`vmangos/lights.go`, `MapLights` binding; 1.12 layouts, positions
   in 1/36 yard, band times in half-minutes); `wow/clientLight.ts` blends the global light with the local
   lights reaching the camera, as Noggit Red's Skies and the client do (bands walked as a cycle in stored
-  order, as the client walks them), and `Engine.applyClientLight` puts the sun, sky ambient, horizon/fog
-  and water colours over the Environment's each frame. From Benilla's port of the client: the sun's
+  order, as the client walks them), and `ClientLighting.update` puts the sun, sky ambient, horizon/fog
+  and water colours over the Environment's each frame. `engine/ClientLighting.ts` also owns the cloud
+  layer and the minimap's light zones (`zones`); `engine/MapIdentity.ts` reads the client's map list once
+  (folder to Map.dbc ID and instance type) for it and every other caller of the open map's ID (Launch,
+  the teleport command, the navmesh, triggers, flight paths, scripts, `noSky`), and holds `tileOrigin`
+  and `fileFrameOffset`, the one place the editor frame's offset into the whole map's is worked out. From Benilla's port of the client: the sun's
   direction is DayNight's (`wow/dayNight.ts`: it never sets, 20° to 37° up in the north-west, so night is
   only its colours), the scene fog ends at the light's fog end (or the far clip) and starts at its share
   of that, and the sky dome is the client's (`Environment.setClientSky`: the five sky bands on the

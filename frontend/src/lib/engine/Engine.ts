@@ -32,14 +32,14 @@ import {
 	type LiquidClipCell,
 } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
-import { resetLiquidFrames, setLiquidFailHandler, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
-import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
-import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscScale } from '../wow/dayNight'
+import { resetLiquidFrames, setLiquidFailHandler, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
+import type { ClientLights } from '../wow/clientLight'
+import { lightingSunDir } from '../wow/dayNight'
 import { MAP_TILES, TILE_CELLS, TILE_CHUNKS, TILE_YARDS } from '../wow/format'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { cornerFactor, nearPlane, roomFloor } from './cameraMove'
-import { Environment, SHADOW_FAR, SHADOW_NEAR, type ClientSky } from './Environment'
+import { Environment, SHADOW_FAR, SHADOW_NEAR } from './Environment'
 import { HorizonLayer } from '../world/HorizonLayer'
 import { WorldStream } from '../world/WorldStream'
 import { marchGround, streamReach } from '../world/worldGround'
@@ -61,6 +61,8 @@ import { loadMeta, stashMeta } from './docMeta'
 import { copyReference, type RefColour, type RefHeightMode, type ReferenceImage, type ReferencePlace } from '../terrain/referenceImage'
 import type { LoadedReference } from '../io/referenceLoad'
 import { ReferencePlacement } from './ReferencePlacement'
+import { ClientLighting, type LightZone } from './ClientLighting'
+import { MapIdentity, fileFrameOffset, tileOrigin } from './MapIdentity'
 import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/areaSelection'
 import { INSIDE, cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
@@ -145,8 +147,7 @@ import { RoomAdmit } from '../world/roomAdmit'
 import { addRoomGate, beginRoomGates, endRoomGates, ROOM_MAX_GATED, setRoomFog } from '../world/roomGate'
 import { toModel } from '../world/wmoRoom'
 import { ParticleLayer } from '../world/ParticleLayer'
-import { CloudDome } from './CloudDome'
-import { stormBlend, WEATHER_GRADE } from '../wow/weather'
+import { WEATHER_GRADE } from '../wow/weather'
 import { WeatherLayer, type SplashGround } from '../world/WeatherLayer'
 import { editorPoint, serverSpot, teleportCommand, wmoOnlyTiles, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
@@ -184,7 +185,7 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import type { SpawnChange } from '../world/formations'
 import { poolMates } from '../world/pools'
 import { selectSpawn, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../wails/App'
+import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../wails/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
@@ -491,9 +492,13 @@ export class Engine {
 		if (obj && (best === null || obj.point.y > best)) best = obj.point.y
 		return best
 	}
-	private clouds = new CloudDome()
-	/** The time the clouds last moved, to advance them by. */
-	private cloudsAt = 0
+	/** Lighting › Client Lighting: the client's light at the camera, its sky and clouds (ClientLighting.ts). */
+	private lighting: ClientLighting
+	/** The client's map list: the open map's Map.dbc ID and instance type (MapIdentity.ts). */
+	private maps = new MapIdentity(MapEntries, (e) => {
+		console.warn('The client’s map list could not be read', e)
+		setStatus('The client’s map list could not be read, so this map’s ID is unknown.', 6000)
+	})
 	private tmpColor = new THREE.Color()
 	/** Lighting › Weather Preview's drops around the camera. */
 	private weather = new WeatherLayer()
@@ -698,6 +703,8 @@ export class Engine {
 		private canvas: HTMLCanvasElement,
 		private container: HTMLElement,
 	) {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: antialiasAtStart(), powerPreference: 'high-performance' })
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
 		this.renderer.toneMapping = THREE.NoToneMapping
@@ -715,6 +722,26 @@ export class Engine {
 		canvas.addEventListener('webglcontextlost', () => this.onContextLost(), { signal: this.abort.signal })
 		canvas.addEventListener('webglcontextrestored', () => this.onContextRestored(), { signal: this.abort.signal })
 		this.env = new Environment(this.scene)
+		this.lighting = new ClientLighting({
+			get doc() {
+				return self.doc
+			},
+			get terrain() {
+				return self.terrain
+			},
+			get env() {
+				return self.env
+			},
+			get scene() {
+				return self.scene
+			},
+			get persp() {
+				return self.persp
+			},
+			get camera() {
+				return self.camera
+			},
+		})
 		this.shadowLights = [this.env.key, this.env.far]
 		this.posedShadows = new PosedShadows(this.renderer, this.env.key)
 		// After PosedShadows, so the timing wraps its passes and copies too.
@@ -722,7 +749,7 @@ export class Engine {
 		this.scene.add(this.horizon.mesh)
 		this.scene.add(this.effects.group)
 		this.scene.add(this.particles.group)
-		this.scene.add(this.clouds.mesh)
+		this.scene.add(this.lighting.clouds.mesh)
 		this.scene.add(this.weather.group)
 		this.scene.add(this.boxes.lines, this.groupBoxes.lines)
 		this.scene.add(this.paths.group)
@@ -767,8 +794,6 @@ export class Engine {
 		// A model whose collision failed is left out of the walkable ground; the status line counts them.
 		this.nav.collisions.onFail = (path, err) => logLine(`Walkable ground: the collision of ${path} didn't load: ${err instanceof Error ? err.message : err}`)
 
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const self = this
 		this.spawnActions = new SpawnActions({
 			get documents() {
 				return self.documents
@@ -1019,7 +1044,7 @@ export class Engine {
 				return self.spawnLabels
 			},
 			get clientLights() {
-				return self.clientLights
+				return self.lighting.lights
 			},
 			get hour() {
 				return self.hour
@@ -1094,7 +1119,7 @@ export class Engine {
 		this.horizon.dispose()
 		this.effects.dispose()
 		this.particles.dispose()
-		this.clouds.dispose()
+		this.lighting.dispose()
 		this.weather.dispose()
 		this.boxes.dispose()
 		this.groupBoxes.dispose()
@@ -1931,9 +1956,10 @@ export class Engine {
 		// hour, and the editor's fog fades into it; the client's light keeps its own fog colour.
 		const skyless = this.noSky()
 		this.env.sky.visible = !skyless
-		this.applyClientLight(time, skyless)
+		const lightId = this.prefs.clientLighting && wow.loaded ? this.openMapId() : null
+		const clientLit = this.lighting.update(lightId, this.hour, time, this.prefs.clouds && !this.topDown && !skyless)
 		;(this.scene.background as THREE.Color).copy(skyless ? EARTH : s.horizon)
-		if (fog) fog.color.copy(skyless && !this.terrain.material.uniforms.clientLit.value ? EARTH : s.horizon)
+		if (fog) fog.color.copy(skyless && !clientLit ? EARTH : s.horizon)
 		this.horizon.update(this.doc.id, this.doc.meta.region, this.prefs.showHorizon && wow.loaded && !this.topDown, s.horizon)
 		// A world view's horizon is its own, past the tiles it streams (#15).
 		this.doc.world?.showHorizon(this.prefs.showHorizon && !this.topDown, s.horizon)
@@ -2036,21 +2062,11 @@ export class Engine {
 		return this.gpu.supported
 	}
 
-	/** Lighting › Client Lighting: the client's lights of the open map, which map they are, and the light at the camera. */
-	private clientLights: ClientLights | null = null
-	private clientLightsMap = -1
-	private clientLightsLoading = false
-	private lightOut = newLightAt()
 	/** View › Far Horizon: the map's WDL around an open region. */
 	private horizon = new HorizonLayer()
 	/** The editor's own fog distances (applyViewDistance), put back each frame before client lighting. */
 	private fogNear = 0
 	private fogFar = 0
-	private fogOut = [0, 0]
-	private sunDirOut = [0, 1, 0]
-	private celestialOut = [0, 1, 0]
-	private moonOut = [0, 1, 0]
-	private clientSky: ClientSky = { colors: this.lightOut.colors, skyAt: BAND.skyTop * 3, fogAt: BAND.fog * 3, sunAt: BAND.sun * 3, warp: 0, sunDir: this.celestialOut, moonDir: this.moonOut, sunScale: 1, starAlpha: 0 }
 	/** The open map's area triggers (#141), drawn with Show › Area triggers or while the Portals dialog edits them. */
 	readonly triggerLayer = new AreaTriggerLayer()
 
@@ -2252,70 +2268,24 @@ export class Engine {
 		// A region's or a world view's (#756) map by its folder.
 		const folder = m.region?.mapName ?? d.world?.mapName
 		if (!m.vmangos && folder === undefined) return null
-		if (!m.vmangos) await this.loadMapIds()
-		const mapId = m.vmangos ? m.vmangos.mapId : this.mapIds?.get(folder!.toLowerCase())
-		if (mapId === undefined) return null
+		const mapId = await this.maps.resolve(d)
+		if (mapId === null) return null
 		const c = d.camera
 		if (!c) return null
 		const t = this.serverTiles(d)
 		return serverSpot(c.target.clone().setY(c.target.y + PLAYER_LIFT), mapId, t.x, t.y, c.yaw)
 	}
 
-	/** The open map's Light.dbc lights for the minimap's light zones (#26), read once per map ID. */
-	private zoneLights: { id: number; lights: Promise<{ x: number; z: number; inner: number; outer: number; global: boolean; id: number }[]> } | null = null
-
 	/**
-	 * The open map's lights as circles in the open block's editor coordinates (a region's lights are
-	 * in the whole map's frame, so its first tile is taken off), or none for a map without a client ID.
+	 * The open map's Light.dbc lights for the minimap's light zones (#26), as circles in the open block's
+	 * editor coordinates, or none for a map without a client ID.
 	 */
-	async lightZones(): Promise<{ id: number; x: number; z: number; inner: number; outer: number; global: boolean }[]> {
-		const m = this.doc.meta
-		if (!m.vmangos) await this.loadMapIds()
-		const id = this.openMapId()
-		if (id === null || (!m.vmangos && !m.region)) return []
-		if (this.zoneLights?.id !== id) {
-			this.zoneLights = {
-				id,
-				lights: MapLights(id)
-					.then((l) => (l?.lights ?? []).map((x) => ({ id: x.id, x: x.x, z: x.z, inner: x.inner, outer: x.outer, global: x.global })))
-					.catch((err) => {
-						console.warn('map lights not read', err)
-						return []
-					}),
-			}
-		}
-		const o = this.tileOrigin(this.doc)
-		const dx = o.x * TILE_YARDS,
-			dz = o.y * TILE_YARDS
-		return (await this.zoneLights.lights).map((l) => ({ ...l, x: l.x - dx, z: l.z - dz }))
+	async lightZones(): Promise<LightZone[]> {
+		const d = this.doc
+		const id = await this.maps.resolve(d)
+		if (id === null || (!d.meta.vmangos && !d.meta.region)) return []
+		return this.lighting.zones(id, fileFrameOffset(d.meta, { x: 0, y: 0 }))
 	}
-
-	/** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
-	private mapIds: Map<string, number> | null = null
-	/** The client's maps' instance types (Map.dbc: 0 a continent, 1 a dungeon, 2 a raid, 3 a battleground), by folder. */
-	private mapTypes: Map<string, number> | null = null
-	/** The client's map list being read, once asked for. */
-	private mapIdsLoading: Promise<void> | null = null
-
-	/** Reads the client's map list (folder to map ID) once. */
-	private loadMapIds(): Promise<void> {
-		if (this.mapIds) return Promise.resolve()
-		this.mapIdsLoading ??= MapEntries()
-			.then((rows) => {
-				this.mapTypes = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.Type]))
-				this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))
-			})
-			.catch((e) => {
-				// Leave the list unknown (never an empty one, which would read as map 0), and retry later.
-				console.warn('The client’s map list could not be read', e)
-				setStatus('The client’s map list could not be read, so this map’s ID is unknown.', 6000)
-				this.mapIdsFailedAt = performance.now()
-			})
-			.finally(() => void (this.mapIdsLoading = null))
-		return this.mapIdsLoading
-	}
-	/** When the last read of the map list failed, so the per-frame callers retry only every few seconds. */
-	private mapIdsFailedAt = -Infinity
 
 	/** Whether the open document's map has no sky, and the document it was worked out for (`docId` -1: not yet). */
 	private skyless = { docId: -1, value: false, asking: -1 }
@@ -2333,11 +2303,8 @@ export class Engine {
 		if (!r || d.meta.vmangos || !wow.loaded) return false
 		const k = this.skyless
 		if (k.docId === d.id) return k.value
-		if (!this.mapTypes) {
-			if (performance.now() - this.mapIdsFailedAt > 10000) void this.loadMapIds()
-			return false
-		}
-		const type = this.mapTypes.get(r.mapName.toLowerCase())
+		const type = this.maps.typeOf(r.mapName)
+		if (type === null) return false
 		if (type !== 1 && type !== 2) {
 			k.docId = d.id
 			k.value = false
@@ -2368,16 +2335,7 @@ export class Engine {
 	 * read, when it cannot be read or the folder is not in it.
 	 */
 	private openMapId(): number | null {
-		const d = this.doc
-		const m = d.meta
-		if (m.vmangos) return m.vmangos.mapId
-		const folder = m.region?.mapName ?? d.world?.mapName
-		if (folder === undefined) return 0
-		if (!this.mapIds) {
-			if (performance.now() - this.mapIdsFailedAt > 10000) void this.loadMapIds()
-			return null
-		}
-		return this.mapIds.get(folder.toLowerCase()) ?? null
+		return this.maps.idOf(this.doc)
 	}
 
 	/**
@@ -2428,108 +2386,19 @@ export class Engine {
 
 	/** The open map's Map.dbc ID for the light editor: waits for the map table when a region needs it. */
 	async lightsMapId(): Promise<number> {
-		await this.loadMapIds()
-		const id = this.openMapId()
+		const id = await this.maps.resolve(this.doc)
 		if (id === null) throw new Error('The client’s map list could not be read, so this map’s ID is unknown.')
 		return id
 	}
 
 	/** Where the camera is in the tiles' placement frame (yards), which the client's lights are placed in. */
 	cameraInFileFrame(): { x: number; y: number; z: number } {
-		const cam = this.camera.position
-		const o = this.tileOrigin(this.doc)
-		return { x: cam.x + o.x * TILE_YARDS, y: cam.y, z: cam.z + o.y * TILE_YARDS }
+		return this.lighting.cameraInFileFrame()
 	}
 
 	/** Reads the map's lights again for the preview (after the light editor saved them). */
 	reloadClientLights() {
-		this.clientLightsMap = -1
-		this.clientLights = null
-	}
-
-	/**
-	 * With Lighting › Client Lighting on, the light becomes the client's own at the camera (wow/clientLight.ts):
-	 * the map's global light with the local lights it is in blended over it gives the sun's and the sky's
-	 * light, the fog's colour and distances and the water's colours, and the client's DayNight tables
-	 * (wow/dayNight.ts) the sun's direction, which never sets. The sky dome is the client's too: its five
-	 * colour stops, warped toward the sun at dawn and dusk where the light says so. Off, or until the
-	 * lights are read, the editor's own lighting and sky stay.
-	 */
-	private applyClientLight(time: number, skyless: boolean) {
-		const tu = this.terrain.material.uniforms
-		tu.clientLit.value = 0
-		const id = this.prefs.clientLighting && wow.loaded ? this.openMapId() : null
-		if (id === null) {
-			setLiquidLight(null)
-			this.env.setClientSky(null, time)
-			this.clouds.hide()
-			return
-		}
-		if (id !== this.clientLightsMap) {
-			this.clientLights = null
-			if (!this.clientLightsLoading) {
-				this.clientLightsLoading = true
-				const want = id
-				MapLights(want)
-					.then((l) => {
-						this.clientLights = l as ClientLights
-						this.clientLightsMap = want
-					})
-					.catch((err) => {
-						console.warn('client lights not read', err)
-						this.clientLightsMap = want
-					})
-					.finally(() => (this.clientLightsLoading = false))
-			}
-		}
-		const lights = this.clientLights
-		const cam = this.camera.position
-		// Per frame, so the origin is read without tileOrigin's object.
-		const m = this.doc.meta
-		const x = cam.x + (m.region ? m.region.x : (m.vmangos?.tileX ?? 0)) * TILE_YARDS
-		const z = cam.z + (m.region ? m.region.y : (m.vmangos?.tileY ?? 0)) * TILE_YARDS
-		const grade = WEATHER_GRADE[ui.weatherGrade]
-		if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut, stormBlend(ui.weather, grade))) {
-			setLiquidLight(null)
-			this.env.setClientSky(null, time)
-			this.clouds.hide()
-			return
-		}
-		const c = this.lightOut.colors
-		const s = this.env.state
-		const minute = this.hour * 60
-		const sun = lightingSunDir(minute, this.sunDirOut)
-		s.keyDir.set(sun[0], sun[1], sun[2])
-		const fog = this.scene.fog as THREE.Fog | null
-		if (fog) {
-			const [near, far] = sceneFog(this.lightOut, this.persp.far, this.fogOut)
-			// A light with no fog end (two of the client's) fogs everything, as the client does.
-			fog.far = Math.max(far, 0.001)
-			fog.near = Math.min(near, fog.far - 0.001)
-		}
-		const sky = this.clientSky
-		celestialSunDir(minute, this.celestialOut)
-		moonDir(minute, this.moonOut)
-		sky.warp = skyWarp(minute, this.lightOut.highlightSky)
-		sky.sunScale = sunDiscScale(minute)
-		sky.starAlpha = starAlpha(minute)
-		this.env.setClientSky(sky, time)
-		const dt = Math.min(0.1, Math.max(0, time - this.cloudsAt))
-		this.cloudsAt = time
-		this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs.clouds && !this.topDown && !skyless, stormBlend(ui.weather, grade))
-		s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
-		s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
-		s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)
-		s.horizon.setRGB(c[BAND.fog * 3], c[BAND.fog * 3 + 1], c[BAND.fog * 3 + 2], THREE.SRGBColorSpace)
-		this.env.hemi.color.copy(s.skyAmbient)
-		this.env.hemi.groundColor.copy(s.groundAmbient)
-		this.env.key.color.copy(s.keyColor)
-		setLiquidLight(this.lightOut)
-		// The ground takes the rows as the client stores them (gamma), lit per vertex with the sheen.
-		tu.clientLit.value = 1
-		;(tu.clientAmbient.value as THREE.Vector3).fromArray(c, BAND.ambient * 3)
-		;(tu.clientDiffuse.value as THREE.Vector3).fromArray(c, BAND.diffuse * 3)
-		;(tu.clientSpecular.value as THREE.Vector3).fromArray(c, BAND.sun * 3)
+		this.lighting.reload()
 	}
 
 	/**
@@ -2538,7 +2407,7 @@ export class Engine {
 	 * (#244): whole in a group open to the sky (0x8, 0x40 or 0x100, as Stormwind's streets), and from a
 	 * true interior only through the doorways onto one, the portal flood's sky windows (so it runs after
 	 * updateRoomGate, on this frame's windows); a room with none in view hides it. The storm light is
-	 * applyClientLight's.
+	 * ClientLighting's.
 	 */
 	private updateWeather(time: number) {
 		const kind = ui.weather
@@ -3311,8 +3180,7 @@ export class Engine {
 		const at = hit.clone()
 		const m = this.doc.meta
 		if (!m.vmangos && !m.region && !world) return { error: 'This map isn’t in the client yet, so it has no map ID: make it with File › New World… or open a part of Azeroth.' }
-		if (!m.vmangos) await this.loadMapIds()
-		const id = this.openMapId()
+		const id = await this.maps.resolve(this.doc)
 		if (id === null) return { error: 'The client’s map list could not be read, so this map’s ID is unknown.' }
 		const t = this.serverTiles(this.doc)
 		return { command: teleportCommand(at, id, t.x, t.y) }
@@ -3327,8 +3195,7 @@ export class Engine {
 		const m = this.doc.meta
 		const world = this.doc.world
 		if (!m.vmangos && !m.region && !world) return null
-		if (!m.vmangos) await this.loadMapIds()
-		const id = this.openMapId()
+		const id = await this.maps.resolve(this.doc)
 		if (id === null) return null
 		const c = this.controller
 		// From a little above an orbit target, so a floor just over the terrain is found, not a roof.
@@ -3370,9 +3237,7 @@ export class Engine {
 	 * place on the grid (#46, 0,0 for one made before), else 0,0. Whole tiles, unlike serverTiles.
 	 */
 	tileOrigin(d: MapDocument = this.doc): { x: number; y: number } {
-		const m = d.meta
-		if (m.region) return { x: m.region.x, y: m.region.y }
-		return { x: m.vmangos?.tileX ?? 0, y: m.vmangos?.tileY ?? 0 }
+		return tileOrigin(d.meta, { x: 0, y: 0 })
 	}
 
 	/** A WMO-only map's building, as Publish picks it: the first WMO, at its editor position. */
@@ -5383,7 +5248,7 @@ export class Engine {
 		try {
 			const doc = this.doc
 			const folder = doc.meta.region?.mapName
-			if (!doc.meta.vmangos && folder !== undefined) await this.loadMapIds()
+			if (!doc.meta.vmangos && folder !== undefined) await this.maps.load()
 			const { openScript } = await import('../script/luaRun')
 			if (this.doc !== doc) return null
 			const host = this.scriptHost(print)
@@ -5403,7 +5268,7 @@ export class Engine {
 		const doc = this.doc
 		const m = doc.meta
 		const folder = m.region?.mapName
-		const mapId = m.vmangos ? m.vmangos.mapId : folder !== undefined ? (this.mapIds?.get(folder.toLowerCase()) ?? -1) : -1
+		const mapId = m.vmangos ? m.vmangos.mapId : folder !== undefined ? (this.maps.idByFolder(folder) ?? -1) : -1
 		const c = this.controller
 		const s = editor.selection
 		return new EngineScriptHost(
@@ -5447,7 +5312,7 @@ export class Engine {
 		host: (label) => {
 			if (this.refuseInWorld()) return null
 			// The map's ID comes from the client's list, read in the background the first time.
-			if (!this.doc.meta.vmangos && this.doc.meta.region) void this.loadMapIds()
+			if (!this.doc.meta.vmangos && this.doc.meta.region) void this.maps.load()
 			return { host: this.scriptHost((t) => scriptSay(t), label), history: this.doc.history }
 		},
 		after: () => this.syncSelection(),

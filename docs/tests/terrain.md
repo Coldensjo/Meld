@@ -861,7 +861,7 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   to name it, in the region's readout too.
 - Probe: `world-map-id` (about 5 s): a world tab's map ID (#754) is its own map's, by its folder:
   Kalimdor's world view answers `openMapId` with 1 and Client Lighting reads Kalimdor's lights
-  (`clientLightsMap`), Azeroth's answers 0. Trap: every other world-view probe opens Azeroth's, where
+  (`lighting.lightsMap`, engine/ClientLighting.ts), Azeroth's answers 0. Trap: every other world-view probe opens Azeroth's, where
   0 is right by luck; and `P.until` waits on a falsy answer, so the probe wraps the 0 in an array.
 - Probe: `world-teleport` (about 5 s): in Kalimdor's world view near Orgrimmar, Copy Teleport at the
   cursor (`teleportAtCursor`) gives `.go xyz ... 1` at the streamed ground under the cursor, and

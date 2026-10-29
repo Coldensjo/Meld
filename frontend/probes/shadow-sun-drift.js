@@ -5,7 +5,7 @@
 // view's pixel comparison with the shot after that redraw is only reported (worstHeld), not checked: it
 // is weak (the lighting also turns, and a 0.1° slide is a few texels: mean 0.07 before the fix, 0.03
 // after), so the matrix is the real check.
-// touches: frontend/src/lib/engine/shadowCascades.ts, frontend/src/lib/engine/Environment.ts
+// touches: frontend/src/lib/engine/shadowCascades.ts, frontend/src/lib/engine/Environment.ts, frontend/src/lib/engine/ClientLighting.ts
 const e = P.e
 const { prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

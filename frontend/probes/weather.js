@@ -1,5 +1,5 @@
 // Lighting › Weather Preview (#185): rain, snow and a sandstorm draw around the camera with the client's storm light and fog, clear weather draws none and costs nothing; and the Zones dialog shows a zone's game_weather chances (nothing written) and fits with no horizontal scrollbar (#247).
-// touches: frontend/src/lib/world/WeatherLayer.ts, frontend/src/lib/wow/weather.ts, frontend/src/components/ZonesDialog.svelte, internal/vmangos/weather.go
+// touches: frontend/src/lib/world/WeatherLayer.ts, frontend/src/lib/engine/ClientLighting.ts, frontend/src/lib/wow/weather.ts, frontend/src/components/ZonesDialog.svelte, internal/vmangos/weather.go
 const e = P.e
 const { prefs, ui } = await P.state()
 e.newDocument(256, 'hills', 1, 'Probe')
