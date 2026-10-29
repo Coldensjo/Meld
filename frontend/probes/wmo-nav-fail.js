@@ -8,7 +8,7 @@ await P.settle()
 const e = P.e
 const rooms = e.debug.rooms
 const { appLog } = await P.state()
-await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
+await P.until(() => [...e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 120_000, 'the Stormwind batch')
 const sw = [...e.objects.objects.values()].find((o) => o.type.includes('stormwind.wmo'))
 const key = sw.type.slice('wmo:'.length).split('?')[0].toLowerCase()
 // The Trade District street (wmo-camera's collide spot), where the camera is in group 49.

@@ -36,7 +36,7 @@ const built = async (what) => {
 			const k = nav.counts
 			return k.total > 0 && k.done === k.total && k.loading === 0 && !k.settling && k
 		},
-		400_000,
+		120_000,
 		what,
 	)
 	return { tiles: c.total, builds: c.builds, longestUpdateMs: +longest.toFixed(1), updateMs: Math.round(total), wallMs: Math.round(performance.now() - t0), mostJobsOut: most }
