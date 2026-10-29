@@ -24,9 +24,14 @@ func (a *App) gameSession() (game.Session, error) {
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	server := a.cfg.VmangosPath
+	if externalOn() {
+		// The local server is not the one in use (#856): nothing is placed in, closed or read from it.
+		server = ""
+	}
 	s := game.Session{
 		ClientRoot: root,
-		ServerRoot: a.cfg.VmangosPath,
+		ServerRoot: server,
 		Login:      a.cfg.Login,
 		Run:        vmangos.OSRunner{},
 		Log:        a.logStep,
@@ -197,6 +202,9 @@ func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
 // moved, or an error that says why it can't (no character or server set, the world server not running,
 // SOAP off, the character not in the world), so the editor can point to Launch instead.
 func (a *App) PlayHere(spot vmangos.CharacterSpot) (string, error) {
+	if externalOn() {
+		return "", errExternal
+	}
 	sess, err := a.gameSession()
 	if err != nil {
 		return "", err
@@ -259,6 +267,9 @@ func (a *App) SetGameLogin(account, password, character string) error {
 // mangosd.conf and, when the world server runs, restarts it (the conf is read only at its start),
 // which kicks anyone in the game. The editor asks the owner first (the soapOff dialog, #270).
 func (a *App) EnableSoap() error {
+	if externalOn() {
+		return errExternal
+	}
 	sess, err := a.gameSession()
 	if err != nil {
 		return err

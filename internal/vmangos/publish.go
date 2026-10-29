@@ -497,9 +497,20 @@ func worldDatabase(serverRoot string) (worldDB, error) {
 }
 
 // confDatabase reads a database's connection (key: WorldDatabase.Info, CharacterDatabase.Info or
-// LoginDatabase.Info) from the server's mangosd.conf.
+// LoginDatabase.Info) from the server's mangosd.conf, or from the external database's while one is set
+// (SetExternal, #856).
 func confDatabase(serverRoot, key string) (worldDB, error) {
-	b, err := os.ReadFile(filepath.Join(serverRoot, "run", "mangosd.conf"))
+	conf := filepath.Join(serverRoot, "run", "mangosd.conf")
+	if ext := External(); ext != "" {
+		conf = ext
+	}
+	return readConfDatabase(conf, key)
+}
+
+// readConfDatabase reads a database's connection from the mangosd.conf at conf:
+// key = "host;port;user;password;database".
+func readConfDatabase(conf, key string) (worldDB, error) {
+	b, err := os.ReadFile(conf)
 	if err != nil {
 		return worldDB{}, err
 	}

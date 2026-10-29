@@ -139,7 +139,7 @@ func ListItemDisplays(serverRoot, dataDir string) ([]ItemDisplayEntry, error) {
 		return nil, fmt.Errorf("ItemDisplayInfo.dbc has %d fields, not 1.12's %d", t.fields, itemDisplayFields)
 	}
 	var rows []batchRow
-	if serverRoot != "" {
+	if hasDatabase(serverRoot) {
 		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
 			raw, err := runSQL(db, "SELECT i.display_id, i.inventory_type, i.name, i.class, i.subclass FROM item_template i "+
 				"WHERE i.display_id <> 0 AND i.patch = (SELECT MAX(patch) FROM item_template WHERE entry = i.entry) ORDER BY i.name")

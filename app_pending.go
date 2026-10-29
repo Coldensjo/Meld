@@ -88,6 +88,10 @@ func (a *App) installClientFiles(dataDir string, files []mpq.File) (string, erro
 // worldRunning says whether the world server runs, so a save the server reads only at its start says
 // to restart it.
 func (a *App) worldRunning() bool {
+	if externalOn() {
+		// The local world server doesn't read the external database (#856).
+		return false
+	}
 	sess, err := a.gameSession()
 	return err == nil && sess.WorldRunning()
 }
@@ -219,6 +223,9 @@ func (a *App) runPendingWatch() {
 // without restarting it. It needs the SOAP console; without it the server reads the spell at its next
 // start, which is logged, not an error.
 func (a *App) reloadSpells(server string) {
+	if externalOn() {
+		return
+	}
 	sess, err := a.gameSession()
 	if err != nil || !sess.WorldRunning() {
 		return

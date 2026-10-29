@@ -32,6 +32,9 @@ func (a *App) serverSession() (game.Session, error) {
 	if a.sandboxed() {
 		return game.Session{}, errSandboxed
 	}
+	if externalOn() {
+		return game.Session{}, errExternal
+	}
 	a.cfgMu.Lock()
 	s := game.Session{ServerRoot: a.cfg.VmangosPath, Login: a.cfg.Login, Run: vmangos.OSRunner{}, Log: a.logStep}
 	a.cfgMu.Unlock()
@@ -46,6 +49,9 @@ func (a *App) serverSession() (game.Session, error) {
 
 // ServerStatus says whether the local server's database, auth and world servers run.
 func (a *App) ServerStatus() ServerStatusInfo {
+	if externalOn() {
+		return ServerStatusInfo{Reason: "off while connected to an external database"}
+	}
 	s, err := a.serverSession()
 	if err != nil {
 		return ServerStatusInfo{Reason: err.Error()}

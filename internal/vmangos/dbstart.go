@@ -26,11 +26,16 @@ func cantConnect(err error) bool {
 
 // ensureDatabase makes sure the world database answers queries. When it doesn't, and the server
 // folder has its own database (database/my.ini, as the start-server script uses), the database
-// program is started the same way and this waits for it. Any other failure is returned as it is.
+// program is started the same way and this waits for it; an external database (SetExternal) is never
+// started. Any other failure is returned as it is.
 func ensureDatabase(db worldDB, serverRoot string) error {
 	_, err := runSQL(db, "SELECT 1")
 	if !cantConnect(err) {
 		return err
+	}
+	if External() != "" {
+		// Someone else's server (#856): Meld never starts it.
+		return fmt.Errorf("the external database at %s:%s does not answer: %w", db.host, db.port, err)
 	}
 	if hostOS != "windows" {
 		// The server folder's database is started as start-server.bat does, a Windows mariadbd with a

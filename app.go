@@ -314,7 +314,9 @@ func (a *App) serverAndData() (string, string, error) {
 	a.cfgMu.Lock()
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
-	if server == "" {
+	// An external database (#856) needs no server folder: server is then "" and the databases come
+	// from its mangosd.conf.
+	if server == "" && !externalOn() {
 		return "", "", errors.New("set the VMaNGOS server folder first (Edit › Preferences › Folders)")
 	}
 	dataDir, err := a.clientDataDir()

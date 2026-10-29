@@ -524,6 +524,10 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 
 // serverMapID finds the map ID of a map directory in the server's Map.dbc.
 func serverMapID(serverRoot, mapName string) (int, error) {
+	if serverRoot == "" {
+		// Connected to an external database without a server folder (#856).
+		return 0, errors.New("the spawns need the VMaNGOS server folder's Map.dbc: set the folder (Edit › Preferences › Folders)")
+	}
 	dbc, err := os.ReadFile(filepath.Join(serverRoot, "data", "5875", "dbc", "Map.dbc"))
 	if err != nil {
 		return 0, err

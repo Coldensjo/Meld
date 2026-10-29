@@ -15,6 +15,9 @@ type Config struct {
 	WowPath string `json:"wowPath"`
 	// VmangosPath is the VMaNGOS server folder that map patches and SQL are written for.
 	VmangosPath string `json:"vmangosPath,omitempty"`
+	// ExternalConf is the mangosd.conf copy last picked to connect to an external database (#856), for
+	// the file dialog's start. Only its path: the connection itself lasts one session.
+	ExternalConf string `json:"externalConf,omitempty"`
 	// Login is the account a region export logs the game back in with. The password is stored in
 	// plain text, so this is for a local dev setup only.
 	Login Login `json:"login,omitempty"`

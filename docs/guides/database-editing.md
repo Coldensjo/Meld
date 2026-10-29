@@ -30,6 +30,28 @@ promise rollback on every supported table engine, particularly MyISAM. Read the 
 before retrying: earlier writes may already exist.
 :::
 
+## Edit another machine's server database
+
+Use this to edit the databases of a VMaNGOS server that runs elsewhere, without a local server.
+
+1. Copy that server's `mangosd.conf` to this machine. Meld reads the connections from its
+   `WorldDatabase.Info`, `CharacterDatabase.Info` and `LoginDatabase.Info` lines, including their
+   passwords; Meld itself stores only the file's path. Keep the copy somewhere private.
+2. Choose **File › Connect to External Database…** and pick the copy. Meld names the conf and its
+   databases and warns that edits change that server's data at once. Choose **Connect** only if
+   that is the server you mean to change.
+3. While connected, the status bar shows **External database:** with the world database and host.
+   The database editors (creatures, game objects, quests, items, spells, world tables) read and
+   write that server. Compile to Server, Publish, the server controls, Play here, flight routes and
+   account or character changes are off, since they write into a local server folder or drive the
+   local server. Spawns in a region still need the local server folder set, for its `Map.dbc`.
+4. Choose **File › Disconnect External Database** to go back. Closing Meld disconnects too; each
+   session asks again.
+
+Close the database editors and save or revert spawn changes before connecting or disconnecting:
+Meld refuses to switch while they hold rows from the other database, and reads the open regions'
+spawns again after the switch.
+
 ## Creatures: make a template, then configure its behavior
 
 1. Open **Tools › Creatures…** and search for an existing creature to inspect or use as a starting

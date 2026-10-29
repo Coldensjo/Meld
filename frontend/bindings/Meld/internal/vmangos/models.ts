@@ -358,6 +358,16 @@ export interface CreatureTemplate {
 }
 
 /**
+ * DatabaseRef is one database of a mangosd.conf, without its password.
+ */
+export interface DatabaseRef {
+    "host": string;
+    "port": string;
+    "user": string;
+    "name": string;
+}
+
+/**
  * DisplayEntry is a creature display as the creature editor's display picker shows it: the model,
  * the look it dresses the model in (wow.Look's query), its scale, and the creatures of the world
  * database that use it. ListObjectDisplays gives game object displays in it too, with Type a game
@@ -446,6 +456,17 @@ export interface EquipBonusKind {
 export interface EquipBonusSpell {
     "spell": number;
     "amount": number;
+}
+
+/**
+ * ExternalDatabase is what the warning before connecting to an external database names: its conf
+ * file and its world, character and login databases ("" names for one the conf lacks).
+ */
+export interface ExternalDatabase {
+    "conf": string;
+    "world": DatabaseRef;
+    "characters": DatabaseRef;
+    "login": DatabaseRef;
 }
 
 /**

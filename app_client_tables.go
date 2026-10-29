@@ -285,7 +285,7 @@ func (a *App) ZoneWeather() (ZoneWeatherList, error) {
 	a.cfgMu.Lock()
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
-	if server == "" {
+	if !hasDB(server) {
 		return ZoneWeatherList{}, nil
 	}
 	zones, err := vmangos.ReadWeather(server)
@@ -333,10 +333,10 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 	if err != nil {
 		return res, err
 	}
-	if server == "" && len(weather) > 0 {
+	if !hasDB(server) && len(weather) > 0 {
 		return res, errors.New("the weather is the server's: set the VMaNGOS server folder first")
 	}
-	if server != "" {
+	if hasDB(server) {
 		if err := a.applySQL(server, vmangos.AreaSQL(rows)+weatherSQL); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
@@ -380,7 +380,7 @@ func (a *App) AreaTriggers(mapID uint32) (AreaTriggerList, error) {
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
 	var top uint32
-	if server != "" {
+	if hasDB(server) {
 		if top, err = vmangos.TriggerExtras(server, res.Triggers); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
@@ -413,7 +413,7 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 	if err != nil {
 		return res, err
 	}
-	if server != "" {
+	if hasDB(server) {
 		if err := a.applySQL(server, vmangos.AreaTriggerSQL(rows, remove)); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
@@ -447,7 +447,7 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
 	var top uint32
-	if server != "" {
+	if hasDB(server) {
 		if top, err = vmangos.ServerTaxiMax(server); err != nil {
 			return vmangos.TaxiNetwork{}, fmt.Errorf("world database: %w", err)
 		}
@@ -461,6 +461,11 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 // or restarted (#661): the result says when the world server needs a restart for the new routes.
 func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	var res AreaSaveResult
+	if externalOn() && (len(edit.Routes) > 0 || len(edit.RemoveRoutes) > 0) {
+		// The routes are the server's data files (InstallServerTaxi), which an external server's
+		// folder doesn't take (#856): refused before anything is read or written.
+		return res, errExternalRoutes
+	}
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
 	server, err := a.optionalServerForWrite()
 	if err != nil {
@@ -478,7 +483,7 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	if err != nil {
 		return res, err
 	}
-	if server != "" {
+	if hasDB(server) {
 		if err := a.applySQL(server, vmangos.TaxiSQL(edit.Nodes, edit.RemoveNodes, edit.RemoveRoutes)); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
@@ -497,7 +502,8 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	tablesTried := false
 	serverTables := func() error {
 		tablesTried = true
-		if server == "" {
+		if server == "" || externalOn() {
+			res.Server = hasDB(server)
 			return nil
 		}
 		if _, err := vmangos.InstallServerTaxi(server, out); err != nil {
@@ -515,7 +521,7 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 		return res, serverTables()
 	}
 	res.Patch, res.Waiting, err = a.installClient(dataDir, files, serverTables)
-	if err != nil && server != "" && !tablesTried {
+	if err != nil && hasDB(server) && !tablesTried {
 		err = afterDatabase("the flight stops are", err)
 	}
 	return res, err

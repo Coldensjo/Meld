@@ -34,6 +34,7 @@
 	import { hasBackend } from '../lib/io/backend'
 	import { saveSpawns } from '../lib/io/compile'
 	import { compileAndLaunch, enableSoap, launchGame } from '../lib/io/game'
+	import { connectExternal, databaseLabel } from '../lib/io/external'
 	import { revertMap } from '../lib/io/mapio'
 	import { saveAndPublish } from '../lib/io/publish'
 	/** Keeps the Log window scrolled to its newest line while it is open. */
@@ -280,6 +281,43 @@
 			>
 		{/snippet}
 	</Modal>
+{:else if ui.dialog === 'externalDb' && ui.externalDbPending}
+	{@const db = ui.externalDbPending}
+	<Modal
+		title="Connect to an external database?"
+		width={480}
+		onclose={() => {
+			ui.externalDbPending = null
+			close()
+		}}
+	>
+		<p class="warn">Edits change a live server's data at once: every save in the database editors and every spawn saved goes straight into that server's database.</p>
+		<p>Meld will use the databases of <code>{db.conf}</code>:</p>
+		<ul>
+			<li>World: <b>{databaseLabel(db.world)}</b></li>
+			{#if db.characters.name}<li>Characters: {databaseLabel(db.characters)}</li>{/if}
+			{#if db.login.name}<li>Login: {databaseLabel(db.login)}</li>{/if}
+		</ul>
+		<p class="dim">
+			Until you disconnect, Compile to Server, Publish, the server controls, Play here, the flight routes and account and character changes are off, since they write into the local server folder or drive the local server. The
+			connection lasts until Meld closes, and is asked again next time.
+		</p>
+		{#snippet actions()}
+			<button
+				onclick={() => {
+					ui.externalDbPending = null
+					close()
+				}}>Cancel</button
+			>
+			<button
+				class="active"
+				onclick={() => {
+					close()
+					void connectExternal(engineRef.current)
+				}}>Connect</button
+			>
+		{/snippet}
+	</Modal>
 {:else if ui.dialog === 'publish'}
 	<Modal title="Publish to the server" width={400} onclose={close}>
 		<p>Publishing rebuilds this map for the server and the client. It writes the map into your WoW client's patch, then extracts this map again for the server (well under a minute).</p>
@@ -425,6 +463,9 @@
 	.dim {
 		color: var(--text-dim);
 		font-size: 12px;
+	}
+	.warn {
+		color: var(--danger-text);
 	}
 	h3 {
 		margin-top: 12px;

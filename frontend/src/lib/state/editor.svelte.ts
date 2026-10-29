@@ -487,6 +487,7 @@ export type DialogId =
 	| 'smoothArea'
 	| 'compileBeforeLaunch'
 	| 'soapOff'
+	| 'externalDb'
 	| 'project'
 	| 'folderSetup'
 	| 'preferences'
@@ -634,6 +635,10 @@ export const ui = $state({
 	serverStatus: null as ServerState | null,
 	/** The File menu's server control running now ('' for none). */
 	serverAction: '' as ServerAction | '',
+	/** The external database Meld is connected to for this session (#856, io/external.ts), null for the server folder's own. */
+	externalDb: null as vmangos.ExternalDatabase | null,
+	/** The external database the warning (the externalDb dialog) asks about before connecting; null when none is asked. */
+	externalDbPending: null as vmangos.ExternalDatabase | null,
 	/** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */
 	texturePalette: false,
 	/** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */

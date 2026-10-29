@@ -511,7 +511,7 @@ func ListDisplays(serverRoot, dataDir string) ([]DisplayEntry, error) {
 		return nil, err
 	}
 	uses := map[int]*displayUse{}
-	if serverRoot != "" {
+	if hasDatabase(serverRoot) {
 		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
 			if raw, err := runSQL(db, displayUsesSQL); err == nil {
 				uses = parseDisplayUses(raw)
@@ -620,7 +620,7 @@ func ListObjectDisplays(serverRoot, dataDir string) ([]DisplayEntry, error) {
 		return nil, err
 	}
 	uses := map[int]*displayUse{}
-	if serverRoot != "" {
+	if hasDatabase(serverRoot) {
 		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
 			if raw, err := runSQL(db, objectDisplayUsesSQL); err == nil {
 				uses = parseDisplayUses(raw)

@@ -106,6 +106,14 @@ export function BrowseBrushImageFolder(current: string): $CancellablePromise<str
 }
 
 /**
+ * BrowseExternalConf lets the user pick the mangosd.conf of the server to connect to. Returns "" if
+ * cancelled.
+ */
+export function BrowseExternalConf(): $CancellablePromise<string> {
+    return $Call.ByID(2233128802);
+}
+
+/**
  * BrowseOtherClient asks for another client's folder. Returns "" if cancelled.
  */
 export function BrowseOtherClient(): $CancellablePromise<string> {
@@ -183,6 +191,14 @@ export function ClientFilesWaiting(): $CancellablePromise<number> {
  */
 export function CloseProject(): $CancellablePromise<void> {
     return $Call.ByID(371497096);
+}
+
+/**
+ * ConnectExternalDatabase points every database connection at the mangosd.conf at path, once its world
+ * database answers. The editor calls it only after the user confirmed the warning.
+ */
+export function ConnectExternalDatabase(path: string): $CancellablePromise<vmangos$0.ExternalDatabase> {
+    return $Call.ByID(2734456467, path);
 }
 
 /**
@@ -268,6 +284,13 @@ export function DeleteQuest(entry: number): $CancellablePromise<string> {
  */
 export function DeleteScript(name: string): $CancellablePromise<void> {
     return $Call.ByID(2965526601, name);
+}
+
+/**
+ * DisconnectExternalDatabase goes back to the server folder's own databases.
+ */
+export function DisconnectExternalDatabase(): $CancellablePromise<void> {
+    return $Call.ByID(3913614589);
 }
 
 /**
@@ -368,6 +391,14 @@ export function ExportItems(entries: number[] | null, suggested: string): $Cance
  */
 export function ExportSpells(entries: number[] | null, suggested: string): $CancellablePromise<string> {
     return $Call.ByID(3072692700, entries, suggested);
+}
+
+/**
+ * ExternalDatabaseInfo is the connected external database (Conf "" for none), for the status bar and
+ * the File menu.
+ */
+export function ExternalDatabaseInfo(): $CancellablePromise<vmangos$0.ExternalDatabase> {
+    return $Call.ByID(3792358875);
 }
 
 /**
@@ -1073,6 +1104,14 @@ export function ReadCreatureQuests(entry: number): $CancellablePromise<vmangos$0
  */
 export function ReadCreatureSpells(entry: number): $CancellablePromise<vmangos$0.CreatureSpells> {
     return $Call.ByID(3685342235, entry);
+}
+
+/**
+ * ReadExternalDatabase reads the databases a mangosd.conf names, without connecting, for the warning
+ * shown before ConnectExternalDatabase.
+ */
+export function ReadExternalDatabase(path: string): $CancellablePromise<vmangos$0.ExternalDatabase> {
+    return $Call.ByID(3252398767, path);
 }
 
 /**

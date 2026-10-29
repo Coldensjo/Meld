@@ -102,7 +102,7 @@ func equipBonusKinds() []EquipBonusKind {
 // spells the world database's items use as Equip effects come first.
 func EquipBonuses(serverRoot, dataDir string) ([]EquipBonusKind, error) {
 	used := map[int]bool{}
-	if serverRoot != "" {
+	if hasDatabase(serverRoot) {
 		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
 			var parts []string
 			for i := 1; i <= 5; i++ {

@@ -29,6 +29,7 @@ export const AreaTriggers: Call<AppApi['AreaTriggers']> = (...a) => api().AreaTr
 export const Areas: NonNullCall<AppApi['Areas']> = (...a) => api().Areas(...a) as never
 export const BrowseBenillaFolder: Call<AppApi['BrowseBenillaFolder']> = (...a) => api().BrowseBenillaFolder(...a) as never
 export const BrowseBrushImageFolder: Call<AppApi['BrowseBrushImageFolder']> = (...a) => api().BrowseBrushImageFolder(...a) as never
+export const BrowseExternalConf: Call<AppApi['BrowseExternalConf']> = (...a) => api().BrowseExternalConf(...a) as never
 export const BrowseOtherClient: Call<AppApi['BrowseOtherClient']> = (...a) => api().BrowseOtherClient(...a) as never
 export const BrowsePrefabFolder: Call<AppApi['BrowsePrefabFolder']> = (...a) => api().BrowsePrefabFolder(...a) as never
 export const BrowseProjectFolder: Call<AppApi['BrowseProjectFolder']> = (...a) => api().BrowseProjectFolder(...a) as never
@@ -40,6 +41,7 @@ export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) =>
 export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) => api().ClearThumbnailCache(...a) as never
 export const ClientFilesWaiting: Call<AppApi['ClientFilesWaiting']> = (...a) => api().ClientFilesWaiting(...a) as never
 export const CloseProject: Call<AppApi['CloseProject']> = (...a) => api().CloseProject(...a) as never
+export const ConnectExternalDatabase: Call<AppApi['ConnectExternalDatabase']> = (...a) => api().ConnectExternalDatabase(...a) as never
 export const CreateAccount: Call<AppApi['CreateAccount']> = (...a) => api().CreateAccount(...a) as never
 export const CreateCreature: Call<AppApi['CreateCreature']> = (...a) => api().CreateCreature(...a) as never
 export const CreateItem: Call<AppApi['CreateItem']> = (...a) => api().CreateItem(...a) as never
@@ -51,6 +53,7 @@ export const DeleteAccount: Call<AppApi['DeleteAccount']> = (...a) => api().Dele
 export const DeleteConditionText: Call<AppApi['DeleteConditionText']> = (...a) => api().DeleteConditionText(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never
+export const DisconnectExternalDatabase: Call<AppApi['DisconnectExternalDatabase']> = (...a) => api().DisconnectExternalDatabase(...a) as never
 export const DropRecovery: Call<AppApi['DropRecovery']> = (...a) => api().DropRecovery(...a) as never
 export const DropRecoveryParts: Call<AppApi['DropRecoveryParts']> = (...a) => api().DropRecoveryParts(...a) as never
 export const EnableSoap: Call<AppApi['EnableSoap']> = (...a) => api().EnableSoap(...a) as never
@@ -64,6 +67,7 @@ export const ExportIcons: Call<AppApi['ExportIcons']> = (...a) => api().ExportIc
 export const ExportIconsDialog: Call<AppApi['ExportIconsDialog']> = (...a) => api().ExportIconsDialog(...a) as never
 export const ExportItems: Call<AppApi['ExportItems']> = (...a) => api().ExportItems(...a) as never
 export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().ExportSpells(...a) as never
+export const ExternalDatabaseInfo: Call<AppApi['ExternalDatabaseInfo']> = (...a) => api().ExternalDatabaseInfo(...a) as never
 export const Factions: NonNullCall<AppApi['Factions']> = (...a) => api().Factions(...a) as never
 export const ForgetProject: Call<AppApi['ForgetProject']> = (...a) => api().ForgetProject(...a) as never
 export const GameClient: Call<AppApi['GameClient']> = (...a) => api().GameClient(...a) as never
@@ -157,6 +161,7 @@ export const ReadCharacterSpells: NonNullCall<AppApi['ReadCharacterSpells']> = (
 export const ReadCreature: Call<AppApi['ReadCreature']> = (...a) => api().ReadCreature(...a) as never
 export const ReadCreatureQuests: Call<AppApi['ReadCreatureQuests']> = (...a) => api().ReadCreatureQuests(...a) as never
 export const ReadCreatureSpells: Call<AppApi['ReadCreatureSpells']> = (...a) => api().ReadCreatureSpells(...a) as never
+export const ReadExternalDatabase: Call<AppApi['ReadExternalDatabase']> = (...a) => api().ReadExternalDatabase(...a) as never
 export const ReadGossip: Call<AppApi['ReadGossip']> = (...a) => api().ReadGossip(...a) as never
 export const ReadHeightmap: Call<AppApi['ReadHeightmap']> = (...a) => api().ReadHeightmap(...a) as never
 export const ReadImageFile: Call<AppApi['ReadImageFile']> = (...a) => api().ReadImageFile(...a) as never

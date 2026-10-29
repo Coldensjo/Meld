@@ -23,6 +23,22 @@ open File and read the header and the entries' `disabled`.
 - Trap: the world server's `.server shutdown` reply may never come (the server exits first), so a
   SOAP error is given a moment before Meld falls back to closing the window.
 
+## Connect to External Database (#856, File menu)
+
+Checks: the warning names the picked conf and its databases before anything connects, Cancel stays
+local, Connect shows the status bar's External database cell and turns the server controls off, the
+database bindings answer from the external conf, and Disconnect goes back. Probe `external-db`
+(`bun run probe external-db`) does the menu round with `BrowseExternalConf` stood in by the server
+folder's own `run/mangosd.conf`, so the "external" database is the local one and no other server is
+reached; it skips when no server folder is set or its database doesn't answer. Unit tests:
+`internal/vmangos/external_test.go` (the conf replacing the folder's databases, no start or stop, the
+cached lists dropped) and `app_external_test.go` (the bindings refused while connected, a database
+that doesn't answer refused). A real second machine is not needed: a second MariaDB on another port,
+or a conf copy pointing at `127.0.0.1:3307` under another host name, stands in.
+- Trap: the connection lives in the Go process, so a page reload keeps it (`refreshExternal` reads
+  it back); the probe disconnects in its `finally`, and a probe left connected would send every
+  later probe's database reads to the conf it picked.
+
 ## Launch where the camera is (character placement)
 
 Hand check: needs the game and the server running; the unit tests below cover the parts.

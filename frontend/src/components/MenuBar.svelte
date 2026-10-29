@@ -6,6 +6,7 @@
 	import { compileRegion, exportSpawnSql } from '../lib/io/compile'
 	import { launchGame, playHere, exportPortCoords, controlServer, refreshServerStatus } from '../lib/io/game'
 	import { serverControls, serverHeader } from '../lib/io/serverMenu'
+	import { chooseExternalDatabase, disconnectExternal } from '../lib/io/external'
 	import { exportAlphamap, importAlphamap, exportHeightmap, exportNormalMap, writeMinimapTiles } from '../lib/io/images'
 	import { exportDoodadBrush, exportObjectList, importDoodadBrushes, importObjectList } from '../lib/io/lists'
 	import { requestRevert } from '../lib/io/mapio'
@@ -169,6 +170,10 @@
 				{ kind: 'action', label: 'Start Server', disabled: !serverControls(ui.serverStatus, ui.serverAction).start, run: () => controlServer('start') },
 				{ kind: 'action', label: 'Stop Server', disabled: !serverControls(ui.serverStatus, ui.serverAction).stop, run: () => controlServer('stop') },
 				{ kind: 'action', label: 'Restart Server', disabled: !serverControls(ui.serverStatus, ui.serverAction).restart, run: () => controlServer('restart') },
+				// Another machine's server (#856): its databases from a copy of its mangosd.conf, for this session, past a warning.
+				ui.externalDb
+					? { kind: 'action', label: `Disconnect External Database (${ui.externalDb.world.host || ui.externalDb.conf})`, disabled: ui.busy, run: () => disconnectExternal(engineRef.current) }
+					: { kind: 'action', label: 'Connect to External Database…', disabled: !hasBackend() || ui.busy || !!ui.serverAction, run: () => chooseExternalDatabase(engineRef.current) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Close Map', ...cmd('closeMap') },
 				{ kind: 'sep' },

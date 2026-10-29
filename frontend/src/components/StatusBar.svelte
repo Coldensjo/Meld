@@ -5,6 +5,7 @@
 	import { ClientFilesWaiting } from '../lib/wails/App'
 	import { EventsOn } from '../lib/wails/runtime'
 	import ToolHint from './ToolHint.svelte'
+	import { databaseLabel, refreshExternal } from '../lib/io/external'
 
 	const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 
@@ -15,6 +16,7 @@
 	let waiting = $state(0)
 	onMount(() => {
 		if (!hasBackend()) return
+		void refreshExternal()
 		void ClientFilesWaiting().then((n) => (waiting = n))
 		const offPending = EventsOn('client:pending', (n: number) => (waiting = n))
 		// The watcher gave up writing them (#481): said once, in the status line and the Log.
@@ -39,6 +41,12 @@
 		{/if}
 	</span>
 	{#if editor.region}<span class="cell region">{editor.region}</span>{/if}
+	{#if ui.externalDb}
+		<!-- Always in sight while connected (#856), so a save is never made to a live server by mistake. -->
+		<span class="cell external" data-external-db title="Meld reads and writes this server's databases, from {ui.externalDb.conf}. File › Disconnect External Database goes back to the local server.">
+			External database: {databaseLabel(ui.externalDb.world) || ui.externalDb.conf}
+		</span>
+	{/if}
 	{#if waiting > 0}
 		<span class="cell waiting" title="Meld's patch holds them once the game is closed; the game reads them when it starts again.">Close the game to apply {waiting} client {waiting === 1 ? 'file' : 'files'}</span>
 	{/if}
@@ -55,6 +63,10 @@
 <style>
 	.waiting {
 		color: var(--accent-text);
+	}
+	.external {
+		color: var(--danger-text);
+		font-weight: 600;
 	}
 	.changes {
 		border: none;

@@ -54,12 +54,13 @@ func (a *App) serverForWrite() (string, string, error) {
 }
 
 // optionalServerForWrite is the VMaNGOS server folder ("" when none is set) for a binding that writes
-// the world database only when one is set; errSandboxed when one is set while the sandbox is on.
+// the world database only when one is set (or an external database is connected, hasDB);
+// errSandboxed when one is set while the sandbox is on.
 func (a *App) optionalServerForWrite() (string, error) {
 	a.cfgMu.Lock()
 	server, sandboxed := a.cfg.VmangosPath, a.sandboxData != ""
 	a.cfgMu.Unlock()
-	if server != "" && sandboxed {
+	if (server != "" || externalOn()) && sandboxed {
 		return "", errSandboxed
 	}
 	return server, nil

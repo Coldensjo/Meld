@@ -10,12 +10,13 @@ import (
 // login and character databases (internal/vmangos/accounts.go), with a character's equipment
 // (inventory.go, #874) and its look, skills, spells and reputation (charsheet.go, #875).
 
-// serverRoot is the VMaNGOS server folder, for a binding that reads the server's databases only.
+// serverRoot is the VMaNGOS server folder, for a binding that reads the server's databases only; ""
+// while an external database (#856) is connected without a folder set.
 func (a *App) serverRoot() (string, error) {
 	a.cfgMu.Lock()
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
-	if server == "" {
+	if server == "" && !externalOn() {
 		return "", errors.New("set the VMaNGOS server folder first (Edit › Preferences › Folders)")
 	}
 	return server, nil

@@ -22,6 +22,9 @@ var ErrForeignDatabase = errors.New("the world database that answers is not the 
 // DatabaseState reports whether the world database of the server's mangosd.conf answers, and whether
 // it is the server folder's own: its data directory is the folder's database folder.
 func DatabaseState(serverRoot string) (running, own bool) {
+	if External() != "" {
+		return false, false
+	}
 	db, err := worldDatabase(serverRoot)
 	if err != nil {
 		return false, false
@@ -50,6 +53,9 @@ func sameDir(a, b string) bool {
 // StartDatabase makes sure the server's world database answers, starting the server folder's own
 // when it doesn't (ensureDatabase).
 func StartDatabase(serverRoot string) error {
+	if External() != "" {
+		return ErrExternalDatabase
+	}
 	db, err := worldDatabase(serverRoot)
 	if err != nil {
 		return err
@@ -61,6 +67,9 @@ func StartDatabase(serverRoot string) error {
 // it no longer answers. A database that isn't running is left as it is; one that isn't the folder's
 // own gives ErrForeignDatabase and is left running.
 func StopDatabase(serverRoot string) error {
+	if External() != "" {
+		return ErrExternalDatabase
+	}
 	db, err := worldDatabase(serverRoot)
 	if err != nil {
 		return err

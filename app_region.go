@@ -221,6 +221,9 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) (err error) {
 			a.serverBusy.Store(false)
 		}
 	}()
+	if externalOn() {
+		return errExternal
+	}
 	clientDir, err := a.clientRoot()
 	if err != nil {
 		return err
@@ -285,6 +288,9 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) (err error) {
 			a.serverBusy.Store(false)
 		}
 	}()
+	if externalOn() {
+		return errExternal
+	}
 	clientDir, err := a.clientRoot()
 	if err != nil {
 		return err

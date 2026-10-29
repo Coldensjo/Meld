@@ -139,6 +139,27 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `mariadb-admin -u root shutdown` stops it, as `stop-server.bat` does. They are the author's own
   action; no compile calls them (#661). The controls are off without a server folder, off Windows
   (`Supported`) and in a probe's sandbox, and one runs at a time, never beside a compile to the server.
+- **External database** (#856, File › Connect to External Database…): another machine's VMaNGOS
+  databases, read from a copy of its `mangosd.conf` that the user picks (the owner's decision: Meld
+  stores no password, only the conf's path in `config.ExternalConf` for the file dialog). The editor
+  reads the conf (`App.ReadExternalDatabase`, no connection), shows a warning naming the conf and its
+  world, character and login databases (the `externalDb` dialog), and only on Connect calls
+  `App.ConnectExternalDatabase`, which pings the world database and then `vmangos.SetExternal(path)`.
+  From then on `confDatabase` reads every connection from that conf, `ensureDatabase` never starts a
+  database (`StartDatabase`/`StopDatabase` give `ErrExternalDatabase`), and the cached database lists
+  are dropped (`forgetDatabaseLists`). The connection lives in the Go process only: each start of Meld
+  is local again, and the warning is shown again on the next connect. The app's side is
+  `app_external.go`: the database editors need no server folder (`serverRoot`, `serverAndData`,
+  `hasDB` for the bindings that write the database only with a server), and `errExternal` turns off
+  what writes into the local server folder or drives the local server: the server controls and
+  `ServerStatus` (`serverSession`), Compile to Server and Publish, Play here and Turn on SOAP, the
+  account and character writes (they go through `serverSession`), the flight routes
+  (`errExternalRoutes`; the stops still save); `gameSession` drops its server folder, so Launch only
+  starts the game, and `worldRunning`/`reloadSpells` ignore the local world server. The spawns still
+  need a server folder for its `Map.dbc` (`serverMapID`). The status bar shows the connection
+  (`[data-external-db]`) the whole time, and a switch either way waits for the database editors to
+  close and for unsaved spawn edits, then reads every open region's spawns again
+  (`lib/io/external.ts`, `reloadAllSpawns`).
 
 - **Reading the world database's output** (#478): `runSQL` gives mariadb's batch output (`-B -N`),
   which escapes tabs, newlines, backslashes and NULs in a field. Read it only through

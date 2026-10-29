@@ -44,6 +44,25 @@ export function reloadSpawns(engine: Engine) {
 	void loadSpawns(engine, d, editor.regionMap, b.x, b.y, b.size)
 }
 
+/** The open regions with spawn edits not yet saved to the database: a switch of database waits for them (#856). */
+export function unsavedSpawnRegions(engine: Engine): string[] {
+	return engine.documents.filter((d) => d.meta.region && d.spawnLayer.editCount() > 0).map((d) => d.meta.mapName)
+}
+
+/**
+ * Reads every open region's spawns again from the database now in use, after a switch to or from an
+ * external one (#856). Each is emptied first, so a region whose read fails shows none rather than
+ * the other database's.
+ */
+export function reloadAllSpawns(engine: Engine) {
+	for (const d of engine.documents) {
+		const r = d.meta.region
+		if (!r) continue
+		engine.setSpawns(d, [])
+		void loadSpawns(engine, d, r.mapName, r.x, r.y, r.size)
+	}
+}
+
 /** Opens a square block of the client's tiles in a new tab (or switches to it if it's open). */
 export function openWowRegion(engine: Engine, mapName: string, x: number, y: number, size: number) {
 	return guarded('Open region', async () => openRegionView(engine, await LoadRegion(mapName, x, y, size)))
