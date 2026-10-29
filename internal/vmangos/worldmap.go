@@ -231,7 +231,7 @@ func WorldMapFiles(dataDir string, s WorldMapSpec) ([]mpq.File, WorldMapRow, []W
 	}
 	var files []mpq.File
 	for _, o := range s.Overlays {
-		if o.Pixels == nil {
+		if len(o.Pixels) == 0 { // the client's art stays
 			continue
 		}
 		of, err := worldOverlayFiles(row.Name, o)

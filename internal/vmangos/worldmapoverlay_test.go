@@ -82,11 +82,12 @@ func TestSetWorldMapOverlaysReplacesTheZones(t *testing.T) {
 	}
 
 	for name, o := range map[string]WorldMapOverlay{
-		"no areas":            {Name: "A", Width: 1, Height: 1, Pixels: []byte{0, 0, 0, 0}},
-		"five areas":          {Areas: []uint32{1, 2, 3, 4, 5}, Name: "A", Width: 1, Height: 1, Pixels: []byte{0, 0, 0, 0}},
-		"a path in the name":  {Areas: []uint32{1}, Name: `A\B`, Width: 1, Height: 1, Pixels: []byte{0, 0, 0, 0}},
-		"past the picture":    {Areas: []uint32{1}, Name: "A", Width: 30, Height: 1, OffsetX: 990, Pixels: make([]byte, 30*4)},
-		"no picture, not own": {ID: 140, Areas: []uint32{1}, Name: "A", Width: 1, Height: 1},
+		"no areas":               {Name: "A", Width: 1, Height: 1, Pixels: []byte{0, 0, 0, 0}},
+		"five areas":             {Areas: []uint32{1, 2, 3, 4, 5}, Name: "A", Width: 1, Height: 1, Pixels: []byte{0, 0, 0, 0}},
+		"a path in the name":     {Areas: []uint32{1}, Name: `A\B`, Width: 1, Height: 1, Pixels: []byte{0, 0, 0, 0}},
+		"past the picture":       {Areas: []uint32{1}, Name: "A", Width: 30, Height: 1, OffsetX: 990, Pixels: make([]byte, 30*4)},
+		"no picture, not own":    {ID: 140, Areas: []uint32{1}, Name: "A", Width: 1, Height: 1},
+		"empty picture, not own": {ID: 140, Areas: []uint32{1}, Name: "A", Width: 1, Height: 1, Pixels: []byte{}},
 	} {
 		if _, _, err := SetWorldMapOverlays(dbc, 30, []WorldMapOverlay{o}); err == nil {
 			t.Errorf("%s was taken", name)
@@ -94,6 +95,13 @@ func TestSetWorldMapOverlaysReplacesTheZones(t *testing.T) {
 	}
 	if _, _, err := SetWorldMapOverlays(dbc, 30, []WorldMapOverlay{ns, ns}); err == nil {
 		t.Error("two overlays of one name were taken")
+	}
+	// The page sends a kept overlay's picture as "" (Wails v3 makes a null []byte that), an empty slice
+	// here: the client's art stays, as with nil (#854).
+	kept := got[1]
+	kept.Pixels = []byte{}
+	if _, written, err := SetWorldMapOverlays(dbc, 30, []WorldMapOverlay{kept}); err != nil || written[0].ID != 125 {
+		t.Errorf("an own overlay with an empty picture: %+v, %v", written, err)
 	}
 }
 

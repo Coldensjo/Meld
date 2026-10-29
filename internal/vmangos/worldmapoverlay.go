@@ -35,8 +35,9 @@ const (
 )
 
 // WorldMapOverlay is a WorldMapOverlay.dbc row, and its picture: Width x Height RGBA, row 0 at the
-// top. ID 0 is a new row. Read, Pixels is nil when the client's art is missing; written, nil Pixels
-// keep the client's art (the row must be one of the zone's).
+// top. ID 0 is a new row. Read, Pixels is nil when the client's art is missing; written, empty Pixels
+// keep the client's art (the row must be one of the zone's). Empty, not only nil: Wails v3's models
+// send a null []byte as "", which decodes to an empty slice (#854).
 type WorldMapOverlay struct {
 	ID        uint32   `json:"id"`
 	Areas     []uint32 `json:"areas"`
@@ -185,7 +186,7 @@ func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay)
 		if o.Width == 0 || o.Height == 0 || o.OffsetX+o.Width > WorldMapWidth || o.OffsetY+o.Height > WorldMapHeight {
 			return nil, nil, fmt.Errorf("overlay %q (%dx%d at %d, %d) is not inside the %dx%d picture", o.Name, o.Width, o.Height, o.OffsetX, o.OffsetY, WorldMapWidth, WorldMapHeight)
 		}
-		if o.Pixels == nil && !own[o.ID] {
+		if len(o.Pixels) == 0 && !own[o.ID] {
 			return nil, nil, fmt.Errorf("overlay %q has no picture and is not one of the zone's rows", o.Name)
 		}
 		if !own[o.ID] {
