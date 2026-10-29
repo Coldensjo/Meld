@@ -8,13 +8,15 @@
 	import { RACES } from '../lib/world/creatureFields'
 	import EditorFrame from './EditorFrame.svelte'
 	import ClassIcon from './ClassIcon.svelte'
+	import CharacterInventory from './CharacterInventory.svelte'
 	import MoneyField from './MoneyField.svelte'
 
 	// Tools › Characters and Accounts (#855): the realm's accounts (the login database) and their
 	// characters (the character database). Make, change and delete accounts; open a character and
 	// change its name, race, class, gender, level, money and where it stands. The world server writes a
 	// character in the world over its row when it logs out, so Go refuses to change one that is in the
-	// world while the world server runs, and a rename while it runs at all.
+	// world while the world server runs, and a rename while it runs at all. The Equipment and bags tab
+	// (#874, CharacterInventory.svelte) puts items into its slots and bags, with a Save of its own.
 
 	const target = $derived(ui.characterEditor)
 
@@ -37,18 +39,28 @@
 		entry: (t) => t.guid,
 		read: ReadCharacter,
 		clear: () => (ui.characterEditor = null),
+		dirty: () => itemsDirty,
 		onopen: () => {
 			confirmDelete = false
 			focusCol = ''
+			tab = 'character'
+			itemsDirty = false
+		},
+		// The items tab reads its rows again, so the next character shows no stale edits.
+		ondiscard: () => {
+			if (itemsDirty) itemsTab?.revert()
 		},
 	})
+	/** The character page's tab, and the items tab's unsaved edits (it keeps them across a tab switch). */
+	let tab = $state<'character' | 'items'>('character')
+	let itemsDirty = $state(false)
+	let itemsTab = $state<ReturnType<typeof CharacterInventory>>()
 	ed.follow(() => target)
 	const record = $derived(ed.record)
 	const values = $derived(ed.values)
 	const saved = $derived(ed.saved)
 	const changes = $derived(ed.changes)
 	const changeCount = $derived(ed.changeCount)
-	const unsaved = $derived(ed.unsaved)
 
 	// The accounts, read when the tool opens and after a change to one.
 	let accounts = $state<vmangos.Account[]>([])
@@ -258,8 +270,8 @@
 		{/snippet}
 		{#snippet actions()}
 			{#if record}
-				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
-				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>{ed.saving ? 'Saving…' : unsaved ? `Save character (${changeCount})` : 'Saved'}</button>
+				<button disabled={!changeCount || ed.saving} onclick={() => ed.revert()}>Revert</button>
+				<button class="active" disabled={!changeCount || ed.saving} onclick={save}>{ed.saving ? 'Saving…' : changeCount ? `Save character (${changeCount})` : 'Saved'}</button>
 			{/if}
 		{/snippet}
 		{#snippet bars()}
@@ -315,59 +327,73 @@
 							<p class="dim">{ed.loading ? 'Reading the character…' : ''}</p>
 						{:else}
 							<button class="back" onclick={() => openAccount(record.account)}>‹ {account?.name ?? 'The account'}</button>
-							<h3>Character</h3>
-							<div class="grid">
-								<label class:changed={changes.name !== undefined} class:refused={focusCol === 'name'}>Name <input type="text" maxlength="12" value={values.name} oninput={(e) => set('name', e.currentTarget.value)} /></label>
-								<label class:changed={changes.level !== undefined} class:refused={focusCol === 'level'}
-									>Level <input type="number" min="1" max="255" value={values.level} oninput={(e) => set('level', e.currentTarget.value)} /></label
-								>
-								<label class:changed={changes.race !== undefined} class:refused={focusCol === 'race'}
-									>Race
-									<select value={values.race} onchange={(e) => set('race', e.currentTarget.value)}>
-										{#each RACES as [r, n] (r)}<option value={String(r)}>{n}</option>{/each}
-									</select>
-								</label>
-								<label class:changed={changes.class !== undefined} class:refused={focusCol === 'class'}
-									>Class
-									<select value={values.class} onchange={(e) => set('class', e.currentTarget.value)}>
-										{#each CLASSES as [c, n] (c)}<option value={String(c)}>{n}</option>{/each}
-									</select>
-								</label>
-								<label class:changed={changes.gender !== undefined}
-									>Gender
-									<select value={values.gender} onchange={(e) => set('gender', e.currentTarget.value)}>
-										<option value="0">Male</option>
-										<option value="1">Female</option>
-									</select>
-								</label>
-								<div class="field" class:changed={changes.money !== undefined} class:refused={focusCol === 'money'}>
-									<span>Money</span>
-									<MoneyField value={Number(values.money ?? 0)} onset={(c) => set('money', c)} />
+							<nav class="tabs">
+								<button class:on={tab === 'character'} onclick={() => (tab = 'character')}>Character{changeCount ? ` (${changeCount})` : ''}</button>
+								<button class:on={tab === 'items'} onclick={() => (tab = 'items')}>Equipment and bags{itemsDirty ? ' •' : ''}</button>
+							</nav>
+							<!-- The items tab stays mounted, so its unsaved edits survive a switch to the character's fields. -->
+							<div class:hidden={tab !== 'items'}>
+								<CharacterInventory bind:this={itemsTab} bind:dirty={itemsDirty} guid={record.guid} race={Number(saved.race)} cls={Number(saved.class)} level={Number(saved.level)} />
+							</div>
+							{#if tab === 'character'}
+								<h3>Character</h3>
+								<div class="grid">
+									<label class:changed={changes.name !== undefined} class:refused={focusCol === 'name'}
+										>Name <input type="text" maxlength="12" value={values.name} oninput={(e) => set('name', e.currentTarget.value)} /></label
+									>
+									<label class:changed={changes.level !== undefined} class:refused={focusCol === 'level'}
+										>Level <input type="number" min="1" max="255" value={values.level} oninput={(e) => set('level', e.currentTarget.value)} /></label
+									>
+									<label class:changed={changes.race !== undefined} class:refused={focusCol === 'race'}
+										>Race
+										<select value={values.race} onchange={(e) => set('race', e.currentTarget.value)}>
+											{#each RACES as [r, n] (r)}<option value={String(r)}>{n}</option>{/each}
+										</select>
+									</label>
+									<label class:changed={changes.class !== undefined} class:refused={focusCol === 'class'}
+										>Class
+										<select value={values.class} onchange={(e) => set('class', e.currentTarget.value)}>
+											{#each CLASSES as [c, n] (c)}<option value={String(c)}>{n}</option>{/each}
+										</select>
+									</label>
+									<label class:changed={changes.gender !== undefined}
+										>Gender
+										<select value={values.gender} onchange={(e) => set('gender', e.currentTarget.value)}>
+											<option value="0">Male</option>
+											<option value="1">Female</option>
+										</select>
+									</label>
+									<div class="field" class:changed={changes.money !== undefined} class:refused={focusCol === 'money'}>
+										<span>Money</span>
+										<MoneyField value={Number(values.money ?? 0)} onset={(c) => set('money', c)} />
+									</div>
 								</div>
-							</div>
-							<p class="dim">A new level starts with no experience, and a new race or gender the first skin, face and hair. A new race or class keeps the spells and skills the old one had.</p>
-							<h3>Where it stands</h3>
-							<div class="grid">
-								<label class="wide" class:changed={changes.map !== undefined}
-									>Map
-									<select value={values.map} onchange={(e) => set('map', e.currentTarget.value)}>
-										{#if !mapKnown}<option value={values.map}>Map {values.map}</option>{/if}
-										{#each maps as m (m.ID)}<option value={String(m.ID)}>{m.ID} · {m.Name || m.Dir}</option>{/each}
-									</select>
-								</label>
-								{#each [['position_x', 'X'], ['position_y', 'Y'], ['position_z', 'Z'], ['orientation', 'Facing']] as [col, label] (col)}
-									<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}>{label} <input type="number" step="any" value={values[col]} oninput={(e) => set(col, e.currentTarget.value)} /></label>
-								{/each}
-							</div>
-							<div class="row">
-								<button onclick={toCamera} title="Where the editor's camera is, on the ground or model below it, as Launch puts the Game Login's character">Put at the camera</button>
-								<span class="dim">The server's coordinates. Moving it takes it off any boat, flight or instance.</span>
-							</div>
-							<h3>Read only</h3>
-							<p class="dim">
-								{raceName(Number(saved.race))}
-								{className(Number(saved.class))} · {record.xp} experience · zone {record.zone} · played {played(record.playedTime)}{record.online ? ' · in the world' : ''}
-							</p>
+								<p class="dim">A new level starts with no experience, and a new race or gender the first skin, face and hair. A new race or class keeps the spells and skills the old one had.</p>
+								<h3>Where it stands</h3>
+								<div class="grid">
+									<label class="wide" class:changed={changes.map !== undefined}
+										>Map
+										<select value={values.map} onchange={(e) => set('map', e.currentTarget.value)}>
+											{#if !mapKnown}<option value={values.map}>Map {values.map}</option>{/if}
+											{#each maps as m (m.ID)}<option value={String(m.ID)}>{m.ID} · {m.Name || m.Dir}</option>{/each}
+										</select>
+									</label>
+									{#each [['position_x', 'X'], ['position_y', 'Y'], ['position_z', 'Z'], ['orientation', 'Facing']] as [col, label] (col)}
+										<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
+											>{label} <input type="number" step="any" value={values[col]} oninput={(e) => set(col, e.currentTarget.value)} /></label
+										>
+									{/each}
+								</div>
+								<div class="row">
+									<button onclick={toCamera} title="Where the editor's camera is, on the ground or model below it, as Launch puts the Game Login's character">Put at the camera</button>
+									<span class="dim">The server's coordinates. Moving it takes it off any boat, flight or instance.</span>
+								</div>
+								<h3>Read only</h3>
+								<p class="dim">
+									{raceName(Number(saved.race))}
+									{className(Number(saved.class))} · {record.xp} experience · zone {record.zone} · played {played(record.playedTime)}{record.online ? ' · in the world' : ''}
+								</p>
+							{/if}
 						{/if}
 					</div>
 				{:else if account}
@@ -496,6 +522,9 @@
 	}
 	.back {
 		align-self: flex-start;
+	}
+	.hidden {
+		display: none;
 	}
 	h3 {
 		margin: 8px 0 0;

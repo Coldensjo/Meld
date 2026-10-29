@@ -75,6 +75,7 @@ export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().I
 export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
 export const ImportSpells: NonNullCall<AppApi['ImportSpells']> = (...a) => api().ImportSpells(...a) as never
 export const InstallMapPatch: Call<AppApi['InstallMapPatch']> = (...a) => api().InstallMapPatch(...a) as never
+export const InventoryItemTemplate: Call<AppApi['InventoryItemTemplate']> = (...a) => api().InventoryItemTemplate(...a) as never
 export const ItemDisplayVariant: Call<AppApi['ItemDisplayVariant']> = (...a) => api().ItemDisplayVariant(...a) as never
 export const ItemIcons: NonNullCall<AppApi['ItemIcons']> = (...a) => api().ItemIcons(...a) as never
 export const ItemModelLook: Call<AppApi['ItemModelLook']> = (...a) => api().ItemModelLook(...a) as never
@@ -155,6 +156,7 @@ export const ReadCreatureSpells: Call<AppApi['ReadCreatureSpells']> = (...a) => 
 export const ReadGossip: Call<AppApi['ReadGossip']> = (...a) => api().ReadGossip(...a) as never
 export const ReadHeightmap: Call<AppApi['ReadHeightmap']> = (...a) => api().ReadHeightmap(...a) as never
 export const ReadImageFile: Call<AppApi['ReadImageFile']> = (...a) => api().ReadImageFile(...a) as never
+export const ReadInventory: Call<AppApi['ReadInventory']> = (...a) => api().ReadInventory(...a) as never
 export const ReadItem: NonNullCall<AppApi['ReadItem']> = (...a) => api().ReadItem(...a) as never
 export const ReadItemTemplate: Call<AppApi['ReadItemTemplate']> = (...a) => api().ReadItemTemplate(...a) as never
 export const ReadObject: Call<AppApi['ReadObject']> = (...a) => api().ReadObject(...a) as never
@@ -190,6 +192,7 @@ export const SaveGossipOptions: Call<AppApi['SaveGossipOptions']> = (...a) => ap
 export const SaveGreeting: Call<AppApi['SaveGreeting']> = (...a) => api().SaveGreeting(...a) as never
 export const SaveHeightmapDialog: Call<AppApi['SaveHeightmapDialog']> = (...a) => api().SaveHeightmapDialog(...a) as never
 export const SaveImageDialog: Call<AppApi['SaveImageDialog']> = (...a) => api().SaveImageDialog(...a) as never
+export const SaveInventory: Call<AppApi['SaveInventory']> = (...a) => api().SaveInventory(...a) as never
 export const SaveItem: Call<AppApi['SaveItem']> = (...a) => api().SaveItem(...a) as never
 export const SaveLights: Call<AppApi['SaveLights']> = (...a) => api().SaveLights(...a) as never
 export const SaveMap: Call<AppApi['SaveMap']> = (...a) => api().SaveMap(...a) as never

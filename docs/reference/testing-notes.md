@@ -849,7 +849,7 @@ the same scene, the report before and after.
 - Shop tab: item icons and tooltips (#202)
 - Item editor (#353; body armour #356; probe `item-editor`)
 - Spell editor (#294, probe `spell-editor`; #361 visual composer, probe `spell-visual`)
-- Characters and accounts (#855, probe `characters`)
+- Characters and accounts (#855, probe `characters`; equipment and bags #874)
 
 ### Export, the client and the game (`docs/tests/client.md`)
 

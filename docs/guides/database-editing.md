@@ -171,6 +171,12 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    **Delete account…** is off while the account has characters; delete those in the game first.
 3. Open a character to change its name, race, class, gender, level, money or where it stands
    (**Put at the camera** takes the editor's camera spot), then **Save character**.
+4. Its **Equipment and bags** tab shows the equipment slots, the bag slots, the backpack and each
+   bag. Drag an item to move it (it swaps with what is there), pick a square to change the item's
+   count, durability or enchantment or to **Take out** the item (a bag takes its contents with it),
+   and find items by name or entry below to add them: one goes into the picked square, or the first
+   free place that takes it. Then **Save equipment**. Adding items needs the world server stopped;
+   an item the character can't wear goes to it by mail at login.
 
 The world server writes a character that is in the world over its row when it logs out, so Meld
 refuses to change one while it is in the world and the world server runs. Renaming needs the world

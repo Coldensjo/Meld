@@ -463,6 +463,13 @@ export function InstallMapPatch(files: { [_ in string]?: string } | null): $Canc
 }
 
 /**
+ * InventoryItemTemplate reads what the equipment editor needs of an item it adds.
+ */
+export function InventoryItemTemplate(entry: number): $CancellablePromise<vmangos$0.InventoryTemplate> {
+    return $Call.ByID(1846892618, entry);
+}
+
+/**
  * ItemDisplayVariant is the item display showing display's model with icon ("" keeps its own) and
  * shot visual (-1 keeps its own). When the client has none, it is added to ItemDisplayInfo.dbc in
  * Meld's patch (the game closed around it on Windows); added says so.
@@ -1062,6 +1069,13 @@ export function ReadImageFile(path: string): $CancellablePromise<string> {
 }
 
 /**
+ * ReadInventory reads a character's equipment and bags (#874).
+ */
+export function ReadInventory(guid: number): $CancellablePromise<vmangos$0.Inventory> {
+    return $Call.ByID(908333639, guid);
+}
+
+/**
  * ReadItem reads an item template's row, every column by name, for the Shop tab's tooltips.
  */
 export function ReadItem(entry: number): $CancellablePromise<{ [_ in string]?: string } | null> {
@@ -1333,6 +1347,15 @@ export function SaveHeightmapDialog(suggested: string): $CancellablePromise<stri
  */
 export function SaveImageDialog(title: string, suggested: string): $CancellablePromise<string> {
     return $Call.ByID(2153849329, title, suggested);
+}
+
+/**
+ * SaveInventory makes a character's equipment and bags the items given, while it is out of the world
+ * (and, to add items, while the world server is stopped), and returns the SQL it ran, or the place
+ * ("container:slot") of an item it refused.
+ */
+export function SaveInventory(guid: number, items: vmangos$0.InventoryItem[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(493395892, guid, items);
 }
 
 /**

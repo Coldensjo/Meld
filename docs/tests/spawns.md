@@ -854,3 +854,22 @@ account, Delete account and Save character.
   only against the server's test vector here), and enter the world with an edited character.
 - Trap: the probe's page runs without the client sandbox, so writes from a scratch probe go to the
   real databases; `serverSession` refuses them only while a probe has the sandbox on.
+- Equipment and bags (#874): the probe also opens the character's Equipment and bags tab, checks
+  that it shows as many items as `ReadInventory` reads, drags an item to an empty backpack square
+  (synthetic `DragEvent`s with a `new DataTransfer()` work in the headless page; the squares carry
+  `data-place="container:slot"`), outlines a place a stood-in `SaveInventory` refuses, adds an item
+  found by its entry (a `.sq.new` square) and reverts. Unit: `inventory_test.go` (which rows the
+  editor reaches, `checkInventory`'s refusals, `equipmentCache` against a cache the server wrote,
+  `inventoryScript`'s deletes, moves, inserts and a new bag's contents, the refusals of a character
+  in the world and of a new item while mangosd runs) and `frontend/tests/inventory.test.ts` (moves,
+  bags taking their contents along, special bags, where an added item goes).
+- An inventory write, by hand (mangosd stopped): copy a character to guid 9001 as above, then a
+  scratch probe with `SaveInventory(9001, [...])` of new items (`guid: 0`, each with its
+  `InventoryItemTemplate(entry)`): a sword at `0:15`, a shield at `0:16`, a Small Brown Pouch (4496)
+  at `0:19` and jerky (117) at `19:0`; read it back (`ReadInventory`), move the jerky to `0:23`,
+  enchant the sword, take the pouch out, and check `item_instance` and `character_inventory` (the
+  contents' `bag` is the pouch's guid, `charges` and `enchantments` in the server's spaced format).
+  Clean up: `DELETE FROM item_instance WHERE owner_guid = 9001`, the same from `character_inventory`
+  by `guid`, then the character. Done on 2026-10-29.
+- In the game (the owner): log in with an edited character and see the items where the editor put
+  them; an item it can't wear arrives by mail.

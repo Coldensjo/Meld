@@ -83,3 +83,32 @@ func (a *App) SaveCharacter(guid int, values map[string]string) (TemplateSaved, 
 	}
 	return templateSaved(vmangos.SaveCharacter(s.ServerRoot, guid, values, s.WorldRunning))
 }
+
+// ReadInventory reads a character's equipment and bags (#874).
+func (a *App) ReadInventory(guid int) (vmangos.Inventory, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return vmangos.Inventory{}, err
+	}
+	return vmangos.ReadInventory(server, guid)
+}
+
+// InventoryItemTemplate reads what the equipment editor needs of an item it adds.
+func (a *App) InventoryItemTemplate(entry int) (vmangos.InventoryTemplate, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return vmangos.InventoryTemplate{}, err
+	}
+	return vmangos.InventoryItemTemplate(server, entry)
+}
+
+// SaveInventory makes a character's equipment and bags the items given, while it is out of the world
+// (and, to add items, while the world server is stopped), and returns the SQL it ran, or the place
+// ("container:slot") of an item it refused.
+func (a *App) SaveInventory(guid int, items []vmangos.InventoryItem) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveInventory(s.ServerRoot, guid, items, s.WorldRunning))
+}

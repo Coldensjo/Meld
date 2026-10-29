@@ -568,6 +568,51 @@ export interface IconSpells {
 }
 
 /**
+ * Inventory is a character's equipment and bags, and how many more items it keeps where the editor
+ * doesn't reach (the bank, the keyring, the buyback slots).
+ */
+export interface Inventory {
+    "items": InventoryItem[] | null;
+    "elsewhere": number;
+}
+
+/**
+ * InventoryItem is one item on the character: where it is, what of it the editor changes, and its
+ * template. Guid is 0 for an item the editor adds.
+ */
+export interface InventoryItem {
+    "guid": number;
+    "container": number;
+    "slot": number;
+    "entry": number;
+    "count": number;
+    "durability": number;
+    "enchant": number;
+    "template": InventoryTemplate;
+}
+
+/**
+ * InventoryTemplate is what the editor needs of an item's item_template row (its newest patch): to
+ * draw it, and to tell where it fits and how many a stack holds.
+ */
+export interface InventoryTemplate {
+    "entry": number;
+    "name": string;
+    "quality": number;
+    "displayId": number;
+    "invType": number;
+    "class": number;
+    "subclass": number;
+    "stackable": number;
+    "maxDurability": number;
+    "containerSlots": number;
+    "bagFamily": number;
+    "requiredLevel": number;
+    "allowableClass": number;
+    "allowableRace": number;
+}
+
+/**
  * ItemDisplayEntry is an item display as the look picker lists it: its icon, its model (a name
  * without its folder, "" for none), where it goes ("weapon", "shield", "held", "ranged", "head",
  * "shoulder", "back", "body", "jewelry" or "other"), and the items of the world database that use

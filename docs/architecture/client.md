@@ -360,7 +360,22 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   A change carries along: a new level sets `xp = 0`, a new race or gender resets skin, face and hair
   to 0 (every race and gender has a 0), and a new spot clears the instance, transport and flight as
   `placeSQL` does. Put at the camera fills the spot from `Engine.playerSpot`, as Launch does.
-  Equipment and the rest of a character are #874 and #875.
+  The character's **Equipment and bags** tab (#874, `components/CharacterInventory.svelte`, a
+  `RowList` with its own Save, kept mounted across the tab switch; `internal/vmangos/inventory.go`)
+  edits `character_inventory` and `item_instance`. A place is a container and a slot: container 0
+  is the character (equipment 0 to 18, bag slots 19 to 22, backpack 23 to 38) and 19 to 22 the bag
+  in that slot, so a new bag's contents can be placed before the bag has a guid; the database's
+  `bag` is the bag item's guid. The bank, keyring and buyback are not reached (`elsewhere`). Where an
+  item fits follows the server (`Player::FindEquipSlot`, `ItemCanGoIntoBag`, the off hand empty
+  beside a two-hander), in `lib/wow/inventory.ts` for the page and again in Go's `checkInventory`,
+  which refuses with the place (`container:slot`) as the column. Save sends the whole list: Go
+  deletes the items gone (with their gift, loot and text rows), moves and changes the rest
+  (count, durability, the permanent enchantment, token 0 of `enchantments`), inserts the new ones as
+  `Item::Create` makes them, and rewrites `characters.equipment_cache` (each equipment slot's entry
+  and enchantments, then bag slot 19's entry, as `Player::SaveToDB`). New items need mangosd
+  stopped: it hands out item guids from `MAX(guid)` read at start. An item the character can't wear
+  (class, race, level, skill) is accepted; the server mails it at login, and the page marks it.
+  Skills, spells, reputations and the rest are #875.
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a
