@@ -86,12 +86,13 @@ func ServerDir(t testing.TB) string {
 	if dbErr != nil {
 		t.Skip("world database not reachable: " + dbErr.Error())
 	}
+	AllowDatabase(t)
 	return dir
 }
 
 // ServerDirIfAny is the server's folder for a test that uses it when there is one, or "" (no skip),
-// with its database reachable.
-func ServerDirIfAny() string {
+// with its database reachable. A folder it returns lets the test reach the database (AllowDatabase).
+func ServerDirIfAny(t testing.TB) string {
 	dir, _ := locate("VMANGOS_DIR", loadConfig().VmangosPath, "vmangosPath")
 	if dir == "" {
 		return ""
@@ -100,7 +101,23 @@ func ServerDirIfAny() string {
 	if dbErr != nil {
 		return ""
 	}
+	AllowDatabase(t)
 	return dir
+}
+
+// DatabaseEnv is the variable that lets internal/vmangos's mariadb runners (runSQL, pipeMariadb,
+// shutdownDatabase) make a real call from a test: without it they panic, so a test that forgets to
+// stand one in fails instead of running its SQL on the machine's own databases (#884, #885). It must
+// match vmangos's testDatabaseEnv.
+const DatabaseEnv = "MELD_TEST_DATABASE"
+
+// AllowDatabase lets the calling test reach a real database through the mariadb runners, until it
+// ends (t.Setenv, so not in a parallel test). ServerDir and ServerDirIfAny call it; a live test that
+// names the server through VMANGOS_DIR itself (the database writers, guard_test.go) calls it after its
+// skip.
+func AllowDatabase(t testing.TB) {
+	t.Helper()
+	t.Setenv(DatabaseEnv, "1")
 }
 
 // reachDatabase connects to the world database's host and port from the server's mangosd.conf

@@ -221,7 +221,7 @@ func TestReputationScript(t *testing.T) {
 
 func TestHomeSQL(t *testing.T) {
 	root := t.TempDir()
-	conf := "WorldDatabase.Info = \"127.0.0.1;3307;mangos;mangos;mangos\"\n"
+	conf := "WorldDatabase.Info = \"127.0.0.1;1;mangos;mangos;mangos\"\n"
 	if err := os.MkdirAll(filepath.Join(root, "run"), 0o755); err != nil {
 		t.Fatal(err)
 	}

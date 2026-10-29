@@ -67,7 +67,7 @@ func TestExternalReplacesTheFoldersDatabases(t *testing.T) {
 		t.Error("an external database is no database")
 	}
 	SetExternal("")
-	if got, err := confDatabase(root, "WorldDatabase.Info"); err != nil || got.port != "3307" {
+	if got, err := confDatabase(root, "WorldDatabase.Info"); err != nil || got.port != "1" {
 		t.Errorf("after disconnecting: %+v %v", got, err)
 	}
 	if hasDatabase("") {

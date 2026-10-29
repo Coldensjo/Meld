@@ -31,7 +31,7 @@ func (f *fakeDatabase) install(t *testing.T) {
 		return []byte("1\n"), nil
 	}
 	shutdownDatabase = func(db worldDB) error {
-		if db.port != "3307" {
+		if db.port != "1" {
 			t.Fatalf("shut down the database on port %s", db.port)
 		}
 		f.shutdowns++

@@ -12,7 +12,8 @@ import (
 	"testing"
 )
 
-// soapServer is a server folder whose mangosd.conf names the databases and sets the SOAP console.
+// soapServer is a server folder whose mangosd.conf names the databases (on port 1, as characterServer's)
+// and sets the SOAP console.
 func soapServer(t *testing.T, soap string) string {
 	t.Helper()
 	root := characterServer(t)
@@ -21,7 +22,7 @@ func soapServer(t *testing.T, soap string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b = append(b, "WorldDatabase.Info = \"127.0.0.1;3307;mangos;mangos;mangos\"\n"+soap...)
+	b = append(b, "WorldDatabase.Info = \"127.0.0.1;1;mangos;mangos;mangos\"\n"+soap...)
 	if err := os.WriteFile(conf, b, 0o644); err != nil {
 		t.Fatal(err)
 	}

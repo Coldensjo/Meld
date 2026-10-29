@@ -132,6 +132,7 @@ type Waypoint struct {
 // runSQL runs a query against the world database and returns mariadb's batch output: one line
 // per row, tab-separated. It's a variable so tests can supply canned rows.
 var runSQL = func(db worldDB, sql string) ([]byte, error) {
+	guardTestDatabase("query on " + db.host + ":" + db.port + "/" + db.name)
 	args := append([]string{"-B", "-N"}, db.args(sql)...)
 	cmd := exec.Command("mariadb", args...)
 	cmd.Env = append(os.Environ(), db.env()...)

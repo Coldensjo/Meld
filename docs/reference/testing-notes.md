@@ -75,7 +75,12 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   `config.json`'s `wowPath`; `testclient.ServerDir(t)` is `VMANGOS_DIR`, else `vmangosPath`, and skips
   when the world database in the server's `mangosd.conf` does not answer (a TCP connect), so a stopped
   mariadb skips the database tests instead of failing them; `ServerFolder(t)` is the same without the
-  database check, for tests that read the server's files. Each skips the test when it finds nothing, so
+  database check, for tests that read the server's files. `ServerDir` (and `ServerDirIfAny(t)`) also
+  calls `testclient.AllowDatabase(t)`, which lets `internal/vmangos`'s mariadb runners (`runSQL`,
+  `pipeMariadb`, `shutdownDatabase`) make real calls for that test; in any other test they panic, so a
+  test that forgets to stand one in fails rather than writing the real databases (#885). A database
+  writer that names the server through `VMANGOS_DIR` calls `AllowDatabase` after its skip, and every
+  fixture server folder names port 1, where nothing answers. Each skips the test when it finds nothing, so
   a machine without Meld set up skips them all, and on the owner's machine they run in a plain
   `make test`: `go test ./internal/...` went from 3 s and 98 skips to 29 s and 3 skips (the three
   database-writing tests below). `TestIronforgePatchIsBackedUp` builds its own Ironforge patch with

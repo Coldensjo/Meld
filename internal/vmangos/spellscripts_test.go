@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -58,6 +59,7 @@ func TestSpellScriptsLive(t *testing.T) {
 	if dir == "" || server == "" {
 		t.Skip("WOW_DIR or VMANGOS_DIR not set")
 	}
+	testclient.AllowDatabase(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

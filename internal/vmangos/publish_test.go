@@ -80,7 +80,7 @@ func serverFolder(t *testing.T) string {
 	root := t.TempDir()
 	os.MkdirAll(filepath.Join(root, "run"), 0o755)
 	os.MkdirAll(filepath.Join(root, "data", "5875", "dbc"), 0o755)
-	conf := "WorldDatabase.Info = \"127.0.0.1;3307;mangos;secret;mangos\"\n"
+	conf := "WorldDatabase.Info = \"127.0.0.1;1;mangos;secret;mangos\"\n"
 	os.WriteFile(filepath.Join(root, "run", "mangosd.conf"), []byte(conf), 0o644)
 	return root
 }
@@ -333,7 +333,7 @@ func TestWorldDatabaseFromConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if db.host != "127.0.0.1" || db.port != "3307" || db.user != "mangos" || db.password != "secret" || db.name != "mangos" {
+	if db.host != "127.0.0.1" || db.port != "1" || db.user != "mangos" || db.password != "secret" || db.name != "mangos" {
 		t.Fatalf("db = %+v", db)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 func TestSpawnIDQueries(t *testing.T) {
@@ -47,6 +49,7 @@ func TestCreatedGUIDLive(t *testing.T) {
 	if dir == "" {
 		t.Skip("VMANGOS_DIR not set")
 	}
+	testclient.AllowDatabase(t)
 	db, err := worldDatabase(dir)
 	if err != nil {
 		t.Fatal(err)

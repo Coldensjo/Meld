@@ -96,7 +96,7 @@ func TestItemLooksLive(t *testing.T) {
 		t.Fatalf("icons %v", own)
 	}
 	t.Logf("display 8690: %s", own[8690])
-	server := testclient.ServerDirIfAny()
+	server := testclient.ServerDirIfAny(t)
 	displays, err := ListItemDisplays(server, dataDir)
 	if err != nil || len(displays) < 10000 {
 		t.Fatalf("%d displays, %v", len(displays), err)

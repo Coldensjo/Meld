@@ -123,6 +123,7 @@ func transactionScript(script string) string {
 // pipeMariadb runs the mariadb client with args, env added to its environment, and feeds it input.
 // It's a variable so tests can catch the script runScript sends, and fail it.
 var pipeMariadb = func(args, env []string, input string) error {
+	guardTestDatabase("mariadb script")
 	cmd := exec.Command("mariadb", args...)
 	cmd.Env = append(os.Environ(), env...)
 	hideConsole(cmd)

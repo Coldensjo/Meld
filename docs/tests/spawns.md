@@ -864,7 +864,9 @@ account, Delete account, Save character and Delete character.
 - Trap: `characterServer` (the Go tests' server folder) names the databases on port 1, where nothing
   answers. A test that stands in `runSQL` but not `pipeMariadb` (or the reverse) talked to the
   machine's real databases through it while it named port 3307, and deleted a character and an
-  account there (#876). Stand in both, or neither.
+  account there (#876). Stand in both, or neither. Since #885 the runners (`runSQL`, `pipeMariadb`,
+  `shutdownDatabase`) panic in a Go test that did not ask for the database (`testclient.AllowDatabase`,
+  which `ServerDir` calls), so a forgotten stand-in fails the test instead of writing.
 - In the game (the owner): log in with a made account and its password (the verifier is checked
   only against the server's test vector here), and enter the world with an edited character.
 - Trap: the probe's page runs without the client sandbox, so writes from a scratch probe go to the

@@ -103,6 +103,7 @@ var dbStopPoll = 250 * time.Millisecond
 // the server folder's own database has without a password (stop-server.bat logs in so; the world
 // server's account may not shut it down). A variable, so tests can stand in for it.
 var shutdownDatabase = func(db worldDB) error {
+	guardTestDatabase("shutdown of the database on " + db.host + ":" + db.port)
 	admin, err := adminProgram()
 	if err != nil {
 		return err
