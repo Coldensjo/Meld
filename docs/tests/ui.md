@@ -718,7 +718,7 @@ Checks: Preferences › General › Interface size zooms the whole UI and everyt
   (sharp), that the window's own hit test finds the canvas inside its rect and a pointer at a share
   of the rect gives the engine that share, that the tallest menu (View) fits, that the Preferences dialog fits and its Interface size lists the sizes, that
   a right-click menu opened at window px (300, 200) has its corner there, and Ctrl+= / Ctrl+- /
-  Ctrl+0. Run `menu-keys`, `dialog-focus`, `zones-fit` and `hide-panels` with it.
+  Ctrl+0. Run `menu-keys`, `dialog-focus`, `weather` (the Zones dialog's fit) and `hide-panels` with it.
 - To look at it: a scratch probe that sets `prefs.uiScale = 1.5` and opens a dialog, run with
   `--shot <dir>`.
 - Trap: the zoom also scales `vw` and `vh` (a `100vh` box is 1.5 windows tall at 150 %), which is

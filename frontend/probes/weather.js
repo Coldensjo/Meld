@@ -1,4 +1,4 @@
-// Lighting › Weather Preview (#185): rain, snow and a sandstorm draw around the camera with the client's storm light and fog, clear weather draws none and costs nothing; and the Zones dialog shows a zone's game_weather chances (nothing written).
+// Lighting › Weather Preview (#185): rain, snow and a sandstorm draw around the camera with the client's storm light and fog, clear weather draws none and costs nothing; and the Zones dialog shows a zone's game_weather chances (nothing written) and fits with no horizontal scrollbar (#247).
 // touches: frontend/src/lib/world/WeatherLayer.ts, frontend/src/lib/wow/weather.ts, frontend/src/components/ZonesDialog.svelte, internal/vmangos/weather.go
 const e = P.e
 const { prefs, ui } = await P.state()
@@ -56,6 +56,13 @@ const elwynn = await P.until(() => [...(P.dialog('Zones')?.querySelectorAll('but
 elwynn.click()
 const spring = await P.until(() => document.querySelector('.weather[data-zone="12"] input[aria-label="Rain chance in spring"]'), 30000, "Elwynn's weather sliders")
 const summer = document.querySelector('.weather[data-zone="12"] input[aria-label="Rain chance in summer"]')
+// The dialog fits (#247): no horizontal scrollbar on its body, and no control sticks out past it.
+await P.frames(2)
+const dialog = P.dialog('Zones')
+const body = dialog.querySelector('.body') ?? dialog
+const d = dialog.getBoundingClientRect()
+const wide = [...body.querySelectorAll('*')].filter((el) => el.getBoundingClientRect().right > d.right + 0.5).map((el) => el.tagName + '.' + el.className + '#' + el.id)
+out.fit = { scrollWidth: body.scrollWidth, clientWidth: body.clientWidth, wide: wide.slice(0, 8) }
 out.zones = { sliders: document.querySelectorAll('.weather input[type=range]').length, spring: Number(spring.value), summer: Number(summer.value) }
 spring.value = '40'
 spring.dispatchEvent(new Event('input', { bubbles: true }))
@@ -80,5 +87,7 @@ out.ok =
 	out.zones.sliders === 12 &&
 	out.zones.spring === 20 &&
 	out.zones.summer === 15 &&
-	out.zones.save === 'Save (1)'
+	out.zones.save === 'Save (1)' &&
+	out.fit.scrollWidth <= out.fit.clientWidth &&
+	out.fit.wide.length === 0
 return out

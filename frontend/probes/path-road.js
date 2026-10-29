@@ -1,6 +1,5 @@
-// Path tool (#167): clicks drop a road's points, a click on a point picks it and Shift+drag raises it, Apply levels and paints along the curve as one undo step, and applying again after an edit takes the first apply back.
-// touches: frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/paths.ts, frontend/src/components/PathEditBar.svelte
-// tier: smoke
+// Path tool (#167): clicks drop a road's points, a click on a point picks it and Shift+drag raises it, Apply levels and paints along the curve as one undo step, and applying again after an edit takes the first apply back. Then, each on a fresh flat map in the same page (once the probes path-river and path-fence): the River's Apply carves the bed along the curve and fills it with the liquid, its surface running downhill from the higher end, as one undo step that takes the bed and the liquid back; and the Fence's Apply stands a picked model end to end along the curve at its own length, each turned along the curve, as one undo step that removes them all, applying again after a change replacing them.
+// touches: frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/paths.ts, frontend/src/components/PathEditBar.svelte, frontend/src/lib/water/Water.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
@@ -70,8 +69,154 @@ const flatAgain = t.heightAt(256, 290) - h0
 const mapData = await P.app('/src/lib/io/mapData.ts')
 const back = mapData.fromMapData(JSON.parse(JSON.stringify(mapData.toMapData(e.snapshot())))).paths
 const saved = back.length === 1 && back[0].points.length === editor.paths[0].points.length && back[0].width === 10 && back[0].texture === editor.palette[slot]
+
+// River (#167).
+const river = await (async () => {
+	e.newDocument(256, 'flat', 0, 'Probe')
+	editor.tool = 'path'
+	editor.pathKind = 'river'
+	await P.frames(1)
+	const V3 = e.controller.target.constructor
+	const t = e.terrain
+	const h0 = t.heightAt(256, 256)
+	const at = (x, z) => new V3(x, t.heightAt(x, z), z)
+	const tool = e.debug.tools.path
+	const ev = new PointerEvent('pointerdown')
+	for (const [x, z] of [
+		[150, 200],
+		[250, 260],
+		[360, 240],
+	]) {
+		// Aim the press away from the dots, as a click on empty ground.
+		e.debug.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
+		tool.onDown(e.debug.ctx, at(x, z), ev)
+		tool.onUp(e.debug.ctx)
+	}
+	// The upstream end 6 yd higher: the surface falls from it to the far end.
+	e.path((tl, c) => {
+		const p = editor.paths[0]
+		editor.pathPoint = 0
+		tl.setField(c, 'width', 14)
+		tl.setField(c, 'depth', 3)
+		editor.paths[0].points[0].y = h0 + 6
+		return p
+	})
+	e.path((tl, c) => tl.apply(c))
+	await P.frames(2)
+	const liquids = e.debug.doc.liquids
+	/** The surface of the liquid over world (x, z), or null. */
+	const surfaceAt = (x, z) => {
+		const gx = Math.floor(x / t.cellSize),
+			gz = Math.floor(z / t.cellSize)
+		const c = Math.floor(gz / 8) * liquids.side + Math.floor(gx / 8)
+		const l = liquids.layers(c).find((q) => q.cells[(gz % 8) * 8 + (gx % 8)])
+		return l ? l.heights[(gz % 8) * 9 + (gx % 8)] : null
+	}
+	const p = editor.paths[0]
+	const kind = p.kind
+	const up = surfaceAt(160, 203)
+	const down = surfaceAt(350, 241)
+	const bed = t.heightAt(250, 260)
+	const off = t.heightAt(250, 300) - h0
+	await P.lookAt({ x: 250, y: h0, z: 250 }, { pitch: 0.6, back: 160 })
+	P.save(await P.shot(), 'river-applied')
+	e.history.undo()
+	await P.frames(1)
+	const emptied = liquids.empty
+	const flat = Math.abs(t.heightAt(250, 260) - h0) < 1e-3
+	return {
+		ok: kind === 'river' && up !== null && down !== null && up > down && bed < (down ?? 0) && Math.abs(off) < 1e-3 && emptied && flat,
+		kind,
+		up,
+		down,
+		bed,
+		off,
+		emptied,
+		flat,
+	}
+})()
+
+// Fence (#167).
+const fence = await (async () => {
+	e.newDocument(256, 'flat', 0, 'Probe')
+	editor.tool = 'path'
+	editor.pathKind = 'fence'
+	await P.frames(1)
+	const V3 = e.controller.target.constructor
+	const t = e.terrain
+	const h0 = t.heightAt(256, 256)
+	const at = (x, z) => new V3(x, t.heightAt(x, z), z)
+	const tool = e.debug.tools.path
+	const ev = new PointerEvent('pointerdown')
+	for (const [x, z] of [
+		[200, 240],
+		[256, 250],
+		[310, 240],
+	]) {
+		e.debug.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
+		tool.onDown(e.debug.ctx, at(x, z), ev)
+		tool.onUp(e.debug.ctx)
+	}
+	const model = 'm2:World\\Azeroth\\Duskwood\\PassiveDoodads\\Fence\\DuskWoodFenceSegment.m2'
+	e.path((tl, c) => tl.setField(c, 'model', model))
+	const before = e.objects.list().length
+	await e.path((tl, c) => tl.apply(c))
+	await P.frames(2)
+	const fence = e.objects.list().filter((o) => o.type === model)
+	const count = fence.length
+	// Each model turned along the curve: its +X, (cos r, -sin r), points along the run from one to the next.
+	let turned = true
+	for (let i = 1; i < fence.length; i++) {
+		const a = fence[i - 1],
+			b = fence[i]
+		const dx = b.x - a.x,
+			dz = b.z - a.z
+		const len = Math.hypot(dx, dz)
+		const dot = (Math.cos(a.rotY) * dx - Math.sin(a.rotY) * dz) / len
+		const doz = (Math.cos(a.rotY + Math.PI / 2) * dx - Math.sin(a.rotY + Math.PI / 2) * dz) / len
+		if (Math.max(Math.abs(dot), Math.abs(doz)) < 0.9) turned = false
+	}
+	const gaps = fence.slice(1).map((o, i) => Math.hypot(o.x - fence[i].x, o.z - fence[i].z))
+	await P.lookAt({ x: 256, y: h0, z: 245 }, { pitch: 0.5, back: 70 })
+	await P.settle()
+	P.save(await P.shot(), 'fence-applied')
+	// A wider spacing applied again replaces the models rather than adding to them.
+	e.path((tl, c) => tl.setField(c, 'spacing', 20))
+	await e.path((tl, c) => tl.apply(c))
+	const respaced = e.objects.list().filter((o) => o.type === model).length
+	e.history.undo()
+	const back = e.objects.list().filter((o) => o.type === model).length
+	e.history.undo()
+	e.history.undo()
+	const gone = e.objects.list().filter((o) => o.type === model).length
+	return {
+		ok: before === 0 && count > 10 && turned && respaced === 6 && back === count && gone === 0,
+		count,
+		gapMin: Math.min(...gaps),
+		gapMax: Math.max(...gaps),
+		turned,
+		respaced,
+		back,
+		gone,
+	}
+})()
+
 return {
-	ok: drawn && picked && raised > 5 && hump > 4 && painted > 200 && close(offRoad, 0) && close(humpAfter, 0) && close(lineAfter, 0) && close(humpUndone, hump) && close(flatAgain, 0) && saved && labels[1] === 'Apply Road 1 again',
+	ok:
+		river.ok &&
+		fence.ok &&
+		drawn &&
+		picked &&
+		raised > 5 &&
+		hump > 4 &&
+		painted > 200 &&
+		close(offRoad, 0) &&
+		close(humpAfter, 0) &&
+		close(lineAfter, 0) &&
+		close(humpUndone, hump) &&
+		close(flatAgain, 0) &&
+		saved &&
+		labels[1] === 'Apply Road 1 again',
 	drawn,
 	steps,
 	picked,
@@ -85,4 +230,6 @@ return {
 	humpUndone,
 	flatAgain,
 	saved,
+	river,
+	fence,
 }

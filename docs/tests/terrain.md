@@ -40,7 +40,7 @@ fetch of 24.5 MB after; Go's `ReadRegion` alone is about 85 ms).
 
 ## Hole blocks (Sculpt › Hole)
 
-No probe: the unit test below, and a hand check in the dev page; the probe `undo-holes` covers an area's holes.
+No probe: the unit test below, and a hand check in the dev page; the probe `undo-sculpt` covers an area's holes.
 
 Checks: `holes.ts` (cell values 0 none, 1 whole cell; 2 and 3, one triangle, are only read from old
 maps) and the Sculpt tool's Hole mode, which cuts and fills whole 2x2-cell blocks (`HOLE_BLOCK`), as
@@ -892,11 +892,12 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
 - Trap: wait for `queued` as well as `loading` to reach 0. Between two reads `loading` is 0 for a
   frame while tiles still wait, and a check then sees half the ring.
 
-## Cutting holes in a selected area (probe `undo-holes`)
+## Cutting holes in a selected area (probe `undo-sculpt`)
 
 Checks: cutting holes in a selected area cuts whole 2x2 blocks (cells 9..13 snap out to the blocks 8..13,
 36 cells), and one undo fills them again.
-- Probe: `bun run probe undo-holes` (a flat map, a few seconds).
+- Probe: `bun run probe undo-sculpt` (smoke, a flat map, a few seconds), after its stroke checks (once the
+  probe `undo-holes`, #424).
 
 ## Map Properties' world settings are undoable (#571, probe `world-settings`)
 

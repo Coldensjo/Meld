@@ -455,7 +455,7 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent
   (WorldMapContinent.dbc lists only Kalimdor and Azeroth) is for the owner to check.
 
-## Icons from PNG files and back, and the Icons tool (#364, #683, probe `icons`)
+## Icons from PNG files and back, and the Icons tool (#364, #683, probe `spell-editor`)
 Checks: Import PNG… in the spell and item editors' icon grid adds square PNG files to the client as
 `Interface\Icons\<file name>.blp` in Meld's patch, and Export … as PNG… saves the icons the grid shows
 as `<name>.png` files.
@@ -468,14 +468,15 @@ as `<name>.png` files.
   twice and a bad PNG refused; installed, the list has it and the export writes it, a missing name and
   `..\up` reported), `TestPendingIcons` (an icon waiting for the game to close is listed, previewed
   through `PendingIcon` and exported).
-- Probe: `icons` (the real client left alone): Fireball's Change icon… shows Import PNG… and Export all as PNG…;
-  searching Spell_Fire_FlameBolt leaves one icon and Export 1 as PNG…; `ImportIcons` with a missing
-  file refuses it under its name (`Probe_Icon`, from "Probe Icon.png") and `ExportIcons` refuses a
-  missing folder. Then, in the throwaway client (`P.sandboxClient`, #368), Import PNG… with the file
-  dialog stubbed takes a red 64 px PNG drawn in the page ("Meld Probe Icon.png"): the note says it was
-  added, the grid shows `Meld_Probe_Icon` alone and its preview is red; after `P.endSandbox()` the real
-  patch has its size and time and the real icon list hasn't the icon. About 7 s.
-- Probe: `icons`, the Icons tool (#683): Tools › Icons… (`ui.iconsTool`) shows the shared grid with
+- Probe: `spell-editor` (once the probe `icons`, merged by #424; nothing written): Fireball's Change icon…
+  shows Import PNG… and Export all as PNG…; searching Spell_Fire_FlameBolt leaves one icon and Export 1
+  as PNG…; `ImportIcons` with a missing file refuses it under its name (`Probe_Icon`, from "Probe
+  Icon.png") and `ExportIcons` refuses a missing folder. Import PNG… itself is left to the Go tests
+  above; `loading-screen` and `world-map` keep the probes' write through the throwaway client
+  (`P.sandboxClient`, #368). To see an import in the app, a scratch probe can do what `icons` did
+  (`git show 0dba60c9:frontend/probes/icons.js`): stub `OpenIconsDialog` to a PNG written by
+  `P.sandboxFile`, press Import PNG…, and check the note, the grid and `P.endSandbox().realUnchanged`.
+- Probe: `spell-editor`, the Icons tool (#683): Tools › Icons… (`ui.iconsTool`) shows the shared grid with
   Export all as PNG…; searching Spell_Fire_FlameBolt and clicking it shows its name, Copy spell icon
   ID (185) enabled and Fireball (Rank 1) among its spells, and Copy name puts the name on the
   clipboard. Go: `vmangos.TestSpellsWithIcon` (a synthetic SpellIcon map and Spell.dbc: any case, the
@@ -727,7 +728,7 @@ the same swap).
 
 ## The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
 
-No probe: a Go benchmark (below); the probes `patch-cache` and `icons` cover what the write carries.
+No probe: a Go benchmark (below); the probes `patch-cache`, `loading-screen` and `world-map` cover what the write carries.
 
 Checks: a save of one small file into a large patch (a DBC row, an imported icon) opens the patch
 once in `ChangedFiles` and once in `InstallPatch`, and copies the files it carries over straight from
@@ -741,7 +742,7 @@ memory and building the archive there.
   (B/op unchanged): the price of a rename that a power loss can't leave pointing at zeros, so don't
   drop the `Sync` in `writeArchive` to win this back.
 - `mpq.TestWriteToFromArchive` copies files between archives through `Reader` and checks that a
-  short reader fails the write; the `InstallPatch` tests and probes `patch-cache` and `icons` cover
+  short reader fails the write; the `InstallPatch` tests and probes `patch-cache` and `loading-screen` cover
   the carried files and the minimap tiles it drops.
 - Trap: the time is mostly the disk copy of the carried files, so it varies with the disk cache;
   compare B/op, and time only on the same machine.

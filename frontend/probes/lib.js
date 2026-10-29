@@ -56,7 +56,7 @@ const P = {
 
 	/**
 	 * The open Modal dialog with this heading, found through the F8 `data-ui="Modal"` attribute and its `h2`, not through aria
-	 * attributes, which accessibility work moves (#415, after #369 broke zones-fit). Returns the `.dialog` element; null when none.
+	 * attributes, which accessibility work moves (#415, after #369 broke the Zones dialog probe). Returns the `.dialog` element; null when none.
 	 */
 	dialog(name) {
 		const h = [...document.querySelectorAll('[data-ui="Modal"] header h2')].find((e) => e.textContent.trim() === name)

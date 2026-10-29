@@ -1,5 +1,5 @@
-// P.time, P.stroke and P.turn (#348): the timer counts a scripted Sculpt stroke's ticks, nests once, and restores; the turn changes the yaw every frame.
-// touches: frontend/probes/lib.js
+// P.time, P.stroke and P.turn (#348): the timer counts a scripted Sculpt stroke's ticks, nests once, and restores; the turn changes the yaw every frame. And P.texture (#317): a client texture as a picture for P.save and P.diff; the alpha view differs from the colour view.
+// touches: frontend/probes/lib.js, internal/wow/blp.go
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
@@ -37,8 +37,25 @@ const byPath = await P.time({ '/src/lib/engine/Engine.ts:Engine': ['frame'] })
 await P.frames(3)
 const pathCalls = byPath.snap()['Engine.frame'].calls
 byPath.restore()
+// P.texture (#317): the colour view, the alpha view (grey) and a resized one.
+const path = 'Textures\\Weather\\RainDropSplash01.blp'
+const color = await P.texture(path)
+const alpha = await P.texture(path, { alpha: true })
+const small = await P.texture(path, { size: 64 })
+P.save(color, 'color')
+P.save(alpha, 'alpha')
+const texDiff = P.diff(color, alpha)
+let grey = true
+for (let i = 0; i < alpha.px.length; i += 4) if (alpha.px[i] !== alpha.px[i + 1] || alpha.px[i] !== alpha.px[i + 2]) grey = false
+const texture = {
+	ok: color.w > 0 && color.h > 0 && color.px.length === color.w * color.h * 4 && small.w === 64 && small.h === 64 && grey && texDiff.off > 0,
+	size: [color.w, color.h],
+	lit: [color.lit, alpha.lit],
+	diff: texDiff,
+}
 return {
 	ok:
+		texture.ok &&
 		snap[key].calls === 12 &&
 		snap[key].ms > 0 &&
 		snap[Cls.name + '.onUp'].calls === 1 &&
@@ -56,4 +73,5 @@ return {
 	turned,
 	still,
 	pathCalls,
+	texture,
 }

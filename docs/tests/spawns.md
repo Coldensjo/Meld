@@ -25,7 +25,7 @@ Checks: `engine/SpawnActions.ts`, the spawn editing out of Engine. A new spawn's
 open tab's spawns of its kind (monsters and NPCs share creature guids, objects have their own) and at
 least the database's next one (`nextFreeGuid`); a new pool's entry likewise (`nextFreePoolEntry`).
 Unit: `bun test tests/spawnActions.test.ts`, which also runs pool picking, the spawn keys and the
-spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-new`, `compile-spawns`,
+spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-spells`, `compile-spawns`,
 `teleport-trigger` and `place-spawn-size` probes, which name the file in their `// touches:` lines.
 - Trap: the actions that read the world database (placing, the brush's first guid, a new pool, the
   menu's Teleport items) call Go bindings, which `bun test` lacks; don't define `window` to stub them,
@@ -108,7 +108,7 @@ writes, and the pool rows in `SpawnFields`. The probe `object-entry` does it on 
 veins of one pool laid down by hand (Small Thorium Vein 324 and Truesilver Deposit 2047, as guids
 23510 and 23539 are in Silithus): the list opens on Ore, a click on the Truesilver row changes the
 spawn (name, model; `SpawnEditSQL` sets the row's `id` to 2047), undo turns it back and the
-editor's title follows. It needs the world database up, and takes about 6 s.
+editor's title follows; then it runs Find object (#351, below). It needs the world database up, and takes about 7 s.
 
 - In the real world: pool 22973 is the stack at server (-6420.68, 717.69) on map 1 (Silithus).
 - The Object tab, New object and Save write to the world database: make a copy of 324, change its
@@ -120,13 +120,13 @@ editor's title follows. It needs the world database up, and takes about 6 s.
 
 ## Game object editor: Find object, with no spawn (#351)
 
-Probe: `object-find`.
+Probe: `object-entry`, after its entry change (once the probe `object-find`).
 
 Checks: Tools › Game Objects… opens the editor on Find object (tabs Find object and New object), the
 search finds by name (Small Thorium, entry 324) and by entry (1731, Copper Vein), a click opens the
 object on its Object tab with Find object kept as a tab (its search kept, the open object marked),
-and New object still shows its form. The probe `object-find` runs it in about 6 s on a flat map; it
-needs the world database and writes nothing. It sets `ui.objectEditor = { key: null, entry: 0 }`
+and New object still shows its form. The probe `object-entry` runs it after its own checks, a second
+or two on its flat map; it needs the world database and writes nothing. It sets `ui.objectEditor = { key: null, entry: 0 }`
 as the menu does (there is no probe helper that clicks a menu entry).
 
 ## Game object editor: Contents, Make it a chest, respawn (#220)
@@ -220,16 +220,15 @@ refusals, the users) and `TestForgetPrunesTheClientCaches` (`pagetextcache.wdb`)
 
 ## Tilted game objects (#229)
 
-Probe: `object-tilt`.
+No probe: the unit tests below (the probe `object-tilt` was dropped for them, #424).
 
 Checks: a game object's tilt (`gameobject.rotation0..3`) is read into `WorldSpawn.tilt`, drawn
 (`spawnQuaternion`) and written back. Unit tests: `TestTiltedObjectKeepsItsTilt` in
 `internal/vmangos/spawns_test.go` (read, JSON round trip, a move keeps the four values, a turn
 turns them about Z) and `frontend/tests/spawnTilt.test.ts` (the drawn rotation turns each model
-axis where the server's quaternion does). The probe `object-tilt` loads the real Sunken Chest
-(guid 42485, Azeroth tile (36, 49), tilted about 16 degrees) onto a flat map, checks its drawn up
-axis against the quaternion and that a move's SQL keeps `rotation0..3`. It needs the world database
-up, and takes about 6 s.
+axis where the server's quaternion does). To see one in the app: the real Sunken Chest (guid 42485,
+Azeroth tile (36, 49), tilted about 16 degrees); a move's SQL (`SpawnEditSQL`) keeps its
+`rotation0..3`.
 
 - About 1400 of the 56644 objects on this database are tilted:
   `SELECT COUNT(*) FROM gameobject WHERE rotation0 <> 0 OR rotation1 <> 0`.
@@ -508,8 +507,7 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
   click a display tile, then step 4 shows level 10 at 594 health, 30 damage, 492 armour (warrior:
   198, 15.2 and 492 from `creature_classlevelstats`). Make creature writes one row; check it with
   `ReadCreature(entry)` and delete it afterwards (`DELETE FROM creature_template WHERE entry = …`).
-- Probe: `creature-new` (#260): in the creature editor, New creature closes it and opens the guide, and Copy this creature shows its name bar (Cancel leaves; nothing is written).
-- Probe: `creature-looks` (#221): opens the guide to step 3 and checks the preview stays in view while the page scrolls past the pickers (it is sticky; the row once shrank to 520px and the pickers spilled over it).
+- Probe: `creature-spells`, after its Spells checks (once the probes `creature-new` and `creature-looks`): in the creature editor, Copy this creature shows its name bar (Cancel leaves; nothing is written) and New creature closes it and opens the guide (#260); then it walks the guide to step 3 and checks the preview stays in view while the page scrolls past the pickers (#221: it is sticky; the row once shrank to 520px and the pickers spilled over it).
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
 
@@ -522,7 +520,7 @@ and save through one `TemplateEditor` (`lib/ui/templateEditor.svelte.ts`) inside
 Unit: `cd frontend && bun test tests/templateEditor.test.ts` (a read overtaken by another opening or
 a close is dropped, leave and Discard, reopen after an import, a refused save's column). Live: the
 editors' probes run the flow end to end: `bun run probe quest-editor item-editor spell-editor
-creature-shop creature-new object-find object-quests` (Esc from a field, the Discard bar, Revert, Esc
+creature-shop creature-spells object-entry object-quests` (Esc from a field, the Discard bar, Revert, Esc
 closing only the quest editor over the creature editor).
 - Trap: the frame's `:global` rules reach only the bars and `.body` that are the frame's direct
   children, and `nav.tabs`; a class an editor's body shares with a component inside it (`.dim`,
@@ -744,14 +742,15 @@ Import or New item.
 Checks: Tools › Spells… finds and opens a spell, shows its tooltip, effects and visual as the game
 would (following the unsaved values), and writes `spell_template` and Spell.dbc (SpellIcon.dbc for a
 new icon) in Meld's patch only on Save or New spell.
-- Probe: `spell-editor` (about 11 s; nothing written): Fireball's result right-clicked copies
+- Probe: `spell-editor` (about 12 s; nothing written): Fireball's result right-clicked copies
   `.cast 133`; Fireball (133) reads Fireball | Rank 1, 30 Mana | 35 yd range, 1.5 sec cast and its
   description with 14 to 22 and 2 over 4 sec filled in; its effects read Damage 14 to 22 · Enemy target
   and Apply aura: Periodic damage; its visual (67) is named by Firebolt and others; a typed name and
   base points 99 give 100 to 108 in the tooltip; a cost of 99999999999 is refused and jumps to the
   Spell tab; Change icon… previews the hovered icon (the bar keeps naming the current one) and marks
   a picked one Set on Save; Take the visual of Frost Nova changes the visual; Revert; New spell offers
-  the six starters and Copy of Fireball, the copy picked, under its name.
+  the six starters and Copy of Fireball, the copy picked, under its name. It also runs the icon grid's
+  Import and Export checks and the Icons tool (docs/tests/client.md, "Icons from PNG files and back").
 - Starters (#360): with `WOW_DIR` and `VMANGOS_DIR`, `TestSpellStartersLive` plans a spell from each
   starter and reads its planned Spell.dbc row back (name, a visual, an icon other than Temp, a range
   and cast time row, an effect, the locale mask, the text filled in, such as "Causes 50 Shadow

@@ -132,7 +132,7 @@ When adding a probe:
    `tier: manual` for a slow check of a rarely touched path that `--all` should skip (`--touching` still picks it).
 5. Find a dialog or component through its F8 `data-ui` attribute, not through aria attributes or text (#415): `P.dialog(heading)`
    finds a Modal by `[data-ui="Modal"] header h2`, and a bare dialog is `[data-ui="Modal"]`. Accessibility work moves `aria-*`
-   (#369 broke `zones-fit` and `weather`); `data-ui` is the component's name. Only a root element carries it, so an inner control
+   (#369 broke the Zones dialog checks now in `weather`); `data-ui` is the component's name. Only a root element carries it, so an inner control
    keeps a stable attribute. Keep an aria lookup where the probe is about accessibility (`aria-state`, `dialog-focus`).
    The editors share `EditorFrame`, so each root carries `data-editor="creature|object|item|quest|spell|character"`; the other
    windows are found by their component's `data-ui` (`FlightPathsWindow`, `MinimapWindow`, `IconsWindow`, `ModelPreviewWindow`),
@@ -143,8 +143,8 @@ When adding a probe:
    `probe: <name> skipped: <reason>` and lists it under `skipped` in the summary line, apart from `passed`.
 
 Every probe has an entry under its feature in the pages below (`Probe: bun run probe <name>`), but
-two that check the probe helpers themselves: `probe-helpers` (#348, `P.time`, `P.stroke`, `P.turn`)
-and `texture-picture` (#317, `P.texture`). Run those after changing `frontend/probes/lib.js`.
+`probe-helpers`, which checks the probe helpers themselves (#348, `P.time`, `P.stroke`, `P.turn`; #317,
+`P.texture`). Run it after changing `frontend/probes/lib.js`.
 
 For the helper API, profiling options and unusual browser failures, use the
 [testing notebook](reference/testing-notes.md#probes-bun-run-probe-checks-in-the-live-app-you-can-rerun).

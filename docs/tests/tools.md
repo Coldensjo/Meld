@@ -435,7 +435,9 @@ Checks: the Path tool's clicks drop a road's points on the ground, a click on a 
 than adding one, Shift+drag raises it, Apply levels the ground to the curve's height and paints the
 road's texture across its width (one undo step), and applying again after deleting the raised point
 takes the first apply back (the hump goes), with both applies undoing in order.
-`bun run probe path-road` on a fresh flat map; `--shot <dir>` saves `path-road-applied.png`, the road
+`bun run probe path-road` on a fresh flat map, then the river and fence checks below on a fresh flat map
+each in the same page (once the probes `path-river` and `path-fence`, #424; with the fence's model it takes
+about 13 s and is no longer in the smoke set); `--shot <dir>` saves `path-road-applied.png`, the road
 seen from above with its dots and width lines.
 - `frontend/tests/paths.test.ts` covers the curve sampling, the grade limit, the cross profile, the
   distance field, reading paths from a file and a road's heights and paint through `applyPath`
@@ -443,23 +445,23 @@ seen from above with its dots and width lines.
 - The probe aims the clicks by projecting world points through `e.camera` (`Vector3.project`), and
   passes `movementY` in the drag's event options, which a synthetic `PointerEvent` otherwise leaves 0.
 
-## Paths: rivers (#167, probe `path-river`)
+## Paths: rivers (#167, probe `path-road`)
 
 Checks: a River path's Apply carves the bed under the curve, fills the cells within half its width
 with the liquid, the surface higher at the raised upstream end than downstream (it only runs
 downhill), leaves the ground beyond the falloff alone, and one undo takes the liquid and the bed
-back. `bun run probe path-river`; `--shot <dir>` saves `path-river-applied.png`, the river seen at an
+back. `bun run probe path-road`; `--shot <dir>` saves `path-road-river-applied.png`, the river seen at an
 angle. `frontend/tests/paths.test.ts` covers `downhill`, `riverBed` and a river's apply and undo.
 - The probe adds the points through `PathTool.onDown` with hits it makes, aiming the raycaster away
   from the dots first (the press picks a dot it hits rather than adding a point).
 
-## Paths: fences (#167, probe `path-fence`)
+## Paths: fences (#167, probe `path-road`)
 
 Checks: a Fence path with Duskwood's fence segment stands the model end to end along the curve
 (25 over about 112 yd, 4.48 yd apart, the model's own length), each turned along the run, a wider
 spacing applied again replaces them (6 at 20 yd) rather than adding, and undo brings the first set
-back and then removes it. `bun run probe path-fence` (needs the client); `--shot <dir>` saves
-`path-fence-applied.png`. `frontend/tests/paths.test.ts` covers `fencePieces` (spans, the turn, a
+back and then removes it. `bun run probe path-road` (needs the client); `--shot <dir>` saves
+`path-road-fence-applied.png`. `frontend/tests/paths.test.ts` covers `fencePieces` (spans, the turn, a
 model long in Z) and a fence's apply and undo on stand-in layers.
 - The model is measured from its loaded bounds (`loadAsset`) before the apply, so `PathTool.apply`
   is async for a fence; the probe awaits `e.path((t, c) => t.apply(c))`.
@@ -467,7 +469,8 @@ model long in Z) and a fence's apply and undo on stand-in layers.
 ## A scripted Sculpt stroke and its undo (probe `undo-sculpt`, smoke)
 
 Checks: a scripted Raise stroke on a flat map changes the heights, undo puts them back exactly and redo
-redoes it; the cheapest check that a stroke, `History` and the terrain upload still work together.
+redoes it; the cheapest check that a stroke, `History` and the terrain upload still work together. It
+then cuts holes in a selection on the same map ("Cutting holes in a selected area", docs/tests/terrain.md).
 - Probe: `bun run probe undo-sculpt` (smoke, a flat map, a few seconds). Unit: `tests/toolUndo.test.ts`
   checks every tool's stroke is one step without the app (#438).
 

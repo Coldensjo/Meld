@@ -1,5 +1,5 @@
-// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, a cost past an unsigned int is an unsaved edit (Go refuses it, a Go test; Save is never pressed), Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written.
-// touches: frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/lib/wow/spells.ts, internal/vmangos/spells.go, internal/vmangos/spelltext.go
+// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, a cost past an unsigned int is an unsaved edit (Go refuses it, a Go test; Save is never pressed), Change icon… has Import PNG… and Export all as PNG… and a search narrows the export to its matches (#364), previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written. Then the icon bindings refuse a missing PNG file and folder, and Tools › Icons… (#683) shows the same grid (IconGrid) with every icon, and a picked icon's name (Copy name puts it on the clipboard), its SpellIcon.dbc ID and the spells that show it (once the probe icons).
+// touches: frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/lib/wow/spells.ts, internal/vmangos/spells.go, internal/vmangos/spelltext.go, frontend/src/components/SpellIcon.svelte, frontend/src/components/IconGrid.svelte, frontend/src/components/IconsWindow.svelte, app_icons.go, internal/vmangos/icons.go, internal/wow/icon.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -76,6 +76,15 @@ await openTab('Effect 2')
 // Change icon…: the grid previews the icon under the pointer, a click picks it, Change icon marks it for Save.
 button(root().querySelector('.look'), 'Change icon').click()
 await P.until(() => root().querySelectorAll('.icon-btn').length > 10, WAIT, 'the icons')
+// Import PNG… and Export … as PNG… (#364); a search narrows the export to what it shows.
+const picker = root().querySelector('.change')
+const iconGrid = { import: !!button(picker, 'Import PNG'), exportText: button(picker, 'Export')?.textContent.trim() }
+const iconSearch = picker.querySelector('[aria-label="Search the icons"]')
+type(iconSearch, 'Spell_Fire_FlameBolt')
+await P.until(() => root().querySelectorAll('.icon-btn').length === 1, WAIT, 'the icon search')
+iconGrid.narrowed = { icon: root().querySelector('.icon-btn').title, exportText: button(picker, 'Export')?.textContent.trim() }
+type(iconSearch, '')
+await P.until(() => root().querySelectorAll('.icon-btn').length > 10, WAIT, 'the icons again')
 const firstIcon = root().querySelector('.icon-btn').title
 const tile = [...root().querySelectorAll('.icon-btn')][3]
 tile.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
@@ -111,6 +120,36 @@ const newName = root().querySelector('.new-form input[type=text]')?.value
 ui.spellEditor = null
 await P.frames(1)
 
+// The icon bindings, without a dialog: a PNG that isn't there is refused by its name, a folder that isn't there too.
+// Import PNG… itself is Go's (TestPlanIconImport, TestPendingIcons); loading-screen and world-map write through P.sandboxClient.
+const { ImportIcons, ExportIcons } = window.go.main.App
+const imported = await ImportIcons(['C:/Meld-probe-missing/Probe Icon.png']).catch((e) => ({ error: String(e) }))
+const exported = await ExportIcons(['Spell_Fire_FlameBolt'], 'C:/Meld-probe-missing').catch((e) => ({ error: String(e) }))
+
+// Tools › Icons… (#683): the shared grid lists every icon, a search and a click pick one, and the side shows
+// its name, SpellIcon ID and spells; Copy name copies it.
+ui.iconsTool = { icon: '' }
+const tool = () => document.querySelector('[data-ui="IconsWindow"]')
+await P.until(() => tool()?.querySelectorAll('.icon-btn').length > 10, WAIT, 'the Icons tool')
+const toolAll = button(tool(), 'Export')?.textContent.trim()
+type(tool().querySelector('[aria-label="Search the icons"]'), 'Spell_Fire_FlameBolt')
+await P.until(() => tool().querySelectorAll('.icon-btn').length === 1, WAIT, 'the tool search')
+tool().querySelector('.icon-btn').click()
+await P.until(() => /SpellIcon \d+/.test(tool().querySelector('.uses')?.textContent ?? ''), WAIT, 'the spells of the icon')
+const side = tool().querySelector('aside')
+const iconsTool = {
+	exportText: toolAll,
+	name: side.querySelector('.name')?.textContent,
+	idButton: button(side, 'Copy spell icon ID')?.textContent.trim(),
+	idEnabled: !button(side, 'Copy spell icon ID')?.disabled,
+	spells: [...side.querySelectorAll('.spells li')].map((l) => l.textContent.trim()),
+}
+button(side, 'Copy name').click()
+await P.until(() => /Copied the name/.test(tool().querySelector('.bar.ok')?.textContent ?? ''), WAIT, 'Copy name')
+iconsTool.clipboard = await window.runtime.ClipboardGetText().catch((e) => `(${e})`)
+ui.iconsTool = null
+await P.frames(1)
+
 const ok =
 	menu.clipboard === '.cast 133' &&
 	title.startsWith('Fireball') &&
@@ -133,5 +172,19 @@ const ok =
 	starts.length === 7 &&
 	starts[0] === 'Bolt' &&
 	startOn === 'Copy of Fireball' &&
-	newName === 'Fireball'
-return { ok, leftovers, scripts, menu, title, tip, fx, visualText, summary, edited, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }
+	newName === 'Fireball' &&
+	iconGrid.import &&
+	iconGrid.exportText === 'Export all as PNG…' &&
+	iconGrid.narrowed.icon === 'Spell_Fire_FlameBolt' &&
+	iconGrid.narrowed.exportText === 'Export 1 as PNG…' &&
+	!imported.names?.length &&
+	imported.refused?.length === 1 &&
+	imported.refused[0].startsWith('Probe_Icon:') &&
+	/not a folder/.test(exported.error ?? '') &&
+	iconsTool.exportText === 'Export all as PNG…' &&
+	iconsTool.name === 'Spell_Fire_FlameBolt' &&
+	/^Copy spell icon ID \(\d+\)$/.test(iconsTool.idButton ?? '') &&
+	iconsTool.idEnabled &&
+	iconsTool.spells.some((s) => s.startsWith('Fireball')) &&
+	iconsTool.clipboard === 'Spell_Fire_FlameBolt'
+return { ok, iconGrid, imported, exported, iconsTool, leftovers, scripts, menu, title, tip, fx, visualText, summary, edited, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }
