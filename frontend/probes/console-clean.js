@@ -1,6 +1,6 @@
-// Loading Northshire (P.BENCH) logs no console warning or error and no HTTP 400+ besides known ones, and the terrain asks only for the sheen twins that exist (#336).
+// Loading Northshire (P.BENCH) draws with no GL error, some triangles and objects (the old `smoke` probe, #417), logs no console warning or error and no HTTP 400+ besides known ones, and the terrain asks only for the sheen twins that exist (#336).
 // Known messages, each with its issue; drop an entry when its issue is fixed.
-// touches: frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/terrain/sheen.ts, frontend/src/lib/terrain/TerrainMaterial.ts, internal/wow/client.go
+// touches: frontend/src/lib/engine/Engine.ts, frontend/src/lib/io/scene.ts, frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/terrain/sheen.ts, frontend/src/lib/terrain/TerrainMaterial.ts, internal/wow/client.go
 const known = []
 const seen = []
 const wrap = (level) => {
@@ -28,10 +28,14 @@ const t0 = performance.now()
 const noTwin = 'Tileset\\Elwynn\\ElwynnRockBase.blp'
 const withTwin = 'Tileset\\Elwynn\\ElwynnGrassBase.blp'
 let extra = null
+let draw = { gl: -1, triangles: 0, calls: 0, objects: 0 }
 try {
 	await P.scene(P.BENCH)
 	await P.settle()
+	P.glError()
 	await P.frames(5)
+	const info = window.__engine.renderer.info.render
+	draw = { gl: P.glError(), triangles: info.triangles, calls: info.calls, objects: window.__engine.objects.objects.size }
 	// Northshire's palette has a twin for every texture, so load one without (ElwynnRockBase) beside one with.
 	const { PaletteArray } = await P.app('/src/lib/terrain/paletteArray.ts')
 	extra = new PaletteArray(() => {}, false)
@@ -54,7 +58,21 @@ const { hasSheenTwin } = await P.app('/src/lib/terrain/paletteArray.ts')
 const paths = P.e.terrain.palette.entries.filter((p) => p && !p.startsWith('#'))
 const twins = (await Promise.all(paths.map((p) => hasSheenTwin(p)))).filter(Boolean).length
 return {
-	ok: failed.length === 0 && unexpected.length === 0 && twins > 0 && sheen.length >= twins && sheen.every((r) => r.responseStatus === 200) && !(await hasSheenTwin(noTwin)) && (await hasSheenTwin(withTwin)),
+	ok:
+		draw.gl === 0 &&
+		draw.triangles > 0 &&
+		draw.objects > 0 &&
+		failed.length === 0 &&
+		unexpected.length === 0 &&
+		twins > 0 &&
+		sheen.length >= twins &&
+		sheen.every((r) => r.responseStatus === 200) &&
+		!(await hasSheenTwin(noTwin)) &&
+		(await hasSheenTwin(withTwin)),
+	triangles: draw.triangles,
+	calls: draw.calls,
+	objects: draw.objects,
+	glErrors: draw.gl,
 	requests: res.length,
 	failed: failed.slice(0, 10),
 	unexpected: unexpected.slice(0, 10),

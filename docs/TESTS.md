@@ -151,7 +151,7 @@ For the helper API, profiling options and unusual browser failures, use the
 
 The paint rules (four textures a chunk, undo and redo, paste across palettes, auto-paint) run on a real
 `Terrain` in `tests/paintRules.test.ts`, part of `make test`; that the terrain shader compiles and draws is
-the probes' part (`smoke`, `terrain-cell-tex`, `terrain-dxt`). The old hand-run pages in
+the probes' part (`console-clean`, `terrain-cell-tex`, `terrain-dxt`). The old hand-run pages in
 `frontend/tests/browser/` were retired for these (#613).
 
 For performance changes, use the same scene, camera, preferences and loading state before and after.

@@ -697,7 +697,7 @@ the same scene, the report before and after.
 - Camera collision keeps the flying camera off a WMO's walls (#305)
 - Shadow maps: lights' cube maps, the sun's cascades and the moving casters (#129, #133, #325, #326, #346, #366; probes `shadow-redraw`, `shadow-poses`, `shadow-sun-drift`)
 - The instance batch: culling, packing and picking of placed models and spawns (#517)
-- The benchmark scene and maps: smoke, bench and perf-* (#322, #429; probes `smoke`, `bench`, `perf-*`)
+- The benchmark scene and maps: console-clean, bench and perf-* (#322, #429, #417; probes `console-clean`, `bench`, `perf-*`)
 - Spawns posed only when drawn (#328, probe `pose-drawn`)
 - A model the client draws nothing of (#333, probe `nothing-to-draw`)
 - Releasing models: closed maps, thumbnails and previews (#505, #506; probes `release-models`, `release-asset`)

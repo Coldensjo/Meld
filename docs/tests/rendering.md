@@ -785,15 +785,18 @@ Probes: `object-move` (no pack during a drag) and the others listed below, over 
 - Probes that peek at ObjectLayer's batches read the rows as `b.rows.items`, `b.rows.matrices`,
   `b.rows.spheres` and `b.rows.packed` (not `b.all` and the rest, before #517).
 
-## The benchmark scene and maps: smoke, bench and perf-* (#322, #429)
+## The benchmark scene and maps: console-clean, bench and perf-* (#322, #429, #417)
 
-Probes: `smoke`, `bench` and `perf-*`.
+Probes: `console-clean`, `bench` and `perf-*`.
 
 Checks: the benchmark scene (`P.BENCH`, Help › Copy Scene's Northshire view) and the benchmark maps
 (Help › Benchmark maps, `lib/bench/benchMaps.ts`) open and draw, and their numbers for a before/after.
 The method (same scene, same prefs, what to compare) is the testing notebook's "Measuring performance".
-- `bun run probe smoke` (about 90 s): the benchmark scene opens, its models load and it draws with no
-  WebGL or page error. Not `tier: smoke` despite the name: it loads the heavy scene.
+- `bun run probe console-clean` (about 90 s; #336, #417; it replaced the `smoke` probe, which loaded the same scene): the
+  benchmark scene opens, its models load and it draws (triangles and objects above 0, no GL error), with no
+  console warning or error, no HTTP 400+, and only the sheen twins that exist asked for. Not `tier: smoke`
+  despite the old name: it loads the heavy scene. A message that is known and tracked goes in the probe's
+  `known` list with its issue. Break it on purpose by making `draw.gl` nonzero in a scratch copy.
 - `bun run probe bench`: the scene's numbers. Draw calls, triangles, geometries and textures are
   deterministic there, so it fails when one drifts more than 10 % from `probes/bench-baseline.json`
   (#429); after a change that moves them on purpose, update the baseline in the same commit.
