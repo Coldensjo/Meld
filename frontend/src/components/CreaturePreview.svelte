@@ -234,7 +234,10 @@
 	.view:active {
 		cursor: grabbing;
 	}
+	/* Out of flow (#890): the canvas's buffer, a pixel off its laid-out size under an Interface size above 1, never sizes the host box. */
 	canvas {
+		position: absolute;
+		inset: 0;
 		width: 100%;
 		height: 100%;
 		display: block;
