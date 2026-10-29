@@ -381,6 +381,10 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     (once every 100 ms) fires on every `P.frames(1)`. To check one, call the tool's own `frame` (or
     `onMove`) many times in a loop without stepping frames, as `drag-state` does for the vertex slope
     (#448). And `history.steps().length` counts redo steps too: compare `history.position` instead.
+    For the same reason, `P.until` checks once a frame and misses a state that comes and goes within
+    one (a button's Working… label over a binding that answers in under 250 ms): wait on the binding
+    itself instead, through a wrapper around `window.go.main.App.<Method>` that keeps its promise
+    (`world-map` does this for `WriteWorldMap`, #882).
 
   A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
