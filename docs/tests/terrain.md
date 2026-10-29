@@ -738,8 +738,9 @@ creature's way round obstacles.
   of it Stormwind's 15 MB WMO); since #865 the first starts only 8 of them (1.3 ms, the rest 8 a
   task after it, `LoadCache`'s `perTask`, the build done as soon as before); since #866 the second
   takes 3.1 to 3.9 ms (Stormwind's box from 7 of its 4016 groups, 0.9 ms warm against 4.6), the first
-  tile's frame about 3.5 ms (most of it the first client tile's `adtHeightSpan`, cold) and
-  `syncWorkers` 2.5 ms; turned on again, with the boxes kept, no frame passes 2.3 ms (before:
+  tile's frame about 3.5 ms (most of it the first client tile's `adtHeightSpan`, cold; since #868
+  its ground part, `adtGroundSpan`, is worked out in a frame of its own while the collisions load,
+  about 1.5 ms, and the first tile's frame takes 1.1 to 1.7 ms) and `syncWorkers` 2.5 ms; turned on again, with the boxes kept, no frame passes 2.3 ms (before:
   9.6, 8.3 and 8.2 ms the first time, 7.1 and 5.9 the next).
   Dropping the ground rows from a settle's `sceneUpdates` makes the probe fail, so it catches a copy
   gone stale. A breakdown of the longest frames: wrap `nav.refreshModels`, `nav.syncWorkers`,

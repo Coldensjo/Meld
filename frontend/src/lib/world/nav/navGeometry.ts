@@ -21,6 +21,7 @@
 import { HOLE_CELL, HOLE_FIRST, HOLE_NONE } from '../../terrain/holes'
 import { AREA_MAGMA, AREA_SLIME, AREA_WATER, type TileInput } from './navBuild'
 import type { NavLiquids } from './navLiquids'
+import { LIQUID_CELLS } from '../../water/liquids'
 
 /** The ground's fields a tile reads: a Terrain has them. */
 export interface NavGround {
@@ -405,41 +406,87 @@ export function placeGroups(local: Float32Array, groups: Uint32Array, m: ArrayLi
 /**
  * The heights client tile (ax, az) of the map is voxelized between, as the server's builder takes
  * them (MapBuilder::getTileBounds): the lowest and highest of every vertex it loads for the tile, the
- * ground's (its own cells and a cell's row of each neighbour's, holes and deep chunks left out) and
- * every vertex of the models the tile places, however far they reach. Which models those are follows
- * the export: the tile an origin falls in, clamped to the block; a model whose faces reach over
- * another tile counts there too, as a WMO is placed in every tile it spans. The span sets where the
- * voxels' height steps fall, which decides whether a gap a hair over the agent's height (a floor
- * 1.55 yd over the ground under Northshire Abbey, #282) is walkable, so the browser's tiles take the
- * server's. `deep` tells a cell of a deep chunk; `out` is [min, max], Infinity and -Infinity when
- * nothing is there.
+ * ground's (adtGroundSpan) and every vertex of the models the tile places (adtModelSpan). The span
+ * sets where the voxels' height steps fall, which decides whether a gap a hair over the agent's
+ * height (a floor 1.55 yd over the ground under Northshire Abbey, #282) is walkable, so the browser's
+ * tiles take the server's. `out` is [min, max], Infinity and -Infinity when nothing is there.
  */
 export function adtHeightSpan(ground: NavGround, models: readonly PlacedBox[], ax: number, az: number, adtYards: number, deep: ((gx: number, gz: number) => boolean) | null, out: [number, number]): [number, number] {
+	adtGroundSpan(ground, ax, az, adtYards, deep, out)
+	return adtModelSpan(models, Math.max(1, Math.round(ground.size / Math.round(adtYards / ground.cellSize))), ax, az, adtYards, out)
+}
+
+/**
+ * The ground's part of client tile (ax, az)'s height span (adtHeightSpan): every corner and cell
+ * middle of its own cells and a cell's row of each neighbour's, holes and deep chunks left out. It
+ * depends only on the heights, holes, inner lifts and deep chunks, so the walkable-ground view keeps
+ * it until a ground change meets the tile (#868). `deep` tells a cell of a deep chunk, and is asked
+ * once a liquid chunk's run of cells in a row, since a whole chunk is deep or not. `out` is [min, max].
+ */
+export function adtGroundSpan(ground: NavGround, ax: number, az: number, adtYards: number, deep: ((gx: number, gz: number) => boolean) | null, out: [number, number]): [number, number] {
 	let lo = Infinity
 	let hi = -Infinity
 	const per = Math.round(adtYards / ground.cellSize)
-	const side = Math.max(1, Math.round(ground.size / per))
 	const x0 = Math.max(0, ax * per - 1),
 		x1 = Math.min(ground.size - 1, (ax + 1) * per)
 	const z0 = Math.max(0, az * per - 1),
 		z1 = Math.min(ground.size - 1, (az + 1) * per)
 	const h = ground.heights
 	const v = ground.verts
-	const lifted = !!ground.innerLift
+	const size = ground.size
+	const holes = ground.holes
+	const lift = ground.innerLift ?? null
+	const base = ground.innerBase ?? null
 	for (let gz = z0; gz <= z1; gz++) {
-		for (let gx = x0; gx <= x1; gx++) {
-			if (ground.holes[gz * ground.size + gx] === HOLE_CELL || deep?.(gx, gz)) continue
-			const i = gz * v + gx
-			const a = h[i],
-				b = h[i + 1],
-				c = h[i + v],
-				d = h[i + v + 1]
-			// The cell's middle counts too, as the inner sample does on the server.
-			const m = lifted ? (a + b + c + d) / 4 + cellLift(ground, gx, gz) : a
-			lo = Math.min(lo, a, b, c, d, m)
-			hi = Math.max(hi, a, b, c, d, m)
+		for (let cx = x0; cx <= x1;) {
+			// A run of cells in one liquid chunk: deep or not as a whole.
+			const end = Math.min(x1, Math.floor(cx / LIQUID_CELLS) * LIQUID_CELLS + LIQUID_CELLS - 1)
+			if (deep?.(cx, gz)) {
+				cx = end + 1
+				continue
+			}
+			for (let gx = cx; gx <= end; gx++) {
+				if (holes[gz * size + gx] === HOLE_CELL) continue
+				const i = gz * v + gx
+				const j = i + v
+				const a = h[i],
+					b = h[i + 1],
+					c = h[j],
+					d = h[j + 1]
+				if (a < lo) lo = a
+				if (a > hi) hi = a
+				if (b < lo) lo = b
+				if (b > hi) hi = b
+				if (c < lo) lo = c
+				if (c > hi) hi = c
+				if (d < lo) lo = d
+				if (d > hi) hi = d
+				if (lift) {
+					// The cell's middle counts too, as the inner sample does on the server (cellLift, inlined).
+					let up = lift[gz * size + gx]
+					if (base && (Math.abs(a - base[i]) > SCULPTED_EPS || Math.abs(b - base[i + 1]) > SCULPTED_EPS || Math.abs(c - base[j]) > SCULPTED_EPS || Math.abs(d - base[j + 1]) > SCULPTED_EPS)) up = 0
+					const m = (a + b + c + d) / 4 + up
+					if (m < lo) lo = m
+					if (m > hi) hi = m
+				}
+			}
+			cx = end + 1
 		}
 	}
+	out[0] = lo
+	out[1] = hi
+	return out
+}
+
+/**
+ * Widens `out`, a client tile's span so far (adtGroundSpan's), by the models client tile (ax, az)
+ * places, however far they reach (adtHeightSpan). Which models those are follows the export: the tile
+ * an origin falls in, clamped to the `side` tiles of the block; a model whose faces reach over another
+ * tile counts there too, as a WMO is placed in every tile it spans.
+ */
+export function adtModelSpan(models: readonly PlacedBox[], side: number, ax: number, az: number, adtYards: number, out: [number, number]): [number, number] {
+	let lo = out[0]
+	let hi = out[1]
 	const bx0 = ax * adtYards,
 		bx1 = bx0 + adtYards
 	const bz0 = az * adtYards,

@@ -24,7 +24,7 @@ import { LIQUID_CELLS, type LiquidMap } from '../../water/liquids'
 import { AREA_MAGMA, AREA_SLIME, AREA_STEEP, AREA_WATER, AREA_WATER_TRANSITION, NAV_GROUND, NAV_MAGMA, NAV_SLIME, NAV_WATER, TileBuilder, loadRecast, vmangosSettings, type NavSettings, type Recast, type TileOutput } from './navBuild'
 import { buildInWorker, navWorkerGeneration, navWorkerRoom, navWorkersReady, sendNavScene, stopNavWorkers } from './navJobs'
 import { PlacedModels, boxMeets, gatherReach, groundUpdate, liquidsUpdate, rowsUpdate, type LocalFaces, type SceneUpdate } from './navScene'
-import { TileGatherer, adtHeightSpan, groupMeets, groupStarts, placedBoxes, typeIndex, type PlacedBox } from './navGeometry'
+import { TileGatherer, adtGroundSpan, adtModelSpan, groupMeets, groupStarts, placedBoxes, typeIndex, type PlacedBox } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
 import { ZERO_POINT } from '../../wow/format'
@@ -154,6 +154,12 @@ export class NavPreview {
 	private reach = [0, 0, 0, 0]
 	/** Each client tile's height span (adtHeightSpan) by tile, for the current build. */
 	private spans = new Map<number, [number, number]>()
+	/**
+	 * Each client tile's ground part of that span (adtGroundSpan), kept until a ground change meets the
+	 * tile (addGroundChange) or the liquids change (#868): only the models' part is worked out again
+	 * on each partial settle.
+	 */
+	private groundSpans = new Map<number, [number, number]>()
 	private deep = (gx: number, gz: number) => this.liquids.deep(gx, gz)
 	/** The inputs' versions: the liquids' and settings' part, the ground's (#620) and the models' (#509). */
 	private signature = ''
@@ -298,6 +304,7 @@ export class NavPreview {
 			if (full) {
 				this.liquids.reset(this.liquidMap, terrain, this.sea)
 				this.spans.clear()
+				this.groundSpans.clear()
 				terrain.takeGroundChange(this.groundRect)
 				this.stamp++
 				// The workers' copy is sent whole again (syncWorkers).
@@ -311,8 +318,12 @@ export class NavPreview {
 			this.focusTile.x = NaN
 		}
 		this.followFocus(focus)
-		// Wait for the models' faces, and for a change to settle, so no tile is built twice.
-		if (this.collisions.loading > 0 || this.dirty) return
+		// Wait for the models' faces, and for a change to settle, so no tile is built twice. The wait
+		// works out the queued client tiles' ground spans meanwhile, one a frame without a settle (#868).
+		if (this.collisions.loading > 0 || this.dirty) {
+			if (!settled && this.settings && this.queue.length) this.groundSpanFor(this.queue, true)
+			return
+		}
 		// The workers gather and build (#508, #633); without them it all runs here, within the budget.
 		const workers = navWorkersReady()
 		if (workers && this.synced !== navWorkerGeneration()) {
@@ -320,11 +331,32 @@ export class NavPreview {
 			if (!settled) this.syncWorkers()
 			return
 		}
+		// A client tile's first ground span (about 2 ms cold at Northshire) takes a frame of its own, the builds the next.
+		if (this.queue.length && this.groundSpanFor(this.queue, false)) return
 		const t0 = performance.now()
 		while (this.queue.length && performance.now() - t0 < BUDGET_MS) {
 			if (workers && !navWorkerRoom()) break
 			this.buildTile(this.queue.pop()!, workers)
 		}
+	}
+
+	/**
+	 * Works out the ground span (adtGroundSpan) of the client tile of the queue's next tile (the last)
+	 * when it is missing, or with `any`, of the first queued tile's from the end whose is. Says whether
+	 * it worked one out.
+	 */
+	private groundSpanFor(queue: readonly NavTile[], any: boolean): boolean {
+		const per = Math.round(ADT_YARDS / this.settings!.tileYards)
+		const stop = any ? 0 : queue.length - 1
+		for (let i = queue.length - 1; i >= stop; i--) {
+			const ax = Math.floor(queue[i].tx / per)
+			const az = Math.floor(queue[i].tz / per)
+			const key = az * 64 + ax
+			if (this.groundSpans.has(key)) continue
+			this.groundSpans.set(key, adtGroundSpan(this.terrain!, ax, az, ADT_YARDS, this.deep, [0, 0]))
+			return true
+		}
+		return false
 	}
 
 	/** Frees the navmesh, the tiles, the placed faces and the path; the collision faces and the placements' boxes stay for next time. */
@@ -380,6 +412,7 @@ export class NavPreview {
 		this.server = null
 		this.queue.length = 0
 		this.spans.clear()
+		this.groundSpans.clear()
 		this.clearPath()
 		this.query?.destroy()
 		this.nav?.destroy()
@@ -456,10 +489,40 @@ export class NavPreview {
 			cz1 = Math.floor(cz1 / LIQUID_CELLS) * LIQUID_CELLS + LIQUID_CELLS - 1
 		}
 		this.liquids.forget(cx0, cz0, cx1, cz1)
+		this.forgetGroundSpans(terrain, cx0, cz0, cx1, cz1)
 		// The workers' copy takes the changed rows, and forgets the same chunks.
 		this.sceneUpdates.push(rowsUpdate(terrain, g.z0, g.z1), { kind: 'forget', gx0: cx0, gz0: cz0, gx1: cx1, gz1: cz1 })
 		const cs = terrain.cellSize
 		this.changed.push(cx0 * cs, cz0 * cs, (cx1 + 1) * cs, (cz1 + 1) * cs)
+	}
+
+	/**
+	 * Forgets the ground spans (adtGroundSpan) of the client tiles that read cells gx0..gx1, gz0..gz1
+	 * (inclusive): a tile's own cells and a cell's row of each neighbour's.
+	 */
+	private forgetGroundSpans(terrain: Terrain, gx0: number, gz0: number, gx1: number, gz1: number) {
+		if (this.groundSpans.size === 0) return
+		const per = Math.round(ADT_YARDS / terrain.cellSize)
+		for (const key of this.groundSpans.keys()) {
+			const ax = key % 64
+			const az = (key - ax) / 64
+			if (gx1 < ax * per - 1 || gx0 > (ax + 1) * per || gz1 < az * per - 1 || gz0 > (az + 1) * per) continue
+			this.groundSpans.delete(key)
+		}
+	}
+
+	/** Client tile (ax, az)'s height span (adtHeightSpan), its ground part kept in `groundSpans`. */
+	private heightSpan(ax: number, az: number): [number, number] {
+		const terrain = this.terrain!
+		const key = az * 64 + ax
+		let ground = this.groundSpans.get(key)
+		if (!ground) {
+			ground = adtGroundSpan(terrain, ax, az, ADT_YARDS, this.deep, [0, 0])
+			this.groundSpans.set(key, ground)
+		}
+		const side = Math.max(1, Math.round(terrain.size / Math.round(ADT_YARDS / terrain.cellSize)))
+		const out: [number, number] = [ground[0], ground[1]]
+		return adtModelSpan(this.placed.boxes(), side, ax, az, ADT_YARDS, out)
 	}
 
 	/**
@@ -477,7 +540,7 @@ export class NavPreview {
 		for (const [key, old] of this.spans) {
 			const ax = key % 64
 			const az = (key - ax) / 64
-			const span = adtHeightSpan(this.terrain!, this.placed.boxes(), ax, az, ADT_YARDS, this.deep, [0, 0])
+			const span = this.heightSpan(ax, az)
 			if (span[0] === old[0] && span[1] === old[1]) continue
 			this.spans.set(key, span)
 			moved.add(key)
@@ -611,7 +674,7 @@ export class NavPreview {
 		const az = Math.floor(tile.tz / per)
 		let span = this.spans.get(az * 64 + ax)
 		if (!span) {
-			span = adtHeightSpan(this.terrain!, this.placed.boxes(), ax, az, ADT_YARDS, this.deep, [0, 0])
+			span = this.heightSpan(ax, az)
 			this.spans.set(az * 64 + ax, span)
 		}
 		if (workers) {

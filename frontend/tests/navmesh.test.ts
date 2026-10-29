@@ -22,9 +22,9 @@ import {
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
-import { TileGatherer, adtHeightSpan, cellLift, groupStarts, liquidTypeArea, placeFaces, placeGroups, placedBox, placedBoxes, typeIndex, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
+import { TileGatherer, adtGroundSpan, adtHeightSpan, cellLift, groupStarts, liquidTypeArea, placeFaces, placeGroups, placedBox, placedBoxes, typeIndex, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
-import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
+import { HOLE_CELL, HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
 import { LIQUID_OCEAN, LIQUID_WATER, LiquidMap, newLayer } from '../src/lib/water/liquids.ts'
 import { NavScene, PlacedModels, groundUpdate, liquidsUpdate, rowsUpdate, sceneCopy, type LocalFaces, type ScenePlacement, type SceneUpdate } from '../src/lib/world/nav/navScene.ts'
@@ -126,6 +126,43 @@ test("a region's cell middle sits at the corners' mean plus the client's inner l
 	g.innerLift = null
 	const flatTile = new TileGatherer().gather(g, [], 0, 0, 3 * CELL - 0.01, 3 * CELL - 0.01, groundAt(g))
 	assert.equal(flatTile.maxY, 10)
+})
+
+test('the ground span, a deep chunk asked once a run, is every cell taken one by one, its own and a row of each neighbour (#868)', () => {
+	// Four client tiles of 16 cells, liquid chunks of 8: random heights, holes, lifts and a sculpted corner.
+	const g = flat(32)
+	let seed = 7
+	const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+	for (let i = 0; i < g.heights.length; i++) g.heights[i] = rnd() * 40
+	g.innerBase = g.heights.slice()
+	g.innerLift = new Float32Array(32 * 32)
+	for (let i = 0; i < g.innerLift.length; i++) g.innerLift[i] = rnd() * 6 - 3
+	g.heights[20 * g.verts + 9] += 1
+	for (let i = 0; i < g.holes.length; i++) if (rnd() < 0.1) g.holes[i] = HOLE_CELL
+	// The chunk (1, 2) is deep: cells 8..15, 16..23.
+	const deep = (gx: number, gz: number) => gx >= 8 && gx < 16 && gz >= 16 && gz < 24
+	const adt = 16 * CELL
+	for (const [ax, az] of [
+		[0, 0],
+		[1, 0],
+		[0, 1],
+		[1, 1],
+	]) {
+		let lo = Infinity
+		let hi = -Infinity
+		for (let gz = Math.max(0, az * 16 - 1); gz <= Math.min(31, az * 16 + 16); gz++) {
+			for (let gx = Math.max(0, ax * 16 - 1); gx <= Math.min(31, ax * 16 + 16); gx++) {
+				if (g.holes[gz * 32 + gx] === HOLE_CELL || deep(gx, gz)) continue
+				const i = gz * g.verts + gx
+				const c = [g.heights[i], g.heights[i + 1], g.heights[i + g.verts], g.heights[i + g.verts + 1]]
+				c.push((c[0] + c[1] + c[2] + c[3]) / 4 + cellLift(g, gx, gz))
+				lo = Math.min(lo, ...c)
+				hi = Math.max(hi, ...c)
+			}
+		}
+		assert.deepEqual(adtGroundSpan(g, ax, az, adt, deep, [0, 0]), [lo, hi], `tile ${ax}, ${az}`)
+		assert.deepEqual(adtHeightSpan(g, [], ax, az, adt, deep, [0, 0]), [lo, hi], `tile ${ax}, ${az} with no models`)
+	}
 })
 
 test("a sculpted cell's middle sits at its corners' mean, as the export writes it (#380)", () => {

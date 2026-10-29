@@ -220,7 +220,11 @@ mask/liquid, image codec or native/game rendering contracts.
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. A change to the
     objects or their collision alone (#509) builds again only the tiles whose bordered box meets a
     placement added, moved or dropped (`refreshModels` collects their boxes, `markChanged` marks the
-    tiles), and every tile of a client tile whose height span (`adtHeightSpan`) it moved. A change
+    tiles), and every tile of a client tile whose height span (`adtHeightSpan`) it moved. The span's
+    ground part (`adtGroundSpan`) is kept per client tile in `groundSpans` (#868), dropped by a ground
+    change that meets the tile (`forgetGroundSpans`) or a full rebuild, and worked out ahead of a
+    client tile's first build in a frame that waits for the collisions (`groundSpanFor`), so a settle
+    works out again only the models' part (`adtModelSpan`). A change
     to the ground's heights or holes does the same (#620): `Terrain.markDirty` and
     `Terrain.touchHoles(rect)` grow a vertex rect that `NavPreview.addGroundChange` takes at the
     settle (`takeGroundChange`), widens a cell all round (a cell's lift reads its neighbours) and,
