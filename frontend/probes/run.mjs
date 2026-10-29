@@ -129,12 +129,18 @@ const selectable = (n) => {
 }
 /**
  * --touching <range> (#397): the probes (not the benchmarks) whose `touches` globs match a file `git diff --name-only <range>` lists.
+ * A single commit-ish such as HEAD (the uncommitted change) also counts the untracked files (#877).
  * A probe also touches its own file, and lib.js (every probe's P) touches them all; a probe with no `touches` line is always picked.
  */
 const touchingProbes = (range) => {
 	const r = spawnSync('git', ['diff', '--name-only', range], { cwd: join(here, '..', '..'), encoding: 'utf8' })
 	if (r.status !== 0) fail(`git diff --name-only ${range} failed: ${(r.stderr ?? '').trim()}`)
 	const changed = r.stdout.split(/\r?\n/).filter(Boolean)
+	// A range without `..` is the uncommitted change (HEAD): its new files are untracked until staged and `git diff` leaves them out (#877).
+	if (!range.includes('..')) {
+		const u = spawnSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: join(here, '..', '..'), encoding: 'utf8' })
+		if (u.status === 0) changed.push(...u.stdout.split(/\r?\n/).filter(Boolean))
+	}
 	const libChanged = changed.includes('frontend/probes/lib.js')
 	return all.filter((n) => {
 		if (isBenchmark(n) || !selectable(n)) return false

@@ -89,6 +89,7 @@ cd frontend
 bun run probe --list                 # discover available checks
 bun run probe undo-sculpt            # run a focused check
 bun run probe --smoke                # fast checks of shared behavior
+bun run probe --touching HEAD          # the uncommitted change, untracked files included
 bun run probe --touching HEAD~1..HEAD # select checks relevant to a committed change
 bun run probe --all                  # all probes but the benchmarks and the `tier: manual` ones
 bun run probe --all --shard 1/2      # every second one of them; --shard 2/2 runs the rest (make probe SHARD=1/2)
