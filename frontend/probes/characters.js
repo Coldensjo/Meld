@@ -1,5 +1,5 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, and the New account form asks for a name and password. Nothing is saved: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, and the inventory's in inventory_test.go and tests/inventory.test.ts.
-// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/lib/wow/inventory.ts, internal/vmangos/inventory.go, internal/vmangos/accounts.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, the Character tab's look (#875) offers the client's choices and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, and the New account form asks for a name and password. Nothing is saved: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, and the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts.
+// touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/accounts.go, internal/vmangos/charsheet.go, app_characters.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
 const accounts = await App.ListAccounts().catch((err) => String(err))
@@ -110,6 +110,118 @@ if (from && to) {
 }
 button(root().querySelector('nav.tabs'), 'Character').click()
 await P.frames(1)
+
+// The look (#875): each part offers the client's choices for the race and gender, and the home is the
+// character_homebind row.
+const record = await App.ReadCharacter(guid)
+const lookLabel = label('Skin color')
+await P.until(() => lookLabel?.querySelectorAll('option').length > 1, WAIT, 'the look choices')
+const sheet = {
+	skins: lookLabel.querySelectorAll('option').length,
+	skinShown: Number(lookLabel.querySelector('select').value) === Number(record.values.skin),
+	home: label('Zone')?.querySelector('input')?.value === record.values.home_zone,
+	honor: !!label('Rank points') && !!label('Highest rank'),
+}
+const listTab = async (name, sel, wait) => {
+	button(root().querySelector('nav.tabs'), name).click()
+	await P.until(() => root().querySelector(sel) && !root().querySelector(sel).textContent.includes('Reading'), WAIT, wait)
+	return root().querySelector(sel)
+}
+const stand = async (binding, column, run) => {
+	const real = App[binding]
+	App[binding] = async () => ({ sql: '', refused: { column, message: 'Probe: refused' } })
+	try {
+		await run()
+	} finally {
+		App[binding] = real
+	}
+}
+
+// Skills: the rows ReadCharacterSkills gives; one taken out is an edit, a refusal outlines the row, Revert brings it back.
+const skillsRead = await App.ReadCharacterSkills(guid)
+const skillsEl = await listTab('Skills', '.sheet', 'the skills')
+await P.until(() => skillsEl.querySelectorAll('li[data-skill]').length === skillsRead.skills.length, WAIT, 'the skill rows')
+sheet.skills = skillsEl.querySelectorAll('li[data-skill]').length
+if (sheet.skills) {
+	const id = skillsEl.querySelector('li[data-skill]').dataset.skill
+	const other = [...skillsEl.querySelectorAll('li[data-skill]')].find((l) => l.dataset.skill !== id)?.dataset.skill
+	skillsEl.querySelector(`li[data-skill="${id}"] .x`).click()
+	await P.frames(1)
+	sheet.skillOut = !skillsEl.querySelector(`li[data-skill="${id}"]`) && button(skillsEl.querySelector('.head'), 'Save skills') !== undefined
+	if (other) {
+		await stand('SaveCharacterSkills', other, async () => {
+			button(skillsEl.querySelector('.head'), 'Save').click()
+			await P.until(() => skillsEl.querySelector('.error'), WAIT, 'the skill refusal')
+		})
+		sheet.skillOutlined = skillsEl.querySelector(`li[data-skill="${other}"]`).classList.contains('refused')
+	}
+	button(skillsEl.querySelector('.head'), 'Revert').click()
+	await P.until(() => skillsEl.querySelectorAll('li[data-skill]').length === skillsRead.skills.length && button(skillsEl.querySelector('.head'), 'Saved'), WAIT, 'the skills revert')
+}
+
+// Spells: the known spells; Add starting spells adds what the character lacks of playercreateinfo_spell.
+const spellsRead = (await App.ReadCharacterSpells(guid)) ?? []
+const starting = (await App.StartingSpells(Number(record.values.race), Number(record.values.class))) ?? []
+const spellsEl = await listTab('Spells', '[aria-label="Known spells"]', 'the spells')
+const spellRows = () => spellsEl.querySelectorAll('li[data-spell]').length
+await P.until(() => spellRows() === spellsRead.length, WAIT, 'the spell rows')
+sheet.spells = spellRows()
+const spellsHead = spellsEl.closest('.sheet').querySelector('.head')
+const missing = starting.filter((id) => !spellsRead.some((s) => s.spell === id)).length
+button(spellsEl.closest('.sheet'), 'Add starting spells').click()
+await P.until(() => spellRows() === spellsRead.length + missing, WAIT, 'the starting spells')
+sheet.startingAdded = missing
+sheet.spellsDirty = missing === 0 || !!button(spellsHead, 'Save spells')
+if (missing) {
+	const id = starting.find((x) => !spellsRead.some((s) => s.spell === x))
+	await stand('SaveCharacterSpells', String(id), async () => {
+		button(spellsHead, 'Save').click()
+		await P.until(() => spellsEl.closest('.sheet').querySelector('.error'), WAIT, 'the spell refusal')
+	})
+	sheet.spellOutlined = spellsEl.querySelector(`li[data-spell="${id}"]`)?.classList.contains('refused')
+	button(spellsHead, 'Revert').click()
+	await P.until(() => spellRows() === spellsRead.length && button(spellsHead, 'Saved'), WAIT, 'the spells revert')
+}
+
+// Reputation: every faction ReadCharacterReputation gives, once the list shows them all; a new rank is an edit.
+const repsRead = (await App.ReadCharacterReputation(guid)) ?? []
+const repEl = await listTab('Reputation', '.sheet:has([aria-label="Find a faction"])', 'the reputation')
+const listedOnly = repEl.querySelector('label input[type="checkbox"]')
+listedOnly.click()
+const repRows = () => repEl.querySelectorAll('li[data-faction]').length
+await P.until(() => repRows() === repsRead.length, WAIT, 'the factions')
+sheet.factions = repRows()
+if (repsRead.length) {
+	const f = repsRead[0].faction
+	const sel = repEl.querySelector(`li[data-faction="${f}"] select`)
+	sel.value = sel.value === '7' ? '6' : '7'
+	sel.dispatchEvent(new Event('change', { bubbles: true }))
+	await P.frames(1)
+	const head = repEl.querySelector('.head')
+	sheet.repDirty = !!button(head, 'Save reputation') && button(root().querySelector('nav.tabs'), 'Reputation').textContent.includes('•')
+	await stand('SaveCharacterReputation', String(f), async () => {
+		button(head, 'Save').click()
+		await P.until(() => repEl.querySelector('.error'), WAIT, 'the reputation refusal')
+	})
+	sheet.repOutlined = repEl.querySelector(`li[data-faction="${f}"]`).classList.contains('refused')
+	button(head, 'Revert').click()
+	await P.until(() => button(head, 'Saved'), WAIT, 'the reputation revert')
+}
+button(root().querySelector('nav.tabs'), 'Character').click()
+await P.frames(1)
+const sheetOk =
+	sheet.skins > 1 &&
+	sheet.skinShown &&
+	sheet.home &&
+	sheet.honor &&
+	sheet.skills === skillsRead.skills.length &&
+	(!sheet.skills || (sheet.skillOut && sheet.skillOutlined !== false)) &&
+	sheet.spells === spellsRead.length &&
+	sheet.spellsDirty &&
+	sheet.spellOutlined !== false &&
+	sheet.factions === repsRead.length &&
+	(!repsRead.length || (sheet.repDirty && sheet.repOutlined))
+
 const itemsOk = items.shown === items.read && (!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted))
 
 button(root().querySelector('aside'), 'New account').click()
@@ -120,5 +232,5 @@ button(root().querySelector('header .actions'), 'Close').click()
 await P.frames(1)
 const closed = !root() && ui.characterEditor === null
 
-const ok = listed > 0 && chars === withChars.characters && deleteOff && !!name && saveText === 'Save character (1)' && marked && sent?.level !== undefined && refusedShown && outlined && reverted && itemsOk && makeOff && closed
-return { ok, listed, account: withChars.name, chars, deleteOff, name, level, saveText, marked, sent, refusedShown, outlined, reverted, items, makeOff, closed }
+const ok = listed > 0 && chars === withChars.characters && deleteOff && !!name && saveText === 'Save character (1)' && marked && sent?.level !== undefined && refusedShown && outlined && reverted && itemsOk && sheetOk && makeOff && closed
+return { ok, listed, account: withChars.name, chars, deleteOff, name, level, saveText, marked, sent, refusedShown, outlined, reverted, items, sheet, makeOff, closed }

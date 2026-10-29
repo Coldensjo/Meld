@@ -873,3 +873,21 @@ account, Delete account and Save character.
   by `guid`, then the character. Done on 2026-10-29.
 - In the game (the owner): log in with an edited character and see the items where the editor put
   them; an item it can't wear arrives by mail.
+- Look, skills, spells and reputation (#875): the probe also checks that the Character tab's Skin
+  color offers the client's choices and shows the stored one, that the home's zone is the
+  `character_homebind` row's, and that the Skills, Spells and Reputation tabs show as many rows as
+  `ReadCharacterSkills`, `ReadCharacterSpells` and `ReadCharacterReputation` give (the Reputation tab
+  after its "Only the ones the game lists" box is cleared), take an edit (a skill taken out, Add
+  starting spells adding what `StartingSpells` gives that the character lacks, a new rank), outline
+  the row a stood-in Save refuses (rows carry `data-skill`, `data-spell`, `data-faction`) and revert.
+  Unit: `charsheet_test.go` (the look's check and choices, `characterSet`'s look and honor columns,
+  `lookAfter`, `checkSkills`' ranges and refusals, `spellProblem`, `reputationScript`'s differences
+  from the start and kept rows, `homeSQL`'s refusals) and `frontend/tests/characterSheet.test.ts`
+  (reputation and honor ranks, look choices, skill ranges).
+- The writes, by hand: a throwaway Go test in `internal/vmangos` that reads character 4's skills,
+  reputation and spells and saves each unchanged, rewrites its home, changes its skin and face and
+  back, and checks that a `mariadb` dump of those rows is the same before and after (and differs in
+  the middle) passed on 2026-10-29, with the refusals of skin 40, a home on map 36 (Deadmines) and
+  spell 99999. Pick a character that is out of the world.
+- In the game (the owner): log in with a changed look, skill, taught spell, standing and home, and
+  see each in the character frame, spell book, reputation frame and hearthstone.

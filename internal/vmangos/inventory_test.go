@@ -218,7 +218,7 @@ func TestSaveInventoryRefuses(t *testing.T) {
 		case sql == "SELECT 1":
 			return []byte("1\n"), nil
 		case strings.HasPrefix(sql, "SELECT name, race"):
-			return []byte("Kek\t1\t1\t0\t4\t100\t0\t1\t2\t3\t0\t3\t" + online + "\t12\t0\t50\n"), nil
+			return characterRow(online), nil
 		}
 		t.Fatalf("unexpected query %s", sql)
 		return nil, nil

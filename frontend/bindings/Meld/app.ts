@@ -141,6 +141,13 @@ export function BrowseWowFolder(): $CancellablePromise<string> {
 }
 
 /**
+ * CharacterLooks lists the skins, faces and hair a race and gender may have (#875).
+ */
+export function CharacterLooks(race: number, gender: number): $CancellablePromise<vmangos$0.CharLooks> {
+    return $Call.ByID(4062764280, race, gender);
+}
+
+/**
  * CheckSpawnIDs tells File › Check Map what the world database has under the unsaved spawns' guids
  * and entries (#195).
  */
@@ -1027,6 +1034,27 @@ export function ReadCharacter(guid: number): $CancellablePromise<vmangos$0.Chara
 }
 
 /**
+ * ReadCharacterReputation reads a character's standing with every faction.
+ */
+export function ReadCharacterReputation(guid: number): $CancellablePromise<vmangos$0.CharacterReputation[] | null> {
+    return $Call.ByID(33375187, guid);
+}
+
+/**
+ * ReadCharacterSkills reads a character's skills, with the skill lines its race and class may have.
+ */
+export function ReadCharacterSkills(guid: number): $CancellablePromise<vmangos$0.CharacterSkills> {
+    return $Call.ByID(973671138, guid);
+}
+
+/**
+ * ReadCharacterSpells reads the spells a character knows.
+ */
+export function ReadCharacterSpells(guid: number): $CancellablePromise<vmangos$0.CharacterSpell[] | null> {
+    return $Call.ByID(843983699, guid);
+}
+
+/**
  * ReadCreature reads a creature template's row (its newest patch) for the creature editor.
  */
 export function ReadCreature(entry: number): $CancellablePromise<vmangos$0.TemplateRecord> {
@@ -1286,6 +1314,30 @@ export function SaveBrushDialog(suggested: string): $CancellablePromise<string> 
  */
 export function SaveCharacter(guid: number, values: { [_ in string]?: string } | null): $CancellablePromise<$models.TemplateSaved> {
     return $Call.ByID(1988835663, guid, values);
+}
+
+/**
+ * SaveCharacterReputation writes a character's standings and faction flags while it is out of the
+ * world, and returns the SQL it ran, or the faction it refused.
+ */
+export function SaveCharacterReputation(guid: number, reps: vmangos$0.CharacterReputation[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(1689650056, guid, reps);
+}
+
+/**
+ * SaveCharacterSkills makes a character's skills the ones given while it is out of the world, and
+ * returns the SQL it ran, or the skill it refused.
+ */
+export function SaveCharacterSkills(guid: number, skills: vmangos$0.CharacterSkill[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(941505589, guid, skills);
+}
+
+/**
+ * SaveCharacterSpells makes the spells a character knows the ones given while it is out of the
+ * world, and returns the SQL it ran, or the spell it refused.
+ */
+export function SaveCharacterSpells(guid: number, spells: vmangos$0.CharacterSpell[] | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(1626439144, guid, spells);
 }
 
 /**
@@ -1824,6 +1876,13 @@ export function StartClientSandbox(): $CancellablePromise<$models.ClientSandbox>
  */
 export function StartServer(): $CancellablePromise<void> {
     return $Call.ByID(1592333068);
+}
+
+/**
+ * StartingSpells lists the spells the server gives a new character of a race and class.
+ */
+export function StartingSpells(race: number, $class: number): $CancellablePromise<number[] | null> {
+    return $Call.ByID(4072770610, race, $class);
 }
 
 /**

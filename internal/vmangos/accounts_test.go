@@ -97,10 +97,24 @@ func TestDeleteAccountRefusesOneWithCharacters(t *testing.T) {
 	}
 }
 
+// characterRow is readCharacter's row for testCharacter as the mariadb client prints it, online or not.
+func characterRow(online string) []byte {
+	c := testCharacter()
+	f := make([]string, 0, len(characterColumns)+5)
+	for _, col := range characterColumns {
+		f = append(f, c.Values[col])
+	}
+	f = append(f, "3", online, "12", "0", "50")
+	return []byte(strings.Join(f, "\t") + "\n")
+}
+
 func testCharacter() CharacterRecord {
 	return CharacterRecord{Guid: 4, Account: 3, Values: map[string]string{
 		"name": "Kek", "race": "1", "class": "1", "gender": "0", "level": "4", "money": "100",
 		"map": "0", "position_x": "-8949.95", "position_y": "-132.493", "position_z": "83.5312", "orientation": "0",
+		"skin": "2", "face": "1", "hair_style": "3", "hair_color": "4", "facial_hair": "1",
+		"honor_rank_points": "0", "honor_highest_rank": "0", "honor_stored_hk": "0", "honor_stored_dk": "0",
+		"home_map": "0", "home_zone": "12", "home_x": "-8949.95", "home_y": "-132.493", "home_z": "83.5312",
 	}}
 }
 
@@ -141,23 +155,25 @@ func TestSaveCharacterRefusesOneInTheWorld(t *testing.T) {
 		case sql == "SELECT 1":
 			return []byte("1\n"), nil
 		case strings.HasPrefix(sql, "SELECT name, race"):
-			return []byte("Kek\t1\t1\t0\t4\t100\t0\t1\t2\t3\t0\t3\t" + online + "\t12\t0\t50\n"), nil
+			return characterRow(online), nil
+		case strings.HasPrefix(sql, "SELECT map, zone"):
+			return nil, nil
 		case strings.HasPrefix(sql, "UPDATE"):
 			return nil, nil
 		}
 		t.Fatalf("unexpected query %s", sql)
 		return nil, nil
 	}
-	if _, err := SaveCharacter(root, 4, map[string]string{"level": "5"}, func() bool { return true }); err == nil || !strings.Contains(err.Error(), "in the world") {
+	if _, err := SaveCharacter(root, "", 4, map[string]string{"level": "5"}, func() bool { return true }); err == nil || !strings.Contains(err.Error(), "in the world") {
 		t.Fatalf("online: got %v", err)
 	}
 	// Left online by a world server that stopped: saved.
-	sql, err := SaveCharacter(root, 4, map[string]string{"level": "5"}, func() bool { return false })
+	sql, err := SaveCharacter(root, "", 4, map[string]string{"level": "5"}, func() bool { return false })
 	if err != nil || sql != "UPDATE characters SET xp = 0, level = 5 WHERE guid = 4" {
 		t.Fatalf("got %q, %v", sql, err)
 	}
 	online = "0"
-	if _, err := SaveCharacter(root, 4, map[string]string{"name": "Zug"}, func() bool { return true }); Refused(err) == nil || Refused(err).Column != "name" {
+	if _, err := SaveCharacter(root, "", 4, map[string]string{"name": "Zug"}, func() bool { return true }); Refused(err) == nil || Refused(err).Column != "name" {
 		t.Fatalf("rename with the world server up: got %v", err)
 	}
 }

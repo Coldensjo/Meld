@@ -177,6 +177,19 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    and find items by name or entry below to add them: one goes into the picked square, or the first
    free place that takes it. Then **Save equipment**. Adding items needs the world server stopped;
    an item the character can't wear goes to it by mail at login.
+5. The **Character** tab also holds the look (skin color, face, hair style and color, facial hair,
+   from the choices the game's character creation offers the race and gender), the honor (rank
+   points, highest rank, lifetime kills) and the home the hearthstone takes the character to
+   (**Put home at the camera** takes the camera's spot and zone).
+6. The **Skills** tab lists the skills by group with their values; add one the race and class may
+   have, or take one out, then **Save skills**. The server sets a language to 300, armor to 1 and a
+   weapon skill's most to 5 a level itself, and the tab does the same.
+7. The **Spells** tab lists the spells the character knows; find one on the right to teach it, take
+   one out, or **Add starting spells** of its race and class (after a race or class change), then
+   **Save spells**. A spell the server would not load is refused, since the server would delete it
+   from every character.
+8. The **Reputation** tab shows the standing with each faction as the game does; pick a rank or type
+   a standing, set whether the faction is listed, at war or inactive, then **Save reputation**.
 
 The world server writes a character that is in the world over its row when it logs out, so Meld
 refuses to change one while it is in the world and the world server runs. Renaming needs the world

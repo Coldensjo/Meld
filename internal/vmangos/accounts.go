@@ -52,8 +52,12 @@ type CharacterRecord struct {
 	Values     map[string]string `json:"values"`
 }
 
-// characterColumns are the characters table's columns the editor changes, in the order it reads them.
-var characterColumns = []string{"name", "race", "class", "gender", "level", "money", "map", "position_x", "position_y", "position_z", "orientation"}
+// characterColumns are the characters table's columns the editor changes, in the order it reads them:
+// the first slice's (#855), then the look and the honor (#875). The record's values also hold the
+// home (homeColumns), from character_homebind.
+var characterColumns = []string{"name", "race", "class", "gender", "level", "money", "map", "position_x", "position_y", "position_z", "orientation",
+	"skin", "face", "hair_style", "hair_color", "facial_hair",
+	"honor_rank_points", "honor_highest_rank", "honor_stored_hk", "honor_stored_dk"}
 
 // The server's limits (AccountMgr.h MAX_ACCOUNT_STR, ObjectMgr.h MAX_PLAYER_NAME, Player.h
 // MAX_MONEY_AMOUNT, Common.h SEC_ADMINISTRATOR) and the 1.12 client's longest password.
@@ -63,6 +67,12 @@ const (
 	maxPlayerName  = 12
 	maxMoney       = 0x7FFFFFFF - 1
 	maxGMLevel     = 6
+	// honorRanks is the highest honor rank (HonorMgr.h HONOR_RANK_COUNT - 1: 1-4 the dishonored
+	// ranks, 5-18 Private or Scout to Grand Marshal or High Warlord).
+	honorRanks = 18
+	// maxRankPoints bounds the rank points (a little past High Warlord's 60000; below 0 are the
+	// dishonored ranks).
+	maxRankPoints = 100000
 )
 
 // loginDatabase and characterDatabase are the two databases this reads, with the database started
@@ -341,13 +351,17 @@ func ListCharacters(serverRoot string, account int) ([]AccountCharacter, error) 
 	return out, nil
 }
 
-// ReadCharacter reads character guid's row for the editor.
+// ReadCharacter reads character guid's row and home for the editor.
 func ReadCharacter(serverRoot string, guid int) (CharacterRecord, error) {
 	db, err := characterDatabase(serverRoot)
 	if err != nil {
 		return CharacterRecord{}, err
 	}
-	return readCharacter(db, guid)
+	r, err := readCharacter(db, guid)
+	if err != nil {
+		return r, err
+	}
+	return r, readHome(db, &r)
 }
 
 func readCharacter(db worldDB, guid int) (CharacterRecord, error) {
@@ -368,11 +382,12 @@ func readCharacter(db worldDB, guid int) (CharacterRecord, error) {
 	return r, nil
 }
 
-// SaveCharacter writes the changed values (by column, characterColumns only) into character guid's
-// row and returns the SQL it ran, or a ColumnError for a value it refuses. The character must be out
-// of the world while the world server runs (worldRunning), and a rename needs the world server
-// stopped, since it keeps every character's name in a cache it reads names from.
-func SaveCharacter(serverRoot string, guid int, values map[string]string, worldRunning func() bool) (string, error) {
+// SaveCharacter writes the changed values (by column: characterColumns and homeColumns) into
+// character guid's row and home and returns the SQL it ran, or a ColumnError for a value it refuses.
+// The character must be out of the world while the world server runs (worldRunning), and a rename
+// needs the world server stopped, since it keeps every character's name in a cache it reads names
+// from. A look is checked against the client's tables in dataDir.
+func SaveCharacter(serverRoot, dataDir string, guid int, values map[string]string, worldRunning func() bool) (string, error) {
 	db, err := characterDatabase(serverRoot)
 	if err != nil {
 		return "", err
@@ -381,13 +396,32 @@ func SaveCharacter(serverRoot string, guid int, values map[string]string, worldR
 	if err != nil {
 		return "", err
 	}
+	if err := readHome(db, &cur); err != nil {
+		return "", err
+	}
 	running := worldRunning()
 	if cur.Online && running {
 		return "", fmt.Errorf("%s is in the world: log out of the game first (the world server writes the character over its row when it logs out)", cur.Values["name"])
 	}
 	set, err := characterSet(cur, values, maxLevel(serverRoot))
-	if err != nil || len(set) == 0 {
+	if err != nil {
 		return "", err
+	}
+	home, err := homeSQL(serverRoot, guid, cur.Values, values)
+	if err != nil {
+		return "", err
+	}
+	if len(set) == 0 && home == "" {
+		return "", nil
+	}
+	if after, changed := lookAfter(cur.Values, values); changed {
+		c, err := loadCharTables(dataDir)
+		if err != nil {
+			return "", err
+		}
+		if err := c.looks(after[0], after[1]).check(after[2], after[3], after[4], after[5], after[6]); err != nil {
+			return "", err
+		}
 	}
 	if name, ok := values["name"]; ok && normalName(name) != cur.Values["name"] {
 		if running {
@@ -419,9 +453,49 @@ func SaveCharacter(serverRoot string, guid int, values map[string]string, worldR
 			return "", refuse(col, "The server has no such race and class together (its playercreateinfo)")
 		}
 	}
-	sql := fmt.Sprintf("UPDATE characters SET %s WHERE guid = %d", strings.Join(set, ", "), guid)
-	_, err = runSQL(db, sql)
-	return sql, err
+	var ran []string
+	if len(set) > 0 {
+		sql := fmt.Sprintf("UPDATE characters SET %s WHERE guid = %d", strings.Join(set, ", "), guid)
+		if _, err := runSQL(db, sql); err != nil {
+			return "", err
+		}
+		ran = append(ran, sql)
+	}
+	if home != "" {
+		if _, err := runSQL(db, home); err != nil {
+			return strings.Join(ran, ";\n"), err
+		}
+		ran = append(ran, home)
+	}
+	return strings.Join(ran, ";\n"), nil
+}
+
+// lookAfter is the race, gender, skin, face, hair style, hair colour and facial hair the character
+// has once values are written (characterSet resets the parts of the look a new race or gender is not
+// given with), and whether any of them changes.
+func lookAfter(cur, values map[string]string) ([7]int, bool) {
+	var out [7]int
+	changed, newBody := false, false
+	for i, col := range []string{"race", "gender"} {
+		v := pick(values, cur, col)
+		out[i] = atoi(v)
+		if v != cur[col] {
+			changed, newBody = true, true
+		}
+	}
+	for i, col := range lookColumns {
+		v, given := values[col]
+		v = strings.TrimSpace(v)
+		switch {
+		case given && v != cur[col]:
+			out[2+i], changed = atoi(v), true
+		case newBody:
+			out[2+i] = 0
+		default:
+			out[2+i] = atoi(cur[col])
+		}
+	}
+	return out, changed
 }
 
 // pick is values[col] when it is set, else cur[col].
@@ -445,10 +519,12 @@ func normalName(s string) string {
 // characterSet checks the changed values against the server's rules and gives the SET clauses that
 // write them, with what a change takes along: a new spot leaves any transport, flight and instance
 // (as placeSQL does), a new level starts it with no experience, and a new race or gender resets the
-// look (skin, face, hair) to its first choice, which every race and gender has.
+// parts of the look (skin, face, hair) not given with it to their first choice, which every race and
+// gender has. Whether the look fits the race and gender is SaveCharacter's check (lookAfter).
 func characterSet(cur CharacterRecord, values map[string]string, top int) ([]string, error) {
 	var set []string
 	moved, looks := false, false
+	given := map[string]bool{}
 	for _, col := range characterColumns {
 		v, ok := values[col]
 		if !ok {
@@ -498,6 +574,25 @@ func characterSet(cur CharacterRecord, values map[string]string, top int) ([]str
 				return nil, err
 			}
 			moved = true
+		case "skin", "face", "hair_style", "hair_color", "facial_hair":
+			if _, err := intIn(col, v, 0, 255); err != nil {
+				return nil, err
+			}
+			given[col] = true
+		case "honor_highest_rank":
+			if _, err := intIn(col, v, 0, honorRanks); err != nil {
+				return nil, err
+			}
+		case "honor_stored_hk", "honor_stored_dk":
+			if _, err := intIn(col, v, 0, 1<<31-1); err != nil {
+				return nil, err
+			}
+		case "honor_rank_points":
+			f, err := strconv.ParseFloat(v, 64)
+			if err != nil || math.IsNaN(f) || math.Abs(f) > maxRankPoints {
+				return nil, refuse(col, "%s is not a number from -%d to %d", v, maxRankPoints, maxRankPoints)
+			}
+			v = num(f)
 		default: // the position and facing
 			f, err := strconv.ParseFloat(v, 64)
 			if err != nil || math.IsNaN(f) || f > 1e9 || f < -1e9 {
@@ -512,7 +607,11 @@ func characterSet(cur CharacterRecord, values map[string]string, top int) ([]str
 		set = append(set, "instance = 0", "transport_guid = 0", "transport_x = 0", "transport_y = 0", "transport_z = 0", "transport_o = 0", "current_taxi_path = ''")
 	}
 	if looks {
-		set = append(set, "skin = 0", "face = 0", "hair_style = 0", "hair_color = 0", "facial_hair = 0")
+		for _, c := range lookColumns {
+			if !given[c] {
+				set = append(set, c+" = 0")
+			}
+		}
 	}
 	return set, nil
 }

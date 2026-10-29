@@ -7,7 +7,8 @@ import (
 )
 
 // Tools › Characters and Accounts (#855): the realm's accounts and their characters, in the server's
-// login and character databases (internal/vmangos/accounts.go).
+// login and character databases (internal/vmangos/accounts.go), with a character's equipment
+// (inventory.go, #874) and its look, skills, spells and reputation (charsheet.go, #875).
 
 // serverRoot is the VMaNGOS server folder, for a binding that reads the server's databases only.
 func (a *App) serverRoot() (string, error) {
@@ -81,7 +82,90 @@ func (a *App) SaveCharacter(guid int, values map[string]string) (TemplateSaved, 
 	if err != nil {
 		return TemplateSaved{}, err
 	}
-	return templateSaved(vmangos.SaveCharacter(s.ServerRoot, guid, values, s.WorldRunning))
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacter(s.ServerRoot, dataDir, guid, values, s.WorldRunning))
+}
+
+// CharacterLooks lists the skins, faces and hair a race and gender may have (#875).
+func (a *App) CharacterLooks(race, gender int) (vmangos.CharLooks, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.CharLooks{}, err
+	}
+	return vmangos.CharacterLooks(dataDir, race, gender)
+}
+
+// ReadCharacterSkills reads a character's skills, with the skill lines its race and class may have.
+func (a *App) ReadCharacterSkills(guid int) (vmangos.CharacterSkills, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CharacterSkills{}, err
+	}
+	return vmangos.ReadCharacterSkills(server, dataDir, guid)
+}
+
+// SaveCharacterSkills makes a character's skills the ones given while it is out of the world, and
+// returns the SQL it ran, or the skill it refused.
+func (a *App) SaveCharacterSkills(guid int, skills []vmangos.CharacterSkill) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacterSkills(s.ServerRoot, dataDir, guid, skills, s.WorldRunning))
+}
+
+// ReadCharacterSpells reads the spells a character knows.
+func (a *App) ReadCharacterSpells(guid int) ([]vmangos.CharacterSpell, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadCharacterSpells(server, guid)
+}
+
+// StartingSpells lists the spells the server gives a new character of a race and class.
+func (a *App) StartingSpells(race, class int) ([]int, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.StartingSpells(server, race, class)
+}
+
+// SaveCharacterSpells makes the spells a character knows the ones given while it is out of the
+// world, and returns the SQL it ran, or the spell it refused.
+func (a *App) SaveCharacterSpells(guid int, spells []vmangos.CharacterSpell) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacterSpells(s.ServerRoot, guid, spells, s.WorldRunning))
+}
+
+// ReadCharacterReputation reads a character's standing with every faction.
+func (a *App) ReadCharacterReputation(guid int) ([]vmangos.CharacterReputation, error) {
+	server, err := a.serverRoot()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadCharacterReputation(server, guid)
+}
+
+// SaveCharacterReputation writes a character's standings and faction flags while it is out of the
+// world, and returns the SQL it ran, or the faction it refused.
+func (a *App) SaveCharacterReputation(guid int, reps []vmangos.CharacterReputation) (TemplateSaved, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return TemplateSaved{}, err
+	}
+	return templateSaved(vmangos.SaveCharacterReputation(s.ServerRoot, guid, reps, s.WorldRunning))
 }
 
 // ReadInventory reads a character's equipment and bags (#874).

@@ -134,6 +134,36 @@ export interface AreaTrigger {
 }
 
 /**
+ * CharLooks are the skins, faces and hair a race and gender may have, as the character creation
+ * screen offers them: each face goes with a skin colour, each hair style with its colours, and
+ * (where CheckFacial) each facial hair with a hair colour.
+ */
+export interface CharLooks {
+    "skins": number[] | null;
+
+    /**
+     * Faces are face and skin pairs.
+     */
+    "faces": number[][] | null;
+
+    /**
+     * Hair are style and colour pairs.
+     */
+    "hair": number[][] | null;
+
+    /**
+     * FacialHair are CharacterFacialHairStyles' variations.
+     */
+    "facialHair": number[] | null;
+
+    /**
+     * FacialColors are facial hair and hair colour pairs, checked only where CheckFacial.
+     */
+    "facialColors": number[][] | null;
+    "checkFacial": boolean;
+}
+
+/**
  * CharacterRecord is a character's row for the editor: the columns it edits (characterColumns) as
  * strings, as the template editors have them, and what it only shows.
  */
@@ -145,6 +175,52 @@ export interface CharacterRecord {
     "xp": number;
     "playedTime": number;
     "values": { [_ in string]?: string } | null;
+}
+
+/**
+ * CharacterReputation is a character's standing with a faction it can have reputation with: Standing
+ * as the game shows it (Base, the race and class's start, plus what character_reputation stores),
+ * and Flags (Faction.dbc's for the race and class, DefaultFlags, until it stores its own).
+ */
+export interface CharacterReputation {
+    "faction": number;
+    "name": string;
+    "group": string;
+    "base": number;
+    "standing": number;
+    "flags": number;
+    "defaultFlags": number;
+    "stored": boolean;
+}
+
+/**
+ * CharacterSkill is a row of character_skills: a skill line, the character's value in it and the
+ * most it can reach.
+ */
+export interface CharacterSkill {
+    "skill": number;
+    "value": number;
+    "max": number;
+}
+
+/**
+ * CharacterSkills are a character's skills with the skill lines its race and class may have, and
+ * the level and race and class they were read for.
+ */
+export interface CharacterSkills {
+    "skills": CharacterSkill[] | null;
+    "choices": SkillChoice[] | null;
+    "level": number;
+}
+
+/**
+ * CharacterSpell is a row of character_spell: a spell the character knows, whether it shows in the
+ * spell book (a lower rank of a spell it knows a higher one of doesn't), and whether it is turned off.
+ */
+export interface CharacterSpell {
+    "spell": number;
+    "active": boolean;
+    "disabled": boolean;
 }
 
 /**
@@ -1490,6 +1566,19 @@ export interface ScriptCommand {
     "z": number;
     "o": number;
     "comments": string;
+}
+
+/**
+ * SkillChoice is a skill line the character's race and class may have, with its SkillLine category
+ * and how the server sets its range: "language" (300 of 300), "mono" (1 of 1, armour), "level" (the
+ * most is 5 a level) or "rank" (a profession's, raised by its trainer up to Top).
+ */
+export interface SkillChoice {
+    "id": number;
+    "name": string;
+    "category": number;
+    "range": string;
+    "top": number;
 }
 
 /**

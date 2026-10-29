@@ -34,6 +34,7 @@ export const BrowsePrefabFolder: Call<AppApi['BrowsePrefabFolder']> = (...a) => 
 export const BrowseProjectFolder: Call<AppApi['BrowseProjectFolder']> = (...a) => api().BrowseProjectFolder(...a) as never
 export const BrowseVmangosFolder: Call<AppApi['BrowseVmangosFolder']> = (...a) => api().BrowseVmangosFolder(...a) as never
 export const BrowseWowFolder: Call<AppApi['BrowseWowFolder']> = (...a) => api().BrowseWowFolder(...a) as never
+export const CharacterLooks: Call<AppApi['CharacterLooks']> = (...a) => api().CharacterLooks(...a) as never
 export const CheckSpawnIDs: Call<AppApi['CheckSpawnIDs']> = (...a) => api().CheckSpawnIDs(...a) as never
 export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) => api().ClassLevelStats(...a) as never
 export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) => api().ClearThumbnailCache(...a) as never
@@ -150,6 +151,9 @@ export const QuestTables: Call<AppApi['QuestTables']> = (...a) => api().QuestTab
 export const Quit: Call<AppApi['Quit']> = (...a) => api().Quit(...a) as never
 export const ReadBrushImage: NonNullCall<AppApi['ReadBrushImage']> = (...a) => api().ReadBrushImage(...a) as never
 export const ReadCharacter: Call<AppApi['ReadCharacter']> = (...a) => api().ReadCharacter(...a) as never
+export const ReadCharacterReputation: NonNullCall<AppApi['ReadCharacterReputation']> = (...a) => api().ReadCharacterReputation(...a) as never
+export const ReadCharacterSkills: Call<AppApi['ReadCharacterSkills']> = (...a) => api().ReadCharacterSkills(...a) as never
+export const ReadCharacterSpells: NonNullCall<AppApi['ReadCharacterSpells']> = (...a) => api().ReadCharacterSpells(...a) as never
 export const ReadCreature: Call<AppApi['ReadCreature']> = (...a) => api().ReadCreature(...a) as never
 export const ReadCreatureQuests: Call<AppApi['ReadCreatureQuests']> = (...a) => api().ReadCreatureQuests(...a) as never
 export const ReadCreatureSpells: Call<AppApi['ReadCreatureSpells']> = (...a) => api().ReadCreatureSpells(...a) as never
@@ -184,6 +188,9 @@ export const SaveAreaTriggers: Call<AppApi['SaveAreaTriggers']> = (...a) => api(
 export const SaveAreas: Call<AppApi['SaveAreas']> = (...a) => api().SaveAreas(...a) as never
 export const SaveBrushDialog: Call<AppApi['SaveBrushDialog']> = (...a) => api().SaveBrushDialog(...a) as never
 export const SaveCharacter: Call<AppApi['SaveCharacter']> = (...a) => api().SaveCharacter(...a) as never
+export const SaveCharacterReputation: Call<AppApi['SaveCharacterReputation']> = (...a) => api().SaveCharacterReputation(...a) as never
+export const SaveCharacterSkills: Call<AppApi['SaveCharacterSkills']> = (...a) => api().SaveCharacterSkills(...a) as never
+export const SaveCharacterSpells: Call<AppApi['SaveCharacterSpells']> = (...a) => api().SaveCharacterSpells(...a) as never
 export const SaveConditionText: Call<AppApi['SaveConditionText']> = (...a) => api().SaveConditionText(...a) as never
 export const SaveCreature: Call<AppApi['SaveCreature']> = (...a) => api().SaveCreature(...a) as never
 export const SaveCreatureQuests: Call<AppApi['SaveCreatureQuests']> = (...a) => api().SaveCreatureQuests(...a) as never
@@ -253,6 +260,7 @@ export const SpellsWithIcon: Call<AppApi['SpellsWithIcon']> = (...a) => api().Sp
 export const SpellsWithVisual: NonNullCall<AppApi['SpellsWithVisual']> = (...a) => api().SpellsWithVisual(...a) as never
 export const StartClientSandbox: Call<AppApi['StartClientSandbox']> = (...a) => api().StartClientSandbox(...a) as never
 export const StartServer: Call<AppApi['StartServer']> = (...a) => api().StartServer(...a) as never
+export const StartingSpells: NonNullCall<AppApi['StartingSpells']> = (...a) => api().StartingSpells(...a) as never
 export const StopServer: Call<AppApi['StopServer']> = (...a) => api().StopServer(...a) as never
 export const TaxiNetwork: Call<AppApi['TaxiNetwork']> = (...a) => api().TaxiNetwork(...a) as never
 export const TemplateNames: NonNullCall<AppApi['TemplateNames']> = (...a) => api().TemplateNames(...a) as never

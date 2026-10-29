@@ -375,7 +375,30 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   and enchantments, then bag slot 19's entry, as `Player::SaveToDB`). New items need mangosd
   stopped: it hands out item guids from `MAX(guid)` read at start. An item the character can't wear
   (class, race, level, skill) is accepted; the server mails it at login, and the page marks it.
-  Skills, spells, reputations and the rest are #875.
+- The rest of a character (#875, `internal/vmangos/charsheet.go`): the Character tab also edits the
+  **look** (`skin`, `face`, `hair_style`, `hair_color`, `facial_hair`), checked as the server's
+  `Player::ValidateAppearance` checks a new character's (CharSections rows not flagged unavailable,
+  CharacterFacialHairStyles; no facial hair sections for tauren or for women but night elves and
+  undead); `CharacterLooks(race, gender)` gives the page the choices (`lib/wow/characterSheet.ts`
+  `lookOptions`), and a new race or gender resets the parts not given with it to 0. The **honor**
+  columns (rank points, highest rank as `HonorMgr` numbers it: 1-4 dishonored, 5-18 rank 1 to 14,
+  lifetime kills), and the **home** (`character_homebind`, values `home_*` in the record, written
+  with `REPLACE`; a map whose `map_template.map_type` is not 0 is refused, as the server moves such
+  a home to the race's start). There is no picture of the look yet. The **Skills**, **Spells** and
+  **Reputation** tabs (`CharacterSkills`, `CharacterSpells`, `CharacterReputation.svelte`, each a
+  `RowList` with its own Save, mounted the first time it is shown) write their table whole
+  (`DELETE` then `INSERT`, in one script). Skills follow `Player::_LoadSkills`: the choices are the
+  client's SkillRaceClassInfo rows for the race and class, a language is set to 300 of 300, armour
+  to 1 of 1, a levelled skill's most to 5 a level, a profession's most is its tier's (up to
+  SkillTiers' top); a stored skill the pair can't have is kept (the server skips it), a new one is
+  refused, and so is a value of 0 (the server deletes it). Spells: a spell not already stored is
+  refused when the server would delete it from **every** character on load (`Player::AddSpell`:
+  missing from `spell_template`, or making or taking an item `item_template` lacks, or teaching such
+  a spell); Add starting spells adds `playercreateinfo_spell`'s. Reputation reads the world
+  database's `faction` table (the server's, its newest row up to build 5875): the standing shown is
+  the race and class's base (`FactionEntry::GetIndexFitTo`) plus the stored one, which is the
+  difference; a faction gets a row only when its standing or the player flags (visible, at war,
+  inactive) differ from the start, and a stored row is always kept.
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a
