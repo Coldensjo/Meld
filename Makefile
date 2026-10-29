@@ -55,7 +55,7 @@ frontend-dist:
 
 test: frontend-dist
 	go test -short ./internal/... ./cmd/...
-	go test -short .
+	go test -short -tags "$(LINUX_TAGS)" .
 	cd frontend && bun run test
 
 # Mutates each client parser's fuzzer for 10 s (internal/*/fuzz_test.go, docs/TESTS.md); `make test` runs only their seeds.
@@ -66,7 +66,7 @@ fuzz:
 # Everything, with the heavy client scans that -short skips (about 10 s more).
 test-full: frontend-dist
 	go test ./internal/... ./cmd/...
-	go test .
+	go test -tags "$(LINUX_TAGS)" .
 	cd frontend && bun run test
 
 # Regenerates frontend/bindings from the bound Go methods (wails3 generate bindings), then the page's
@@ -105,11 +105,11 @@ notices-check:
 # golangci-lint with the committed .golangci.yml (errcheck, govet, ineffassign, staticcheck, unused). Skipped with a note when the tool is missing; install it as README says.
 lint: frontend-dist
 	@if ! command -v golangci-lint >/dev/null 2>&1; then echo 'skipping golangci-lint (not installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)'; \
-	else golangci-lint run ./internal/... ./cmd/... .; fi
+	else golangci-lint run --build-tags "$(LINUX_TAGS)" ./internal/... ./cmd/... .; fi
 
 check: bindings-check notices-check format-check frontend-dist lint
 	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
-	go vet ./internal/... ./cmd/... .
+	go vet -tags "$(LINUX_TAGS)" ./internal/... ./cmd/... .
 	cd frontend && bun run check
 
 # Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev-page` (docs/TESTS.md, "Probes").

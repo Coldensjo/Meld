@@ -24,6 +24,10 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: oven-sh/setup-bun@v2
+      # The root package is Wails v3, whose Linux code is cgo: it vets, tests and lints on the gtk3 tag
+      # (LINUX_TAGS in the Makefile), so it needs the GTK3 and WebKitGTK 4.1 headers (#863).
+      - name: Install GTK and WebKitGTK 4.1
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
       - run: bun install --frozen-lockfile
         working-directory: frontend
       - name: gofmt
@@ -32,8 +36,8 @@ jobs:
           if [ -n "$unformatted" ]; then echo "gofmt: unformatted files (run gofmt -w):"; echo "$unformatted"; exit 1; fi
       - name: Bindings, licence notices and Prettier
         run: make bindings-check notices-check format-check
-      - run: go vet ./internal/... ./cmd/...
-      - run: go test -short ./internal/... ./cmd/...
+      - run: go vet -tags gtk3 ./internal/... ./cmd/...
+      - run: go test -short -tags gtk3 ./internal/... ./cmd/...
       - run: bun run test
         working-directory: frontend
       - run: bun run check
@@ -41,12 +45,12 @@ jobs:
       # The root package embeds frontend/dist, so it is vetted, linted and tested after the build.
       - run: bun run build
         working-directory: frontend
-      - run: go vet .
-      - run: go test -short .
+      - run: go vet -tags gtk3 .
+      - run: go test -short -tags gtk3 .
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
-          args: ./internal/... ./cmd/... .
+          args: --build-tags gtk3 ./internal/... ./cmd/... .
 
   # The desktop build with WebKitGTK 4.1, as `make build-linux` runs it. Allowed to fail while it is
   # new, so a red build does not hide the result of the checks above; drop continue-on-error once it
