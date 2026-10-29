@@ -1,5 +1,5 @@
 // The options bar keeps one row at 1400 px (#254): the brush's Size and Strength sit on it next to the tool's modes, what doesn't fit wraps under More, which opens the bar over the viewport with every control in view; Esc closes it, and Tab onto a clipped control opens it. The Sculpt, Water, Doodad and Paint bars fit one row in every mode, with no More (#715, #734), and their panel button (Sculpt's Brush) opens the panel of their other settings, which Esc closes.
-// touches: frontend/src/components/OptionsBar.svelte
+// touches: frontend/src/components/OptionsBar.svelte, frontend/src/lib/ui/optionsVisibility.ts
 const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')

@@ -819,6 +819,7 @@ the same scene, the report before and after.
 - Menu keys (#370, probe `menu-keys`)
 - Copy id (#681)
 - Shortcut table (#583, probe `shortcut-table`)
+- Menus, keys and the options bar in Bun tests (#584)
 - Hotkey Manager (#396, probe `hotkey-manager`)
 - Interface size (#372, probe `ui-scale`)
 - Activating the open tab (#547, probe `activate-same`)

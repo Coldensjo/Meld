@@ -13,16 +13,8 @@ import { saveOrPublish } from '../io/publish'
 import { requestClose } from '../../components/DocTabs.svelte'
 import { keyHint, keysOf, type CommandId } from './commands'
 import { toggleMinimap } from './minimap'
+import { stepCycle } from './keys'
 import { setCameraView, switchOrbitFlying, toggleCameraView } from './cameraView'
-
-/** The day cycle's speeds, a day in so many minutes, slowest first; 0 is paused. */
-const CYCLE_MINUTES = [40, 20, 10, 5, 2, 1]
-/** The next speed faster or slower than a day in `minutes` (0 paused); slower than the slowest pauses. */
-function stepCycle(minutes: number, faster: boolean): number {
-	if (minutes <= 0) return faster ? CYCLE_MINUTES[0] : 0
-	if (faster) return CYCLE_MINUTES.find((m) => m < minutes) ?? CYCLE_MINUTES[CYCLE_MINUTES.length - 1]
-	return [...CYCLE_MINUTES].reverse().find((m) => m > minutes) ?? 0
-}
 
 /** The day cycle's N and Shift+N (#20), Noggit Red's N; its B (slower) is Paint here. */
 function stepDayCycle(engine: Engine, faster: boolean) {

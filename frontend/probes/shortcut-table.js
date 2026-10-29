@@ -1,5 +1,5 @@
 // The shortcut table (#583) in the live app: tool keys from the toolbar (K, 0), G and Ctrl+A run the table's commands, every menu's shortcut text is a table row's, Edit › Undo shows the same "Undo: …" status as Ctrl+Z, and Help › Keyboard Shortcuts lists every row.
-// touches: frontend/src/App.svelte, frontend/src/components/MenuBar.svelte, frontend/src/components/AppDialogs.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/ui/runCommand.ts
+// touches: frontend/src/App.svelte, frontend/src/components/MenuBar.svelte, frontend/src/components/AppDialogs.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/ui/runCommand.ts, frontend/src/lib/ui/menus.ts, frontend/src/lib/ui/keys.ts
 // tier: smoke
 const e = P.e
 const { ui, editor } = await P.state()

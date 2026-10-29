@@ -397,7 +397,7 @@ mask/liquid, image codec or native/game rendering contracts.
   (pointerdown, `handleToolKey`), the commands on the map's own ground and models refuse
   (`Engine.refuseInWorld`, called first by Select All, paste, the Terrain and Paint menus' actions, Remove
   Duplicate Models and the baked shadows) and the menus grey them out with the map's dialogs, imports
-  and exports and Compile (`editing` in `MenuBar.svelte`), its `objects` are `lookOnly` (so
+  and exports and Compile (`editing` in `lib/ui/menus.ts`), its `objects` are `lookOnly` (so
   `selectObjects` selects none of the streamed models, and nothing that acts on a selection, delete,
   cut, a move or the Inspector, reaches one), Save refuses, it is never `pristine` (so opening a map doesn't
   replace it), and its tab shows no size. File › Edit Here (`editWorldHere`) opens the block of up to 3
@@ -421,7 +421,7 @@ mask/liquid, image codec or native/game rendering contracts.
   stand on the streamed ground (`WorldStream.heightAt`; the streamed models are look-only, so no floor),
   on the map's own ID (`openMapId`, #754) in the whole map's frame (#756). Not yet: editing
   in the world view itself.
-- **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
+- **Growing a region**: the File menu's extend entries (`lib/ui/menus.ts`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
   unless the map ends there), closes the old tab and keeps the camera's view. Since the bigger block

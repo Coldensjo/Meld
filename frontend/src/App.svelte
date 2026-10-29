@@ -55,6 +55,7 @@
 	import { applyUiScale } from './lib/ui/uiScale'
 	import { bindKeymap, commandFor, syncKeymap } from './lib/ui/commands'
 	import { runCommand } from './lib/ui/runCommand'
+	import { controlKeepsKey, formField, keyRoute } from './lib/ui/keys'
 	import { engineRef } from './lib/state/engineRef'
 	import { EventsOn, WindowSetTitle } from './lib/wails/runtime'
 	import { AckClose, SetUnsaved } from './lib/wails/App'
@@ -177,38 +178,6 @@
 		if (e.key === 'Alt') e.preventDefault()
 	}
 
-	/** Input types that take no typing: a key on them is not text editing. */
-	const NON_TEXT_INPUTS = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image'])
-
-	/** Whether a key's target is a text field, another form control, or neither. */
-	function formField(target: EventTarget | null): 'text' | 'control' | null {
-		const el = target as HTMLElement | null
-		if (!el || !el.tagName) return null
-		if (el.tagName === 'TEXTAREA' || el.isContentEditable) return 'text'
-		if (el.tagName === 'SELECT') return 'control'
-		if (el.tagName === 'INPUT') return NON_TEXT_INPUTS.has((el as HTMLInputElement).type) ? 'control' : 'text'
-		return null
-	}
-
-	/**
-	 * Whether a focused slider, select or checkbox keeps this key for itself. Only the keys it uses are
-	 * its own, so Delete and the tool letters still reach the map while the focus sits on a control
-	 * (after a click on an options-bar checkbox it stays there, #345). Ctrl+Z and Ctrl+Y always reach the map (#127).
-	 */
-	function controlKeepsKey(e: KeyboardEvent): boolean {
-		const k = e.key.toLowerCase()
-		if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'y')) return false
-		if (e.ctrlKey || e.metaKey || e.altKey) return true
-		const el = e.target as HTMLElement
-		if (k === 'delete' || k === 'backspace') return false
-		if (el.tagName === 'SELECT') return true
-		if (k === 'escape') return false
-		if (k === 'enter' || k === ' ' || k === 'tab') return true
-		const type = (el as HTMLInputElement).type
-		if (type === 'range' || type === 'radio') return k.startsWith('arrow') || k === 'home' || k === 'end' || k === 'pageup' || k === 'pagedown'
-		return false
-	}
-
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Alt') {
 			e.preventDefault()
@@ -221,22 +190,21 @@
 		if (field === 'text') return
 		if (field === 'control' && controlKeepsKey(e)) return
 		const engine = engineRef.current
-		if (!engine || ui.showNewDialog || ui.dialog) return
-
-		// Over the creature editor only undo and redo reach the map (its spawn edits are undo steps);
-		// the brush editor takes every key (its own Esc closes it).
-		if (ui.brushEditor) return
-		// The preview window (#197) takes every key; its Esc may have closed it before this runs.
-		if (ui.modelPreview || (e.key === 'Escape' && e.defaultPrevented)) return
-		// Esc closes the inspector alone; the selection stays.
-		if (e.key === 'Escape' && ui.inspector) {
+		const route = keyRoute(e, {
+			blocked: !engine || ui.showNewDialog || !!ui.dialog,
+			brushEditor: ui.brushEditor,
+			modelPreview: !!ui.modelPreview,
+			inspector: ui.inspector,
+			databaseEditor: !!(ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool || ui.characterEditor),
+			spawnEditor: !!(ui.creatureEditor || ui.objectEditor),
+		})
+		if (!engine || route === 'none') return
+		if (route === 'closeInspector') {
 			ui.inspector = false
 			e.preventDefault()
 			return
 		}
-		// The quest, item, spell and character editors and the Icons tool have no undo steps of their own (their Save writes the database), and no key reaches the map.
-		if (ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool || ui.characterEditor) return
-		if (ui.creatureEditor || ui.objectEditor) {
+		if (route === 'undoRedo') {
 			const id = commandFor(e, true)
 			if (id === 'undo' || id === 'redo') {
 				runCommand(id)

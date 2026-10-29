@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { firstKeyOf } from '../lib/ui/commands'
+	import { optionsVisibility } from '../lib/ui/optionsVisibility'
 	import OptSlider from './OptSlider.svelte'
 	import ScriptBrushBar from './ScriptBrushBar.svelte'
 	import { TOOLS } from './Toolbar.svelte'
@@ -58,51 +59,22 @@
 	const slotTex = $derived(editor.palette[editor.paintLayer])
 	const sculptTex = $derived(editor.palette[editor.sculptPaintLayer])
 	const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
-	const usesBrush = $derived(
-		editor.tool === 'sculpt' ||
-			(editor.tool === 'paint' && !(editor.paintMode === 'mask' && editor.maskSelect.by !== 'brush')) ||
-			editor.tool === 'road' ||
-			editor.tool === 'water' ||
-			editor.tool === 'clear' ||
-			editor.tool === 'doodad' ||
-			editor.tool === 'mapdata' ||
-			editor.tool === 'stamp' ||
-			(editor.tool === 'place' && editor.placeScatter),
-	)
-	// The water brush paints whole cells in a circle, so only its size applies; Vertex mode moves the
-	// selection at the brush strength and uses nothing else of the brush.
-	const paintingWater = $derived(editor.tool === 'water' && editor.waterMode === 'paint')
-	const vertexMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'vertex')
-	const holeMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'hole')
-	// The Map data tool marks whole chunks or cells under the brush, so only its size applies.
-	const mapData = $derived(editor.tool === 'mapdata')
-	// The spawn brush (#171) takes only the brush's size.
-	const spawnBrushing = $derived(editor.tool === 'doodad' && editor.doodadMode === 'creatures')
-	// Tools with modes show the brush's size, strength and falloff right after them (sizeStrength).
-	// Their sliders are narrower, so the row fits (#715, #734).
-	const sizeAfterModes = $derived(editor.tool === 'sculpt' || editor.tool === 'paint' || editor.tool === 'water' || editor.tool === 'doodad')
-	const sliderW = $derived(sizeAfterModes ? 70 : 90)
-	const falloffOnBar = $derived(sizeAfterModes && !vertexMode && !paintingWater && !spawnBrushing && !(editor.tool === 'paint' && !usesBrush))
-	// The settings panel under the bar (settingsPanel) holds what these tools set once and leave alone,
-	// so the controls used while working fit on one row (#715, #734). Its button names what it holds.
-	const hasPanel = $derived(sizeAfterModes && !vertexMode)
-	const sculptPainting = $derived(editor.tool === 'sculpt' && !holeMode && editor.sculptPaint !== 'off')
-	const spraying = $derived(editor.tool === 'paint' && editor.paintMode === 'texture' && editor.paintSpray)
-	const panelLabel = $derived(
-		editor.tool === 'doodad' ? (spawnBrushing ? 'Spawns' : 'Placement') : paintingWater ? 'Water' : editor.tool === 'paint' && editor.paintMode === 'mask' ? 'Mask' : `Brush${sculptPainting ? ' · Paint' : spraying ? ' · Spray' : ''}`,
-	)
-	const panelTitle = $derived.by(() => {
-		if (editor.tool === 'sculpt')
-			return `The brush's other settings: edit limit, image, shape and falloff curve${holeMode ? '' : ', and painting while sculpting'}${
-				editor.sculptMode === 'flatten' ? ", and Flatten's target, direction and angled plane" : editor.sculptMode === 'terrace' ? ", and Terrace's offset" : ''
-			}`
-		if (editor.tool === 'water')
-			return paintingWater ? "The water brush's other settings: angled surface, overrides, opacity, which layers are drawn, and Crop water and Regen opacity" : "The brush's other settings: edit limit, shape and falloff curve"
-		if (editor.tool === 'doodad')
-			return spawnBrushing ? "The spawn brush's other settings: movement, facing, respawn time, levels, slope, water and rules" : 'Where the brush places models: falloff curve, ground rotation, slope, the sea and props'
-		if (editor.paintMode === 'mask') return "The mask's other settings: Modify mask and its step, and the brush's shape and falloff curve while painting the mask"
-		return `The brush's other settings: shape and falloff curve${editor.paintMode === 'texture' ? ', image, spray, and the unpaintable chunks' : ''}`
-	})
+	// Which controls show for the tool and its modes (lib/ui/optionsVisibility.ts, #584).
+	const vis = $derived(optionsVisibility(editor))
+	const usesBrush = $derived(vis.usesBrush)
+	const paintingWater = $derived(vis.paintingWater)
+	const vertexMode = $derived(vis.vertexMode)
+	const holeMode = $derived(vis.holeMode)
+	const mapData = $derived(vis.mapData)
+	const spawnBrushing = $derived(vis.spawnBrushing)
+	const sizeAfterModes = $derived(vis.sizeAfterModes)
+	const sliderW = $derived(vis.sliderWidth)
+	const falloffOnBar = $derived(vis.falloffOnBar)
+	const hasPanel = $derived(vis.hasPanel)
+	const sculptPainting = $derived(vis.sculptPainting)
+	const spraying = $derived(vis.spraying)
+	const panelLabel = $derived(vis.panelLabel)
+	const panelTitle = $derived(vis.panelTitle)
 
 	/** The client's zones for the Map data tool's picker, read when the tool is first opened. */
 	let areas = $state<vmangos.Area[]>([])

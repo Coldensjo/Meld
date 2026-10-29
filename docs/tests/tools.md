@@ -83,7 +83,7 @@ input must leave the history alone. A Shift move is `onDown(..., { shiftKey: tru
 - Until #345 the same drop also swallowed Delete, R and the tool letters after a click left the focus on an
   options-bar checkbox, slider or select. `bun run probe hotkeys` presses Delete on a selected model with
   each kind of control focused and after each editor opened and closed, and checks a text field and a
-  slider keep their own keys. A control now keeps only the keys it uses (`controlKeepsKey` in `App.svelte`).
+  slider keep their own keys. A control now keeps only the keys it uses (`controlKeepsKey` in `lib/ui/keys.ts`, checked by `tests/keys.test.ts`).
 
 ## Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`)
 

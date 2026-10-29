@@ -220,7 +220,7 @@ Checks: every menu fits the window. In headless Chrome (`docs/TESTS.md`), click 
 the `.menubar .dropdown`'s height and whether `scrollHeight > clientHeight`, and click it shut. An
 item is about 31 px tall, so a menu of 20 items with headers is near 700 px: keep a menu under about
 18 rows, or it passes a 768 px tall window (the dropdown then scrolls rather than running off). A
-script that compares the `label:` strings of `MenuBar.svelte` before and after a move (`git show
+script that compares the `label:` strings of `lib/ui/menus.ts` (`MenuBar.svelte` before #584) before and after a move (`git show
 HEAD:...`, sorted) proves no item was lost. The `preferences` probe measures every menu's
 `scrollHeight` and fails one over 720 px (#752; Terrain and View had grown to about 1200 px, and
 View was 723 px until the Performance overlay moved to Help). The `radios(...)` lists don't show
@@ -676,7 +676,7 @@ Checks: the menus, App's key handler and Help › Keyboard Shortcuts use the one
 `lib/ui/commands.ts`.
 - `cd frontend && bun test tests/shortcuts.test.ts`: unique ids, no chord bound twice, each chord
   reaching its own command (Ctrl+Shift+Z is Redo, Shift+[ the falloff, Ctrl+0 by `code` too, Ctrl+T
-  nothing), the tool keys from `TOOLS`, and the sources: no `shortcut: '...'` in `MenuBar.svelte`,
+  nothing), the tool keys from `TOOLS`, and the sources: no `shortcut: '...'` in `lib/ui/menus.ts`,
   every `cmd`/`toggle`/`keysOf` id in the table, the dialog reading `shortcutSections()`.
 - `bun run probe shortcut-table` (smoke): K and 0 pick Paths and Stamp, G the grid, Ctrl+A selects
   and switches to Select; every menu's shortcut text is a table row's; Edit › Undo shows the
@@ -684,6 +684,18 @@ Checks: the menus, App's key handler and Help › Keyboard Shortcuts use the one
   and `menu-keys` with it.
 - Trap: the probe's keys go to `window`, so the focus must not sit in a text field (the runner's
   page starts on the body).
+
+## Menus, keys and the options bar in Bun tests (#584)
+- `cd frontend && bun test tests/menus.test.ts tests/keys.test.ts tests/optionsVisibility.test.ts`
+  checks, without the app: the menus' disabled states for the backend, the selection, the clipboard,
+  busy and a world view; that every check item flips the value it shows and every radio item ends up
+  checked once picked; the region's events; which keys a form control keeps and where a key goes with
+  a window open (`keyRoute`); the day cycle's steps; and which options-bar controls show per tool.
+- The menu test builds `buildMenus` over plain objects; its `command` stand-in flips the values of the
+  checks bound to a command (`grid`, `inspector`, ...). A new check item run through `toggle(id)` needs
+  its pair added to `flips` there, or the test fails on it.
+- Trap: two radio groups can sit side by side (Lighting's weather and its strength), so the test
+  can't tell groups apart by position; it checks a pick is checked and turns no other item on.
 
 ## Hotkey Manager (#396, probe `hotkey-manager`)
 

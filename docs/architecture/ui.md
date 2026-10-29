@@ -278,6 +278,16 @@ The window layout, the asset browser and the dock panels and floating windows.
   Keyboard Shortcuts lists `shortcutSections()`. A new shortcut is a row there plus its runner; a
   menu never types a shortcut string (`tests/shortcuts.test.ts` fails on one). The tool keys come
   from `TOOLS` (`lib/ui/tools.ts`).
+- **The menus, keys and options bar as pure modules** (#584): the menu bar's items are built by
+  `buildMenus(ctx)` in `lib/ui/menus.ts` from a plain context (the reactive `ui`, `editor` and `prefs`,
+  whether there is a backend, the region's events, and `MenuActions`: the commands, the engine and the
+  `lib/io` functions, which MenuBar passes in, since that file imports none of them and loads in a Bun
+  test). MenuBar calls it inside a `$derived`, which follows what the build reads; a new item goes in
+  `menus.ts`. `tests/menus.test.ts` checks the disabled states and that every check and radio item
+  reads the value its click writes. App.svelte's key rules (`formField`, `controlKeepsKey`, `keyRoute`:
+  which window over the map takes a key) and the day cycle's `stepCycle` are in `lib/ui/keys.ts`
+  (`tests/keys.test.ts`); which of the options bar's controls show for the tool is `optionsVisibility`
+  in `lib/ui/optionsVisibility.ts` (`tests/optionsVisibility.test.ts`).
 - **Rebinding** (#396, Preferences › Camera and input › Hotkey Manager, `components/HotkeyManager.svelte`): the table's
   `chords` (commands, matched on `e.key`) and `codes` (the camera's movement rows, `camForward`…,
   matched on `e.code` as CameraController always did) are the defaults; the `keymap` pref holds only

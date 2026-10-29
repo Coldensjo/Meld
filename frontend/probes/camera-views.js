@@ -3,7 +3,7 @@
 // `followGround`, `walk` and `topDown` and the engine's ortho camera; the menu marks the view it is in;
 // Walking and Top-down toggle back to the view they came from; T switches Orbit and Flying. (Orbit View
 // as the default is `tests/cameraView.test.ts`'s: the runner starts probes in Flying View, `P.flyingStart`.)
-// touches: frontend/src/lib/ui/cameraView.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/ui/runCommand.ts, frontend/src/lib/engine/CameraController.ts
+// touches: frontend/src/lib/ui/cameraView.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/ui/runCommand.ts, frontend/src/lib/engine/CameraController.ts, frontend/src/lib/ui/menus.ts
 const e = P.e
 const { prefs, ui } = await P.state()
 const views = await P.app('/src/lib/ui/cameraView.ts')

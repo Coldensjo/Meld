@@ -1,5 +1,5 @@
 // The Preferences dialog (#752): Ctrl+, and Edit › Preferences… open it, its six pages list their settings, the Folders page shows the client folder, the search finds a setting across the pages, a checkbox and a list write their prefs (and are put back), Game › Game Settings… opens it on the Game page, Esc closes it; no menu still holds a setting that moved into it, the Preferences menu is gone, and every menu is under 720 px tall (a 768 px window).
-// touches: frontend/src/components/PreferencesDialog.svelte, frontend/src/components/MenuBar.svelte, frontend/src/components/AppDialogs.svelte, frontend/src/lib/ui/commands.ts
+// touches: frontend/src/components/PreferencesDialog.svelte, frontend/src/components/MenuBar.svelte, frontend/src/components/AppDialogs.svelte, frontend/src/lib/ui/commands.ts, frontend/src/lib/ui/menus.ts
 // tier: smoke
 const { ui, prefs, wow } = await P.state()
 const r = {}

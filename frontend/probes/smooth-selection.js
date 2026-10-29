@@ -1,5 +1,5 @@
 // Terrain › Smooth Selection (#713) on a Mountains map: over a selected square and over a lasso-style free-form area it smooths the ground inside (rougher before than after), leaves every vertex outside the area as it was, is one undo step that undo and redo restore exactly, fades in from the edge with the falloff on, and a cancelled run changes nothing. #721: Raise, Lower, Flatten (to the average and to a height) and Roughen over the square, each with the falloff off and on, change only the area's inner vertices, move the ground as asked, and undo and redo exactly as one step; the dialog's Mode lists the five and Flatten shows its target.
-// touches: frontend/src/lib/terrain/smoothArea.ts, frontend/src/components/SmoothAreaDialog.svelte, frontend/src/lib/state/areaSelection.ts, frontend/src/components/MenuBar.svelte
+// touches: frontend/src/lib/terrain/smoothArea.ts, frontend/src/components/SmoothAreaDialog.svelte, frontend/src/lib/state/areaSelection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/ui/menus.ts
 const e = P.e
 const { editor } = await P.state()
 const area = await P.app('/src/lib/state/areaSelection.ts')

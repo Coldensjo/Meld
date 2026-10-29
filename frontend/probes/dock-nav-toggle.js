@@ -1,5 +1,5 @@
 // Toggling View > Server's mmaps keeps the dock at its width and the Layers rows' Replace and X buttons inside it (#770).
-// touches: frontend/src/components/Dock.svelte, frontend/src/components/LayersPanel.svelte, frontend/src/App.svelte
+// touches: frontend/src/components/Dock.svelte, frontend/src/components/LayersPanel.svelte, frontend/src/App.svelte, frontend/src/lib/ui/keys.ts
 const e = P.e
 const { editor, prefs, ui } = await P.state()
 e.newDocument(128, 'island', 3, 'DockNav')

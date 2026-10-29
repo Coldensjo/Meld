@@ -142,7 +142,8 @@ describe('shortcut table', () => {
 })
 
 describe('the menus and the dialogs use the table', () => {
-	const menu = src('components/MenuBar.svelte')
+	// The menus' items are built in lib/ui/menus.ts (#584).
+	const menu = src('lib/ui/menus.ts')
 
 	test('no menu shortcut is typed by hand', () => {
 		expect(menu).not.toMatch(/shortcut:\s*['"`]/)
