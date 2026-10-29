@@ -86,7 +86,7 @@ export async function launchGame(engine: Engine | null, opts: { anyway?: boolean
 		}
 		// Placing the character can wait for the server to log it out.
 		setStatus(`Starting ${game}…`, 20000)
-		const placed = await LaunchGameAt(vmangos.CharacterSpot.createFrom(spot))
+		const placed = await LaunchGameAt(spot as vmangos.CharacterSpot)
 		setStatus(placed ? `Starting ${game} with ${placed} where the camera is…` : `Starting ${game}…`, 5000)
 	} catch (e) {
 		setStatus(`The game didn't start: ${e}`, 8000)
@@ -129,7 +129,7 @@ export async function playHere(engine: Engine | null) {
 			setStatus('Play here: the camera is not over a map that is in the client.', 6000)
 			return
 		}
-		const moved = await PlayHere(vmangos.CharacterSpot.createFrom(spot))
+		const moved = await PlayHere(spot as vmangos.CharacterSpot)
 		const stale = await uncompiledName(engine)
 		setStatus(
 			stale ? `Moved ${moved} to where the camera is. The game shows ${stale} without its latest edits: File › Compile to Client writes them (it restarts the game).` : `Moved ${moved} to where the camera is.`,

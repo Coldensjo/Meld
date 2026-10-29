@@ -159,8 +159,8 @@
 			const g = target?.giver
 			let given = ''
 			if (g && giveIt) {
-				const giver = vmangos.QuestGiver.createFrom({ ...g, patchMin: 0, patchMax: 10, spawns: 0 })
-				await SaveQuestGivers(entry, vmangos.QuestGivers.createFrom({ starts: [giver], ends: [giver] }), g.kind === 'creature' && !g.ready ? [g.id] : [])
+				const giver = { ...g, patchMin: 0, patchMax: 10, spawns: 0 } as vmangos.QuestGiver
+				await SaveQuestGivers(entry, { starts: [giver], ends: [giver] } as vmangos.QuestGivers, g.kind === 'creature' && !g.ready ? [g.id] : [])
 				given = `, started and ended by ${g.name}`
 			}
 			newTitle = ''

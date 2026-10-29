@@ -72,7 +72,7 @@ test-full: frontend-dist
 # Regenerates frontend/bindings from the bound Go methods (wails3 generate bindings), then the page's
 # modules over them, frontend/src/lib/wails/App.ts and models.ts (frontend/scripts/bindings.mjs). Never edit them by hand.
 bindings:
-	$(WAILS3) generate bindings -ts -silent -d frontend/bindings
+	$(WAILS3) generate bindings -ts -i -silent -d frontend/bindings
 	cd frontend && bun scripts/bindings.mjs
 
 # Fails when a bound method (func (a *App) X in the root *.go files, but Wails' ServiceStartup) has no

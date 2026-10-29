@@ -9,7 +9,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -48,14 +48,14 @@ export function AckClose(): $CancellablePromise<void> {
  * AddGroundEffect writes a new ground effect (GroundEffectTexture row) growing the given detail models
  * into the client's patch, with the game closed around it on Windows, and returns its ID.
  */
-export function AddGroundEffect(doodads: string[], density: number, terrain: number): $CancellablePromise<number> {
+export function AddGroundEffect(doodads: string[] | null, density: number, terrain: number): $CancellablePromise<number> {
     return $Call.ByID(1747966458, doodads, density, terrain);
 }
 
 /**
  * AppendLog adds the Log window's new lines to the session's log file, which outlives Meld.
  */
-export function AppendLog(lines: string[]): $CancellablePromise<void> {
+export function AppendLog(lines: string[] | null): $CancellablePromise<void> {
     return $Call.ByID(3871155845, lines);
 }
 
@@ -63,19 +63,15 @@ export function AppendLog(lines: string[]): $CancellablePromise<void> {
  * ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
  * <user cache>/Meld/spawn-sql first, so what changed can be looked up (or undone by hand).
  */
-export function ApplySpawnEdits(mapName: string, x: number, y: number, size: number, edits: vmangos$0.SpawnEdit[]): $CancellablePromise<vmangos$0.Result> {
-    return $Call.ByID(4172915675, mapName, x, y, size, edits).then(($result: any) => {
-        return $$createType0($result);
-    });
+export function ApplySpawnEdits(mapName: string, x: number, y: number, size: number, edits: vmangos$0.SpawnEdit[] | null): $CancellablePromise<vmangos$0.Result> {
+    return $Call.ByID(4172915675, mapName, x, y, size, edits);
 }
 
 /**
  * AreaRows lists a map's zones and subzones from the client's AreaTable.dbc, for the zone editor.
  */
-export function AreaRows(mapID: number): $CancellablePromise<vmangos$0.AreaRow[]> {
-    return $Call.ByID(4264133473, mapID).then(($result: any) => {
-        return $$createType2($result);
-    });
+export function AreaRows(mapID: number): $CancellablePromise<vmangos$0.AreaRow[] | null> {
+    return $Call.ByID(4264133473, mapID);
 }
 
 /**
@@ -83,19 +79,15 @@ export function AreaRows(mapID: number): $CancellablePromise<vmangos$0.AreaRow[]
  * names and teleports from the world database when a server folder is set (the Portals dialog).
  */
 export function AreaTriggers(mapID: number): $CancellablePromise<$models.AreaTriggerList> {
-    return $Call.ByID(3723478073, mapID).then(($result: any) => {
-        return $$createType3($result);
-    });
+    return $Call.ByID(3723478073, mapID);
 }
 
 /**
  * Areas lists the client's zones and subzones (AreaTable.dbc), which the Map data tool paints into
  * chunks by ID.
  */
-export function Areas(): $CancellablePromise<vmangos$0.Area[]> {
-    return $Call.ByID(2048600205).then(($result: any) => {
-        return $$createType5($result);
-    });
+export function Areas(): $CancellablePromise<vmangos$0.Area[] | null> {
+    return $Call.ByID(2048600205);
 }
 
 /**
@@ -146,19 +138,15 @@ export function BrowseWowFolder(): $CancellablePromise<string> {
  * and entries (#195).
  */
 export function CheckSpawnIDs(q: vmangos$0.SpawnIDQuery): $CancellablePromise<vmangos$0.SpawnIDReport> {
-    return $Call.ByID(1758440684, q).then(($result: any) => {
-        return $$createType6($result);
-    });
+    return $Call.ByID(1758440684, q);
 }
 
 /**
  * ClassLevelStats reads what the server gives a creature of a unit class at each level from from to
  * to (creature_classlevelstats), for the creature guide's stats step.
  */
-export function ClassLevelStats($class: number, $from: number, to: number): $CancellablePromise<vmangos$0.ClassLevelStats[]> {
-    return $Call.ByID(1845562298, $class, $from, to).then(($result: any) => {
-        return $$createType8($result);
-    });
+export function ClassLevelStats($class: number, $from: number, to: number): $CancellablePromise<vmangos$0.ClassLevelStats[] | null> {
+    return $Call.ByID(1845562298, $class, $from, to);
 }
 
 /**
@@ -237,9 +225,7 @@ export function CreateSpell(base: number, starter: string, name: string): $Cance
  * template's gossip menu.
  */
 export function DeleteConditionText(entry: number, textID: number): $CancellablePromise<vmangos$0.GreetingSaved> {
-    return $Call.ByID(2946731872, entry, textID).then(($result: any) => {
-        return $$createType9($result);
-    });
+    return $Call.ByID(2946731872, entry, textID);
 }
 
 /**
@@ -285,9 +271,7 @@ export function EnableSoap(): $CancellablePromise<void> {
  * when no sandbox is on.
  */
 export function EndClientSandbox(): $CancellablePromise<$models.SandboxEnded> {
-    return $Call.ByID(1606414144).then(($result: any) => {
-        return $$createType10($result);
-    });
+    return $Call.ByID(1606414144);
 }
 
 /**
@@ -301,20 +285,16 @@ export function EndRecovery(): $CancellablePromise<void> {
  * EquipBonuses lists the bonuses an item's Equip effect can give (healing, spell damage, crit…) with
  * the client's spell for each amount, for the item editor's Stats tab.
  */
-export function EquipBonuses(): $CancellablePromise<vmangos$0.EquipBonusKind[]> {
-    return $Call.ByID(733178518).then(($result: any) => {
-        return $$createType12($result);
-    });
+export function EquipBonuses(): $CancellablePromise<vmangos$0.EquipBonusKind[] | null> {
+    return $Call.ByID(733178518);
 }
 
 /**
  * EquipmentDisplays are the display IDs of the held items of each equipment template in ids, for
  * the pickers' icons.
  */
-export function EquipmentDisplays(ids: number[]): $CancellablePromise<{ [_ in `${number}`]?: number[] }> {
-    return $Call.ByID(1579156252, ids).then(($result: any) => {
-        return $$createType13($result);
-    });
+export function EquipmentDisplays(ids: number[] | null): $CancellablePromise<{ [_ in `${number}`]?: number[] } | null> {
+    return $Call.ByID(1579156252, ids);
 }
 
 /**
@@ -335,10 +315,8 @@ export function EquipmentItems(id: number): $CancellablePromise<number[]> {
 /**
  * ExportIcons saves the icons named names (under Interface\Icons) as PNG files in dir, <name>.png.
  */
-export function ExportIcons(names: string[], dir: string): $CancellablePromise<$models.IconsExported> {
-    return $Call.ByID(2677698651, names, dir).then(($result: any) => {
-        return $$createType14($result);
-    });
+export function ExportIcons(names: string[] | null, dir: string): $CancellablePromise<$models.IconsExported> {
+    return $Call.ByID(2677698651, names, dir);
 }
 
 /**
@@ -352,7 +330,7 @@ export function ExportIconsDialog(): $CancellablePromise<string> {
  * ExportItems asks where to save an SQL script of items and writes their item_template rows there.
  * Returns the path, or "" if cancelled.
  */
-export function ExportItems(entries: number[], suggested: string): $CancellablePromise<string> {
+export function ExportItems(entries: number[] | null, suggested: string): $CancellablePromise<string> {
     return $Call.ByID(3095689149, entries, suggested);
 }
 
@@ -360,7 +338,7 @@ export function ExportItems(entries: number[], suggested: string): $CancellableP
  * ExportSpells asks where to save an SQL script of spells and writes their spell_template rows there
  * (#357). Returns the path, or "" if cancelled.
  */
-export function ExportSpells(entries: number[], suggested: string): $CancellablePromise<string> {
+export function ExportSpells(entries: number[] | null, suggested: string): $CancellablePromise<string> {
     return $Call.ByID(3072692700, entries, suggested);
 }
 
@@ -368,10 +346,8 @@ export function ExportSpells(entries: number[], suggested: string): $Cancellable
  * Factions lists the client's faction templates with their names and how each treats an Alliance
  * and a Horde player, for the creature guide.
  */
-export function Factions(): $CancellablePromise<vmangos$0.FactionInfo[]> {
-    return $Call.ByID(607327856).then(($result: any) => {
-        return $$createType16($result);
-    });
+export function Factions(): $CancellablePromise<vmangos$0.FactionInfo[] | null> {
+    return $Call.ByID(607327856);
 }
 
 /**
@@ -386,37 +362,29 @@ export function ForgetProject(dir: string): $CancellablePromise<void> {
  * GameClient says which game client Meld uses.
  */
 export function GameClient(): $CancellablePromise<$models.GameClientInfo> {
-    return $Call.ByID(1602467920).then(($result: any) => {
-        return $$createType17($result);
-    });
+    return $Call.ByID(1602467920);
 }
 
 /**
  * GameEvents lists the world database's events (holidays, the Darkmoon Faire, invasions), for showing
  * the spawns of each.
  */
-export function GameEvents(): $CancellablePromise<vmangos$0.GameEvent[]> {
-    return $Call.ByID(3642266794).then(($result: any) => {
-        return $$createType19($result);
-    });
+export function GameEvents(): $CancellablePromise<vmangos$0.GameEvent[] | null> {
+    return $Call.ByID(3642266794);
 }
 
 /**
  * GameLogin returns the account the game logs in with after a region export.
  */
 export function GameLogin(): $CancellablePromise<$models.GameLoginInfo> {
-    return $Call.ByID(1028839284).then(($result: any) => {
-        return $$createType20($result);
-    });
+    return $Call.ByID(1028839284);
 }
 
 /**
  * GameWindow says how the game's window opens when Meld starts it.
  */
 export function GameWindow(): $CancellablePromise<$models.GameWindowInfo> {
-    return $Call.ByID(741015967).then(($result: any) => {
-        return $$createType21($result);
-    });
+    return $Call.ByID(741015967);
 }
 
 /**
@@ -425,9 +393,7 @@ export function GameWindow(): $CancellablePromise<$models.GameWindowInfo> {
  * progress goes out as "effects:log" events, and the result is cached in the user's cache dir.
  */
 export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTables | null> {
-    return $Call.ByID(610074168).then(($result: any) => {
-        return $$createType23($result);
-    });
+    return $Call.ByID(610074168);
 }
 
 /**
@@ -435,20 +401,16 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
  * after its file, in Meld's patch without closing anything (as the spell editor saves, #365): at once,
  * or once the game has closed. The game shows them from its next start.
  */
-export function ImportIcons(paths: string[]): $CancellablePromise<$models.IconsImported> {
-    return $Call.ByID(977777418, paths).then(($result: any) => {
-        return $$createType24($result);
-    });
+export function ImportIcons(paths: string[] | null): $CancellablePromise<$models.IconsImported> {
+    return $Call.ByID(977777418, paths);
 }
 
 /**
  * ImportItems writes the items of the SQL script at path into the world database and returns their
  * entries.
  */
-export function ImportItems(path: string): $CancellablePromise<number[]> {
-    return $Call.ByID(2642875024, path).then(($result: any) => {
-        return $$createType25($result);
-    });
+export function ImportItems(path: string): $CancellablePromise<number[] | null> {
+    return $Call.ByID(2642875024, path);
 }
 
 /**
@@ -457,17 +419,15 @@ export function ImportItems(path: string): $CancellablePromise<number[]> {
  * uses, into Spell.dbc in Meld's patch, as SaveSpell does, with the icons and visuals the script
  * carries that the client lacks (#381). Returns their entries.
  */
-export function ImportSpells(path: string): $CancellablePromise<number[]> {
-    return $Call.ByID(3672008735, path).then(($result: any) => {
-        return $$createType25($result);
-    });
+export function ImportSpells(path: string): $CancellablePromise<number[] | null> {
+    return $Call.ByID(3672008735, path);
 }
 
 /**
  * InstallMapPatch writes the given archive files (path to base64 bytes) into the loaded client's
  * patch-3.MPQ, for the server to load. Returns the archive's path.
  */
-export function InstallMapPatch(files: { [_ in string]?: string }): $CancellablePromise<string> {
+export function InstallMapPatch(files: { [_ in string]?: string } | null): $CancellablePromise<string> {
     return $Call.ByID(855750468, files);
 }
 
@@ -477,18 +437,14 @@ export function InstallMapPatch(files: { [_ in string]?: string }): $Cancellable
  * Meld's patch (the game closed around it on Windows); added says so.
  */
 export function ItemDisplayVariant(display: number, icon: string, visual: number): $CancellablePromise<vmangos$0.IconDisplay> {
-    return $Call.ByID(2992383165, display, icon, visual).then(($result: any) => {
-        return $$createType26($result);
-    });
+    return $Call.ByID(2992383165, display, icon, visual);
 }
 
 /**
  * ItemIcons gives the inventory icon (a name under Interface\Icons) of each item display.
  */
-export function ItemIcons(displays: number[]): $CancellablePromise<{ [_ in `${number}`]?: string }> {
-    return $Call.ByID(3189443080, displays).then(($result: any) => {
-        return $$createType27($result);
-    });
+export function ItemIcons(displays: number[] | null): $CancellablePromise<{ [_ in `${number}`]?: string } | null> {
+    return $Call.ByID(3189443080, displays);
 }
 
 /**
@@ -496,18 +452,14 @@ export function ItemIcons(displays: number[]): $CancellablePromise<{ [_ in `${nu
  * inventory type invType is held or worn, and the item's model alone.
  */
 export function ItemModelLook(display: number, invType: number, race: number, sex: number): $CancellablePromise<vmangos$0.ItemLook> {
-    return $Call.ByID(50808136, display, invType, race, sex).then(($result: any) => {
-        return $$createType28($result);
-    });
+    return $Call.ByID(50808136, display, invType, race, sex);
 }
 
 /**
  * ItemSets gives the client's item sets (ItemSet.dbc) of the given IDs, for the tooltips' set block (#355).
  */
-export function ItemSets(ids: number[]): $CancellablePromise<vmangos$0.ItemSet[]> {
-    return $Call.ByID(1380093535, ids).then(($result: any) => {
-        return $$createType30($result);
-    });
+export function ItemSets(ids: number[] | null): $CancellablePromise<vmangos$0.ItemSet[] | null> {
+    return $Call.ByID(1380093535, ids);
 }
 
 /**
@@ -515,9 +467,7 @@ export function ItemSets(ids: number[]): $CancellablePromise<vmangos$0.ItemSet[]
  * categories, maps).
  */
 export function ItemTables(): $CancellablePromise<vmangos$0.ItemTables> {
-    return $Call.ByID(3464842691).then(($result: any) => {
-        return $$createType31($result);
-    });
+    return $Call.ByID(3464842691);
 }
 
 /**
@@ -540,28 +490,22 @@ export function LaunchGameAt(spot: vmangos$0.CharacterSpot): $CancellablePromise
 /**
  * LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
  */
-export function LiquidTypes(): $CancellablePromise<vmangos$0.LiquidTypeEntry[]> {
-    return $Call.ByID(2724916682).then(($result: any) => {
-        return $$createType33($result);
-    });
+export function LiquidTypes(): $CancellablePromise<vmangos$0.LiquidTypeEntry[] | null> {
+    return $Call.ByID(2724916682);
 }
 
 /**
  * ListBrushImages names the PNG and JPEG images in the brush image folder.
  */
-export function ListBrushImages(dir: string): $CancellablePromise<string[]> {
-    return $Call.ByID(176687453, dir).then(($result: any) => {
-        return $$createType34($result);
-    });
+export function ListBrushImages(dir: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(176687453, dir);
 }
 
 /**
  * ListCreatureTemplates lists every creature template of the world database, dressed for a thumbnail.
  */
-export function ListCreatureTemplates(): $CancellablePromise<vmangos$0.CreatureTemplate[]> {
-    return $Call.ByID(3074842047).then(($result: any) => {
-        return $$createType36($result);
-    });
+export function ListCreatureTemplates(): $CancellablePromise<vmangos$0.CreatureTemplate[] | null> {
+    return $Call.ByID(3074842047);
 }
 
 /**
@@ -569,85 +513,67 @@ export function ListCreatureTemplates(): $CancellablePromise<vmangos$0.CreatureT
  * creature editor's display picker. The world database is optional: without it the displays come
  * without their creatures.
  */
-export function ListDisplays(): $CancellablePromise<vmangos$0.DisplayEntry[]> {
-    return $Call.ByID(3105370326).then(($result: any) => {
-        return $$createType38($result);
-    });
+export function ListDisplays(): $CancellablePromise<vmangos$0.DisplayEntry[] | null> {
+    return $Call.ByID(3105370326);
 }
 
 /**
  * ListItemDisplays lists the client's item displays with their icons and the items that use them,
  * for the item editor's look picker.
  */
-export function ListItemDisplays(): $CancellablePromise<vmangos$0.ItemDisplayEntry[]> {
-    return $Call.ByID(2570351457).then(($result: any) => {
-        return $$createType40($result);
-    });
+export function ListItemDisplays(): $CancellablePromise<vmangos$0.ItemDisplayEntry[] | null> {
+    return $Call.ByID(2570351457);
 }
 
 /**
  * ListItemIcons lists the client's icons (names under Interface\Icons), for the item editor's icon picker.
  */
-export function ListItemIcons(): $CancellablePromise<string[]> {
-    return $Call.ByID(2127318900).then(($result: any) => {
-        return $$createType34($result);
-    });
+export function ListItemIcons(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2127318900);
 }
 
 /**
  * ListItemKinds lists the kinds of item (class, subclass, inventory type) the world database has, for
  * the item editor's New item.
  */
-export function ListItemKinds(): $CancellablePromise<vmangos$0.ItemKind[]> {
-    return $Call.ByID(1902026469).then(($result: any) => {
-        return $$createType42($result);
-    });
+export function ListItemKinds(): $CancellablePromise<vmangos$0.ItemKind[] | null> {
+    return $Call.ByID(1902026469);
 }
 
 /**
  * ListObjectDisplays lists every game object display with a model and the objects that use it, for
  * the game object editor's display picker. The world database is optional, as for ListDisplays.
  */
-export function ListObjectDisplays(): $CancellablePromise<vmangos$0.DisplayEntry[]> {
-    return $Call.ByID(1075779365).then(($result: any) => {
-        return $$createType38($result);
-    });
+export function ListObjectDisplays(): $CancellablePromise<vmangos$0.DisplayEntry[] | null> {
+    return $Call.ByID(1075779365);
 }
 
 /**
  * ListObjectTemplates lists every game object template of the world database with its model.
  */
-export function ListObjectTemplates(): $CancellablePromise<vmangos$0.ObjectTemplate[]> {
-    return $Call.ByID(813200753).then(($result: any) => {
-        return $$createType44($result);
-    });
+export function ListObjectTemplates(): $CancellablePromise<vmangos$0.ObjectTemplate[] | null> {
+    return $Call.ByID(813200753);
 }
 
 /**
  * ListPrefabs reads every .toml file of the prefab folder, sorted by name.
  */
-export function ListPrefabs(dir: string): $CancellablePromise<$models.PrefabFile[]> {
-    return $Call.ByID(3072203228, dir).then(($result: any) => {
-        return $$createType46($result);
-    });
+export function ListPrefabs(dir: string): $CancellablePromise<$models.PrefabFile[] | null> {
+    return $Call.ByID(3072203228, dir);
 }
 
 /**
  * ListRecovery names the autosaved copies that earlier sessions left behind without quitting cleanly.
  */
-export function ListRecovery(): $CancellablePromise<recovery$0.Info[]> {
-    return $Call.ByID(234325130).then(($result: any) => {
-        return $$createType48($result);
-    });
+export function ListRecovery(): $CancellablePromise<recovery$0.Info[] | null> {
+    return $Call.ByID(234325130);
 }
 
 /**
  * ListScripts reads every script of the scripts folder, sorted by name.
  */
-export function ListScripts(): $CancellablePromise<scripts$0.File[]> {
-    return $Call.ByID(3467580111).then(($result: any) => {
-        return $$createType50($result);
-    });
+export function ListScripts(): $CancellablePromise<scripts$0.File[] | null> {
+    return $Call.ByID(3467580111);
 }
 
 /**
@@ -655,27 +581,21 @@ export function ListScripts(): $CancellablePromise<scripts$0.File[]> {
  * at most limit of them with the count that matched, for the creature editor's Spells tab (#340).
  */
 export function ListSpells(category: string, school: number, text: string, limit: number): $CancellablePromise<vmangos$0.SpellList> {
-    return $Call.ByID(1951843930, category, school, text, limit).then(($result: any) => {
-        return $$createType51($result);
-    });
+    return $Call.ByID(1951843930, category, school, text, limit);
 }
 
 /**
  * ListVisualEffects lists the client's spell effect models, for the composer's pickers.
  */
-export function ListVisualEffects(): $CancellablePromise<vmangos$0.VisualEffect[]> {
-    return $Call.ByID(1125799941).then(($result: any) => {
-        return $$createType53($result);
-    });
+export function ListVisualEffects(): $CancellablePromise<vmangos$0.VisualEffect[] | null> {
+    return $Call.ByID(1125799941);
 }
 
 /**
  * ListWeapons lists every item of the world database a creature can hold, for the gear picker.
  */
-export function ListWeapons(): $CancellablePromise<vmangos$0.WeaponEntry[]> {
-    return $Call.ByID(1502119266).then(($result: any) => {
-        return $$createType55($result);
-    });
+export function ListWeapons(): $CancellablePromise<vmangos$0.WeaponEntry[] | null> {
+    return $Call.ByID(1502119266);
 }
 
 /**
@@ -683,9 +603,7 @@ export function ListWeapons(): $CancellablePromise<vmangos$0.WeaponEntry[]> {
  * Meld's patch, for Restore the Client's Paint (#645). Only the view's chunks and alphaUrl are set.
  */
 export function LoadBaseRegionPaint(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.RegionView | null> {
-    return $Call.ByID(1145016092, mapName, x, y, size).then(($result: any) => {
-        return $$createType57($result);
-    });
+    return $Call.ByID(1145016092, mapName, x, y, size);
 }
 
 /**
@@ -693,18 +611,14 @@ export function LoadBaseRegionPaint(mapName: string, x: number, y: number, size:
  * region over the tiles its building covers, with the building as its one model (#271).
  */
 export function LoadBuildingMap(mapName: string): $CancellablePromise<vmangos$0.RegionView | null> {
-    return $Call.ByID(2524610085, mapName).then(($result: any) => {
-        return $$createType57($result);
-    });
+    return $Call.ByID(2524610085, mapName);
 }
 
 /**
  * LoadMap reads the map at path.
  */
 export function LoadMap(path: string): $CancellablePromise<mapfile$0.MapData | null> {
-    return $Call.ByID(405453101, path).then(($result: any) => {
-        return $$createType59($result);
-    });
+    return $Call.ByID(405453101, path);
 }
 
 /**
@@ -718,9 +632,7 @@ export function LoadPrefs(): $CancellablePromise<string> {
  * LoadRecovery reads an autosaved copy's map. Unlike LoadMap it leaves the window title alone.
  */
 export function LoadRecovery(id: string): $CancellablePromise<mapfile$0.MapData | null> {
-    return $Call.ByID(4117505394, id).then(($result: any) => {
-        return $$createType59($result);
-    });
+    return $Call.ByID(4117505394, id);
 }
 
 /**
@@ -728,75 +640,59 @@ export function LoadRecovery(id: string): $CancellablePromise<mapfile$0.MapData 
  * and models, stitched into one block the editor shows.
  */
 export function LoadRegion(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.RegionView | null> {
-    return $Call.ByID(3724007081, mapName, x, y, size).then(($result: any) => {
-        return $$createType57($result);
-    });
+    return $Call.ByID(3724007081, mapName, x, y, size);
 }
 
 /**
  * LoadScriptImage reads a PNG for a script: a path relative to the scripts folder, or a whole one.
  */
 export function LoadScriptImage(path: string): $CancellablePromise<$models.ScriptImage> {
-    return $Call.ByID(1573313619, path).then(($result: any) => {
-        return $$createType60($result);
-    });
+    return $Call.ByID(1573313619, path);
 }
 
 /**
  * LoadSpawns reads the creatures and game objects the server's world database places in a block of
  * tiles. It needs the VMaNGOS server folder, and the server's database running.
  */
-export function LoadSpawns(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.WorldSpawn[]> {
-    return $Call.ByID(2994186797, mapName, x, y, size).then(($result: any) => {
-        return $$createType62($result);
-    });
+export function LoadSpawns(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.WorldSpawn[] | null> {
+    return $Call.ByID(2994186797, mapName, x, y, size);
 }
 
 /**
  * LoadingScreens lists the client's loading screens, which a map made for the client may show.
  */
-export function LoadingScreens(): $CancellablePromise<vmangos$0.LoadingScreen[]> {
-    return $Call.ByID(1825027632).then(($result: any) => {
-        return $$createType64($result);
-    });
+export function LoadingScreens(): $CancellablePromise<vmangos$0.LoadingScreen[] | null> {
+    return $Call.ByID(1825027632);
 }
 
 /**
  * MapEntries lists the maps the client knows (continents, dungeons, raids, battlegrounds, arenas), so
  * the New Map dialog can offer their IDs.
  */
-export function MapEntries(): $CancellablePromise<vmangos$0.MapEntry[]> {
-    return $Call.ByID(2849058991).then(($result: any) => {
-        return $$createType66($result);
-    });
+export function MapEntries(): $CancellablePromise<vmangos$0.MapEntry[] | null> {
+    return $Call.ByID(2849058991);
 }
 
 /**
  * MapLights reads a map's lights from the client's Light tables, for the preview's client lighting.
  */
 export function MapLights(mapID: number): $CancellablePromise<vmangos$0.MapLights | null> {
-    return $Call.ByID(3038940240, mapID).then(($result: any) => {
-        return $$createType68($result);
-    });
+    return $Call.ByID(3038940240, mapID);
 }
 
 /**
  * MapZones lists the client's named zones as tile rectangles, so a part of a continent can be picked by
  * name.
  */
-export function MapZones(): $CancellablePromise<vmangos$0.Zone[]> {
-    return $Call.ByID(2217729664).then(($result: any) => {
-        return $$createType70($result);
-    });
+export function MapZones(): $CancellablePromise<vmangos$0.Zone[] | null> {
+    return $Call.ByID(2217729664);
 }
 
 /**
  * ModelAnimations lists the animations an M2 model has, for the creature editor's preview.
  */
-export function ModelAnimations(model: string): $CancellablePromise<vmangos$0.AnimInfo[]> {
-    return $Call.ByID(767373849, model).then(($result: any) => {
-        return $$createType72($result);
-    });
+export function ModelAnimations(model: string): $CancellablePromise<vmangos$0.AnimInfo[] | null> {
+    return $Call.ByID(767373849, model);
 }
 
 /**
@@ -825,18 +721,14 @@ export function MouseLookRecenter(): $CancellablePromise<void> {
  * not written until SaveAreas.
  */
 export function NewAreaRow(mapID: number, parent: number): $CancellablePromise<vmangos$0.AreaRow> {
-    return $Call.ByID(830434100, mapID, parent).then(($result: any) => {
-        return $$createType1($result);
-    });
+    return $Call.ByID(830434100, mapID, parent);
 }
 
 /**
  * NewLightIDs gives the light editor the IDs for a new light; nothing is written until SaveLights.
  */
 export function NewLightIDs(): $CancellablePromise<$models.LightIDs> {
-    return $Call.ByID(3246315111).then(($result: any) => {
-        return $$createType73($result);
-    });
+    return $Call.ByID(3246315111);
 }
 
 /**
@@ -881,9 +773,7 @@ export function NextPoolEntry(): $CancellablePromise<number> {
  * them once the files waiting for it to close are written.
  */
 export function ObjectDisplaySounds(display: number): $CancellablePromise<vmangos$0.ObjectDisplaySounds> {
-    return $Call.ByID(291089212, display).then(($result: any) => {
-        return $$createType74($result);
-    });
+    return $Call.ByID(291089212, display);
 }
 
 /**
@@ -899,18 +789,14 @@ export function ObjectModel(display: number): $CancellablePromise<string> {
  * languages, page materials, spell focuses, cinematics, flight paths, auction houses).
  */
 export function ObjectTables(): $CancellablePromise<vmangos$0.ObjectTables> {
-    return $Call.ByID(446302559).then(($result: any) => {
-        return $$createType75($result);
-    });
+    return $Call.ByID(446302559);
 }
 
 /**
  * OpenBrushDialog asks for doodad brush files to import. Returns none if cancelled.
  */
-export function OpenBrushDialog(): $CancellablePromise<string[]> {
-    return $Call.ByID(2780910171).then(($result: any) => {
-        return $$createType34($result);
-    });
+export function OpenBrushDialog(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2780910171);
 }
 
 /**
@@ -923,10 +809,8 @@ export function OpenHeightmapDialog(): $CancellablePromise<string> {
 /**
  * OpenIconsDialog asks for the PNG files to add as icons. Returns none if cancelled.
  */
-export function OpenIconsDialog(): $CancellablePromise<string[]> {
-    return $Call.ByID(298303553).then(($result: any) => {
-        return $$createType34($result);
-    });
+export function OpenIconsDialog(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(298303553);
 }
 
 /**
@@ -953,10 +837,8 @@ export function OpenMapDialog(): $CancellablePromise<string> {
 /**
  * OpenModelSetDialog asks for model set files to import. Returns none if cancelled.
  */
-export function OpenModelSetDialog(): $CancellablePromise<string[]> {
-    return $Call.ByID(4161995598).then(($result: any) => {
-        return $$createType34($result);
-    });
+export function OpenModelSetDialog(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(4161995598);
 }
 
 /**
@@ -965,9 +847,7 @@ export function OpenModelSetDialog(): $CancellablePromise<string[]> {
  * The client is opened first, so a folder that isn't a client leaves the open project as it was.
  */
 export function OpenProject(name: string, dir: string, client: string): $CancellablePromise<wow$0.Status> {
-    return $Call.ByID(517162042, name, dir, client).then(($result: any) => {
-        return $$createType76($result);
-    });
+    return $Call.ByID(517162042, name, dir, client);
 }
 
 /**
@@ -996,27 +876,21 @@ export function OpenTextDialog(): $CancellablePromise<string> {
  * PlanItemImport says what importing the items of the SQL script at path would write.
  */
 export function PlanItemImport(path: string): $CancellablePromise<vmangos$0.ItemImport> {
-    return $Call.ByID(931250728, path).then(($result: any) => {
-        return $$createType77($result);
-    });
+    return $Call.ByID(931250728, path);
 }
 
 /**
  * PlanQuestDelete lists what deleting quest entry removes and leaves dangling, changing nothing.
  */
 export function PlanQuestDelete(entry: number): $CancellablePromise<vmangos$0.QuestDeletePlan> {
-    return $Call.ByID(1792789599, entry).then(($result: any) => {
-        return $$createType78($result);
-    });
+    return $Call.ByID(1792789599, entry);
 }
 
 /**
  * PlanSpellImport says what importing the spells of the SQL script at path would write.
  */
 export function PlanSpellImport(path: string): $CancellablePromise<vmangos$0.SpellImport> {
-    return $Call.ByID(1028529865, path).then(($result: any) => {
-        return $$createType79($result);
-    });
+    return $Call.ByID(1028529865, path);
 }
 
 /**
@@ -1034,18 +908,14 @@ export function PlayHere(spot: vmangos$0.CharacterSpot): $CancellablePromise<str
  * a folder used before fills them in. A folder without one gets its own name and no client.
  */
 export function ProjectInFolder(dir: string): $CancellablePromise<config$0.Project> {
-    return $Call.ByID(3569974617, dir).then(($result: any) => {
-        return $$createType80($result);
-    });
+    return $Call.ByID(3569974617, dir);
 }
 
 /**
  * Projects reports the open project and the recent list.
  */
 export function Projects(): $CancellablePromise<$models.ProjectList> {
-    return $Call.ByID(2386848479).then(($result: any) => {
-        return $$createType81($result);
-    });
+    return $Call.ByID(2386848479);
 }
 
 /**
@@ -1064,9 +934,7 @@ export function PublishVmangosMap(m: vmangos$0.MapSpec): $CancellablePromise<voi
  * QuestTables lists the client's quest sorts, skills and reputation factions, for the quest editor.
  */
 export function QuestTables(): $CancellablePromise<vmangos$0.QuestTables> {
-    return $Call.ByID(391161524).then(($result: any) => {
-        return $$createType82($result);
-    });
+    return $Call.ByID(391161524);
 }
 
 /**
@@ -1080,54 +948,42 @@ export function Quit(): $CancellablePromise<void> {
  * ReadBrushImage reads one image of the brush image folder as grey levels, at most 256 pixels a side.
  */
 export function ReadBrushImage(dir: string, name: string): $CancellablePromise<heightmap$0.GreyView | null> {
-    return $Call.ByID(393571040, dir, name).then(($result: any) => {
-        return $$createType84($result);
-    });
+    return $Call.ByID(393571040, dir, name);
 }
 
 /**
  * ReadCreature reads a creature template's row (its newest patch) for the creature editor.
  */
 export function ReadCreature(entry: number): $CancellablePromise<vmangos$0.TemplateRecord> {
-    return $Call.ByID(1221048960, entry).then(($result: any) => {
-        return $$createType85($result);
-    });
+    return $Call.ByID(1221048960, entry);
 }
 
 /**
  * ReadCreatureQuests reads the quests a creature template starts and ends, for the creature editor's Quests tab.
  */
 export function ReadCreatureQuests(entry: number): $CancellablePromise<vmangos$0.QuestLists> {
-    return $Call.ByID(2310208451, entry).then(($result: any) => {
-        return $$createType86($result);
-    });
+    return $Call.ByID(2310208451, entry);
 }
 
 /**
  * ReadCreatureSpells reads a creature template's spell list (creature_spells), for the Spells tab.
  */
 export function ReadCreatureSpells(entry: number): $CancellablePromise<vmangos$0.CreatureSpells> {
-    return $Call.ByID(3685342235, entry).then(($result: any) => {
-        return $$createType87($result);
-    });
+    return $Call.ByID(3685342235, entry);
 }
 
 /**
  * ReadGossip reads what a creature template says when talked to (its gossip menu), for the Messages tab.
  */
 export function ReadGossip(entry: number): $CancellablePromise<vmangos$0.Gossip> {
-    return $Call.ByID(215150080, entry).then(($result: any) => {
-        return $$createType88($result);
-    });
+    return $Call.ByID(215150080, entry);
 }
 
 /**
  * ReadHeightmap reads a heightmap image as a grid of heights.
  */
 export function ReadHeightmap(path: string): $CancellablePromise<$models.HeightmapData> {
-    return $Call.ByID(1873608292, path).then(($result: any) => {
-        return $$createType89($result);
-    });
+    return $Call.ByID(1873608292, path);
 }
 
 /**
@@ -1140,28 +996,22 @@ export function ReadImageFile(path: string): $CancellablePromise<string> {
 /**
  * ReadItem reads an item template's row, every column by name, for the Shop tab's tooltips.
  */
-export function ReadItem(entry: number): $CancellablePromise<{ [_ in string]?: string }> {
-    return $Call.ByID(1787758414, entry).then(($result: any) => {
-        return $$createType90($result);
-    });
+export function ReadItem(entry: number): $CancellablePromise<{ [_ in string]?: string } | null> {
+    return $Call.ByID(1787758414, entry);
 }
 
 /**
  * ReadItemTemplate reads an item template's row (its newest patch) for the item editor (#353).
  */
 export function ReadItemTemplate(entry: number): $CancellablePromise<vmangos$0.TemplateRecord> {
-    return $Call.ByID(2386940864, entry).then(($result: any) => {
-        return $$createType85($result);
-    });
+    return $Call.ByID(2386940864, entry);
 }
 
 /**
  * ReadObject reads a game object template's row (its newest patch) for the game object editor.
  */
 export function ReadObject(entry: number): $CancellablePromise<vmangos$0.TemplateRecord> {
-    return $Call.ByID(1048144866, entry).then(($result: any) => {
-        return $$createType85($result);
-    });
+    return $Call.ByID(1048144866, entry);
 }
 
 /**
@@ -1169,9 +1019,7 @@ export function ReadObject(entry: number): $CancellablePromise<vmangos$0.Templat
  * the other objects holding the same list and entry's spawn count, for the Contents tab.
  */
 export function ReadObjectLoot(entry: number, loot: number): $CancellablePromise<vmangos$0.ObjectLoot> {
-    return $Call.ByID(1912555244, entry, loot).then(($result: any) => {
-        return $$createType91($result);
-    });
+    return $Call.ByID(1912555244, entry, loot);
 }
 
 /**
@@ -1179,9 +1027,7 @@ export function ReadObjectLoot(entry: number, loot: number): $CancellablePromise
  * pages, what else reads them and the object's spawn count, for the Text tab (#139).
  */
 export function ReadObjectPages(entry: number, first: number): $CancellablePromise<vmangos$0.ObjectPages> {
-    return $Call.ByID(4053753294, entry, first).then(($result: any) => {
-        return $$createType92($result);
-    });
+    return $Call.ByID(4053753294, entry, first);
 }
 
 /**
@@ -1189,27 +1035,21 @@ export function ReadObjectPages(entry: number, first: number): $CancellablePromi
  * editor's Quests tab.
  */
 export function ReadObjectQuests(entry: number): $CancellablePromise<vmangos$0.QuestLists> {
-    return $Call.ByID(3397898317, entry).then(($result: any) => {
-        return $$createType86($result);
-    });
+    return $Call.ByID(3397898317, entry);
 }
 
 /**
  * ReadQuest reads a quest's quest_template row (its newest patch) for the quest editor (#259).
  */
 export function ReadQuest(entry: number): $CancellablePromise<vmangos$0.TemplateRecord> {
-    return $Call.ByID(220738229, entry).then(($result: any) => {
-        return $$createType85($result);
-    });
+    return $Call.ByID(220738229, entry);
 }
 
 /**
  * ReadQuestGivers reads the creatures and game objects that start and end a quest.
  */
 export function ReadQuestGivers(entry: number): $CancellablePromise<vmangos$0.QuestGivers> {
-    return $Call.ByID(1924391243, entry).then(($result: any) => {
-        return $$createType93($result);
-    });
+    return $Call.ByID(1924391243, entry);
 }
 
 /**
@@ -1231,18 +1071,14 @@ export function ReadScriptFile(path: string): $CancellablePromise<string> {
  * ReadSpell reads a spell's spell_template row (the build the server uses), for the spell editor (#294).
  */
 export function ReadSpell(entry: number): $CancellablePromise<vmangos$0.SpellRecord> {
-    return $Call.ByID(4147631041, entry).then(($result: any) => {
-        return $$createType94($result);
-    });
+    return $Call.ByID(4147631041, entry);
 }
 
 /**
  * ReadSpellVisual reads a client spell visual as the composer edits it (#361).
  */
 export function ReadSpellVisual(id: number): $CancellablePromise<vmangos$0.VisualDesign> {
-    return $Call.ByID(1392787773, id).then(($result: any) => {
-        return $$createType95($result);
-    });
+    return $Call.ByID(1392787773, id);
 }
 
 /**
@@ -1256,9 +1092,7 @@ export function ReadTextFile(path: string): $CancellablePromise<string> {
  * ReadVendor reads what a creature template sells (npc_vendor), for the creature editor's Shop tab.
  */
 export function ReadVendor(entry: number): $CancellablePromise<vmangos$0.Vendor> {
-    return $Call.ByID(1349187515, entry).then(($result: any) => {
-        return $$createType96($result);
-    });
+    return $Call.ByID(1349187515, entry);
 }
 
 /**
@@ -1266,19 +1100,15 @@ export function ReadVendor(entry: number): $CancellablePromise<vmangos$0.Vendor>
  * its art), for World › World Map (#181); a view without a row when the zone has none.
  */
 export function ReadWorldMap(mapID: number, areaID: number): $CancellablePromise<vmangos$0.WorldMapView | null> {
-    return $Call.ByID(499344955, mapID, areaID).then(($result: any) => {
-        return $$createType98($result);
-    });
+    return $Call.ByID(499344955, mapID, areaID);
 }
 
 /**
  * RegionEdges reads the client's border rows of the tiles around a region, for File › Check Map's
  * seam check (#195).
  */
-export function RegionEdges(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.EdgeSegment[]> {
-    return $Call.ByID(1966399789, mapName, x, y, size).then(($result: any) => {
-        return $$createType100($result);
-    });
+export function RegionEdges(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.EdgeSegment[] | null> {
+    return $Call.ByID(1966399789, mapName, x, y, size);
 }
 
 /**
@@ -1286,10 +1116,8 @@ export function RegionEdges(mapName: string, x: number, y: number, size: number)
  * 1.12 map tiles, for the editor to draw past the block as the client does. Five tiles, as Benilla
  * draws it: the client's own three leave hills still in view uncovered.
  */
-export function RegionHorizon(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.HorizonTile[]> {
-    return $Call.ByID(2153764424, mapName, x, y, size).then(($result: any) => {
-        return $$createType102($result);
-    });
+export function RegionHorizon(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.HorizonTile[] | null> {
+    return $Call.ByID(2153764424, mapName, x, y, size);
 }
 
 /**
@@ -1297,9 +1125,7 @@ export function RegionHorizon(mapName: string, x: number, y: number, size: numbe
  * map tiles (their MCVT inner heights), for the walkable-ground view to build the server's ground (#284).
  */
 export function RegionInner(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.RegionInner | null> {
-    return $Call.ByID(3759010359, mapName, x, y, size).then(($result: any) => {
-        return $$createType104($result);
-    });
+    return $Call.ByID(3759010359, mapName, x, y, size);
 }
 
 /**
@@ -1317,9 +1143,7 @@ export function RegionMapID(mapName: string): $CancellablePromise<number> {
  * it builds from is current.
  */
 export function RegionPending(edit: vmangos$0.RegionEdit): $CancellablePromise<vmangos$0.RegionResult> {
-    return $Call.ByID(3802741644, edit).then(($result: any) => {
-        return $$createType105($result);
-    });
+    return $Call.ByID(3802741644, edit);
 }
 
 /**
@@ -1327,9 +1151,7 @@ export function RegionPending(edit: vmangos$0.RegionEdit): $CancellablePromise<v
  * client, for the editor to draw as the client does.
  */
 export function RegionShadows(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.RegionShadows | null> {
-    return $Call.ByID(3907178406, mapName, x, y, size).then(($result: any) => {
-        return $$createType107($result);
-    });
+    return $Call.ByID(3907178406, mapName, x, y, size);
 }
 
 /**
@@ -1348,10 +1170,8 @@ export function SandboxWriteFile(name: string, data: string): $CancellablePromis
  * restarted (#661): the server reads areatrigger_template only at its start, so the result says when
  * to restart it.
  */
-export function SaveAreaTriggers(rows: vmangos$0.AreaTrigger[], remove: number[]): $CancellablePromise<$models.AreaSaveResult> {
-    return $Call.ByID(1483633588, rows, remove).then(($result: any) => {
-        return $$createType108($result);
-    });
+export function SaveAreaTriggers(rows: vmangos$0.AreaTrigger[] | null, remove: number[] | null): $CancellablePromise<$models.AreaSaveResult> {
+    return $Call.ByID(1483633588, rows, remove);
 }
 
 /**
@@ -1360,10 +1180,8 @@ export function SaveAreaTriggers(rows: vmangos$0.AreaTrigger[], remove: number[]
  * from, with the zones' weather into game_weather. Nothing is closed or restarted (#661): the server
  * reads area_template only at its start, so the result says when to restart it.
  */
-export function SaveAreas(rows: vmangos$0.AreaRow[], weather: vmangos$0.ZoneWeather[]): $CancellablePromise<$models.AreaSaveResult> {
-    return $Call.ByID(3700716334, rows, weather).then(($result: any) => {
-        return $$createType108($result);
-    });
+export function SaveAreas(rows: vmangos$0.AreaRow[] | null, weather: vmangos$0.ZoneWeather[] | null): $CancellablePromise<$models.AreaSaveResult> {
+    return $Call.ByID(3700716334, rows, weather);
 }
 
 /**
@@ -1378,16 +1196,14 @@ export function SaveBrushDialog(suggested: string): $CancellablePromise<string> 
  * showing npc_text textID (0 for a new row) now shows male and female when condition cond holds.
  */
 export function SaveConditionText(entry: number, textID: number, cond: number, male: string, female: string): $CancellablePromise<vmangos$0.GreetingSaved> {
-    return $Call.ByID(3941913534, entry, textID, cond, male, female).then(($result: any) => {
-        return $$createType9($result);
-    });
+    return $Call.ByID(3941913534, entry, textID, cond, male, female);
 }
 
 /**
  * SaveCreature writes a creature template's changed values (by column) into the world database
  * and returns the SQL it ran.
  */
-export function SaveCreature(entry: number, patch: number, values: { [_ in string]?: string }): $CancellablePromise<string> {
+export function SaveCreature(entry: number, patch: number, values: { [_ in string]?: string } | null): $CancellablePromise<string> {
     return $Call.ByID(1410071173, entry, patch, values);
 }
 
@@ -1402,20 +1218,16 @@ export function SaveCreatureQuests(entry: number, quests: vmangos$0.QuestLists):
  * SaveCreatureSpells sets a creature template's spell list to spells, in order, and returns its
  * spell_list_id now with the SQL it ran.
  */
-export function SaveCreatureSpells(entry: number, spells: vmangos$0.CreatureSpell[]): $CancellablePromise<vmangos$0.CreatureSpellsSaved> {
-    return $Call.ByID(2250706606, entry, spells).then(($result: any) => {
-        return $$createType109($result);
-    });
+export function SaveCreatureSpells(entry: number, spells: vmangos$0.CreatureSpell[] | null): $CancellablePromise<vmangos$0.CreatureSpellsSaved> {
+    return $Call.ByID(2250706606, entry, spells);
 }
 
 /**
  * SaveGossipOptions replaces the options (the lines a player can pick) of a creature template's
  * gossip menu, and returns its gossip menu now.
  */
-export function SaveGossipOptions(entry: number, options: vmangos$0.GossipOption[]): $CancellablePromise<vmangos$0.GreetingSaved> {
-    return $Call.ByID(2508450781, entry, options).then(($result: any) => {
-        return $$createType9($result);
-    });
+export function SaveGossipOptions(entry: number, options: vmangos$0.GossipOption[] | null): $CancellablePromise<vmangos$0.GreetingSaved> {
+    return $Call.ByID(2508450781, entry, options);
 }
 
 /**
@@ -1423,9 +1235,7 @@ export function SaveGossipOptions(entry: number, options: vmangos$0.GossipOption
  * (an empty female text uses the male one), and returns its gossip menu now.
  */
 export function SaveGreeting(entry: number, male: string, female: string): $CancellablePromise<vmangos$0.GreetingSaved> {
-    return $Call.ByID(2986980143, entry, male, female).then(($result: any) => {
-        return $$createType9($result);
-    });
+    return $Call.ByID(2986980143, entry, male, female);
 }
 
 /**
@@ -1446,10 +1256,8 @@ export function SaveImageDialog(title: string, suggested: string): $CancellableP
  * SaveItem writes an item template's changed values (by column) into the world database and
  * returns the SQL it ran, or the value it refused.
  */
-export function SaveItem(entry: number, patch: number, values: { [_ in string]?: string }): $CancellablePromise<$models.TemplateSaved> {
-    return $Call.ByID(1529103551, entry, patch, values).then(($result: any) => {
-        return $$createType110($result);
-    });
+export function SaveItem(entry: number, patch: number, values: { [_ in string]?: string } | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(1529103551, entry, patch, values);
 }
 
 /**
@@ -1486,7 +1294,7 @@ export function SaveModelSetDialog(suggested: string): $CancellablePromise<strin
  * SaveObject writes a game object template's changed values (by column) into the world database
  * and returns the SQL it ran.
  */
-export function SaveObject(entry: number, patch: number, values: { [_ in string]?: string }): $CancellablePromise<string> {
+export function SaveObject(entry: number, patch: number, values: { [_ in string]?: string } | null): $CancellablePromise<string> {
     return $Call.ByID(639054375, entry, patch, values);
 }
 
@@ -1495,16 +1303,14 @@ export function SaveObject(entry: number, patch: number, values: { [_ in string]
  * GameObjectDisplayInfo.dbc, in Meld's patch without closing anything (#661): at once, or once the
  * game has closed. Every object of that display plays them from the game's next start.
  */
-export function SaveObjectDisplaySounds(display: number, sounds: number[]): $CancellablePromise<$models.SoundsSaved> {
-    return $Call.ByID(1823672575, display, sounds).then(($result: any) => {
-        return $$createType111($result);
-    });
+export function SaveObjectDisplaySounds(display: number, sounds: number[] | null): $CancellablePromise<$models.SoundsSaved> {
+    return $Call.ByID(1823672575, display, sounds);
 }
 
 /**
  * SaveObjectLoot replaces game object loot list loot's rows with items and returns the SQL it ran.
  */
-export function SaveObjectLoot(loot: number, items: vmangos$0.LootItem[]): $CancellablePromise<string> {
+export function SaveObjectLoot(loot: number, items: vmangos$0.LootItem[] | null): $CancellablePromise<string> {
     return $Call.ByID(3771553377, loot, items);
 }
 
@@ -1520,7 +1326,7 @@ export function SaveObjectQuests(entry: number, quests: vmangos$0.QuestLists): $
  * SavePages writes texts as the pages of the text starting at page first and returns the SQL it
  * ran. The game's page cache forgets the pages it rewrote.
  */
-export function SavePages(first: number, texts: string[]): $CancellablePromise<string> {
+export function SavePages(first: number, texts: string[] | null): $CancellablePromise<string> {
     return $Call.ByID(897703864, first, texts);
 }
 
@@ -1544,17 +1350,15 @@ export function SavePrefs(prefs: string): $CancellablePromise<void> {
  * SaveQuest writes a quest's changed values (by column) into the world database once they pass the
  * server's rules and what they name exists, and returns the SQL it ran, or the value it refused.
  */
-export function SaveQuest(entry: number, patch: number, values: { [_ in string]?: string }): $CancellablePromise<$models.TemplateSaved> {
-    return $Call.ByID(222838482, entry, patch, values).then(($result: any) => {
-        return $$createType110($result);
-    });
+export function SaveQuest(entry: number, patch: number, values: { [_ in string]?: string } | null): $CancellablePromise<$models.TemplateSaved> {
+    return $Call.ByID(222838482, entry, patch, values);
 }
 
 /**
  * SaveQuestGivers replaces the creatures and game objects that start and end a quest, gives the
  * creatures in flag the Quest giver flag, and returns the SQL it ran.
  */
-export function SaveQuestGivers(entry: number, givers: vmangos$0.QuestGivers, flag: number[]): $CancellablePromise<string> {
+export function SaveQuestGivers(entry: number, givers: vmangos$0.QuestGivers, flag: number[] | null): $CancellablePromise<string> {
     return $Call.ByID(2455788216, entry, givers, flag);
 }
 
@@ -1563,9 +1367,7 @@ export function SaveQuestGivers(entry: number, givers: vmangos$0.QuestGivers, fl
  * large fields may come before it through SaveRecoveryPart, empty in data.
  */
 export function SaveRecovery(doc: number, info: recovery$0.Info, data: mapfile$0.MapData): $CancellablePromise<recovery$0.Info> {
-    return $Call.ByID(2328193047, doc, info, data).then(($result: any) => {
-        return $$createType47($result);
-    });
+    return $Call.ByID(2328193047, doc, info, data);
 }
 
 /**
@@ -1585,9 +1387,7 @@ export function SaveRecoveryPart(doc: number, field: string, index: number, part
  * is built from the patch by UpdateRegionServer, which Compile All calls next.
  */
 export function SaveRegion(edit: vmangos$0.RegionEdit): $CancellablePromise<vmangos$0.RegionResult> {
-    return $Call.ByID(1613759444, edit).then(($result: any) => {
-        return $$createType105($result);
-    });
+    return $Call.ByID(1613759444, edit);
 }
 
 /**
@@ -1627,10 +1427,8 @@ export function SaveScriptImage(path: string, width: number, height: number, pix
  * (with the icon's and the visual's new rows) without closing anything: at once, or once the game has
  * closed when it runs (#365), so the game has it the next time it starts.
  */
-export function SaveSpell(entry: number, build: number, values: { [_ in string]?: string }, icon: string, visual: vmangos$0.VisualDesign | null): $CancellablePromise<$models.SpellSaved> {
-    return $Call.ByID(797430874, entry, build, values, icon, visual).then(($result: any) => {
-        return $$createType112($result);
-    });
+export function SaveSpell(entry: number, build: number, values: { [_ in string]?: string } | null, icon: string, visual: vmangos$0.VisualDesign | null): $CancellablePromise<$models.SpellSaved> {
+    return $Call.ByID(797430874, entry, build, values, icon, visual);
 }
 
 /**
@@ -1640,9 +1438,7 @@ export function SaveSpell(entry: number, build: number, values: { [_ in string]?
  * or restarted (#661): the result says when the world server needs a restart for the new routes.
  */
 export function SaveTaxi(edit: vmangos$0.TaxiEdit): $CancellablePromise<$models.AreaSaveResult> {
-    return $Call.ByID(3251695612, edit).then(($result: any) => {
-        return $$createType108($result);
-    });
+    return $Call.ByID(3251695612, edit);
 }
 
 /**
@@ -1662,7 +1458,7 @@ export function SaveThumbnail(key: string, pngBase64: string): $CancellablePromi
 /**
  * SaveVendor replaces what a creature template sells with items, in order, and returns the SQL it ran.
  */
-export function SaveVendor(entry: number, items: vmangos$0.VendorItem[]): $CancellablePromise<string> {
+export function SaveVendor(entry: number, items: vmangos$0.VendorItem[] | null): $CancellablePromise<string> {
     return $Call.ByID(864566566, entry, items);
 }
 
@@ -1670,10 +1466,8 @@ export function SaveVendor(entry: number, items: vmangos$0.VendorItem[]): $Cance
  * ScriptCommands lists the commands of script id in one of the script tables SpawnScripts names
  * (#736).
  */
-export function ScriptCommands(table: string, id: number): $CancellablePromise<vmangos$0.ScriptCommand[]> {
-    return $Call.ByID(1983161264, table, id).then(($result: any) => {
-        return $$createType114($result);
-    });
+export function ScriptCommands(table: string, id: number): $CancellablePromise<vmangos$0.ScriptCommand[] | null> {
+    return $Call.ByID(1983161264, table, id);
 }
 
 /**
@@ -1694,58 +1488,46 @@ export function ScriptsFolder(): $CancellablePromise<string> {
  * SearchCreatures lists up to 100 creature templates of the world database whose name has text
  * in it (or whose entry it is), for placing new creatures.
  */
-export function SearchCreatures(text: string): $CancellablePromise<vmangos$0.CreatureTemplate[]> {
-    return $Call.ByID(2300047157, text).then(($result: any) => {
-        return $$createType36($result);
-    });
+export function SearchCreatures(text: string): $CancellablePromise<vmangos$0.CreatureTemplate[] | null> {
+    return $Call.ByID(2300047157, text);
 }
 
 /**
  * SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
  */
-export function SearchItems(text: string): $CancellablePromise<vmangos$0.ItemRef[]> {
-    return $Call.ByID(537503851, text).then(($result: any) => {
-        return $$createType116($result);
-    });
+export function SearchItems(text: string): $CancellablePromise<vmangos$0.ItemRef[] | null> {
+    return $Call.ByID(537503851, text);
 }
 
 /**
  * SearchItemsSorted is SearchItems ordered by sort ("name", "entry", "quality", "itemLevel" or
  * "requiredLevel"), descending when desc, for the Item Editor's sortable list.
  */
-export function SearchItemsSorted(text: string, sort: string, desc: boolean): $CancellablePromise<vmangos$0.ItemRef[]> {
-    return $Call.ByID(603212274, text, sort, desc).then(($result: any) => {
-        return $$createType116($result);
-    });
+export function SearchItemsSorted(text: string, sort: string, desc: boolean): $CancellablePromise<vmangos$0.ItemRef[] | null> {
+    return $Call.ByID(603212274, text, sort, desc);
 }
 
 /**
  * SearchQuests lists up to 100 quests whose title has text in it (or whose entry it is).
  */
-export function SearchQuests(text: string): $CancellablePromise<vmangos$0.QuestRef[]> {
-    return $Call.ByID(2928640782, text).then(($result: any) => {
-        return $$createType118($result);
-    });
+export function SearchQuests(text: string): $CancellablePromise<vmangos$0.QuestRef[] | null> {
+    return $Call.ByID(2928640782, text);
 }
 
 /**
  * SearchSpells lists the client's spells by name or ID, with their rank, icon and text, for the
  * creature editor's Spells tab.
  */
-export function SearchSpells(text: string): $CancellablePromise<vmangos$0.SpellRef[]> {
-    return $Call.ByID(110462962, text).then(($result: any) => {
-        return $$createType120($result);
-    });
+export function SearchSpells(text: string): $CancellablePromise<vmangos$0.SpellRef[] | null> {
+    return $Call.ByID(110462962, text);
 }
 
 /**
  * SearchWorldRefs lists the world database rows of kind (as WorldRefNames) numbered text or whose
  * text has it.
  */
-export function SearchWorldRefs(kind: string, text: string): $CancellablePromise<vmangos$0.NamedID[]> {
-    return $Call.ByID(1330501713, kind, text).then(($result: any) => {
-        return $$createType122($result);
-    });
+export function SearchWorldRefs(kind: string, text: string): $CancellablePromise<vmangos$0.NamedID[] | null> {
+    return $Call.ByID(1330501713, kind, text);
 }
 
 /**
@@ -1808,37 +1590,29 @@ export function SetVmangosPath(path: string): $CancellablePromise<void> {
  * SetWowPath loads the client at path (or unloads with "") and remembers it.
  */
 export function SetWowPath(path: string): $CancellablePromise<wow$0.Status> {
-    return $Call.ByID(4102934577, path).then(($result: any) => {
-        return $$createType76($result);
-    });
+    return $Call.ByID(4102934577, path);
 }
 
 /**
  * SoundEntries lists the client's SoundEntries.dbc rows, each with a file to play, for the game
  * object editor's sound picker (#674).
  */
-export function SoundEntries(): $CancellablePromise<vmangos$0.SoundOption[]> {
-    return $Call.ByID(830711860).then(($result: any) => {
-        return $$createType124($result);
-    });
+export function SoundEntries(): $CancellablePromise<vmangos$0.SoundOption[] | null> {
+    return $Call.ByID(830711860);
 }
 
 /**
  * SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
  */
-export function SpawnEditSQL(mapName: string, x: number, y: number, size: number, edits: vmangos$0.SpawnEdit[]): $CancellablePromise<vmangos$0.Result> {
-    return $Call.ByID(3851791552, mapName, x, y, size, edits).then(($result: any) => {
-        return $$createType0($result);
-    });
+export function SpawnEditSQL(mapName: string, x: number, y: number, size: number, edits: vmangos$0.SpawnEdit[] | null): $CancellablePromise<vmangos$0.Result> {
+    return $Call.ByID(3851791552, mapName, x, y, size, edits);
 }
 
 /**
  * SpawnEmotes lists the client's emotes, for picking a spawn's looping emote.
  */
-export function SpawnEmotes(): $CancellablePromise<vmangos$0.Emote[]> {
-    return $Call.ByID(3613385473).then(($result: any) => {
-        return $$createType126($result);
-    });
+export function SpawnEmotes(): $CancellablePromise<vmangos$0.Emote[] | null> {
+    return $Call.ByID(3613385473);
 }
 
 /**
@@ -1846,9 +1620,7 @@ export function SpawnEmotes(): $CancellablePromise<vmangos$0.Emote[]> {
  * equipment, stand state, emote or sheath state was edited.
  */
 export function SpawnLook(display: number, equipment: number, stand: number, emote: number, sheath: number): $CancellablePromise<vmangos$0.LookResult> {
-    return $Call.ByID(1461378627, display, equipment, stand, emote, sheath).then(($result: any) => {
-        return $$createType127($result);
-    });
+    return $Call.ByID(1461378627, display, equipment, stand, emote, sheath);
 }
 
 /**
@@ -1856,66 +1628,52 @@ export function SpawnLook(display: number, equipment: number, stand: number, emo
  * "object") spawn in the world database: its template's C++ script and AI, an object's use and event
  * scripts, a creature's EventAI events and path scripts (#137).
  */
-export function SpawnScripts(kind: string, entry: number, guid: number): $CancellablePromise<vmangos$0.SpawnScript[]> {
-    return $Call.ByID(976054992, kind, entry, guid).then(($result: any) => {
-        return $$createType129($result);
-    });
+export function SpawnScripts(kind: string, entry: number, guid: number): $CancellablePromise<vmangos$0.SpawnScript[] | null> {
+    return $Call.ByID(976054992, kind, entry, guid);
 }
 
 /**
  * SpawnTeleports lists where a creature (kind "creature") or game object (kind "object") spawn sends
  * a player or moves itself: its gossip, the spells it casts and the scripts it runs (#306, #308).
  */
-export function SpawnTeleports(kind: string, entry: number, guid: number): $CancellablePromise<vmangos$0.SpawnTeleport[]> {
-    return $Call.ByID(1058365608, kind, entry, guid).then(($result: any) => {
-        return $$createType131($result);
-    });
+export function SpawnTeleports(kind: string, entry: number, guid: number): $CancellablePromise<vmangos$0.SpawnTeleport[] | null> {
+    return $Call.ByID(1058365608, kind, entry, guid);
 }
 
 /**
  * SpellCategories lists the categories the creature editor's Spells tab browses the client's
  * spells by (#340): the creature abilities, all spells, and the class, pet and profession skill lines.
  */
-export function SpellCategories(): $CancellablePromise<vmangos$0.SpellCategory[]> {
-    return $Call.ByID(1717480145).then(($result: any) => {
-        return $$createType133($result);
-    });
+export function SpellCategories(): $CancellablePromise<vmangos$0.SpellCategory[] | null> {
+    return $Call.ByID(1717480145);
 }
 
 /**
  * SpellRefs gives each of the client's spells by ID, with its rank, icon and text.
  */
-export function SpellRefs(ids: number[]): $CancellablePromise<{ [_ in `${number}`]?: vmangos$0.SpellRef }> {
-    return $Call.ByID(221523951, ids).then(($result: any) => {
-        return $$createType134($result);
-    });
+export function SpellRefs(ids: number[] | null): $CancellablePromise<{ [_ in `${number}`]?: vmangos$0.SpellRef } | null> {
+    return $Call.ByID(221523951, ids);
 }
 
 /**
  * SpellStarters lists the kinds of spell New spell can start from without copying another (#360).
  */
-export function SpellStarters(): $CancellablePromise<vmangos$0.SpellStarter[]> {
-    return $Call.ByID(1419800441).then(($result: any) => {
-        return $$createType136($result);
-    });
+export function SpellStarters(): $CancellablePromise<vmangos$0.SpellStarter[] | null> {
+    return $Call.ByID(1419800441);
 }
 
 /**
  * SpellTables lists the client's cast times, durations, ranges and radii, for the spell editor's selects.
  */
 export function SpellTables(): $CancellablePromise<vmangos$0.SpellTables> {
-    return $Call.ByID(4135132792).then(($result: any) => {
-        return $$createType137($result);
-    });
+    return $Call.ByID(4135132792);
 }
 
 /**
  * SpellTexts gives the description of each spell, its $ tokens filled in, for the Shop tab's tooltips.
  */
-export function SpellTexts(ids: number[]): $CancellablePromise<{ [_ in `${number}`]?: string }> {
-    return $Call.ByID(810037779, ids).then(($result: any) => {
-        return $$createType27($result);
-    });
+export function SpellTexts(ids: number[] | null): $CancellablePromise<{ [_ in `${number}`]?: string } | null> {
+    return $Call.ByID(810037779, ids);
 }
 
 /**
@@ -1923,18 +1681,14 @@ export function SpellTexts(ids: number[]): $CancellablePromise<{ [_ in `${number
  * Icons tool (#683).
  */
 export function SpellsWithIcon(name: string): $CancellablePromise<vmangos$0.IconSpells> {
-    return $Call.ByID(3289700607, name).then(($result: any) => {
-        return $$createType138($result);
-    });
+    return $Call.ByID(3289700607, name);
 }
 
 /**
  * SpellsWithVisual names a few of the client's spells that use a spell visual, for the spell editor.
  */
-export function SpellsWithVisual(visual: number): $CancellablePromise<vmangos$0.SpellRef[]> {
-    return $Call.ByID(3405591838, visual).then(($result: any) => {
-        return $$createType120($result);
-    });
+export function SpellsWithVisual(visual: number): $CancellablePromise<vmangos$0.SpellRef[] | null> {
+    return $Call.ByID(3405591838, visual);
 }
 
 /**
@@ -1942,9 +1696,7 @@ export function SpellsWithVisual(visual: number): $CancellablePromise<vmangos$0.
  * a probe; only in a dev build (make dev or make dev-page). A sandbox already on starts again from a fresh copy.
  */
 export function StartClientSandbox(): $CancellablePromise<$models.ClientSandbox> {
-    return $Call.ByID(3877588295).then(($result: any) => {
-        return $$createType139($result);
-    });
+    return $Call.ByID(3877588295);
 }
 
 /**
@@ -1953,19 +1705,15 @@ export function StartClientSandbox(): $CancellablePromise<$models.ClientSandbox>
  * is set) and route take, for the Flight Paths window (#180).
  */
 export function TaxiNetwork(mapID: number): $CancellablePromise<vmangos$0.TaxiNetwork> {
-    return $Call.ByID(252153553, mapID).then(($result: any) => {
-        return $$createType140($result);
-    });
+    return $Call.ByID(252153553, mapID);
 }
 
 /**
  * TemplateNames names item, creature, object or quest templates (kind) by entry, for the quest
  * editor's references.
  */
-export function TemplateNames(kind: string, ids: number[]): $CancellablePromise<{ [_ in `${number}`]?: vmangos$0.NamedRef }> {
-    return $Call.ByID(3063467121, kind, ids).then(($result: any) => {
-        return $$createType142($result);
-    });
+export function TemplateNames(kind: string, ids: number[] | null): $CancellablePromise<{ [_ in `${number}`]?: vmangos$0.NamedRef } | null> {
+    return $Call.ByID(3063467121, kind, ids);
 }
 
 /**
@@ -1976,7 +1724,7 @@ export function TemplateNames(kind: string, ids: number[]): $CancellablePromise<
  * background: progress arrives as "servermaps:log" events and "servermaps:done" carries an error
  * message, or nothing.
  */
-export function UpdateRegionServer(mapID: number, tiles: string[]): $CancellablePromise<void> {
+export function UpdateRegionServer(mapID: number, tiles: string[] | null): $CancellablePromise<void> {
     return $Call.ByID(1230116475, mapID, tiles);
 }
 
@@ -1991,20 +1739,16 @@ export function VmangosPath(): $CancellablePromise<string> {
  * WMODoodadSets names a WMO's doodad sets, by index (set 0 is the global set), for the Inspector's
  * doodad set choice.
  */
-export function WMODoodadSets(path: string): $CancellablePromise<string[]> {
-    return $Call.ByID(1344426060, path).then(($result: any) => {
-        return $$createType34($result);
-    });
+export function WMODoodadSets(path: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1344426060, path);
 }
 
 /**
  * WorldHorizon reads every WDL tile of a map for the world view's horizon (#15), each at its own tile
  * coordinates.
  */
-export function WorldHorizon(mapName: string): $CancellablePromise<vmangos$0.HorizonTile[]> {
-    return $Call.ByID(2687737038, mapName).then(($result: any) => {
-        return $$createType102($result);
-    });
+export function WorldHorizon(mapName: string): $CancellablePromise<vmangos$0.HorizonTile[] | null> {
+    return $Call.ByID(2687737038, mapName);
 }
 
 /**
@@ -2014,25 +1758,21 @@ export function WorldHorizon(mapName: string): $CancellablePromise<vmangos$0.Hor
  * creature editor's lists (vendor, trainer, equipment, loot and spell lists, gossip scripts, map
  * points) and conditions ("condition", by what they test).
  */
-export function WorldRefNames(kind: string, ids: number[]): $CancellablePromise<{ [_ in `${number}`]?: string }> {
-    return $Call.ByID(1793279412, kind, ids).then(($result: any) => {
-        return $$createType27($result);
-    });
+export function WorldRefNames(kind: string, ids: number[] | null): $CancellablePromise<{ [_ in `${number}`]?: string } | null> {
+    return $Call.ByID(1793279412, kind, ids);
 }
 
 /**
  * WowStatus reports whether a WoW client is configured and loaded.
  */
 export function WowStatus(): $CancellablePromise<wow$0.Status> {
-    return $Call.ByID(1007896726).then(($result: any) => {
-        return $$createType76($result);
-    });
+    return $Call.ByID(1007896726);
 }
 
 /**
  * WriteHeightmap saves a grid of heights as a 16-bit PNG at path.
  */
-export function WriteHeightmap(path: string, side: number, heights: number[]): $CancellablePromise<void> {
+export function WriteHeightmap(path: string, side: number, heights: number[] | null): $CancellablePromise<void> {
     return $Call.ByID(2106806839, path, side, heights);
 }
 
@@ -2042,9 +1782,7 @@ export function WriteHeightmap(path: string, side: number, heights: number[]): $
  * at it, with the game closed around it.
  */
 export function WriteLoadingScreen(spec: vmangos$0.LoadingScreenSpec): $CancellablePromise<$models.LoadingScreenResult> {
-    return $Call.ByID(1227995428, spec).then(($result: any) => {
-        return $$createType143($result);
-    });
+    return $Call.ByID(1227995428, spec);
 }
 
 /**
@@ -2052,7 +1790,7 @@ export function WriteLoadingScreen(spec: vmangos$0.LoadingScreenSpec): $Cancella
  * (B-129): their BLPs and the minimap index go into Meld's patch, with the game closed around it.
  * Returns the patch's path.
  */
-export function WriteMinimapTiles(mapDir: string, tiles: vmangos$0.MinimapTile[]): $CancellablePromise<string> {
+export function WriteMinimapTiles(mapDir: string, tiles: vmangos$0.MinimapTile[] | null): $CancellablePromise<string> {
     return $Call.ByID(3631764156, mapDir, tiles);
 }
 
@@ -2092,9 +1830,7 @@ export function WriteTextFile(path: string, text: string): $CancellablePromise<v
  * with the game closed around it.
  */
 export function WriteWorldMap(spec: vmangos$0.WorldMapSpec): $CancellablePromise<$models.WorldMapResult> {
-    return $Call.ByID(2515177782, spec).then(($result: any) => {
-        return $$createType144($result);
-    });
+    return $Call.ByID(2515177782, spec);
 }
 
 /**
@@ -2102,9 +1838,7 @@ export function WriteWorldMap(spec: vmangos$0.WorldMapSpec): $CancellablePromise
  * ground's area, for the trees, bushes and rocks the New world page scatters (#758).
  */
 export function ZoneDoodads(mapDir: string, zone: vmangos$0.Zone): $CancellablePromise<vmangos$0.ZoneDoodadList> {
-    return $Call.ByID(2432143917, mapDir, zone).then(($result: any) => {
-        return $$createType145($result);
-    });
+    return $Call.ByID(2432143917, mapDir, zone);
 }
 
 /**
@@ -2112,178 +1846,20 @@ export function ZoneDoodads(mapDir: string, zone: vmangos$0.Zone): $CancellableP
  * with a file to play, for the zone editor (#31).
  */
 export function ZoneSounds(): $CancellablePromise<vmangos$0.ZoneSoundTables> {
-    return $Call.ByID(1085384687).then(($result: any) => {
-        return $$createType146($result);
-    });
+    return $Call.ByID(1085384687);
 }
 
 /**
  * ZoneTextures lists the ground textures a zone's own tiles use, by share of its ground, for the New
  * world page's texture packs (#733). mapDir is the zone's map folder (Map.dbc's directory).
  */
-export function ZoneTextures(mapDir: string, zone: vmangos$0.Zone): $CancellablePromise<vmangos$0.TextureUse[]> {
-    return $Call.ByID(3947220823, mapDir, zone).then(($result: any) => {
-        return $$createType148($result);
-    });
+export function ZoneTextures(mapDir: string, zone: vmangos$0.Zone): $CancellablePromise<vmangos$0.TextureUse[] | null> {
+    return $Call.ByID(3947220823, mapDir, zone);
 }
 
 /**
  * ZoneWeather reads every zone's weather chances for the zone editor (#185).
  */
 export function ZoneWeather(): $CancellablePromise<$models.ZoneWeatherList> {
-    return $Call.ByID(4137256729).then(($result: any) => {
-        return $$createType149($result);
-    });
+    return $Call.ByID(4137256729);
 }
-
-// Private type creation functions
-const $$createType0 = vmangos$0.Result.createFrom;
-const $$createType1 = vmangos$0.AreaRow.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $models.AreaTriggerList.createFrom;
-const $$createType4 = vmangos$0.Area.createFrom;
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = vmangos$0.SpawnIDReport.createFrom;
-const $$createType7 = vmangos$0.ClassLevelStats.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = vmangos$0.GreetingSaved.createFrom;
-const $$createType10 = $models.SandboxEnded.createFrom;
-const $$createType11 = vmangos$0.EquipBonusKind.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = $Create.Map($Create.Any, $Create.Any);
-const $$createType14 = $models.IconsExported.createFrom;
-const $$createType15 = vmangos$0.FactionInfo.createFrom;
-const $$createType16 = $Create.Array($$createType15);
-const $$createType17 = $models.GameClientInfo.createFrom;
-const $$createType18 = vmangos$0.GameEvent.createFrom;
-const $$createType19 = $Create.Array($$createType18);
-const $$createType20 = $models.GameLoginInfo.createFrom;
-const $$createType21 = $models.GameWindowInfo.createFrom;
-const $$createType22 = vmangos$0.GroundEffectTables.createFrom;
-const $$createType23 = $Create.Nullable($$createType22);
-const $$createType24 = $models.IconsImported.createFrom;
-const $$createType25 = $Create.Array($Create.Any);
-const $$createType26 = vmangos$0.IconDisplay.createFrom;
-const $$createType27 = $Create.Map($Create.Any, $Create.Any);
-const $$createType28 = vmangos$0.ItemLook.createFrom;
-const $$createType29 = vmangos$0.ItemSet.createFrom;
-const $$createType30 = $Create.Array($$createType29);
-const $$createType31 = vmangos$0.ItemTables.createFrom;
-const $$createType32 = vmangos$0.LiquidTypeEntry.createFrom;
-const $$createType33 = $Create.Array($$createType32);
-const $$createType34 = $Create.Array($Create.Any);
-const $$createType35 = vmangos$0.CreatureTemplate.createFrom;
-const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = vmangos$0.DisplayEntry.createFrom;
-const $$createType38 = $Create.Array($$createType37);
-const $$createType39 = vmangos$0.ItemDisplayEntry.createFrom;
-const $$createType40 = $Create.Array($$createType39);
-const $$createType41 = vmangos$0.ItemKind.createFrom;
-const $$createType42 = $Create.Array($$createType41);
-const $$createType43 = vmangos$0.ObjectTemplate.createFrom;
-const $$createType44 = $Create.Array($$createType43);
-const $$createType45 = $models.PrefabFile.createFrom;
-const $$createType46 = $Create.Array($$createType45);
-const $$createType47 = recovery$0.Info.createFrom;
-const $$createType48 = $Create.Array($$createType47);
-const $$createType49 = scripts$0.File.createFrom;
-const $$createType50 = $Create.Array($$createType49);
-const $$createType51 = vmangos$0.SpellList.createFrom;
-const $$createType52 = vmangos$0.VisualEffect.createFrom;
-const $$createType53 = $Create.Array($$createType52);
-const $$createType54 = vmangos$0.WeaponEntry.createFrom;
-const $$createType55 = $Create.Array($$createType54);
-const $$createType56 = vmangos$0.RegionView.createFrom;
-const $$createType57 = $Create.Nullable($$createType56);
-const $$createType58 = mapfile$0.MapData.createFrom;
-const $$createType59 = $Create.Nullable($$createType58);
-const $$createType60 = $models.ScriptImage.createFrom;
-const $$createType61 = vmangos$0.WorldSpawn.createFrom;
-const $$createType62 = $Create.Array($$createType61);
-const $$createType63 = vmangos$0.LoadingScreen.createFrom;
-const $$createType64 = $Create.Array($$createType63);
-const $$createType65 = vmangos$0.MapEntry.createFrom;
-const $$createType66 = $Create.Array($$createType65);
-const $$createType67 = vmangos$0.MapLights.createFrom;
-const $$createType68 = $Create.Nullable($$createType67);
-const $$createType69 = vmangos$0.Zone.createFrom;
-const $$createType70 = $Create.Array($$createType69);
-const $$createType71 = vmangos$0.AnimInfo.createFrom;
-const $$createType72 = $Create.Array($$createType71);
-const $$createType73 = $models.LightIDs.createFrom;
-const $$createType74 = vmangos$0.ObjectDisplaySounds.createFrom;
-const $$createType75 = vmangos$0.ObjectTables.createFrom;
-const $$createType76 = wow$0.Status.createFrom;
-const $$createType77 = vmangos$0.ItemImport.createFrom;
-const $$createType78 = vmangos$0.QuestDeletePlan.createFrom;
-const $$createType79 = vmangos$0.SpellImport.createFrom;
-const $$createType80 = config$0.Project.createFrom;
-const $$createType81 = $models.ProjectList.createFrom;
-const $$createType82 = vmangos$0.QuestTables.createFrom;
-const $$createType83 = heightmap$0.GreyView.createFrom;
-const $$createType84 = $Create.Nullable($$createType83);
-const $$createType85 = vmangos$0.TemplateRecord.createFrom;
-const $$createType86 = vmangos$0.QuestLists.createFrom;
-const $$createType87 = vmangos$0.CreatureSpells.createFrom;
-const $$createType88 = vmangos$0.Gossip.createFrom;
-const $$createType89 = $models.HeightmapData.createFrom;
-const $$createType90 = $Create.Map($Create.Any, $Create.Any);
-const $$createType91 = vmangos$0.ObjectLoot.createFrom;
-const $$createType92 = vmangos$0.ObjectPages.createFrom;
-const $$createType93 = vmangos$0.QuestGivers.createFrom;
-const $$createType94 = vmangos$0.SpellRecord.createFrom;
-const $$createType95 = vmangos$0.VisualDesign.createFrom;
-const $$createType96 = vmangos$0.Vendor.createFrom;
-const $$createType97 = vmangos$0.WorldMapView.createFrom;
-const $$createType98 = $Create.Nullable($$createType97);
-const $$createType99 = vmangos$0.EdgeSegment.createFrom;
-const $$createType100 = $Create.Array($$createType99);
-const $$createType101 = vmangos$0.HorizonTile.createFrom;
-const $$createType102 = $Create.Array($$createType101);
-const $$createType103 = vmangos$0.RegionInner.createFrom;
-const $$createType104 = $Create.Nullable($$createType103);
-const $$createType105 = vmangos$0.RegionResult.createFrom;
-const $$createType106 = vmangos$0.RegionShadows.createFrom;
-const $$createType107 = $Create.Nullable($$createType106);
-const $$createType108 = $models.AreaSaveResult.createFrom;
-const $$createType109 = vmangos$0.CreatureSpellsSaved.createFrom;
-const $$createType110 = $models.TemplateSaved.createFrom;
-const $$createType111 = $models.SoundsSaved.createFrom;
-const $$createType112 = $models.SpellSaved.createFrom;
-const $$createType113 = vmangos$0.ScriptCommand.createFrom;
-const $$createType114 = $Create.Array($$createType113);
-const $$createType115 = vmangos$0.ItemRef.createFrom;
-const $$createType116 = $Create.Array($$createType115);
-const $$createType117 = vmangos$0.QuestRef.createFrom;
-const $$createType118 = $Create.Array($$createType117);
-const $$createType119 = vmangos$0.SpellRef.createFrom;
-const $$createType120 = $Create.Array($$createType119);
-const $$createType121 = vmangos$0.NamedID.createFrom;
-const $$createType122 = $Create.Array($$createType121);
-const $$createType123 = vmangos$0.SoundOption.createFrom;
-const $$createType124 = $Create.Array($$createType123);
-const $$createType125 = vmangos$0.Emote.createFrom;
-const $$createType126 = $Create.Array($$createType125);
-const $$createType127 = vmangos$0.LookResult.createFrom;
-const $$createType128 = vmangos$0.SpawnScript.createFrom;
-const $$createType129 = $Create.Array($$createType128);
-const $$createType130 = vmangos$0.SpawnTeleport.createFrom;
-const $$createType131 = $Create.Array($$createType130);
-const $$createType132 = vmangos$0.SpellCategory.createFrom;
-const $$createType133 = $Create.Array($$createType132);
-const $$createType134 = $Create.Map($Create.Any, $$createType119);
-const $$createType135 = vmangos$0.SpellStarter.createFrom;
-const $$createType136 = $Create.Array($$createType135);
-const $$createType137 = vmangos$0.SpellTables.createFrom;
-const $$createType138 = vmangos$0.IconSpells.createFrom;
-const $$createType139 = $models.ClientSandbox.createFrom;
-const $$createType140 = vmangos$0.TaxiNetwork.createFrom;
-const $$createType141 = vmangos$0.NamedRef.createFrom;
-const $$createType142 = $Create.Map($Create.Any, $$createType141);
-const $$createType143 = $models.LoadingScreenResult.createFrom;
-const $$createType144 = $models.WorldMapResult.createFrom;
-const $$createType145 = vmangos$0.ZoneDoodadList.createFrom;
-const $$createType146 = vmangos$0.ZoneSoundTables.createFrom;
-const $$createType147 = vmangos$0.TextureUse.createFrom;
-const $$createType148 = $Create.Array($$createType147);
-const $$createType149 = $models.ZoneWeatherList.createFrom;

@@ -350,12 +350,12 @@
 		const end = startSaving('Saving the flight paths')
 		error = ''
 		try {
-			const edit = vmangos.TaxiEdit.createFrom({
+			const edit = {
 				nodes: $state.snapshot(stops).filter((s) => dirtyStops.includes(s.id)),
 				removeNodes: removedStops,
 				routes: $state.snapshot(routes).filter((r) => dirtyRoutes.includes(r.id)),
 				removeRoutes: removedRoutes,
-			})
+			} as vmangos.TaxiEdit
 			const res = await SaveTaxi(edit)
 			for (const s of edit.nodes) savedStops.add(s.id)
 			for (const r of edit.routes) savedRoutes.add(r.id)

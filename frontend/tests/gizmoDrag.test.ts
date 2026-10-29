@@ -219,7 +219,7 @@ test('a selected spawn: the ring turns its facing and the arrow its height, each
 	const w = world()
 	editor.tool = 'select'
 	selectObjects(w.objects, [])
-	const s = vmangos.WorldSpawn.createFrom({ kind: 'monster', guid: 1, entry: 100, name: 'Kobold', x: 64, y: 4, z: 62, orientation: 0, model: '', waypoints: [], leader: 0, pool: 0, motherPool: 0 })
+	const s = { kind: 'monster', guid: 1, entry: 100, name: 'Kobold', x: 64, y: 4, z: 62, orientation: 0, model: '', waypoints: [], leader: 0, pool: 0, motherPool: 0 } as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 	w.spawnLayer.set([s])
 	editor.selectedSpawn = w.spawnLayer.get(spawnKey(s))!
 	const state = () => {

@@ -75,7 +75,7 @@
 			setStatus(`${r.name} is already in the shop.`, 4000)
 			return
 		}
-		rows.rows = [...rows.rows, vmangos.VendorItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, maxCount: 0, incrTime: 0, itemFlags: 0, condition: 0 })]
+		rows.rows = [...rows.rows, { item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, maxCount: 0, incrTime: 0, itemFlags: 0, condition: 0 } as vmangos.VendorItem]
 	}
 </script>
 

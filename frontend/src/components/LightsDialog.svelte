@@ -126,7 +126,7 @@
 			const copy = JSON.parse(JSON.stringify(params[global.params[0]])) as Params
 			copy.id = pid
 			params[pid] = copy
-			lights = [...lights, vmangos.MapLight.createFrom({ id: lid, x: cam.x, y: cam.y, z: cam.z, inner: 30, outer: 90, global: false, params: [pid, 0, 0, 0, 0] })]
+			lights = [...lights, { id: lid, x: cam.x, y: cam.y, z: cam.z, inner: 30, outer: 90, global: false, params: [pid, 0, 0, 0, 0] } as vmangos.MapLight]
 			picked = lid
 			touchLight(lid)
 			touchParams(pid)
@@ -141,13 +141,11 @@
 		const end = startSaving('Saving the lights')
 		error = ''
 		try {
-			const patch = await SaveLights(
-				vmangos.LightsEdit.createFrom({
-					mapId,
-					lights: lights.filter((l) => dirtyLights.includes(l.id)),
-					params: dirtyParams.map((id) => params[id]).filter(Boolean),
-				}),
-			)
+			const patch = await SaveLights({
+				mapId,
+				lights: lights.filter((l) => dirtyLights.includes(l.id)),
+				params: dirtyParams.map((id) => params[id]).filter(Boolean),
+			} as vmangos.LightsEdit)
 			dirtyLights = []
 			dirtyParams = []
 			engineRef.current?.reloadClientLights()
@@ -190,7 +188,7 @@
 			if (keys.length >= 16) return
 			const t = keys.length ? Math.min(2879, keys[keys.length - 1].t + 120) : 1440
 			if (keys.some((x) => x.t === t)) return
-			p.colors[band] = [...keys, vmangos.LightKey.createFrom({ t, v: keys[keys.length - 1]?.v ?? 0x808080 })]
+			p.colors[band] = [...keys, { t, v: keys[keys.length - 1]?.v ?? 0x808080 } as vmangos.LightKey]
 		})
 	}
 	function removeKey(k: number) {
@@ -199,7 +197,7 @@
 	/** A float band's value as one number for the whole day (the form sets the band to one key). */
 	const floatOf = (p: Params, i: number) => p.floats[i]?.[0]?.v ?? 0
 	function setFloat(i: number, v: number) {
-		editParams((p) => (p.floats[i] = [vmangos.LightKey.createFrom({ t: 0, v })]))
+		editParams((p) => (p.floats[i] = [{ t: 0, v } as vmangos.LightKey]))
 	}
 </script>
 

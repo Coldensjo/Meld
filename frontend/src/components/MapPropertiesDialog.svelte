@@ -100,7 +100,7 @@
 			ctx.drawImage(bmp, 0, 0, LOADING_SCREEN_SIZE, LOADING_SCREEN_SIZE)
 			const px = new Uint8Array(ctx.getImageData(0, 0, LOADING_SCREEN_SIZE, LOADING_SCREEN_SIZE).data)
 			for (let i = 3; i < px.length; i += 4) px[i] = 255
-			const res = await WriteLoadingScreen(vmangos.LoadingScreenSpec.createFrom({ mapId: ref.mapId, dir: ref.dir, pixels: wailsBytes(px) }))
+			const res = await WriteLoadingScreen({ mapId: ref.mapId, dir: ref.dir, pixels: wailsBytes(px) } as vmangos.LoadingScreenSpec)
 			await loadScreens()
 			if (info.loadingScreen !== res.row.id) setInfo({ loadingScreen: res.row.id })
 			previewKey++

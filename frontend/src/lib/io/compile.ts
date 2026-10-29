@@ -103,7 +103,7 @@ function regionEdit(engine: Engine, region: RegionBlock) {
 	const water = engine.regionLiquids()
 	const { paint, headers } = regionPaint(engine, region.size)
 	const heights = engine.outerHeights()
-	return vmangos.RegionEdit.createFrom({
+	return {
 		mapName: region.mapName,
 		x: region.x,
 		y: region.y,
@@ -116,7 +116,7 @@ function regionEdit(engine: Engine, region: RegionBlock) {
 		hasLiquids: true,
 		liquids: water.liquids,
 		partialLiquids: water.partial,
-	})
+	} as vmangos.RegionEdit
 }
 
 /** The region's name in the status lines: "Azeroth 32_59". */

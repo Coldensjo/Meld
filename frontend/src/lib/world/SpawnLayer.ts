@@ -40,7 +40,7 @@ const KINDS: SpawnKind[] = ['monster', 'npc', 'object']
 export const spawnKey = (s: { kind: string; guid: number }) => `${s.kind}/${s.guid}`
 
 /** A copy of a spawn that edits of the original can't reach. */
-export const cloneSpawn = (s: vmangos.WorldSpawn): vmangos.WorldSpawn => vmangos.WorldSpawn.createFrom(JSON.parse(JSON.stringify(s)))
+export const cloneSpawn = (s: vmangos.WorldSpawn): vmangos.WorldSpawn => JSON.parse(JSON.stringify(s)) as vmangos.WorldSpawn
 
 /**
  * The three.js rotation about Y for a server facing. The server's orientation is measured from its
@@ -429,10 +429,10 @@ export class SpawnLayer {
 			if (!this.changes.has(key)) continue
 			const s = this.keys.get(key)!
 			const created = this.created.has(key)
-			out.push(vmangos.SpawnEdit.createFrom({ spawn: s, original, created, deleted: false }))
+			out.push({ spawn: s, original, created, deleted: false } as vmangos.SpawnEdit)
 		}
 		for (const original of this.deleted.values()) {
-			out.push(vmangos.SpawnEdit.createFrom({ spawn: original, original, created: false, deleted: true }))
+			out.push({ spawn: original, original, created: false, deleted: true } as vmangos.SpawnEdit)
 		}
 		return out
 	}

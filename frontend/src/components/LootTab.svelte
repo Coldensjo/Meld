@@ -137,7 +137,7 @@
 			setStatus(`${r.name} is already in the contents.`, 4000)
 			return
 		}
-		rows.rows.items = [...items, vmangos.LootItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, chance: 100, group: 0, minCount: 1, maxCount: 1, condition: 0, patchMin: 0, patchMax: 10 })]
+		rows.rows.items = [...items, { item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, chance: 100, group: 0, minCount: 1, maxCount: 1, condition: 0, patchMin: 0, patchMax: 10 } as vmangos.LootItem]
 	}
 
 	// The item under the pointer, for its tooltip.

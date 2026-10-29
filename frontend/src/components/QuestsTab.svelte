@@ -63,7 +63,7 @@
 
 	function save() {
 		void lists.save('Saving the quest givers', async (q) => {
-			await (kind === 'object' ? SaveObjectQuests : SaveCreatureQuests)(entry, vmangos.QuestLists.createFrom($state.snapshot(q)))
+			await (kind === 'object' ? SaveObjectQuests : SaveCreatureQuests)(entry, $state.snapshot(q) as vmangos.QuestLists)
 			setStatus(`Saved the quests of ${kind === 'object' ? 'game object' : 'creature'} ${entry}: starts ${q.starts.length}, ends ${q.ends.length}. Restart the world server to see them in the game.`, 10000)
 		})
 	}
@@ -74,7 +74,7 @@
 
 	function add(list: List, r: vmangos.QuestRef) {
 		if (refused || quests[list].some((q) => q.quest === r.quest)) return
-		lists.rows[list] = [...quests[list], vmangos.QuestRef.createFrom({ ...r, patchMin: 0, patchMax: 10 })]
+		lists.rows[list] = [...quests[list], { ...r, patchMin: 0, patchMax: 10 } as vmangos.QuestRef]
 	}
 
 	// Adding: a search over quest_template by title or entry.

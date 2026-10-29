@@ -14,7 +14,7 @@ const { spawnAdd, spawnChange, spawnDelete } = await import('../src/lib/world/sp
 type Kind = 'monster' | 'object'
 
 function spawn(kind: Kind, guid: number, entry: number, x = 0): vmangos.WorldSpawn {
-	return vmangos.WorldSpawn.createFrom({
+	return {
 		kind,
 		guid,
 		entry,
@@ -28,7 +28,7 @@ function spawn(kind: Kind, guid: number, entry: number, x = 0): vmangos.WorldSpa
 		leader: 0,
 		pool: 0,
 		motherPool: 0,
-	})
+	} as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 }
 
 /** A layer holding `rows` as the world database's spawns. */

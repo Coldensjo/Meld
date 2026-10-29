@@ -14,7 +14,7 @@ const { SpawnActions, nextFreeGuid, nextFreePoolEntry } = await import('../src/l
 const { editor, ui } = await import('../src/lib/state/editor.svelte.ts')
 
 function spawn(kind: 'monster' | 'npc' | 'object', guid: number, pool = 0): vmangos.WorldSpawn {
-	return vmangos.WorldSpawn.createFrom({ kind, guid, entry: 100 + guid, name: `${kind}${guid}`, x: 0, y: 0, z: 0, orientation: 0, model: '', waypoints: [], leader: 0, pool, motherPool: 0 })
+	return { kind, guid, entry: 100 + guid, name: `${kind}${guid}`, x: 0, y: 0, z: 0, orientation: 0, model: '', waypoints: [], leader: 0, pool, motherPool: 0 } as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 }
 
 /** A tab holding `rows`: what SpawnActions reads of a MapDocument. */
@@ -77,7 +77,7 @@ const key = (k: string) => ({ key: k, code: '', altKey: false, shiftKey: false, 
 test('the spawn keys: Esc stops placing, Delete removes the selected spawn undoably', () => {
 	const t = tab([spawn('object', 5)])
 	const actions = new SpawnActions(host([t]))
-	ui.placeObject = vmangos.ObjectTemplate.createFrom({ entry: 1, name: 'Chair' })
+	ui.placeObject = { entry: 1, name: 'Chair' } as vmangos.ObjectTemplate
 	assert.equal(actions.handleKey(key('Escape')), true)
 	assert.equal(ui.placeObject, null)
 	editor.tool = 'select'

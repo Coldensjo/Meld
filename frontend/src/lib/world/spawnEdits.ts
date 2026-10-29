@@ -1,5 +1,4 @@
 import type { vmangos } from '../wails/models'
-import { vmangos as models } from '../wails/models'
 import { SpawnLook } from '../wails/App'
 import type { Command } from '../state/history'
 import { editor, ui } from '../state/editor.svelte'
@@ -192,7 +191,7 @@ const NO_GROUPS = { leader: 0, followDist: 0, followAngle: 0, groupFlags: 0, poo
  * respawn time and no movement.
  */
 export function newCreatureSpawn(t: vmangos.CreatureTemplate, guid: number, x: number, y: number, z: number, orientation: number, look: vmangos.LookResult): vmangos.WorldSpawn {
-	return models.WorldSpawn.createFrom({
+	return {
 		kind: t.npcFlags ? 'npc' : 'monster',
 		guid,
 		entry: t.entry,
@@ -224,8 +223,12 @@ export function newCreatureSpawn(t: vmangos.CreatureTemplate, guid: number, x: n
 		wanderDistance: 0,
 		waypoints: [],
 		pathFromTemplate: false,
+		// No tilt, equipment or world events, as Go's zero values have them.
+		tilt: [],
+		equipItems: [0, 0, 0],
+		events: [],
 		...NO_GROUPS,
-	})
+	}
 }
 
 /**
@@ -275,7 +278,7 @@ export function objectEntryFields(t: vmangos.ObjectTemplate): SpawnFields {
 
 /** A game object spawn of template `t` at a point, as the Place tool makes it. */
 export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn {
-	return models.WorldSpawn.createFrom({
+	return {
 		kind: 'object',
 		guid,
 		entry: t.entry,
@@ -308,8 +311,11 @@ export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: numbe
 		wanderDistance: 0,
 		waypoints: [],
 		pathFromTemplate: false,
+		// No tilt or world events, as Go's zero values have them.
+		tilt: [],
+		events: [],
 		...NO_GROUPS,
-	})
+	}
 }
 
 /** Adds a spawn now, as one undoable command. */

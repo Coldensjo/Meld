@@ -81,17 +81,15 @@ export function publishVmangosMap(engine: Engine) {
 		endPublish = startSaving(`Publishing ${ref.dir}`)
 		setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)
 		try {
-			await PublishVmangosMap(
-				vmangos.MapSpec.createFrom({
-					Dir: ref.dir,
-					MapID: ref.mapId,
-					Tiles: out.tiles,
-					Water: input.waterEnabled,
-					WaterLevel: input.waterLevel,
-					Info: ref.info,
-					Global: global ? { Type: global.type, X: global.x, Y: global.y, Z: global.z, RotY: global.rotY, TiltX: global.tiltX ?? 0, TiltZ: global.tiltZ ?? 0, Scale: global.scale } : undefined,
-				}),
-			)
+			await PublishVmangosMap({
+				Dir: ref.dir,
+				MapID: ref.mapId,
+				Tiles: out.tiles,
+				Water: input.waterEnabled,
+				WaterLevel: input.waterLevel,
+				Info: ref.info,
+				Global: global ? { Type: global.type, X: global.x, Y: global.y, Z: global.z, RotY: global.rotY, TiltX: global.tiltX ?? 0, TiltZ: global.tiltZ ?? 0, Scale: global.scale } : undefined,
+			} as vmangos.MapSpec)
 		} catch (e) {
 			ui.busy = false
 			endPublish()

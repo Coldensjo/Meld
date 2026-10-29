@@ -13,7 +13,7 @@ const { spawnAdd, spawnsBatch, syncSpawnUi } = await import('../src/lib/world/sp
 const { editor } = await import('../src/lib/state/editor.svelte.ts')
 
 function creature(guid: number, x: number): vmangos.WorldSpawn {
-	return vmangos.WorldSpawn.createFrom({ kind: 'monster', guid, entry: 38, name: 'Defias Thug', x, y: 0, z: 0, orientation: 0, model: '', waypoints: [], leader: 0, pool: 0, motherPool: 0 })
+	return { kind: 'monster', guid, entry: 38, name: 'Defias Thug', x, y: 0, z: 0, orientation: 0, model: '', waypoints: [], leader: 0, pool: 0, motherPool: 0 } as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 }
 
 test("a 60-creature stroke's undo and redo each redraw the layer once", () => {

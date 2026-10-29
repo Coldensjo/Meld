@@ -6511,7 +6511,7 @@ export class Engine {
 			knownTexture,
 			knownArea,
 			edges,
-			spawnIds: 'go' in window && region ? (q) => CheckSpawnIDs(vmangos.SpawnIDQuery.createFrom(q)) : null,
+			spawnIds: 'go' in window && region ? (q) => CheckSpawnIDs(q as vmangos.SpawnIDQuery) : null,
 			progress: (what) => setStatus(`Checking the map: ${what}…`, 0),
 		})
 		const n = r.findings.length

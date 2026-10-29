@@ -3,10 +3,6 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Create as $Create } from "@wailsio/runtime";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as adt$0 from "../adt/models.js";
 
 /**
@@ -15,76 +11,27 @@ import * as adt$0 from "../adt/models.js";
  * CreatureEventAI.h: 4 aggro, 6 death...), Chance its event_chance, Chat broadcast_text.chat_type
  * (CHAT_TYPE_*: 0 say, 1 yell, 2 emote...).
  */
-export class AILine {
+export interface AILine {
     "event": number;
     "chance": number;
     "chat": number;
     "textId": number;
     "text": string;
-
-    /** Creates a new AILine instance. */
-    constructor($$source: Partial<AILine> = {}) {
-        if (!("event" in $$source)) {
-            this["event"] = 0;
-        }
-        if (!("chance" in $$source)) {
-            this["chance"] = 0;
-        }
-        if (!("chat" in $$source)) {
-            this["chat"] = 0;
-        }
-        if (!("textId" in $$source)) {
-            this["textId"] = 0;
-        }
-        if (!("text" in $$source)) {
-            this["text"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AILine instance from a string or object.
-     */
-    static createFrom($$source: any = {}): AILine {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new AILine($$parsedSource as Partial<AILine>);
-    }
 }
 
 /**
  * AnimInfo is an animation a model has: its AnimationData ID and name.
  */
-export class AnimInfo {
+export interface AnimInfo {
     "id": number;
     "name": string;
-
-    /** Creates a new AnimInfo instance. */
-    constructor($$source: Partial<AnimInfo> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AnimInfo instance from a string or object.
-     */
-    static createFrom($$source: any = {}): AnimInfo {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new AnimInfo($$parsedSource as Partial<AnimInfo>);
-    }
 }
 
 /**
  * Area is a row of the client's AreaTable.dbc: a zone or a subzone, which a chunk names in its
  * header to say where a player standing on it is.
  */
-export class Area {
+export interface Area {
     "id": number;
 
     /**
@@ -97,39 +44,13 @@ export class Area {
      */
     "parent": number;
     "name": string;
-
-    /** Creates a new Area instance. */
-    constructor($$source: Partial<Area> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("parent" in $$source)) {
-            this["parent"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Area instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Area {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new Area($$parsedSource as Partial<Area>);
-    }
 }
 
 /**
  * AreaRow is a whole row of AreaTable.dbc as the zone editor edits it: a zone (Parent 0) or a
  * subzone of one. AreaBit is the area's exploration bit, unique across the table.
  */
-export class AreaRow {
+export interface AreaRow {
     "id": number;
     "mapId": number;
     "parent": number;
@@ -155,71 +76,6 @@ export class AreaRow {
     "minElevation": number;
     "ambientMul": number;
     "light": number;
-
-    /** Creates a new AreaRow instance. */
-    constructor($$source: Partial<AreaRow> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("parent" in $$source)) {
-            this["parent"] = 0;
-        }
-        if (!("areaBit" in $$source)) {
-            this["areaBit"] = 0;
-        }
-        if (!("flags" in $$source)) {
-            this["flags"] = 0;
-        }
-        if (!("soundPref" in $$source)) {
-            this["soundPref"] = 0;
-        }
-        if (!("soundSwim" in $$source)) {
-            this["soundSwim"] = 0;
-        }
-        if (!("ambience" in $$source)) {
-            this["ambience"] = 0;
-        }
-        if (!("music" in $$source)) {
-            this["music"] = 0;
-        }
-        if (!("introMusic" in $$source)) {
-            this["introMusic"] = 0;
-        }
-        if (!("level" in $$source)) {
-            this["level"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("faction" in $$source)) {
-            this["faction"] = 0;
-        }
-        if (!("liquid" in $$source)) {
-            this["liquid"] = 0;
-        }
-        if (!("minElevation" in $$source)) {
-            this["minElevation"] = 0;
-        }
-        if (!("ambientMul" in $$source)) {
-            this["ambientMul"] = 0;
-        }
-        if (!("light" in $$source)) {
-            this["light"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AreaRow instance from a string or object.
-     */
-    static createFrom($$source: any = {}): AreaRow {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new AreaRow($$parsedSource as Partial<AreaRow>);
-    }
 }
 
 /**
@@ -227,7 +83,7 @@ export class AreaRow {
  * Radius, or with Radius 0 a box of BoxX by BoxY by BoxZ turned BoxYaw radians about Z. The client
  * tells the server when a player walks in; the server does what its tables say, here a teleport.
  */
-export class AreaTrigger {
+export interface AreaTrigger {
     "id": number;
     "mapId": number;
     "x": number;
@@ -248,107 +104,24 @@ export class AreaTrigger {
      * Teleport is where it sends a player, or nil when it doesn't.
      */
     "teleport": TriggerTeleport | null;
-
-    /** Creates a new AreaTrigger instance. */
-    constructor($$source: Partial<AreaTrigger> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("radius" in $$source)) {
-            this["radius"] = 0;
-        }
-        if (!("boxX" in $$source)) {
-            this["boxX"] = 0;
-        }
-        if (!("boxY" in $$source)) {
-            this["boxY"] = 0;
-        }
-        if (!("boxZ" in $$source)) {
-            this["boxZ"] = 0;
-        }
-        if (!("boxYaw" in $$source)) {
-            this["boxYaw"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("teleport" in $$source)) {
-            this["teleport"] = null;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AreaTrigger instance from a string or object.
-     */
-    static createFrom($$source: any = {}): AreaTrigger {
-        const $$createField11_0 = $$createType1;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("teleport" in $$parsedSource) {
-            $$parsedSource["teleport"] = $$createField11_0($$parsedSource["teleport"]);
-        }
-        return new AreaTrigger($$parsedSource as Partial<AreaTrigger>);
-    }
 }
 
 /**
  * CharacterSpot is where a character stands on the server: its map, its position in the server's
  * coordinates and its facing (radians, from the server's +X towards +Y).
  */
-export class CharacterSpot {
+export interface CharacterSpot {
     "map": number;
     "x": number;
     "y": number;
     "z": number;
     "o": number;
-
-    /** Creates a new CharacterSpot instance. */
-    constructor($$source: Partial<CharacterSpot> = {}) {
-        if (!("map" in $$source)) {
-            this["map"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("o" in $$source)) {
-            this["o"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CharacterSpot instance from a string or object.
-     */
-    static createFrom($$source: any = {}): CharacterSpot {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new CharacterSpot($$parsedSource as Partial<CharacterSpot>);
-    }
 }
 
 /**
  * ChunkView is one 8x8-cell chunk of a tile, for the editor.
  */
-export class ChunkView {
+export interface ChunkView {
     "indexX": number;
     "indexY": number;
     "areaId": number;
@@ -357,56 +130,18 @@ export class ChunkView {
      * Impassable says the chunk's header flags it as impassable.
      */
     "impassable"?: boolean;
-    "layers": LayerView[];
+    "layers": LayerView[] | null;
 
     /**
      * Holes has one entry per cell row; bit n set means cell n of that row is a hole (a cave mouth).
      * Ints rather than bytes, since a byte slice would travel as base64.
      */
-    "holes"?: number[];
+    "holes"?: number[] | null;
 
     /**
      * NoEffect has one entry per cell row; bit n set means cell n grows no ground effect doodads.
      */
-    "noEffect"?: number[];
-
-    /** Creates a new ChunkView instance. */
-    constructor($$source: Partial<ChunkView> = {}) {
-        if (!("indexX" in $$source)) {
-            this["indexX"] = 0;
-        }
-        if (!("indexY" in $$source)) {
-            this["indexY"] = 0;
-        }
-        if (!("areaId" in $$source)) {
-            this["areaId"] = 0;
-        }
-        if (!("layers" in $$source)) {
-            this["layers"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ChunkView instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ChunkView {
-        const $$createField4_0 = $$createType3;
-        const $$createField5_0 = $$createType4;
-        const $$createField6_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("layers" in $$parsedSource) {
-            $$parsedSource["layers"] = $$createField4_0($$parsedSource["layers"]);
-        }
-        if ("holes" in $$parsedSource) {
-            $$parsedSource["holes"] = $$createField5_0($$parsedSource["holes"]);
-        }
-        if ("noEffect" in $$parsedSource) {
-            $$parsedSource["noEffect"] = $$createField6_0($$parsedSource["noEffect"]);
-        }
-        return new ChunkView($$parsedSource as Partial<ChunkView>);
-    }
+    "noEffect"?: number[] | null;
 }
 
 /**
@@ -414,41 +149,12 @@ export class ChunkView {
  * a level before the template's multipliers (health × health_multiplier, melee damage ×
  * damage_multiplier, armour × armor_multiplier).
  */
-export class ClassLevelStats {
+export interface ClassLevelStats {
     "level": number;
     "health": number;
     "mana": number;
     "meleeDamage": number;
     "armor": number;
-
-    /** Creates a new ClassLevelStats instance. */
-    constructor($$source: Partial<ClassLevelStats> = {}) {
-        if (!("level" in $$source)) {
-            this["level"] = 0;
-        }
-        if (!("health" in $$source)) {
-            this["health"] = 0;
-        }
-        if (!("mana" in $$source)) {
-            this["mana"] = 0;
-        }
-        if (!("meleeDamage" in $$source)) {
-            this["meleeDamage"] = 0;
-        }
-        if (!("armor" in $$source)) {
-            this["armor"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ClassLevelStats instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ClassLevelStats {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ClassLevelStats($$parsedSource as Partial<ClassLevelStats>);
-    }
 }
 
 /**
@@ -457,29 +163,9 @@ export class ClassLevelStats {
  * (#597); the save bindings hand it to the page as their result's Refused, since Wails passes a
  * returned error to the page as its message only.
  */
-export class ColumnError {
+export interface ColumnError {
     "column": string;
     "message": string;
-
-    /** Creates a new ColumnError instance. */
-    constructor($$source: Partial<ColumnError> = {}) {
-        if (!("column" in $$source)) {
-            this["column"] = "";
-        }
-        if (!("message" in $$source)) {
-            this["message"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ColumnError instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ColumnError {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ColumnError($$parsedSource as Partial<ColumnError>);
-    }
 }
 
 /**
@@ -489,7 +175,7 @@ export class ColumnError {
  * before its first cast and between casts (each a random time from min to max) and a script run on
  * the cast (creature_spells_scripts).
  */
-export class CreatureSpell {
+export interface CreatureSpell {
     "spell": number;
     "probability": number;
     "castTarget": number;
@@ -501,53 +187,6 @@ export class CreatureSpell {
     "repeatMin": number;
     "repeatMax": number;
     "scriptId": number;
-
-    /** Creates a new CreatureSpell instance. */
-    constructor($$source: Partial<CreatureSpell> = {}) {
-        if (!("spell" in $$source)) {
-            this["spell"] = 0;
-        }
-        if (!("probability" in $$source)) {
-            this["probability"] = 0;
-        }
-        if (!("castTarget" in $$source)) {
-            this["castTarget"] = 0;
-        }
-        if (!("targetParam1" in $$source)) {
-            this["targetParam1"] = 0;
-        }
-        if (!("targetParam2" in $$source)) {
-            this["targetParam2"] = 0;
-        }
-        if (!("castFlags" in $$source)) {
-            this["castFlags"] = 0;
-        }
-        if (!("initialMin" in $$source)) {
-            this["initialMin"] = 0;
-        }
-        if (!("initialMax" in $$source)) {
-            this["initialMax"] = 0;
-        }
-        if (!("repeatMin" in $$source)) {
-            this["repeatMin"] = 0;
-        }
-        if (!("repeatMax" in $$source)) {
-            this["repeatMax"] = 0;
-        }
-        if (!("scriptId" in $$source)) {
-            this["scriptId"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CreatureSpell instance from a string or object.
-     */
-    static createFrom($$source: any = {}): CreatureSpell {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new CreatureSpell($$parsedSource as Partial<CreatureSpell>);
-    }
 }
 
 /**
@@ -555,77 +194,27 @@ export class CreatureSpell {
  * the list row's name, how many creature templates use the list (Shared, this one included) and
  * its spells in slot order, empty slots left out.
  */
-export class CreatureSpells {
+export interface CreatureSpells {
     "listId": number;
     "name": string;
     "shared": number;
-    "spells": CreatureSpell[];
-
-    /** Creates a new CreatureSpells instance. */
-    constructor($$source: Partial<CreatureSpells> = {}) {
-        if (!("listId" in $$source)) {
-            this["listId"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("shared" in $$source)) {
-            this["shared"] = 0;
-        }
-        if (!("spells" in $$source)) {
-            this["spells"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CreatureSpells instance from a string or object.
-     */
-    static createFrom($$source: any = {}): CreatureSpells {
-        const $$createField3_0 = $$createType6;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("spells" in $$parsedSource) {
-            $$parsedSource["spells"] = $$createField3_0($$parsedSource["spells"]);
-        }
-        return new CreatureSpells($$parsedSource as Partial<CreatureSpells>);
-    }
+    "spells": CreatureSpell[] | null;
 }
 
 /**
  * CreatureSpellsSaved is what SaveCreatureSpells did: the creature's spell list now (0 when it has
  * none left) and the SQL it ran.
  */
-export class CreatureSpellsSaved {
+export interface CreatureSpellsSaved {
     "listId": number;
     "sql": string;
-
-    /** Creates a new CreatureSpellsSaved instance. */
-    constructor($$source: Partial<CreatureSpellsSaved> = {}) {
-        if (!("listId" in $$source)) {
-            this["listId"] = 0;
-        }
-        if (!("sql" in $$source)) {
-            this["sql"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CreatureSpellsSaved instance from a string or object.
-     */
-    static createFrom($$source: any = {}): CreatureSpellsSaved {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new CreatureSpellsSaved($$parsedSource as Partial<CreatureSpellsSaved>);
-    }
 }
 
 /**
  * CreatureTemplate is a creature the world database can spawn, as the editor's creature search
  * lists it: its template's fields and how its first display looks.
  */
-export class CreatureTemplate {
+export interface CreatureTemplate {
     "entry": number;
     "name": string;
     "subname": string;
@@ -649,65 +238,6 @@ export class CreatureTemplate {
     "model": string;
     "look": string;
     "displayScale": number;
-
-    /** Creates a new CreatureTemplate instance. */
-    constructor($$source: Partial<CreatureTemplate> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("subname" in $$source)) {
-            this["subname"] = "";
-        }
-        if (!("levelMin" in $$source)) {
-            this["levelMin"] = 0;
-        }
-        if (!("levelMax" in $$source)) {
-            this["levelMax"] = 0;
-        }
-        if (!("faction" in $$source)) {
-            this["faction"] = 0;
-        }
-        if (!("npcFlags" in $$source)) {
-            this["npcFlags"] = 0;
-        }
-        if (!("rank" in $$source)) {
-            this["rank"] = 0;
-        }
-        if (!("type" in $$source)) {
-            this["type"] = 0;
-        }
-        if (!("display" in $$source)) {
-            this["display"] = 0;
-        }
-        if (!("scale" in $$source)) {
-            this["scale"] = 0;
-        }
-        if (!("equipment" in $$source)) {
-            this["equipment"] = 0;
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("look" in $$source)) {
-            this["look"] = "";
-        }
-        if (!("displayScale" in $$source)) {
-            this["displayScale"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CreatureTemplate instance from a string or object.
-     */
-    static createFrom($$source: any = {}): CreatureTemplate {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new CreatureTemplate($$parsedSource as Partial<CreatureTemplate>);
-    }
 }
 
 /**
@@ -716,7 +246,7 @@ export class CreatureTemplate {
  * database that use it. ListObjectDisplays gives game object displays in it too, with Type a game
  * object type and no look or skin.
  */
-export class DisplayEntry {
+export interface DisplayEntry {
     "id": number;
     "model": string;
     "look": string;
@@ -740,63 +270,18 @@ export class DisplayEntry {
     /**
      * Names are a few creatures that use the display, the most used first.
      */
-    "names": string[];
+    "names": string[] | null;
 
     /**
      * Uses is how many creature templates use the display.
      */
     "uses": number;
-
-    /** Creates a new DisplayEntry instance. */
-    constructor($$source: Partial<DisplayEntry> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("look" in $$source)) {
-            this["look"] = "";
-        }
-        if (!("scale" in $$source)) {
-            this["scale"] = 0;
-        }
-        if (!("skin" in $$source)) {
-            this["skin"] = "";
-        }
-        if (!("humanoid" in $$source)) {
-            this["humanoid"] = false;
-        }
-        if (!("type" in $$source)) {
-            this["type"] = 0;
-        }
-        if (!("names" in $$source)) {
-            this["names"] = [];
-        }
-        if (!("uses" in $$source)) {
-            this["uses"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new DisplayEntry instance from a string or object.
-     */
-    static createFrom($$source: any = {}): DisplayEntry {
-        const $$createField7_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("names" in $$parsedSource) {
-            $$parsedSource["names"] = $$createField7_0($$parsedSource["names"]);
-        }
-        return new DisplayEntry($$parsedSource as Partial<DisplayEntry>);
-    }
 }
 
 /**
  * DoodadUse is a model (M2) placed in a zone: how many times, and at what scales.
  */
-export class DoodadUse {
+export interface DoodadUse {
     "path": string;
     "count": number;
 
@@ -805,32 +290,6 @@ export class DoodadUse {
      */
     "scaleMin": number;
     "scaleMax": number;
-
-    /** Creates a new DoodadUse instance. */
-    constructor($$source: Partial<DoodadUse> = {}) {
-        if (!("path" in $$source)) {
-            this["path"] = "";
-        }
-        if (!("count" in $$source)) {
-            this["count"] = 0;
-        }
-        if (!("scaleMin" in $$source)) {
-            this["scaleMin"] = 0;
-        }
-        if (!("scaleMax" in $$source)) {
-            this["scaleMax"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new DoodadUse instance from a string or object.
-     */
-    static createFrom($$source: any = {}): DoodadUse {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new DoodadUse($$parsedSource as Partial<DoodadUse>);
-    }
 }
 
 /**
@@ -838,138 +297,38 @@ export class DoodadUse {
  * "west" or "east", Offset the vertex along the block's edge it starts at (from the west or north
  * end), and Heights the LatticeSize heights of the tile's row or column on the shared border.
  */
-export class EdgeSegment {
+export interface EdgeSegment {
     "side": string;
     "offset": number;
-    "heights": number[];
-
-    /** Creates a new EdgeSegment instance. */
-    constructor($$source: Partial<EdgeSegment> = {}) {
-        if (!("side" in $$source)) {
-            this["side"] = "";
-        }
-        if (!("offset" in $$source)) {
-            this["offset"] = 0;
-        }
-        if (!("heights" in $$source)) {
-            this["heights"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new EdgeSegment instance from a string or object.
-     */
-    static createFrom($$source: any = {}): EdgeSegment {
-        const $$createField2_0 = $$createType8;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("heights" in $$parsedSource) {
-            $$parsedSource["heights"] = $$createField2_0($$parsedSource["heights"]);
-        }
-        return new EdgeSegment($$parsedSource as Partial<EdgeSegment>);
-    }
+    "heights": number[] | null;
 }
 
 /**
  * Emote is a client emote (Emotes.dbc): its ID, name such as "STATE_DANCE", and animation.
  */
-export class Emote {
+export interface Emote {
     "id": number;
     "name": string;
     "anim": number;
-
-    /** Creates a new Emote instance. */
-    constructor($$source: Partial<Emote> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("anim" in $$source)) {
-            this["anim"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Emote instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Emote {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new Emote($$parsedSource as Partial<Emote>);
-    }
 }
 
 /**
  * EquipBonusKind is a bonus an Equip effect gives: its name, "%" when it is a chance, and the
  * client's spells that give it alone, one an amount, by amount.
  */
-export class EquipBonusKind {
+export interface EquipBonusKind {
     "id": string;
     "name": string;
     "unit": string;
-    "amounts": EquipBonusSpell[];
-
-    /** Creates a new EquipBonusKind instance. */
-    constructor($$source: Partial<EquipBonusKind> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = "";
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("unit" in $$source)) {
-            this["unit"] = "";
-        }
-        if (!("amounts" in $$source)) {
-            this["amounts"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new EquipBonusKind instance from a string or object.
-     */
-    static createFrom($$source: any = {}): EquipBonusKind {
-        const $$createField3_0 = $$createType10;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("amounts" in $$parsedSource) {
-            $$parsedSource["amounts"] = $$createField3_0($$parsedSource["amounts"]);
-        }
-        return new EquipBonusKind($$parsedSource as Partial<EquipBonusKind>);
-    }
+    "amounts": EquipBonusSpell[] | null;
 }
 
 /**
  * EquipBonusSpell is a spell that gives a bonus, and how much.
  */
-export class EquipBonusSpell {
+export interface EquipBonusSpell {
     "spell": number;
     "amount": number;
-
-    /** Creates a new EquipBonusSpell instance. */
-    constructor($$source: Partial<EquipBonusSpell> = {}) {
-        if (!("spell" in $$source)) {
-            this["spell"] = 0;
-        }
-        if (!("amount" in $$source)) {
-            this["amount"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new EquipBonusSpell instance from a string or object.
-     */
-    static createFrom($$source: any = {}): EquipBonusSpell {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new EquipBonusSpell($$parsedSource as Partial<EquipBonusSpell>);
-    }
 }
 
 /**
@@ -977,98 +336,29 @@ export class EquipBonusSpell {
  * creature_template.faction holds), the name of its Faction.dbc faction, and how it treats an
  * Alliance and a Horde player: "friendly", "neutral" or "hostile".
  */
-export class FactionInfo {
+export interface FactionInfo {
     "id": number;
     "name": string;
     "alliance": string;
     "horde": string;
-
-    /** Creates a new FactionInfo instance. */
-    constructor($$source: Partial<FactionInfo> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("alliance" in $$source)) {
-            this["alliance"] = "";
-        }
-        if (!("horde" in $$source)) {
-            this["horde"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new FactionInfo instance from a string or object.
-     */
-    static createFrom($$source: any = {}): FactionInfo {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new FactionInfo($$parsedSource as Partial<FactionInfo>);
-    }
 }
 
 /**
  * GUIDRow is a spawn row the database has under one of the asked guids.
  */
-export class GUIDRow {
+export interface GUIDRow {
     "guid": number;
     "entry": number;
     "map": number;
-
-    /** Creates a new GUIDRow instance. */
-    constructor($$source: Partial<GUIDRow> = {}) {
-        if (!("guid" in $$source)) {
-            this["guid"] = 0;
-        }
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("map" in $$source)) {
-            this["map"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GUIDRow instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GUIDRow {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new GUIDRow($$parsedSource as Partial<GUIDRow>);
-    }
 }
 
 /**
  * GameEvent is a world event of the world database's game_event table (a holiday, the Darkmoon Faire,
  * an invasion), whose spawns appear (or leave) while it runs.
  */
-export class GameEvent {
+export interface GameEvent {
     "id": number;
     "name": string;
-
-    /** Creates a new GameEvent instance. */
-    constructor($$source: Partial<GameEvent> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GameEvent instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GameEvent {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new GameEvent($$parsedSource as Partial<GameEvent>);
-    }
 }
 
 /**
@@ -1077,57 +367,13 @@ export class GameEvent {
  * and options (gossip_menu_option), the creature's npc_flags (an option shows only when they hold
  * its NpcFlag) and the lines its AI says on its own, which the editor lists but doesn't change.
  */
-export class Gossip {
+export interface Gossip {
     "menuId": number;
     "shared": number;
     "npcFlags": number;
-    "texts": GossipText[];
-    "options": GossipOption[];
-    "lines": AILine[];
-
-    /** Creates a new Gossip instance. */
-    constructor($$source: Partial<Gossip> = {}) {
-        if (!("menuId" in $$source)) {
-            this["menuId"] = 0;
-        }
-        if (!("shared" in $$source)) {
-            this["shared"] = 0;
-        }
-        if (!("npcFlags" in $$source)) {
-            this["npcFlags"] = 0;
-        }
-        if (!("texts" in $$source)) {
-            this["texts"] = [];
-        }
-        if (!("options" in $$source)) {
-            this["options"] = [];
-        }
-        if (!("lines" in $$source)) {
-            this["lines"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Gossip instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Gossip {
-        const $$createField3_0 = $$createType12;
-        const $$createField4_0 = $$createType14;
-        const $$createField5_0 = $$createType16;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("texts" in $$parsedSource) {
-            $$parsedSource["texts"] = $$createField3_0($$parsedSource["texts"]);
-        }
-        if ("options" in $$parsedSource) {
-            $$parsedSource["options"] = $$createField4_0($$parsedSource["options"]);
-        }
-        if ("lines" in $$parsedSource) {
-            $$parsedSource["lines"] = $$createField5_0($$parsedSource["lines"]);
-        }
-        return new Gossip($$parsedSource as Partial<Gossip>);
-    }
+    "texts": GossipText[] | null;
+    "options": GossipOption[] | null;
+    "lines": AILine[] | null;
 }
 
 /**
@@ -1139,7 +385,7 @@ export class Gossip {
  * point of interest, ActionScript a gossip_scripts id. A coded box asks for a typed code, BoxMoney
  * is copper.
  */
-export class GossipOption {
+export interface GossipOption {
     "id": number;
     "icon": number;
     "text": string;
@@ -1154,137 +400,35 @@ export class GossipOption {
     "boxText": string;
     "boxBroadcastText": number;
     "condition": number;
-
-    /** Creates a new GossipOption instance. */
-    constructor($$source: Partial<GossipOption> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("icon" in $$source)) {
-            this["icon"] = 0;
-        }
-        if (!("text" in $$source)) {
-            this["text"] = "";
-        }
-        if (!("broadcastText" in $$source)) {
-            this["broadcastText"] = 0;
-        }
-        if (!("action" in $$source)) {
-            this["action"] = 0;
-        }
-        if (!("npcFlag" in $$source)) {
-            this["npcFlag"] = 0;
-        }
-        if (!("actionMenu" in $$source)) {
-            this["actionMenu"] = 0;
-        }
-        if (!("actionPoi" in $$source)) {
-            this["actionPoi"] = 0;
-        }
-        if (!("actionScript" in $$source)) {
-            this["actionScript"] = 0;
-        }
-        if (!("boxCoded" in $$source)) {
-            this["boxCoded"] = false;
-        }
-        if (!("boxMoney" in $$source)) {
-            this["boxMoney"] = 0;
-        }
-        if (!("boxText" in $$source)) {
-            this["boxText"] = "";
-        }
-        if (!("boxBroadcastText" in $$source)) {
-            this["boxBroadcastText"] = 0;
-        }
-        if (!("condition" in $$source)) {
-            this["condition"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GossipOption instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GossipOption {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new GossipOption($$parsedSource as Partial<GossipOption>);
-    }
 }
 
 /**
  * GossipText is one text row of a gossip menu: the npc_text it shows, the condition it is shown
  * under (0 always), and the first broadcast text of that npc_text, for a man and a woman player.
  */
-export class GossipText {
+export interface GossipText {
     "textId": number;
     "condition": number;
     "male": string;
     "female": string;
-
-    /** Creates a new GossipText instance. */
-    constructor($$source: Partial<GossipText> = {}) {
-        if (!("textId" in $$source)) {
-            this["textId"] = 0;
-        }
-        if (!("condition" in $$source)) {
-            this["condition"] = 0;
-        }
-        if (!("male" in $$source)) {
-            this["male"] = "";
-        }
-        if (!("female" in $$source)) {
-            this["female"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GossipText instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GossipText {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new GossipText($$parsedSource as Partial<GossipText>);
-    }
 }
 
 /**
  * GreetingSaved is what SaveGreeting changed: the creature's gossip menu now, and the SQL it ran.
  */
-export class GreetingSaved {
+export interface GreetingSaved {
     "menuId": number;
     "sql": string;
-
-    /** Creates a new GreetingSaved instance. */
-    constructor($$source: Partial<GreetingSaved> = {}) {
-        if (!("menuId" in $$source)) {
-            this["menuId"] = 0;
-        }
-        if (!("sql" in $$source)) {
-            this["sql"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GreetingSaved instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GreetingSaved {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new GreetingSaved($$parsedSource as Partial<GreetingSaved>);
-    }
 }
 
 /**
  * GroundEffect is one GroundEffectTexture row: the detail models it grows and how many.
  */
-export class GroundEffect {
+export interface GroundEffect {
     /**
      * Doodads are the models' archive paths (World\NoDXT\Detail\...m2), one to four.
      */
-    "doodads": string[];
+    "doodads": string[] | null;
 
     /**
      * Slots are the row's four doodad slots in order, each an index into Doodads, or -1 for an empty
@@ -1302,92 +446,27 @@ export class GroundEffect {
      * Terrain is the TerrainType.dbc ID the row gives (footstep sounds).
      */
     "terrain": number;
-
-    /** Creates a new GroundEffect instance. */
-    constructor($$source: Partial<GroundEffect> = {}) {
-        if (!("doodads" in $$source)) {
-            this["doodads"] = [];
-        }
-        if (!("slots" in $$source)) {
-            this["slots"] = Array.from({ length: 4 }, () => 0);
-        }
-        if (!("density" in $$source)) {
-            this["density"] = 0;
-        }
-        if (!("terrain" in $$source)) {
-            this["terrain"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GroundEffect instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GroundEffect {
-        const $$createField0_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("doodads" in $$parsedSource) {
-            $$parsedSource["doodads"] = $$createField0_0($$parsedSource["doodads"]);
-        }
-        return new GroundEffect($$parsedSource as Partial<GroundEffect>);
-    }
 }
 
 /**
  * GroundEffectTables is what the editor needs of the ground effects.
  */
-export class GroundEffectTables {
+export interface GroundEffectTables {
     /**
      * Terrains are the TerrainType rows, in ID order.
      */
-    "terrains": TerrainType[];
+    "terrains": TerrainType[] | null;
 
     /**
      * Effects by GroundEffectTexture ID; rows that grow nothing are left out.
      */
-    "effects": { [_ in `${number}`]?: GroundEffect };
+    "effects": { [_ in `${number}`]?: GroundEffect } | null;
 
     /**
      * Textures is the effect each tileset texture (lower-case path) carries in the client's own
      * tiles: the one most of its layers use.
      */
-    "textures": { [_ in string]?: number };
-
-    /** Creates a new GroundEffectTables instance. */
-    constructor($$source: Partial<GroundEffectTables> = {}) {
-        if (!("terrains" in $$source)) {
-            this["terrains"] = [];
-        }
-        if (!("effects" in $$source)) {
-            this["effects"] = {};
-        }
-        if (!("textures" in $$source)) {
-            this["textures"] = {};
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GroundEffectTables instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GroundEffectTables {
-        const $$createField0_0 = $$createType18;
-        const $$createField1_0 = $$createType20;
-        const $$createField2_0 = $$createType21;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("terrains" in $$parsedSource) {
-            $$parsedSource["terrains"] = $$createField0_0($$parsedSource["terrains"]);
-        }
-        if ("effects" in $$parsedSource) {
-            $$parsedSource["effects"] = $$createField1_0($$parsedSource["effects"]);
-        }
-        if ("textures" in $$parsedSource) {
-            $$parsedSource["textures"] = $$createField2_0($$parsedSource["textures"]);
-        }
-        return new GroundEffectTables($$parsedSource as Partial<GroundEffectTables>);
-    }
+    "textures": { [_ in string]?: number } | null;
 }
 
 /**
@@ -1400,46 +479,14 @@ export class GroundEffectTables {
  * chunk's own instead, for a map that doesn't know the client's holes (#663). Shadow (base64 in JSON),
  * adt.ShadowBytes long, replaces the chunk's baked shadow map; empty keeps it.
  */
-export class HeaderSpec {
+export interface HeaderSpec {
     "chunk": number;
     "areaId": number;
     "impassable"?: boolean | null;
-    "noEffect"?: number[];
-    "holes"?: number[];
+    "noEffect"?: number[] | null;
+    "holes"?: number[] | null;
     "holesAdd"?: boolean;
-    "shadow"?: string;
-
-    /** Creates a new HeaderSpec instance. */
-    constructor($$source: Partial<HeaderSpec> = {}) {
-        if (!("chunk" in $$source)) {
-            this["chunk"] = 0;
-        }
-        if (!("areaId" in $$source)) {
-            this["areaId"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new HeaderSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): HeaderSpec {
-        const $$createField3_0 = $$createType4;
-        const $$createField4_0 = $$createType4;
-        const $$createField6_0 = $Create.ByteSlice;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("noEffect" in $$parsedSource) {
-            $$parsedSource["noEffect"] = $$createField3_0($$parsedSource["noEffect"]);
-        }
-        if ("holes" in $$parsedSource) {
-            $$parsedSource["holes"] = $$createField4_0($$parsedSource["holes"]);
-        }
-        if ("shadow" in $$parsedSource) {
-            $$parsedSource["shadow"] = $$createField6_0($$parsedSource["shadow"]);
-        }
-        return new HeaderSpec($$parsedSource as Partial<HeaderSpec>);
-    }
+    "shadow"?: string | null;
 }
 
 /**
@@ -1454,65 +501,18 @@ export type HeightGrid = any;
  * the block's first tile, and its WDL heights in yards (WDLOuter squared at the chunk corners, then
  * WDLInner squared at the chunk centres, rows running south).
  */
-export class HorizonTile {
+export interface HorizonTile {
     "dx": number;
     "dy": number;
-    "heights": number[];
-
-    /** Creates a new HorizonTile instance. */
-    constructor($$source: Partial<HorizonTile> = {}) {
-        if (!("dx" in $$source)) {
-            this["dx"] = 0;
-        }
-        if (!("dy" in $$source)) {
-            this["dy"] = 0;
-        }
-        if (!("heights" in $$source)) {
-            this["heights"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new HorizonTile instance from a string or object.
-     */
-    static createFrom($$source: any = {}): HorizonTile {
-        const $$createField2_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("heights" in $$parsedSource) {
-            $$parsedSource["heights"] = $$createField2_0($$parsedSource["heights"]);
-        }
-        return new HorizonTile($$parsedSource as Partial<HorizonTile>);
-    }
+    "heights": number[] | null;
 }
 
 /**
  * IconDisplay is the display ItemDisplayVariant settled on, and whether it was added to the patch.
  */
-export class IconDisplay {
+export interface IconDisplay {
     "id": number;
     "added": boolean;
-
-    /** Creates a new IconDisplay instance. */
-    constructor($$source: Partial<IconDisplay> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("added" in $$source)) {
-            this["added"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new IconDisplay instance from a string or object.
-     */
-    static createFrom($$source: any = {}): IconDisplay {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new IconDisplay($$parsedSource as Partial<IconDisplay>);
-    }
 }
 
 /**
@@ -1520,37 +520,10 @@ export class IconDisplay {
  * SpellIcon.dbc ID (0 when no row has it yet; the spell editor adds one when a spell first takes it),
  * how many of the client's spells show it, and up to a limit of them, one per name.
  */
-export class IconSpells {
+export interface IconSpells {
     "spellIconId": number;
     "count": number;
-    "spells": SpellRef[];
-
-    /** Creates a new IconSpells instance. */
-    constructor($$source: Partial<IconSpells> = {}) {
-        if (!("spellIconId" in $$source)) {
-            this["spellIconId"] = 0;
-        }
-        if (!("count" in $$source)) {
-            this["count"] = 0;
-        }
-        if (!("spells" in $$source)) {
-            this["spells"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new IconSpells instance from a string or object.
-     */
-    static createFrom($$source: any = {}): IconSpells {
-        const $$createField2_0 = $$createType23;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("spells" in $$parsedSource) {
-            $$parsedSource["spells"] = $$createField2_0($$parsedSource["spells"]);
-        }
-        return new IconSpells($$parsedSource as Partial<IconSpells>);
-    }
+    "spells": SpellRef[] | null;
 }
 
 /**
@@ -1559,13 +532,13 @@ export class IconSpells {
  * "shoulder", "back", "body", "jewelry" or "other"), and the items of the world database that use
  * it, the first few by name.
  */
-export class ItemDisplayEntry {
+export interface ItemDisplayEntry {
     "id": number;
     "icon": string;
     "model": string;
     "kind": string;
     "uses": number;
-    "names": string[];
+    "names": string[] | null;
 
     /**
      * Path and Skin are the model's client path where its kind keeps it (a helm as a human man's)
@@ -1581,62 +554,14 @@ export class ItemDisplayEntry {
      */
     "visual": number;
     "shoots": number;
-
-    /** Creates a new ItemDisplayEntry instance. */
-    constructor($$source: Partial<ItemDisplayEntry> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("icon" in $$source)) {
-            this["icon"] = "";
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("uses" in $$source)) {
-            this["uses"] = 0;
-        }
-        if (!("names" in $$source)) {
-            this["names"] = [];
-        }
-        if (!("path" in $$source)) {
-            this["path"] = "";
-        }
-        if (!("skin" in $$source)) {
-            this["skin"] = "";
-        }
-        if (!("visual" in $$source)) {
-            this["visual"] = 0;
-        }
-        if (!("shoots" in $$source)) {
-            this["shoots"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemDisplayEntry instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemDisplayEntry {
-        const $$createField5_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("names" in $$parsedSource) {
-            $$parsedSource["names"] = $$createField5_0($$parsedSource["names"]);
-        }
-        return new ItemDisplayEntry($$parsedSource as Partial<ItemDisplayEntry>);
-    }
 }
 
 /**
  * ItemImport is what an SQL script of items would write: its item rows, and what of it is left
  * out.
  */
-export class ItemImport {
-    "items": ItemImportRow[];
+export interface ItemImport {
+    "items": ItemImportRow[] | null;
 
     /**
      * Skipped is how many statements are not item_template rows (a DELETE, another table), which
@@ -1647,119 +572,36 @@ export class ItemImport {
     /**
      * Unknown are columns the script names that this server's item_template lacks, left out.
      */
-    "unknown": string[];
-
-    /** Creates a new ItemImport instance. */
-    constructor($$source: Partial<ItemImport> = {}) {
-        if (!("items" in $$source)) {
-            this["items"] = [];
-        }
-        if (!("skipped" in $$source)) {
-            this["skipped"] = 0;
-        }
-        if (!("unknown" in $$source)) {
-            this["unknown"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemImport instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemImport {
-        const $$createField0_0 = $$createType25;
-        const $$createField2_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("items" in $$parsedSource) {
-            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
-        }
-        if ("unknown" in $$parsedSource) {
-            $$parsedSource["unknown"] = $$createField2_0($$parsedSource["unknown"]);
-        }
-        return new ItemImport($$parsedSource as Partial<ItemImport>);
-    }
+    "unknown": string[] | null;
 }
 
 /**
  * ItemImportRow is one item row of a script: its entry, patch and name, and whether the world
  * database has that row already, which importing replaces.
  */
-export class ItemImportRow {
+export interface ItemImportRow {
     "entry": number;
     "patch": number;
     "name": string;
     "exists": boolean;
-
-    /** Creates a new ItemImportRow instance. */
-    constructor($$source: Partial<ItemImportRow> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("patch" in $$source)) {
-            this["patch"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("exists" in $$source)) {
-            this["exists"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemImportRow instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemImportRow {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ItemImportRow($$parsedSource as Partial<ItemImportRow>);
-    }
 }
 
 /**
  * ItemKind is a kind of item: its class, subclass and inventory type, and how many items of the
  * world database are of it.
  */
-export class ItemKind {
+export interface ItemKind {
     "class": number;
     "subclass": number;
     "invType": number;
     "count": number;
-
-    /** Creates a new ItemKind instance. */
-    constructor($$source: Partial<ItemKind> = {}) {
-        if (!("class" in $$source)) {
-            this["class"] = 0;
-        }
-        if (!("subclass" in $$source)) {
-            this["subclass"] = 0;
-        }
-        if (!("invType" in $$source)) {
-            this["invType"] = 0;
-        }
-        if (!("count" in $$source)) {
-            this["count"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemKind instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemKind {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ItemKind($$parsedSource as Partial<ItemKind>);
-    }
 }
 
 /**
  * ItemLook is how the item editor shows an item: a character of the chosen race and sex holding or
  * wearing it, and the item's own model alone. A model is "" when there is none to show.
  */
-export class ItemLook {
+export interface ItemLook {
     /**
      * Model and Look are the character, dressed (wow.Look's query).
      */
@@ -1778,44 +620,12 @@ export class ItemLook {
      */
     "item": string;
     "itemLook": string;
-
-    /** Creates a new ItemLook instance. */
-    constructor($$source: Partial<ItemLook> = {}) {
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("look" in $$source)) {
-            this["look"] = "";
-        }
-        if (!("scale" in $$source)) {
-            this["scale"] = 0;
-        }
-        if (!("shown" in $$source)) {
-            this["shown"] = false;
-        }
-        if (!("item" in $$source)) {
-            this["item"] = "";
-        }
-        if (!("itemLook" in $$source)) {
-            this["itemLook"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemLook instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemLook {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ItemLook($$parsedSource as Partial<ItemLook>);
-    }
 }
 
 /**
  * ItemRef is an item template by entry, with its name and quality, for picking an item.
  */
-export class ItemRef {
+export interface ItemRef {
     "entry": number;
     "name": string;
     "quality": number;
@@ -1826,32 +636,6 @@ export class ItemRef {
      */
     "itemLevel"?: number;
     "requiredLevel"?: number;
-
-    /** Creates a new ItemRef instance. */
-    constructor($$source: Partial<ItemRef> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("quality" in $$source)) {
-            this["quality"] = 0;
-        }
-        if (!("displayId" in $$source)) {
-            this["displayId"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemRef instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemRef {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ItemRef($$parsedSource as Partial<ItemRef>);
-    }
 }
 
 /**
@@ -1859,188 +643,53 @@ export class ItemRef {
  * its name, the member items, the bonus spells with the number of members each needs, and the skill
  * the set requires.
  */
-export class ItemSet {
+export interface ItemSet {
     "id": number;
     "name": string;
-    "items": number[];
-    "bonuses": ItemSetBonus[];
+    "items": number[] | null;
+    "bonuses": ItemSetBonus[] | null;
     "requiredSkill": number;
     "requiredSkillRank": number;
-
-    /** Creates a new ItemSet instance. */
-    constructor($$source: Partial<ItemSet> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("items" in $$source)) {
-            this["items"] = [];
-        }
-        if (!("bonuses" in $$source)) {
-            this["bonuses"] = [];
-        }
-        if (!("requiredSkill" in $$source)) {
-            this["requiredSkill"] = 0;
-        }
-        if (!("requiredSkillRank" in $$source)) {
-            this["requiredSkillRank"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemSet instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemSet {
-        const $$createField2_0 = $$createType4;
-        const $$createField3_0 = $$createType27;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("items" in $$parsedSource) {
-            $$parsedSource["items"] = $$createField2_0($$parsedSource["items"]);
-        }
-        if ("bonuses" in $$parsedSource) {
-            $$parsedSource["bonuses"] = $$createField3_0($$parsedSource["bonuses"]);
-        }
-        return new ItemSet($$parsedSource as Partial<ItemSet>);
-    }
 }
 
 /**
  * ItemSetBonus is a set bonus: the spell, and how many of the set's members must be worn for it.
  */
-export class ItemSetBonus {
+export interface ItemSetBonus {
     "spell": number;
     "threshold": number;
-
-    /** Creates a new ItemSetBonus instance. */
-    constructor($$source: Partial<ItemSetBonus> = {}) {
-        if (!("spell" in $$source)) {
-            this["spell"] = 0;
-        }
-        if (!("threshold" in $$source)) {
-            this["threshold"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemSetBonus instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemSetBonus {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ItemSetBonus($$parsedSource as Partial<ItemSetBonus>);
-    }
 }
 
 /**
  * ItemTables are the client's tables the item editor names columns from.
  */
-export class ItemTables {
-    "sets": NamedID[];
+export interface ItemTables {
+    "sets": NamedID[] | null;
 
     /**
      * SpellCategories are the cooldown categories Spell.dbc's spells use (1.12 has no table of
      * them), each named by its spells.
      */
-    "spellCategories": NamedID[];
-    "maps": NamedID[];
-
-    /** Creates a new ItemTables instance. */
-    constructor($$source: Partial<ItemTables> = {}) {
-        if (!("sets" in $$source)) {
-            this["sets"] = [];
-        }
-        if (!("spellCategories" in $$source)) {
-            this["spellCategories"] = [];
-        }
-        if (!("maps" in $$source)) {
-            this["maps"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ItemTables instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ItemTables {
-        const $$createField0_0 = $$createType29;
-        const $$createField1_0 = $$createType29;
-        const $$createField2_0 = $$createType29;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("sets" in $$parsedSource) {
-            $$parsedSource["sets"] = $$createField0_0($$parsedSource["sets"]);
-        }
-        if ("spellCategories" in $$parsedSource) {
-            $$parsedSource["spellCategories"] = $$createField1_0($$parsedSource["spellCategories"]);
-        }
-        if ("maps" in $$parsedSource) {
-            $$parsedSource["maps"] = $$createField2_0($$parsedSource["maps"]);
-        }
-        return new ItemTables($$parsedSource as Partial<ItemTables>);
-    }
+    "spellCategories": NamedID[] | null;
+    "maps": NamedID[] | null;
 }
 
 /**
  * LayerView is one texture layer of a chunk, for the editor. Every layer but a chunk's first has an
  * alpha map, kept apart in the view's Alpha (TileView, RegionView).
  */
-export class LayerView {
+export interface LayerView {
     "texture": string;
     "effect": number;
-
-    /** Creates a new LayerView instance. */
-    constructor($$source: Partial<LayerView> = {}) {
-        if (!("texture" in $$source)) {
-            this["texture"] = "";
-        }
-        if (!("effect" in $$source)) {
-            this["effect"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LayerView instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LayerView {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LayerView($$parsedSource as Partial<LayerView>);
-    }
 }
 
 /**
  * LightKey is one key of a band: the time in half-minutes and the value (an 0xRRGGBB colour for a
  * colour band, the number for a float band).
  */
-export class LightKey {
+export interface LightKey {
     "t": number;
     "v": number;
-
-    /** Creates a new LightKey instance. */
-    constructor($$source: Partial<LightKey> = {}) {
-        if (!("t" in $$source)) {
-            this["t"] = 0;
-        }
-        if (!("v" in $$source)) {
-            this["v"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LightKey instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LightKey {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LightKey($$parsedSource as Partial<LightKey>);
-    }
 }
 
 /**
@@ -2048,7 +697,7 @@ export class LightKey {
  * 1 the ambient, 2 to 6 the sky from top to horizon, 7 the fog, 9 the sun, 14 to 17 the shallow and
  * deep ocean and river colours), Floats[i] float band i (0 the fog distance, 1 the fog multiplier).
  */
-export class LightParamSet {
+export interface LightParamSet {
     "id": number;
 
     /**
@@ -2059,92 +708,18 @@ export class LightParamSet {
     "glow": number;
     "waterAlpha": number[];
     "oceanAlpha": number[];
-    "colors": LightKey[][];
-    "floats": LightKey[][];
-
-    /** Creates a new LightParamSet instance. */
-    constructor($$source: Partial<LightParamSet> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("highlightSky" in $$source)) {
-            this["highlightSky"] = false;
-        }
-        if (!("glow" in $$source)) {
-            this["glow"] = 0;
-        }
-        if (!("waterAlpha" in $$source)) {
-            this["waterAlpha"] = Array.from({ length: 2 }, () => 0);
-        }
-        if (!("oceanAlpha" in $$source)) {
-            this["oceanAlpha"] = Array.from({ length: 2 }, () => 0);
-        }
-        if (!("colors" in $$source)) {
-            this["colors"] = [];
-        }
-        if (!("floats" in $$source)) {
-            this["floats"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LightParamSet instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LightParamSet {
-        const $$createField5_0 = $$createType32;
-        const $$createField6_0 = $$createType32;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("colors" in $$parsedSource) {
-            $$parsedSource["colors"] = $$createField5_0($$parsedSource["colors"]);
-        }
-        if ("floats" in $$parsedSource) {
-            $$parsedSource["floats"] = $$createField6_0($$parsedSource["floats"]);
-        }
-        return new LightParamSet($$parsedSource as Partial<LightParamSet>);
-    }
+    "colors": (LightKey[] | null)[] | null;
+    "floats": (LightKey[] | null)[] | null;
 }
 
 /**
  * LightsEdit is what the light editor saves: lights of a map (edited or new, by ID) and the params rows
  * they use (edited or new, with all their bands).
  */
-export class LightsEdit {
+export interface LightsEdit {
     "mapId": number;
-    "lights": MapLight[];
-    "params": LightParamSet[];
-
-    /** Creates a new LightsEdit instance. */
-    constructor($$source: Partial<LightsEdit> = {}) {
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("lights" in $$source)) {
-            this["lights"] = [];
-        }
-        if (!("params" in $$source)) {
-            this["params"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LightsEdit instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LightsEdit {
-        const $$createField1_0 = $$createType34;
-        const $$createField2_0 = $$createType36;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("lights" in $$parsedSource) {
-            $$parsedSource["lights"] = $$createField1_0($$parsedSource["lights"]);
-        }
-        if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField2_0($$parsedSource["params"]);
-        }
-        return new LightsEdit($$parsedSource as Partial<LightsEdit>);
-    }
+    "lights": MapLight[] | null;
+    "params": LightParamSet[] | null;
 }
 
 /**
@@ -2152,208 +727,59 @@ export class LightsEdit {
  * the ones only a dungeon's building uses (Naxxramas's slime). Kind is the row's type column: 0 magma,
  * 2 slime, 3 water (ocean is the water row with ID 2); Spell is the aura the liquid gives a swimmer.
  */
-export class LiquidTypeEntry {
+export interface LiquidTypeEntry {
     "id": number;
     "name": string;
     "kind": number;
     "spell": number;
-
-    /** Creates a new LiquidTypeEntry instance. */
-    constructor($$source: Partial<LiquidTypeEntry> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("kind" in $$source)) {
-            this["kind"] = 0;
-        }
-        if (!("spell" in $$source)) {
-            this["spell"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LiquidTypeEntry instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LiquidTypeEntry {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LiquidTypeEntry($$parsedSource as Partial<LiquidTypeEntry>);
-    }
 }
 
 /**
  * LoadingScreen is a row of LoadingScreens.dbc: its ID, name (field 1) and picture (field 2).
  */
-export class LoadingScreen {
+export interface LoadingScreen {
     "id": number;
     "name": string;
     "path": string;
-
-    /** Creates a new LoadingScreen instance. */
-    constructor($$source: Partial<LoadingScreen> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("path" in $$source)) {
-            this["path"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LoadingScreen instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LoadingScreen {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LoadingScreen($$parsedSource as Partial<LoadingScreen>);
-    }
 }
 
 /**
  * LoadingScreenSpec is what Write Loading Screen puts into the client: the map (its Map.dbc ID and
  * folder) and the picture, LoadingScreenSize square RGBA, row 0 at the top.
  */
-export class LoadingScreenSpec {
+export interface LoadingScreenSpec {
     "mapId": number;
     "dir": string;
-    "pixels": string;
-
-    /** Creates a new LoadingScreenSpec instance. */
-    constructor($$source: Partial<LoadingScreenSpec> = {}) {
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("dir" in $$source)) {
-            this["dir"] = "";
-        }
-        if (!("pixels" in $$source)) {
-            this["pixels"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LoadingScreenSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LoadingScreenSpec {
-        const $$createField2_0 = $Create.ByteSlice;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("pixels" in $$parsedSource) {
-            $$parsedSource["pixels"] = $$createField2_0($$parsedSource["pixels"]);
-        }
-        return new LoadingScreenSpec($$parsedSource as Partial<LoadingScreenSpec>);
-    }
+    "pixels": string | null;
 }
 
 /**
  * LockInfo is a Lock.dbc row: the ways to open it.
  */
-export class LockInfo {
+export interface LockInfo {
     "id": number;
-    "parts": LockPart[];
-
-    /** Creates a new LockInfo instance. */
-    constructor($$source: Partial<LockInfo> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("parts" in $$source)) {
-            this["parts"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LockInfo instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LockInfo {
-        const $$createField1_0 = $$createType38;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("parts" in $$parsedSource) {
-            $$parsedSource["parts"] = $$createField1_0($$parsedSource["parts"]);
-        }
-        return new LockInfo($$parsedSource as Partial<LockInfo>);
-    }
+    "parts": LockPart[] | null;
 }
 
 /**
  * LockPart is one way to open a lock (a slot of Lock.dbc): with an item (Type 1, Index its entry)
  * or a lock type (Type 2, Index its LockType.dbc row, such as Pick Lock or Herbalism) at skill Skill.
  */
-export class LockPart {
+export interface LockPart {
     "type": number;
     "index": number;
     "skill": number;
-
-    /** Creates a new LockPart instance. */
-    constructor($$source: Partial<LockPart> = {}) {
-        if (!("type" in $$source)) {
-            this["type"] = 0;
-        }
-        if (!("index" in $$source)) {
-            this["index"] = 0;
-        }
-        if (!("skill" in $$source)) {
-            this["skill"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LockPart instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LockPart {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LockPart($$parsedSource as Partial<LockPart>);
-    }
 }
 
 /**
  * LookResult is how a creature display looks with some equipment and pose: the model, its look as
  * the model endpoint's query (without the animation), the animation, and the display's scale.
  */
-export class LookResult {
+export interface LookResult {
     "model": string;
     "look": string;
     "anim": number;
     "displayScale": number;
-
-    /** Creates a new LookResult instance. */
-    constructor($$source: Partial<LookResult> = {}) {
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("look" in $$source)) {
-            this["look"] = "";
-        }
-        if (!("anim" in $$source)) {
-            this["anim"] = 0;
-        }
-        if (!("displayScale" in $$source)) {
-            this["displayScale"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LookResult instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LookResult {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LookResult($$parsedSource as Partial<LookResult>);
-    }
 }
 
 /**
@@ -2364,7 +790,7 @@ export class LookResult {
  * MaxCount times, and Item is then only the row's key. PatchMin and PatchMax are the content
  * patches the row loads in (0 and 10 for every one).
  */
-export class LootItem {
+export interface LootItem {
     "item": number;
     "name": string;
     "quality": number;
@@ -2376,122 +802,26 @@ export class LootItem {
     "condition": number;
     "patchMin": number;
     "patchMax": number;
-
-    /** Creates a new LootItem instance. */
-    constructor($$source: Partial<LootItem> = {}) {
-        if (!("item" in $$source)) {
-            this["item"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("quality" in $$source)) {
-            this["quality"] = 0;
-        }
-        if (!("displayId" in $$source)) {
-            this["displayId"] = 0;
-        }
-        if (!("chance" in $$source)) {
-            this["chance"] = 0;
-        }
-        if (!("group" in $$source)) {
-            this["group"] = 0;
-        }
-        if (!("minCount" in $$source)) {
-            this["minCount"] = 0;
-        }
-        if (!("maxCount" in $$source)) {
-            this["maxCount"] = 0;
-        }
-        if (!("condition" in $$source)) {
-            this["condition"] = 0;
-        }
-        if (!("patchMin" in $$source)) {
-            this["patchMin"] = 0;
-        }
-        if (!("patchMax" in $$source)) {
-            this["patchMax"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LootItem instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LootItem {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LootItem($$parsedSource as Partial<LootItem>);
-    }
 }
 
 /**
  * LootUser is a game object template other than the one being edited whose loot is the same list,
  * with how many spawns it has in the world.
  */
-export class LootUser {
+export interface LootUser {
     "entry": number;
     "name": string;
     "spawns": number;
-
-    /** Creates a new LootUser instance. */
-    constructor($$source: Partial<LootUser> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("spawns" in $$source)) {
-            this["spawns"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LootUser instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LootUser {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new LootUser($$parsedSource as Partial<LootUser>);
-    }
 }
 
 /**
  * MapEntry is a row of the client's Map.dbc: a map the client can load.
  */
-export class MapEntry {
+export interface MapEntry {
     "ID": number;
     "Dir": string;
     "Type": number;
     "Name": string;
-
-    /** Creates a new MapEntry instance. */
-    constructor($$source: Partial<MapEntry> = {}) {
-        if (!("ID" in $$source)) {
-            this["ID"] = 0;
-        }
-        if (!("Dir" in $$source)) {
-            this["Dir"] = "";
-        }
-        if (!("Type" in $$source)) {
-            this["Type"] = 0;
-        }
-        if (!("Name" in $$source)) {
-            this["Name"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapEntry instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapEntry {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new MapEntry($$parsedSource as Partial<MapEntry>);
-    }
 }
 
 /**
@@ -2500,7 +830,7 @@ export class MapEntry {
  * 2 the type, 3 the PvP flag, 4 the English name, 19 the AreaTable ID, 38 the LoadingScreens ID) and the
  * server's map_template (type, zone, player limit and where a ghost goes back to its corpse).
  */
-export class MapInfo {
+export interface MapInfo {
     /**
      * Type is 0 a world map, 1 a dungeon, 2 a raid, 3 a battleground (the same in both tables).
      */
@@ -2512,41 +842,6 @@ export class MapInfo {
     "ghostMap": number;
     "ghostX": number;
     "ghostY": number;
-
-    /** Creates a new MapInfo instance. */
-    constructor($$source: Partial<MapInfo> = {}) {
-        if (!("type" in $$source)) {
-            this["type"] = 0;
-        }
-        if (!("areaId" in $$source)) {
-            this["areaId"] = 0;
-        }
-        if (!("loadingScreen" in $$source)) {
-            this["loadingScreen"] = 0;
-        }
-        if (!("maxPlayers" in $$source)) {
-            this["maxPlayers"] = 0;
-        }
-        if (!("ghostMap" in $$source)) {
-            this["ghostMap"] = 0;
-        }
-        if (!("ghostX" in $$source)) {
-            this["ghostX"] = 0;
-        }
-        if (!("ghostY" in $$source)) {
-            this["ghostY"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapInfo instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapInfo {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new MapInfo($$parsedSource as Partial<MapInfo>);
-    }
 }
 
 /**
@@ -2554,7 +849,7 @@ export class MapInfo {
  * frame), Y the height; Inner and Outer the radii it is full and fades out over. Params are its five
  * LightParams IDs (clear, clear underwater, storm, storm underwater, death).
  */
-export class MapLight {
+export interface MapLight {
     "id": number;
     "x": number;
     "y": number;
@@ -2563,96 +858,27 @@ export class MapLight {
     "outer": number;
     "global": boolean;
     "params": number[];
-
-    /** Creates a new MapLight instance. */
-    constructor($$source: Partial<MapLight> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("inner" in $$source)) {
-            this["inner"] = 0;
-        }
-        if (!("outer" in $$source)) {
-            this["outer"] = 0;
-        }
-        if (!("global" in $$source)) {
-            this["global"] = false;
-        }
-        if (!("params" in $$source)) {
-            this["params"] = Array.from({ length: 5 }, () => 0);
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapLight instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapLight {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new MapLight($$parsedSource as Partial<MapLight>);
-    }
 }
 
 /**
  * MapLights is a map's lights and the LightParams rows they name.
  */
-export class MapLights {
+export interface MapLights {
     "mapId": number;
-    "lights": MapLight[];
-    "params": { [_ in `${number}`]?: LightParamSet };
-
-    /** Creates a new MapLights instance. */
-    constructor($$source: Partial<MapLights> = {}) {
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("lights" in $$source)) {
-            this["lights"] = [];
-        }
-        if (!("params" in $$source)) {
-            this["params"] = {};
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapLights instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapLights {
-        const $$createField1_0 = $$createType34;
-        const $$createField2_0 = $$createType39;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("lights" in $$parsedSource) {
-            $$parsedSource["lights"] = $$createField1_0($$parsedSource["lights"]);
-        }
-        if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField2_0($$parsedSource["params"]);
-        }
-        return new MapLights($$parsedSource as Partial<MapLights>);
-    }
+    "lights": MapLight[] | null;
+    "params": { [_ in `${number}`]?: LightParamSet } | null;
 }
 
 /**
  * MapSpec is a map to write: its folder and ID, and the tiles that have a file.
  */
-export class MapSpec {
+export interface MapSpec {
     /**
      * Dir is the map's folder under World\Maps, which is also its internal name.
      */
     "Dir": string;
     "MapID": number;
-    "Tiles": TileSpec[];
+    "Tiles": TileSpec[] | null;
 
     /**
      * Water, when set, puts sea (ocean) at WaterLevel yards into every cell the ground lies below
@@ -2673,53 +899,6 @@ export class MapSpec {
      * middle, where the client and the server's vmaps both put a WDT's building at 0 (#272).
      */
     "Global": ObjectSpec | null;
-
-    /** Creates a new MapSpec instance. */
-    constructor($$source: Partial<MapSpec> = {}) {
-        if (!("Dir" in $$source)) {
-            this["Dir"] = "";
-        }
-        if (!("MapID" in $$source)) {
-            this["MapID"] = 0;
-        }
-        if (!("Tiles" in $$source)) {
-            this["Tiles"] = [];
-        }
-        if (!("Water" in $$source)) {
-            this["Water"] = false;
-        }
-        if (!("WaterLevel" in $$source)) {
-            this["WaterLevel"] = 0;
-        }
-        if (!("Info" in $$source)) {
-            this["Info"] = null;
-        }
-        if (!("Global" in $$source)) {
-            this["Global"] = null;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapSpec {
-        const $$createField2_0 = $$createType41;
-        const $$createField5_0 = $$createType43;
-        const $$createField6_0 = $$createType45;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("Tiles" in $$parsedSource) {
-            $$parsedSource["Tiles"] = $$createField2_0($$parsedSource["Tiles"]);
-        }
-        if ("Info" in $$parsedSource) {
-            $$parsedSource["Info"] = $$createField5_0($$parsedSource["Info"]);
-        }
-        if ("Global" in $$parsedSource) {
-            $$parsedSource["Global"] = $$createField6_0($$parsedSource["Global"]);
-        }
-        return new MapSpec($$parsedSource as Partial<MapSpec>);
-    }
 }
 
 /**
@@ -2727,236 +906,68 @@ export class MapSpec {
  * and its picture, MinimapSide pixels a side of RGBA (base64 in JSON), row 0 at the tile's north
  * edge and column 0 at its west.
  */
-export class MinimapTile {
+export interface MinimapTile {
     "x": number;
     "y": number;
-    "pixels": string;
-
-    /** Creates a new MinimapTile instance. */
-    constructor($$source: Partial<MinimapTile> = {}) {
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("pixels" in $$source)) {
-            this["pixels"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MinimapTile instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MinimapTile {
-        const $$createField2_0 = $Create.ByteSlice;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("pixels" in $$parsedSource) {
-            $$parsedSource["pixels"] = $$createField2_0($$parsedSource["pixels"]);
-        }
-        return new MinimapTile($$parsedSource as Partial<MinimapTile>);
-    }
+    "pixels": string | null;
 }
 
 /**
  * NamedID is a row of a client table by ID and English name.
  */
-export class NamedID {
+export interface NamedID {
     "id": number;
     "name": string;
-
-    /** Creates a new NamedID instance. */
-    constructor($$source: Partial<NamedID> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new NamedID instance from a string or object.
-     */
-    static createFrom($$source: any = {}): NamedID {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new NamedID($$parsedSource as Partial<NamedID>);
-    }
 }
 
 /**
  * NamedRef is a template a quest names, as the quest editor shows it: its name, and for an item its
  * quality and display (for the icon), for a creature its lowest level, for a quest its level.
  */
-export class NamedRef {
+export interface NamedRef {
     "name": string;
     "quality": number;
     "displayId": number;
     "level": number;
-
-    /** Creates a new NamedRef instance. */
-    constructor($$source: Partial<NamedRef> = {}) {
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("quality" in $$source)) {
-            this["quality"] = 0;
-        }
-        if (!("displayId" in $$source)) {
-            this["displayId"] = 0;
-        }
-        if (!("level" in $$source)) {
-            this["level"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new NamedRef instance from a string or object.
-     */
-    static createFrom($$source: any = {}): NamedRef {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new NamedRef($$parsedSource as Partial<NamedRef>);
-    }
 }
 
 /**
  * ObjectDisplaySounds are a game object display's model and its ten sound slots' SoundEntries IDs
  * (0: none).
  */
-export class ObjectDisplaySounds {
+export interface ObjectDisplaySounds {
     "display": number;
     "model": string;
-    "sounds": number[];
-
-    /** Creates a new ObjectDisplaySounds instance. */
-    constructor($$source: Partial<ObjectDisplaySounds> = {}) {
-        if (!("display" in $$source)) {
-            this["display"] = 0;
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("sounds" in $$source)) {
-            this["sounds"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectDisplaySounds instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectDisplaySounds {
-        const $$createField2_0 = $$createType46;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("sounds" in $$parsedSource) {
-            $$parsedSource["sounds"] = $$createField2_0($$parsedSource["sounds"]);
-        }
-        return new ObjectDisplaySounds($$parsedSource as Partial<ObjectDisplaySounds>);
-    }
+    "sounds": number[] | null;
 }
 
 /**
  * ObjectLoot is what a game object holds: its loot list's rows, the other object templates that hold
  * the same list (so a change reaches them too), and how many spawns the object itself has.
  */
-export class ObjectLoot {
+export interface ObjectLoot {
     "loot": number;
-    "items": LootItem[];
-    "users": LootUser[];
+    "items": LootItem[] | null;
+    "users": LootUser[] | null;
     "spawns": number;
-
-    /** Creates a new ObjectLoot instance. */
-    constructor($$source: Partial<ObjectLoot> = {}) {
-        if (!("loot" in $$source)) {
-            this["loot"] = 0;
-        }
-        if (!("items" in $$source)) {
-            this["items"] = [];
-        }
-        if (!("users" in $$source)) {
-            this["users"] = [];
-        }
-        if (!("spawns" in $$source)) {
-            this["spawns"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectLoot instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectLoot {
-        const $$createField1_0 = $$createType48;
-        const $$createField2_0 = $$createType50;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("items" in $$parsedSource) {
-            $$parsedSource["items"] = $$createField1_0($$parsedSource["items"]);
-        }
-        if ("users" in $$parsedSource) {
-            $$parsedSource["users"] = $$createField2_0($$parsedSource["users"]);
-        }
-        return new ObjectLoot($$parsedSource as Partial<ObjectLoot>);
-    }
 }
 
 /**
  * ObjectPages is what a readable object says: the pages from its first page on, what else reads
  * them, and how many spawns the object itself has.
  */
-export class ObjectPages {
+export interface ObjectPages {
     "first": number;
-    "pages": Page[];
-    "users": PageUser[];
+    "pages": Page[] | null;
+    "users": PageUser[] | null;
     "spawns": number;
-
-    /** Creates a new ObjectPages instance. */
-    constructor($$source: Partial<ObjectPages> = {}) {
-        if (!("first" in $$source)) {
-            this["first"] = 0;
-        }
-        if (!("pages" in $$source)) {
-            this["pages"] = [];
-        }
-        if (!("users" in $$source)) {
-            this["users"] = [];
-        }
-        if (!("spawns" in $$source)) {
-            this["spawns"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectPages instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectPages {
-        const $$createField1_0 = $$createType52;
-        const $$createField2_0 = $$createType54;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("pages" in $$parsedSource) {
-            $$parsedSource["pages"] = $$createField1_0($$parsedSource["pages"]);
-        }
-        if ("users" in $$parsedSource) {
-            $$parsedSource["users"] = $$createField2_0($$parsedSource["users"]);
-        }
-        return new ObjectPages($$parsedSource as Partial<ObjectPages>);
-    }
 }
 
 /**
  * ObjectSpec is a model to place, in the editor's terms: X and Z in yards from the tile's corner,
  * Y the world height, RotY in radians about the vertical axis.
  */
-export class ObjectSpec {
+export interface ObjectSpec {
     /**
      * Type is "m2:<path>" or "wmo:<path>", as the editor names a model.
      */
@@ -2972,180 +983,40 @@ export class ObjectSpec {
     "TiltX": number;
     "TiltZ": number;
     "Scale": number;
-
-    /** Creates a new ObjectSpec instance. */
-    constructor($$source: Partial<ObjectSpec> = {}) {
-        if (!("Type" in $$source)) {
-            this["Type"] = "";
-        }
-        if (!("X" in $$source)) {
-            this["X"] = 0;
-        }
-        if (!("Y" in $$source)) {
-            this["Y"] = 0;
-        }
-        if (!("Z" in $$source)) {
-            this["Z"] = 0;
-        }
-        if (!("RotY" in $$source)) {
-            this["RotY"] = 0;
-        }
-        if (!("TiltX" in $$source)) {
-            this["TiltX"] = 0;
-        }
-        if (!("TiltZ" in $$source)) {
-            this["TiltZ"] = 0;
-        }
-        if (!("Scale" in $$source)) {
-            this["Scale"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectSpec {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ObjectSpec($$parsedSource as Partial<ObjectSpec>);
-    }
 }
 
 /**
  * ObjectTables are the client's tables the game object editor names data columns from.
  */
-export class ObjectTables {
-    "locks": LockInfo[];
-    "lockTypes": NamedID[];
-    "languages": NamedID[];
-    "pageMaterials": NamedID[];
-    "spellFocus": NamedID[];
-    "cinematics": NamedID[];
-    "taxiPaths": NamedID[];
-    "auctionHouses": NamedID[];
-
-    /** Creates a new ObjectTables instance. */
-    constructor($$source: Partial<ObjectTables> = {}) {
-        if (!("locks" in $$source)) {
-            this["locks"] = [];
-        }
-        if (!("lockTypes" in $$source)) {
-            this["lockTypes"] = [];
-        }
-        if (!("languages" in $$source)) {
-            this["languages"] = [];
-        }
-        if (!("pageMaterials" in $$source)) {
-            this["pageMaterials"] = [];
-        }
-        if (!("spellFocus" in $$source)) {
-            this["spellFocus"] = [];
-        }
-        if (!("cinematics" in $$source)) {
-            this["cinematics"] = [];
-        }
-        if (!("taxiPaths" in $$source)) {
-            this["taxiPaths"] = [];
-        }
-        if (!("auctionHouses" in $$source)) {
-            this["auctionHouses"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectTables instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectTables {
-        const $$createField0_0 = $$createType56;
-        const $$createField1_0 = $$createType29;
-        const $$createField2_0 = $$createType29;
-        const $$createField3_0 = $$createType29;
-        const $$createField4_0 = $$createType29;
-        const $$createField5_0 = $$createType29;
-        const $$createField6_0 = $$createType29;
-        const $$createField7_0 = $$createType29;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("locks" in $$parsedSource) {
-            $$parsedSource["locks"] = $$createField0_0($$parsedSource["locks"]);
-        }
-        if ("lockTypes" in $$parsedSource) {
-            $$parsedSource["lockTypes"] = $$createField1_0($$parsedSource["lockTypes"]);
-        }
-        if ("languages" in $$parsedSource) {
-            $$parsedSource["languages"] = $$createField2_0($$parsedSource["languages"]);
-        }
-        if ("pageMaterials" in $$parsedSource) {
-            $$parsedSource["pageMaterials"] = $$createField3_0($$parsedSource["pageMaterials"]);
-        }
-        if ("spellFocus" in $$parsedSource) {
-            $$parsedSource["spellFocus"] = $$createField4_0($$parsedSource["spellFocus"]);
-        }
-        if ("cinematics" in $$parsedSource) {
-            $$parsedSource["cinematics"] = $$createField5_0($$parsedSource["cinematics"]);
-        }
-        if ("taxiPaths" in $$parsedSource) {
-            $$parsedSource["taxiPaths"] = $$createField6_0($$parsedSource["taxiPaths"]);
-        }
-        if ("auctionHouses" in $$parsedSource) {
-            $$parsedSource["auctionHouses"] = $$createField7_0($$parsedSource["auctionHouses"]);
-        }
-        return new ObjectTables($$parsedSource as Partial<ObjectTables>);
-    }
+export interface ObjectTables {
+    "locks": LockInfo[] | null;
+    "lockTypes": NamedID[] | null;
+    "languages": NamedID[] | null;
+    "pageMaterials": NamedID[] | null;
+    "spellFocus": NamedID[] | null;
+    "cinematics": NamedID[] | null;
+    "taxiPaths": NamedID[] | null;
+    "auctionHouses": NamedID[] | null;
 }
 
 /**
  * ObjectTemplate is a game object the world database can spawn (gameobject_template): a chest, a
  * herb, an ore vein, a door…, with the client model of its display for a thumbnail ("" for none).
  */
-export class ObjectTemplate {
+export interface ObjectTemplate {
     "entry": number;
     "name": string;
     "type": number;
     "display": number;
     "size": number;
     "model": string;
-
-    /** Creates a new ObjectTemplate instance. */
-    constructor($$source: Partial<ObjectTemplate> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("type" in $$source)) {
-            this["type"] = 0;
-        }
-        if (!("display" in $$source)) {
-            this["display"] = 0;
-        }
-        if (!("size" in $$source)) {
-            this["size"] = 0;
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectTemplate instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectTemplate {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ObjectTemplate($$parsedSource as Partial<ObjectTemplate>);
-    }
 }
 
 /**
  * ObjectView is a placed model in the block's coordinates. UID is the file's unique ID, or 0 for
  * a model that isn't in the client yet. Y is the model's absolute height.
  */
-export class ObjectView {
+export interface ObjectView {
     "uid": number;
     "type": string;
     "x": number;
@@ -3159,75 +1030,14 @@ export class ObjectView {
     "tiltX": number;
     "tiltZ": number;
     "scale": number;
-
-    /** Creates a new ObjectView instance. */
-    constructor($$source: Partial<ObjectView> = {}) {
-        if (!("uid" in $$source)) {
-            this["uid"] = 0;
-        }
-        if (!("type" in $$source)) {
-            this["type"] = "";
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("rotY" in $$source)) {
-            this["rotY"] = 0;
-        }
-        if (!("tiltX" in $$source)) {
-            this["tiltX"] = 0;
-        }
-        if (!("tiltZ" in $$source)) {
-            this["tiltZ"] = 0;
-        }
-        if (!("scale" in $$source)) {
-            this["scale"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ObjectView instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ObjectView {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ObjectView($$parsedSource as Partial<ObjectView>);
-    }
 }
 
 /**
  * Page is one page_text row of a text: its entry and what it says.
  */
-export class Page {
+export interface Page {
     "entry": number;
     "text": string;
-
-    /** Creates a new Page instance. */
-    constructor($$source: Partial<Page> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("text" in $$source)) {
-            this["text"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Page instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Page {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new Page($$parsedSource as Partial<Page>);
-    }
 }
 
 /**
@@ -3235,197 +1045,69 @@ export class Page {
  * with its spawn count), an item ("item"), or a page of another text whose next page is one of them
  * ("page", named by its first words).
  */
-export class PageUser {
+export interface PageUser {
     "kind": string;
     "entry": number;
     "name": string;
     "spawns": number;
-
-    /** Creates a new PageUser instance. */
-    constructor($$source: Partial<PageUser> = {}) {
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("spawns" in $$source)) {
-            this["spawns"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new PageUser instance from a string or object.
-     */
-    static createFrom($$source: any = {}): PageUser {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new PageUser($$parsedSource as Partial<PageUser>);
-    }
 }
 
 /**
  * PaintSpec is a chunk's paint: its index in the tile (y*16 + x), its textures in slot order, and
  * four weights per texel (32 texels a side, row-major, base64 of bytes), each texel summing to 255.
  */
-export class PaintSpec {
+export interface PaintSpec {
     "Chunk": number;
-    "Textures": string[];
+    "Textures": string[] | null;
     "Weights": string;
 
     /**
      * Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
      */
-    "Effects": number[];
+    "Effects": number[] | null;
 
     /**
      * Flags is each texture's look flags (adt.LayerLookFlags: animation and overbright), or -1 to keep
      * what the tile's own layers of that texture have; optional.
      */
-    "Flags": number[];
+    "Flags": number[] | null;
 
     /**
      * NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow
      * (under a building); optional. The bits are added to the tile's own.
      */
-    "NoEffect": number[];
-
-    /** Creates a new PaintSpec instance. */
-    constructor($$source: Partial<PaintSpec> = {}) {
-        if (!("Chunk" in $$source)) {
-            this["Chunk"] = 0;
-        }
-        if (!("Textures" in $$source)) {
-            this["Textures"] = [];
-        }
-        if (!("Weights" in $$source)) {
-            this["Weights"] = "";
-        }
-        if (!("Effects" in $$source)) {
-            this["Effects"] = [];
-        }
-        if (!("Flags" in $$source)) {
-            this["Flags"] = [];
-        }
-        if (!("NoEffect" in $$source)) {
-            this["NoEffect"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new PaintSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): PaintSpec {
-        const $$createField1_0 = $$createType7;
-        const $$createField3_0 = $$createType46;
-        const $$createField4_0 = $$createType4;
-        const $$createField5_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("Textures" in $$parsedSource) {
-            $$parsedSource["Textures"] = $$createField1_0($$parsedSource["Textures"]);
-        }
-        if ("Effects" in $$parsedSource) {
-            $$parsedSource["Effects"] = $$createField3_0($$parsedSource["Effects"]);
-        }
-        if ("Flags" in $$parsedSource) {
-            $$parsedSource["Flags"] = $$createField4_0($$parsedSource["Flags"]);
-        }
-        if ("NoEffect" in $$parsedSource) {
-            $$parsedSource["NoEffect"] = $$createField5_0($$parsedSource["NoEffect"]);
-        }
-        return new PaintSpec($$parsedSource as Partial<PaintSpec>);
-    }
+    "NoEffect": number[] | null;
 }
 
 /**
  * QuestDeleteCount is how many rows of a table deleting a quest removes.
  */
-export class QuestDeleteCount {
+export interface QuestDeleteCount {
     "table": string;
     "count": number;
-
-    /** Creates a new QuestDeleteCount instance. */
-    constructor($$source: Partial<QuestDeleteCount> = {}) {
-        if (!("table" in $$source)) {
-            this["table"] = "";
-        }
-        if (!("count" in $$source)) {
-            this["count"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestDeleteCount instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestDeleteCount {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new QuestDeleteCount($$parsedSource as Partial<QuestDeleteCount>);
-    }
 }
 
 /**
  * QuestDeletePlan is what deleting a quest removes and leaves dangling, for the confirmation.
  */
-export class QuestDeletePlan {
+export interface QuestDeletePlan {
     "title": string;
 
     /**
      * Rows has the tables that hold rows of the quest (empty ones left out).
      */
-    "rows": QuestDeleteCount[];
+    "rows": QuestDeleteCount[] | null;
 
     /**
      * Links are the other quests that name it; deleting clears those columns to 0.
      */
-    "links": QuestLink[];
+    "links": QuestLink[] | null;
 
     /**
      * Characters is how many characters have it in their log or done; -1 when the characters
      * database could not be read.
      */
     "characters": number;
-
-    /** Creates a new QuestDeletePlan instance. */
-    constructor($$source: Partial<QuestDeletePlan> = {}) {
-        if (!("title" in $$source)) {
-            this["title"] = "";
-        }
-        if (!("rows" in $$source)) {
-            this["rows"] = [];
-        }
-        if (!("links" in $$source)) {
-            this["links"] = [];
-        }
-        if (!("characters" in $$source)) {
-            this["characters"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestDeletePlan instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestDeletePlan {
-        const $$createField1_0 = $$createType58;
-        const $$createField2_0 = $$createType60;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("rows" in $$parsedSource) {
-            $$parsedSource["rows"] = $$createField1_0($$parsedSource["rows"]);
-        }
-        if ("links" in $$parsedSource) {
-            $$parsedSource["links"] = $$createField2_0($$parsedSource["links"]);
-        }
-        return new QuestDeletePlan($$parsedSource as Partial<QuestDeletePlan>);
-    }
 }
 
 /**
@@ -3434,7 +1116,7 @@ export class QuestDeletePlan {
  * can (a creature with the Quest giver npc flag, a game object of the quest giver type) and how
  * many spawns of it the world has.
  */
-export class QuestGiver {
+export interface QuestGiver {
     "kind": string;
     "id": number;
     "name": string;
@@ -3442,191 +1124,44 @@ export class QuestGiver {
     "patchMax": number;
     "ready": boolean;
     "spawns": number;
-
-    /** Creates a new QuestGiver instance. */
-    constructor($$source: Partial<QuestGiver> = {}) {
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("patchMin" in $$source)) {
-            this["patchMin"] = 0;
-        }
-        if (!("patchMax" in $$source)) {
-            this["patchMax"] = 0;
-        }
-        if (!("ready" in $$source)) {
-            this["ready"] = false;
-        }
-        if (!("spawns" in $$source)) {
-            this["spawns"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestGiver instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestGiver {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new QuestGiver($$parsedSource as Partial<QuestGiver>);
-    }
 }
 
 /**
  * QuestGivers is who starts a quest (the *_questrelation tables) and who ends it (*_involvedrelation).
  */
-export class QuestGivers {
-    "starts": QuestGiver[];
-    "ends": QuestGiver[];
-
-    /** Creates a new QuestGivers instance. */
-    constructor($$source: Partial<QuestGivers> = {}) {
-        if (!("starts" in $$source)) {
-            this["starts"] = [];
-        }
-        if (!("ends" in $$source)) {
-            this["ends"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestGivers instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestGivers {
-        const $$createField0_0 = $$createType62;
-        const $$createField1_0 = $$createType62;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("starts" in $$parsedSource) {
-            $$parsedSource["starts"] = $$createField0_0($$parsedSource["starts"]);
-        }
-        if ("ends" in $$parsedSource) {
-            $$parsedSource["ends"] = $$createField1_0($$parsedSource["ends"]);
-        }
-        return new QuestGivers($$parsedSource as Partial<QuestGivers>);
-    }
+export interface QuestGivers {
+    "starts": QuestGiver[] | null;
+    "ends": QuestGiver[] | null;
 }
 
 /**
  * QuestLink is a quest that names the quest being deleted, and the columns it names it in.
  */
-export class QuestLink {
+export interface QuestLink {
     "quest": number;
     "title": string;
-    "columns": string[];
-
-    /** Creates a new QuestLink instance. */
-    constructor($$source: Partial<QuestLink> = {}) {
-        if (!("quest" in $$source)) {
-            this["quest"] = 0;
-        }
-        if (!("title" in $$source)) {
-            this["title"] = "";
-        }
-        if (!("columns" in $$source)) {
-            this["columns"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestLink instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestLink {
-        const $$createField2_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("columns" in $$parsedSource) {
-            $$parsedSource["columns"] = $$createField2_0($$parsedSource["columns"]);
-        }
-        return new QuestLink($$parsedSource as Partial<QuestLink>);
-    }
+    "columns": string[] | null;
 }
 
 /**
  * QuestLists is what a creature or game object template does with quests: the ones it starts (the
  * questrelation table of its kind) and the ones it ends (the involvedrelation table).
  */
-export class QuestLists {
-    "starts": QuestRef[];
-    "ends": QuestRef[];
-
-    /** Creates a new QuestLists instance. */
-    constructor($$source: Partial<QuestLists> = {}) {
-        if (!("starts" in $$source)) {
-            this["starts"] = [];
-        }
-        if (!("ends" in $$source)) {
-            this["ends"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestLists instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestLists {
-        const $$createField0_0 = $$createType64;
-        const $$createField1_0 = $$createType64;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("starts" in $$parsedSource) {
-            $$parsedSource["starts"] = $$createField0_0($$parsedSource["starts"]);
-        }
-        if ("ends" in $$parsedSource) {
-            $$parsedSource["ends"] = $$createField1_0($$parsedSource["ends"]);
-        }
-        return new QuestLists($$parsedSource as Partial<QuestLists>);
-    }
+export interface QuestLists {
+    "starts": QuestRef[] | null;
+    "ends": QuestRef[] | null;
 }
 
 /**
  * QuestRef is a quest a creature starts or ends: the quest's entry, its title and level from
  * quest_template, and the content patches the relation row loads in (patch_min to patch_max).
  */
-export class QuestRef {
+export interface QuestRef {
     "quest": number;
     "title": string;
     "level": number;
     "patchMin": number;
     "patchMax": number;
-
-    /** Creates a new QuestRef instance. */
-    constructor($$source: Partial<QuestRef> = {}) {
-        if (!("quest" in $$source)) {
-            this["quest"] = 0;
-        }
-        if (!("title" in $$source)) {
-            this["title"] = "";
-        }
-        if (!("level" in $$source)) {
-            this["level"] = 0;
-        }
-        if (!("patchMin" in $$source)) {
-            this["patchMin"] = 0;
-        }
-        if (!("patchMax" in $$source)) {
-            this["patchMax"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestRef instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestRef {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new QuestRef($$parsedSource as Partial<QuestRef>);
-    }
 }
 
 /**
@@ -3634,64 +1169,22 @@ export class QuestRef {
  * quest log heading that isn't a zone, such as Warlock or Seasonal), the skills, and the factions
  * a player has reputation with.
  */
-export class QuestTables {
-    "sorts": NamedID[];
-    "skills": NamedID[];
-    "factions": NamedID[];
+export interface QuestTables {
+    "sorts": NamedID[] | null;
+    "skills": NamedID[] | null;
+    "factions": NamedID[] | null;
 
     /**
      * MailTemplates are MailTemplate.dbc's letters (#704), by their body's first line (1.12's
      * table has no subject).
      */
-    "mailTemplates": NamedID[];
-
-    /** Creates a new QuestTables instance. */
-    constructor($$source: Partial<QuestTables> = {}) {
-        if (!("sorts" in $$source)) {
-            this["sorts"] = [];
-        }
-        if (!("skills" in $$source)) {
-            this["skills"] = [];
-        }
-        if (!("factions" in $$source)) {
-            this["factions"] = [];
-        }
-        if (!("mailTemplates" in $$source)) {
-            this["mailTemplates"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new QuestTables instance from a string or object.
-     */
-    static createFrom($$source: any = {}): QuestTables {
-        const $$createField0_0 = $$createType29;
-        const $$createField1_0 = $$createType29;
-        const $$createField2_0 = $$createType29;
-        const $$createField3_0 = $$createType29;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("sorts" in $$parsedSource) {
-            $$parsedSource["sorts"] = $$createField0_0($$parsedSource["sorts"]);
-        }
-        if ("skills" in $$parsedSource) {
-            $$parsedSource["skills"] = $$createField1_0($$parsedSource["skills"]);
-        }
-        if ("factions" in $$parsedSource) {
-            $$parsedSource["factions"] = $$createField2_0($$parsedSource["factions"]);
-        }
-        if ("mailTemplates" in $$parsedSource) {
-            $$parsedSource["mailTemplates"] = $$createField3_0($$parsedSource["mailTemplates"]);
-        }
-        return new QuestTables($$parsedSource as Partial<QuestTables>);
-    }
+    "mailTemplates": NamedID[] | null;
 }
 
 /**
  * RegionEdit is what the editor saves back over a region: its heights and its models.
  */
-export class RegionEdit {
+export interface RegionEdit {
     "mapName": string;
     "x": number;
     "y": number;
@@ -3702,13 +1195,13 @@ export class RegionEdit {
      * mapfile.MapData keeps it: a 3x3 block's 148,225 heights as JSON numbers cost the bridge far more (#531).
      */
     "heights": string;
-    "objects": ObjectView[];
+    "objects": ObjectView[] | null;
 
     /**
      * Paint is the painted chunks of the block, by block chunk index: the block's chunks in rows of
      * 16*Size, row-major. Chunks not listed keep the paint the client has.
      */
-    "paint": RegionPaint[];
+    "paint": RegionPaint[] | null;
 
     /**
      * HasLiquids says Liquids holds the block's liquids: every layer of every chunk, placed in the
@@ -3716,7 +1209,7 @@ export class RegionEdit {
      * one left out loses its liquid. Without it, the client's liquids stay as they are.
      */
     "hasLiquids": boolean;
-    "liquids": adt$0.Liquid[];
+    "liquids": adt$0.Liquid[] | null;
 
     /**
      * PartialLiquids says Liquids holds only some chunks' liquids (a map saved before maps kept
@@ -3728,70 +1221,7 @@ export class RegionEdit {
      * Headers are the zones, impassable flags, holes and baked shadows of the block's chunks, by block
      * chunk index. Chunks not listed keep the client's, and so do the fields a header leaves unset.
      */
-    "headers": HeaderSpec[];
-
-    /** Creates a new RegionEdit instance. */
-    constructor($$source: Partial<RegionEdit> = {}) {
-        if (!("mapName" in $$source)) {
-            this["mapName"] = "";
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("size" in $$source)) {
-            this["size"] = 0;
-        }
-        if (!("heights" in $$source)) {
-            this["heights"] = "";
-        }
-        if (!("objects" in $$source)) {
-            this["objects"] = [];
-        }
-        if (!("paint" in $$source)) {
-            this["paint"] = [];
-        }
-        if (!("hasLiquids" in $$source)) {
-            this["hasLiquids"] = false;
-        }
-        if (!("liquids" in $$source)) {
-            this["liquids"] = [];
-        }
-        if (!("partialLiquids" in $$source)) {
-            this["partialLiquids"] = false;
-        }
-        if (!("headers" in $$source)) {
-            this["headers"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new RegionEdit instance from a string or object.
-     */
-    static createFrom($$source: any = {}): RegionEdit {
-        const $$createField5_0 = $$createType66;
-        const $$createField6_0 = $$createType68;
-        const $$createField8_0 = $$createType70;
-        const $$createField10_0 = $$createType72;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("objects" in $$parsedSource) {
-            $$parsedSource["objects"] = $$createField5_0($$parsedSource["objects"]);
-        }
-        if ("paint" in $$parsedSource) {
-            $$parsedSource["paint"] = $$createField6_0($$parsedSource["paint"]);
-        }
-        if ("liquids" in $$parsedSource) {
-            $$parsedSource["liquids"] = $$createField8_0($$parsedSource["liquids"]);
-        }
-        if ("headers" in $$parsedSource) {
-            $$parsedSource["headers"] = $$createField10_0($$parsedSource["headers"]);
-        }
-        return new RegionEdit($$parsedSource as Partial<RegionEdit>);
-    }
+    "headers": HeaderSpec[] | null;
 }
 
 /**
@@ -3805,98 +1235,36 @@ export class RegionEdit {
  * base64 of the (Side+1)^2 corner heights the lifts are over, the ones the export compares the
  * editor's with; empty with Lifts.
  */
-export class RegionInner {
+export interface RegionInner {
     "side": number;
     "lifts": string;
     "base": string;
-
-    /** Creates a new RegionInner instance. */
-    constructor($$source: Partial<RegionInner> = {}) {
-        if (!("side" in $$source)) {
-            this["side"] = 0;
-        }
-        if (!("lifts" in $$source)) {
-            this["lifts"] = "";
-        }
-        if (!("base" in $$source)) {
-            this["base"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new RegionInner instance from a string or object.
-     */
-    static createFrom($$source: any = {}): RegionInner {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new RegionInner($$parsedSource as Partial<RegionInner>);
-    }
 }
 
 /**
  * RegionPaint is a painted chunk of a region: its index in the block (rows of 16*Size chunks), its
  * textures in slot order, and its weights as PaintSpec has them.
  */
-export class RegionPaint {
+export interface RegionPaint {
     "chunk": number;
-    "textures": string[];
+    "textures": string[] | null;
     "weights": string;
 
     /**
      * Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
      */
-    "effects"?: number[];
+    "effects"?: number[] | null;
 
     /**
      * Flags is each texture's look flags (animation, overbright), or -1 to keep the tile's own; optional.
      */
-    "flags"?: number[];
+    "flags"?: number[] | null;
 
     /**
      * NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow;
      * optional, added to the tile's own bits.
      */
-    "noEffect"?: number[];
-
-    /** Creates a new RegionPaint instance. */
-    constructor($$source: Partial<RegionPaint> = {}) {
-        if (!("chunk" in $$source)) {
-            this["chunk"] = 0;
-        }
-        if (!("textures" in $$source)) {
-            this["textures"] = [];
-        }
-        if (!("weights" in $$source)) {
-            this["weights"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new RegionPaint instance from a string or object.
-     */
-    static createFrom($$source: any = {}): RegionPaint {
-        const $$createField1_0 = $$createType7;
-        const $$createField3_0 = $$createType46;
-        const $$createField4_0 = $$createType4;
-        const $$createField5_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("textures" in $$parsedSource) {
-            $$parsedSource["textures"] = $$createField1_0($$parsedSource["textures"]);
-        }
-        if ("effects" in $$parsedSource) {
-            $$parsedSource["effects"] = $$createField3_0($$parsedSource["effects"]);
-        }
-        if ("flags" in $$parsedSource) {
-            $$parsedSource["flags"] = $$createField4_0($$parsedSource["flags"]);
-        }
-        if ("noEffect" in $$parsedSource) {
-            $$parsedSource["noEffect"] = $$createField5_0($$parsedSource["noEffect"]);
-        }
-        return new RegionPaint($$parsedSource as Partial<RegionPaint>);
-    }
+    "noEffect"?: number[] | null;
 }
 
 /**
@@ -3904,7 +1272,7 @@ export class RegionPaint {
  * them differed from the patch's copies and were written. Changed 0 with no Patch means nothing at
  * all changed (nor the WDL), so the patch was left alone.
  */
-export class RegionResult {
+export interface RegionResult {
     "patch": string;
     "tiles": number;
     "changed": number;
@@ -3920,7 +1288,7 @@ export class RegionResult {
      * the client map they belong to (0 Azeroth, 1 Kalimdor; -1 for any other). TilesCurrent says the
      * server's map data matched the patch before this write, so only those tiles need extracting again.
      */
-    "changedTiles": string[];
+    "changedTiles": string[] | null;
     "mapId": number;
     "tilesCurrent": boolean;
 
@@ -3946,57 +1314,6 @@ export class RegionResult {
      * Windows: Meld never closes it (#661).
      */
     "waiting": boolean;
-
-    /** Creates a new RegionResult instance. */
-    constructor($$source: Partial<RegionResult> = {}) {
-        if (!("patch" in $$source)) {
-            this["patch"] = "";
-        }
-        if (!("tiles" in $$source)) {
-            this["tiles"] = 0;
-        }
-        if (!("changed" in $$source)) {
-            this["changed"] = 0;
-        }
-        if (!("outside" in $$source)) {
-            this["outside"] = 0;
-        }
-        if (!("changedTiles" in $$source)) {
-            this["changedTiles"] = [];
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("tilesCurrent" in $$source)) {
-            this["tilesCurrent"] = false;
-        }
-        if (!("building" in $$source)) {
-            this["building"] = false;
-        }
-        if (!("wdt" in $$source)) {
-            this["wdt"] = false;
-        }
-        if (!("files" in $$source)) {
-            this["files"] = 0;
-        }
-        if (!("waiting" in $$source)) {
-            this["waiting"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new RegionResult instance from a string or object.
-     */
-    static createFrom($$source: any = {}): RegionResult {
-        const $$createField4_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("changedTiles" in $$parsedSource) {
-            $$parsedSource["changedTiles"] = $$createField4_0($$parsedSource["changedTiles"]);
-        }
-        return new RegionResult($$parsedSource as Partial<RegionResult>);
-    }
 }
 
 /**
@@ -4005,29 +1322,9 @@ export class RegionResult {
  * of a byte the texel n columns into it, as the tiles keep them. Bits is base64 (a byte slice would
  * travel as base64 anyway); empty when no chunk of the region has a shadow map.
  */
-export class RegionShadows {
+export interface RegionShadows {
     "side": number;
     "bits": string;
-
-    /** Creates a new RegionShadows instance. */
-    constructor($$source: Partial<RegionShadows> = {}) {
-        if (!("side" in $$source)) {
-            this["side"] = 0;
-        }
-        if (!("bits" in $$source)) {
-            this["bits"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new RegionShadows instance from a string or object.
-     */
-    static createFrom($$source: any = {}): RegionShadows {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new RegionShadows($$parsedSource as Partial<RegionShadows>);
-    }
 }
 
 /**
@@ -4035,7 +1332,7 @@ export class RegionShadows {
  * editor shows it. Positions are in yards from the block's north-west corner, so the editor's
  * coordinates start at zero.
  */
-export class RegionView {
+export interface RegionView {
     "mapName": string;
     "x": number;
     "y": number;
@@ -4049,13 +1346,13 @@ export class RegionView {
     /**
      * Chunks index across the whole block: 16*Size chunks a side.
      */
-    "chunks": ChunkView[];
-    "objects": ObjectView[];
+    "chunks": ChunkView[] | null;
+    "objects": ObjectView[] | null;
 
     /**
      * Liquids index across the whole block, like Chunks.
      */
-    "liquids": adt$0.Liquid[];
+    "liquids": adt$0.Liquid[] | null;
 
     /**
      * AlphaURL is where the page fetches Alpha from (App.LoadRegion sets it, internal/handoff), or
@@ -4073,73 +1370,13 @@ export class RegionView {
      * Bounds, for a WMO-only map, is the building's box in the block's coordinates as the WDT gives it:
      * its lowest corner, then its highest.
      */
-    "bounds"?: number[];
-
-    /** Creates a new RegionView instance. */
-    constructor($$source: Partial<RegionView> = {}) {
-        if (!("mapName" in $$source)) {
-            this["mapName"] = "";
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("size" in $$source)) {
-            this["size"] = 0;
-        }
-        if (!("heights" in $$source)) {
-            this["heights"] = null;
-        }
-        if (!("chunks" in $$source)) {
-            this["chunks"] = [];
-        }
-        if (!("objects" in $$source)) {
-            this["objects"] = [];
-        }
-        if (!("liquids" in $$source)) {
-            this["liquids"] = [];
-        }
-        if (!("alphaUrl" in $$source)) {
-            this["alphaUrl"] = "";
-        }
-        if (!("wmoOnly" in $$source)) {
-            this["wmoOnly"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new RegionView instance from a string or object.
-     */
-    static createFrom($$source: any = {}): RegionView {
-        const $$createField5_0 = $$createType74;
-        const $$createField6_0 = $$createType66;
-        const $$createField7_0 = $$createType70;
-        const $$createField10_0 = $$createType8;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("chunks" in $$parsedSource) {
-            $$parsedSource["chunks"] = $$createField5_0($$parsedSource["chunks"]);
-        }
-        if ("objects" in $$parsedSource) {
-            $$parsedSource["objects"] = $$createField6_0($$parsedSource["objects"]);
-        }
-        if ("liquids" in $$parsedSource) {
-            $$parsedSource["liquids"] = $$createField7_0($$parsedSource["liquids"]);
-        }
-        if ("bounds" in $$parsedSource) {
-            $$parsedSource["bounds"] = $$createField10_0($$parsedSource["bounds"]);
-        }
-        return new RegionView($$parsedSource as Partial<RegionView>);
-    }
+    "bounds"?: number[] | null;
 }
 
 /**
  * Result is the SQL for a set of edits, with counts and the things that couldn't be written.
  */
-export class Result {
+export interface Result {
     "sql": string;
     "added": number;
     "changed": number;
@@ -4148,46 +1385,13 @@ export class Result {
     /**
      * Skipped says, one line each, what wasn't exported and why.
      */
-    "skipped": string[];
-
-    /** Creates a new Result instance. */
-    constructor($$source: Partial<Result> = {}) {
-        if (!("sql" in $$source)) {
-            this["sql"] = "";
-        }
-        if (!("added" in $$source)) {
-            this["added"] = 0;
-        }
-        if (!("changed" in $$source)) {
-            this["changed"] = 0;
-        }
-        if (!("deleted" in $$source)) {
-            this["deleted"] = 0;
-        }
-        if (!("skipped" in $$source)) {
-            this["skipped"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Result instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Result {
-        const $$createField4_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("skipped" in $$parsedSource) {
-            $$parsedSource["skipped"] = $$createField4_0($$parsedSource["skipped"]);
-        }
-        return new Result($$parsedSource as Partial<Result>);
-    }
+    "skipped": string[] | null;
 }
 
 /**
  * ScriptCommand is one row of a script table: what the script does, after how long.
  */
-export class ScriptCommand {
+export interface ScriptCommand {
     "delay": number;
     "command": number;
 
@@ -4200,77 +1404,16 @@ export class ScriptCommand {
     "z": number;
     "o": number;
     "comments": string;
-
-    /** Creates a new ScriptCommand instance. */
-    constructor($$source: Partial<ScriptCommand> = {}) {
-        if (!("delay" in $$source)) {
-            this["delay"] = 0;
-        }
-        if (!("command" in $$source)) {
-            this["command"] = 0;
-        }
-        if (!("data" in $$source)) {
-            this["data"] = Array.from({ length: 4 }, () => 0);
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("o" in $$source)) {
-            this["o"] = 0;
-        }
-        if (!("comments" in $$source)) {
-            this["comments"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ScriptCommand instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ScriptCommand {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ScriptCommand($$parsedSource as Partial<ScriptCommand>);
-    }
 }
 
 /**
  * SoundOption is a row of a sound table the zone editor names: its ID, a name, and a sound file of
  * it to play (a client path under Sound\, "" when it has none).
  */
-export class SoundOption {
+export interface SoundOption {
     "id": number;
     "name": string;
     "file": string;
-
-    /** Creates a new SoundOption instance. */
-    constructor($$source: Partial<SoundOption> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("file" in $$source)) {
-            this["file"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SoundOption instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SoundOption {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SoundOption($$parsedSource as Partial<SoundOption>);
-    }
 }
 
 /**
@@ -4278,159 +1421,41 @@ export class SoundOption {
  * Original is what the database had when the region was read, or what the editor first placed
  * for a created spawn; Created says the spawn is new and Deleted that it was removed.
  */
-export class SpawnEdit {
+export interface SpawnEdit {
     "spawn": WorldSpawn;
     "original": WorldSpawn | null;
     "created": boolean;
     "deleted": boolean;
-
-    /** Creates a new SpawnEdit instance. */
-    constructor($$source: Partial<SpawnEdit> = {}) {
-        if (!("spawn" in $$source)) {
-            this["spawn"] = (new WorldSpawn());
-        }
-        if (!("original" in $$source)) {
-            this["original"] = null;
-        }
-        if (!("created" in $$source)) {
-            this["created"] = false;
-        }
-        if (!("deleted" in $$source)) {
-            this["deleted"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpawnEdit instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpawnEdit {
-        const $$createField0_0 = $$createType75;
-        const $$createField1_0 = $$createType76;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("spawn" in $$parsedSource) {
-            $$parsedSource["spawn"] = $$createField0_0($$parsedSource["spawn"]);
-        }
-        if ("original" in $$parsedSource) {
-            $$parsedSource["original"] = $$createField1_0($$parsedSource["original"]);
-        }
-        return new SpawnEdit($$parsedSource as Partial<SpawnEdit>);
-    }
 }
 
 /**
  * SpawnIDQuery is the guids of the created spawns and the entries of every unsaved spawn, by kind.
  */
-export class SpawnIDQuery {
-    "creatureGuids": number[];
-    "objectGuids": number[];
-    "creatureEntries": number[];
-    "objectEntries": number[];
-
-    /** Creates a new SpawnIDQuery instance. */
-    constructor($$source: Partial<SpawnIDQuery> = {}) {
-        if (!("creatureGuids" in $$source)) {
-            this["creatureGuids"] = [];
-        }
-        if (!("objectGuids" in $$source)) {
-            this["objectGuids"] = [];
-        }
-        if (!("creatureEntries" in $$source)) {
-            this["creatureEntries"] = [];
-        }
-        if (!("objectEntries" in $$source)) {
-            this["objectEntries"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpawnIDQuery instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpawnIDQuery {
-        const $$createField0_0 = $$createType4;
-        const $$createField1_0 = $$createType4;
-        const $$createField2_0 = $$createType4;
-        const $$createField3_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("creatureGuids" in $$parsedSource) {
-            $$parsedSource["creatureGuids"] = $$createField0_0($$parsedSource["creatureGuids"]);
-        }
-        if ("objectGuids" in $$parsedSource) {
-            $$parsedSource["objectGuids"] = $$createField1_0($$parsedSource["objectGuids"]);
-        }
-        if ("creatureEntries" in $$parsedSource) {
-            $$parsedSource["creatureEntries"] = $$createField2_0($$parsedSource["creatureEntries"]);
-        }
-        if ("objectEntries" in $$parsedSource) {
-            $$parsedSource["objectEntries"] = $$createField3_0($$parsedSource["objectEntries"]);
-        }
-        return new SpawnIDQuery($$parsedSource as Partial<SpawnIDQuery>);
-    }
+export interface SpawnIDQuery {
+    "creatureGuids": number[] | null;
+    "objectGuids": number[] | null;
+    "creatureEntries": number[] | null;
+    "objectEntries": number[] | null;
 }
 
 /**
  * SpawnIDReport is what the database has of a SpawnIDQuery.
  */
-export class SpawnIDReport {
-    "creatures": GUIDRow[];
-    "objects": GUIDRow[];
+export interface SpawnIDReport {
+    "creatures": GUIDRow[] | null;
+    "objects": GUIDRow[] | null;
 
     /**
      * The asked entries no template row has.
      */
-    "missingCreatureEntries": number[];
-    "missingObjectEntries": number[];
-
-    /** Creates a new SpawnIDReport instance. */
-    constructor($$source: Partial<SpawnIDReport> = {}) {
-        if (!("creatures" in $$source)) {
-            this["creatures"] = [];
-        }
-        if (!("objects" in $$source)) {
-            this["objects"] = [];
-        }
-        if (!("missingCreatureEntries" in $$source)) {
-            this["missingCreatureEntries"] = [];
-        }
-        if (!("missingObjectEntries" in $$source)) {
-            this["missingObjectEntries"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpawnIDReport instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpawnIDReport {
-        const $$createField0_0 = $$createType78;
-        const $$createField1_0 = $$createType78;
-        const $$createField2_0 = $$createType4;
-        const $$createField3_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("creatures" in $$parsedSource) {
-            $$parsedSource["creatures"] = $$createField0_0($$parsedSource["creatures"]);
-        }
-        if ("objects" in $$parsedSource) {
-            $$parsedSource["objects"] = $$createField1_0($$parsedSource["objects"]);
-        }
-        if ("missingCreatureEntries" in $$parsedSource) {
-            $$parsedSource["missingCreatureEntries"] = $$createField2_0($$parsedSource["missingCreatureEntries"]);
-        }
-        if ("missingObjectEntries" in $$parsedSource) {
-            $$parsedSource["missingObjectEntries"] = $$createField3_0($$parsedSource["missingObjectEntries"]);
-        }
-        return new SpawnIDReport($$parsedSource as Partial<SpawnIDReport>);
-    }
+    "missingCreatureEntries": number[] | null;
+    "missingObjectEntries": number[] | null;
 }
 
 /**
  * SpawnScript is one script attached to a spawn.
  */
-export class SpawnScript {
+export interface SpawnScript {
     /**
      * Kind is what attaches it: "cpp" (the template's script_name), "ai" (the template's ai_name),
      * "use" (gameobject_scripts), "event" (an object's event), "eventai" (an EventAI event), "path"
@@ -4466,70 +1491,14 @@ export class SpawnScript {
      * to list ("cpp", "ai", "eventai", whose events run up to three scripts).
      */
     "table": string;
-
-    /** Creates a new SpawnScript instance. */
-    constructor($$source: Partial<SpawnScript> = {}) {
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("commands" in $$source)) {
-            this["commands"] = 0;
-        }
-        if (!("comment" in $$source)) {
-            this["comment"] = "";
-        }
-        if (!("table" in $$source)) {
-            this["table"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpawnScript instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpawnScript {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SpawnScript($$parsedSource as Partial<SpawnScript>);
-    }
 }
 
 /**
  * SpawnTeleport is one place a spawn sends a player (or itself): what does it, and where to.
  */
-export class SpawnTeleport {
+export interface SpawnTeleport {
     "label": string;
     "dest": TriggerTeleport;
-
-    /** Creates a new SpawnTeleport instance. */
-    constructor($$source: Partial<SpawnTeleport> = {}) {
-        if (!("label" in $$source)) {
-            this["label"] = "";
-        }
-        if (!("dest" in $$source)) {
-            this["dest"] = (new TriggerTeleport());
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpawnTeleport instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpawnTeleport {
-        const $$createField1_0 = $$createType0;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("dest" in $$parsedSource) {
-            $$parsedSource["dest"] = $$createField1_0($$parsedSource["dest"]);
-        }
-        return new SpawnTeleport($$parsedSource as Partial<SpawnTeleport>);
-    }
 }
 
 /**
@@ -4537,45 +1506,19 @@ export class SpawnTeleport {
  * ("npc", "all", "every" or "skill:<SkillLine ID>"), Group the heading it is listed under and Count how many
  * spells it holds (noise left out).
  */
-export class SpellCategory {
+export interface SpellCategory {
     "key": string;
     "name": string;
     "group": string;
     "count": number;
-
-    /** Creates a new SpellCategory instance. */
-    constructor($$source: Partial<SpellCategory> = {}) {
-        if (!("key" in $$source)) {
-            this["key"] = "";
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("group" in $$source)) {
-            this["group"] = "";
-        }
-        if (!("count" in $$source)) {
-            this["count"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellCategory instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellCategory {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SpellCategory($$parsedSource as Partial<SpellCategory>);
-    }
 }
 
 /**
  * SpellImport is what an SQL script of spells would write: its spell rows, and what of it is left
  * out.
  */
-export class SpellImport {
-    "spells": SpellImportRow[];
+export interface SpellImport {
+    "spells": SpellImportRow[] | null;
 
     /**
      * Skipped is how many statements are not spell_template rows, which importing leaves out.
@@ -4585,51 +1528,13 @@ export class SpellImport {
     /**
      * Unknown are columns the script names that this server's spell_template lacks, left out.
      */
-    "unknown": string[];
+    "unknown": string[] | null;
 
     /**
      * Adds are the client tables importing adds rows to, for the icons and visuals the script
      * carries that the client lacks (#381).
      */
-    "adds": string[];
-
-    /** Creates a new SpellImport instance. */
-    constructor($$source: Partial<SpellImport> = {}) {
-        if (!("spells" in $$source)) {
-            this["spells"] = [];
-        }
-        if (!("skipped" in $$source)) {
-            this["skipped"] = 0;
-        }
-        if (!("unknown" in $$source)) {
-            this["unknown"] = [];
-        }
-        if (!("adds" in $$source)) {
-            this["adds"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellImport instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellImport {
-        const $$createField0_0 = $$createType80;
-        const $$createField2_0 = $$createType7;
-        const $$createField3_0 = $$createType7;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("spells" in $$parsedSource) {
-            $$parsedSource["spells"] = $$createField0_0($$parsedSource["spells"]);
-        }
-        if ("unknown" in $$parsedSource) {
-            $$parsedSource["unknown"] = $$createField2_0($$parsedSource["unknown"]);
-        }
-        if ("adds" in $$parsedSource) {
-            $$parsedSource["adds"] = $$createField3_0($$parsedSource["adds"]);
-        }
-        return new SpellImport($$parsedSource as Partial<SpellImport>);
-    }
+    "adds": string[] | null;
 }
 
 /**
@@ -4640,7 +1545,7 @@ export class SpellImport {
  * (SpellIcon.dbc) or visual (SpellVisual.dbc), as on a client the script was not exported from when
  * they were Meld's own, so the game shows no icon or draws nothing.
  */
-export class SpellImportRow {
+export interface SpellImportRow {
     "entry": number;
     "build": number;
     "name": string;
@@ -4656,82 +1561,14 @@ export class SpellImportRow {
      */
     "newIcon": number;
     "newVisual": number;
-
-    /** Creates a new SpellImportRow instance. */
-    constructor($$source: Partial<SpellImportRow> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("build" in $$source)) {
-            this["build"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("exists" in $$source)) {
-            this["exists"] = false;
-        }
-        if (!("inClient" in $$source)) {
-            this["inClient"] = false;
-        }
-        if (!("newer" in $$source)) {
-            this["newer"] = false;
-        }
-        if (!("missingIcon" in $$source)) {
-            this["missingIcon"] = 0;
-        }
-        if (!("missingVisual" in $$source)) {
-            this["missingVisual"] = 0;
-        }
-        if (!("newIcon" in $$source)) {
-            this["newIcon"] = 0;
-        }
-        if (!("newVisual" in $$source)) {
-            this["newVisual"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellImportRow instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellImportRow {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SpellImportRow($$parsedSource as Partial<SpellImportRow>);
-    }
 }
 
 /**
  * SpellList is a page of ListSpells: the spells shown and how many matched in all.
  */
-export class SpellList {
-    "spells": SpellRef[];
+export interface SpellList {
+    "spells": SpellRef[] | null;
     "total": number;
-
-    /** Creates a new SpellList instance. */
-    constructor($$source: Partial<SpellList> = {}) {
-        if (!("spells" in $$source)) {
-            this["spells"] = [];
-        }
-        if (!("total" in $$source)) {
-            this["total"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellList instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellList {
-        const $$createField0_0 = $$createType23;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("spells" in $$parsedSource) {
-            $$parsedSource["spells"] = $$createField0_0($$parsedSource["spells"]);
-        }
-        return new SpellList($$parsedSource as Partial<SpellList>);
-    }
 }
 
 /**
@@ -4740,7 +1577,7 @@ export class SpellList {
  * label and the number the tooltip uses (milliseconds for a time, yards for a distance; -1 for a
  * duration until cancelled).
  */
-export class SpellOption {
+export interface SpellOption {
     "id": number;
     "label": string;
     "value": number;
@@ -4749,32 +1586,6 @@ export class SpellOption {
      * Scaled says the time grows with the caster's level.
      */
     "scaled": boolean;
-
-    /** Creates a new SpellOption instance. */
-    constructor($$source: Partial<SpellOption> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("label" in $$source)) {
-            this["label"] = "";
-        }
-        if (!("value" in $$source)) {
-            this["value"] = 0;
-        }
-        if (!("scaled" in $$source)) {
-            this["scaled"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellOption instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellOption {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SpellOption($$parsedSource as Partial<SpellOption>);
-    }
 }
 
 /**
@@ -4782,53 +1593,13 @@ export class SpellOption {
  * the server uses, every other column as text, and its icon's texture (from SpellIcon.dbc, "" for
  * none). InClient says whether the client's Spell.dbc has the spell.
  */
-export class SpellRecord {
+export interface SpellRecord {
     "entry": number;
     "build": number;
-    "columns": TemplateColumn[];
-    "values": { [_ in string]?: string };
+    "columns": TemplateColumn[] | null;
+    "values": { [_ in string]?: string } | null;
     "icon": string;
     "inClient": boolean;
-
-    /** Creates a new SpellRecord instance. */
-    constructor($$source: Partial<SpellRecord> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("build" in $$source)) {
-            this["build"] = 0;
-        }
-        if (!("columns" in $$source)) {
-            this["columns"] = [];
-        }
-        if (!("values" in $$source)) {
-            this["values"] = {};
-        }
-        if (!("icon" in $$source)) {
-            this["icon"] = "";
-        }
-        if (!("inClient" in $$source)) {
-            this["inClient"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellRecord instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellRecord {
-        const $$createField2_0 = $$createType82;
-        const $$createField3_0 = $$createType83;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("columns" in $$parsedSource) {
-            $$parsedSource["columns"] = $$createField2_0($$parsedSource["columns"]);
-        }
-        if ("values" in $$parsedSource) {
-            $$parsedSource["values"] = $$createField3_0($$parsedSource["values"]);
-        }
-        return new SpellRecord($$parsedSource as Partial<SpellRecord>);
-    }
 }
 
 /**
@@ -4836,51 +1607,19 @@ export class SpellRecord {
  * icon (a texture path without .blp, "" when it has none), its description, tokens filled in, and
  * its visual (SpellVisual.dbc ID, for the spell editor's Take the visual of).
  */
-export class SpellRef {
+export interface SpellRef {
     "id": number;
     "name": string;
     "rank": string;
     "icon": string;
     "text": string;
     "visual": number;
-
-    /** Creates a new SpellRef instance. */
-    constructor($$source: Partial<SpellRef> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("rank" in $$source)) {
-            this["rank"] = "";
-        }
-        if (!("icon" in $$source)) {
-            this["icon"] = "";
-        }
-        if (!("text" in $$source)) {
-            this["text"] = "";
-        }
-        if (!("visual" in $$source)) {
-            this["visual"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellRef instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellRef {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SpellRef($$parsedSource as Partial<SpellRef>);
-    }
 }
 
 /**
  * SpellStarter is a kind of spell New spell can start from, as the editor lists it.
  */
-export class SpellStarter {
+export interface SpellStarter {
     "id": string;
     "name": string;
     "text": string;
@@ -4889,32 +1628,6 @@ export class SpellStarter {
      * Like is the client spell whose icon and visual the starter takes.
      */
     "like": string;
-
-    /** Creates a new SpellStarter instance. */
-    constructor($$source: Partial<SpellStarter> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = "";
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("text" in $$source)) {
-            this["text"] = "";
-        }
-        if (!("like" in $$source)) {
-            this["like"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellStarter instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellStarter {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SpellStarter($$parsedSource as Partial<SpellStarter>);
-    }
 }
 
 /**
@@ -4924,187 +1637,48 @@ export class SpellStarter {
  * global cooldown categories startRecoveryCategory names (Spell.dbc's, each named by its spells, as
  * 1.12 has no table of them) and the icons activeIconId names (SpellIcon.dbc's texture paths).
  */
-export class SpellTables {
-    "castTimes": SpellOption[];
-    "durations": SpellOption[];
-    "ranges": SpellOption[];
-    "radii": SpellOption[];
-    "globalCategories": NamedID[];
-    "icons": NamedID[];
+export interface SpellTables {
+    "castTimes": SpellOption[] | null;
+    "durations": SpellOption[] | null;
+    "ranges": SpellOption[] | null;
+    "radii": SpellOption[] | null;
+    "globalCategories": NamedID[] | null;
+    "icons": NamedID[] | null;
 
     /**
      * Enchantments are SpellItemEnchantment.dbc's rows, which an Enchant item effect's misc value
      * names (#709), each by its name ("+5 Agility", "Fiery Weapon").
      */
-    "enchantments": NamedID[];
-
-    /** Creates a new SpellTables instance. */
-    constructor($$source: Partial<SpellTables> = {}) {
-        if (!("castTimes" in $$source)) {
-            this["castTimes"] = [];
-        }
-        if (!("durations" in $$source)) {
-            this["durations"] = [];
-        }
-        if (!("ranges" in $$source)) {
-            this["ranges"] = [];
-        }
-        if (!("radii" in $$source)) {
-            this["radii"] = [];
-        }
-        if (!("globalCategories" in $$source)) {
-            this["globalCategories"] = [];
-        }
-        if (!("icons" in $$source)) {
-            this["icons"] = [];
-        }
-        if (!("enchantments" in $$source)) {
-            this["enchantments"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SpellTables instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SpellTables {
-        const $$createField0_0 = $$createType85;
-        const $$createField1_0 = $$createType85;
-        const $$createField2_0 = $$createType85;
-        const $$createField3_0 = $$createType85;
-        const $$createField4_0 = $$createType29;
-        const $$createField5_0 = $$createType29;
-        const $$createField6_0 = $$createType29;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("castTimes" in $$parsedSource) {
-            $$parsedSource["castTimes"] = $$createField0_0($$parsedSource["castTimes"]);
-        }
-        if ("durations" in $$parsedSource) {
-            $$parsedSource["durations"] = $$createField1_0($$parsedSource["durations"]);
-        }
-        if ("ranges" in $$parsedSource) {
-            $$parsedSource["ranges"] = $$createField2_0($$parsedSource["ranges"]);
-        }
-        if ("radii" in $$parsedSource) {
-            $$parsedSource["radii"] = $$createField3_0($$parsedSource["radii"]);
-        }
-        if ("globalCategories" in $$parsedSource) {
-            $$parsedSource["globalCategories"] = $$createField4_0($$parsedSource["globalCategories"]);
-        }
-        if ("icons" in $$parsedSource) {
-            $$parsedSource["icons"] = $$createField5_0($$parsedSource["icons"]);
-        }
-        if ("enchantments" in $$parsedSource) {
-            $$parsedSource["enchantments"] = $$createField6_0($$parsedSource["enchantments"]);
-        }
-        return new SpellTables($$parsedSource as Partial<SpellTables>);
-    }
+    "enchantments": NamedID[] | null;
 }
 
 /**
  * TaxiEdit is what the Flight Paths window saves: stops and routes changed or added (whole, by ID)
  * and the IDs of those removed.
  */
-export class TaxiEdit {
-    "nodes": TaxiNode[];
-    "removeNodes": number[];
-    "routes": TaxiRoute[];
-    "removeRoutes": number[];
-
-    /** Creates a new TaxiEdit instance. */
-    constructor($$source: Partial<TaxiEdit> = {}) {
-        if (!("nodes" in $$source)) {
-            this["nodes"] = [];
-        }
-        if (!("removeNodes" in $$source)) {
-            this["removeNodes"] = [];
-        }
-        if (!("routes" in $$source)) {
-            this["routes"] = [];
-        }
-        if (!("removeRoutes" in $$source)) {
-            this["removeRoutes"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TaxiEdit instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TaxiEdit {
-        const $$createField0_0 = $$createType87;
-        const $$createField1_0 = $$createType46;
-        const $$createField2_0 = $$createType89;
-        const $$createField3_0 = $$createType46;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("nodes" in $$parsedSource) {
-            $$parsedSource["nodes"] = $$createField0_0($$parsedSource["nodes"]);
-        }
-        if ("removeNodes" in $$parsedSource) {
-            $$parsedSource["removeNodes"] = $$createField1_0($$parsedSource["removeNodes"]);
-        }
-        if ("routes" in $$parsedSource) {
-            $$parsedSource["routes"] = $$createField2_0($$parsedSource["routes"]);
-        }
-        if ("removeRoutes" in $$parsedSource) {
-            $$parsedSource["removeRoutes"] = $$createField3_0($$parsedSource["removeRoutes"]);
-        }
-        return new TaxiEdit($$parsedSource as Partial<TaxiEdit>);
-    }
+export interface TaxiEdit {
+    "nodes": TaxiNode[] | null;
+    "removeNodes": number[] | null;
+    "routes": TaxiRoute[] | null;
+    "removeRoutes": number[] | null;
 }
 
 /**
  * TaxiNetwork is a map's stops, the routes that start or end at one of them, and the IDs the next
  * new stop and route take.
  */
-export class TaxiNetwork {
-    "nodes": TaxiNode[];
-    "routes": TaxiRoute[];
+export interface TaxiNetwork {
+    "nodes": TaxiNode[] | null;
+    "routes": TaxiRoute[] | null;
     "nextNode": number;
     "nextRoute": number;
-
-    /** Creates a new TaxiNetwork instance. */
-    constructor($$source: Partial<TaxiNetwork> = {}) {
-        if (!("nodes" in $$source)) {
-            this["nodes"] = [];
-        }
-        if (!("routes" in $$source)) {
-            this["routes"] = [];
-        }
-        if (!("nextNode" in $$source)) {
-            this["nextNode"] = 0;
-        }
-        if (!("nextRoute" in $$source)) {
-            this["nextRoute"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TaxiNetwork instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TaxiNetwork {
-        const $$createField0_0 = $$createType87;
-        const $$createField1_0 = $$createType89;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("nodes" in $$parsedSource) {
-            $$parsedSource["nodes"] = $$createField0_0($$parsedSource["nodes"]);
-        }
-        if ("routes" in $$parsedSource) {
-            $$parsedSource["routes"] = $$createField1_0($$parsedSource["routes"]);
-        }
-        return new TaxiNetwork($$parsedSource as Partial<TaxiNetwork>);
-    }
 }
 
 /**
  * TaxiNode is a flight stop in the server's coordinates (yards, Z up): where the flight master's map
  * shows it and the server finds the stop nearest a flight master. A side without a mount can't use it.
  */
-export class TaxiNode {
+export interface TaxiNode {
     "id": number;
     "mapId": number;
     "x": number;
@@ -5118,134 +1692,31 @@ export class TaxiNode {
      */
     "hordeMount": number;
     "allianceMount": number;
-
-    /** Creates a new TaxiNode instance. */
-    constructor($$source: Partial<TaxiNode> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("hordeMount" in $$source)) {
-            this["hordeMount"] = 0;
-        }
-        if (!("allianceMount" in $$source)) {
-            this["allianceMount"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TaxiNode instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TaxiNode {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TaxiNode($$parsedSource as Partial<TaxiNode>);
-    }
 }
 
 /**
  * TaxiPoint is a point a route flies through, in the server's coordinates. Flags 1 marks the points
  * either side of a map change, 2 a stop; Delay is the seconds waited there.
  */
-export class TaxiPoint {
+export interface TaxiPoint {
     "mapId": number;
     "x": number;
     "y": number;
     "z": number;
     "flags": number;
     "delay": number;
-
-    /** Creates a new TaxiPoint instance. */
-    constructor($$source: Partial<TaxiPoint> = {}) {
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("flags" in $$source)) {
-            this["flags"] = 0;
-        }
-        if (!("delay" in $$source)) {
-            this["delay"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TaxiPoint instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TaxiPoint {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TaxiPoint($$parsedSource as Partial<TaxiPoint>);
-    }
 }
 
 /**
  * TaxiRoute is a flight from one stop to another: its price in copper and the points it flies
  * through, the first near From and the last near To. The way back is a route of its own.
  */
-export class TaxiRoute {
+export interface TaxiRoute {
     "id": number;
     "from": number;
     "to": number;
     "cost": number;
-    "points": TaxiPoint[];
-
-    /** Creates a new TaxiRoute instance. */
-    constructor($$source: Partial<TaxiRoute> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("from" in $$source)) {
-            this["from"] = 0;
-        }
-        if (!("to" in $$source)) {
-            this["to"] = 0;
-        }
-        if (!("cost" in $$source)) {
-            this["cost"] = 0;
-        }
-        if (!("points" in $$source)) {
-            this["points"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TaxiRoute instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TaxiRoute {
-        const $$createField4_0 = $$createType91;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("points" in $$parsedSource) {
-            $$parsedSource["points"] = $$createField4_0($$parsedSource["points"]);
-        }
-        return new TaxiRoute($$parsedSource as Partial<TaxiRoute>);
-    }
+    "points": TaxiPoint[] | null;
 }
 
 /**
@@ -5254,90 +1725,24 @@ export class TaxiRoute {
  * whether it may be NULL, for text its length (0 for TEXT), and for a whole number the least and
  * most it holds (both 0 for other kinds).
  */
-export class TemplateColumn {
+export interface TemplateColumn {
     "name": string;
     "kind": string;
     "nullable": boolean;
     "maxLen": number;
     "min": number;
     "max": number;
-
-    /** Creates a new TemplateColumn instance. */
-    constructor($$source: Partial<TemplateColumn> = {}) {
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("nullable" in $$source)) {
-            this["nullable"] = false;
-        }
-        if (!("maxLen" in $$source)) {
-            this["maxLen"] = 0;
-        }
-        if (!("min" in $$source)) {
-            this["min"] = 0;
-        }
-        if (!("max" in $$source)) {
-            this["max"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TemplateColumn instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TemplateColumn {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TemplateColumn($$parsedSource as Partial<TemplateColumn>);
-    }
 }
 
 /**
  * TemplateRecord is a creature or game object template's row: every column but entry and patch, as
  * text the way mariadb prints them ("" for NULL in a nullable column).
  */
-export class TemplateRecord {
+export interface TemplateRecord {
     "entry": number;
     "patch": number;
-    "columns": TemplateColumn[];
-    "values": { [_ in string]?: string };
-
-    /** Creates a new TemplateRecord instance. */
-    constructor($$source: Partial<TemplateRecord> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("patch" in $$source)) {
-            this["patch"] = 0;
-        }
-        if (!("columns" in $$source)) {
-            this["columns"] = [];
-        }
-        if (!("values" in $$source)) {
-            this["values"] = {};
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TemplateRecord instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TemplateRecord {
-        const $$createField2_0 = $$createType82;
-        const $$createField3_0 = $$createType83;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("columns" in $$parsedSource) {
-            $$parsedSource["columns"] = $$createField2_0($$parsedSource["columns"]);
-        }
-        if ("values" in $$parsedSource) {
-            $$parsedSource["values"] = $$createField3_0($$parsedSource["values"]);
-        }
-        return new TemplateRecord($$parsedSource as Partial<TemplateRecord>);
-    }
+    "columns": TemplateColumn[] | null;
+    "values": { [_ in string]?: string } | null;
 }
 
 /**
@@ -5345,7 +1750,7 @@ export class TemplateRecord {
  * the ground (after Benilla's footsteps.rs, MIT/Apache: the 1.12 table is ID, description, two spray
  * IDs, the footstep sound class and flags, 11 rows).
  */
-export class TerrainType {
+export interface TerrainType {
     "id": number;
     "name": string;
 
@@ -5353,63 +1758,20 @@ export class TerrainType {
      * Footprints is flag 0x1: walking there leaves prints (snow and sand).
      */
     "footprints": boolean;
-
-    /** Creates a new TerrainType instance. */
-    constructor($$source: Partial<TerrainType> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("footprints" in $$source)) {
-            this["footprints"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TerrainType instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TerrainType {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TerrainType($$parsedSource as Partial<TerrainType>);
-    }
 }
 
 /**
  * TextureUse is a ground texture of a zone and the share of the zone's ground it covers (0 to 1).
  */
-export class TextureUse {
+export interface TextureUse {
     "path": string;
     "share": number;
-
-    /** Creates a new TextureUse instance. */
-    constructor($$source: Partial<TextureUse> = {}) {
-        if (!("path" in $$source)) {
-            this["path"] = "";
-        }
-        if (!("share" in $$source)) {
-            this["share"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TextureUse instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TextureUse {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TextureUse($$parsedSource as Partial<TextureUse>);
-    }
 }
 
 /**
  * TileSpec is one tile of a map to write.
  */
-export class TileSpec {
+export interface TileSpec {
     "X": number;
     "Y": number;
 
@@ -5421,80 +1783,29 @@ export class TileSpec {
     /**
      * Paint holds the chunks that have paint: their textures (up to four, base first) and weights.
      */
-    "Paint": PaintSpec[];
+    "Paint": PaintSpec[] | null;
 
     /**
      * Objects are the models on the tile.
      */
-    "Objects": ObjectSpec[];
+    "Objects": ObjectSpec[] | null;
 
     /**
      * Liquids are the tile's painted liquid layers, each placed by its chunk in the tile.
      */
-    "Liquids": adt$0.Liquid[];
+    "Liquids": adt$0.Liquid[] | null;
 
     /**
      * Headers are the chunks' zones, impassable flags, holes and baked shadows; chunks not listed keep the new tile's.
      */
-    "Headers": HeaderSpec[];
-
-    /** Creates a new TileSpec instance. */
-    constructor($$source: Partial<TileSpec> = {}) {
-        if (!("X" in $$source)) {
-            this["X"] = 0;
-        }
-        if (!("Y" in $$source)) {
-            this["Y"] = 0;
-        }
-        if (!("Outer" in $$source)) {
-            this["Outer"] = null;
-        }
-        if (!("Paint" in $$source)) {
-            this["Paint"] = [];
-        }
-        if (!("Objects" in $$source)) {
-            this["Objects"] = [];
-        }
-        if (!("Liquids" in $$source)) {
-            this["Liquids"] = [];
-        }
-        if (!("Headers" in $$source)) {
-            this["Headers"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TileSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TileSpec {
-        const $$createField2_0 = $$createType93;
-        const $$createField3_0 = $$createType94;
-        const $$createField4_0 = $$createType70;
-        const $$createField5_0 = $$createType72;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("Paint" in $$parsedSource) {
-            $$parsedSource["Paint"] = $$createField2_0($$parsedSource["Paint"]);
-        }
-        if ("Objects" in $$parsedSource) {
-            $$parsedSource["Objects"] = $$createField3_0($$parsedSource["Objects"]);
-        }
-        if ("Liquids" in $$parsedSource) {
-            $$parsedSource["Liquids"] = $$createField4_0($$parsedSource["Liquids"]);
-        }
-        if ("Headers" in $$parsedSource) {
-            $$parsedSource["Headers"] = $$createField5_0($$parsedSource["Headers"]);
-        }
-        return new TileSpec($$parsedSource as Partial<TileSpec>);
-    }
+    "Headers": HeaderSpec[] | null;
 }
 
 /**
  * TriggerTeleport is an areatrigger_teleport row: the target map, position and facing, the level a
  * player needs, and the message one below it gets.
  */
-export class TriggerTeleport {
+export interface TriggerTeleport {
     "map": number;
     "x": number;
     "y": number;
@@ -5502,41 +1813,6 @@ export class TriggerTeleport {
     "o": number;
     "level": number;
     "message": string;
-
-    /** Creates a new TriggerTeleport instance. */
-    constructor($$source: Partial<TriggerTeleport> = {}) {
-        if (!("map" in $$source)) {
-            this["map"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("o" in $$source)) {
-            this["o"] = 0;
-        }
-        if (!("level" in $$source)) {
-            this["level"] = 0;
-        }
-        if (!("message" in $$source)) {
-            this["message"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TriggerTeleport instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TriggerTeleport {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TriggerTeleport($$parsedSource as Partial<TriggerTeleport>);
-    }
 }
 
 /**
@@ -5544,41 +1820,10 @@ export class TriggerTeleport {
  * sells from when its template names one (creature_template.vendor_id, npc_vendor_template), which
  * the editor shows but doesn't change.
  */
-export class Vendor {
-    "items": VendorItem[];
+export interface Vendor {
+    "items": VendorItem[] | null;
     "templateId": number;
-    "template": VendorItem[];
-
-    /** Creates a new Vendor instance. */
-    constructor($$source: Partial<Vendor> = {}) {
-        if (!("items" in $$source)) {
-            this["items"] = [];
-        }
-        if (!("templateId" in $$source)) {
-            this["templateId"] = 0;
-        }
-        if (!("template" in $$source)) {
-            this["template"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Vendor instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Vendor {
-        const $$createField0_0 = $$createType96;
-        const $$createField2_0 = $$createType96;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("items" in $$parsedSource) {
-            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
-        }
-        if ("template" in $$parsedSource) {
-            $$parsedSource["template"] = $$createField2_0($$parsedSource["template"]);
-        }
-        return new Vendor($$parsedSource as Partial<Vendor>);
-    }
+    "template": VendorItem[] | null;
 }
 
 /**
@@ -5586,7 +1831,7 @@ export class Vendor {
  * and quality from item_template, how many it has in stock (0 for unlimited), the seconds before a
  * sold-out stock comes back, the row's item flags and its condition.
  */
-export class VendorItem {
+export interface VendorItem {
     "item": number;
     "name": string;
     "quality": number;
@@ -5595,44 +1840,6 @@ export class VendorItem {
     "incrTime": number;
     "itemFlags": number;
     "condition": number;
-
-    /** Creates a new VendorItem instance. */
-    constructor($$source: Partial<VendorItem> = {}) {
-        if (!("item" in $$source)) {
-            this["item"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("quality" in $$source)) {
-            this["quality"] = 0;
-        }
-        if (!("displayId" in $$source)) {
-            this["displayId"] = 0;
-        }
-        if (!("maxCount" in $$source)) {
-            this["maxCount"] = 0;
-        }
-        if (!("incrTime" in $$source)) {
-            this["incrTime"] = 0;
-        }
-        if (!("itemFlags" in $$source)) {
-            this["itemFlags"] = 0;
-        }
-        if (!("condition" in $$source)) {
-            this["condition"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new VendorItem instance from a string or object.
-     */
-    static createFrom($$source: any = {}): VendorItem {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new VendorItem($$parsedSource as Partial<VendorItem>);
-    }
 }
 
 /**
@@ -5640,115 +1847,32 @@ export class VendorItem {
  * five stages, its missile and its area effect (an effect ID each, 0 for none), and the visuals the
  * missile and the area came from, whose path, attachment and sounds go with them.
  */
-export class VisualDesign {
+export interface VisualDesign {
     "id": number;
-    "stages": VisualKit[];
+    "stages": VisualKit[] | null;
     "missile": number;
     "missileFrom": number;
     "area": number;
     "areaFrom": number;
-
-    /** Creates a new VisualDesign instance. */
-    constructor($$source: Partial<VisualDesign> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("stages" in $$source)) {
-            this["stages"] = [];
-        }
-        if (!("missile" in $$source)) {
-            this["missile"] = 0;
-        }
-        if (!("missileFrom" in $$source)) {
-            this["missileFrom"] = 0;
-        }
-        if (!("area" in $$source)) {
-            this["area"] = 0;
-        }
-        if (!("areaFrom" in $$source)) {
-            this["areaFrom"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new VisualDesign instance from a string or object.
-     */
-    static createFrom($$source: any = {}): VisualDesign {
-        const $$createField1_0 = $$createType98;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("stages" in $$parsedSource) {
-            $$parsedSource["stages"] = $$createField1_0($$parsedSource["stages"]);
-        }
-        return new VisualDesign($$parsedSource as Partial<VisualDesign>);
-    }
 }
 
 /**
  * VisualEffect is an effect model the composer can put on a stage: its name and its model as the
  * previews load it (an .m2 path).
  */
-export class VisualEffect {
+export interface VisualEffect {
     "id": number;
     "name": string;
     "model": string;
-
-    /** Creates a new VisualEffect instance. */
-    constructor($$source: Partial<VisualEffect> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new VisualEffect instance from a string or object.
-     */
-    static createFrom($$source: any = {}): VisualEffect {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new VisualEffect($$parsedSource as Partial<VisualEffect>);
-    }
 }
 
 /**
  * VisualKit is a stage of a visual: the kit it was read from (0 for none) and the effect on each of
  * its ten attachment points (0 for none).
  */
-export class VisualKit {
+export interface VisualKit {
     "id": number;
-    "effects": number[];
-
-    /** Creates a new VisualKit instance. */
-    constructor($$source: Partial<VisualKit> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("effects" in $$source)) {
-            this["effects"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new VisualKit instance from a string or object.
-     */
-    static createFrom($$source: any = {}): VisualKit {
-        const $$createField1_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("effects" in $$parsedSource) {
-            $$parsedSource["effects"] = $$createField1_0($$parsedSource["effects"]);
-        }
-        return new VisualKit($$parsedSource as Partial<VisualKit>);
-    }
+    "effects": number[] | null;
 }
 
 /**
@@ -5756,7 +1880,7 @@ export class VisualKit {
  * walks to, the facing it turns to there (0 for none), how long it waits there in milliseconds,
  * how far it wanders there, and the movement script it runs there (0 for none).
  */
-export class Waypoint {
+export interface Waypoint {
     "x": number;
     "y": number;
     "z": number;
@@ -5764,41 +1888,6 @@ export class Waypoint {
     "waitMs": number;
     "wanderDistance": number;
     "scriptId": number;
-
-    /** Creates a new Waypoint instance. */
-    constructor($$source: Partial<Waypoint> = {}) {
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("orientation" in $$source)) {
-            this["orientation"] = 0;
-        }
-        if (!("waitMs" in $$source)) {
-            this["waitMs"] = 0;
-        }
-        if (!("wanderDistance" in $$source)) {
-            this["wanderDistance"] = 0;
-        }
-        if (!("scriptId" in $$source)) {
-            this["scriptId"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Waypoint instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Waypoint {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new Waypoint($$parsedSource as Partial<Waypoint>);
-    }
 }
 
 /**
@@ -5806,7 +1895,7 @@ export class Waypoint {
  * item_template row, and the client model and texture of its display for a thumbnail ("" when the
  * display has no model).
  */
-export class WeaponEntry {
+export interface WeaponEntry {
     "entry": number;
     "name": string;
     "display": number;
@@ -5816,47 +1905,6 @@ export class WeaponEntry {
     "subclass": number;
     "model": string;
     "texture": string;
-
-    /** Creates a new WeaponEntry instance. */
-    constructor($$source: Partial<WeaponEntry> = {}) {
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("display" in $$source)) {
-            this["display"] = 0;
-        }
-        if (!("invType" in $$source)) {
-            this["invType"] = 0;
-        }
-        if (!("quality" in $$source)) {
-            this["quality"] = 0;
-        }
-        if (!("class" in $$source)) {
-            this["class"] = 0;
-        }
-        if (!("subclass" in $$source)) {
-            this["subclass"] = 0;
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("texture" in $$source)) {
-            this["texture"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new WeaponEntry instance from a string or object.
-     */
-    static createFrom($$source: any = {}): WeaponEntry {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new WeaponEntry($$parsedSource as Partial<WeaponEntry>);
-    }
 }
 
 /**
@@ -5865,9 +1913,9 @@ export class WeaponEntry {
  * keep the client's art (the row must be one of the zone's). Empty, not only nil: Wails v3's models
  * send a null []byte as "", which decodes to an empty slice (#854).
  */
-export class WorldMapOverlay {
+export interface WorldMapOverlay {
     "id": number;
-    "areas": number[];
+    "areas": number[] | null;
     "name": string;
     "width": number;
     "height": number;
@@ -5877,65 +1925,7 @@ export class WorldMapOverlay {
     "hitLeft": number;
     "hitBottom": number;
     "hitRight": number;
-    "pixels": string;
-
-    /** Creates a new WorldMapOverlay instance. */
-    constructor($$source: Partial<WorldMapOverlay> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("areas" in $$source)) {
-            this["areas"] = [];
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("width" in $$source)) {
-            this["width"] = 0;
-        }
-        if (!("height" in $$source)) {
-            this["height"] = 0;
-        }
-        if (!("offsetX" in $$source)) {
-            this["offsetX"] = 0;
-        }
-        if (!("offsetY" in $$source)) {
-            this["offsetY"] = 0;
-        }
-        if (!("hitTop" in $$source)) {
-            this["hitTop"] = 0;
-        }
-        if (!("hitLeft" in $$source)) {
-            this["hitLeft"] = 0;
-        }
-        if (!("hitBottom" in $$source)) {
-            this["hitBottom"] = 0;
-        }
-        if (!("hitRight" in $$source)) {
-            this["hitRight"] = 0;
-        }
-        if (!("pixels" in $$source)) {
-            this["pixels"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new WorldMapOverlay instance from a string or object.
-     */
-    static createFrom($$source: any = {}): WorldMapOverlay {
-        const $$createField1_0 = $$createType46;
-        const $$createField11_0 = $Create.ByteSlice;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("areas" in $$parsedSource) {
-            $$parsedSource["areas"] = $$createField1_0($$parsedSource["areas"]);
-        }
-        if ("pixels" in $$parsedSource) {
-            $$parsedSource["pixels"] = $$createField11_0($$parsedSource["pixels"]);
-        }
-        return new WorldMapOverlay($$parsedSource as Partial<WorldMapOverlay>);
-    }
+    "pixels": string | null;
 }
 
 /**
@@ -5943,7 +1933,7 @@ export class WorldMapOverlay {
  * client stores it: Left and Right are world Y (west is the larger), Top and Bottom world X (north is
  * the larger).
  */
-export class WorldMapRow {
+export interface WorldMapRow {
     "id": number;
     "mapId": number;
     "areaId": number;
@@ -5952,44 +1942,6 @@ export class WorldMapRow {
     "right": number;
     "top": number;
     "bottom": number;
-
-    /** Creates a new WorldMapRow instance. */
-    constructor($$source: Partial<WorldMapRow> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-        if (!("areaId" in $$source)) {
-            this["areaId"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("left" in $$source)) {
-            this["left"] = 0;
-        }
-        if (!("right" in $$source)) {
-            this["right"] = 0;
-        }
-        if (!("top" in $$source)) {
-            this["top"] = 0;
-        }
-        if (!("bottom" in $$source)) {
-            this["bottom"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new WorldMapRow instance from a string or object.
-     */
-    static createFrom($$source: any = {}): WorldMapRow {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new WorldMapRow($$parsedSource as Partial<WorldMapRow>);
-    }
 }
 
 /**
@@ -5997,45 +1949,10 @@ export class WorldMapRow {
  * picture, WorldMapWidth x WorldMapHeight RGBA, row 0 at the north edge, and the zone's overlays, all
  * of them: the zone's rows not listed are dropped.
  */
-export class WorldMapSpec {
+export interface WorldMapSpec {
     "row": WorldMapRow;
-    "pixels": string;
-    "overlays": WorldMapOverlay[];
-
-    /** Creates a new WorldMapSpec instance. */
-    constructor($$source: Partial<WorldMapSpec> = {}) {
-        if (!("row" in $$source)) {
-            this["row"] = (new WorldMapRow());
-        }
-        if (!("pixels" in $$source)) {
-            this["pixels"] = "";
-        }
-        if (!("overlays" in $$source)) {
-            this["overlays"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new WorldMapSpec instance from a string or object.
-     */
-    static createFrom($$source: any = {}): WorldMapSpec {
-        const $$createField0_0 = $$createType99;
-        const $$createField1_0 = $Create.ByteSlice;
-        const $$createField2_0 = $$createType101;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("row" in $$parsedSource) {
-            $$parsedSource["row"] = $$createField0_0($$parsedSource["row"]);
-        }
-        if ("pixels" in $$parsedSource) {
-            $$parsedSource["pixels"] = $$createField1_0($$parsedSource["pixels"]);
-        }
-        if ("overlays" in $$parsedSource) {
-            $$parsedSource["overlays"] = $$createField2_0($$parsedSource["overlays"]);
-        }
-        return new WorldMapSpec($$parsedSource as Partial<WorldMapSpec>);
-    }
+    "pixels": string | null;
+    "overlays": WorldMapOverlay[] | null;
 }
 
 /**
@@ -6043,52 +1960,17 @@ export class WorldMapSpec {
  * WorldMapWidth x WorldMapHeight RGBA (nil when a tile is missing), and its exploration overlays with
  * their pictures (worldmapoverlay.go). Row is nil for a zone with no map.
  */
-export class WorldMapView {
+export interface WorldMapView {
     "row": WorldMapRow | null;
-    "pixels": string;
-    "overlays": WorldMapOverlay[];
-
-    /** Creates a new WorldMapView instance. */
-    constructor($$source: Partial<WorldMapView> = {}) {
-        if (!("row" in $$source)) {
-            this["row"] = null;
-        }
-        if (!("pixels" in $$source)) {
-            this["pixels"] = "";
-        }
-        if (!("overlays" in $$source)) {
-            this["overlays"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new WorldMapView instance from a string or object.
-     */
-    static createFrom($$source: any = {}): WorldMapView {
-        const $$createField0_0 = $$createType102;
-        const $$createField1_0 = $Create.ByteSlice;
-        const $$createField2_0 = $$createType101;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("row" in $$parsedSource) {
-            $$parsedSource["row"] = $$createField0_0($$parsedSource["row"]);
-        }
-        if ("pixels" in $$parsedSource) {
-            $$parsedSource["pixels"] = $$createField1_0($$parsedSource["pixels"]);
-        }
-        if ("overlays" in $$parsedSource) {
-            $$parsedSource["overlays"] = $$createField2_0($$parsedSource["overlays"]);
-        }
-        return new WorldMapView($$parsedSource as Partial<WorldMapView>);
-    }
+    "pixels": string | null;
+    "overlays": WorldMapOverlay[] | null;
 }
 
 /**
  * WorldSpawn is a creature or game object the world database places on a map, in a region's
  * coordinates (yards from its north-west corner, Y the absolute height).
  */
-export class WorldSpawn {
+export interface WorldSpawn {
     "kind": string;
     "guid": number;
     "entry": number;
@@ -6131,7 +2013,7 @@ export class WorldSpawn {
      * change of facing turns the object as it stands (#229). Empty for an object that only turns
      * (rotation0 and rotation1 zero) and for a creature.
      */
-    "tilt": number[];
+    "tilt": number[] | null;
 
     /**
      * RespawnSecs and RespawnMaxSecs are the respawn time's range in seconds.
@@ -6191,7 +2073,7 @@ export class WorldSpawn {
      * Waypoints are the creature's path, in point order: its own (creature_movement), or else for a
      * creature that walks waypoints its template's (creature_movement_template, PathFromTemplate).
      */
-    "waypoints": Waypoint[];
+    "waypoints": Waypoint[] | null;
     "pathFromTemplate": boolean;
 
     /**
@@ -6199,7 +2081,7 @@ export class WorldSpawn {
      * a positive one spawns it only while that event runs, a negative one takes it away while event
      * -n runs. None for an everyday spawn.
      */
-    "events": number[];
+    "events": number[] | null;
 
     /**
      * Pool is the spawn pool the spawn belongs to (pool_creature, pool_gameobject; 0 for none): the
@@ -6238,180 +2120,13 @@ export class WorldSpawn {
     "followDist": number;
     "followAngle": number;
     "groupFlags": number;
-
-    /** Creates a new WorldSpawn instance. */
-    constructor($$source: Partial<WorldSpawn> = {}) {
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("guid" in $$source)) {
-            this["guid"] = 0;
-        }
-        if (!("entry" in $$source)) {
-            this["entry"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("subname" in $$source)) {
-            this["subname"] = "";
-        }
-        if (!("levelMin" in $$source)) {
-            this["levelMin"] = 0;
-        }
-        if (!("levelMax" in $$source)) {
-            this["levelMax"] = 0;
-        }
-        if (!("faction" in $$source)) {
-            this["faction"] = 0;
-        }
-        if (!("npcFlags" in $$source)) {
-            this["npcFlags"] = 0;
-        }
-        if (!("rank" in $$source)) {
-            this["rank"] = 0;
-        }
-        if (!("type" in $$source)) {
-            this["type"] = 0;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("orientation" in $$source)) {
-            this["orientation"] = 0;
-        }
-        if (!("tilt" in $$source)) {
-            this["tilt"] = [];
-        }
-        if (!("respawnSecs" in $$source)) {
-            this["respawnSecs"] = 0;
-        }
-        if (!("respawnMaxSecs" in $$source)) {
-            this["respawnMaxSecs"] = 0;
-        }
-        if (!("display" in $$source)) {
-            this["display"] = 0;
-        }
-        if (!("model" in $$source)) {
-            this["model"] = "";
-        }
-        if (!("look" in $$source)) {
-            this["look"] = "";
-        }
-        if (!("anim" in $$source)) {
-            this["anim"] = 0;
-        }
-        if (!("scale" in $$source)) {
-            this["scale"] = 0;
-        }
-        if (!("displayScale" in $$source)) {
-            this["displayScale"] = 0;
-        }
-        if (!("equipment" in $$source)) {
-            this["equipment"] = 0;
-        }
-        if (!("equipItems" in $$source)) {
-            this["equipItems"] = Array.from({ length: 3 }, () => 0);
-        }
-        if (!("standState" in $$source)) {
-            this["standState"] = 0;
-        }
-        if (!("emoteState" in $$source)) {
-            this["emoteState"] = 0;
-        }
-        if (!("sheathState" in $$source)) {
-            this["sheathState"] = 0;
-        }
-        if (!("movementType" in $$source)) {
-            this["movementType"] = 0;
-        }
-        if (!("wanderDistance" in $$source)) {
-            this["wanderDistance"] = 0;
-        }
-        if (!("waypoints" in $$source)) {
-            this["waypoints"] = [];
-        }
-        if (!("pathFromTemplate" in $$source)) {
-            this["pathFromTemplate"] = false;
-        }
-        if (!("events" in $$source)) {
-            this["events"] = [];
-        }
-        if (!("pool" in $$source)) {
-            this["pool"] = 0;
-        }
-        if (!("poolLimit" in $$source)) {
-            this["poolLimit"] = 0;
-        }
-        if (!("poolName" in $$source)) {
-            this["poolName"] = "";
-        }
-        if (!("poolChance" in $$source)) {
-            this["poolChance"] = 0;
-        }
-        if (!("poolElsewhere" in $$source)) {
-            this["poolElsewhere"] = 0;
-        }
-        if (!("motherPool" in $$source)) {
-            this["motherPool"] = 0;
-        }
-        if (!("motherLimit" in $$source)) {
-            this["motherLimit"] = 0;
-        }
-        if (!("motherSize" in $$source)) {
-            this["motherSize"] = 0;
-        }
-        if (!("motherName" in $$source)) {
-            this["motherName"] = "";
-        }
-        if (!("leader" in $$source)) {
-            this["leader"] = 0;
-        }
-        if (!("followDist" in $$source)) {
-            this["followDist"] = 0;
-        }
-        if (!("followAngle" in $$source)) {
-            this["followAngle"] = 0;
-        }
-        if (!("groupFlags" in $$source)) {
-            this["groupFlags"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new WorldSpawn instance from a string or object.
-     */
-    static createFrom($$source: any = {}): WorldSpawn {
-        const $$createField15_0 = $$createType103;
-        const $$createField31_0 = $$createType105;
-        const $$createField33_0 = $$createType4;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("tilt" in $$parsedSource) {
-            $$parsedSource["tilt"] = $$createField15_0($$parsedSource["tilt"]);
-        }
-        if ("waypoints" in $$parsedSource) {
-            $$parsedSource["waypoints"] = $$createField31_0($$parsedSource["waypoints"]);
-        }
-        if ("events" in $$parsedSource) {
-            $$parsedSource["events"] = $$createField33_0($$parsedSource["events"]);
-        }
-        return new WorldSpawn($$parsedSource as Partial<WorldSpawn>);
-    }
 }
 
 /**
  * Zone is a named part of a map (Elwynn Forest, Durotar…) as a rectangle of tiles, from the
  * client's WorldMapArea.dbc. X0/Y0 are the top-left tile and X1/Y1 one past the bottom-right.
  */
-export class Zone {
+export interface Zone {
     "MapID": number;
 
     /**
@@ -6423,278 +2138,39 @@ export class Zone {
     "Y0": number;
     "X1": number;
     "Y1": number;
-
-    /** Creates a new Zone instance. */
-    constructor($$source: Partial<Zone> = {}) {
-        if (!("MapID" in $$source)) {
-            this["MapID"] = 0;
-        }
-        if (!("AreaID" in $$source)) {
-            this["AreaID"] = 0;
-        }
-        if (!("Name" in $$source)) {
-            this["Name"] = "";
-        }
-        if (!("X0" in $$source)) {
-            this["X0"] = 0;
-        }
-        if (!("Y0" in $$source)) {
-            this["Y0"] = 0;
-        }
-        if (!("X1" in $$source)) {
-            this["X1"] = 0;
-        }
-        if (!("Y1" in $$source)) {
-            this["Y1"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new Zone instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Zone {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new Zone($$parsedSource as Partial<Zone>);
-    }
 }
 
 /**
  * ZoneDoodadList is the models a zone's tiles place on its dry ground, and that ground's area, so a
  * count over the area is how thickly the zone is covered.
  */
-export class ZoneDoodadList {
-    "doodads": DoodadUse[];
+export interface ZoneDoodadList {
+    "doodads": DoodadUse[] | null;
 
     /**
      * LandArea is the zone's ground not under a liquid, in square yards.
      */
     "landArea": number;
-
-    /** Creates a new ZoneDoodadList instance. */
-    constructor($$source: Partial<ZoneDoodadList> = {}) {
-        if (!("doodads" in $$source)) {
-            this["doodads"] = [];
-        }
-        if (!("landArea" in $$source)) {
-            this["landArea"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ZoneDoodadList instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ZoneDoodadList {
-        const $$createField0_0 = $$createType107;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("doodads" in $$parsedSource) {
-            $$parsedSource["doodads"] = $$createField0_0($$parsedSource["doodads"]);
-        }
-        return new ZoneDoodadList($$parsedSource as Partial<ZoneDoodadList>);
-    }
 }
 
 /**
  * ZoneSoundTables are the rows AreaTable.dbc's sound fields point at (#31): ZoneMusic,
  * ZoneIntroMusicTable, SoundAmbience (named by its day sound) and SoundProviderPreferences.
  */
-export class ZoneSoundTables {
-    "music": SoundOption[];
-    "intro": SoundOption[];
-    "ambience": SoundOption[];
-    "prefs": SoundOption[];
-
-    /** Creates a new ZoneSoundTables instance. */
-    constructor($$source: Partial<ZoneSoundTables> = {}) {
-        if (!("music" in $$source)) {
-            this["music"] = [];
-        }
-        if (!("intro" in $$source)) {
-            this["intro"] = [];
-        }
-        if (!("ambience" in $$source)) {
-            this["ambience"] = [];
-        }
-        if (!("prefs" in $$source)) {
-            this["prefs"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ZoneSoundTables instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ZoneSoundTables {
-        const $$createField0_0 = $$createType109;
-        const $$createField1_0 = $$createType109;
-        const $$createField2_0 = $$createType109;
-        const $$createField3_0 = $$createType109;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("music" in $$parsedSource) {
-            $$parsedSource["music"] = $$createField0_0($$parsedSource["music"]);
-        }
-        if ("intro" in $$parsedSource) {
-            $$parsedSource["intro"] = $$createField1_0($$parsedSource["intro"]);
-        }
-        if ("ambience" in $$parsedSource) {
-            $$parsedSource["ambience"] = $$createField2_0($$parsedSource["ambience"]);
-        }
-        if ("prefs" in $$parsedSource) {
-            $$parsedSource["prefs"] = $$createField3_0($$parsedSource["prefs"]);
-        }
-        return new ZoneSoundTables($$parsedSource as Partial<ZoneSoundTables>);
-    }
+export interface ZoneSoundTables {
+    "music": SoundOption[] | null;
+    "intro": SoundOption[] | null;
+    "ambience": SoundOption[] | null;
+    "prefs": SoundOption[] | null;
 }
 
 /**
  * ZoneWeather is a zone's game_weather row: Rain[s], Snow[s] and Storm[s] are the chances in season
  * s (spring, summer, fall, winter).
  */
-export class ZoneWeather {
+export interface ZoneWeather {
     "zone": number;
     "rain": number[];
     "snow": number[];
     "storm": number[];
-
-    /** Creates a new ZoneWeather instance. */
-    constructor($$source: Partial<ZoneWeather> = {}) {
-        if (!("zone" in $$source)) {
-            this["zone"] = 0;
-        }
-        if (!("rain" in $$source)) {
-            this["rain"] = Array.from({ length: 4 }, () => 0);
-        }
-        if (!("snow" in $$source)) {
-            this["snow"] = Array.from({ length: 4 }, () => 0);
-        }
-        if (!("storm" in $$source)) {
-            this["storm"] = Array.from({ length: 4 }, () => 0);
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ZoneWeather instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ZoneWeather {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ZoneWeather($$parsedSource as Partial<ZoneWeather>);
-    }
 }
-
-// Private type creation functions
-const $$createType0 = TriggerTeleport.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = LayerView.createFrom;
-const $$createType3 = $Create.Array($$createType2);
-const $$createType4 = $Create.Array($Create.Any);
-const $$createType5 = CreatureSpell.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = $Create.Array($Create.Any);
-const $$createType8 = $Create.Array($Create.Any);
-const $$createType9 = EquipBonusSpell.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = GossipText.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = GossipOption.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = AILine.createFrom;
-const $$createType16 = $Create.Array($$createType15);
-const $$createType17 = TerrainType.createFrom;
-const $$createType18 = $Create.Array($$createType17);
-const $$createType19 = GroundEffect.createFrom;
-const $$createType20 = $Create.Map($Create.Any, $$createType19);
-const $$createType21 = $Create.Map($Create.Any, $Create.Any);
-const $$createType22 = SpellRef.createFrom;
-const $$createType23 = $Create.Array($$createType22);
-const $$createType24 = ItemImportRow.createFrom;
-const $$createType25 = $Create.Array($$createType24);
-const $$createType26 = ItemSetBonus.createFrom;
-const $$createType27 = $Create.Array($$createType26);
-const $$createType28 = NamedID.createFrom;
-const $$createType29 = $Create.Array($$createType28);
-const $$createType30 = LightKey.createFrom;
-const $$createType31 = $Create.Array($$createType30);
-const $$createType32 = $Create.Array($$createType31);
-const $$createType33 = MapLight.createFrom;
-const $$createType34 = $Create.Array($$createType33);
-const $$createType35 = LightParamSet.createFrom;
-const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = LockPart.createFrom;
-const $$createType38 = $Create.Array($$createType37);
-const $$createType39 = $Create.Map($Create.Any, $$createType35);
-const $$createType40 = TileSpec.createFrom;
-const $$createType41 = $Create.Array($$createType40);
-const $$createType42 = MapInfo.createFrom;
-const $$createType43 = $Create.Nullable($$createType42);
-const $$createType44 = ObjectSpec.createFrom;
-const $$createType45 = $Create.Nullable($$createType44);
-const $$createType46 = $Create.Array($Create.Any);
-const $$createType47 = LootItem.createFrom;
-const $$createType48 = $Create.Array($$createType47);
-const $$createType49 = LootUser.createFrom;
-const $$createType50 = $Create.Array($$createType49);
-const $$createType51 = Page.createFrom;
-const $$createType52 = $Create.Array($$createType51);
-const $$createType53 = PageUser.createFrom;
-const $$createType54 = $Create.Array($$createType53);
-const $$createType55 = LockInfo.createFrom;
-const $$createType56 = $Create.Array($$createType55);
-const $$createType57 = QuestDeleteCount.createFrom;
-const $$createType58 = $Create.Array($$createType57);
-const $$createType59 = QuestLink.createFrom;
-const $$createType60 = $Create.Array($$createType59);
-const $$createType61 = QuestGiver.createFrom;
-const $$createType62 = $Create.Array($$createType61);
-const $$createType63 = QuestRef.createFrom;
-const $$createType64 = $Create.Array($$createType63);
-const $$createType65 = ObjectView.createFrom;
-const $$createType66 = $Create.Array($$createType65);
-const $$createType67 = RegionPaint.createFrom;
-const $$createType68 = $Create.Array($$createType67);
-const $$createType69 = adt$0.Liquid.createFrom;
-const $$createType70 = $Create.Array($$createType69);
-const $$createType71 = HeaderSpec.createFrom;
-const $$createType72 = $Create.Array($$createType71);
-const $$createType73 = ChunkView.createFrom;
-const $$createType74 = $Create.Array($$createType73);
-const $$createType75 = WorldSpawn.createFrom;
-const $$createType76 = $Create.Nullable($$createType75);
-const $$createType77 = GUIDRow.createFrom;
-const $$createType78 = $Create.Array($$createType77);
-const $$createType79 = SpellImportRow.createFrom;
-const $$createType80 = $Create.Array($$createType79);
-const $$createType81 = TemplateColumn.createFrom;
-const $$createType82 = $Create.Array($$createType81);
-const $$createType83 = $Create.Map($Create.Any, $Create.Any);
-const $$createType84 = SpellOption.createFrom;
-const $$createType85 = $Create.Array($$createType84);
-const $$createType86 = TaxiNode.createFrom;
-const $$createType87 = $Create.Array($$createType86);
-const $$createType88 = TaxiRoute.createFrom;
-const $$createType89 = $Create.Array($$createType88);
-const $$createType90 = TaxiPoint.createFrom;
-const $$createType91 = $Create.Array($$createType90);
-const $$createType92 = PaintSpec.createFrom;
-const $$createType93 = $Create.Array($$createType92);
-const $$createType94 = $Create.Array($$createType44);
-const $$createType95 = VendorItem.createFrom;
-const $$createType96 = $Create.Array($$createType95);
-const $$createType97 = VisualKit.createFrom;
-const $$createType98 = $Create.Array($$createType97);
-const $$createType99 = WorldMapRow.createFrom;
-const $$createType100 = WorldMapOverlay.createFrom;
-const $$createType101 = $Create.Array($$createType100);
-const $$createType102 = $Create.Nullable($$createType99);
-const $$createType103 = $Create.Array($Create.Any);
-const $$createType104 = Waypoint.createFrom;
-const $$createType105 = $Create.Array($$createType104);
-const $$createType106 = DoodadUse.createFrom;
-const $$createType107 = $Create.Array($$createType106);
-const $$createType108 = SoundOption.createFrom;
-const $$createType109 = $Create.Array($$createType108);

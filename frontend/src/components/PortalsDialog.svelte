@@ -113,7 +113,7 @@
 	function add() {
 		if (!here || mapId === null) return
 		const id = Math.max(nextId, ...triggers.map((x) => x.id + 1))
-		const n = vmangos.AreaTrigger.createFrom({
+		const n = {
 			id,
 			mapId,
 			x: here.x,
@@ -126,7 +126,7 @@
 			boxYaw: 0,
 			name: 'Portal',
 			teleport: { map: mapId, x: here.x, y: here.y, z: here.z, o: here.o, level: 0, message: '' },
-		})
+		} as vmangos.AreaTrigger
 		triggers = [...triggers, n]
 		touch(id)
 		picked = id
@@ -165,7 +165,7 @@
 
 	function setTeleport(on: boolean) {
 		if (!t) return
-		t.teleport = on ? vmangos.TriggerTeleport.createFrom({ map: here?.map ?? t.mapId, x: here?.x ?? t.x, y: here?.y ?? t.y, z: here?.z ?? t.z, o: here?.o ?? 0, level: 0, message: '' }) : null
+		t.teleport = on ? ({ map: here?.map ?? t.mapId, x: here?.x ?? t.x, y: here?.y ?? t.y, z: here?.z ?? t.z, o: here?.o ?? 0, level: 0, message: '' } as vmangos.TriggerTeleport) : null
 		touch(t.id)
 	}
 
@@ -199,7 +199,7 @@
 		error = ''
 		try {
 			const res = await SaveAreaTriggers(
-				changed.map((x) => vmangos.AreaTrigger.createFrom($state.snapshot(x))),
+				changed.map((x) => $state.snapshot(x) as vmangos.AreaTrigger),
 				removed,
 			)
 			const n = changed.length + removed.length

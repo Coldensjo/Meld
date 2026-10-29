@@ -3,53 +3,23 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Create as $Create } from "@wailsio/runtime";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as json$0 from "../../../encoding/json/models.js";
 
 /**
  * ClientRegion is a square block of a 1.12 map's tiles in the client: the tile it starts at, and
  * how many tiles a side.
  */
-export class ClientRegion {
+export interface ClientRegion {
     "mapName": string;
     "x": number;
     "y": number;
     "size": number;
-
-    /** Creates a new ClientRegion instance. */
-    constructor($$source: Partial<ClientRegion> = {}) {
-        if (!("mapName" in $$source)) {
-            this["mapName"] = "";
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("size" in $$source)) {
-            this["size"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ClientRegion instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ClientRegion {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ClientRegion($$parsedSource as Partial<ClientRegion>);
-    }
 }
 
 /**
  * MapData is the bridge representation exchanged with the frontend.
  */
-export class MapData {
+export interface MapData {
     "name": string;
 
     /**
@@ -68,19 +38,19 @@ export class MapData {
     "splatRes": number;
     "waterLevel": number;
     "waterEnabled": boolean;
-    "objects": PlacedObject[];
+    "objects": PlacedObject[] | null;
 
     /**
      * Palette is the texture for each palette index: a WoW tileset path, or a '#rrggbb' colour.
      * Version 2 only.
      */
-    "palette"?: string[];
+    "palette"?: string[] | null;
 
     /**
      * LayerTextures are the eight global paint layers of version 1: a WoW tileset path, or "" for
      * the built-in procedural texture.
      */
-    "layerTextures"?: string[];
+    "layerTextures"?: string[] | null;
 
     /**
      * Region is the block of client tiles the map was opened from, which saves go back to. Optional.
@@ -102,20 +72,20 @@ export class MapData {
      * TextureEffects is the ground effect (GroundEffectTexture ID) a texture grows, by texture path,
      * where the map says so itself; other textures grow what the client's tiles give them. Optional.
      */
-    "textureEffects"?: { [_ in string]?: number };
+    "textureEffects"?: { [_ in string]?: number } | null;
 
     /**
      * TextureLooks is a texture's look flags (the MCLY animation and overbright bits), by texture path,
      * where the map sets them; other textures keep what the client's tiles give them. Optional.
      */
-    "textureLooks"?: { [_ in string]?: number };
+    "textureLooks"?: { [_ in string]?: number } | null;
 
     /**
      * ZoneEffects and TileEffects are ground effect choices per texture path for one zone (by AreaTable
      * ID) or one tile of the map ("x,y"), over the map's own. Optional.
      */
-    "zoneEffects"?: { [_ in string]?: { [_ in string]?: number } };
-    "tileEffects"?: { [_ in string]?: { [_ in string]?: number } };
+    "zoneEffects"?: { [_ in string]?: { [_ in string]?: number } | null } | null;
+    "tileEffects"?: { [_ in string]?: { [_ in string]?: number } | null } | null;
 
     /**
      * Reference is the author's reference image laid over the map (#184): its path, never its
@@ -128,7 +98,7 @@ export class MapData {
      * applied again; what an apply wrote is in the heights and paint. Never exported. Optional; older
      * readers ignore it.
      */
-    "paths"?: MapPath[];
+    "paths"?: MapPath[] | null;
 
     /**
      * LiquidsUnknown says the liquids blob is not all of the region's liquids: the map was opened from a
@@ -149,7 +119,7 @@ export class MapData {
      * a map opened before the table is read) still draws and exports as its kind (#540). Optional;
      * older readers ignore it, and the frontend checks it.
      */
-    "liquidKinds"?: { [_ in string]?: string };
+    "liquidKinds"?: { [_ in string]?: string } | null;
 
     /**
      * Version is the format the map was read from. Set by Read; Write always writes Version.
@@ -205,107 +175,17 @@ export class MapData {
      * base64 RGBA8, version 1
      */
     "splatB"?: string;
-
-    /** Creates a new MapData instance. */
-    constructor($$source: Partial<MapData> = {}) {
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("size" in $$source)) {
-            this["size"] = 0;
-        }
-        if (!("cellSize" in $$source)) {
-            this["cellSize"] = 0;
-        }
-        if (!("splatRes" in $$source)) {
-            this["splatRes"] = 0;
-        }
-        if (!("waterLevel" in $$source)) {
-            this["waterLevel"] = 0;
-        }
-        if (!("waterEnabled" in $$source)) {
-            this["waterEnabled"] = false;
-        }
-        if (!("objects" in $$source)) {
-            this["objects"] = [];
-        }
-        if (!("heights" in $$source)) {
-            this["heights"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapData instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapData {
-        const $$createField6_0 = $$createType1;
-        const $$createField7_0 = $$createType2;
-        const $$createField8_0 = $$createType2;
-        const $$createField9_0 = $$createType4;
-        const $$createField10_0 = $$createType6;
-        const $$createField11_0 = $$createType8;
-        const $$createField12_0 = $$createType9;
-        const $$createField13_0 = $$createType9;
-        const $$createField14_0 = $$createType10;
-        const $$createField15_0 = $$createType10;
-        const $$createField16_0 = $$createType12;
-        const $$createField17_0 = $$createType14;
-        const $$createField21_0 = $$createType15;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("objects" in $$parsedSource) {
-            $$parsedSource["objects"] = $$createField6_0($$parsedSource["objects"]);
-        }
-        if ("palette" in $$parsedSource) {
-            $$parsedSource["palette"] = $$createField7_0($$parsedSource["palette"]);
-        }
-        if ("layerTextures" in $$parsedSource) {
-            $$parsedSource["layerTextures"] = $$createField8_0($$parsedSource["layerTextures"]);
-        }
-        if ("region" in $$parsedSource) {
-            $$parsedSource["region"] = $$createField9_0($$parsedSource["region"]);
-        }
-        if ("vmangos" in $$parsedSource) {
-            $$parsedSource["vmangos"] = $$createField10_0($$parsedSource["vmangos"]);
-        }
-        if ("roles" in $$parsedSource) {
-            $$parsedSource["roles"] = $$createField11_0($$parsedSource["roles"]);
-        }
-        if ("textureEffects" in $$parsedSource) {
-            $$parsedSource["textureEffects"] = $$createField12_0($$parsedSource["textureEffects"]);
-        }
-        if ("textureLooks" in $$parsedSource) {
-            $$parsedSource["textureLooks"] = $$createField13_0($$parsedSource["textureLooks"]);
-        }
-        if ("zoneEffects" in $$parsedSource) {
-            $$parsedSource["zoneEffects"] = $$createField14_0($$parsedSource["zoneEffects"]);
-        }
-        if ("tileEffects" in $$parsedSource) {
-            $$parsedSource["tileEffects"] = $$createField15_0($$parsedSource["tileEffects"]);
-        }
-        if ("reference" in $$parsedSource) {
-            $$parsedSource["reference"] = $$createField16_0($$parsedSource["reference"]);
-        }
-        if ("paths" in $$parsedSource) {
-            $$parsedSource["paths"] = $$createField17_0($$parsedSource["paths"]);
-        }
-        if ("liquidKinds" in $$parsedSource) {
-            $$parsedSource["liquidKinds"] = $$createField21_0($$parsedSource["liquidKinds"]);
-        }
-        return new MapData($$parsedSource as Partial<MapData>);
-    }
 }
 
 /**
  * MapPath is a path of the Path tool (frontend terrain/paths.ts): its control points and what its
  * apply does.
  */
-export class MapPath {
+export interface MapPath {
     "id": number;
     "name": string;
     "kind": string;
-    "points": PathPoint[];
+    "points": PathPoint[] | null;
 
     /**
      * Width is the levelled and painted part's full width, Falloff the yards over which the ground
@@ -339,102 +219,22 @@ export class MapPath {
     "model"?: string;
     "spacing": number;
     "turn": number;
-
-    /** Creates a new MapPath instance. */
-    constructor($$source: Partial<MapPath> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = 0;
-        }
-        if (!("name" in $$source)) {
-            this["name"] = "";
-        }
-        if (!("kind" in $$source)) {
-            this["kind"] = "";
-        }
-        if (!("points" in $$source)) {
-            this["points"] = [];
-        }
-        if (!("width" in $$source)) {
-            this["width"] = 0;
-        }
-        if (!("falloff" in $$source)) {
-            this["falloff"] = 0;
-        }
-        if (!("edge" in $$source)) {
-            this["edge"] = 0;
-        }
-        if (!("grade" in $$source)) {
-            this["grade"] = 0;
-        }
-        if (!("texture" in $$source)) {
-            this["texture"] = "";
-        }
-        if (!("depth" in $$source)) {
-            this["depth"] = 0;
-        }
-        if (!("liquid" in $$source)) {
-            this["liquid"] = 0;
-        }
-        if (!("spacing" in $$source)) {
-            this["spacing"] = 0;
-        }
-        if (!("turn" in $$source)) {
-            this["turn"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new MapPath instance from a string or object.
-     */
-    static createFrom($$source: any = {}): MapPath {
-        const $$createField3_0 = $$createType17;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("points" in $$parsedSource) {
-            $$parsedSource["points"] = $$createField3_0($$parsedSource["points"]);
-        }
-        return new MapPath($$parsedSource as Partial<MapPath>);
-    }
 }
 
 /**
  * PathPoint is a path's control point, in world units.
  */
-export class PathPoint {
+export interface PathPoint {
     "x": number;
     "y": number;
     "z": number;
-
-    /** Creates a new PathPoint instance. */
-    constructor($$source: Partial<PathPoint> = {}) {
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("y" in $$source)) {
-            this["y"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new PathPoint instance from a string or object.
-     */
-    static createFrom($$source: any = {}): PathPoint {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new PathPoint($$parsedSource as Partial<PathPoint>);
-    }
 }
 
 /**
  * PlacedObject is a model instance placed in the world. Objects with a Parent
  * are attached to it: X/YOff/Z/RotY are then local to the parent's transform.
  */
-export class PlacedObject {
+export interface PlacedObject {
     "id"?: number;
     "parent"?: number;
     "type": string;
@@ -459,45 +259,13 @@ export class PlacedObject {
      * Group is the selection group the model is in (a click on one selects them all); 0 for none.
      */
     "group"?: number;
-
-    /** Creates a new PlacedObject instance. */
-    constructor($$source: Partial<PlacedObject> = {}) {
-        if (!("type" in $$source)) {
-            this["type"] = "";
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("yOff" in $$source)) {
-            this["yOff"] = 0;
-        }
-        if (!("rotY" in $$source)) {
-            this["rotY"] = 0;
-        }
-        if (!("scale" in $$source)) {
-            this["scale"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new PlacedObject instance from a string or object.
-     */
-    static createFrom($$source: any = {}): PlacedObject {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new PlacedObject($$parsedSource as Partial<PlacedObject>);
-    }
 }
 
 /**
  * ReferenceImage is a picture the author traces the map from (View › Reference Image): a file of
  * theirs, kept by path, draped over the ground or shown over the top-down view.
  */
-export class ReferenceImage {
+export interface ReferenceImage {
     "path": string;
 
     /**
@@ -516,81 +284,20 @@ export class ReferenceImage {
     "w": number;
     "h": number;
     "turn": number;
-
-    /** Creates a new ReferenceImage instance. */
-    constructor($$source: Partial<ReferenceImage> = {}) {
-        if (!("path" in $$source)) {
-            this["path"] = "";
-        }
-        if (!("mode" in $$source)) {
-            this["mode"] = "";
-        }
-        if (!("opacity" in $$source)) {
-            this["opacity"] = 0;
-        }
-        if (!("shown" in $$source)) {
-            this["shown"] = false;
-        }
-        if (!("x" in $$source)) {
-            this["x"] = 0;
-        }
-        if (!("z" in $$source)) {
-            this["z"] = 0;
-        }
-        if (!("w" in $$source)) {
-            this["w"] = 0;
-        }
-        if (!("h" in $$source)) {
-            this["h"] = 0;
-        }
-        if (!("turn" in $$source)) {
-            this["turn"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ReferenceImage instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ReferenceImage {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ReferenceImage($$parsedSource as Partial<ReferenceImage>);
-    }
 }
 
 /**
  * TextureRoles are palette indices for the textures sculpting paints by slope.
  */
-export class TextureRoles {
+export interface TextureRoles {
     "rock": number;
     "dirt": number;
-
-    /** Creates a new TextureRoles instance. */
-    constructor($$source: Partial<TextureRoles> = {}) {
-        if (!("rock" in $$source)) {
-            this["rock"] = 0;
-        }
-        if (!("dirt" in $$source)) {
-            this["dirt"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TextureRoles instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TextureRoles {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TextureRoles($$parsedSource as Partial<TextureRoles>);
-    }
 }
 
 /**
  * VmangosFolder is a map made for the 1.12 client: its folder under World\Maps, and its map ID.
  */
-export class VmangosFolder {
+export interface VmangosFolder {
     "dir": string;
     "mapId": number;
 
@@ -614,44 +321,4 @@ export class VmangosFolder {
      * file. Empty for every tile (version 7, #46).
      */
     "tiles"?: string;
-
-    /** Creates a new VmangosFolder instance. */
-    constructor($$source: Partial<VmangosFolder> = {}) {
-        if (!("dir" in $$source)) {
-            this["dir"] = "";
-        }
-        if (!("mapId" in $$source)) {
-            this["mapId"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new VmangosFolder instance from a string or object.
-     */
-    static createFrom($$source: any = {}): VmangosFolder {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new VmangosFolder($$parsedSource as Partial<VmangosFolder>);
-    }
 }
-
-// Private type creation functions
-const $$createType0 = PlacedObject.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $Create.Array($Create.Any);
-const $$createType3 = ClientRegion.createFrom;
-const $$createType4 = $Create.Nullable($$createType3);
-const $$createType5 = VmangosFolder.createFrom;
-const $$createType6 = $Create.Nullable($$createType5);
-const $$createType7 = TextureRoles.createFrom;
-const $$createType8 = $Create.Nullable($$createType7);
-const $$createType9 = $Create.Map($Create.Any, $Create.Any);
-const $$createType10 = $Create.Map($Create.Any, $$createType9);
-const $$createType11 = ReferenceImage.createFrom;
-const $$createType12 = $Create.Nullable($$createType11);
-const $$createType13 = MapPath.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = $Create.Map($Create.Any, $Create.Any);
-const $$createType16 = PathPoint.createFrom;
-const $$createType17 = $Create.Array($$createType16);

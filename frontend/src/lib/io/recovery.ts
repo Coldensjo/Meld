@@ -63,7 +63,7 @@ export async function autosave(engine: Engine) {
 			const data = await encodeCopy(engine, d, changes)
 			if (!data) continue
 			const region = d.meta.region
-			const info = recovery.Info.createFrom({ name: nameOf(engine, d), file: pathOf(engine, d), region: region ? regionLabel(region) : '' })
+			const info = { name: nameOf(engine, d), file: pathOf(engine, d), region: region ? regionLabel(region) : '' } as recovery.Info
 			const saved = await SaveRecovery(d.id, info, data)
 			copies.set(d.id, { id: saved.id, changes, at: Date.now() })
 			dirtySince.delete(d.id)

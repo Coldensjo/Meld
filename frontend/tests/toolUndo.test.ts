@@ -82,7 +82,7 @@ function reset() {
 
 /** A creature of the region, for the Select tool's spawn and path rows. */
 function creature(guid: number, x: number, z: number, y = 10, entry = 100): vmangos.WorldSpawn {
-	return vmangos.WorldSpawn.createFrom({
+	return {
 		kind: 'monster',
 		guid,
 		entry,
@@ -96,7 +96,7 @@ function creature(guid: number, x: number, z: number, y = 10, entry = 100): vman
 		leader: 0,
 		pool: 0,
 		motherPool: 0,
-	})
+	} as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 }
 
 interface World {
@@ -150,7 +150,7 @@ function world(): World {
 	paintLiquid(liquids, t, pond)
 	const spawns = new SpawnLayer()
 	const kobold = creature(1, 40, 40, t.heightAt(40, 40))
-	const point = (x: number, z: number) => vmangos.Waypoint.createFrom({ x, y: t.heightAt(x, z), z, orientation: 0, waitMs: 0, wanderDistance: 0, scriptId: 0 })
+	const point = (x: number, z: number) => ({ x, y: t.heightAt(x, z), z, orientation: 0, waitMs: 0, wanderDistance: 0, scriptId: 0 }) as vmangos.Waypoint
 	kobold.waypoints = [point(40, 40), point(50, 44)]
 	spawns.set([kobold])
 	const history = new History({ dirty() {}, sync() {} })

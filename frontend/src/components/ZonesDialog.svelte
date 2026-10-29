@@ -179,8 +179,8 @@
 		error = ''
 		try {
 			const res = await SaveAreas(
-				changed.map((r) => vmangos.AreaRow.createFrom(r)),
-				weathers.map((w) => vmangos.ZoneWeather.createFrom(w)),
+				changed.map((r) => r as vmangos.AreaRow),
+				weathers.map((w) => w as vmangos.ZoneWeather),
 			)
 			dirty = []
 			weatherDirty = []

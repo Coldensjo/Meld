@@ -165,7 +165,7 @@ test('a ray on a packed instance names its item', () => {
 })
 
 function spawn(guid: number, x: number, z: number): vmangos.WorldSpawn {
-	return vmangos.WorldSpawn.createFrom({ kind: 'monster', guid, entry: 1, name: 't', x, y: 0, z, orientation: 0, model: '', waypoints: [], leader: 0, pool: 0, motherPool: 0 })
+	return { kind: 'monster', guid, entry: 1, name: 't', x, y: 0, z, orientation: 0, model: '', waypoints: [], leader: 0, pool: 0, motherPool: 0 } as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 }
 
 test('a spawn is picked through its packed instance, and a moved one where it went', () => {

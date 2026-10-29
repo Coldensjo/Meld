@@ -2,6 +2,7 @@
 bindings/
 src/lib/wails/App.ts
 src/lib/wails/models.ts
+src/lib/wails/models/
 dist/
 node_modules/
 bun.lock

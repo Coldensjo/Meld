@@ -48,7 +48,7 @@
 	/** Writes the lists (and the flags), and says what it wrote; '' when nothing changed. */
 	export async function save(): Promise<string> {
 		if (!dirty) return ''
-		await SaveQuestGivers(entry, vmangos.QuestGivers.createFrom($state.snapshot(givers)), flagging)
+		await SaveQuestGivers(entry, $state.snapshot(givers) as vmangos.QuestGivers, flagging)
 		const flagged = flagging.length
 		await lists.load()
 		const n = (k: List) => givers[k].length
@@ -70,7 +70,7 @@
 			return
 		}
 		lists.error = ''
-		lists.rows[list] = [...givers[list], vmangos.QuestGiver.createFrom({ ...g, patchMin: 0, patchMax: 10 })]
+		lists.rows[list] = [...givers[list], { ...g, patchMin: 0, patchMax: 10 } as vmangos.QuestGiver]
 	}
 
 	// Adding: a search over creatures (the world database) or game objects (the object list).
@@ -78,15 +78,15 @@
 	let query = $state('')
 	async function findGivers({ q, k }: { q: string; k: 'creature' | 'object' }): Promise<vmangos.QuestGiver[]> {
 		if (k === 'creature') {
-			return ((await SearchCreatures(q)) ?? []).map((c) =>
-				vmangos.QuestGiver.createFrom({ kind: 'creature', id: c.entry, name: c.subname ? `${c.name} <${c.subname}>` : c.name, ready: (c.npcFlags & 0x2) !== 0, spawns: -1, patchMin: 0, patchMax: 10 }),
+			return ((await SearchCreatures(q)) ?? []).map(
+				(c) => ({ kind: 'creature', id: c.entry, name: c.subname ? `${c.name} <${c.subname}>` : c.name, ready: (c.npcFlags & 0x2) !== 0, spawns: -1, patchMin: 0, patchMax: 10 }) as vmangos.QuestGiver,
 			)
 		}
 		const lq = q.toLowerCase()
 		return (await loadObjectTemplates())
 			.filter((o) => o.name.toLowerCase().includes(lq) || String(o.entry) === q)
 			.slice(0, 100)
-			.map((o) => vmangos.QuestGiver.createFrom({ kind: 'object', id: o.entry, name: o.name, ready: o.type === 2, spawns: -1, patchMin: 0, patchMax: 10 }))
+			.map((o) => ({ kind: 'object', id: o.entry, name: o.name, ready: o.type === 2, spawns: -1, patchMin: 0, patchMax: 10 }) as vmangos.QuestGiver)
 	}
 	const search = createSearch(findGivers, { empty: [] as vmangos.QuestGiver[], onError: (err) => (lists.error = String(err)) })
 	const results = $derived(search.results)
@@ -102,7 +102,7 @@
 		const s = editor.selectedSpawn
 		if (!s) return null
 		const isObject = s.kind === 'object'
-		return vmangos.QuestGiver.createFrom({ kind: isObject ? 'object' : 'creature', id: s.entry, name: s.name, ready: isObject ? s.type === 2 : (s.npcFlags & 0x2) !== 0, spawns: -1, patchMin: 0, patchMax: 10 })
+		return { kind: isObject ? 'object' : 'creature', id: s.entry, name: s.name, ready: isObject ? s.type === 2 : (s.npcFlags & 0x2) !== 0, spawns: -1, patchMin: 0, patchMax: 10 } as vmangos.QuestGiver
 	})
 
 	const what = (g: vmangos.QuestGiver) => (g.kind === 'object' ? 'Object' : 'NPC')

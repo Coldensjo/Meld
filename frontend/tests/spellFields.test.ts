@@ -6,7 +6,7 @@ import { withBit } from '../src/lib/world/creatureFields.ts'
 import { FORM_MASK, SPELL_ATTRIBUTES, SPELL_ATTRIBUTES_EX, SPELL_ATTRIBUTES_EX2, SPELL_ATTRIBUTES_EX3, effectSummary, expandSpellText, miscField, spellTabs, spellTooltip, subclassMask } from '../src/lib/world/spellFields.ts'
 
 // The client's tables as SpellTables gives them: duration 9 is 4 sec, cast time 7 is 1.5 sec, range 4 is 30 yd, radius 13 is 10 yd.
-const tables = vmangos.SpellTables.createFrom({
+const tables = {
 	castTimes: [
 		{ id: 1, label: 'Instant', value: 0 },
 		{ id: 7, label: '1.5 sec', value: 1500 },
@@ -21,7 +21,7 @@ const tables = vmangos.SpellTables.createFrom({
 		{ id: 4, label: '30 yd', value: 30 },
 	],
 	radii: [{ id: 13, label: '10 yd', value: 10 }],
-})
+} as vmangos.SpellTables
 
 // Fireball (Rank 1) as spell_template has it: 14 to 22 Fire damage, then 2 over 4 sec in ticks of 2 sec.
 const fireball: Record<string, string> = {

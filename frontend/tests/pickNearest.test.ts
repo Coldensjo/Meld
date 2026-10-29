@@ -8,7 +8,7 @@ import type { SpawnLayer } from '../src/lib/world/SpawnLayer.ts'
 import { pickNearest } from '../src/lib/world/pickNearest.ts'
 
 const ray = {} as THREE.Raycaster
-const npc = { guid: 1, name: 'Innkeeper Farley' } as vmangos.WorldSpawn
+const npc = { guid: 1, name: 'Innkeeper Farley' } as Partial<vmangos.WorldSpawn> as vmangos.WorldSpawn
 
 function layers(model: number | null, spawn: number | null) {
 	const objects = { pickHit: () => (model === null ? null : { id: 7, distance: model }) } as unknown as ObjectLayer

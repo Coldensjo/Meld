@@ -13,10 +13,8 @@ import { readPaths } from '../terrain/paths'
 import { readLiquidKinds } from '../water/liquids'
 
 export function toMapData(s: MapSnapshot): mapfile.MapData {
-	// Not MapData.createFrom: Wails generates its embedded header's region, vmangos and roles with a null
-	// class, which throws "classs is not a constructor" for any map that has one. The binding only
-	// needs the fields, which it sends as JSON.
-	return Object.assign(new mapfile.MapData(), {
+	// The binding only needs the fields, which it sends as JSON; the ones left undefined take Go's zero values.
+	const data: mapfile.MapData = {
 		name: s.name,
 		size: s.size,
 		cellSize: s.cellSize,
@@ -34,8 +32,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
 		zoneEffects: Object.keys(s.scopedEffects.zones).length ? s.scopedEffects.zones : undefined,
 		tileEffects: Object.keys(s.scopedEffects.tiles).length ? s.scopedEffects.tiles : undefined,
-		reference: s.reference ? Object.assign(new mapfile.ReferenceImage(), s.reference) : undefined,
-		paths: s.paths.length ? s.paths.map((p) => mapfile.MapPath.createFrom(p)) : undefined,
+		reference: s.reference ? { ...s.reference } : undefined,
+		paths: s.paths.length ? s.paths.map((p) => p as mapfile.MapPath) : undefined,
 		// A map opened without the client's holes, liquids or chunk data says so (#525, #663): the blobs
 		// below then hold only what was drawn since, and must not read back as the whole of it.
 		holesUnknown: s.holesKnown ? undefined : true,
@@ -52,7 +50,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
 		noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
 		shadows: s.shadows ? bytesToBase64(s.shadows) : undefined,
-	})
+	}
+	return data
 }
 
 /** The bytes of a Uint32Array, little endian as the map file stores them (every target is little endian). */

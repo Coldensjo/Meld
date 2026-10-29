@@ -265,25 +265,26 @@
 		error = ''
 		try {
 			const ext = rectToExtent(rect, tileX, tileY)
-			const row = vmangos.WorldMapRow.createFrom({ id: existing?.id ?? 0, mapId, areaId: zoneId, name, ...ext })
-			const pieces = overlays.map((o) =>
-				vmangos.WorldMapOverlay.createFrom({
-					id: o.id,
-					areas: o.areas,
-					name: o.name,
-					width: o.box.u1 - o.box.u0,
-					height: o.box.v1 - o.box.v0,
-					offsetX: o.box.u0,
-					offsetY: o.box.v0,
-					hitTop: o.hit.top,
-					hitLeft: o.hit.left,
-					hitBottom: o.hit.bottom,
-					hitRight: o.hit.right,
-					// An unchanged overlay keeps the client's art.
-					pixels: o.changed && o.pixels ? wailsBytes(o.pixels) : null,
-				}),
+			const row = { id: existing?.id ?? 0, mapId, areaId: zoneId, name, ...ext } as vmangos.WorldMapRow
+			const pieces = overlays.map(
+				(o) =>
+					({
+						id: o.id,
+						areas: o.areas,
+						name: o.name,
+						width: o.box.u1 - o.box.u0,
+						height: o.box.v1 - o.box.v0,
+						offsetX: o.box.u0,
+						offsetY: o.box.v0,
+						hitTop: o.hit.top,
+						hitLeft: o.hit.left,
+						hitBottom: o.hit.bottom,
+						hitRight: o.hit.right,
+						// An unchanged overlay keeps the client's art.
+						pixels: o.changed && o.pixels ? wailsBytes(o.pixels) : null,
+					}) as vmangos.WorldMapOverlay,
 			)
-			const res = await WriteWorldMap(vmangos.WorldMapSpec.createFrom({ row, pixels: wailsBytes(pixels), overlays: pieces }))
+			const res = await WriteWorldMap({ row, pixels: wailsBytes(pixels), overlays: pieces } as vmangos.WorldMapSpec)
 			existing = res.row
 			overlays = overlays.map((o, i) => ({ ...o, id: res.overlays?.[i]?.id ?? o.id }))
 			setStatus(`Wrote the world map of ${name} (WorldMapArea row ${res.row.id}, ${overlays.length} overlays) into ${res.patch}. In the game, M shows it in the zone.`, 10000)
