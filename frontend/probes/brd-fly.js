@@ -6,8 +6,10 @@
 // On the GPU (PROBE_GPU=1, #903) a model shader compiled at its first draw cost 100 to 600 ms each, up to
 // 2.6 s a frame: `precompileFresh` (world/instanceBatch.ts) compiles them once a model's textures are
 // bound. The flight starts once the dungeon has loaded (`P.settle`), since a model that first shows
-// while the camera flies compiles then whatever is done, and that is the load, not the flight.
-// touches: frontend/src/lib/world/SpawnLabels.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/engine/CameraController.ts, frontend/src/lib/world/instanceBatch.ts
+// while the camera flies compiles then whatever is done, and that is the load, not the flight. No
+// program may be made in the flight (`programsMade`): the particle draws' were, 10 to 100 ms each on the
+// GPU, until the particle layer had them compiled ahead too (#904).
+// touches: frontend/src/lib/world/ParticleLayer.ts, frontend/src/lib/world/SpawnLabels.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/engine/CameraController.ts, frontend/src/lib/world/instanceBatch.ts
 const { editor, prefs } = await P.state()
 const { openWowBuilding } = await P.app('/src/lib/io/region.ts')
 prefs.spawnNames = true
@@ -42,6 +44,7 @@ const pts = editor.spawns
 c.target.set(...pts[0])
 let worst = 0
 let frames = 0
+const programsBefore = new Set(e.renderer.info.programs ?? [])
 for (let k = 1; k < pts.length && frames < 40; k++) {
 	const [x, y, z] = pts[k]
 	for (; frames < 40; frames++) {
@@ -71,7 +74,8 @@ const out = {
 	tests,
 	testMs: tests ? +(testMs / tests).toFixed(3) : null,
 	worstFrameMs: Math.round(worst),
+	programsMade: (e.renderer.info.programs ?? []).filter((p) => !programsBefore.has(p)).length,
 }
 // SwiftShader draws a frame here in 12 to 30 ms; a stalled one took over a second.
-out.ok = twins.length > 0 && twinTrees === twins.length && frames >= 20 && tests > 0 && out.testMs < 1 && worst < 500
+out.ok = twins.length > 0 && twinTrees === twins.length && frames >= 20 && tests > 0 && out.testMs < 1 && worst < 500 && out.programsMade === 0
 return out

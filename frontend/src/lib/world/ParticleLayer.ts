@@ -7,6 +7,7 @@ import { spawnKey, type SpawnLayer } from './SpawnLayer'
 import { blendOf, fogOf, litOf, overLife, PARTICLE_FLOATS, ParticlePool, sortQuads, VERTEX_FLOATS, type GroundProbe, type LifeSample, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
 import type { FrameView } from './frameView'
+import { readyAhead } from './instanceBatch'
 
 /**
  * How far from the camera an emitter runs, in yards. Beyond it, or out of view, its particles freeze
@@ -84,8 +85,8 @@ const lookKey = (l: Look) => `${l.texture.toLowerCase()}|${l.blend}|${l.lit}|${l
 class Batch {
 	readonly mesh: THREE.Mesh
 	private material: THREE.ShaderMaterial
-	private geometry = new THREE.BufferGeometry()
 	private buffer = new THREE.InterleavedBuffer(new Float32Array(0), VERTEX_FLOATS)
+	private geometry = this.streamGeometry()
 	/** The quad stream; `floats` of it are this frame's. */
 	data = new Float32Array(0)
 	floats = 0
@@ -135,6 +136,9 @@ class Batch {
 			.then((t) => {
 				this.material.uniforms.map.value = t
 				this.ready = true
+				// Its shader compiled and texture uploaded before the camera first sees it: on the GPU a
+				// particle shader compiled at its first draw cost that frame 10 ms and more (#904).
+				readyAhead(this.mesh)
 			})
 			.catch((err) => console.warn('particle texture failed', look.texture, err))
 	}
@@ -159,12 +163,22 @@ class Batch {
 			index[o + 5] = v + 3
 		}
 		this.geometry.dispose()
-		this.geometry = new THREE.BufferGeometry()
-		this.geometry.setAttribute('position', new THREE.InterleavedBufferAttribute(this.buffer, 3, 0))
-		this.geometry.setAttribute('uv', new THREE.InterleavedBufferAttribute(this.buffer, 2, 3))
-		this.geometry.setAttribute('tint', new THREE.InterleavedBufferAttribute(this.buffer, 4, 5))
+		this.geometry = this.streamGeometry()
 		this.geometry.setIndex(new THREE.BufferAttribute(index, 1))
 		this.mesh.geometry = this.geometry
+	}
+
+	/**
+	 * A geometry reading the quad stream `buffer`. The draw's first one reads the empty stream, but has
+	 * the attributes: three makes a program apart for a geometry without a position, so `readyAhead`
+	 * would compile one the draw never uses (#904).
+	 */
+	private streamGeometry(): THREE.BufferGeometry {
+		const g = new THREE.BufferGeometry()
+		g.setAttribute('position', new THREE.InterleavedBufferAttribute(this.buffer, 3, 0))
+		g.setAttribute('uv', new THREE.InterleavedBufferAttribute(this.buffer, 2, 3))
+		g.setAttribute('tint', new THREE.InterleavedBufferAttribute(this.buffer, 4, 5))
+		return g
 	}
 
 	/**

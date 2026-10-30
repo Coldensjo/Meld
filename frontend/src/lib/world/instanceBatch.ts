@@ -37,12 +37,90 @@ export function instancedMesh<T>(geometry: THREE.BufferGeometry, material: THREE
 	// Once its textures are bound: a model's material gets its texture when the texture loads (`map`
 	// and `needsUpdate`, models/assets.ts), and that is a program of its own.
 	const list = Array.isArray(material) ? material : [material]
-	void Promise.allSettled(list.map((x) => x.userData.ready as Promise<void> | undefined)).then(() => fresh.push(m))
+	void Promise.allSettled(list.map((x) => x.userData.ready as Promise<void> | undefined)).then(() => readyAhead(m))
 	return m
 }
 
-/** The meshes `instancedMesh` made, with their textures bound, since the engine last precompiled their shaders (`precompileFresh`). */
+/**
+ * Has the engine compile the shaders of `o` (a mesh, or anything holding meshes) and upload its
+ * textures ahead of its first draw (`precompileFresh`): call it once its materials have their
+ * textures bound, as `instancedMesh` does for a model's mesh and the particle layer for a draw (#904).
+ */
+export function readyAhead(o: THREE.Object3D) {
+	fresh.push(o)
+}
+
+/** The meshes `readyAhead` named since the engine last precompiled their shaders (`precompileFresh`). */
 let fresh: THREE.Object3D[] = []
+/** The meshes whose textures `precompileFresh` uploads ahead, a few each frame, from `uploadHead` on. */
+let uploads: THREE.Object3D[] = []
+let uploadHead = 0
+/**
+ * The texture bytes `precompileFresh` uploads ahead a frame, at most (and at least one mesh's): the first
+ * frame at a new spot in Blackrock Depths uploaded 135 textures, 1.8 MB, at their first draw (#904).
+ */
+export const UPLOAD_BYTES = 2 << 20
+
+/** The texture-valued properties of three's materials, and a `ShaderMaterial`'s texture uniforms. */
+const TEXTURE_KEYS = ['map', 'alphaMap', 'lightMap', 'aoMap', 'emissiveMap', 'specularMap', 'normalMap', 'bumpMap', 'envMap'] as const
+
+/** Calls `f` with each texture the materials of `o` and the meshes below it map. */
+function eachTexture(o: THREE.Object3D, f: (t: THREE.Texture) => void) {
+	o.traverse((x) => {
+		const mat = (x as THREE.Mesh).material
+		if (!mat) return
+		for (const m of Array.isArray(mat) ? mat : [mat]) {
+			for (const k of TEXTURE_KEYS) {
+				const t: unknown = Reflect.get(m, k)
+				if (t instanceof THREE.Texture) f(t)
+			}
+			const uniforms = (m as THREE.ShaderMaterial).uniforms
+			if (uniforms)
+				for (const k in uniforms) {
+					const t: unknown = uniforms[k].value
+					if (t instanceof THREE.Texture) f(t)
+				}
+		}
+	})
+}
+
+/** About the bytes a texture takes on the GPU: its mip levels as stored, or four a texel and a third more for the mips. */
+export function textureBytes(t: THREE.Texture): number {
+	const mips = (t as THREE.CompressedTexture).mipmaps as { data?: ArrayBufferView }[] | undefined
+	if ((t as THREE.CompressedTexture).isCompressedTexture && mips?.length) {
+		let n = 0
+		for (const m of mips) n += m.data?.byteLength ?? 0
+		return n
+	}
+	const img = t.image as { width?: number; height?: number } | null | undefined
+	const n = (img?.width ?? 0) * (img?.height ?? 0) * 4
+	return t.generateMipmaps ? Math.ceil((n * 4) / 3) : n
+}
+
+/**
+ * Uploads the textures of the queued meshes still in the scene that three has not uploaded yet, up to
+ * `UPLOAD_BYTES` (#904). Three uploads a texture at its first draw, so a model the camera first turns to
+ * uploaded all of them in that one frame.
+ */
+function uploadAhead(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
+	let bytes = 0
+	const props = renderer.properties
+	const upload = (t: THREE.Texture) => {
+		// Uploaded as it is: `initTexture` would only bind it. Version 0 has no image yet.
+		if (t.version === 0 || (props.get(t) as { __version?: number }).__version === t.version) return
+		renderer.initTexture(t)
+		bytes += textureBytes(t)
+	}
+	while (uploadHead < uploads.length && bytes < UPLOAD_BYTES) {
+		const o = uploads[uploadHead++]
+		// Taken off its layer (disposed) since: its textures may be let go of too.
+		if (inScene(o, scene)) eachTexture(o, upload)
+	}
+	if (uploadHead === uploads.length) {
+		uploads = []
+		uploadHead = 0
+	}
+}
 
 /** Walks only `items`, so `renderer.compile` reaches the fresh meshes where they hang and no other. */
 class MeshList extends THREE.Object3D {
@@ -56,22 +134,80 @@ class MeshList extends THREE.Object3D {
 const freshList = new MeshList()
 
 /**
- * Compiles the shaders of the meshes made since the last call, for `scene` as `camera` draws it, without
- * waiting for them (#903). Three compiles a material's program when it is first drawn and waits there
+ * Compiles the shaders of the meshes `readyAhead` named since the last call, for `scene` as `camera`
+ * draws it, without waiting for them (#903), then uploads a frame's share of their textures
+ * (`uploadAhead`, #904). Three compiles a material's program when it is first drawn and waits there
  * for the driver: on the GPU (D3D11 through ANGLE) each new model shader cost 100 to 600 ms the first
  * time the camera turned to it, as flying Blackrock Depths did. Issued once a model's mesh is made and its textures bound, the
  * compile runs in the driver's own threads (KHR_parallel_shader_compile) while the camera looks
- * elsewhere, and the first draw finds the program ready. Called right after the scene's render, so the
- * render target and lights are the ones the scene draws with; a mesh already taken off its layer
- * (disposed) is skipped.
+ * elsewhere, and the first draw finds the program ready; `pollLinks` then reads what three reads at a
+ * program's first draw, once the driver has it linked. Called right after the scene's render, so the
+ * render target and lights are the ones the scene draws with; a mesh not in `scene` (`inScene`) is skipped.
  */
 export function precompileFresh(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-	if (!fresh.length) return
-	const items = freshList.items
-	for (const m of fresh) if (m.parent) items.push(m)
-	fresh = []
-	if (items.length) renderer.compile(freshList, camera, scene)
-	items.length = 0
+	if (fresh.length) {
+		const items = freshList.items
+		for (const m of fresh) {
+			if (!inScene(m, scene)) continue
+			items.push(m)
+			uploads.push(m)
+		}
+		fresh = []
+		if (items.length) {
+			const props = renderer.properties
+			// Every program of each material: one shared by a skinned and a still mesh has one for each,
+			// and `currentProgram` names only the last.
+			for (const m of renderer.compile(freshList, camera, scene)) {
+				const ps = (props.get(m) as { programs?: Map<string, Program> }).programs
+				if (ps) for (const p of ps.values()) linking.add(p)
+			}
+			if (linking.size) pollLinks(renderer)
+		}
+		items.length = 0
+	}
+	if (uploads.length) uploadAhead(renderer, scene)
+}
+
+/** Three's program, with what it has but does not type: whether the driver has linked it, asked without waiting. */
+type Program = THREE.WebGLProgram & { isReady(): boolean }
+
+/** The programs `precompileFresh` had made that three has not used yet, until the driver has linked them. */
+const linking = new Set<Program>()
+let polling: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Uses each program in `linking` once the driver has linked it, between frames (#904). Three reads a
+ * program's info log and uniforms at its first draw, and that waits for the GPU process: on the GPU
+ * (D3D11 through ANGLE) a program compiled ahead still cost its first frame 10 to 20 ms there, the
+ * frame at a new spot in Blackrock Depths 40 to 70 ms. Polled every 10 ms as three's `compileAsync` polls,
+ * so the frame never waits; a program let go of since (its material disposed) is dropped.
+ */
+function pollLinks(renderer: THREE.WebGLRenderer) {
+	if (polling !== null) return
+	const poll = () => {
+		const live = renderer.info.programs ?? []
+		for (const p of linking) {
+			if (!live.includes(p)) linking.delete(p)
+			else if (p.isReady()) {
+				p.getUniforms()
+				linking.delete(p)
+			}
+		}
+		polling = linking.size ? setTimeout(poll, 10) : null
+	}
+	polling = setTimeout(poll, 10)
+}
+
+/**
+ * Whether `o` is drawn by the engine's renderer: it hangs in `scene`, or in a layer of a map tab not
+ * shown now (taken off the scene by `Engine.activate`), but is not taken off its layer (disposed) and
+ * not in another scene, such as a preview's, which draws with a renderer of its own.
+ */
+function inScene(o: THREE.Object3D, scene: THREE.Scene): boolean {
+	if (!o.parent) return false
+	let p: THREE.Object3D = o
+	while (p.parent) p = p.parent
+	return p === scene || !(p as THREE.Scene).isScene
 }
 
 /** The position of `v` in `sorted[from..to)`, ascending, or -1. */

@@ -704,7 +704,10 @@ the same scene, the report before and after.
     cost lands in the frame that first draws it whether or not it was compiled ahead
     (`renderer.compileAsync`), so a probe on SwiftShader can't show what compiling ahead gains (#327).
     `PROBE_GPU=1` can: on D3D11 through ANGLE `brd-fly`'s worst frame went from 215-250 ms (600 to
-    2,600 ms when the flight started mid-load) to 40-80 ms with `precompileFresh` (#903).
+    2,600 ms when the flight started mid-load) to 40-80 ms with `precompileFresh` (#903), and to 18-25 ms
+    with the textures uploaded and the programs first used ahead (#904). A program compiled ahead still
+    costs its first draw 10 to 20 ms there, in `getProgramInfoLog`: that call waits for the GPU process
+    to catch up, so its time is the frame's uploads and the driver's link, whichever is pending.
     To see where programs cost, wrap `getProgramInfoLog`, `getShaderInfoLog`, `getProgramParameter`
     and `getShaderParameter` on the context with timers and time each `frame()`.
   - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set

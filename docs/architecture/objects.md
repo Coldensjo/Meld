@@ -66,6 +66,14 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     first draw and blocks on the driver there, 100 to 600 ms a program on D3D11 through ANGLE, so
     turning the camera to a model type not yet seen stalled the frame (`brd-fly` on the GPU, up to
     2.6 s). A texture bound later changes the program (`map`), hence the wait for `ready`.
+    `readyAhead` queues any other mesh the same way: the particle layer's draws (`ParticleLayer`'s
+    `Batch`, once its texture loads; its first geometry has the stream's attributes, since three makes a
+    program apart for a geometry without a position). `precompileFresh` also uploads the queued meshes'
+    textures (`renderer.initTexture`), up to `UPLOAD_BYTES` (2 MB) a frame, and `pollLinks` reads each
+    new program's info log and uniforms between frames once the driver has linked it (#904): three does
+    both at the first draw, and each waits on the GPU process (a new spot in Blackrock Depths uploaded
+    1.8 MB in 135 textures in one frame, and each program's first use cost 10 to 20 ms there). Every
+    program of a compiled material is polled: a material a skinned and a still mesh share has one each.
     What stays in the layers is what they batch: ObjectLayer's object tree, LOD split and WMO
     liquid and group culling; SpawnLayer's grouping by kind and marker. A fix to culling, packing,
     uploads or picking of instances goes there, once.

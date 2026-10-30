@@ -271,7 +271,9 @@ and so on; those inside the abbey have none.
   three compiles a model's program at its first draw and waits for the driver (100 to 600 ms each on
   D3D11). Wrap `gl.getProgramInfoLog` and count `renderer.info.programs` per frame to see it. The probe
   flies only once the dungeon has loaded (`P.settle`): a model that first shows during the flight
-  compiles then, which is the load, not the flight.
+  compiles then, which is the load, not the flight. It fails when a program is made in the flight
+  (`programsMade`, #904), on SwiftShader too: the particle draws' were, until `readyAhead` had them
+  compiled ahead.
 - Trap: a scene whose camera stands inside a building's wall (the abbey at `"target":[182,80,353]`,
   pitch 0.35, distance 45 does) hides every name, correctly; check the camera first.
 - Setting `ed.prefs.spawnNames = false` from the page module hides them all.
