@@ -621,6 +621,8 @@ export const ui = $state({
 	spellEditor: null as { entry: number } | null,
 	/** The Icons tool (#683, Tools › Icons…), open on `icon` ('' for none picked yet). */
 	iconsTool: null as { icon: string } | null,
+	/** The Sound tool (#684, Tools › Sounds…), open on the SoundEntries row `id` (0 for none picked yet). */
+	soundsTool: null as { id: number } | null,
 	/**
 	 * The Characters and Accounts tool (#855, Tools › Characters and Accounts…): the `account` open (0 for
 	 * none, -1 while making one) and its character `guid` open (0 for the account's own page).

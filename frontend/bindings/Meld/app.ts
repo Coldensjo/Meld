@@ -411,6 +411,20 @@ export function ExportItems(entries: number[] | null, suggested: string): $Cance
 }
 
 /**
+ * ExportSounds saves the client's sound files at paths in dir, each under its own name, as stored.
+ */
+export function ExportSounds(paths: string[] | null, dir: string): $CancellablePromise<$models.SoundsExported> {
+    return $Call.ByID(3713352411, paths, dir);
+}
+
+/**
+ * ExportSoundsDialog asks for the folder to save sound files in. Returns "" if cancelled.
+ */
+export function ExportSoundsDialog(): $CancellablePromise<string> {
+    return $Call.ByID(3693831927);
+}
+
+/**
  * ExportSpells asks where to save an SQL script of spells and writes their spell_template rows there
  * (#357). Returns the path, or "" if cancelled.
  */
@@ -505,6 +519,15 @@ export function ImportItems(path: string): $CancellablePromise<number[] | null> 
  */
 export function ImportOtherAssets(paths: string[] | null): $CancellablePromise<$models.AssetsImported> {
     return $Call.ByID(3220663819, paths);
+}
+
+/**
+ * ImportSound adds the sound file at path to the client as opt says: the file under Sound\Meld and a
+ * SoundEntries.dbc row naming it, with a ZoneMusic or SoundAmbience row for music or ambience, so the
+ * object editor's and the Zones dialog's pickers list it. The game plays it from its next start.
+ */
+export function ImportSound(path: string, opt: vmangos$0.SoundImport): $CancellablePromise<vmangos$0.SoundImported> {
+    return $Call.ByID(1349963795, path, opt);
 }
 
 /**
@@ -984,6 +1007,14 @@ export function OpenReferenceImageDialog(): $CancellablePromise<string> {
 }
 
 /**
+ * OpenSoundFileDialog asks for a WAV or MP3 file to import or to put over a client sound. Returns ""
+ * if cancelled.
+ */
+export function OpenSoundFileDialog(title: string): $CancellablePromise<string> {
+    return $Call.ByID(3966296942, title);
+}
+
+/**
  * OpenSpellsDialog asks for an SQL script of spells to import. Returns "" if cancelled.
  */
 export function OpenSpellsDialog(): $CancellablePromise<string> {
@@ -1355,6 +1386,14 @@ export function RegionPending(edit: vmangos$0.RegionEdit): $CancellablePromise<v
  */
 export function RegionShadows(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.RegionShadows | null> {
     return $Call.ByID(3907178406, mapName, x, y, size);
+}
+
+/**
+ * ReplaceSound puts the sound file at path over the client's sound file target (a path under Sound\),
+ * in Meld's patch: every sound that names target plays it. waiting says it waits for the game to close.
+ */
+export function ReplaceSound(target: string, path: string): $CancellablePromise<boolean> {
+    return $Call.ByID(3708309274, target, path);
 }
 
 /**
@@ -1897,6 +1936,20 @@ export function SetWowPath(path: string): $CancellablePromise<wow$0.Status> {
  */
 export function SoundEntries(): $CancellablePromise<vmangos$0.SoundOption[] | null> {
     return $Call.ByID(830711860);
+}
+
+/**
+ * SoundEntry reads a SoundEntries.dbc row with its files and what plays it, for the Sound tool.
+ */
+export function SoundEntry(id: number): $CancellablePromise<vmangos$0.SoundEntryInfo> {
+    return $Call.ByID(2919565632, id);
+}
+
+/**
+ * SoundFiles lists the client's sound files (WAV and MP3 under Sound\), by path.
+ */
+export function SoundFiles(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2883818827);
 }
 
 /**

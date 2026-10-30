@@ -347,6 +347,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'Items…', disabled: !backend, run: () => (ui.itemEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Spells…', disabled: !backend, run: () => (ui.spellEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Icons…', disabled: !backend, run: () => (ui.iconsTool = { icon: '' }) },
+				{ kind: 'action', label: 'Sounds…', disabled: !backend, run: () => (ui.soundsTool = { id: 0 }) },
 				{ kind: 'action', label: 'Import from Another Client…', disabled: !backend, run: () => (ui.dialog = 'otherClient') },
 				{ kind: 'action', label: 'Characters and Accounts…', disabled: !backend, run: () => (ui.characterEditor = { account: 0, guid: 0 }) },
 				{ kind: 'sep' },

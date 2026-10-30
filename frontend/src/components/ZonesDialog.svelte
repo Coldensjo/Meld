@@ -10,6 +10,7 @@
 	import { hasBackend } from '../lib/io/backend'
 	import { reloadAreas } from '../lib/wow/areas'
 	import { applyNote } from '../lib/io/applyNote'
+	import { playSound, soundPlayer, stopSound } from '../lib/ui/soundPlayer.svelte'
 
 	// World › Zones (Noggit Red's zone editor in its Area Designator): a map's zones and subzones from
 	// the client's AreaTable.dbc. Pick one to edit its row, or add a zone or a subzone; Save writes the
@@ -106,25 +107,10 @@
 
 	const lightName = (l: vmangos.MapLight) => (l.global ? `${l.id} · the map's own` : `${l.id} · at ${Math.round(l.x)}, ${Math.round(l.z)} (${Math.round(l.outer)} yd)`)
 
-	/** The sound playing from a Play button, stopped by the next one or by closing. */
-	let audio: HTMLAudioElement | null = null
-	let playing = $state('')
-	function play(file: string) {
-		audio?.pause()
-		if (!file || playing === file) {
-			playing = ''
-			return
-		}
-		audio = new Audio(`/wow/sound?path=${encodeURIComponent(file)}`)
-		audio.onended = () => (playing = '')
-		audio.onerror = () => {
-			playing = ''
-			error = `The client's ${file} could not be played.`
-		}
-		playing = file
-		void audio.play().catch(() => (playing = ''))
-	}
-	$effect(() => () => audio?.pause())
+	// The Play buttons share the sound pickers' player (#684), so a sound playing in another picker
+	// stops when one plays here; closing the dialog stops it.
+	const play = (file: string) => playSound(file, (m) => (error = m))
+	$effect(() => () => stopSound())
 
 	async function load() {
 		if (mapId === null) return
@@ -199,7 +185,7 @@
 	}
 
 	async function close() {
-		audio?.pause()
+		stopSound()
 		if (unsaved && !(await askConfirm('Close without saving the zone changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
 		onclose()
 	}
@@ -378,7 +364,7 @@
 			<input {id} type="number" min="0" {value} {title} oninput={(e) => edit(key, num(e))} />
 		{/if}
 		{#if key !== 'soundPref' && key !== 'soundSwim'}
-			<button class="play" disabled={!file} onclick={() => play(file)} title={file ? `Play ${file}` : 'Nothing to play'}>{playing && playing === file ? '■' : '▶'}</button>
+			<button class="play" disabled={!file} onclick={() => play(file)} title={file ? `Play ${file}` : 'Nothing to play'}>{soundPlayer.playing && soundPlayer.playing === file ? '■' : '▶'}</button>
 		{/if}
 	</span>
 {/snippet}

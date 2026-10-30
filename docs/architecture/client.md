@@ -750,6 +750,26 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   Items reach an icon through their ItemDisplayInfo.dbc display, so the tool only lists the items
   whose displays show it (from `ListItemDisplays`' `uses` and `names`; none without the world
   database). It writes nothing but the PNG import, through #364's path.
+- **Sound tool** (`components/SoundsWindow.svelte`, `ui.soundsTool`, #684): full screen (z-index 165),
+  opened by Tools › Sounds… (`{ id: 0 }`; an ID opens it on that SoundEntries row). Its Sounds tab is
+  the shared `SoundPicker` (`tall`) and its Files tab every WAV and MP3 under `Sound\` (`SoundFiles`,
+  `vmangos.SoundFileList`, waiting files included), both playing through `soundPlayer`; the Zones dialog
+  plays through it too. A picked row (`SoundEntry`, `vmangos.ReadSoundEntry` in
+  `internal/vmangos/sounds.go`) shows its fields, files and what plays it (ZoneMusic,
+  ZoneIntroMusicTable, SoundAmbience rows, a count of GameObjectDisplayInfo displays). Export saves
+  files as stored (`ExportSounds`). Import sound… (`ImportSound`, `PlanSoundImport`) puts the file at
+  `Sound\Meld\<name>` and adds a SoundEntries row (the next ID; type, flags and distances by kind:
+  sound and loop 25, music 28, ambience 50, from the client's own rows of that use), plus a ZoneMusic
+  row (day and night the sound, the client's silences) for music or a SoundAmbience row for ambience,
+  which is how the Zones dialog's lists reach it (`ZoneSounds` reads through `readOverlay` for that).
+  A file a non-Meld archive has at that path is refused; a row already naming `Sound\Meld\<file>` is
+  updated in place, and a name another row has is refused (the interface's PlaySound goes by name).
+  Replace… (`ReplaceSound`, `PlanSoundReplace`) writes a file at a client sound's own path, the same
+  format as its extension. `SoundFormat` takes PCM WAV (8 or 16 bits, 1 or 2 channels, as the client's
+  own) and MP3 only. Every write goes through `queueClientFiles` (at once or once the game has closed);
+  `clientOverlay` serves a waiting sound to `/wow/sound`. The owner's decision on #684: import as new
+  and replace, one shared list. Meld's patch can't drop a file, so a replace is undone only by
+  replacing again with the exported original.
 - **Spell editor** (`components/SpellEditor.svelte`, `ui.spellEditor`, #294): full screen (z-index 165),
   opened by Tools › Spells… (`entry: 0`, find one; `-1`, a new spell). A spell lives in two places:
   the server reads `spell_template` (VMaNGOS keeps no Spell.dbc; a row per entry and client build,

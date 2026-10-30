@@ -455,6 +455,24 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent
   (WorldMapContinent.dbc lists only Kalimdor and Azeroth) is for the owner to check.
 
+## The Sound tool (#684, probe `sounds-tool`)
+Checks: Tools › Sounds… lists, plays, exports, imports and replaces the client's sounds.
+- Go: `vmangos.TestSoundFormat` (PCM WAVs and MP3s taken; ADPCM, 24-bit, no data chunk and a PNG
+  refused), `TestSoundFileName`, `TestSoundEntryInfo` (fields, files and the zone rows and displays
+  that play a sound), `TestImportSoundRows` (music adds a SoundEntries and a ZoneMusic row the Zones
+  dialog's list shows; the same file again updates its row and adds an ambience row; taken names, bad
+  volumes and kinds refused), `TestClientSoundImport` (needs the client: an import into the client's
+  own SoundEntries leaves every old row's fields and strings as they were, and the client's sound files
+  are listed; CampFireLargeLoop.wav is a PCM WAV by `SoundFormat`).
+- Probe: `sounds-tool` (writes only a throwaway client, `P.sandboxClient`): CampFireLargeLoop's side
+  names its file, Sound\Doodad and 8 game object displays; the Files tab finds
+  Sound\Doodad\CampFireLargeLoop.wav. A WAV made by the probe (`P.sandboxFile`, with
+  `OpenSoundFileDialog` and `ExportSoundsDialog` stubbed) is imported as ambience: the tool picks it,
+  `SoundEntries`, `ZoneSounds().ambience` and `/wow/sound` have it; Export saves it; Replace… after the
+  confirmation (`P.dialog('Replace a client sound')`) serves the longer WAV. `realUnchanged` at the end.
+- Not checked here: the game playing an imported sound (zone ambience, an object's loop); that is the
+  owner's check in the game.
+
 ## Icons from PNG files and back, and the Icons tool (#364, #683, probe `spell-editor`)
 Checks: Import PNG… in the spell and item editors' icon grid adds square PNG files to the client as
 `Interface\Icons\<file name>.blp` in Meld's patch, and Export … as PNG… saves the icons the grid shows

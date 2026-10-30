@@ -183,6 +183,27 @@ with your backup, and repair only the affected data rather than blindly rerunnin
 5. For **Export PNG…**, choose a disposable or backed-up output folder: same-name PNGs are
    overwritten. Export is an image conversion, not a database or complete client-asset backup.
 
+## Import, export or replace sounds
+
+1. Open **Tools › Sounds…**. The **Sounds** list shows the client's SoundEntries.dbc rows (what
+   zones, game objects and the interface play) by name, file or ID; **Files** lists the WAV and MP3
+   files under Sound\. Each has a play button. Picking a sound shows its files, folder, volume and
+   distances, and which zone music, intro, ambience rows and game object displays play it.
+2. **Export…** saves files exactly as the client stores them (WAV or MP3). Same-name files in the
+   chosen folder are overwritten.
+3. **Import sound…** takes a WAV (uncompressed PCM, 8 or 16 bits, mono or stereo) or an MP3. Give it a
+   name no other sound has and choose what it is: **Sound** (played once, such as an object
+   opening), **Loop** (loops near an object), **Zone music** or **Zone ambience**. The file goes into
+   Meld's patch under Sound\Meld with a new SoundEntries row; zone music also gets a ZoneMusic row
+   and ambience a SoundAmbience row, so the Zones dialog's Zone music and Ambience lists offer it.
+   A sound or loop is picked in the game object editor's Sounds tab. Importing the same file again
+   updates that sound instead of adding another.
+4. **Replace…** on a file puts your WAV or MP3 (the same kind as the file) over the client's own,
+   after a confirmation: every sound that names that file plays yours. It stays in Meld's patch, so
+   export the client's file first if you may want it back.
+5. Imports and replacements are written into the patch at once, or wait for the game to close; the
+   game plays them from its next start. Nothing here is undone by History.
+
 ## Accounts and characters
 
 1. Open **Tools › Characters and Accounts…**. The list on the left is the realm's accounts from

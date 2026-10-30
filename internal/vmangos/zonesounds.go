@@ -96,7 +96,8 @@ func zoneSoundTables(tables map[string][]byte) (ZoneSoundTables, error) {
 	return z, nil
 }
 
-// ZoneSounds reads the client's sound tables for the zone editor.
+// ZoneSounds reads the client's sound tables for the zone editor, as the game will have them: a
+// sound the Sound tool imported while the game ran (#684) is listed too.
 func ZoneSounds(dataDir string) (ZoneSoundTables, error) {
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
@@ -105,7 +106,7 @@ func ZoneSounds(dataDir string) (ZoneSoundTables, error) {
 	defer set.Close()
 	tables := map[string][]byte{}
 	for name := range soundTableFields {
-		b, err := set.ReadFile(`DBFilesClient\` + name + `.dbc`)
+		b, err := readOverlay(set, dataDir, `DBFilesClient\`+name+`.dbc`)
 		if err != nil {
 			return ZoneSoundTables{}, fmt.Errorf("%s.dbc: %w", name, err)
 		}

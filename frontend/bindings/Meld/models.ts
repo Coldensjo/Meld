@@ -200,6 +200,14 @@ export interface ServerStatusInfo {
 }
 
 /**
+ * SoundsExported is what ExportSounds wrote: how many files, and the paths it could not read.
+ */
+export interface SoundsExported {
+    "written": number;
+    "failed": string[] | null;
+}
+
+/**
  * SoundsSaved is what SaveObjectDisplaySounds did: whether it changed anything, and whether the
  * patch waits for the game to close.
  */

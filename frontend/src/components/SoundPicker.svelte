@@ -25,7 +25,7 @@
 
 	// A picker of the client's sounds (#674): the SoundEntries.dbc rows a game object display's sound
 	// slots, a zone's music and ambience name, searched by name, file or ID, each with Play. A click
-	// picks one. Meant to be shared by every sound picker (#684).
+	// picks one. The game object editor and the Sound tool (#684) share it.
 
 	interface Props {
 		/** The sound picked now, drawn highlighted (0: none). */
@@ -33,8 +33,10 @@
 		onpick: (s: vmangos.SoundOption) => void
 		/** A search to start with, such as "loop". */
 		start?: string
+		/** Fill the height it is given (the Sound tool's list) instead of a short list. */
+		tall?: boolean
 	}
-	let { selected, onpick, start = '' }: Props = $props()
+	let { selected, onpick, start = '', tall = false }: Props = $props()
 
 	let all = $state<vmangos.SoundOption[]>([])
 	let error = $state('')
@@ -57,7 +59,7 @@
 	const fileName = (f: string) => f.slice(f.lastIndexOf('\\') + 1)
 </script>
 
-<div class="picker">
+<div class="picker" class:tall>
 	<input type="search" placeholder="Search sounds by name, file or ID" bind:value={query} aria-label="Search sounds" />
 	{#if error}<p class="error">{error}</p>{/if}
 	<ul class="list" aria-label="Sounds">
@@ -82,6 +84,14 @@
 		flex-direction: column;
 		gap: 6px;
 		min-width: 0;
+	}
+	.picker.tall {
+		flex: 1;
+		min-height: 0;
+	}
+	.tall .list {
+		flex: 1;
+		max-height: none;
 	}
 	.list {
 		list-style: none;

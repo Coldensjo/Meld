@@ -69,6 +69,8 @@ export const EquipmentItems: Call<AppApi['EquipmentItems']> = (...a) => api().Eq
 export const ExportIcons: Call<AppApi['ExportIcons']> = (...a) => api().ExportIcons(...a) as never
 export const ExportIconsDialog: Call<AppApi['ExportIconsDialog']> = (...a) => api().ExportIconsDialog(...a) as never
 export const ExportItems: Call<AppApi['ExportItems']> = (...a) => api().ExportItems(...a) as never
+export const ExportSounds: Call<AppApi['ExportSounds']> = (...a) => api().ExportSounds(...a) as never
+export const ExportSoundsDialog: Call<AppApi['ExportSoundsDialog']> = (...a) => api().ExportSoundsDialog(...a) as never
 export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().ExportSpells(...a) as never
 export const ExternalDatabaseInfo: Call<AppApi['ExternalDatabaseInfo']> = (...a) => api().ExternalDatabaseInfo(...a) as never
 export const Factions: NonNullCall<AppApi['Factions']> = (...a) => api().Factions(...a) as never
@@ -81,6 +83,7 @@ export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api
 export const ImportIcons: Call<AppApi['ImportIcons']> = (...a) => api().ImportIcons(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
 export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
+export const ImportSound: Call<AppApi['ImportSound']> = (...a) => api().ImportSound(...a) as never
 export const ImportSpells: NonNullCall<AppApi['ImportSpells']> = (...a) => api().ImportSpells(...a) as never
 export const InstallMapPatch: Call<AppApi['InstallMapPatch']> = (...a) => api().InstallMapPatch(...a) as never
 export const InventoryItemTemplate: Call<AppApi['InventoryItemTemplate']> = (...a) => api().InventoryItemTemplate(...a) as never
@@ -144,6 +147,7 @@ export const OpenModelSetDialog: NonNullCall<AppApi['OpenModelSetDialog']> = (..
 export const OpenOtherClient: Call<AppApi['OpenOtherClient']> = (...a) => api().OpenOtherClient(...a) as never
 export const OpenProject: Call<AppApi['OpenProject']> = (...a) => api().OpenProject(...a) as never
 export const OpenReferenceImageDialog: Call<AppApi['OpenReferenceImageDialog']> = (...a) => api().OpenReferenceImageDialog(...a) as never
+export const OpenSoundFileDialog: Call<AppApi['OpenSoundFileDialog']> = (...a) => api().OpenSoundFileDialog(...a) as never
 export const OpenSpellsDialog: Call<AppApi['OpenSpellsDialog']> = (...a) => api().OpenSpellsDialog(...a) as never
 export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().OpenTextDialog(...a) as never
 export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
@@ -194,6 +198,7 @@ export const RegionInner: NonNullCall<AppApi['RegionInner']> = (...a) => api().R
 export const RegionMapID: Call<AppApi['RegionMapID']> = (...a) => api().RegionMapID(...a) as never
 export const RegionPending: Call<AppApi['RegionPending']> = (...a) => api().RegionPending(...a) as never
 export const RegionShadows: NonNullCall<AppApi['RegionShadows']> = (...a) => api().RegionShadows(...a) as never
+export const ReplaceSound: Call<AppApi['ReplaceSound']> = (...a) => api().ReplaceSound(...a) as never
 export const RestartServer: Call<AppApi['RestartServer']> = (...a) => api().RestartServer(...a) as never
 export const SandboxWriteFile: Call<AppApi['SandboxWriteFile']> = (...a) => api().SandboxWriteFile(...a) as never
 export const SaveAILine: Call<AppApi['SaveAILine']> = (...a) => api().SaveAILine(...a) as never
@@ -262,6 +267,8 @@ export const SetUnsaved: Call<AppApi['SetUnsaved']> = (...a) => api().SetUnsaved
 export const SetVmangosPath: Call<AppApi['SetVmangosPath']> = (...a) => api().SetVmangosPath(...a) as never
 export const SetWowPath: Call<AppApi['SetWowPath']> = (...a) => api().SetWowPath(...a) as never
 export const SoundEntries: NonNullCall<AppApi['SoundEntries']> = (...a) => api().SoundEntries(...a) as never
+export const SoundEntry: Call<AppApi['SoundEntry']> = (...a) => api().SoundEntry(...a) as never
+export const SoundFiles: NonNullCall<AppApi['SoundFiles']> = (...a) => api().SoundFiles(...a) as never
 export const SpawnEditSQL: Call<AppApi['SpawnEditSQL']> = (...a) => api().SpawnEditSQL(...a) as never
 export const SpawnEmotes: NonNullCall<AppApi['SpawnEmotes']> = (...a) => api().SpawnEmotes(...a) as never
 export const SpawnLook: Call<AppApi['SpawnLook']> = (...a) => api().SpawnLook(...a) as never

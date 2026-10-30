@@ -1756,6 +1756,55 @@ export interface SkillChoice {
 }
 
 /**
+ * SoundEntryInfo is a SoundEntries row as the Sound tool shows it: its fields, its files (client
+ * paths) and what plays it.
+ */
+export interface SoundEntryInfo {
+    "id": number;
+    "name": string;
+    "type": number;
+    "dir": string;
+    "files": string[] | null;
+    "volume": number;
+    "flags": number;
+    "minDist": number;
+    "cutoff": number;
+    "imported": boolean;
+
+    /**
+     * The ZoneMusic, ZoneIntroMusicTable and SoundAmbience rows that play it, and how many game
+     * object displays have it in a sound slot.
+     */
+    "music": SoundOption[] | null;
+    "intro": SoundOption[] | null;
+    "ambience": SoundOption[] | null;
+    "displays": number;
+}
+
+/**
+ * SoundImport is what a sound file is imported as: the SoundEntries row's name, its kind (what uses
+ * it) and its volume (0 to 1).
+ */
+export interface SoundImport {
+    "name": string;
+    "kind": string;
+    "volume": number;
+}
+
+/**
+ * SoundImported is what an import added: the sound's SoundEntries ID and file, the ZoneMusic or
+ * SoundAmbience ID for music or ambience (0 otherwise), and whether it updated an earlier import of
+ * the same file.
+ */
+export interface SoundImported {
+    "id": number;
+    "file": string;
+    "zone": number;
+    "updated": boolean;
+    "waiting": boolean;
+}
+
+/**
  * SoundOption is a row of a sound table the zone editor names: its ID, a name, and a sound file of
  * it to play (a client path under Sound\, "" when it has none).
  */

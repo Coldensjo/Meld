@@ -24,6 +24,7 @@ export type {
     SandboxEnded,
     ScriptImage,
     ServerStatusInfo,
+    SoundsExported,
     SoundsSaved,
     SpellSaved,
     TemplateSaved,

@@ -17,6 +17,7 @@
 	let ItemEditor = $state<Component | null>(null)
 	let SpellEditor = $state<Component | null>(null)
 	let IconsWindow = $state<Component | null>(null)
+	let SoundsWindow = $state<Component | null>(null)
 	let CharacterEditor = $state<Component | null>(null)
 	$effect(() => {
 		if (ui.creatureEditor && !CreatureEditor) void import('./components/CreatureEditor.svelte').then((m) => (CreatureEditor = m.default))
@@ -25,6 +26,7 @@
 		if (ui.itemEditor && !ItemEditor) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
 		if (ui.spellEditor && !SpellEditor) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
 		if (ui.iconsTool && !IconsWindow) void import('./components/IconsWindow.svelte').then((m) => (IconsWindow = m.default))
+		if (ui.soundsTool && !SoundsWindow) void import('./components/SoundsWindow.svelte').then((m) => (SoundsWindow = m.default))
 		if (ui.characterEditor && !CharacterEditor) void import('./components/CharacterEditor.svelte').then((m) => (CharacterEditor = m.default))
 	})
 	import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
@@ -196,7 +198,7 @@
 			brushEditor: ui.brushEditor,
 			modelPreview: !!ui.modelPreview,
 			inspector: ui.inspector,
-			databaseEditor: !!(ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool || ui.characterEditor),
+			databaseEditor: !!(ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool || ui.soundsTool || ui.characterEditor),
 			spawnEditor: !!(ui.creatureEditor || ui.objectEditor),
 		})
 		if (!engine || route === 'none') return
@@ -282,6 +284,7 @@
 {#if ItemEditor}{@const Editor = ItemEditor}<Editor />{/if}
 {#if SpellEditor}{@const Editor = SpellEditor}<Editor />{/if}
 {#if IconsWindow}{@const Editor = IconsWindow}<Editor />{/if}
+{#if SoundsWindow}{@const Editor = SoundsWindow}<Editor />{/if}
 {#if CharacterEditor}{@const Editor = CharacterEditor}<Editor />{/if}
 <ModelPreviewWindow />
 {#if ui.signSwap}<SignSwapWindow />{/if}

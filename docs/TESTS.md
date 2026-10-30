@@ -102,7 +102,9 @@ signal stops the run (Ctrl-C, a kill, a harness's time limit), with `stopped` an
 reached in `notRun`. The runner checks
 the dev server and may start or restart it when no explicit `MELD_URL` is set. Do not use it while
 someone else relies on the shared development backend. With an explicit `MELD_URL`, the runner
-uses that server rather than managing one itself.
+uses that server rather than managing one itself. Under a loop, don't wrap `bun run probe` in Git Bash's
+`timeout`: the runner then can't find the loop among its parent processes, refuses to restart a stale page
+after a binding change and fails on the missing binding (#900); run it plainly, or from PowerShell.
 
 To ask whether a probe already failed at an older commit (a full-run check's failure, say), run it with
 `--at <commit>` (#873): `bun run probe weather-wind --at 03c23de4`. The runner checks that commit out into a
@@ -136,7 +138,7 @@ When adding a probe:
    (#369 broke the Zones dialog checks now in `weather`); `data-ui` is the component's name. Only a root element carries it, so an inner control
    keeps a stable attribute. Keep an aria lookup where the probe is about accessibility (`aria-state`, `dialog-focus`).
    The editors share `EditorFrame`, so each root carries `data-editor="creature|object|item|quest|spell|character"`; the other
-   windows are found by their component's `data-ui` (`FlightPathsWindow`, `MinimapWindow`, `IconsWindow`, `ModelPreviewWindow`),
+   windows are found by their component's `data-ui` (`FlightPathsWindow`, `MinimapWindow`, `IconsWindow`, `SoundsWindow`, `ModelPreviewWindow`),
    and the docked minimap by `[data-panel="minimap"]`. Inner lists and fields keep their `aria-label` (#870).
 6. Record how to run it in the appropriate feature-check page below.
 7. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return

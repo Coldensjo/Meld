@@ -10,14 +10,19 @@ import (
 
 // Icons from PNG files and back (#364): the icon pickers' Import PNG… and Export PNG….
 
-// clientOverlay reads an icon waiting for the game to close, for the asset server's previews.
+// clientOverlay reads an icon or a sound (#684) waiting for the game to close, for the asset
+// server's previews and Play buttons.
 func (a *App) clientOverlay(path string) ([]byte, bool) {
-	if !vmangos.IsIconPath(path) || !vmangos.AnyPending() {
+	icon, sound := vmangos.IsIconPath(path), vmangos.IsSoundPath(path)
+	if !icon && !sound || !vmangos.AnyPending() {
 		return nil, false
 	}
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return nil, false
+	}
+	if sound {
+		return vmangos.PendingSound(dataDir, path)
 	}
 	return vmangos.PendingIcon(dataDir, path)
 }
