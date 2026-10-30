@@ -64,12 +64,17 @@ While working:
 - only the probes that touch the change, since a probe costs minutes: `cd frontend && bun run probe
   --touching HEAD` (the uncommitted change; `HEAD~1` once it is committed), or `bun run probe --list`
   and then `bun run probe <name...>` (against the coordinator's `make dev-page`)
+- when `--touching HEAD --list` names more than about 30 probes (the change touched `probes/lib.js` or a
+  hot file such as `Engine.ts`, `menus.ts` or `prefs.svelte.ts`, which about 150 probes name), run only
+  the probes whose subject the change is (named in the item's notes, or picked by you), plus
+  `make probe-smoke`, and name them in the closing comment. The broad pass is the coordinator's (#899): a
+  worker that ran it lost hours to it.
 
 Before commit (all of them):
 - `make test`
 - `make check`
 - `make build-windows` (on Linux, `make build-linux`)
-- the probes that touch the change, again
+- the probes that touch the change, again (the same subject probes when `--touching` names more than about 30)
 - for a rendering item (`area:view`, `area:water`, or a change to a shader or to what the 3D view draws), the probes
   that touch it again with `PROBE_GPU=1` (the machine's GPU instead of SwiftShader, docs/TESTS.md, "On the
   real GPU"): SwiftShader hid the cause of #747. Only pass/fail counts there; timings and the bench baseline
@@ -101,6 +106,13 @@ minutes a run plus fix items (#439).
   `// touches:` line, so `--touching` already runs them, and a hot-file trigger ran the whole sweep
   nearly every run, since about one commit in four touches one. It never runs outside a run, and never
   beside one: two probe runs double the SwiftShader load and skew every timing (#257).
+- On a run that is not the day's first, a `--touching <start>..HEAD` that names more than about 30
+  probes (`bun run probe --touching <start>..HEAD --list` first) is the full sweep under another name:
+  `probes/lib.js` picks every probe, and a hot file about 150. Then run instead the probes the run's
+  workers named in their closing comments, with the probes the run added, and the same set for the
+  `PROBE_GPU=1` pass; the next day's full `make probe` covers the rest (#899). Say in the run log that
+  the selection was cut and how many `--touching` had named. The day's first run keeps the broad
+  `--touching` for its GPU pass.
 - `make probe-perf` only for optimization items.
 - The run log says which selection ran and how long it took. A failure is handled as before: find the
   commit, file a bug, revert if it cannot be fixed.
