@@ -392,7 +392,8 @@ before changing your map. See [asset troubleshooting](troubleshooting.md).
   map data. Use Edit Here for authoring, as described [above](#explore-a-world-then-open-an-editable-block).
 - **View › World Around the Block** draws the same streamed tiles around a region tab's block. Only
   the block is edited, saved and compiled; the brushes stop at its edge, and the streamed ground and
-  models outside it cannot be selected. Turn it off to draw the block alone (and the coarse horizon).
+  models outside it cannot be selected, though they light, smoke and have rooms as the block's do. Turn
+  it off to draw the block alone (and the coarse horizon).
 - Models load asynchronously; failed models can remain placeholders. Far models may use simplified
   geometry; picking uses the full model. Instances of one animated model share an idle pose/clock,
   not independent gameplay animation states.

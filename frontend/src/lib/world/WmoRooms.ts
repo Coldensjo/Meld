@@ -13,6 +13,8 @@ export interface CameraRoom {
 	/** The placed WMO's object id and client path. */
 	id: number
 	path: string
+	/** The layer it is placed in: the map's own, or the world streamed around a region (#897). */
+	layer: RoomLayer
 	nav: WmoNav
 	group: number
 	/** The group across the portal the probe crossed, or null. */
@@ -71,7 +73,28 @@ interface PlacedWmo {
 	scale: number
 	/** The model's box in the world, or empty while it loads. */
 	box: THREE.Box3
+	/** The camera is over it rather than in it, as of the last probe (`WmoRooms.over`). */
+	over: boolean
 }
+
+/**
+ * One object layer's placed WMOs as of `sync`: the map's own, or the world streamed around a region
+ * (#897), whose ids are a count of their own. Entries are reused through `placedPool`.
+ */
+interface RoomPart {
+	layer: RoomLayer | null
+	/** The placed WMOs that are not hidden. */
+	placed: PlacedWmo[]
+	byId: Map<number, PlacedWmo>
+	version: number
+	moves: number
+}
+
+type LivePart = RoomPart & { layer: RoomLayer }
+
+const newPart = (): RoomPart => ({ layer: null, placed: [], byId: new Map(), version: -1, moves: 0 })
+/** Whether a part's WMOs count: it has a layer, and the layer is shown (View › Layers). */
+const live = (p: RoomPart): p is LivePart => !!p.layer && p.layer.group.visible
 
 /**
  * Tracks which room of which placed WMO the camera is in (`wmoRoom.ts`'s probe), loading each WMO's
@@ -87,7 +110,8 @@ export class WmoRooms {
 	 * or beside the building; Meld's flying camera goes over it, where the client's flood (from a
 	 * room far below, or from outside through the exterior groups, which in Stormwind are one shell
 	 * around streets that are lit interiors) left holes to the sky. They are drawn whole, left out of
-	 * `outside` as a WMO-only building is.
+	 * `outside` as a WMO-only building is. Their ids, of either layer, for the readouts; `outside`
+	 * reads each WMO's own flag.
 	 */
 	readonly over: number[] = []
 	/**
@@ -101,15 +125,15 @@ export class WmoRooms {
 	 * warned and retried (#515); the Engine sets `onFail` to say so in the status bar.
 	 */
 	readonly navs: LoadCache<WmoNav>
-	/** The placed WMOs that are not hidden, as of `sync`; entries are reused through `placedPool`. */
-	private placed: PlacedWmo[] = []
+	/** The map's own WMOs, then those of the world around a region (#897), as of the last `update`. */
+	private parts: [RoomPart, RoomPart] = [newPart(), newPart()]
 	private placedPool: PlacedWmo[] = []
-	private placedById = new Map<number, PlacedWmo>()
-	/** Set by `sync` when the list was rebuilt or a WMO moved, so `update` runs the probe again. */
+	/** Set by `sync` when a list was rebuilt or a WMO moved, so `update` runs the probe again. */
 	private placedChanged = false
-	private layer: RoomLayer | null = null
-	private objectsVersion = -1
-	private objectsMoves = 0
+	/** Which of the parts' layers were shown at the last `update`, a bit each. */
+	private shown = 0
+	/** The part `current` is placed in. */
+	private currentPart: RoomPart | null = null
 	private lastEye = new THREE.Vector3(NaN, NaN, NaN)
 	private seenLoaded = -1
 	private local = new THREE.Vector3()
@@ -143,12 +167,22 @@ export class WmoRooms {
 	outside(objects: RoomLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number, whole: number | null = null): readonly OutsideWmo[] {
 		const found = this.found
 		found.length = 0
+		if (objects !== this.parts[0].layer) return found
 		// A hidden Objects layer (View › Layers) gates nothing.
-		if (objects !== this.layer || !objects.group.visible) return found
-		this.sync(objects)
-		for (const w of this.placed) {
+		for (const p of this.parts) if (live(p)) this.outsideOf(p, frustum, eye, whole)
+		found.sort((a, b) => a.dist - b.dist)
+		if (found.length > max) found.length = max
+		return found
+	}
+
+	/** Adds part `p`'s WMOs to `outside`'s list; `whole` is only ever one of the map's own. */
+	private outsideOf(p: LivePart, frustum: THREE.Frustum, eye: THREE.Vector3, whole: number | null) {
+		const found = this.found
+		this.sync(p)
+		const own = p === this.parts[0]
+		for (const w of p.placed) {
 			const id = w.id
-			if (id === this.current?.id || id === whole || !w.asset.ready || this.over.includes(id)) continue
+			if ((p === this.currentPart && id === this.current?.id) || (own && id === whole) || !w.asset.ready || w.over) continue
 			const dist = w.box.distanceToPoint(eye)
 			if (dist > OUTSIDE_RANGE || !frustum.intersectsBox(w.box)) continue
 			const nav = this.nav(w.path)
@@ -165,40 +199,49 @@ export class WmoRooms {
 			e.dist = dist
 			found.push(e)
 		}
-		found.sort((a, b) => a.dist - b.dist)
-		if (found.length > max) found.length = max
-		return found
 	}
 
 	/**
 	 * Runs the probe for an eye at `eye` (world space), finding `current` and `over`. `groundAt`
 	 * gives the terrain's height under a point, or null where there is none (off the map, or a hole).
 	 * While the Objects layer is hidden (View › Layers) the camera is in no room, so a building the
-	 * author can't see never gates the view.
+	 * author can't see never gates the view. `around` is the world streamed around a region (#897): its
+	 * buildings have rooms, walls and floors as the map's own do, and are shown and hidden with them.
 	 */
-	update(objects: RoomLayer, eye: THREE.Vector3, groundAt: (x: number, z: number) => number | null) {
-		if (!objects.group.visible) {
+	update(objects: RoomLayer, eye: THREE.Vector3, groundAt: (x: number, z: number) => number | null, around: RoomLayer | null = null) {
+		this.bind(this.parts[0], objects)
+		this.bind(this.parts[1], around)
+		const shown = (live(this.parts[0]) ? 1 : 0) | (live(this.parts[1]) ? 2 : 0)
+		if (shown !== this.shown) {
+			this.shown = shown
+			this.placedChanged = true
+		}
+		if (!shown) {
 			this.current = null
+			this.currentPart = null
 			this.over.length = 0
 			this.wallDist = Infinity
 			this.lastEye.set(NaN, NaN, NaN) // look again once the layer is shown
 			return
 		}
-		if (objects !== this.layer) {
-			this.layer = objects
-			this.objectsVersion = -1
-		}
-		this.sync(objects)
+		for (const p of this.parts) if (live(p)) this.sync(p)
 		if (!this.placedChanged && eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.navs.settled === this.seenLoaded) return
 		this.placedChanged = false
 		this.lastEye.copy(eye)
 		this.seenLoaded = this.navs.settled
 		this.current = null
+		this.currentPart = null
 		this.over.length = 0
 		this.wallDist = Infinity
 		const ground = groundAt(eye.x, eye.z)
-		for (const w of this.placed) {
+		for (const p of this.parts) if (live(p)) this.probe(p, eye, ground)
+	}
+
+	/** Runs `update`'s probe over part `p`'s WMOs, for an eye at `eye` over ground at `ground` (or none). */
+	private probe(p: LivePart, eye: THREE.Vector3, ground: number | null) {
+		for (const w of p.placed) {
 			const id = w.id
+			w.over = false
 			if (!w.asset.ready) {
 				this.lastEye.set(NaN, NaN, NaN) // look again once it has loaded
 				continue
@@ -222,6 +265,7 @@ export class WmoRooms {
 			const nav = this.nav(path)
 			if (!nav) continue
 			if (this.current || l.y > b.max.y) {
+				w.over = true
 				this.over.push(id)
 				continue
 			}
@@ -234,6 +278,7 @@ export class WmoRooms {
 			const [ex, ey, ez] = this.eyeModel
 			const seeds = downRayPick(nav, ex, ey, ez, groundZ)
 			if (seeds.inGroup === null || ez > nav.groups[seeds.inGroup].max[2]) {
+				w.over = true
 				this.over.push(id)
 				continue
 			}
@@ -245,9 +290,11 @@ export class WmoRooms {
 				break
 			}
 			const matrix = w.matrix.clone()
+			this.currentPart = p
 			this.current = {
 				id,
 				path,
+				layer: p.layer,
 				nav,
 				group: seeds.inGroup,
 				across: seeds.across,
@@ -268,9 +315,14 @@ export class WmoRooms {
 	 * `update`, for the same layer.
 	 */
 	collide(objects: RoomLayer, from: THREE.Vector3, to: THREE.Vector3, radius: number) {
-		if (objects !== this.layer || !objects.group.visible) return
-		this.sync(objects)
-		for (const w of this.placed) {
+		if (objects !== this.parts[0].layer) return
+		for (const p of this.parts) if (live(p)) this.collideWith(p, from, to, radius)
+	}
+
+	/** `collide` against part `p`'s WMOs. */
+	private collideWith(p: LivePart, from: THREE.Vector3, to: THREE.Vector3, radius: number) {
+		this.sync(p)
+		for (const w of p.placed) {
 			if (!w.asset.ready) continue
 			const r = radius / w.scale
 			const a = this.fromLocal.copy(from).applyMatrix4(w.inverse)
@@ -296,9 +348,16 @@ export class WmoRooms {
 	 */
 	floorAt(objects: RoomLayer, eye: THREE.Vector3): number {
 		let best = -Infinity
-		if (objects !== this.layer || !objects.group.visible) return best
-		this.sync(objects)
-		for (const w of this.placed) {
+		if (objects !== this.parts[0].layer) return best
+		for (const p of this.parts) if (live(p)) best = Math.max(best, this.floorIn(p, eye))
+		return best
+	}
+
+	/** `floorAt` among part `p`'s WMOs. */
+	private floorIn(p: LivePart, eye: THREE.Vector3): number {
+		let best = -Infinity
+		this.sync(p)
+		for (const w of p.placed) {
 			if (!w.asset.ready) continue
 			const l = this.local.copy(eye).applyMatrix4(w.inverse)
 			const bb = w.asset.bbox
@@ -320,14 +379,15 @@ export class WmoRooms {
 	 * matrices recomputed when objects moved (#511's move log; attached ones are logged with their
 	 * parent), since a drag or a sculpt stroke moves objects every frame. Either sets `placedChanged`.
 	 */
-	private sync(objects: RoomLayer) {
-		if (objects.shapeVersion === this.objectsVersion) {
-			if (objects.moveSeq === this.objectsMoves) return
-			const moved = objects.movedSince(this.objectsMoves)
+	private sync(p: LivePart) {
+		const objects = p.layer
+		if (objects.shapeVersion === p.version) {
+			if (objects.moveSeq === p.moves) return
+			const moved = objects.movedSince(p.moves)
 			if (moved) {
-				this.objectsMoves = objects.moveSeq
+				p.moves = objects.moveSeq
 				for (const id of moved) {
-					const w = this.placedById.get(id)
+					const w = p.byId.get(id)
 					const o = w && objects.objects.get(id)
 					if (!w || !o) continue
 					this.placeOf(objects, o, w)
@@ -336,23 +396,38 @@ export class WmoRooms {
 				return
 			}
 		}
-		this.objectsVersion = objects.shapeVersion
-		this.objectsMoves = objects.moveSeq
-		for (const w of this.placed) this.placedPool.push(w)
-		this.placed.length = 0
-		this.placedById.clear()
+		p.version = objects.shapeVersion
+		p.moves = objects.moveSeq
+		this.release(p)
 		for (const o of objects.objects.values()) {
 			if (!o.type.startsWith('wmo:') || objects.isHidden(o.id)) continue
 			const asset = this.assetOf(o.type)
-			const w = this.placedPool.pop() ?? { id: 0, path: '', asset, matrix: new THREE.Matrix4(), inverse: new THREE.Matrix4(), scale: 1, box: new THREE.Box3() }
+			const w = this.placedPool.pop() ?? { id: 0, path: '', asset, matrix: new THREE.Matrix4(), inverse: new THREE.Matrix4(), scale: 1, box: new THREE.Box3(), over: false }
 			w.id = o.id
 			w.path = baseType(o.type).slice('wmo:'.length)
 			w.asset = asset
+			w.over = false
 			this.placeOf(objects, o, w)
-			this.placed.push(w)
-			this.placedById.set(o.id, w)
+			p.placed.push(w)
+			p.byId.set(o.id, w)
 		}
 		this.placedChanged = true
+	}
+
+	/** Points part `p` at `layer` (null for none): another layer's WMOs are listed anew at the next `sync`. */
+	private bind(p: RoomPart, layer: RoomLayer | null) {
+		if (p.layer === layer) return
+		p.layer = layer
+		p.version = -1
+		this.release(p)
+		this.placedChanged = true
+	}
+
+	/** Gives part `p`'s entries back to the pool. */
+	private release(p: RoomPart) {
+		for (const w of p.placed) this.placedPool.push(w)
+		p.placed.length = 0
+		p.byId.clear()
 	}
 
 	/** Sets a placed WMO's matrix, inverse, scale and world box from where `o` is now. */

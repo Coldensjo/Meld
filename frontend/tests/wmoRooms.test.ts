@@ -303,3 +303,36 @@ test('the gate takes ROOM_MAX_GATED placements a frame, and a frame without gate
 	endRoomGates()
 	assert.equal(uniforms.roomCount.value, 0)
 })
+
+test("the world around a region (#897): its buildings have rooms and floors, kept apart from the block's by layer though their ids overlap", async () => {
+	const { rooms, layer } = await setup()
+	// The world around holds the same building 200 yd east, under the same id as the block's.
+	const around = new FakeLayer()
+	around.place(ID, TYPE, 300, 0, 50)
+	const eye = new THREE.Vector3(295, 2, 50)
+	rooms.update(layer, eye, noGround, around)
+	await new Promise((r) => setTimeout(r, 0))
+	rooms.update(layer, eye, noGround, around)
+	assert.equal(rooms.current?.layer, around, "in the streamed building's room A")
+	assert.equal(groupOf(rooms), 0)
+	assert.ok(rooms.floorAt(layer, eye) > -Infinity, 'its floor holds the camera')
+	// From inside it, the block's building of the same id is flooded from outside, and the camera's own is not.
+	const cam = camera(eye, new THREE.Vector3(100, 2, 50))
+	const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse))
+	const outside = rooms.outside(layer, frustum, eye, ROOM_MAX_GATED - 1)
+	assert.deepEqual(
+		outside.map((w) => w.origin.x),
+		[100],
+		"the block's building, not the one the camera is in",
+	)
+	// Back in the block's building: the block's layer's room.
+	rooms.update(layer, new THREE.Vector3(95, 2, 50), noGround, around)
+	assert.equal(rooms.current?.layer, layer)
+	// The world around hidden with the Objects layer (View › Layers) has no rooms; without one, none either.
+	around.group.visible = false
+	rooms.update(layer, eye, noGround, around)
+	assert.equal(rooms.current, null)
+	around.group.visible = true
+	rooms.update(layer, eye, noGround, null)
+	assert.equal(rooms.current, null, 'let go of with the preference')
+})

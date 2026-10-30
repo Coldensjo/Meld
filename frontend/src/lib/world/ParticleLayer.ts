@@ -228,7 +228,10 @@ function shown(o: THREE.Object3D): boolean {
 
 /** One emitter or ribbon of one placed model, spawn or preview. */
 interface Live {
-	/** Its key in `ParticleLayer.live`: the owner (object id, `s:` spawn, `p:` preview) and the emitter. */
+	/**
+	 * Its key in `ParticleLayer.live`: the owner (object id, `a:` an object of the world around a
+	 * region, `s:` spawn, `p:` preview) and the emitter.
+	 */
 	key: string
 	pool: ParticlePool | null
 	trail: RibbonTrail | null
@@ -351,7 +354,7 @@ function seedOf(key: string, i: number): number {
  * (world/particles.ts, world/ribbons.ts), and drawn as one dynamic mesh per material.
  */
 /** What `ParticleLayer.update` reads of the frame's view. */
-export type ParticleView = Pick<FrameView, 'camera' | 'frustum' | 'gate' | 'gateAdmits' | 'roomId' | 'spawnsThroughWalls' | 'dt' | 'animMs'>
+export type ParticleView = Pick<FrameView, 'camera' | 'frustum' | 'gate' | 'gateAdmits' | 'roomId' | 'roomAround' | 'spawnsThroughWalls' | 'dt' | 'animMs'>
 
 export class ParticleLayer {
 	readonly group = new THREE.Group()
@@ -365,11 +368,16 @@ export class ParticleLayer {
 	private list: Live[] = []
 	/** The room whose own emitters the gate leaves alone, and their keys' prefix, kept between frames. */
 	private exemptId = -1
+	private exemptAround = false
 	private exempt = '-1:'
 	private batches = new Map<string, Batch>()
 	private layer: ObjectLayer | null = null
 	private shapeVersion = -1
 	private layerMoves = 0
+	/** The world streamed around a region (#897), whose models' pools are keyed `a:<id>`. */
+	private around: ObjectLayer | null = null
+	private aroundVersion = -1
+	private aroundMoves = 0
 	private spawns: SpawnLayer | null = null
 	private spawnsVersion = -1
 	private spawnsMoves = 0
@@ -423,20 +431,17 @@ export class ParticleLayer {
 	 * Every pool and trail and its key, after the objects or the spawns changed. One whose emitter
 	 * stays keeps its particles.
 	 */
-	private rebuild(layer: ObjectLayer | null, spawns: SpawnLayer | null) {
+	private rebuild(layer: ObjectLayer | null, spawns: SpawnLayer | null, around: ObjectLayer | null) {
 		if (layer !== this.layer || spawns !== this.spawns) {
 			this.clearLive()
 			this.layer = layer
 			this.spawns = spawns
 		}
+		// Another world around keeps no pool of the old one's: their keys are dropped below as unseen.
+		this.around = around
 		const gen = ++this.generation
-		for (const o of layer?.objects.values() ?? []) {
-			if (layer!.isHidden(o.id)) continue
-			const asset = getAsset(o.type)
-			if (!asset.emitters.length && !asset.ribbons.length) continue
-			layer!.matrixOf(o, m)
-			this.addModel(String(o.id), asset, gen)
-		}
+		if (layer) this.addObjects(layer, '', gen)
+		if (around) this.addObjects(around, 'a:', gen)
 		spawns?.forEachModel((key, type, at) => {
 			const asset = getAsset(type)
 			if (!asset.emitters.length && !asset.ribbons.length) return
@@ -476,6 +481,17 @@ export class ParticleLayer {
 		}
 	}
 
+	/** The pools and trails of `layer`'s models, their owners keyed `<prefix><id>`. */
+	private addObjects(layer: ObjectLayer, prefix: string, gen: number) {
+		for (const o of layer.objects.values()) {
+			if (layer.isHidden(o.id)) continue
+			const asset = getAsset(o.type)
+			if (!asset.emitters.length && !asset.ribbons.length) continue
+			layer.matrixOf(o, m)
+			this.addModel(prefix + o.id, asset, gen)
+		}
+	}
+
 	/** Moves the pools and trails of spawns changed in place to where their models are now; the rest are kept as they are. */
 	private moveSpawns(spawns: SpawnLayer, moved: readonly vmangos.WorldSpawn[]) {
 		for (const s of moved) {
@@ -489,14 +505,14 @@ export class ParticleLayer {
 	}
 
 	/** Moves the pools and trails of placed objects that moved to where they are now; the rest are kept as they are. */
-	private moveObjects(layer: ObjectLayer, moved: readonly number[]) {
+	private moveObjects(layer: ObjectLayer, moved: readonly number[], prefix: string) {
 		for (let k = 0; k < moved.length; k++) {
 			const o = layer.objects.get(moved[k])
 			if (!o || layer.isHidden(o.id)) continue
 			const asset = getAsset(o.type)
 			if (!asset.emitters.length && !asset.ribbons.length) continue
 			layer.matrixOf(o, m)
-			const owner = String(o.id)
+			const owner = prefix + o.id
 			for (let i = 0; i < asset.emitters.length; i++) this.relocate(`${owner}:${i}`)
 			for (let i = 0; i < asset.ribbons.length; i++) this.relocate(`${owner}:r${i}`)
 		}
@@ -537,25 +553,40 @@ export class ParticleLayer {
 	 * view's gate (its doorways' frustums) is frozen and hidden, except those of the building itself
 	 * (`view.roomId`), and with `view.spawnsThroughWalls` those of the spawns, which are drawn through
 	 * walls then. `view.gateAdmits` lets through an emitter standing in a room the flood reached (#156).
+	 * `around` is the world streamed around a region (#897), whose models' particles run as the layer's.
 	 */
-	update(view: ParticleView, layer: ObjectLayer | null, spawns: SpawnLayer | null) {
+	update(view: ParticleView, layer: ObjectLayer | null, spawns: SpawnLayer | null, around: ObjectLayer | null = null) {
 		const { dt, camera, frustum, gate, gateAdmits } = view
 		const ms = view.animMs
 		const spawnsUngated = view.spawnsThroughWalls
-		if (view.roomId !== this.exemptId) {
+		if (view.roomId !== this.exemptId || view.roomAround !== this.exemptAround) {
 			this.exemptId = view.roomId
-			this.exempt = `${view.roomId}:`
+			this.exemptAround = view.roomAround
+			this.exempt = `${view.roomAround ? 'a:' : ''}${view.roomId}:`
 		}
 		const exempt = this.exempt
 		this.group.visible = this.enabled
 		if (!this.enabled) return
 		const spawnsVersion = spawns?.version ?? -1
-		let changed = layer !== this.layer || (layer?.shapeVersion ?? -1) !== this.shapeVersion || spawns !== this.spawns || spawnsVersion !== this.spawnsVersion || this.unplaced.version !== this.previewsVersion
+		let changed =
+			layer !== this.layer ||
+			(layer?.shapeVersion ?? -1) !== this.shapeVersion ||
+			around !== this.around ||
+			(around?.shapeVersion ?? -1) !== this.aroundVersion ||
+			spawns !== this.spawns ||
+			spawnsVersion !== this.spawnsVersion ||
+			this.unplaced.version !== this.previewsVersion
 		// Moves alone (a drag, a sculpt stroke's re-snap) carry the moved models' pools along (#511).
 		if (!changed && layer && layer.moveSeq !== this.layerMoves) {
 			const moved = layer.movedSince(this.layerMoves)
 			this.layerMoves = layer.moveSeq
-			if (moved) this.moveObjects(layer, moved)
+			if (moved) this.moveObjects(layer, moved, '')
+			else changed = true
+		}
+		if (!changed && around && around.moveSeq !== this.aroundMoves) {
+			const moved = around.movedSince(this.aroundMoves)
+			this.aroundMoves = around.moveSeq
+			if (moved) this.moveObjects(around, moved, 'a:')
 			else changed = true
 		}
 		if (!changed && spawns && spawns.moveSeq !== this.spawnsMoves) {
@@ -565,9 +596,11 @@ export class ParticleLayer {
 			else changed = true
 		}
 		if (changed) {
-			this.rebuild(layer, spawns)
+			this.rebuild(layer, spawns, around)
 			this.shapeVersion = layer?.shapeVersion ?? -1
 			this.layerMoves = layer?.moveSeq ?? 0
+			this.aroundVersion = around?.shapeVersion ?? -1
+			this.aroundMoves = around?.moveSeq ?? 0
 			this.spawnsVersion = spawnsVersion
 			this.spawnsMoves = spawns?.moveSeq ?? 0
 			this.previewsVersion = this.unplaced.version

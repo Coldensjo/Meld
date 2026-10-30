@@ -203,7 +203,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     change (`regroup`): the model's own and the marker cones holding a spawn of it. A change to the
     spawns themselves (`set`, `add`, `remove`, the events shown) still rebuilds every batch (#329).
   - **WMO rooms** (#8, from Benilla's `wmo_portal`): `world/WmoRooms.ts` finds the room (group) of the
-    placed WMO the camera is in with the client's down-ray (`wmoRoom.ts`, room data from `/wow/wmonav`),
+    placed WMO the camera is in with the client's down-ray (`wmoRoom.ts`, room data from `/wow/wmonav`;
+    a region's own layer and the world streamed around it, one `RoomPart` each, #897),
     `wmoFlood.ts` runs the portal flood from it each frame and `wmoFog.ts` picks the room's MFOG fog
     and its 4 s fade. `roomGate.ts` applies both in the shared WMO materials: WMO vertices carry their
     group (`wmoRoom` attribute, Go's `Mesh.Room`), and the instance at the room's origin hides the

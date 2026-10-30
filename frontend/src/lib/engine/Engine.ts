@@ -447,7 +447,12 @@ export class Engine {
 	private effects = new PropEffects()
 	/** The WMO room the camera is in (`world/wmoRoom.ts`). */
 	private rooms = new WmoRooms()
-	private roomGround = (x: number, z: number): number | null => (this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : null)
+	/** The ground under a WMO room's probe: the terrain, or off a region's block the world streamed around it (#897). */
+	private roomGround = (x: number, z: number): number | null => {
+		if (this.terrain.contains(x, z)) return this.terrain.isHole(x, z) ? null : this.terrain.heightAt(x, z)
+		const h = this.doc?.surround?.heightAt(x, z) ?? NaN
+		return Number.isNaN(h) ? null : h
+	}
 	/** The portal flood and room fog of the WMO the camera is in (`world/roomGate.ts`). */
 	private roomFlood = new RoomFlood()
 	/** Lets through the gate what stands in a room the flood reached (#156). */
@@ -779,7 +784,7 @@ export class Engine {
 		// in Stormwind runs both above and below the streets; elsewhere above the higher of the two, so a
 		// roof is a floor too (#310). After a jump (a scene, a teleport) the probe runs for the new eye first.
 		this.controller.collisionFloor = (at, ground, jumped) => {
-			if (jumped) this.rooms.update(this.objects, at, this.roomGround)
+			if (jumped) this.rooms.update(this.objects, at, this.roomGround, this.doc.surroundObjects)
 			return roomFloor(!!this.rooms.current, this.rooms.floorAt(this.objects, at), ground)
 		}
 		// A WMO whose room data failed has no rooms, walls or floor until its retry (#515): say so, and log it.
@@ -1707,10 +1712,12 @@ export class Engine {
 		// Lights first: culling keeps what can throw the shadowed lights' shadows.
 		this.effects.enabled = this.prefs.propEffects
 		this.effects.particles = this.prefs.particles
-		this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightUploadVersion)
+		// The world streamed around a region lights and burns from the same pool, rooms and particles as its block (#897).
+		const around = this.doc.surroundObjects
+		this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightUploadVersion, around)
 		this.updateClientPoints()
 		m.mark(SECTION['Lights and flames'])
-		this.rooms.update(this.objects, this.camera.position, this.roomGround)
+		this.rooms.update(this.objects, this.camera.position, this.roomGround, around)
 		this.updateNear()
 		// The room gate and the culling both read this frame's view-projection; the camera has stopped moving.
 		this.camera.updateMatrixWorld()
@@ -1847,7 +1854,6 @@ export class Engine {
 				this.roomGate.push(this.roomGateFrustums[i])
 			}
 			v.gate = this.roomGate
-			v.gateExempt = room.id
 			v.gateAdmits = this.roomAdmits
 		} else {
 			v.gate = null
@@ -1856,7 +1862,8 @@ export class Engine {
 		const fv = this.frameView
 		fv.gate = v.gate
 		fv.gateAdmits = v.gateAdmits
-		fv.roomId = this.rooms.current?.id ?? -1
+		fv.roomId = room?.id ?? -1
+		fv.roomAround = !!room && room.layer !== this.objects
 		this.terrain.gate(v.gate)
 		v.eye.copy(this.camera.position)
 		// Pixels per unit at a distance of one. The top-down camera stands ORTHO_HEIGHT above the ground,
@@ -1866,11 +1873,14 @@ export class Engine {
 		v.lodPx = LOD_PX
 		// A world view draws the doodads as far as the game does (#15); a region keeps every one in sight to edit.
 		v.doodadReach = !!this.doc.world
+		// The gate leaves the camera's building alone in its own layer: the two layers' ids overlap (#897).
+		v.gateExempt = room && room.layer === this.objects ? room.id : undefined
 		this.objects.cull(v)
 		// The world around a region's block draws its doodads as far as the game does, as a world view's.
 		const around = this.doc.surroundObjects
 		if (around) {
 			v.doodadReach = true
+			v.gateExempt = room && room.layer === around ? room.id : undefined
 			around.cull(v)
 		}
 		// Spawns show through a room's walls by preference (#150): the camera often sits inside a building
@@ -1921,7 +1931,7 @@ export class Engine {
 		p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
 		p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
 		// With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
-		p.update(this.frameView, this.objects, this.doc.spawnLayer)
+		p.update(this.frameView, this.objects, this.doc.spawnLayer, this.doc.surroundObjects)
 	}
 
 	/**

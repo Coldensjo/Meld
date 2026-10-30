@@ -448,7 +448,14 @@ mask/liquid, image codec or native/game rendering contracts.
   `MapDocument.surroundObjects`, over a flat stand-in `Terrain` (`surroundGround`), never into the
   region's `objects`, so no save, compile, fingerprint, selection, object list or check reaches one;
   the frame updates and culls it beside `objects` (doodads to the client's reach, as a world view's)
-  and poses its animated types, but it has no lights, flames, particles, WMO rooms or model boxes yet.
+  and poses its animated types. Its models light, burn, smoke and have rooms as the block's do (#897):
+  `PropEffects`, `ParticleLayer` and `WmoRooms` take it as a second layer (`around`) beside `objects`.
+  Its lights join the block's sources in one list (the block's first) and share the one light pool
+  (`Source.set` tells them apart, as the two layers' object ids overlap); its pools are keyed `a:<id>`;
+  `WmoRooms` keeps a part a layer, `CameraRoom.layer` names the room's, and the cull's `gateExempt` and
+  the frame's `roomAround` follow it, so the gate leaves only the camera's own building alone. Its
+  buildings' walls and floors hold the camera, and off the block a room's probe stands on the stream's
+  ground (`roomGround`). It has no model boxes yet.
   A model the region holds by unique ID (`RegionRef.uids`) is left out of the neighbour tiles that also
   list it (`heldUids`). The stream is keyed by the block (`surroundKey`), so growing or reopening the
   block starts it again, and the preference going off lets it go with its models (`releaseModels`).

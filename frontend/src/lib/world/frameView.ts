@@ -27,6 +27,8 @@ export interface FrameView {
 	gateAdmits: ((s: THREE.Sphere) => boolean) | null
 	/** The object ID of the WMO the camera is in, whose own parts the gate leaves alone; -1 outside. */
 	roomId: number
+	/** Whether that WMO is one of the world streamed around a region (#897), whose ids are a layer of their own. */
+	roomAround: boolean
 	/** Whether spawns show through a room's walls (Show › Spawns Through Walls, #150). */
 	spawnsThroughWalls: boolean
 	/** The top-down view is on. */
@@ -58,6 +60,7 @@ export function newFrameView(camera: THREE.Camera): FrameView {
 		gate: null,
 		gateAdmits: null,
 		roomId: -1,
+		roomAround: false,
 		spawnsThroughWalls: false,
 		topDown: false,
 		time: 0,

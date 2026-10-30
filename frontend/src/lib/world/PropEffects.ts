@@ -22,13 +22,17 @@ interface Source {
 	seed: number
 	/** The client's raw light colour (an M2 light's colour times intensity), or null for none. */
 	raw: [number, number, number] | null
-	/** The object it belongs to, and its place among that object's sources: what a slot follows through a rebuild. */
+	/**
+	 * The object it belongs to, its layer (0 the map's own, 1 the world streamed around a region, #897)
+	 * and its place among that object's sources: what a slot follows through a rebuild.
+	 */
 	owner: number
+	set: number
 	k: number
 }
 
 function newSource(): Source {
-	return { pos: new THREE.Vector3(), color: new THREE.Color(), intensity: 0, radius: 0, fire: false, seed: 0, raw: null, owner: 0, k: 0 }
+	return { pos: new THREE.Vector3(), color: new THREE.Color(), intensity: 0, radius: 0, fire: false, seed: 0, raw: null, owner: 0, set: 0, k: 0 }
 }
 
 /** Where an object's sources and flames sit in `PropEffects`' lists, so a move rewrites them in place. */
@@ -121,8 +125,17 @@ export class PropEffects {
 	private shapeVersion = -1
 	private moveSeq = 0
 	private layer: ObjectLayer | null = null
-	/** The owner and place of each pooled light's source before a rebuild, to find it again after. */
+	/**
+	 * The world streamed around a region (#897), whose sources follow the layer's in the same list and
+	 * share its light pool, and its objects' spans; null without one.
+	 */
+	private around: ObjectLayer | null = null
+	private aroundSpans = new Map<number, Span>()
+	private aroundVersion = -1
+	private aroundMoves = 0
+	/** The owner, layer and place of each pooled light's source before a rebuild, to find it again after. */
 	private slotOwner = new Int32Array(LIGHT_POOL)
+	private slotSet = new Int32Array(LIGHT_POOL)
 	private slotK = new Int32Array(LIGHT_POOL)
 	private flameColor = new THREE.Color()
 	private tmpM = new THREE.Matrix4()
@@ -200,12 +213,26 @@ export class PropEffects {
 		this.setShadows(true)
 	}
 
-	/** Rebuilds the source list and flames when what is placed (or a loaded asset) changed. */
-	private rebuild(layer: ObjectLayer) {
+	/**
+	 * Rebuilds the source list and flames when what is placed (or a loaded asset) changed: the layer's,
+	 * then the world around it's, so the region's own come first when the flames run out.
+	 */
+	private rebuild(layer: ObjectLayer, around: ObjectLayer | null) {
 		for (const sp of this.spans.values()) this.spanFree.push(sp)
+		for (const sp of this.aroundSpans.values()) this.spanFree.push(sp)
 		this.spans.clear()
+		this.aroundSpans.clear()
 		this.count = 0
-		let flames = 0
+		let flames = this.collect(layer, this.spans, 0, 0)
+		if (around) flames = this.collect(around, this.aroundSpans, 1, flames)
+		this.flames.count = flames
+		this.flames.instanceMatrix.needsUpdate = true
+		if (this.flames.instanceColor) this.flames.instanceColor.needsUpdate = true
+		this.seeds.needsUpdate = true
+	}
+
+	/** Appends `layer`'s sources (as layer `set`) and its flames from `flames`, into `spans`; gives the flames' new end. */
+	private collect(layer: ObjectLayer, spans: Map<number, Span>, set: number, flames: number): number {
 		for (const o of layer.objects.values()) {
 			if (layer.isHidden(o.id)) continue
 			const a = getAsset(o.type)
@@ -213,23 +240,21 @@ export class PropEffects {
 			const sp = this.spanFree.pop() ?? { src: 0, srcCount: 0, flame: 0, flameCount: 0 }
 			sp.src = this.count
 			sp.flame = flames
-			this.emit(layer, o.id, sp)
+			this.emit(layer, o.id, sp, set)
 			this.count += sp.srcCount
 			flames += sp.flameCount
-			this.spans.set(o.id, sp)
+			spans.set(o.id, sp)
 		}
-		this.flames.count = flames
-		this.flames.instanceMatrix.needsUpdate = true
-		if (this.flames.instanceColor) this.flames.instanceColor.needsUpdate = true
-		this.seeds.needsUpdate = true
+		return flames
 	}
 
 	/**
 	 * Writes object `id`'s sources from `sp.src` and its flames from `sp.flame`, setting their counts.
 	 * A move keeps both counts (a prop's effects merge by their distance apart, which a move and a
-	 * uniform scale keep in proportion), so `move` rewrites them in place.
+	 * uniform scale keep in proportion), so `move` rewrites them in place. `set` is the layer's (0 the
+	 * map's own, 1 the world around it).
 	 */
-	private emit(layer: ObjectLayer, id: number, sp: Span) {
+	private emit(layer: ObjectLayer, id: number, sp: Span, set: number) {
 		const o = layer.objects.get(id)!
 		const a = getAsset(o.type)
 		const ownFlames = this.particles && a.emitters.length > 0
@@ -252,6 +277,7 @@ export class PropEffects {
 			src.seed = seed
 			src.raw = e.raw && (e.raw[0] || e.raw[1] || e.raw[2]) ? e.raw : null
 			src.owner = o.id
+			src.set = set
 			src.k = n - first
 			let near: Source | null = null
 			if (!e.interior) {
@@ -289,10 +315,10 @@ export class PropEffects {
 	 * Rewrites the sources and flames of the objects moved since the last frame, in place. False when
 	 * one no longer gives as many as it did, and the list must be rebuilt.
 	 */
-	private move(layer: ObjectLayer, moved: readonly number[]): boolean {
+	private move(layer: ObjectLayer, moved: readonly number[], spans: Map<number, Span>, set: number): boolean {
 		let flames = false
 		for (let i = 0; i < moved.length; i++) {
-			const sp = this.spans.get(moved[i])
+			const sp = spans.get(moved[i])
 			if (!sp || !layer.objects.has(moved[i])) continue
 			const srcCount = sp.srcCount
 			const flameCount = sp.flameCount
@@ -300,7 +326,7 @@ export class PropEffects {
 			const next = sp.src + srcCount
 			const keep = next < this.count ? this.sources[next] : null
 			if (keep) this.sources[next] = this.spare
-			this.emit(layer, moved[i], sp)
+			this.emit(layer, moved[i], sp, set)
 			if (keep) {
 				this.spare = this.sources[next]
 				this.sources[next] = keep
@@ -341,26 +367,38 @@ export class PropEffects {
 	/**
 	 * Per frame, before culling: refresh sources if needed, animate flames, assign lights.
 	 * `sceneVersion` changes whenever what could throw a light's shadow changed (here, the terrain).
+	 * `around` is the world streamed around a region (#897): its models light and burn as the layer's,
+	 * from the same light pool.
 	 */
-	update(layer: ObjectLayer, time: number, focus: THREE.Vector3, night: number, sceneVersion: number) {
-		let changed = layer !== this.layer || layer.shapeVersion !== this.shapeVersion || this.particles !== this.drawnParticles
+	update(layer: ObjectLayer, time: number, focus: THREE.Vector3, night: number, sceneVersion: number, around: ObjectLayer | null = null) {
+		let changed = layer !== this.layer || layer.shapeVersion !== this.shapeVersion || around !== this.around || (around?.shapeVersion ?? -1) !== this.aroundVersion || this.particles !== this.drawnParticles
 		let redraw = false
 		if (!changed && layer.moveSeq !== this.moveSeq) {
 			// Moves only (a drag, a sculpt stroke's re-snap): the moved objects' sources are rewritten in
 			// place, so every index, and the slots naming them, still hold.
 			const moved = layer.movedSince(this.moveSeq)
 			this.moveSeq = layer.moveSeq
-			if (!moved || !this.move(layer, moved)) changed = true
+			if (!moved || !this.move(layer, moved, this.spans, 0)) changed = true
 			// What moved may throw a shadowed light's shadow.
 			else redraw = moved.length > 0
 		}
+		if (!changed && around && around.moveSeq !== this.aroundMoves) {
+			const moved = around.movedSince(this.aroundMoves)
+			this.aroundMoves = around.moveSeq
+			if (!moved || !this.move(around, moved, this.aroundSpans, 1)) changed = true
+			else redraw ||= moved.length > 0
+		}
 		if (changed) {
 			const same = layer === this.layer
+			const sameAround = around === this.around
 			this.layer = layer
 			this.shapeVersion = layer.shapeVersion
 			this.moveSeq = layer.moveSeq
+			this.around = around
+			this.aroundVersion = around?.shapeVersion ?? -1
+			this.aroundMoves = around?.moveSeq ?? 0
 			this.drawnParticles = this.particles
-			this.keepSlots(same)
+			this.keepSlots(same, sameAround)
 			redraw = true
 		}
 		redraw ||= sceneVersion !== this.sceneVersion
@@ -432,18 +470,20 @@ export class PropEffects {
 	 * object and its place among the object's sources; a light whose source is gone is freed. A shadowed
 	 * light so keeps its map (marked out of date) rather than going dark until a new one is drawn,
 	 * which made a drag's nearest lights flicker every frame. `same` is false for another layer (a tab
-	 * switch), whose sources share nothing with the old ones.
+	 * switch), whose sources share nothing with the old ones; `sameAround` likewise for the world around.
 	 */
-	private keepSlots(same: boolean) {
+	private keepSlots(same: boolean, sameAround: boolean) {
 		const slots = this.slots
 		for (let i = 0; i < LIGHT_POOL; i++) {
-			const s = same && slots[i] >= 0 && slots[i] < this.count ? this.sources[slots[i]] : null
+			let s = slots[i] >= 0 && slots[i] < this.count ? this.sources[slots[i]] : null
+			if (s && !(s.set ? sameAround : same)) s = null
 			this.slotOwner[i] = s ? s.owner : -1
+			this.slotSet[i] = s ? s.set : 0
 			this.slotK[i] = s ? s.k : -1
 		}
-		this.rebuild(this.layer!)
+		this.rebuild(this.layer!, this.around)
 		for (let i = 0; i < LIGHT_POOL; i++) {
-			const sp = this.slotOwner[i] >= 0 ? this.spans.get(this.slotOwner[i]) : undefined
+			const sp = this.slotOwner[i] >= 0 ? (this.slotSet[i] ? this.aroundSpans : this.spans).get(this.slotOwner[i]) : undefined
 			slots[i] = sp && this.slotK[i] < sp.srcCount ? sp.src + this.slotK[i] : -1
 		}
 	}

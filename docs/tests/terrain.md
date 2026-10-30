@@ -850,7 +850,10 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   horizon (the scene's object named `horizon`) hidden, the view differing with the stream hidden, the
   models in their own look-only layer (`doc.surroundObjects`) with no copy of a region building at its
   spot (`twice` 0) and drawn (looking down at the streamed building nearest the block's east edge,
-  the view differs with the layer hidden), the region's objects, history, dirty mark and
+  the view differs with the layer hidden), at night a streamed lamp holding a pooled light
+  (`fx.sources[slot].set` 1, lit), a streamed model's particle pools (`a:` keys) live and the eye at a
+  streamed building's interior group in its room (`CameraRoom.layer` the stream's, the frame's
+  `roomAround` set; #897), the region's objects, history, dirty mark and
   `regionKey()` unchanged (`lookOnly`), the camera riding the streamed ground off the block, Edit Here
   refusing over the block and opening the block east of it past the edge (a project lent in the
   state; the region stays open), and the preference off letting the stream and its layer go. Trap:
