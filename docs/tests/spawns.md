@@ -185,6 +185,17 @@ database. Unit: `TestObjectDisplaySounds`, `TestSetObjectDisplaySounds` and, wit
 `TestClientObjectDisplaySounds` (the real table rewritten: same rows, string block and fields but the
 one row's slots) in `internal/vmangos/objectsounds_test.go`.
 
+A display of its own (#723): the probe then clears Custom 0, clicks Give this object a display of its
+own (shown while other templates share the display), and checks the copy (6915 on this client) reads
+back with 197's model and slots, 197 keeps its own, the cleared slot moved to the copy and the
+template's display is a second unsaved change (Save object (2)) that Revert drops. The server's copy
+of the table is never written in the sandbox (the throwaway client's server tables are the real
+ones): `TestCopyObjectDisplay` (an ID above both tables, the other rows kept),
+`TestInstallServerObjectDisplays` and, with the client, `TestClientCopyObjectDisplay` cover it.
+In the game (the owner's check): give one Forge a display of its own, a sound on it, Save object,
+restart the world server and the game; that forge plays it and the other braziers do not, and the
+world server's log has no "invalid displayId" for it.
+
 - In the game (the owner's check): give a display a sound in Stand, Loop or Custom 0 (a loop such as
   CampFireLargeLoop, 3244), save, restart the game and walk up to an object of that display; the
   sound should fade in near it. Which slot the client plays for which object state is only known

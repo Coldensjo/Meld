@@ -87,7 +87,10 @@ Creation selects a free entry, but IDs/previews are not reservations against ano
    The copy choice is pending until the object/contents save succeeds.
 4. Save the object. The save sequence writes template changes, then contents, then display sounds.
    A sound failure does not roll back the template or contents. Display sounds belong to the
-   display ID and can affect other objects using that display.
+   display ID and can affect other objects using that display. To change one object's sounds alone,
+   first use **Give this object a display of its own** on the **Sounds** tab: it copies the display
+   (same model and sounds) into Meld's patch and the server's data at once, and Save object points
+   the template at the copy. Restart the world server so it accepts the new display.
 5. Use **Quests › Save quests** for giver relationships. Use **This spawn** for placement-specific
    edits, which follow the separate Save Spawns workflow.
 

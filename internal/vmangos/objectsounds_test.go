@@ -2,6 +2,8 @@ package vmangos
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -162,4 +164,118 @@ func TestClientObjectDisplaySounds(t *testing.T) {
 		t.Errorf("display %d: %+v %v", id, got, err)
 	}
 	t.Logf("display %d (%s) given %s (%d, %s)", id, got.Model, loop.Name, loop.ID, loop.File)
+}
+
+// TestCopyObjectDisplay copies the brazier to a display of its own: the new row has its model and
+// slots under an ID above both the client's and the server's tables, the other rows of each stay as
+// they were, and a display the client lacks is refused.
+func TestCopyObjectDisplay(t *testing.T) {
+	d, _ := testSoundTables(t)
+	// The server's copy has a display the client lacks, above the client's.
+	server := testDBC(t, objectDisplayFields, []any{10, `World\Goober\G_Brazier01.mdx`}, []any{40, `World\Goober\G_Other.mdx`, 7}).data
+	id, client, srv, err := copyObjectDisplay(d, server, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != 41 {
+		t.Errorf("new display %d, want 41", id)
+	}
+	for name, table := range map[string][]byte{"client": client, "server": srv} {
+		got, err := objectDisplaySounds(table, id)
+		if err != nil || got.Model != `World\Goober\G_Brazier01.mdx` || !slices.Equal(got.Sounds, []uint32{0, 0, 501, 0, 0, 0, 0, 0, 0, 0}) {
+			t.Errorf("%s: the copy is %+v %v", name, got, err)
+		}
+	}
+	for _, c := range []struct {
+		name        string
+		before, now []byte
+	}{{"client", d, client}, {"server", server, srv}} {
+		b, _ := parseDBC(c.before)
+		a, err := parseDBC(c.now)
+		if err != nil || a.records != b.records+1 {
+			t.Fatalf("%s: %v, %d rows after %d", c.name, err, a.records, b.records)
+		}
+		for r := 0; r < b.records; r++ {
+			if !slices.Equal(a.record(r)[2:], b.record(r)[2:]) || a.u32(r, 0) != b.u32(r, 0) || a.str(r, 1) != b.str(r, 1) {
+				t.Errorf("%s: row %d changed", c.name, r)
+			}
+		}
+	}
+	// Without a server the ID is the client's next.
+	if id, _, srv, err := copyObjectDisplay(d, nil, 11); err != nil || id != 12 || srv != nil {
+		t.Errorf("no server: %d %v %v", id, srv != nil, err)
+	}
+	if _, _, _, err := copyObjectDisplay(d, server, 12); err == nil {
+		t.Error("a display the client lacks was copied")
+	}
+}
+
+// TestInstallServerObjectDisplays writes the table into the server's data and keeps the extractor's
+// as the backup.
+func TestInstallServerObjectDisplays(t *testing.T) {
+	dir := t.TempDir()
+	dbcDir := filepath.Join(dir, "data", "5875", "dbc")
+	for _, p := range []string{filepath.Join(dir, "run"), dbcDir} {
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "run", "mangosd.conf"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old, _ := testSoundTables(t)
+	if err := os.WriteFile(serverObjectDisplayPath(dir), old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, srv, err := copyObjectDisplay(old, old, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallServerObjectDisplays(dir, srv); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(serverObjectDisplayPath(dir)); !bytes.Equal(got, srv) {
+		t.Error("the server's table is not the new one")
+	}
+	if got, _ := os.ReadFile(serverObjectDisplayPath(dir) + BackupSuffix); !bytes.Equal(got, old) {
+		t.Error("the backup is not the extractor's table")
+	}
+}
+
+// TestClientCopyObjectDisplay copies the Forge's display (197) in the client's own table: the copy
+// has its model and slots under the table's next ID. It needs WOW_DIR.
+func TestClientCopyObjectDisplay(t *testing.T) {
+	dataDir, err := wow.ResolveDataDir(testclient.DataDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := readClientFile(dataDir, GameObjectDisplayInfoPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forge, err := objectDisplaySounds(d, 197)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, out, _, err := copyObjectDisplay(d, nil, 197)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := objectDisplaySounds(out, id)
+	if err != nil || got.Model != forge.Model || !slices.Equal(got.Sounds, forge.Sounds) {
+		t.Errorf("display %d: %+v %v, want %+v", id, got, err, forge)
+	}
+	if _, ok := mustParse(t, d).row(id); ok {
+		t.Errorf("display %d was taken already", id)
+	}
+	t.Logf("display 197 (%s) copied to %d", forge.Model, id)
+}
+
+func mustParse(t *testing.T, b []byte) *dbcTable {
+	t.Helper()
+	tb, err := parseDBC(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tb
 }

@@ -36,7 +36,8 @@
 	// opens that object to edit. Display (#230) picks the template's display from thumbnails, as the
 	// creature editor's Looks tab does; hovering a tile shows it big on the left. Sounds (#674) sets the
 	// sounds the game plays near the object, its display's sound slots in the client's
-	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save. Text (#139) edits what a
+	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save; a display other objects share
+	// can be copied to one of the object's own there first (#723). Text (#139) edits what a
 	// readable object (a tombstone, a plaque, a note) says, its page_text pages, saved with the same Save.
 
 	// In the desktop app it opens as its own OS window (#916, components/toolwin/EditorToolWindow.svelte), as
@@ -561,7 +562,14 @@
 							/>
 						</div>
 						<div hidden={tab !== 'sounds'}>
-							<ObjectSoundsTab bind:this={soundsTab} bind:dirty={soundsDirty} display={Number(values.displayId) || 0} active={tab === 'sounds'} />
+							<ObjectSoundsTab
+								bind:this={soundsTab}
+								bind:dirty={soundsDirty}
+								display={Number(values.displayId) || 0}
+								savedDisplay={Number(saved.displayId) || 0}
+								active={tab === 'sounds'}
+								onowndisplay={(d) => (values.displayId = String(d))}
+							/>
 						</div>
 						<div hidden={tab !== 'quests'}>
 							<QuestsTab bind:this={questsTab} bind:dirty={questsDirty} kind="object" entry={record.entry} name={saved.name || values.name || ''} ready={Number(saved.type) === QUEST_GIVER_TYPE} />

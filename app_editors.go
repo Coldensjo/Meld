@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
+	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
 )
 
@@ -562,6 +564,63 @@ func (a *App) SaveObjectDisplaySounds(display int, sounds []int) (SoundsSaved, e
 	}
 	_, waiting, err := a.queueClientFiles(dataDir, files)
 	return SoundsSaved{Changed: err == nil, Waiting: waiting}, err
+}
+
+// OwnDisplay is what OwnObjectDisplay made: the new display, whether the client's row waits for the
+// game to close, whether the server's copy of the table has it, and whether the world server runs
+// (it reads the table at its start).
+type OwnDisplay struct {
+	Display int  `json:"display"`
+	Waiting bool `json:"waiting"`
+	Server  bool `json:"server"`
+	Restart bool `json:"restart"`
+}
+
+// errExternalDisplay is OwnObjectDisplay's errExternal: the external server's copy of the table is out of reach.
+var errExternalDisplay = errors.New("a display of its own goes into the server folder's data, which is off while Meld is connected to an external database (File › Disconnect External Database)")
+
+// OwnObjectDisplay copies game object display display to a new one (#723), so one object's sounds
+// can change without every object of that display: the new GameObjectDisplayInfo.dbc row goes into
+// Meld's patch (at once, or once the game has closed) and, with a server folder set, into the
+// server's copy of the table, which it checks a template's display against. The template is not
+// changed: the game object editor points it at the new display, saved with Save object.
+func (a *App) OwnObjectDisplay(display int) (OwnDisplay, error) {
+	if externalOn() {
+		return OwnDisplay{}, errExternalDisplay
+	}
+	if display <= 0 {
+		return OwnDisplay{}, fmt.Errorf("%d is not a game object display", display)
+	}
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return OwnDisplay{}, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if a.sandboxed() {
+		// The probes' throwaway client: the server's tables are the real ones, so they are left alone.
+		server = ""
+	}
+	made, err := vmangos.CopyObjectDisplay(dataDir, server, uint32(display))
+	if err != nil {
+		return OwnDisplay{}, err
+	}
+	res := OwnDisplay{Display: int(made.Display)}
+	var also func() error
+	if made.Server != nil {
+		also = func() error {
+			if _, err := vmangos.InstallServerObjectDisplays(server, made.Server); err != nil {
+				return fmt.Errorf("display %d is in the client's patch, but writing it into the server's data failed: %w", made.Display, err)
+			}
+			res.Server = true
+			res.Restart = a.worldRunning()
+			return nil
+		}
+	}
+	_, res.Waiting, err = a.installClient(dataDir, []mpq.File{made.Client}, also)
+	vmangos.ForgetObjectDisplays()
+	return res, err
 }
 
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults

@@ -15,6 +15,7 @@ export type IconsExported = V2<M.IconsExported>
 export type IconsImported = V2<M.IconsImported>
 export type LightIDs = V2<M.LightIDs>
 export type LoadingScreenResult = V2<M.LoadingScreenResult>
+export type OwnDisplay = V2<M.OwnDisplay>
 export type PrefabFile = V2<M.PrefabFile>
 export type ProjectList = V2<M.ProjectList>
 export type SandboxEnded = V2<M.SandboxEnded>

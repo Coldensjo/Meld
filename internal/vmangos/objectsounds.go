@@ -1,7 +1,10 @@
 package vmangos
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 
 	"Meld/internal/mpq"
@@ -167,4 +170,114 @@ func ObjectSoundFiles(dataDir string, display uint32, sounds []uint32) ([]mpq.Fi
 		return nil, err
 	}
 	return []mpq.File{{Name: GameObjectDisplayInfoPath, Data: out}}, nil
+}
+
+// A display of its own (#723): the Sounds tab's slots belong to a display that many templates may
+// share (the Forge shares display 197 with 156 others, every Brazier among them), so an object gets
+// a copy of its display, a new GameObjectDisplayInfo row with the same model and slots, to change
+// alone. The server checks a template's display against its own copy of the table (ObjectMgr's
+// sGameObjectDisplayInfoStore, loaded at its start) and skips a spawn whose display it lacks, so the
+// new row goes into the server's data/5875/dbc as well as Meld's patch.
+
+// serverObjectDisplayPath is the server's copy of GameObjectDisplayInfo.dbc, under its folder.
+func serverObjectDisplayPath(serverDir string) string {
+	return filepath.Join(serverDir, "data", "5875", "dbc", "GameObjectDisplayInfo.dbc")
+}
+
+// ObjectDisplayCopy is a new game object display copied from another: its ID, the client's
+// GameObjectDisplayInfo.dbc with it for Meld's patch, and the server's copy of the table with it (nil
+// when no server folder was given).
+type ObjectDisplayCopy struct {
+	Display uint32
+	Client  mpq.File
+	Server  []byte
+}
+
+// CopyObjectDisplay copies game object display base, as the game will have it, to a new ID above
+// every display of the client's table and of the server's copy (serverDir "" leaves the server out).
+// Nothing is written.
+func CopyObjectDisplay(dataDir, serverDir string, base uint32) (ObjectDisplayCopy, error) {
+	client, err := readClientFile(dataDir, GameObjectDisplayInfoPath)
+	if err != nil {
+		return ObjectDisplayCopy{}, fmt.Errorf("GameObjectDisplayInfo.dbc: %w", err)
+	}
+	var server []byte
+	if serverDir != "" {
+		if err := CheckServer(serverDir); err != nil {
+			return ObjectDisplayCopy{}, err
+		}
+		server, err = os.ReadFile(serverObjectDisplayPath(serverDir))
+		if errors.Is(err, os.ErrNotExist) {
+			// No copy yet: the server gets the client's table whole, as the map table's export does.
+			server, err = client, nil
+		}
+		if err != nil {
+			return ObjectDisplayCopy{}, fmt.Errorf("the server's GameObjectDisplayInfo.dbc: %w", err)
+		}
+	}
+	id, outClient, outServer, err := copyObjectDisplay(client, server, base)
+	if err != nil {
+		return ObjectDisplayCopy{}, err
+	}
+	return ObjectDisplayCopy{Display: id, Client: mpq.File{Name: GameObjectDisplayInfoPath, Data: outClient}, Server: outServer}, nil
+}
+
+// copyObjectDisplay adds a copy of client's display base (its model and ten sound slots) to client
+// and, when given, to server, under the first ID above both tables' highest. The other rows stay as
+// they were in each.
+func copyObjectDisplay(client, server []byte, base uint32) (id uint32, outClient, outServer []byte, err error) {
+	ct, err := parseSized(client, "GameObjectDisplayInfo.dbc", objectDisplayFields)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	r, ok := ct.row(base)
+	if !ok || base == 0 {
+		return 0, nil, nil, fmt.Errorf("the client has no game object display %d", base)
+	}
+	top := func(t *dbcTable) uint32 {
+		m := uint32(0)
+		for i := 0; i < t.records; i++ {
+			m = max(m, t.u32(i, 0))
+		}
+		return m
+	}
+	id = top(ct)
+	var st *dbcTable
+	if server != nil {
+		if st, err = parseSized(server, "the server's GameObjectDisplayInfo.dbc", objectDisplayFields); err != nil {
+			return 0, nil, nil, err
+		}
+		id = max(id, top(st))
+	}
+	if id == ^uint32(0) {
+		return 0, nil, nil, errors.New("GameObjectDisplayInfo.dbc has no free display ID")
+	}
+	id++
+	rec := ct.record(r)
+	rec[0] = id
+	model := map[int]string{1: ct.str(r, 1)}
+	if outClient, err = putRecord(client, rec, model); err != nil {
+		return 0, nil, nil, err
+	}
+	if st != nil {
+		if outServer, err = putRecord(server, rec, model); err != nil {
+			return 0, nil, nil, err
+		}
+	}
+	return id, outClient, outServer, nil
+}
+
+// InstallServerObjectDisplays writes GameObjectDisplayInfo.dbc into the server's data, keeping the
+// first copy it replaces as a backup. The world server reads it at its start.
+func InstallServerObjectDisplays(serverDir string, dbc []byte) (string, error) {
+	return installServerDBC(serverDir, "GameObjectDisplayInfo.dbc", dbc)
+}
+
+// ForgetObjectDisplays drops what was read of GameObjectDisplayInfo.dbc (the model tables and the
+// display lists), after a display was added to the patch.
+func ForgetObjectDisplays() {
+	tablesMu.Lock()
+	clear(tablesCache)
+	tablesMu.Unlock()
+	forgetObjectDisplays()
 }

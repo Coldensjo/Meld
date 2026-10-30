@@ -33,7 +33,8 @@ const (
 	componentTextures = `item\texturecomponents\`
 )
 
-// loadModelTables reads the model tables from the client's data folder.
+// loadModelTables reads the model tables from the client's data folder, as the game will have them:
+// a table waiting for the game to close (readOverlay) too, such as a display of its own (#723).
 func loadModelTables(dataDir string) (*modelTables, error) {
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
@@ -41,7 +42,7 @@ func loadModelTables(dataDir string) (*modelTables, error) {
 	}
 	defer set.Close()
 	read := func(name string) (*dbcTable, error) {
-		b, err := set.ReadFile(`DBFilesClient\` + name)
+		b, err := readOverlay(set, dataDir, `DBFilesClient\`+name)
 		if err != nil {
 			return nil, err
 		}

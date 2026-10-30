@@ -153,6 +153,7 @@ export const OpenSpellsDialog: Call<AppApi['OpenSpellsDialog']> = (...a) => api(
 export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().OpenTextDialog(...a) as never
 export const OpenToolWindow: Call<AppApi['OpenToolWindow']> = (...a) => api().OpenToolWindow(...a) as never
 export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
+export const OwnObjectDisplay: Call<AppApi['OwnObjectDisplay']> = (...a) => api().OwnObjectDisplay(...a) as never
 export const PlanItemDelete: Call<AppApi['PlanItemDelete']> = (...a) => api().PlanItemDelete(...a) as never
 export const PlanItemImport: Call<AppApi['PlanItemImport']> = (...a) => api().PlanItemImport(...a) as never
 export const PlanQuestDelete: Call<AppApi['PlanQuestDelete']> = (...a) => api().PlanQuestDelete(...a) as never

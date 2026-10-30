@@ -19,6 +19,7 @@ export type {
     IconsImported,
     LightIDs,
     LoadingScreenResult,
+    OwnDisplay,
     PrefabFile,
     ProjectList,
     SandboxEnded,

@@ -602,7 +602,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   every object of the display, which the tab says with the users from `loadDisplays`. A slot is set
   from `SoundPicker.svelte`, the shared list of SoundEntries rows (`SoundEntries`, cached in the
   page; `forgetSoundEntries` after an import, #684) with Play through `lib/ui/soundPlayer.svelte.ts`,
-  one sound at a time over `/wow/sound`), and New object (`CreateObject`). The Object tab follows the spawn's entry
+  one sound at a time over `/wow/sound`. A display other templates share can be copied to one of the
+  object's own first (#723, Give this object a display of its own): `OwnObjectDisplay`
+  (`CopyObjectDisplay` in `objectsounds.go`) adds the row with the same model and slots under an ID
+  above both the client's table and the server's `data/5875/dbc` copy, writes it into Meld's patch and
+  the server's copy at once (the server skips a spawn whose display its copy lacks), and the tab
+  points the template's `displayId` at it as an unsaved change, its unsaved slots moved along. The
+  model tables read waiting files (`readOverlay`), so the copy's model is known while the game runs.
+  Collision for the new display comes only once the vmaps are extracted again, since the server's
+  `temp_gameobject_models` is keyed by display. With an external database it is refused, and in a
+  probe's throwaway client the server's copy is left alone), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `SpawnActions.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the

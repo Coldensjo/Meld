@@ -1052,6 +1052,17 @@ export function OtherClientStatus(): $CancellablePromise<wow$0.Status> {
 }
 
 /**
+ * OwnObjectDisplay copies game object display display to a new one (#723), so one object's sounds
+ * can change without every object of that display: the new GameObjectDisplayInfo.dbc row goes into
+ * Meld's patch (at once, or once the game has closed) and, with a server folder set, into the
+ * server's copy of the table, which it checks a template's display against. The template is not
+ * changed: the game object editor points it at the new display, saved with Save object.
+ */
+export function OwnObjectDisplay(display: number): $CancellablePromise<$models.OwnDisplay> {
+    return $Call.ByID(720377594, display);
+}
+
+/**
  * PlanItemDelete lists what deleting item entry removes and leaves dangling, changing nothing.
  */
 export function PlanItemDelete(entry: number): $CancellablePromise<vmangos$0.ItemDeletePlan> {

@@ -142,6 +142,18 @@ export interface LoadingScreenResult {
 }
 
 /**
+ * OwnDisplay is what OwnObjectDisplay made: the new display, whether the client's row waits for the
+ * game to close, whether the server's copy of the table has it, and whether the world server runs
+ * (it reads the table at its start).
+ */
+export interface OwnDisplay {
+    "display": number;
+    "waiting": boolean;
+    "server": boolean;
+    "restart": boolean;
+}
+
+/**
  * PrefabFile is one prefab of the prefab folder: its file name and its TOML.
  */
 export interface PrefabFile {

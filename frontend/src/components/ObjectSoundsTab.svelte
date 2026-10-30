@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { ObjectDisplaySounds, SaveObjectDisplaySounds } from '../lib/wails/App'
+	import { ObjectDisplaySounds, OwnObjectDisplay, SaveObjectDisplaySounds } from '../lib/wails/App'
 	import type { main, vmangos } from '../lib/wails/models'
 	import { playSound, soundPlayer, stopSound } from '../lib/ui/soundPlayer.svelte'
-	import { loadDisplays } from './DisplayPicker.svelte'
+	import { forgetObjectDisplays, loadDisplays } from './DisplayPicker.svelte'
 	import SoundPicker, { loadSoundEntries } from './SoundPicker.svelte'
 
 	// The game object editor's Sounds tab (#674): the sounds the client plays where an object stands,
@@ -11,16 +11,24 @@
 	// them only near the object. A slot is changed or given a sound from the shared sound picker, and
 	// the slots are written into Meld's patch with the editor's Save (at once, or once the game has
 	// closed), so the game plays them from its next start. They belong to the display, not the
-	// template: every object of that display changes, which the tab says.
+	// template: every object of that display changes, which the tab says. A display other objects
+	// share can be copied to one of the object's own (#723, OwnObjectDisplay): a new
+	// GameObjectDisplayInfo row with the same model and slots, in the client's patch and the server's
+	// copy of the table at once; the template points at it from Save object, and its unsaved slots go
+	// along to the copy.
 
 	interface Props {
 		/** The display the template has now, saved or not (0: none). */
 		display: number
+		/** The display the template has in the world database. */
+		savedDisplay: number
 		/** The tab is showing: the display's slots are read only then. */
 		active: boolean
 		dirty?: boolean
+		/** A display of its own was made: the template is to point at it. */
+		onowndisplay?: (display: number) => void
 	}
-	let { display, active, dirty = $bindable(false) }: Props = $props()
+	let { display, savedDisplay, active, dirty = $bindable(false), onowndisplay }: Props = $props()
 
 	/**
 	 * The client's slot names (wowdev's SoundSlot), with what the client's own displays put in each:
@@ -86,6 +94,37 @@
 
 	$effect(() => () => stopSound())
 
+	/** Other templates use the display: those in the database, besides this one once it is saved with it. */
+	const shared = $derived(users !== null && users.uses > (display === savedDisplay ? 1 : 0))
+	let owning = $state(false)
+	/** The display of its own made here, and where it went. */
+	let made = $state<{ from: number; res: main.OwnDisplay } | null>(null)
+
+	/** Copies the display to one of the object's own, and moves its unsaved slots there. */
+	async function ownDisplay() {
+		const d = display
+		owning = true
+		error = ''
+		try {
+			const res = await OwnObjectDisplay(d)
+			// The copy has the slots the client has for d; the unsaved ones go along.
+			if (loaded[d]) loaded[res.display] = { ...loaded[d], display: res.display, sounds: [...loaded[d].sounds] }
+			const copy = { ...edits }
+			if (copy[d]) {
+				copy[res.display] = copy[d]
+				delete copy[d]
+			}
+			edits = copy
+			made = { from: d, res }
+			forgetObjectDisplays()
+			onowndisplay?.(res.display)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			owning = false
+		}
+	}
+
 	function setSlot(i: number, id: number) {
 		const d = display
 		const base = loaded[d]?.sounds
@@ -140,6 +179,19 @@
 		{/if}
 		Saved with Save object into Meld's patch; the game plays them from its next start.
 	</p>
+	{#if shared}
+		<p class="own">
+			<button disabled={owning} onclick={ownDisplay}>{owning ? 'Copying the display…' : 'Give this object a display of its own'}</button>
+			<span class="dim">Copies display {display} to a new one, with the same model and sounds, for this object alone: into Meld's patch and the server's data at once.</span>
+		</p>
+	{/if}
+	{#if made && made.res.display === display}
+		<p class="dim made">
+			Display {display} is a copy of display {made.from}, {made.res.waiting ? "waiting for the game to close to go into the client's patch" : "in the client's patch"}{made.res.server
+				? " and the server's data"
+				: ", not the server's data (Meld has no server folder to write it into)"}. Save object points this object at it; the world server takes it from its next start{made.res.restart ? ' (restart it)' : ''}.
+		</p>
+	{/if}
 	{#if error}<p class="error">{error}</p>{/if}
 	{#if !now}
 		<p class="dim">{error ? '' : 'Reading the sounds…'}</p>
@@ -213,6 +265,18 @@
 	}
 	.play {
 		padding: 2px 8px;
+	}
+	.own {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 6px 0;
+	}
+	.own button {
+		flex: none;
+	}
+	.made {
+		margin-bottom: 6px;
 	}
 	.error {
 		color: var(--danger-text);
