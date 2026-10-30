@@ -60,6 +60,12 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     in its `ids` (the mesh's `userData.ids`, which `hitId` reads), and `patch` writes moved rows in
     place (both layers: ObjectLayer's `movedIdx`, SpawnLayer's `moved` from `refresh`, #697; `repack`
     is then only for a rebuild). `instancedMesh` makes the meshes (skinned with a skeleton, `cullForShadows`, `watchUploads`).
+    It also queues each mesh, once its materials' textures are bound (`userData.ready`), for
+    `precompileFresh`, which `Engine.draw` calls right after the scene's render: `renderer.compile` of
+    the new meshes against the scene, not waited on (#903). Three otherwise compiles a program at its
+    first draw and blocks on the driver there, 100 to 600 ms a program on D3D11 through ANGLE, so
+    turning the camera to a model type not yet seen stalled the frame (`brd-fly` on the GPU, up to
+    2.6 s). A texture bound later changes the program (`map`), hence the wait for `ready`.
     What stays in the layers is what they batch: ObjectLayer's object tree, LOD split and WMO
     liquid and group culling; SpawnLayer's grouping by kind and marker. A fix to culling, packing,
     uploads or picking of instances goes there, once.

@@ -3,7 +3,11 @@
 // bounds tree, so no frame stalls. The batch mesh of a big WMO draws its group cull's twin geometry
 // (#198), which must share the model's tree: without it each sight line walked every triangle of the
 // dungeon and frames took 1.2 to 2.4 s every two or three frames. Needs the world database for the spawns.
-// touches: frontend/src/lib/world/SpawnLabels.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/engine/CameraController.ts
+// On the GPU (PROBE_GPU=1, #903) a model shader compiled at its first draw cost 100 to 600 ms each, up to
+// 2.6 s a frame: `precompileFresh` (world/instanceBatch.ts) compiles them once a model's textures are
+// bound. The flight starts once the dungeon has loaded (`P.settle`), since a model that first shows
+// while the camera flies compiles then whatever is done, and that is the load, not the flight.
+// touches: frontend/src/lib/world/SpawnLabels.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/engine/CameraController.ts, frontend/src/lib/world/instanceBatch.ts
 const { editor, prefs } = await P.state()
 const { openWowBuilding } = await P.app('/src/lib/io/region.ts')
 prefs.spawnNames = true
@@ -11,7 +15,7 @@ openWowBuilding(P.e, 'BlackrockDepths')
 await P.until(() => editor.regionMap === 'BlackrockDepths' || null, 120000, "Blackrock Depths' tab")
 await P.until(() => editor.spawns.length > 0 || editor.spawnsError || null, 60000, "Blackrock Depths' spawns")
 if (editor.spawnsError) throw new Error(`no spawns: ${editor.spawnsError}`)
-await P.frames(5)
+await P.settle()
 const e = P.e
 const twins = [...e.objects.batches.values()].filter((b) => b.cull)
 const twinTrees = twins.filter((b) => b.mesh.geometry.boundsTree).length

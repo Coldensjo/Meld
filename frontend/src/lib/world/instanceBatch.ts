@@ -34,7 +34,44 @@ export function instancedMesh<T>(geometry: THREE.BufferGeometry, material: THREE
 	m.visible = false
 	m.userData.ids = ids
 	cullForShadows(m)
+	// Once its textures are bound: a model's material gets its texture when the texture loads (`map`
+	// and `needsUpdate`, models/assets.ts), and that is a program of its own.
+	const list = Array.isArray(material) ? material : [material]
+	void Promise.allSettled(list.map((x) => x.userData.ready as Promise<void> | undefined)).then(() => fresh.push(m))
 	return m
+}
+
+/** The meshes `instancedMesh` made, with their textures bound, since the engine last precompiled their shaders (`precompileFresh`). */
+let fresh: THREE.Object3D[] = []
+
+/** Walks only `items`, so `renderer.compile` reaches the fresh meshes where they hang and no other. */
+class MeshList extends THREE.Object3D {
+	items: THREE.Object3D[] = []
+	override traverse(callback: (o: THREE.Object3D) => void) {
+		for (const o of this.items) o.traverse(callback)
+	}
+	// Lights only: the scene's own are what `compile` lights the meshes with.
+	override traverseVisible() {}
+}
+const freshList = new MeshList()
+
+/**
+ * Compiles the shaders of the meshes made since the last call, for `scene` as `camera` draws it, without
+ * waiting for them (#903). Three compiles a material's program when it is first drawn and waits there
+ * for the driver: on the GPU (D3D11 through ANGLE) each new model shader cost 100 to 600 ms the first
+ * time the camera turned to it, as flying Blackrock Depths did. Issued once a model's mesh is made and its textures bound, the
+ * compile runs in the driver's own threads (KHR_parallel_shader_compile) while the camera looks
+ * elsewhere, and the first draw finds the program ready. Called right after the scene's render, so the
+ * render target and lights are the ones the scene draws with; a mesh already taken off its layer
+ * (disposed) is skipped.
+ */
+export function precompileFresh(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+	if (!fresh.length) return
+	const items = freshList.items
+	for (const m of fresh) if (m.parent) items.push(m)
+	fresh = []
+	if (items.length) renderer.compile(freshList, camera, scene)
+	items.length = 0
 }
 
 /** The position of `v` in `sorted[from..to)`, ascending, or -1. */

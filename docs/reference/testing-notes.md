@@ -653,7 +653,9 @@ the same scene, the report before and after.
     warm up and compare the runs after it.
   - Trap: the probes' Chrome has no `KHR_parallel_shader_compile`, and on SwiftShader a new program's
     cost lands in the frame that first draws it whether or not it was compiled ahead
-    (`renderer.compileAsync`), so a probe can't show what compiling ahead gains on a real GPU (#327).
+    (`renderer.compileAsync`), so a probe on SwiftShader can't show what compiling ahead gains (#327).
+    `PROBE_GPU=1` can: on D3D11 through ANGLE `brd-fly`'s worst frame went from 215-250 ms (600 to
+    2,600 ms when the flight started mid-load) to 40-80 ms with `precompileFresh` (#903).
     To see where programs cost, wrap `getProgramInfoLog`, `getShaderInfoLog`, `getProgramParameter`
     and `getShaderParameter` on the context with timers and time each `frame()`.
   - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set

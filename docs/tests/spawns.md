@@ -256,6 +256,11 @@ and so on; those inside the abbey have none.
   batch mesh draws its group cull's twin geometry (#198), and a ray through a geometry without a bounds
   tree falls back to three's brute-force raycast: 33 ms a test there, frames of 1.2 to 2.4 s every
   second or third frame, which looked like stutter from the creatures (hiding them hid their names).
+- Trap (#903): on the GPU (`PROBE_GPU=1`) the longest frame was a shader compile, not the sight tests:
+  three compiles a model's program at its first draw and waits for the driver (100 to 600 ms each on
+  D3D11). Wrap `gl.getProgramInfoLog` and count `renderer.info.programs` per frame to see it. The probe
+  flies only once the dungeon has loaded (`P.settle`): a model that first shows during the flight
+  compiles then, which is the load, not the flight.
 - Trap: a scene whose camera stands inside a building's wall (the abbey at `"target":[182,80,353]`,
   pitch 0.35, distance 45 does) hides every name, correctly; check the camera first.
 - Setting `ed.prefs.spawnNames = false` from the page module hides them all.

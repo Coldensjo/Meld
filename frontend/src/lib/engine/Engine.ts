@@ -46,6 +46,7 @@ import { HorizonLayer } from '../world/HorizonLayer'
 import { WorldStream } from '../world/WorldStream'
 import { marchGround, streamReach } from '../world/worldGround'
 import { worldCellDetail } from '../world/worldDetail'
+import { precompileFresh } from '../world/instanceBatch'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { BrushTool } from '../tools/BrushTool'
@@ -1775,6 +1776,8 @@ export class Engine {
 		drawFarLayers()
 		if (m.on) this.gpu.begin(1)
 		this.renderer.render(this.scene, this.camera)
+		// The new models' shaders, compiled before the camera turns to them (#903).
+		precompileFresh(this.renderer, this.scene, this.camera)
 		m.mark(SECTION['Render (CPU)'])
 		this.spawnLabels.update(this.frameView, this.doc.spawnLayer)
 		m.mark(SECTION['Spawn labels'])
