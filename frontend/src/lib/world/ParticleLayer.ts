@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { getAsset, type ModelAsset } from '../models/assets'
-import { loadTexture } from '../wow/api'
+import { loadTexture, onTexturesReplaced } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import type { vmangos } from '../wails/models'
 import { spawnKey, type SpawnLayer } from './SpawnLayer'
@@ -94,6 +94,8 @@ class Batch {
 	/** An alpha-blended draw sorts its quads back to front each frame; `spare` is the sort's scratch. */
 	private readonly sorted: boolean
 	private spare = new Float32Array(0)
+	private disposed = false
+	private readonly offReplaced: () => void
 
 	constructor(look: Look, light: THREE.Color) {
 		const { blend, fog } = look
@@ -132,15 +134,25 @@ class Batch {
 		this.mesh.visible = false
 		// After the props' own transparent parts, as the client draws effects after models.
 		this.mesh.renderOrder = 6
-		loadTexture(look.texture)
+		this.useTexture(look.texture)
+		// Its texture's file written over by an import (#928): the new copy is drawn once it loads.
+		const key = look.texture.toLowerCase()
+		this.offReplaced = onTexturesReplaced((keys) => {
+			if (keys.has(key)) this.useTexture(look.texture)
+		})
+	}
+
+	private useTexture(path: string) {
+		loadTexture(path)
 			.then((t) => {
+				if (this.disposed) return
 				this.material.uniforms.map.value = t
 				this.ready = true
 				// Its shader compiled and texture uploaded before the camera first sees it: on the GPU a
 				// particle shader compiled at its first draw cost that frame 10 ms and more (#904).
 				readyAhead(this.mesh)
 			})
-			.catch((err) => console.warn('particle texture failed', look.texture, err))
+			.catch((err) => console.warn('particle texture failed', path, err))
 	}
 
 	/** Makes room for `more` floats past this frame's. */
@@ -202,6 +214,8 @@ class Batch {
 	}
 
 	dispose() {
+		this.disposed = true
+		this.offReplaced()
 		this.geometry.dispose()
 		this.material.dispose()
 	}

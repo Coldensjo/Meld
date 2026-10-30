@@ -7,7 +7,7 @@
 	import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
 	import AssetPreview from './AssetPreview.svelte'
 	import { displayName } from '../lib/models/assets'
-	import { requestThumb, THUMBS_FORGOTTEN } from '../lib/wow/thumbs'
+	import { requestThumb, THUMBS_FORGOTTEN, type ThumbsForgotten } from '../lib/wow/thumbs'
 	import { loadCatalog } from '../lib/wow/catalogIndex'
 	import { categoryOrder } from '../lib/wow/catalog'
 	import { searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
@@ -113,7 +113,7 @@
 		}
 		// Its file was written over (#922): the picture is made again.
 		const onForgotten = (e: Event) => {
-			if ((e as CustomEvent<Set<string>>).detail.has(current.toLowerCase())) load(current)
+			if ((e as CustomEvent<ThumbsForgotten>).detail(current)) load(current)
 		}
 		window.addEventListener(THUMBS_FORGOTTEN, onForgotten)
 		return {

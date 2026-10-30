@@ -209,11 +209,6 @@ func (a *App) SaveThumbnail(key string, pngBase64 string) error {
 	return a.wow.SaveThumb(key, png)
 }
 
-// ForgetThumbnails deletes the cached palette thumbnails of keys, whose files an import replaced (#922).
-func (a *App) ForgetThumbnails(keys []string) error {
-	return a.wow.ForgetThumbs(keys)
-}
-
 // ClearThumbnailCache removes cached palette thumbnails for the current client.
 func (a *App) ClearThumbnailCache() error {
 	return a.wow.ClearThumbs()

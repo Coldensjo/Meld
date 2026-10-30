@@ -556,10 +556,12 @@ with every file they need into the current client's patch under the same paths.
 - Trap: the probe page can't open the current client as the other one (refused), so a probe needs the
   sandbox on to read the real client beside it. The dev page has no folder dialog: type the folder and
   press Add.
-- Probe: `import-replaced` (#922): a stand-in `ImportOtherAssets` answers a barrel and its texture
-  replaced; the kept barrel loads again as a new asset, its texture loads as a new texture, its
-  thumbnail is made again and the old asset's materials are let go of (2 s after the swap). Nothing is
-  written. About 5 s. Unit tests: `tests/replaced.test.ts`, `tests/thumbQueue.test.ts` (forget).
+- Probe: `import-replaced` (#922, #928): a stand-in `ImportOtherAssets` answers a barrel, its texture
+  and Goldshire Inn's WMO replaced; the kept barrel loads again as a new asset, its texture loads as a
+  new texture and `onTexturesReplaced` hears of it, the inn's room data is read again, every model
+  thumbnail is forgotten (a stand-in `ClearThumbnailCache` counts the disk clear, so the probe leaves
+  the real cache alone), the barrel's is made again and the old asset's materials are let go of (2 s
+  after the swap). Nothing is written. About 7 s. Unit tests: `tests/replaced.test.ts`, `tests/thumbQueue.test.ts` (forget).
 - Not checked by the loop: an import of an asset the current client lacks into the real client, then
   the asset placed on a map and seen in the game (needs a second, different client on the machine).
 

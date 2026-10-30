@@ -399,20 +399,36 @@ export function releaseTexture(path: string): boolean {
 	return true
 }
 
+/** Those told when the files of cached textures were replaced (`onTexturesReplaced`). */
+const replacedListeners = new Set<(keys: ReadonlySet<string>) => void>()
+
+/**
+ * Calls `fn` with the keys (lower-case paths) of the cached textures whose files a write replaced
+ * (#928), once the cache has forgotten them: what holds one outside a model's material (particles,
+ * liquids, a far WMO's layers) asks `loadTexture` again for the new copy. Returns the unsubscribe.
+ */
+export function onTexturesReplaced(fn: (keys: ReadonlySet<string>) => void): () => void {
+	replacedListeners.add(fn)
+	return () => replacedListeners.delete(fn)
+}
+
 /**
  * Forgets the cached textures of `keys` (lower-case paths) whose files a write replaced (#922), so the
- * next `loadTexture` reads them again. What already maps one keeps drawing it: the returned function
- * frees the old ones once nothing does, but for those something other than a model asked for
- * (liquids, particles), which may still draw them.
+ * next `loadTexture` reads them again, and tells `onTexturesReplaced`'s listeners. What already maps
+ * one keeps drawing it: the returned function frees the old ones, once the holders had time to load
+ * the new copy (one still drawn after that is only uploaded again by three).
  */
 export function forgetTextures(keys: Iterable<string>): () => void {
 	const old: Promise<THREE.Texture>[] = []
+	const gone = new Set<string>()
 	for (const key of keys) {
 		const p = textureCache.get(key)
 		if (!p) continue
 		textureCache.delete(key)
-		if (!pinnedTextures.has(key)) old.push(p)
+		gone.add(key)
+		old.push(p)
 	}
+	if (gone.size) for (const fn of replacedListeners) fn(gone)
 	return () => {
 		for (const p of old)
 			p.then(

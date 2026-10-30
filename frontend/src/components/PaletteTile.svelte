@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { requestThumb, THUMBS_FORGOTTEN } from '../lib/wow/thumbs'
+	import { requestThumb, THUMBS_FORGOTTEN, type ThumbsForgotten } from '../lib/wow/thumbs'
 
 	interface Props {
 		thumbKey: string
@@ -72,7 +72,7 @@
 		}
 		// Its file was written over (#922): the picture is made again.
 		const onForgotten = (e: Event) => {
-			if ((e as CustomEvent<Set<string>>).detail.has(current.toLowerCase())) again()
+			if ((e as CustomEvent<ThumbsForgotten>).detail(current)) again()
 		}
 		window.addEventListener(THUMBS_FORGOTTEN, onForgotten)
 		return {

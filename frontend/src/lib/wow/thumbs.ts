@@ -5,7 +5,7 @@ import { buildWowAsset, getAsset, releaseWowAsset, texturesReady, wowPath, type 
 import { placementEuler } from '../world/placement'
 import type { Prefab } from './prefabs'
 import { fetchMesh, texturePreview } from './api'
-import { ForgetThumbnails, SaveThumbnail } from '../wails/App'
+import { ClearThumbnailCache, SaveThumbnail } from '../wails/App'
 import { bytesToBase64 } from '../io/base64'
 import { ThumbQueue } from './thumbQueue'
 import { thumbReplaced, type ReplacedFiles } from './replaced'
@@ -235,29 +235,30 @@ async function produce(key: string): Promise<string> {
 	return URL.createObjectURL(blob)
 }
 
-/** The window event telling the tiles which thumbnails were forgotten (`forgetThumbs`): its detail is their keys, lower-case. */
+/**
+ * The window event telling the tiles which thumbnails were forgotten (`forgetThumbs`): its detail
+ * says of a key whether it was (`ThumbsForgotten`).
+ */
 export const THUMBS_FORGOTTEN = 'meld:thumbs-forgotten'
 
+/** The detail of `THUMBS_FORGOTTEN`: whether the thumbnail of `key` was forgotten. */
+export type ThumbsForgotten = (key: string) => boolean
+
 /**
- * Forgets the thumbnails showing a replaced file (#922): those of the replaced models and textures,
- * the ones of `types` too (the kept models that map a replaced texture, `reloadReplaced`), in memory
- * and in the disk cache, and tells the tiles showing one to ask again (`THUMBS_FORGOTTEN`). A model
- * that maps a replaced texture keeps its thumbnail on disk unless it is in `types`.
+ * Forgets the thumbnails that may show a file an import wrote over (#922, #928), in memory and on
+ * disk, and tells the tiles showing one to ask again (`THUMBS_FORGOTTEN`): every model's, spawn
+ * look's and prefab's (which of them maps a replaced texture or holds a replaced model can't be told
+ * without loading it, and their disk keys are hashed), and the replaced textures' own. The client's
+ * disk cache is cleared, as Preferences' Clear does, so a later session makes them again too; a
+ * replace is rare.
  */
-export async function forgetThumbs(files: ReplacedFiles, types: Iterable<string> = []): Promise<void> {
-	const also = new Set<string>()
-	for (const t of types) also.add(t.toLowerCase())
-	const { keys, release } = queue.forget((k) => thumbReplaced(k, files) || also.has(k.toLowerCase()))
-	const disk = new Set<string>()
-	for (const k of [...keys, ...also]) if (!k.startsWith('tex:')) disk.add(k.toLowerCase())
-	for (const p of files.models) disk.add((p.endsWith('.wmo') ? 'wmo:' : 'm2:') + p)
+export async function forgetThumbs(files: ReplacedFiles): Promise<void> {
+	if (!files.models.size && !files.textures.size) return
+	const stale: ThumbsForgotten = (k) => !k.startsWith('tex:') || thumbReplaced(k, files)
+	const { release } = queue.forget(stale)
 	// Gone from the disk before a tile asks again, so it doesn't read the old picture back.
-	if (disk.size) await ForgetThumbnails([...disk].map((k) => VERSION + '|' + k)).catch((err: unknown) => console.warn('thumbnail cache forget failed', err))
-	const forgotten = new Set<string>()
-	for (const k of keys) forgotten.add(k.toLowerCase())
-	for (const k of disk) forgotten.add(k)
-	for (const p of files.textures) forgotten.add('tex:' + p)
-	window.dispatchEvent(new CustomEvent<Set<string>>(THUMBS_FORGOTTEN, { detail: forgotten }))
+	await ClearThumbnailCache().catch((err: unknown) => console.warn('thumbnail cache clear failed', err))
+	window.dispatchEvent(new CustomEvent<ThumbsForgotten>(THUMBS_FORGOTTEN, { detail: stale }))
 	release()
 }
 

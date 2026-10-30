@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { BAND, type LightAt } from '../wow/clientLight'
-import { loadTexture } from '../wow/api'
+import { loadTexture, onTexturesReplaced } from '../wow/api'
 import { LIQUID_TYPES, OCEAN_OPACITY, type LiquidClass } from './liquids'
 import { TILE_YARDS } from '../terrain/Terrain'
 import { patchRoomGate } from '../world/roomGate'
@@ -379,10 +379,21 @@ function reportFailed(path: string, err: unknown) {
 function requestFrames(kind: LiquidClass) {
 	if (requested.has(kind)) return
 	requested.add(kind)
+	loadFrames(kind)
+}
+
+/** The client's frame paths of a liquid class. */
+function framePaths(kind: LiquidClass): string[] {
 	const t = LIQUID_TYPES.find((l) => l.kind === kind)!
-	const loaded: Array<THREE.Texture | null> = new Array(t.frames).fill(null)
-	for (let i = 0; i < t.frames; i++) {
-		const path = t.texture.replace('%d', String(i + 1))
+	return Array.from({ length: t.frames }, (_, i) => t.texture.replace('%d', String(i + 1)))
+}
+
+/** Loads a liquid's frames; those it has stay drawn until each new one comes (a replaced file, #928). */
+function loadFrames(kind: LiquidClass) {
+	const paths = framePaths(kind)
+	const loaded: Array<THREE.Texture | null> = frames[kind].length === paths.length ? [...frames[kind]] : new Array(paths.length).fill(null)
+	for (let i = 0; i < paths.length; i++) {
+		const path = paths[i]
 		loadTexture(path)
 			.then((tex) => {
 				loaded[i] = tex
@@ -391,6 +402,11 @@ function requestFrames(kind: LiquidClass) {
 			.catch((err) => reportFailed(path, err))
 	}
 }
+
+// A frame's file written over by an import (#928): the liquid's frames load again.
+onTexturesReplaced((keys) => {
+	for (const kind of requested) if (framePaths(kind).some((p) => keys.has(p.toLowerCase()))) loadFrames(kind)
+})
 
 /** Liquid classes that something drew since the client's frames were last asked for. */
 const wanted = new Set<LiquidClass>()

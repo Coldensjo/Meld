@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { loadTexture, type MeshGroup } from '../wow/api'
+import { loadTexture, onTexturesReplaced, type MeshGroup } from '../wow/api'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import { patchRoomGate } from '../world/roomGate'
 import type { FarMerge } from './lod'
@@ -81,17 +81,26 @@ function acquire(path: string, tint: number): Layer | null {
 	const l: Layer = { key, layer: index, refs: 1, path, tint: new THREE.Color(tint), texture: null }
 	layers.set(key, l)
 	queue.add(l)
-	if (path)
-		loadTexture(path, true).then(
-			(t) => {
-				if (layers.get(key) !== l) return
-				l.texture = t
-				queue.add(l)
-			},
-			() => {},
-		)
+	if (path) layerTexture(l)
 	return l
 }
+
+/** Loads a layer's texture and queues the layer to be drawn with it. */
+function layerTexture(l: Layer) {
+	loadTexture(l.path, true).then(
+		(t) => {
+			if (layers.get(l.key) !== l) return
+			l.texture = t
+			queue.add(l)
+		},
+		() => {},
+	)
+}
+
+// A texture's file written over by an import (#928): its layers are drawn again from the new copy.
+onTexturesReplaced((keys) => {
+	for (const l of layers.values()) if (l.path && keys.has(l.path.toLowerCase())) layerTexture(l)
+})
 
 /** Lets go of the layers a far LOD took (`farLod`'s `layers`); a layer no LOD uses is free again. */
 export function releaseFarLayers(keys: readonly string[]) {

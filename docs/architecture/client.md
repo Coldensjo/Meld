@@ -75,10 +75,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `written`): `wow/replaced.ts` sorts them into models (a WMO group as its root) and textures,
   `assets.ts` `reloadReplaced` loads again every kept model that is one or maps one (the old asset
   drawn until the new one comes, then let go of; the texture and shared-material caches forget the
-  textures), and `thumbs.ts` `forgetThumbs` deletes their thumbnails in memory and on disk
-  (`ForgetThumbnails`) and tells the tiles (`THUMBS_FORGOTTEN`) to ask again. Not dropped: the
-  thumbnail on disk of a model not loaded that maps a replaced texture, a spawn look's or a prefab's
-  thumbnail on disk, and particles or liquids already drawing a replaced texture. A file neither has is reported (`missing`). The files go into Meld's
+  textures, and `api.ts` `onTexturesReplaced` tells the other holders of one, particle and ribbon
+  draws, liquid frames and a far WMO's layers, to load the new copy, #928), the Engine forgets the
+  replaced WMOs' room data (`forgetRooms`, read again while placed), and `thumbs.ts` `forgetThumbs`
+  forgets every model, look and prefab thumbnail and the replaced textures' own, clears the client's
+  disk cache (`ClearThumbnailCache`: which thumbnail shows a replaced file can't be told by its hashed
+  disk key) and tells the tiles (`THUMBS_FORGOTTEN`, a predicate) to ask again. A tool window's own
+  page keeps the thumbnails it holds until it is opened again. A file neither has is reported (`missing`). The files go into Meld's
   patch through `queueClientFiles` (at once, or once the game has closed, #661), at most 512 MB an
   import, and the page lists the client again (`refreshAssetLists`) once they are in.
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so

@@ -3740,6 +3740,14 @@ export class Engine {
 		this.rooms.forget(paths)
 	}
 
+	/**
+	 * Forgets the room data of the WMOs at `paths` (lower-case, backslashes) whose files an import
+	 * wrote over (#928): a building still placed reads its new walls and floors on the next frames.
+	 */
+	forgetRooms(paths: Iterable<string>) {
+		this.rooms.forget(paths)
+	}
+
 	/** Keep the active tab's title/dirty marker current (called from the UI). */
 	refreshTabs() {
 		if (this.doc) this.syncTabs()

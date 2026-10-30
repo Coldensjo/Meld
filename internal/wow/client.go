@@ -585,21 +585,6 @@ func (c *Client) SaveThumb(key string, png []byte) error {
 	return os.WriteFile(p, png, 0o644)
 }
 
-// ForgetThumbs deletes the cached thumbnails of keys, whose files a write replaced (#922); a key
-// without one is skipped.
-func (c *Client) ForgetThumbs(keys []string) error {
-	for _, key := range keys {
-		p, err := c.thumbPath(key)
-		if err != nil {
-			return err
-		}
-		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
-	return nil
-}
-
 // ClearThumbs deletes all cached thumbnails for the current client.
 func (c *Client) ClearThumbs() error {
 	p, err := c.thumbPath("x")

@@ -7,6 +7,7 @@ import { refreshAssetLists } from './api'
 import { reloadReplaced } from '../models/assets'
 import { replacedFiles } from './replaced'
 import { forgetThumbs } from './thumbs'
+import { engineRef } from '../state/engineRef'
 
 // The client models and textures are imported from (#858): Tools › Import from Another Client…
 // (components/OtherClientDialog.svelte). Go opens it read-only beside the current one and serves it
@@ -103,13 +104,16 @@ export async function importOther(paths: string[], opts: wow.ImportOptions = { r
 
 /**
  * Once the files are in the patch: lists the client again, and drops what the page holds of the
- * files written over the current client's copy (#922), its models, textures and thumbnails.
+ * files written over the current client's copy (#922): its models, textures, WMO room data (#928) and
+ * thumbnails.
  */
 function written(replaced: string[]) {
 	refreshAssetLists()
 	if (!replaced.length) return
 	const files = replacedFiles(replaced)
-	void forgetThumbs(files, reloadReplaced(files))
+	reloadReplaced(files)
+	engineRef.current?.forgetRooms([...files.models].filter((p) => p.endsWith('.wmo')))
+	void forgetThumbs(files)
 }
 
 let offPending: (() => void) | null = null
