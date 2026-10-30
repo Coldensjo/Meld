@@ -121,6 +121,13 @@ effort, before #393 fixed `P.settle`).
   and says so in its report.
 - Only after two: #252 (0 triangles drawn with the cull on) looked like a flake and was a real break
   that `wmo-cull` found. A failure on both attempts (`retried: true`) is never a flake.
+- Fixing a flaky probe (the bug issue above, #887): reproduce the failure first (the probe alone, or
+  after the probes before it in `--list` order), or instrument the failing step in a scratch copy of
+  the probe (`probes/scratch/`: a wrapper around the binding, the state logged before and after the
+  step), and name the observed cause in the closing comment. A cause inferred from the code alone is
+  not enough to take the `quarantine` line out (#882 was closed that way, failed the next full-run
+  check on both attempts, and was worked twice). When the failure can't be reproduced or observed,
+  keep the `// quarantine` line and report the item unfinished with what was tried.
 - A quarantined probe is out of `--all`, `--smoke` and `--touching`, but still run by name (`bun run
   probe <name>`) when a change touches its area, and workers spend no time on it until it fails for
   real there or its bug issue is picked; that item takes the `quarantine` line out when it closes.
