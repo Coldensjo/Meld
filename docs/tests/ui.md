@@ -111,7 +111,7 @@ text field), Ctrl+Z and Ctrl+Y undo and redo the map and the list follows; the f
   warnings and errors. It only opens and logs, it edits nothing: a check that needs edits or clicks still
   needs the hand, or a scratch build. The windows and their places are readable from PowerShell
   (`EnumWindows` with `GetWindowRect` for the process id), and `PostMessage` `WM_CLOSE` (0x10) to a
-  window's handle is its X. Delete the session's `.alive` file in `%LOCALAPPDATA%\Meldecovery` after a kill.
+  window's handle is its X. Delete the session's `.alive` file in `%LOCALAPPDATA%\Meld\recovery` after a kill.
 - Traps: the place is saved in `config.json` (`toolWindows`), in device-independent pixels; one off
   every screen (a monitor gone) is not used and the window opens centred. The tool window is its own
   page: its console is not the main page's, and `MELD_DEBUG_LOG`'s console lines come from the main
