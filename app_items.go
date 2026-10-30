@@ -87,6 +87,30 @@ func (a *App) CreateItem(base int, name string) (int, error) {
 	return vmangos.CreateItem(server, base, name)
 }
 
+// PlanItemDelete lists what deleting item entry removes and leaves dangling, changing nothing.
+func (a *App) PlanItemDelete(entry int) (vmangos.ItemDeletePlan, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.ItemDeletePlan{}, err
+	}
+	return vmangos.PlanItemDelete(server, entry)
+}
+
+// DeleteItem removes item template entry and the shop and loot rows that name it, clears the quest
+// columns that name it, and returns the SQL.
+func (a *App) DeleteItem(entry int) (string, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return "", err
+	}
+	sql, err := vmangos.DeleteItem(server, entry)
+	if err == nil {
+		a.stale.AddItem(uint32(entry))
+		a.forgetStale()
+	}
+	return sql, err
+}
+
 // ListItemKinds lists the kinds of item (class, subclass, inventory type) the world database has, for
 // the item editor's New item.
 func (a *App) ListItemKinds() ([]vmangos.ItemKind, error) {

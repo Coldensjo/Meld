@@ -825,6 +825,34 @@ export interface InventoryTemplate {
 }
 
 /**
+ * ItemDeletePlan is what deleting an item removes and leaves dangling, for the confirmation.
+ */
+export interface ItemDeletePlan {
+    "name": string;
+
+    /**
+     * Rows has the tables that lose rows (empty ones left out).
+     */
+    "rows": QuestDeleteCount[] | null;
+
+    /**
+     * Quests are the quests that name it; deleting clears those columns (and their counts) to 0.
+     */
+    "quests": QuestLink[] | null;
+
+    /**
+     * Kept has the tables whose rows name it and are left alone (itemKeptRows), empty ones left out.
+     */
+    "kept": QuestDeleteCount[] | null;
+
+    /**
+     * Characters is how many characters own one (carried, banked or in the mail), whose rows are
+     * left alone; -1 when the characters database could not be read.
+     */
+    "characters": number;
+}
+
+/**
  * ItemDisplayEntry is an item display as the look picker lists it: its icon, its model (a name
  * without its folder, "" for none), where it goes ("weapon", "shield", "held", "ranged", "head",
  * "shoulder", "back", "body", "jewelry" or "other"), and the items of the world database that use

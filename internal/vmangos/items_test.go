@@ -119,6 +119,58 @@ func TestCreateItemSQL(t *testing.T) {
 	}
 }
 
+func TestDeleteItemSQL(t *testing.T) {
+	sql := deleteItemSQL(90001)
+	for _, want := range []string{
+		"UPDATE `quest_template` SET `SrcItemId` = 0, `SrcItemCount` = 0 WHERE `SrcItemId` = 90001;",
+		"UPDATE `quest_template` SET `ReqItemId4` = 0, `ReqItemCount4` = 0 WHERE `ReqItemId4` = 90001;",
+		"UPDATE `quest_template` SET `ReqSourceId1` = 0, `ReqSourceCount1` = 0 WHERE `ReqSourceId1` = 90001;",
+		"UPDATE `quest_template` SET `RewItemId1` = 0, `RewItemCount1` = 0 WHERE `RewItemId1` = 90001;",
+		"UPDATE `quest_template` SET `RewChoiceItemId6` = 0, `RewChoiceItemCount6` = 0 WHERE `RewChoiceItemId6` = 90001;",
+		"DELETE FROM `npc_vendor` WHERE `item` = 90001;",
+		"DELETE FROM `npc_vendor_template` WHERE `item` = 90001;",
+		"DELETE FROM `creature_loot_template` WHERE `item` = 90001 AND `mincountOrRef` >= 0;",
+		"DELETE FROM `reference_loot_template` WHERE `item` = 90001 AND `mincountOrRef` >= 0;",
+		"DELETE FROM `item_loot_template` WHERE `entry` = 90001 OR (`item` = 90001 AND `mincountOrRef` >= 0);",
+		"DELETE FROM `locales_item` WHERE `entry` = 90001;",
+		"DELETE FROM `item_required_target` WHERE `entry` = 90001;",
+		"DELETE FROM `item_template` WHERE `entry` = 90001;",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Errorf("missing %q in\n%s", want, sql)
+		}
+	}
+	// The template goes last: the tables are MyISAM, so a delete that stops part way must leave the
+	// item to delete again.
+	if !strings.HasSuffix(sql, "DELETE FROM `item_template` WHERE `entry` = 90001;") {
+		t.Errorf("item_template must be deleted last:\n%s", sql)
+	}
+	// What it leaves alone is never written.
+	for _, r := range itemKeptRows(90001) {
+		if strings.Contains(sql, "`"+r.table+"`") {
+			t.Errorf("%s is to be counted, not changed:\n%s", r.table, sql)
+		}
+	}
+}
+
+// TestPlanItemDeleteLive plans deleting an item the database's loot, shops and quests name, from
+// the server; it writes nothing.
+func TestPlanItemDeleteLive(t *testing.T) {
+	dir := testclient.ServerDir(t)
+	plan, err := PlanItemDelete(dir, 2589) // Linen Cloth: dropped by creatures and asked for by quests
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", plan)
+	tables := map[string]int{}
+	for _, r := range plan.Rows {
+		tables[r.Table] = r.Count
+	}
+	if plan.Name != "Linen Cloth" || tables["item_template"] < 1 || tables["creature_loot_template"] < 1 || len(plan.Quests) == 0 {
+		t.Fatalf("plan %+v", plan)
+	}
+}
+
 // TestItemsLive reads an item, exports it, plans its import and dresses a character in it, from
 // the server and client. It needs VMANGOS_DIR (database running) and WOW_DIR, and writes nothing.
 func TestItemsLive(t *testing.T) {

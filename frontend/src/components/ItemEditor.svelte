@@ -1,7 +1,22 @@
 <script lang="ts">
 	import { createSearch } from '../lib/ui/search.svelte'
 	import { copyItems } from '../lib/ui/copyId'
-	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItemsSorted } from '../lib/wails/App'
+	import {
+		CreateItem,
+		CreateItemOfKind,
+		DeleteItem,
+		ExportItems,
+		ImportItems,
+		ItemDisplayVariant,
+		ItemModelLook,
+		ListItemKinds,
+		OpenItemsDialog,
+		PlanItemDelete,
+		PlanItemImport,
+		ReadItemTemplate,
+		SaveItem,
+		SearchItemsSorted,
+	} from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
@@ -50,12 +65,16 @@
 			pendingIcon = ''
 			pendingVisual = -1
 			changing = ''
+			deletePlan = null
 		},
 		onrevert: () => {
 			pendingIcon = ''
 			pendingVisual = -1
 		},
-		onclose: () => (plan = null),
+		onclose: () => {
+			plan = null
+			deletePlan = null
+		},
 	})
 	ed.follow(() => target)
 	const record = $derived(ed.record)
@@ -128,6 +147,50 @@
 			(col) => (tab = tabOfColumn(tabs, col) ?? tab),
 		)
 	}
+
+	// Delete (#676): read what goes (rows of each table, quests that name the item, what is left
+	// naming it, characters that own one), ask, then remove it; nothing is written before the
+	// confirmation. Characters' items are only counted.
+	let deletePlan = $state<vmangos.ItemDeletePlan | null>(null)
+	let deleting = $state(false)
+
+	async function askDelete() {
+		if (!record) return
+		plan = null
+		ed.error = ''
+		ed.note = ''
+		try {
+			deletePlan = await PlanItemDelete(record.entry)
+		} catch (err) {
+			ed.error = String(err)
+		}
+	}
+
+	async function confirmDelete() {
+		if (!record || !deletePlan) return
+		const entry = record.entry
+		const name = deletePlan.name || `item ${entry}`
+		deleting = true
+		ed.error = ''
+		try {
+			await DeleteItem(entry)
+			forgetItems([entry])
+			forgetLooks()
+			deletePlan = null
+			pendingIcon = ''
+			pendingVisual = -1
+			ui.itemEditor = { entry: 0 }
+			ed.note = `Deleted item ${entry}, ${name}, from the world database. Restart the world server for the server to drop it.`
+			setStatus(ed.note, 10000)
+		} catch (err) {
+			ed.error = String(err)
+		} finally {
+			deleting = false
+		}
+	}
+
+	/** A count of rows of a table, as the confirmation lists it. */
+	const rowsOf = (r: vmangos.QuestDeleteCount) => `${r.count} ${r.count === 1 ? 'row' : 'rows'} of ${r.table}`
 
 	// Find: items by name or entry.
 	let query = $state('')
@@ -240,6 +303,7 @@
 	let importing = $state(false)
 
 	function askImport() {
+		deletePlan = null
 		planImport(ed, { pick: OpenItemsDialog, plan: PlanItemImport, set: (p) => (plan = p) })
 	}
 
@@ -436,6 +500,7 @@
 	function back(): boolean {
 		if (changing) endChange()
 		else if (plan) plan = null
+		else if (deletePlan) deletePlan = null
 		else return false
 		return true
 	}
@@ -462,9 +527,32 @@
 				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
 					{ed.saving ? 'Saving…' : unsaved ? `Save item (${changeCount + lookChanges})` : 'Saved'}
 				</button>
+				<button class="danger" disabled={ed.saving || deleting} onclick={askDelete} title="Remove this item from the world database">Delete item…</button>
 			{/if}
 		{/snippet}
 		{#snippet bars()}
+			{#if deletePlan && record}
+				<div class="bar warn plan">
+					<div class="what">
+						<strong>Delete {deletePlan.name || 'item'} (item {record.entry}) from the world database?</strong>
+						<span>Removes {deletePlan.rows.map(rowsOf).join(', ')}.</span>
+						{#if deletePlan.quests.length}
+							<span>Quests that name it lose that item (set to 0, with its count): {deletePlan.quests.map((q) => `${q.title || 'quest'} (${q.quest}: ${q.columns.join(', ')})`).join('; ')}.</span>
+						{/if}
+						{#if deletePlan.kept.length}
+							<span>Left naming a missing item: {deletePlan.kept.map(rowsOf).join(', ')}.</span>
+						{/if}
+						{#if deletePlan.characters > 0}
+							<span>{deletePlan.characters} {deletePlan.characters === 1 ? 'character owns' : 'characters own'} one (carried, banked or in the mail). Their items are not touched.</span>
+						{:else if deletePlan.characters < 0}
+							<span>The characters database could not be read, so characters that own one are not counted.</span>
+						{/if}
+						<span>Unsaved changes to this item are lost. This cannot be undone, unless you exported it first.</span>
+					</div>
+					<button onclick={() => (deletePlan = null)}>Keep it</button>
+					<button class="danger" disabled={deleting} onclick={confirmDelete}>{deleting ? 'Deleting…' : 'Delete item'}</button>
+				</div>
+			{/if}
 			{#if plan}
 				<div class="bar warn plan">
 					<div class="what">

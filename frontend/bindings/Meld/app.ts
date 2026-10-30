@@ -290,6 +290,14 @@ export function DeleteConditionText(entry: number, textID: number): $Cancellable
 }
 
 /**
+ * DeleteItem removes item template entry and the shop and loot rows that name it, clears the quest
+ * columns that name it, and returns the SQL.
+ */
+export function DeleteItem(entry: number): $CancellablePromise<string> {
+    return $Call.ByID(2740355289, entry);
+}
+
+/**
  * DeleteQuest removes quest entry and its relation, script and translation rows, and returns the SQL.
  */
 export function DeleteQuest(entry: number): $CancellablePromise<string> {
@@ -994,6 +1002,13 @@ export function OpenTextDialog(): $CancellablePromise<string> {
  */
 export function OtherClientStatus(): $CancellablePromise<wow$0.Status> {
     return $Call.ByID(1038336184);
+}
+
+/**
+ * PlanItemDelete lists what deleting item entry removes and leaves dangling, changing nothing.
+ */
+export function PlanItemDelete(entry: number): $CancellablePromise<vmangos$0.ItemDeletePlan> {
+    return $Call.ByID(1627081190, entry);
 }
 
 /**

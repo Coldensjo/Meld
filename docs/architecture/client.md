@@ -705,7 +705,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   existing ones) and writes it on confirmation (`ImportItems`, each value checked by `sqlValue`).
   The script code is shared with the spell editor's (`internal/vmangos/sqlscript.go`: a
   `scriptTable` names the table and its second key, `patch` or `build`).
-  Save and Import mark the items stale (`game.Stale.AddItem`), so the client's `itemcache.wdb` and
+  Delete item… (#676, `PlanItemDelete`, `DeleteItem` in `internal/vmangos/items.go`) asks first with
+  the plan: the rows it removes by table (`itemDeleteRows`: the `npc_vendor` and
+  `npc_vendor_template` rows that sell it, the loot rows that drop it, a reference row being left
+  alone, since its `item` is the list's id; its own `item_loot_template` contents, `locales_item`,
+  `item_required_target`, and every patch row of `item_template`), the quests whose item columns
+  name it (cleared to 0 with their counts, the owner's choice: clear links as the quest delete does),
+  the rows left naming a missing item (`itemKeptRows`: creature equipment, starting and premade
+  items, the auction bot) and how many characters own one (`item_instance`, only counted). The
+  world tables are MyISAM, so the script is not atomic: `item_template` goes last, and a delete that
+  stops part way leaves the item to delete again.
+  Save, Import and Delete mark the items stale (`game.Stale.AddItem`), so the client's `itemcache.wdb` and
   `itemnamecache.wdb` drop them, and forget the session's rows and names (`forgetItemRow`, `forgetName`).
 - **Icons beside names** (#682): an item shows `ItemIcon` (its display, or an icon by name), a spell
   `SpellIcon` (its SpellIcon.dbc path), and a thing known only by its number `RefIcon` (looks the name

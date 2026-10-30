@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"Meld/internal/wow"
@@ -85,6 +86,167 @@ func forgetWeapons() {
 	clear(weaponsCache)
 	weaponsMu.Unlock()
 	forgetItemDisplayUses()
+}
+
+// itemLootTables are the loot tables whose rows drop an item by its entry (`item`), unless the row is
+// a reference to a reference_loot_template list (a negative mincountOrRef), whose `item` is that
+// list's id, not an item.
+var itemLootTables = []string{
+	"creature_loot_template", "gameobject_loot_template", "item_loot_template", "pickpocketing_loot_template",
+	"skinning_loot_template", "fishing_loot_template", "disenchant_loot_template", "mail_loot_template",
+	"reference_loot_template",
+}
+
+// itemQuestColumns are the quest_template columns that name an item, each with the count column
+// beside it: the item a quest hands out at the start, the items it asks for (and drops for it), and
+// its rewards.
+var itemQuestColumns = [][2]string{
+	{"SrcItemId", "SrcItemCount"},
+	{"ReqItemId1", "ReqItemCount1"}, {"ReqItemId2", "ReqItemCount2"}, {"ReqItemId3", "ReqItemCount3"}, {"ReqItemId4", "ReqItemCount4"},
+	{"ReqSourceId1", "ReqSourceCount1"}, {"ReqSourceId2", "ReqSourceCount2"}, {"ReqSourceId3", "ReqSourceCount3"}, {"ReqSourceId4", "ReqSourceCount4"},
+	{"RewItemId1", "RewItemCount1"}, {"RewItemId2", "RewItemCount2"}, {"RewItemId3", "RewItemCount3"}, {"RewItemId4", "RewItemCount4"},
+	{"RewChoiceItemId1", "RewChoiceItemCount1"}, {"RewChoiceItemId2", "RewChoiceItemCount2"}, {"RewChoiceItemId3", "RewChoiceItemCount3"},
+	{"RewChoiceItemId4", "RewChoiceItemCount4"}, {"RewChoiceItemId5", "RewChoiceItemCount5"}, {"RewChoiceItemId6", "RewChoiceItemCount6"},
+}
+
+// itemDeleteRows are the rows deleting an item removes, by table and the WHERE that finds them: the
+// shops that sell it, the loot that drops it, its own contents (item_loot_template's list of the
+// item, as for a bag of loot), its translations and target rules, and last its item_template rows.
+// The tables are MyISAM, so the script is not one transaction: with the template last, a delete
+// that stops part way leaves the item to delete again.
+func itemDeleteRows(item int) []struct{ table, where string } {
+	rows := []struct{ table, where string }{
+		{"npc_vendor", fmt.Sprintf("`item` = %d", item)},
+		{"npc_vendor_template", fmt.Sprintf("`item` = %d", item)},
+	}
+	for _, t := range itemLootTables {
+		where := fmt.Sprintf("`item` = %d AND `mincountOrRef` >= 0", item)
+		if t == "item_loot_template" {
+			where = fmt.Sprintf("`entry` = %d OR (%s)", item, where)
+		}
+		rows = append(rows, struct{ table, where string }{t, where})
+	}
+	return append(rows,
+		struct{ table, where string }{"item_required_target", fmt.Sprintf("`entry` = %d", item)},
+		struct{ table, where string }{"locales_item", fmt.Sprintf("`entry` = %d", item)},
+		struct{ table, where string }{itemTable, fmt.Sprintf("`entry` = %d", item)})
+}
+
+// itemKeptRows are the rows that name an item which deleting it leaves alone, for the confirmation
+// to warn of: a creature's equipment, a new character's starting items, premade characters' gear,
+// and the auction house bot's list.
+func itemKeptRows(item int) []struct{ table, where string } {
+	return []struct{ table, where string }{
+		{"creature_equip_template", fmt.Sprintf("%[1]d IN (`item1`, `item2`, `item3`)", item)},
+		{"playercreateinfo_item", fmt.Sprintf("`itemid` = %d", item)},
+		{"player_premade_item", fmt.Sprintf("`item` = %d", item)},
+		{"auctionhousebot", fmt.Sprintf("`item` = %d", item)},
+	}
+}
+
+// deleteItemSQL deletes item's rows (itemDeleteRows) after clearing the quest columns that name it
+// (the item and its count set to 0), so the template goes last.
+func deleteItemSQL(item int) string {
+	var b strings.Builder
+	for _, c := range itemQuestColumns {
+		fmt.Fprintf(&b, "UPDATE `quest_template` SET `%[1]s` = 0, `%[2]s` = 0 WHERE `%[1]s` = %[3]d;\n", c[0], c[1], item)
+	}
+	for _, r := range itemDeleteRows(item) {
+		fmt.Fprintf(&b, "DELETE FROM `%s` WHERE %s;\n", r.table, r.where)
+	}
+	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// ItemDeletePlan is what deleting an item removes and leaves dangling, for the confirmation.
+type ItemDeletePlan struct {
+	Name string `json:"name"`
+	// Rows has the tables that lose rows (empty ones left out).
+	Rows []QuestDeleteCount `json:"rows"`
+	// Quests are the quests that name it; deleting clears those columns (and their counts) to 0.
+	Quests []QuestLink `json:"quests"`
+	// Kept has the tables whose rows name it and are left alone (itemKeptRows), empty ones left out.
+	Kept []QuestDeleteCount `json:"kept"`
+	// Characters is how many characters own one (carried, banked or in the mail), whose rows are
+	// left alone; -1 when the characters database could not be read.
+	Characters int `json:"characters"`
+}
+
+// PlanItemDelete reads what DeleteItem would remove and leave, changing nothing.
+func PlanItemDelete(serverRoot string, entry int) (ItemDeletePlan, error) {
+	plan := ItemDeletePlan{Rows: []QuestDeleteCount{}, Quests: []QuestLink{}, Kept: []QuestDeleteCount{}, Characters: -1}
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return plan, err
+	}
+	rec, err := ReadItemTemplate(serverRoot, entry)
+	if err != nil {
+		return plan, err
+	}
+	plan.Name = rec.Values["name"]
+	count := func(rows []struct{ table, where string }, into *[]QuestDeleteCount) error {
+		for _, r := range rows {
+			raw, err := runSQL(db, fmt.Sprintf("SELECT COUNT(*) FROM `%s` WHERE %s", r.table, r.where))
+			if err != nil {
+				return err
+			}
+			if n, _ := strconv.Atoi(strings.TrimSpace(string(raw))); n > 0 {
+				*into = append(*into, QuestDeleteCount{r.table, n})
+			}
+		}
+		return nil
+	}
+	if err := count(itemDeleteRows(entry), &plan.Rows); err != nil {
+		return plan, err
+	}
+	if err := count(itemKeptRows(entry), &plan.Kept); err != nil {
+		return plan, err
+	}
+	var parts []string
+	for _, c := range itemQuestColumns {
+		parts = append(parts, fmt.Sprintf("SELECT q.`entry`, '%[1]s', COALESCE((SELECT t.`Title` FROM `quest_template` t WHERE t.`entry` = q.`entry` ORDER BY t.`patch` DESC LIMIT 1), '') "+
+			"FROM `quest_template` q WHERE q.`%[1]s` = %[2]d", c[0], entry))
+	}
+	raw, err := runSQL(db, strings.Join(parts, " UNION ")+" ORDER BY 1")
+	if err != nil {
+		return plan, err
+	}
+	for _, f := range batchRows(raw, 3) {
+		q, _ := strconv.Atoi(f[0])
+		if n := len(plan.Quests); n > 0 && plan.Quests[n-1].Quest == q {
+			plan.Quests[n-1].Columns = append(plan.Quests[n-1].Columns, f[1])
+			continue
+		}
+		plan.Quests = append(plan.Quests, QuestLink{Quest: q, Title: f[2], Columns: []string{f[1]}})
+	}
+	if cdb, err := confDatabase(serverRoot, "CharacterDatabase.Info"); err == nil {
+		if raw, err := runSQL(cdb, fmt.Sprintf("SELECT COUNT(DISTINCT owner_guid) FROM item_instance WHERE item_id = %d", entry)); err == nil {
+			if n, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil {
+				plan.Characters = n
+			}
+		}
+	}
+	return plan, nil
+}
+
+// DeleteItem removes item template entry from the world database (every patch row, its
+// translations, contents and target rules), the shop and loot rows that name it, and clears the
+// quest columns that name it, and returns the SQL. Characters' items are left alone.
+func DeleteItem(serverRoot string, entry int) (string, error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return "", err
+	}
+	if have, err := knownEntries(db, itemTable, []int{entry}); err != nil {
+		return "", err
+	} else if !have[entry] {
+		return "", fmt.Errorf("the world database has no item %d", entry)
+	}
+	sql := deleteItemSQL(entry)
+	if err := runScript(db, sql); err != nil {
+		return "", err
+	}
+	forgetWeapons()
+	return sql, nil
 }
 
 // ExportItems is an SQL script that puts items back as they are now: every patch row of each

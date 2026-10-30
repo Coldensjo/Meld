@@ -57,6 +57,7 @@ export type IconSpells = V2<M.IconSpells>
 export type Inventory = V2<M.Inventory>
 export type InventoryItem = V2<M.InventoryItem>
 export type InventoryTemplate = V2<M.InventoryTemplate>
+export type ItemDeletePlan = V2<M.ItemDeletePlan>
 export type ItemDisplayEntry = V2<M.ItemDisplayEntry>
 export type ItemImport = V2<M.ItemImport>
 export type ItemImportRow = V2<M.ItemImportRow>

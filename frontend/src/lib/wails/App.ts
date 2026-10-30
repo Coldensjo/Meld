@@ -53,6 +53,7 @@ export const CreateSpell: Call<AppApi['CreateSpell']> = (...a) => api().CreateSp
 export const DeleteAccount: Call<AppApi['DeleteAccount']> = (...a) => api().DeleteAccount(...a) as never
 export const DeleteCharacter: Call<AppApi['DeleteCharacter']> = (...a) => api().DeleteCharacter(...a) as never
 export const DeleteConditionText: Call<AppApi['DeleteConditionText']> = (...a) => api().DeleteConditionText(...a) as never
+export const DeleteItem: Call<AppApi['DeleteItem']> = (...a) => api().DeleteItem(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never
 export const DisconnectExternalDatabase: Call<AppApi['DisconnectExternalDatabase']> = (...a) => api().DisconnectExternalDatabase(...a) as never
@@ -146,6 +147,7 @@ export const OpenReferenceImageDialog: Call<AppApi['OpenReferenceImageDialog']> 
 export const OpenSpellsDialog: Call<AppApi['OpenSpellsDialog']> = (...a) => api().OpenSpellsDialog(...a) as never
 export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().OpenTextDialog(...a) as never
 export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
+export const PlanItemDelete: Call<AppApi['PlanItemDelete']> = (...a) => api().PlanItemDelete(...a) as never
 export const PlanItemImport: Call<AppApi['PlanItemImport']> = (...a) => api().PlanItemImport(...a) as never
 export const PlanQuestDelete: Call<AppApi['PlanQuestDelete']> = (...a) => api().PlanQuestDelete(...a) as never
 export const PlanSpellImport: Call<AppApi['PlanSpellImport']> = (...a) => api().PlanSpellImport(...a) as never

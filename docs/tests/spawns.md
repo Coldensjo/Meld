@@ -684,6 +684,15 @@ Import or New item.
   results with `ilvl N` on the right and falling levels (100 first), then Name again shows entries;
   the probe puts the user's sort prefs back. `TestItemOrder` (the whitelisted ORDER BY) and, with
   the world database, `TestSearchItemsSortedFromDatabase`.
+- Delete (#676): `TestDeleteItemSQL` checks the SQL (quest columns cleared with their counts, the
+  shop and loot rows, a loot reference row left, `item_template` last); with the world database,
+  `TestPlanItemDeleteLive` plans Linen Cloth (2589: creature loot, quests, nothing written). The
+  probe `item-editor` opens Delete item… on the Blackened Defias Belt (10403), reads the plan's bar
+  (1 row of `reference_loot_template`, `locales_item`, `item_template`) and presses Keep it; the
+  sandbox refuses `DeleteItem` (`app_sandbox_test.go`), so a probe can't delete. A real delete by a
+  scratch Go test (not kept): `CreateItem`, a `npc_vendor` and `creature_loot_template` row under the
+  unused creature 9999999, `PlanItemDelete` listed both, `DeleteItem` left no row, `SearchItems`
+  found nothing, and a second `DeleteItem` was refused. Test with a made item only: the delete is real.
 - New item from a kind: the probe opens New item…, picks Weapon › "Bow · Ranged (bow) (124)" and reads
   its explanation (it makes nothing). `TestUsualItemValues` (a tie takes the lower, delay and
   durability the middle, the INSERT); with `VMANGOS_DIR`, `TestItemKindsLive` (117 kinds; a bow:

@@ -56,6 +56,7 @@ export type {
     Inventory,
     InventoryItem,
     InventoryTemplate,
+    ItemDeletePlan,
     ItemDisplayEntry,
     ItemImport,
     ItemImportRow,

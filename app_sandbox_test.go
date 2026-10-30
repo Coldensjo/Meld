@@ -44,6 +44,7 @@ func TestSandboxRefusesWorldDatabaseWrites(t *testing.T) {
 		"CreateObject":        func() error { _, err := a.CreateObject(0, "Probe"); return err },
 		"CreateQuest":         func() error { _, err := a.CreateQuest(0, "Probe"); return err },
 		"DeleteQuest":         func() error { _, err := a.DeleteQuest(-1); return err },
+		"DeleteItem":          func() error { _, err := a.DeleteItem(-1); return err },
 		"ImportItems":         func() error { _, err := a.ImportItems(missing); return err },
 		"ImportSpells":        func() error { _, err := a.ImportSpells(missing); return err },
 		"SaveSpell":           func() error { _, err := a.SaveSpell(-1, 0, nil, "", nil); return err },
