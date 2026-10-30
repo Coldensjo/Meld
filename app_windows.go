@@ -11,8 +11,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-// Tool windows as their own OS windows (#909, #861): a tool window (History, the Inspector (#910), and later
-// the template editors) opens as a Wails window loading the page with `?window=<kind>`, which
+// Tool windows as their own OS windows (#909, #861): a tool window (History, the Inspector (#910), the
+// doodad brush editor (#911), and later the template editors) opens as a Wails window loading the page with `?window=<kind>`, which
 // main.ts mounts as a light shell without the Engine (components/toolwin/ToolShell.svelte). It is its
 // own JavaScript context, so it talks to the main page over events (lib/toolwin/channel.ts). The
 // browser page (server mode) has no native windows: OpenToolWindow answers false there and the page
@@ -29,6 +29,8 @@ type toolWindowKind struct {
 var toolWindowKinds = map[string]toolWindowKind{
 	"history":   {title: "History", width: 300, height: 520, minWidth: 220, minHeight: 200},
 	"inspector": {title: "Inspector", width: 320, height: 640, minWidth: 260, minHeight: 240},
+	// The doodad brush editor (#911): the model picker beside the brush, as wide as it was full screen.
+	"doodad-brushes": {title: "Doodad brushes", width: 1440, height: 880, minWidth: 1000, minHeight: 520},
 }
 
 // toolWindowPrefix starts the Wails name of every tool window, followed by its kind.

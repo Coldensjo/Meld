@@ -113,7 +113,7 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
   and the press puts it down first. Shift ignores the spacing so models stack;
   Ctrl+drag erases the brush's models. A stroke is one undo step. Brushes are `prefs.doodadBrushes` (the pick is
   `prefs.doodadBrush`), edited in the brush editor (`DoodadBrushEditor.svelte`, `ui.brushEditor`), a
-  full-screen window like the creature editor with its own model picker over the shared catalog
+  full-screen window like the creature editor (in the desktop app its own OS window, #911, docs/architecture/ui.md) with its own model picker over the shared catalog
   index (`lib/wow/catalogIndex.ts`); while the tool is active, a model picked in the asset browser
   also joins the brush instead of being placed.
   Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through Import/Export › Import /

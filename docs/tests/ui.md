@@ -142,6 +142,34 @@ it: it closes, and Edit › Inspector's check clears.
   or `editor` directly shows nothing there; give it to `InspectorView` (`inspectorHost.ts`). The doodad
   set names are the one thing the panel asks Go for itself (`WMODoodadSets`, a binding any window has).
 
+## The doodad brush editor as its own OS window (#911, probe `brush-editor`)
+
+Checks: in the desktop app World › Doodad Brushes… (or Edit brush… in the Doodad tool's options bar) opens
+the brush editor as its own OS window, titled Doodad brushes, on the tool-window plumbing of #909 (above).
+Its edits reach the main page's `prefs` at once (the Doodad Brush tool paints with them, and they are saved
+there), the thumbnails missing from the disk cache are rendered by the main page, and Esc in it (not in a
+field) closes it. On the browser page it covers the page: the probe `brush-editor` checks that editor (New,
+two model tiles added with their ✓, a typed weight kept in prefs, Esc closes, Paint with it closes and
+picks the Doodad tool). The commands, the thumbnail reply, the store helpers and the window's sync (a view
+older than its last edit dropped): `bun test tests/doodadBrushWindow.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+open World › Doodad Brushes…, click New, click two models on the left, drag one's Weight slider, then paint
+with the Doodad Brush in the main window (the new models are placed). Scroll the picker far down: the tiles
+fill in (rendered by the main window). Close Meld and reopen it: the brush kept its edits.
+
+- Without a hand at the desktop (#911's check): the scratch route of "History as its own OS window", with
+  the main page's `DoodadBrushWindow` onMount setting `ui.brushEditor` after ~9 s and `fetch`ing
+  `/wow/scratch-main?n=..&e=..&w=..` every 2 s (brush count, the active brush's entries and first weight),
+  and the window clicking New, two tiles, typing weight 42, scrolling the grid far down, putting the
+  original brushes back and pressing Escape, one step every 1.5 s, logging `/wow/scratch-win?...` with the
+  thumbnails it asked of the main page and got. The log showed the main page at 5 brushes, 2 entries, weight
+  42, then 4 brushes again, 5 thumbnails asked and made, and `open=false` after Escape. Back up
+  `%APPDATA%\Meld\config.json` first: the run's brushes and the window's place are saved there.
+- Traps: the window draws only what the main page publishes; until the first view comes it holds no
+  brushes and must not send any (`ready`), or its empty list would replace the user's. `prefs` in the
+  window's page are defaults (only `browserNames` and `fpsLimit` are copied from the view) and are never saved.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway

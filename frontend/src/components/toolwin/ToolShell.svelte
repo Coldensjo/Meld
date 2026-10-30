@@ -7,12 +7,20 @@
 	// page publishes over the channel (lib/toolwin) and sends its commands back.
 
 	let { kind }: { kind: string } = $props()
+
+	// The brush editor brings three.js (its model preview) and the client's model list, so it is imported only
+	// in its own window, and History's and the Inspector's stay light.
+	const brushEditor = () => import('./DoodadBrushToolWindow.svelte')
 </script>
 
 {#if kind === 'history'}
 	<HistoryToolWindow />
 {:else if kind === 'inspector'}
 	<InspectorToolWindow />
+{:else if kind === 'doodad-brushes'}
+	{#await brushEditor() then m}
+		<m.default />
+	{/await}
 {:else}
 	<p class="unknown">No tool window called “{kind}”.</p>
 {/if}

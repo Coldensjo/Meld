@@ -9,6 +9,8 @@
 export const STATE_EVENT = 'toolwin:state'
 /** The event a tool window sends its commands on: a {@link CommandMessage}. */
 export const COMMAND_EVENT = 'toolwin:cmd'
+/** The event the main page answers one of a tool window's requests on (#911: a thumbnail made): `{ kind, reply }`. */
+export const REPLY_EVENT = 'toolwin:reply'
 /** The event Go sends when a tool window closes (its close button, or CloseToolWindow): `{ kind }`. */
 export const CLOSED_EVENT = 'toolwin:closed'
 /** The event Go sends an open tool window when it is opened again with new arguments: `{ kind, args }`. */
@@ -55,6 +57,12 @@ export function commandMessage(kind: string, cmd: ToolCommand): CommandMessage {
 export function readCommand(data: unknown, kind: string): ToolCommand | null {
 	if (!isObject(data) || data.kind !== kind || !isObject(data.cmd) || typeof data.cmd.type !== 'string') return null
 	return data.cmd as ToolCommand
+}
+
+/** The reply if `data` is a reply message for `kind` (REPLY_EVENT), else null. */
+export function readReply(data: unknown, kind: string): Record<string, unknown> | null {
+	if (!isObject(data) || data.kind !== kind || !isObject(data.reply)) return null
+	return data.reply
 }
 
 /** Whether `data` is Go's message that the tool window of `kind` closed (CLOSED_EVENT), or its new arguments (ARGS_EVENT). */

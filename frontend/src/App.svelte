@@ -32,7 +32,7 @@
 	import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
 	import SignSwapWindow from './components/SignSwapWindow.svelte'
 	import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
-	import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
+	import DoodadBrushWindow from './components/DoodadBrushWindow.svelte'
 	import Inspector from './components/Inspector.svelte'
 	import HistoryWindow from './components/HistoryWindow.svelte'
 	import ScriptWindow from './components/ScriptWindow.svelte'
@@ -196,7 +196,7 @@
 		const engine = engineRef.current
 		const route = keyRoute(e, {
 			blocked: !engine || ui.showNewDialog || !!ui.dialog || ui.signSwap,
-			brushEditor: ui.brushEditor,
+			brushEditor: ui.brushEditor && !ui.brushEditorWindow,
 			modelPreview: !!ui.modelPreview,
 			inspector: ui.inspector,
 			databaseEditor: !!(ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool || ui.soundsTool || ui.characterEditor),
@@ -289,7 +289,7 @@
 {#if CharacterEditor}{@const Editor = CharacterEditor}<Editor />{/if}
 <ModelPreviewWindow />
 {#if ui.signSwap}<SignSwapWindow />{/if}
-<DoodadBrushEditor />
+<DoodadBrushWindow />
 <AppDialogs />
 <SavingBar />
 <ContextMenu />

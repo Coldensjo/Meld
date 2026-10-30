@@ -65,6 +65,34 @@ export function newBrush(name = 'New brush'): DoodadBrush {
 	return { name, spacing: 1, entries: [] }
 }
 
+/**
+ * Where the brushes are kept and which one is painted with: `prefs` on the main page, the brush
+ * editor's own copy in its OS window (#911, lib/toolwin/doodadBrushes.ts), which the main page then takes.
+ */
+export interface BrushStore {
+	doodadBrushes: DoodadBrush[]
+	doodadBrush: string
+}
+
+/** The store's brush painted with: its pick, else the first one; null with none made. */
+export function activeBrushIn(store: BrushStore): DoodadBrush | null {
+	const list = store.doodadBrushes
+	return list.find((b) => b.name === store.doodadBrush) ?? list[0] ?? null
+}
+
+/** Adds a new, empty brush to the store under a free name and picks it. Returns the stored (reactive) brush. */
+export function addBrushTo(store: BrushStore, name = 'New brush'): DoodadBrush {
+	const b = newBrush(
+		uniqueName(
+			name,
+			store.doodadBrushes.map((x) => x.name),
+		),
+	)
+	store.doodadBrushes = [...store.doodadBrushes, b]
+	store.doodadBrush = b.name
+	return store.doodadBrushes[store.doodadBrushes.length - 1]
+}
+
 export function newRules(): PlacementRules {
 	return { slope: [0, 90], height: null, aboveSea: false, onTextures: [], offTextures: [], textureMin: 0.5, avoidWater: false, avoidHoles: true }
 }

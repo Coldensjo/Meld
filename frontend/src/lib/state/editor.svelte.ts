@@ -630,6 +630,8 @@ export const ui = $state({
 	characterEditor: null as { account: number; guid: number } | null,
 	/** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
 	brushEditor: false,
+	/** It shows in its own OS window (#911), so the main window's keys still reach the map. */
+	brushEditorWindow: false,
 	/** The game Meld closes and opens around an export (Preferences › Game): Wow.exe or Benilla. */
 	gameClient: 'wow' as 'wow' | 'benilla',
 	/** How the game's window opens when Meld starts it (Preferences › Game): '' the game's own setting. */

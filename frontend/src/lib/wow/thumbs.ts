@@ -40,11 +40,50 @@ async function fromCache(key: string): Promise<string | null> {
 	}
 }
 
+/** The disk writes still going, by key, so {@link thumbOnDisk} can wait for one. */
+const writing = new Map<string, Promise<boolean>>()
+
 // Stored through a Go binding: request bodies on the custom scheme crash WebKitGTK.
 function toCache(key: string, blob: Blob) {
-	blob.arrayBuffer()
+	const done = blob
+		.arrayBuffer()
 		.then((b) => SaveThumbnail(VERSION + '|' + key, bytesToBase64(new Uint8Array(b))))
-		.catch((err) => console.warn('thumbnail cache write failed', key, err))
+		.then(
+			() => true,
+			(err) => {
+				console.warn('thumbnail cache write failed', key, err)
+				return false
+			},
+		)
+		.finally(() => writing.delete(key))
+	writing.set(key, done)
+}
+
+/**
+ * Makes the thumbnail of `key` (a model or prefab) and resolves true once it is in the disk cache, false
+ * if it could not be made or written: how the main page renders one for a tool window that has no
+ * renderer of its own (#911). Through the queue, so it waits its turn behind the tiles on screen.
+ */
+export function thumbOnDisk(key: string): Promise<boolean> {
+	return new Promise((resolve) => {
+		queue.request(
+			key,
+			0,
+			() => void (writing.get(key) ?? Promise.resolve(true)).then(resolve),
+			() => resolve(false),
+		)
+	})
+}
+
+/**
+ * Where a page without the Engine gets the thumbnails missing from the disk cache: a tool window's
+ * page (#911) asks the main page to render them, and then reads them from the cache. Null on the main page.
+ */
+let remoteRender: ((key: string) => Promise<boolean>) | null = null
+
+/** Makes this page's thumbnails come from the disk cache, the missing ones rendered by `render` (a tool window's page). */
+export function renderThumbsElsewhere(render: (key: string) => Promise<boolean>) {
+	remoteRender = render
 }
 
 // --- model rendering --------------------------------------------------------
@@ -183,6 +222,11 @@ async function produce(key: string): Promise<string> {
 	if (key.startsWith('tex:')) return texturePreview(key.slice(4), SIZE)
 	const cached = await fromCache(key)
 	if (cached) return cached
+	if (remoteRender) {
+		const made = (await remoteRender(key)) ? await fromCache(key) : null
+		if (!made) throw new Error('no thumbnail')
+		return made
+	}
 	const prefab = key.startsWith('prefab:') ? prefabs.get(key) : null
 	if (key.startsWith('prefab:') && !prefab) throw new Error('unknown prefab')
 	const blob = prefab ? await renderPrefab(prefab) : await renderModel(key)

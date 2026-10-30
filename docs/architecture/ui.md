@@ -185,6 +185,19 @@ The window layout, the asset browser and the dock panels and floating windows.
       window once its hook (the unsaved-maps check, main window only) lets the close through, since
       Wails quits only when the last window has closed; `Quit` saves their places first. A tool window
       with unsaved edits of its own would ask in its `WindowClosing` hook (`OpenToolWindow`).
+    - The doodad brush editor (#911, kind `doodad-brushes`): `DoodadBrushWindow.svelte` hosts it on the
+      main page (in the page, or feeding the window), `components/toolwin/DoodadBrushToolWindow.svelte` is the
+      window, and both draw `DoodadBrushEditor.svelte` on a `BrushStore` (`prefs` in the page, the window's
+      copy there). The main page stays the brushes' one writer: the window sends its whole copy as a
+      numbered `set` (throttled to 50 ms, flushed on close), the main page takes it into `prefs` (saved as
+      any preference, so the Doodad Brush tool paints with it at once) and publishes it back with that
+      number as `ack`, and the window drops a view older than its last edit (`BrushSync`,
+      `lib/toolwin/doodadBrushes.ts`). The window has no Engine: `renderThumbsElsewhere` makes its
+      `thumbs.ts` read the disk cache and send a `thumb` command for a missing one, which the main page
+      renders (`thumbOnDisk`) and answers on `toolwin:reply`; the window then reads the cache again.
+      Import, Export, Paint with it and status lines are commands the main page runs. `ui.brushEditorWindow`
+      lets the main window's keys reach the map while the editor is in its own window. `ToolShell`
+      imports it lazily, since it brings three.js (the preview), so History and the Inspector stay light.
     - Traps: `a.win` stays the main window (titles, and the file dialogs, which come up over it even
       when a tool window asked). `window.open` is not an option: Wails v3.0.0 handles neither
       WebView2's `NewWindowRequested` nor WebKitGTK's `create`, so it returns null on Linux.

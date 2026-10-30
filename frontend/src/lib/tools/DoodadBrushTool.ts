@@ -9,28 +9,19 @@ import { GhostPool } from './ghosts'
 import { grow } from './typedArray'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { placementEuler } from '../world/placement'
-import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush } from './doodadBrush'
+import { MAX_ATTEMPTS, SpacingGrid, activeBrushIn, addBrushTo, attemptRate, candidate, fillAttempts, fits, fitsOn, pickEntry, rulesAllow, type DoodadBrush } from './doodadBrush'
 import { ToolGround } from './toolGround'
 import { InputsKey } from './inputsKey'
 import type { SpawnBrushTool } from './SpawnBrushTool'
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
 export function activeDoodadBrush(): DoodadBrush | null {
-	const list = prefs.doodadBrushes
-	return list.find((b) => b.name === prefs.doodadBrush) ?? list[0] ?? null
+	return activeBrushIn(prefs)
 }
 
 /** Adds a new, empty brush under a free name and makes it the one painted with. Returns the stored (reactive) brush. */
 export function addDoodadBrush(name = 'New brush'): DoodadBrush {
-	const b = newBrush(
-		uniqueName(
-			name,
-			prefs.doodadBrushes.map((x) => x.name),
-		),
-	)
-	prefs.doodadBrushes = [...prefs.doodadBrushes, b]
-	prefs.doodadBrush = b.name
-	return prefs.doodadBrushes[prefs.doodadBrushes.length - 1]
+	return addBrushTo(prefs, name)
 }
 
 /** Models with a footprint under this are spaced as if this wide, so tufts of grass don't pile onto one spot. */

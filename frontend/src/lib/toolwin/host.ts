@@ -5,7 +5,7 @@ import { prefs } from '../state/editor.svelte'
 import { uiZoom } from '../ui/uiScale'
 import { CloseToolWindow, OpenToolWindow } from '../wails/App'
 import { EventsBroadcast, EventsOn, serverMode } from '../wails/runtime'
-import { CLOSED_EVENT, COMMAND_EVENT, STATE_EVENT, isFor, readCommand, stateMessage, type ToolCommand, type ToolLook } from './channel'
+import { CLOSED_EVENT, COMMAND_EVENT, REPLY_EVENT, STATE_EVENT, isFor, readCommand, stateMessage, type ToolCommand, type ToolLook } from './channel'
 
 /**
  * Whether tool windows can open as their own OS windows: in the desktop app only. The browser page
@@ -39,6 +39,11 @@ export function currentLook(): ToolLook {
 /** Sends the tool window of `kind` its state. Call it when the state changes (throttled), never from the render loop. */
 export function publishToolState<S>(kind: string, state: S) {
 	void EventsBroadcast(STATE_EVENT, stateMessage(kind, state, currentLook()))
+}
+
+/** Answers a request of the tool window of `kind` (a command it waits on, such as a thumbnail to make). */
+export function sendToolReply(kind: string, reply: Record<string, unknown>) {
+	void EventsBroadcast(REPLY_EVENT, { kind, reply })
 }
 
 /** Calls `fn` with each command the tool window of `kind` sends; returns a function that stops listening. */

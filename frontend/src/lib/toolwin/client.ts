@@ -3,7 +3,7 @@
 // commands back. It must not load or save prefs, nor listen to the main page's events (App.svelte's).
 import { applyUiScale } from '../ui/uiScale'
 import { EventsBroadcast, EventsOn } from '../wails/runtime'
-import { ARGS_EVENT, COMMAND_EVENT, STATE_EVENT, commandMessage, isFor, readState, type StateMessage, type ToolCommand, type ToolLook } from './channel'
+import { ARGS_EVENT, COMMAND_EVENT, REPLY_EVENT, STATE_EVENT, commandMessage, isFor, readReply, readState, type StateMessage, type ToolCommand, type ToolLook } from './channel'
 
 /** Calls `fn` with each state the main page publishes for `kind`; returns a function that stops listening. */
 export function onToolState<S>(kind: string, fn: (msg: StateMessage<S>) => void): () => void {
@@ -17,6 +17,14 @@ export function onToolState<S>(kind: string, fn: (msg: StateMessage<S>) => void)
 export function onToolArgs(kind: string, fn: (args: Record<string, string>) => void): () => void {
 	return EventsOn(ARGS_EVENT, (data) => {
 		if (isFor(data, kind)) fn(((data as { args?: Record<string, string> | null }).args ?? {}) as Record<string, string>)
+	})
+}
+
+/** Calls `fn` with each reply the main page sends the tool window of `kind` (sendToolReply). */
+export function onToolReply(kind: string, fn: (reply: Record<string, unknown>) => void): () => void {
+	return EventsOn(REPLY_EVENT, (data) => {
+		const reply = readReply(data, kind)
+		if (reply) fn(reply)
 	})
 }
 
