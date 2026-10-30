@@ -10,6 +10,11 @@ export function WindowSetTitle(title: string): Promise<void> {
 	return Window.SetTitle(title)
 }
 
+/** Closes this page's window (a tool window's own close button, #909). */
+export function WindowClose(): Promise<void> {
+	return Window.Close()
+}
+
 export function WindowIsFullscreen(): Promise<boolean> {
 	return Window.IsFullscreen()
 }
@@ -27,7 +32,7 @@ export function BrowserOpenURL(url: string): Promise<void> {
 }
 
 /** Whether Go runs as the browser page (make dev-page, Wails' server mode), whose clipboard calls do nothing. */
-const serverMode = () => (globalThis as { __meldServerMode?: boolean }).__meldServerMode === true
+export const serverMode = () => (globalThis as { __meldServerMode?: boolean }).__meldServerMode === true
 
 // On the browser page the clipboard is the browser's. A write it refuses (no focus or permission, as in the
 // probes' headless Chrome) is kept here, and the next read gives it back.
@@ -53,6 +58,14 @@ export async function ClipboardSetText(text: string): Promise<void> {
 export function EventsEmit(name: string, data?: unknown) {
 	const w = window as Window & { _wails?: { dispatchWailsEvent?: (e: { name: string; data: unknown }) => void } }
 	w._wails?.dispatchWailsEvent?.({ name, data: data ?? null })
+}
+
+/**
+ * Sends an event through Go to every window's listeners (EventsOn), this page's too: how the main page and the
+ * tool windows talk (lib/toolwin/channel.ts, #909). Send plain objects; unregistered event data arrives as JSON.
+ */
+export function EventsBroadcast(name: string, data?: unknown): Promise<unknown> {
+	return Events.Emit(name, data ?? null)
 }
 
 // The probes and the browser console reach these as window.runtime, where v2's runtime put them: a probe

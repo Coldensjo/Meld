@@ -112,6 +112,50 @@ func (a *App) emit(name string, data ...any) {
 	}
 }
 
+// window is the open window named name (main.go's "main", a tool window's "tool-<kind>"), or nil.
+func (a *App) window(name string) *application.WebviewWindow {
+	if a.app == nil {
+		return nil
+	}
+	w, ok := a.app.Window.GetByName(name)
+	if !ok {
+		return nil
+	}
+	ww, _ := w.(*application.WebviewWindow)
+	return ww
+}
+
+// newWindow opens another window beside the main one (a tool window, app_windows.go).
+func (a *App) newWindow(o application.WebviewWindowOptions) *application.WebviewWindow {
+	return a.app.Window.NewWithOptions(o)
+}
+
+// toolWindows are the tool windows open now (app_windows.go); none without the app.
+func (a *App) toolWindows() []*application.WebviewWindow {
+	if a.app == nil {
+		return nil
+	}
+	var ws []*application.WebviewWindow
+	for _, w := range a.app.Window.GetAll() {
+		if ww, ok := w.(*application.WebviewWindow); ok && strings.HasPrefix(ww.Name(), toolWindowPrefix) {
+			ws = append(ws, ww)
+		}
+	}
+	return ws
+}
+
+// workAreas are the screens' work areas (without the taskbar), in device-independent pixels.
+func (a *App) workAreas() []application.Rect {
+	if a.app == nil {
+		return nil
+	}
+	var rs []application.Rect
+	for _, s := range a.app.Screen.GetAll() {
+		rs = append(rs, s.WorkArea)
+	}
+	return rs
+}
+
 // setTitle sets the window's title.
 func (a *App) setTitle(title string) {
 	if a.win != nil {

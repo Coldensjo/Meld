@@ -202,6 +202,13 @@ export function CloseProject(): $CancellablePromise<void> {
 }
 
 /**
+ * CloseToolWindow closes the tool window of kind if it is open as its own OS window.
+ */
+export function CloseToolWindow(kind: string): $CancellablePromise<void> {
+    return $Call.ByID(1501306925, kind);
+}
+
+/**
  * ConnectExternalDatabase points every database connection at the mangosd.conf at path, once its world
  * database answers. The editor calls it only after the user confirmed the warning.
  */
@@ -1026,6 +1033,15 @@ export function OpenSpellsDialog(): $CancellablePromise<string> {
  */
 export function OpenTextDialog(): $CancellablePromise<string> {
     return $Call.ByID(1146260322);
+}
+
+/**
+ * OpenToolWindow opens the tool window of kind as its own OS window, or brings it to the front and
+ * sends it args (the toolwin:args event) when it is open already. It answers false when there are no
+ * native windows (the browser page, the Go tests), and the page then opens its in-page window.
+ */
+export function OpenToolWindow(kind: string, args: { [_ in string]?: string } | null): $CancellablePromise<boolean> {
+    return $Call.ByID(144879371, kind, args);
 }
 
 /**

@@ -160,6 +160,34 @@ The window layout, the asset browser and the dock panels and floating windows.
     steps against `HISTORY_LIMIT` and the bytes they hold (`History.bytes`, the sum of each
     `Command.bytes`); `History` drops the oldest steps past the limit or past `History.budget`
     (`HISTORY_BYTES`, 256 MB), always keeping the newest (#444).
+    `HistoryList.svelte` draws its contents from a plain `HistoryView` (`lib/toolwin/history.ts`);
+    `HistoryWindow.svelte` builds the view from the Engine and shows it in the page, or, in the desktop
+    app, opens History as its own OS window (below) and feeds that.
+  - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History is the
+    first): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
+    window named `tool-<kind>` loading `/?window=<kind>&<args>`, or shows and focuses the open one and
+    sends it `toolwin:args`. `main.ts` mounts `components/toolwin/ToolShell.svelte` for `?window=`
+    instead of `App.svelte` (both imported dynamically, so the tool page loads about 80 KB, not the
+    editor): no Engine, no map, no prefs loaded or saved, none of App's event listeners. Each window
+    is its own JavaScript context, so it talks to the main page over Wails events (`lib/toolwin`:
+    `channel.ts` the message shapes, `host.ts` the main page's side, `client.ts` the window's):
+    `toolwin:state` `{kind, state, look}` from the main page (published on a change such as
+    `ui.historyVersion`, throttled to 100 ms, never per frame; `look` carries the theme and interface
+    size the window copies), `toolwin:cmd` `{kind, cmd}` back (`hello` on load asks for the state; the
+    rest are the kind's own, History's `go`), and Go's `toolwin:closed` `{kind}` when one closes, so
+    the main page clears its toggle. A page's `Events.Emit` (`EventsBroadcast` in
+    `lib/wails/runtime.ts`) reaches every window, the sender too, so every message names its kind.
+    - Fallback: `OpenToolWindow` answers false in server mode (the browser page) and without the app
+      (the Go tests); `nativeToolWindows()` skips the call there, and the page shows its in-page
+      window, so the probes are unchanged.
+    - Life: each window's place is saved on its close (`config.ToolWindows`, beside `Window`) and
+      reused when on a screen (`onScreen`); the main window's `WindowClosing` listener closes every tool
+      window once its hook (the unsaved-maps check, main window only) lets the close through, since
+      Wails quits only when the last window has closed; `Quit` saves their places first. A tool window
+      with unsaved edits of its own would ask in its `WindowClosing` hook (`OpenToolWindow`).
+    - Traps: `a.win` stays the main window (titles, and the file dialogs, which come up over it even
+      when a tool window asked). `window.open` is not an option: Wails v3.0.0 handles neither
+      WebView2's `NewWindowRequested` nor WebKitGTK's `create`, so it returns null on Linux.
   - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
     cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
     shader), an unused slot shown as an empty layer. With an area selected it is instead about every

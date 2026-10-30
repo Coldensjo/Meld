@@ -42,6 +42,7 @@ export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) =>
 export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) => api().ClearThumbnailCache(...a) as never
 export const ClientFilesWaiting: Call<AppApi['ClientFilesWaiting']> = (...a) => api().ClientFilesWaiting(...a) as never
 export const CloseProject: Call<AppApi['CloseProject']> = (...a) => api().CloseProject(...a) as never
+export const CloseToolWindow: Call<AppApi['CloseToolWindow']> = (...a) => api().CloseToolWindow(...a) as never
 export const ConnectExternalDatabase: Call<AppApi['ConnectExternalDatabase']> = (...a) => api().ConnectExternalDatabase(...a) as never
 export const CreateAccount: Call<AppApi['CreateAccount']> = (...a) => api().CreateAccount(...a) as never
 export const CreateCreature: Call<AppApi['CreateCreature']> = (...a) => api().CreateCreature(...a) as never
@@ -150,6 +151,7 @@ export const OpenReferenceImageDialog: Call<AppApi['OpenReferenceImageDialog']> 
 export const OpenSoundFileDialog: Call<AppApi['OpenSoundFileDialog']> = (...a) => api().OpenSoundFileDialog(...a) as never
 export const OpenSpellsDialog: Call<AppApi['OpenSpellsDialog']> = (...a) => api().OpenSpellsDialog(...a) as never
 export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().OpenTextDialog(...a) as never
+export const OpenToolWindow: Call<AppApi['OpenToolWindow']> = (...a) => api().OpenToolWindow(...a) as never
 export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
 export const PlanItemDelete: Call<AppApi['PlanItemDelete']> = (...a) => api().PlanItemDelete(...a) as never
 export const PlanItemImport: Call<AppApi['PlanItemImport']> = (...a) => api().PlanItemImport(...a) as never

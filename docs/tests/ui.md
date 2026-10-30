@@ -80,6 +80,34 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
 - Trap: this runs the owner's real app on their config; its session restore opens their tabs. Only
   edit an untitled map, and quit without saving.
 
+## History as its own OS window (#909, probe `history-window`)
+
+Checks: in the desktop app Edit › History opens History as its own OS window (the tool-window plumbing
+of #861, docs/architecture/ui.md), which follows the main window's edits, goes to a clicked step,
+reopens where it was left and closes with the main window. On the browser page it stays in the page:
+the probe `history-window` checks that fallback (the steps, the dimmed undone ones, a click going to a
+step, Close). The channel's messages and the throttle: `bun test tests/toolwin.test.ts`; the Go side
+without the app and the place check: `go test . -run ToolWindow`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+open Edit › History, make an edit in the main window (the list grows), click an earlier step (the map
+undoes to it and the status line says so), move and resize the window, close it with its ✕ (Edit ›
+History's check clears), reopen it (same place), then close the main window (History closes with it
+and the process ends; with an unsaved map the main window asks first and History stays open).
+
+- Without a hand at the desktop (#909's check, the screen was locked so clicks did nothing): build a
+  scratch copy whose main page pushes a few steps and sets `ui.history = true` after ~9 s, whose tool
+  window `fetch`es `/wow/scratch?n=<steps>&pos=<position>` on each state and sends a `go` once, start it
+  with `MELD_DEBUG_LOG=1` and read the session log's `asset GET` lines: `/?window=history`, the
+  `ToolShell` chunk, then the states before and after the `go`. The windows and their places are
+  readable from PowerShell (`EnumWindows` with `GetWindowRect` for the process id), and `PostMessage`
+  `WM_CLOSE` (0x10) to a window's handle is its ✕. Restore the scratch files and rebuild `frontend/dist`
+  afterwards, and delete the scratch sessions' `.alive` files in `%LOCALAPPDATA%\Meld\recovery`.
+- Traps: the place is saved in `config.json` (`toolWindows`), in device-independent pixels; one off
+  every screen (a monitor gone) is not used and the window opens centred. The tool window is its own
+  page: its console is not the main page's, and `MELD_DEBUG_LOG`'s console lines come from the main
+  page only.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway

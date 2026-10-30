@@ -25,6 +25,9 @@ type Config struct {
 	Prefs json.RawMessage `json:"prefs,omitempty"`
 	// Window is the main window's size when it was last closed.
 	Window Window `json:"window,omitempty"`
+	// ToolWindows is where each tool window opened as its own OS window (app_windows.go, #909) was
+	// last closed, by kind ("history").
+	ToolWindows map[string]Place `json:"toolWindows,omitempty"`
 	// GameClient is the game Meld closes and opens around an export: "" for the WoW client (Wow.exe),
 	// "benilla" for Benilla, the open-source 1.12.1 client, which reads the same install.
 	GameClient string `json:"gameClient,omitempty"`
@@ -45,6 +48,14 @@ type Window struct {
 	Width     int  `json:"width,omitempty"`
 	Height    int  `json:"height,omitempty"`
 	Maximised bool `json:"maximised,omitempty"`
+}
+
+// Place is a window's last position and size, in the desktop's device-independent pixels.
+type Place struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 // Login is a game account to log in with after a region export.
