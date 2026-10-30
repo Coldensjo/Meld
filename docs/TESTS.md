@@ -118,7 +118,9 @@ scratch folder and run it by path: `git show 03c23de4:frontend/probes/weather-wi
 then `bun run probe probes/scratch/ww-old.js --at 03c23de4`. Setting up adds about 25 seconds.
 
 Probe pages use `?nosave&nosession&defaults` to avoid restoring the normal editing session or
-persisting preferences. This does **not** isolate client writes by itself. A probe that writes client
+persisting preferences. So a pref a probe sets never reaches Go: a binding that reads a pref from
+`config.json` (as `App.buildMoveMaps` does) sees the owner's saved value, not the probe's. Pass such a
+setting to the binding as an argument instead (#894's `SpawnEditSQL` core). This does **not** isolate client writes by itself. A probe that writes client
 files must use `P.sandboxClient()` and check the `realUnchanged` field returned by
 `await P.endSandbox()`.
 The sandbox redirects the shared backend too; it is not safe to use while a person edits in that backend.
