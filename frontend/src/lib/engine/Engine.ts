@@ -54,7 +54,7 @@ import { RoadTool } from '../tools/RoadTool'
 import { WaterTool, waterOpacityFactor } from '../tools/WaterTool'
 import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
-import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
+import { TerrainStroke, brushCenter, type Rect } from '../tools/brush'
 import { editWholeMask, modifyMask } from '../tools/maskWand'
 import { copyPaths, newPath, RIVER_BANK, type MapPath } from '../terrain/paths'
 import { PathTool } from '../tools/PathTool'
@@ -65,16 +65,17 @@ import { ReferencePlacement } from './ReferencePlacement'
 import { ClientLighting, type LightZone } from './ClientLighting'
 import { MapIdentity, fileFrameOffset, tileOrigin } from './MapIdentity'
 import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/areaSelection'
-import { INSIDE, cellsInRect } from '../terrain/areaShape'
+import { cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
 import { ShadowStroke } from '../tools/shadowStroke'
-import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL, type ErodeSettings } from '../terrain/erodeArea'
+import * as ops from './terrainOps'
+import { areaVertexWeights, erodePatch, type ErodeSettings } from '../terrain/erodeArea'
 import { fadeFromEdge, shapePatch, smoothPatch, type SmoothAreaSettings } from '../terrain/smoothArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, tiltDeg } from '../tools/PlaceTool'
 import { SelectTool } from '../tools/SelectTool'
-import { addedCommand, groupTransformCommand, removedCommand, transformCommand } from '../world/objectCommands'
+import { addedCommand, groupTransformCommand, transformCommand } from '../world/objectCommands'
 import { EngineScriptHost } from './ScriptRun'
 import type { ScriptResult } from '../script/scriptApi'
 import { ScriptBrushes } from './ScriptBrushes'
@@ -96,7 +97,7 @@ import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, t
 
 /** A plain copy of the zone and tile effect choices (they may be Svelte proxies). */
 const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
-import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
+import { textureWeights } from '../terrain/alphamap'
 import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells, type GroundEffectInput } from '../world/GroundEffectLayer'
 import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
@@ -108,25 +109,7 @@ import { mirrorClip, rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { planRestore, restoreChunk } from '../terrain/restorePaint'
-import {
-	CHUNK_CELLS,
-	MAX_PALETTE,
-	NO_TEXTURE,
-	SLOTS,
-	SPLAT_PER_CELL,
-	chunkTextures,
-	clearPalette,
-	compactChunk,
-	convertGlobalLayers,
-	findSlot,
-	hasEmptySlot,
-	mergeDuplicateSlots,
-	paletteIndex,
-	removeSlot,
-	replaceInChunk,
-	replacePalette,
-	resetTexel,
-} from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, convertGlobalLayers, paletteIndex } from '../terrain/chunkPaint'
 import { retryFailedPalettes, setPaletteFailHandler } from '../terrain/paletteArray'
 import { listAssets, setCompressedTextures, setMaxAnisotropy } from '../wow/api'
 import { runMapChecks } from '../check/run'
@@ -166,8 +149,7 @@ import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, publishMoved, selectObjects, selectedObjects, withGroups } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
-import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
-import { fitHeights, type FitOptions } from '../terrain/fitGround'
+import type { FitOptions } from '../terrain/fitGround'
 
 import { nearScreenBox } from '../world/screenBox'
 import { TransformGizmo, type GizmoFit } from './TransformGizmo'
@@ -206,9 +188,6 @@ const WORLD_STAND_IN = 8
 const WORLD_FAR_FRAMES = 30
 /** How far off the ground a world view opened without a view looks from, in yards. */
 const WORLD_FOCUS_DISTANCE = 400
-
-/** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
-const FIT_APRON_CELLS = 2
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -3350,7 +3329,7 @@ export class Engine {
 		const shape = areaShape(t, t.size)
 		if (!shape) return undefined
 		const side = t.paintChunksPerSide
-		return (c) => chunkInShape(shape, t.size, c % side, Math.floor(c / side))
+		return (c) => ops.chunkInShape(shape, t.size, c % side, Math.floor(c / side))
 	}
 
 	/** The selected area's cells, or undefined for the whole map. */
@@ -3485,18 +3464,7 @@ export class Engine {
 	 * step. Objects on the ground are re-snapped, as they are after sculpting.
 	 */
 	setHeights(next: Float32Array, label: string) {
-		const t = this.terrain
-		const cs = t.cellSize
-		const resnap = (r: Rect) => this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		const stroke = new TerrainStroke(t, label, { heights: true }, resnap)
-		const whole = { x0: 0, z0: 0, x1: t.size, z1: t.size }
-		stroke.reserveHeights(whole)
-		t.heights.set(next)
-		t.markAllDirty()
-		stroke.touchHeights(whole)
-		const cmd = stroke.finish()
-		if (cmd) this.history.push(cmd)
-		resnap(whole)
+		ops.setHeights(this.terrain, this.history, this.objects, next, label)
 	}
 
 	/** Saves the camera's view of the open map as a bookmark. */
@@ -3957,53 +3925,19 @@ export class Engine {
 	maskFromSelection() {
 		const s = editor.selection
 		if (!s) return
-		const R = this.terrain.splatRes
-		const size = this.terrain.size
-		const tpc = R / size
-		const shape = areaShape(this.terrain, size)
-		this.editMask('Mask selection', (m) => {
-			for (let z = s.z0 * tpc; z < s.z1 * tpc; z++) {
-				for (let x = s.x0 * tpc; x < s.x1 * tpc; x++) if (!shape || shape[Math.floor(z / tpc) * size + Math.floor(x / tpc)]) m[z * R + x] = 255
-			}
-		})
+		const t = this.terrain
+		const shape = areaShape(t, t.size)
+		this.editMask('Mask selection', (m) => ops.markAreaTexels(t, s, shape, m))
 	}
 
 	/** Paint texture slot `layer` over the whole mask (soft mask edges blend). */
 	fillMask(layer: number) {
 		if (this.refuseInWorld()) return
-		const t = this.terrain
-		const R = t.splatRes
-		const m = t.mask
-		let x0 = R,
-			z0 = R,
-			x1 = -1,
-			z1 = -1
-		for (let z = 0; z < R; z++) {
-			for (let x = 0; x < R; x++) {
-				if (!m[z * R + x]) continue
-				if (x < x0) x0 = x
-				if (x > x1) x1 = x
-				if (z < z0) z0 = z
-				if (z > z1) z1 = z
-			}
-		}
-		if (x1 < 0) {
+		const refused = ops.fillMask(this.terrain, this.history, layer)
+		if (refused === null) {
 			setStatus('The mask is empty. Paint a mask first (Paint tool › Mask).')
 			return
 		}
-		const stroke = new TerrainStroke(t, 'Fill mask', { splat: true })
-		stroke.reserveSplat({ x0, z0, x1, z1 })
-		let refused = 0
-		for (let z = z0; z <= z1; z++) {
-			for (let x = x0; x <= x1; x++) {
-				const p = z * R + x
-				if (m[p] && !paintPixel(t, p, layer, m[p] / 255)) refused++
-			}
-		}
-		stroke.touchSplat({ x0, z0, x1, z1 })
-		t.markSplatDirty({ x0, z0, x1, z1 })
-		const cmd = stroke.finish()
-		if (cmd) this.history.push(cmd)
 		const tex = editor.palette[layer] ?? ''
 		const name = texName(tex)
 		setStatus(refused ? `Filled the mask with ${name}, except where a chunk already has four textures.` : `Filled the mask with ${name}.`)
@@ -4024,28 +3958,12 @@ export class Engine {
 		let area = editor.selection
 		let mask: Uint8Array | null = null
 		if (useMask) {
-			const R = t.splatRes
-			const m = t.mask
-			let x0 = R,
-				z0 = R,
-				x1 = -1,
-				z1 = -1
-			for (let z = 0; z < R; z++) {
-				for (let x = 0; x < R; x++) {
-					if (!m[z * R + x]) continue
-					if (x < x0) x0 = x
-					if (x > x1) x1 = x
-					if (z < z0) z0 = z
-					if (z > z1) z1 = z
-				}
-			}
-			if (x1 < 0) {
+			area = ops.maskCells(t)
+			if (!area) {
 				setStatus('The mask is empty. Paint a mask first (Paint tool › Mask).')
 				return
 			}
-			const tpc = R / t.size
-			area = { x0: Math.floor(x0 / tpc), z0: Math.floor(z0 / tpc), x1: Math.ceil((x1 + 1) / tpc), z1: Math.ceil((z1 + 1) / tpc) }
-			mask = m
+			mask = t.mask
 		}
 		if (!area) {
 			setStatus('Select an area first (Select tool, drag on the ground).')
@@ -4054,12 +3972,8 @@ export class Engine {
 		const shape = useMask ? null : areaShape(t, t.size)
 		if (shape) {
 			// A free-form area fills its own cells: a mask of them, full inside.
-			const R = t.splatRes
-			const tpc = R / t.size
-			mask = new Uint8Array(R * R)
-			for (let z = area.z0 * tpc; z < area.z1 * tpc; z++) {
-				for (let x = area.x0 * tpc; x < area.x1 * tpc; x++) if (shape[Math.floor(z / tpc) * t.size + Math.floor(x / tpc)]) mask[z * R + x] = 255
-			}
+			mask = new Uint8Array(t.splatRes * t.splatRes)
+			ops.markAreaTexels(t, area, shape, mask)
 		}
 		const n = this.doodadTool.fill(this.ctx, brush, area, mask)
 		setStatus(n ? `Placed ${n} models of "${brush.name}".` : `"${brush.name}" found no room there: its rules or spacing ruled out every spot.`, 6000)
@@ -4183,20 +4097,11 @@ export class Engine {
 			return
 		}
 		const t = this.terrain
-		const stroke = new TerrainStroke(t, hole ? 'Cut hole' : 'Fill hole', { holes: true })
-		// Whole 2x2-cell blocks, as the client keeps holes: the area grows out to the blocks it touches.
-		const r = snapToBlocks({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 }, t.size)
-		stroke.reserveHoles(r)
-		const shape = areaShape(t, t.size)
-		const n = shape ? fillShapeHoles(t.holes, t.size, shape, r, hole ? 1 : 0) : fillHoles(t.holes, t.size, r.x0, r.z0, r.x1 + 1, r.z1 + 1, hole ? 1 : 0)
+		const n = ops.cutHoles(t, this.history, s, areaShape(t, t.size), hole)
 		if (!n) {
 			setStatus(hole ? 'That area is already a hole.' : 'There is no hole in that area.')
 			return
 		}
-		stroke.touchHoles(r)
-		t.markDirty(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
-		const cmd = stroke.finish()
-		if (cmd) this.history.push(cmd)
 		this.refreshSelectionArea()
 		setStatus(hole ? `Cut a hole of ${n} ${n === 1 ? 'cell' : 'cells'}. Fill hole puts the ground back; ${keysOf('undo')} undoes.` : `Filled ${n} ${n === 1 ? 'cell' : 'cells'} of hole.`)
 	}
@@ -4214,7 +4119,7 @@ export class Engine {
 			setStatus('Select one or more models first (Select tool).')
 			return
 		}
-		const { cmd, fitted, loading } = this.fitGroundCommand(ids, stamp, fit)
+		const { cmd, fitted, loading } = ops.fitGroundCommand(this.terrain, this.objects, ids, stamp, fit)
 		if (cmd) this.history.push(cmd)
 		const what = stamp ? 'Stamped' : 'Fitted the ground to'
 		if (fitted) setStatus(`${what} ${fitted} ${fitted === 1 ? 'model' : 'models'}.${loading ? ` ${loading} still loading, left out.` : ''}`, 5000)
@@ -4226,137 +4131,9 @@ export class Engine {
 	 * Ground dialog's settings, and returns the change for the tool to fold into the placement's undo step.
 	 */
 	fitGroundUnder(id: number, fit: FitOptions): Command | null {
-		const { cmd, loading } = this.fitGroundCommand([id], false, fit)
+		const { cmd, loading } = ops.fitGroundCommand(this.terrain, this.objects, [id], false, fit)
 		if (loading) setStatus('The model is still loading, so the ground was not fitted under it. Models › Fit Ground to Selected Models fits it once it shows.', 5000)
 		return cmd
-	}
-
-	/**
-	 * Fits (or with `stamp`, stamps) the ground to the models `ids` and returns the change as one
-	 * command, already applied but not pushed, with how many models changed the ground and how many
-	 * were left out because they are still loading. Shared by Fit Ground and the Place tool's Fit ground.
-	 */
-	private fitGroundCommand(ids: number[], stamp: boolean, fit: FitOptions): { cmd: Command | null; fitted: number; loading: number } {
-		const t = this.terrain
-		const cs = t.cellSize
-		const V = t.verts
-		const opts: FitOptions = stamp ? { ...fit, margin: 0, mode: 'both', holes: false } : fit
-		const resnap = (r: Rect) => this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		const stroke = new TerrainStroke(t, stamp ? 'Stamp model into ground' : 'Fit ground to model', { heights: true, holes: true }, resnap)
-		const box = new THREE.Box3()
-		const moved: Array<{ before: WorldObject; after: WorldObject }> = []
-		let fitted = 0
-		let loading = 0
-		for (const id of ids) {
-			if (!this.objects.surfaceBox(id, box)) {
-				loading++
-				continue
-			}
-			// The window reaches past the apron, the ring and the cell the smoothing takes beyond it.
-			const apron = stamp ? 0 : FIT_APRON_CELLS * cs
-			const reach = opts.falloff + apron + cs
-			const x0 = Math.max(0, Math.floor((box.min.x - reach) / cs))
-			const z0 = Math.max(0, Math.floor((box.min.z - reach) / cs))
-			const x1 = Math.min(t.size, Math.ceil((box.max.x + reach) / cs))
-			const z1 = Math.min(t.size, Math.ceil((box.max.z + reach) / cs))
-			if (x1 <= x0 || z1 <= z0) continue
-			const w = x1 - x0 + 1
-			const h = z1 - z0 + 1
-			const ground = new Float32Array(w * h)
-			const floor = new Float32Array(w * h).fill(NaN)
-			const under = new Float32Array(w * h).fill(NaN)
-			const from = box.min.y - 1
-			let lowFloor = Infinity
-			let lowUnder = Infinity
-			for (let z = 0; z < h; z++) {
-				for (let x = 0; x < w; x++) {
-					const vx = x0 + x
-					const vz = z0 + z
-					ground[z * w + x] = t.heights[vz * V + vx]
-					const wx = vx * cs
-					const wz = vz * cs
-					if (wx < box.min.x || wx > box.max.x || wz < box.min.z || wz > box.max.z) continue
-					const u = this.objects.surfaceAt(id, wx, wz, false, from)
-					under[z * w + x] = u
-					if (u < lowUnder) lowUnder = u
-					if (stamp) continue
-					const f = this.objects.surfaceAt(id, wx, wz, true, from)
-					floor[z * w + x] = f
-					if (f < lowFloor) lowFloor = f
-				}
-			}
-			if (stamp) {
-				// Stamp: the ground takes the underside's shape, both ways.
-				floor.set(under)
-			} else {
-				// A floor or underside counts only near the model's lowest one (#208), whatever the ground
-				// does under it: a stable's hayloft and a roof's eaves are far above them, a floor raised on
-				// a foundation is not.
-				for (let i = 0; i < floor.length; i++) {
-					if (floor[i] > lowFloor + fit.reach) floor[i] = NaN
-					if (under[i] > lowUnder + fit.reach) under[i] = NaN
-				}
-			}
-			// A fit levels the ground to the model's base and keeps an apron level around it (#210); a
-			// stamp takes the underside's shape and blends straight out. The base is the origin, raised by
-			// the depth a model on the ground was sunk to (a negative height, from the Place tool's PgDn or
-			// the Inspector), so a farmhouse's stone footing sunk 2 yd stays 2 yd underground.
-			const o = this.objects.objects.get(id)!
-			const sunk = o.parent === undefined ? Math.max(0, -o.yOff) : 0
-			const base = stamp ? NaN : this.objects.worldPlacement(o).pos.y + sunk
-			const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts, base, apron)
-			if (!r.changed) continue
-			fitted++
-			// The models on the ground under this one would ride the ground: note where each stood.
-			const before = o.parent === undefined ? t.heightAt(o.x, o.z) : 0
-			const rect = { x0, z0, x1, z1 }
-			stroke.reserveHeights(rect)
-			for (let z = 0; z < h; z++) t.heights.set(r.heights.subarray(z * w, z * w + w), (z0 + z) * V + x0)
-			stroke.touchHeights(rect)
-			t.markDirty(x0, z0, x1, z1)
-			if (r.holes.some((v) => v)) {
-				const cr = { x0, z0, x1: x1 - 1, z1: z1 - 1 }
-				stroke.reserveHoles(cr)
-				for (let z = 0; z < h - 1; z++) for (let x = 0; x < w - 1; x++) if (r.holes[z * (w - 1) + x]) t.holes[(z0 + z) * t.size + x0 + x] = 1
-				stroke.touchHoles(cr)
-			}
-			if (o.parent === undefined) {
-				const dy = before - t.heightAt(o.x, o.z)
-				if (dy !== 0) {
-					const prev = { ...o }
-					o.yOff += dy
-					this.objects.touch(o.id)
-					moved.push({ before: prev, after: { ...o } })
-				}
-			}
-		}
-		const terrainCmd = stroke.finish()
-		if (terrainCmd) {
-			resnap({ x0: 0, z0: 0, x1: t.size, z1: t.size })
-			const moves = moved.length
-				? groupTransformCommand(
-						this.objects,
-						moved.map((m) => m.before),
-						moved.map((m) => m.after),
-					)
-				: null
-			return {
-				cmd: {
-					label: terrainCmd.label,
-					undo: () => {
-						moves?.undo()
-						terrainCmd.undo()
-					},
-					redo: () => {
-						terrainCmd.redo()
-						moves?.redo()
-					},
-				},
-				fitted,
-				loading,
-			}
-		}
-		return { cmd: null, fitted, loading }
 	}
 
 	/** How many cells of the selected area are holes, for the options bar. */
@@ -4364,11 +4141,7 @@ export class Engine {
 		const s = editor.selection
 		if (!s) return 0
 		const t = this.terrain
-		const shape = areaShape(t, t.size)
-		if (!shape) return countHoles(t.holes, t.size, s.x0, s.z0, s.x1, s.z1)
-		let n = 0
-		for (let z = s.z0; z < s.z1; z++) for (let x = s.x0; x < s.x1; x++) if (shape[z * t.size + x] && t.holes[z * t.size + x]) n++
-		return n
+		return ops.holesInArea(t, s, areaShape(t, t.size))
 	}
 
 	/**
@@ -5040,11 +4813,7 @@ export class Engine {
 
 	/** The selected area as shadow texels (inclusive), or the whole map. */
 	private shadowRect() {
-		const t = this.terrain
-		const s = editor.selection
-		const n = SHADOW_PER_CELL
-		if (s && s.x1 > s.x0 && s.z1 > s.z0) return { x0: s.x0 * n, z0: s.z0 * n, x1: s.x1 * n - 1, z1: s.z1 * n - 1 }
-		return { x0: 0, z0: 0, x1: t.shadowSide - 1, z1: t.shadowSide - 1 }
+		return ops.shadowRect(this.terrain, editor.selection)
 	}
 
 	/**
@@ -5072,7 +4841,7 @@ export class Engine {
 		// A free-form area bakes its rect, then puts back the texels outside its cells.
 		const shape = areaShape(t, t.size)
 		const side = t.shadowSide
-		const kept = shape ? shadowTexels(out, side, r) : null
+		const kept = shape ? ops.shadowTexels(out, side, r) : null
 		this.shadowBaking = true
 		let n = 0
 		try {
@@ -5100,7 +4869,7 @@ export class Engine {
 		} finally {
 			this.shadowBaking = false
 		}
-		if (shape && kept) n = restoreOutsideShape(out, side, r, kept, shape, t.size, SHADOW_PER_CELL)
+		if (shape && kept) n = ops.restoreOutsideShape(out, side, r, kept, shape, t.size, SHADOW_PER_CELL)
 		// The bake may have ended on another tab; its stroke belongs to the map it started on.
 		stroke.touch(r)
 		const cmd = stroke.finish()
@@ -5128,7 +4897,6 @@ export class Engine {
 		}
 		const doc = this.doc
 		const t = this.terrain
-		const objects = this.objects
 		const s = editor.selection
 		const r = s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : { x0: 0, z0: 0, x1: t.size, z1: t.size }
 		const where = s ? 'in the selected area' : 'over the map'
@@ -5155,42 +4923,10 @@ export class Engine {
 			setStatus(`Erosion cancelled; the ground ${where} is as it was.`)
 			return false
 		}
-		const resnap = (q: Rect) => this.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs)
-		const stroke = new TerrainStroke(t, s ? 'Erode selection' : 'Erode map', { heights: true, mask: o.mask }, resnap)
-		stroke.reserveHeights(r)
-		let most = 0
-		// With the mask (#242), each vertex's rise in yards: where the drops left their load and scree slid to.
-		const gain = o.mask ? work : null
-		for (let z = 0; z < h; z++) {
-			for (let x = 0; x < w; x++) {
-				const k = z * w + x
-				const i = (r.z0 + z) * V + r.x0 + x
-				const d = weights[k] ? work[k] * cs - t.heights[i] : 0
-				if (gain) gain[k] = d
-				if (!d) continue
-				if (Math.abs(d) > most) most = Math.abs(d)
-				t.heights[i] += d
-			}
-		}
-		t.markDirty(r.x0, r.z0, r.x1, r.z1)
-		stroke.touchHeights(r)
-		objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		let settled = 0
-		if (gain) {
-			// The sediment map takes the mask's place, so Fill Mask lays a texture only where the ground settled.
-			const R = t.splatRes
-			const all = { x0: 0, z0: 0, x1: R - 1, z1: R - 1 }
-			stroke.reserveMask(all)
-			t.mask.fill(0)
-			settled = settledMask(gain, w, h, r.x0, r.z0, R / t.size, SETTLED_FULL, t.mask, R)
-			stroke.touchMask(all)
-			t.markMaskDirty()
-		}
-		const cmd = stroke.finish()
-		if (cmd) doc.history.push(cmd)
-		if (gain && doc === this.doc) this.refreshMaskState()
-		const masked = !gain ? '' : settled ? `; the mask holds where it settled (Paint › Fill Mask with Paint Texture lays a texture there)` : '; nothing settled enough to mask'
-		setStatus(`Eroded the ground ${where}: up to ${most.toFixed(1)} yd moved${masked}.`, gain ? 8000 : 4000)
+		const { most, settled } = ops.applyErosion(t, doc.history, doc.objects, r, w, h, work, weights, !!o.mask, s ? 'Erode selection' : 'Erode map')
+		if (o.mask && doc === this.doc) this.refreshMaskState()
+		const masked = !o.mask ? '' : settled ? `; the mask holds where it settled (Paint › Fill Mask with Paint Texture lays a texture there)` : '; nothing settled enough to mask'
+		setStatus(`Eroded the ground ${where}: up to ${most.toFixed(1)} yd moved${masked}.`, o.mask ? 8000 : 4000)
 		return true
 	}
 
@@ -5249,7 +4985,7 @@ export class Engine {
 			setStatus(`${mode === 'smooth' ? 'Smoothing' : 'The pass was'} cancelled; the ground ${where} is as it was.`)
 			return false
 		}
-		const resnap = (q: Rect) => doc.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs)
+		const resnap = ops.resnapper(t, doc.objects)
 		const verb = { smooth: 'Smooth', raise: 'Raise', lower: 'Lower', flatten: 'Flatten', roughen: 'Roughen' }[mode]
 		const stroke = new TerrainStroke(t, `${verb} ${s ? 'selection' : 'map'}`, { heights: true }, resnap)
 		stroke.reserveHeights(r)
@@ -5529,29 +5265,11 @@ export class Engine {
 	}
 
 	/** Lights the baked shadow texels of a rect (inclusive), as one undo step; `where` names it in the status. */
-	private clearShadowRect(r: { x0: number; z0: number; x1: number; z1: number }, where: string) {
+	private clearShadowRect(r: Rect, where: string) {
 		const t = this.terrain
-		if (!t.shadow) {
-			setStatus('The map has no baked shadows.')
-			return
-		}
-		const stroke = new ShadowStroke(t, `Clear shadows ${where}`)
-		stroke.reserve(r)
-		const data = t.shadow
-		const shape = areaShape(t, t.size)
-		const n = SHADOW_PER_CELL
-		for (let z = r.z0; z <= r.z1; z++) {
-			if (!shape) {
-				data.fill(0, z * t.shadowSide + r.x0, z * t.shadowSide + r.x1 + 1)
-				continue
-			}
-			// A free-form area: only the texels of its cells.
-			for (let x = r.x0; x <= r.x1; x++) if (shape[Math.floor(z / n) * t.size + Math.floor(x / n)]) data[z * t.shadowSide + x] = 0
-		}
-		stroke.touch(r)
-		const cmd = stroke.finish()
-		if (cmd) this.history.push(cmd)
-		setStatus(cmd ? `Cleared the baked shadows ${where}.` : `There were no baked shadows ${where}.`)
+		const cleared = ops.clearShadowRect(t, this.history, r, areaShape(t, t.size), `Clear shadows ${where}`)
+		if (cleared === null) setStatus('The map has no baked shadows.')
+		else setStatus(cleared ? `Cleared the baked shadows ${where}.` : `There were no baked shadows ${where}.`)
 	}
 
 	/** Keeps the grass tufts around the camera current (see GroundEffectLayer). */
@@ -5840,20 +5558,12 @@ export class Engine {
 	 */
 	removeDuplicateModels() {
 		if (this.refuseInWorld()) return
-		const seen = new Map<string, WorldObject>()
-		const dupes: WorldObject[] = []
-		for (const o of this.objects.objects.values()) {
-			const key = [o.type, o.x, o.z, o.yOff, o.rotY, o.scale, o.parent ?? ''].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v)).join('|')
-			if (seen.has(key)) dupes.push(o)
-			else seen.set(key, o)
-		}
+		const dupes = ops.duplicateModels(this.objects.objects.values())
 		if (dupes.length === 0) {
 			setStatus('No duplicate models.')
 			return
 		}
-		const cmd = removedCommand(this.objects, dupes)
-		cmd.redo()
-		this.history.push(cmd)
+		ops.removeModels(this.objects, this.history, dupes)
 		this.syncSelection()
 		setStatus(`Removed ${dupes.length} duplicate ${dupes.length === 1 ? 'model' : 'models'}. Undo restores them.`)
 	}
@@ -5863,43 +5573,20 @@ export class Engine {
 	 * the status bar (the client's tile numbers in a region), or null off the map.
 	 */
 	tileUnderCamera(): { tx: number; tz: number; x0: number; z0: number; cells: number; name: string } | null {
-		const t = this.terrain
 		const target = this.controller.target
-		const tiles = Math.max(1, Math.round(t.size / TILE_CELLS))
-		const tx = Math.floor(target.x / (TILE_CELLS * t.cellSize))
-		const tz = Math.floor(target.z / (TILE_CELLS * t.cellSize))
-		if (tx < 0 || tz < 0 || tx >= tiles || tz >= tiles) return null
+		const tile = ops.tileAt(this.terrain, target.x, target.z)
+		if (!tile) return null
 		const block = editor.regionBlock
-		const name = block ? `tile ${block.x + tx}, ${block.y + tz}` : `tile ${tx}, ${tz}`
-		return { tx, tz, x0: tx * TILE_CELLS, z0: tz * TILE_CELLS, cells: TILE_CELLS, name }
+		const name = block ? `tile ${block.x + tile.tx}, ${block.y + tile.tz}` : `tile ${tile.tx}, ${tile.tz}`
+		return { ...tile, name }
 	}
 
 	/** The lowest and highest ground on the tile under the camera, or on the whole map (Noggit Red's Auto Heights). */
 	heightRange(scope: 'map' | 'tile'): [number, number] | null {
-		const t = this.terrain
-		const side = t.verts
-		let x0 = 0,
-			z0 = 0,
-			x1 = side - 1,
-			z1 = side - 1
-		if (scope === 'tile') {
-			const tile = this.tileUnderCamera()
-			if (!tile) return null
-			x0 = tile.x0
-			z0 = tile.z0
-			x1 = Math.min(side - 1, x0 + tile.cells)
-			z1 = Math.min(side - 1, z0 + tile.cells)
-		}
-		let lo = Infinity,
-			hi = -Infinity
-		for (let z = z0; z <= z1; z++) {
-			for (let x = x0; x <= x1; x++) {
-				const h = t.heights[z * side + x]
-				lo = Math.min(lo, h)
-				hi = Math.max(hi, h)
-			}
-		}
-		return [lo, hi]
+		if (scope === 'map') return ops.heightRange(this.terrain)
+		const tile = this.tileUnderCamera()
+		if (!tile) return null
+		return ops.heightRange(this.terrain, { x0: tile.x0, z0: tile.z0, x1: tile.x0 + tile.cells, z1: tile.z0 + tile.cells })
 	}
 
 	/**
@@ -5917,95 +5604,34 @@ export class Engine {
 			return
 		}
 		const { tx, tz, name } = tile
-		const x0 = tx * TILE_CELLS * t.cellSize,
-			z0 = tz * TILE_CELLS * t.cellSize
-		const x1 = x0 + TILE_CELLS * t.cellSize,
-			z1 = z0 + TILE_CELLS * t.cellSize
+		const history = this.history
 		if (what === 'shadows') {
 			// Noggit Red's Clear shadows (Assist › Clean up): the tile's baked shadows, all lit.
-			const n = TILE_CELLS * SHADOW_PER_CELL
-			this.clearShadowRect({ x0: tx * n, z0: tz * n, x1: (tx + 1) * n - 1, z1: (tz + 1) * n - 1 }, `on ${name}`)
+			this.clearShadowRect(ops.tileShadowRect(tx, tz), `on ${name}`)
 			return
 		}
 		if (what === 'models' || what === 'duplicateModels') {
-			const roots = [...this.objects.objects.values()].filter((o) => o.parent === undefined && o.x >= x0 && o.x < x1 && o.z >= z0 && o.z < z1)
-			let gone: WorldObject[]
-			if (what === 'models') {
-				const ids = new Set<number>()
-				for (const o of roots) {
-					ids.add(o.id)
-					for (const d of this.objects.descendantIds(o.id)) ids.add(d)
-				}
-				gone = [...ids].map((id) => this.objects.objects.get(id)!).filter(Boolean)
-			} else {
-				const seen = new Set<string>()
-				gone = []
-				for (const o of roots) {
-					const key = [o.type, o.x, o.z, o.yOff, o.rotY, o.scale].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v)).join('|')
-					if (seen.has(key)) gone.push(o)
-					else seen.add(key)
-				}
-			}
+			const roots = ops.tileRoots(t, this.objects, tx, tz)
+			const gone = what === 'models' ? ops.withDescendants(this.objects, roots) : ops.duplicateModels(roots)
 			if (!gone.length) {
 				setStatus(`No ${what === 'models' ? '' : 'duplicate '}models on ${name}.`, 3000)
 				return
 			}
-			const cmd = removedCommand(this.objects, gone)
-			cmd.label = what === 'models' ? `Clear models on ${name}` : `Remove duplicate models on ${name}`
-			cmd.redo()
-			this.history.push(cmd)
+			ops.removeModels(this.objects, history, gone, what === 'models' ? `Clear models on ${name}` : `Remove duplicate models on ${name}`)
 			this.syncSelection()
 			setStatus(`Removed ${gone.length} ${gone.length === 1 ? 'model' : 'models'} on ${name}. Undo restores them.`, 4000)
 			return
 		}
 		if (what === 'height') {
-			const r = { x0: tx * TILE_CELLS, z0: tz * TILE_CELLS, x1: Math.min(t.size, (tx + 1) * TILE_CELLS), z1: Math.min(t.size, (tz + 1) * TILE_CELLS) }
-			const cs = t.cellSize
-			const stroke = new TerrainStroke(t, `Clear height on ${name}`, { heights: true }, (q) => this.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs))
-			stroke.reserveHeights(r)
-			for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) t.heights[z * t.verts + x] = 0
-			t.markDirty(r.x0, r.z0, r.x1, r.z1)
-			stroke.touchHeights(r)
-			this.objects.markRegionDirty(x0, z0, x1, z1)
-			const cmd = stroke.finish()
-			if (cmd) this.history.push(cmd)
+			ops.clearTileHeights(t, history, this.objects, tx, tz, `Clear height on ${name}`)
 			return
 		}
-		const side = t.paintChunksPerSide
-		const chunks: number[] = []
-		for (let cz = tz * TILE_PAINT_CHUNKS; cz < (tz + 1) * TILE_PAINT_CHUNKS && cz < side; cz++) {
-			for (let cx = tx * TILE_PAINT_CHUNKS; cx < (tx + 1) * TILE_PAINT_CHUNKS && cx < side; cx++) chunks.push(cz * side + cx)
-		}
-		const per = t.splatRes / side
-		const forTexels = (c: number, fn: (o: number) => void) => {
-			const px = (c % side) * per,
-				pz = Math.floor(c / side) * per
-			for (let z = pz; z < pz + per; z++) for (let x = px; x < px + per; x++) fn((z * t.splatRes + x) * SLOTS)
-		}
-		if (what === 'textures') {
-			this.editChunks(`Clear textures on ${name}`, chunks, (c) => forTexels(c, (o) => resetTexel(t.weights, o, 1)))
-		} else if (what === 'setBase') {
-			const tex = editor.paintLayer
-			this.editChunks(`Clear textures and set base on ${name}`, chunks, (c) => {
-				t.chunkSlots[c * SLOTS] = tex
-				for (let k = 1; k < SLOTS; k++) t.chunkSlots[c * SLOTS + k] = NO_TEXTURE
-				forTexels(c, (o) => {
-					t.weights[o] = 255
-					t.weights[o + 1] = t.weights[o + 2] = t.weights[o + 3] = 0
-				})
-			})
-		} else {
-			const dupes = chunks.filter((c) => {
-				const s = t.chunkSlots.subarray(c * SLOTS, c * SLOTS + SLOTS)
-				return s.some((tex, k) => tex !== NO_TEXTURE && s.indexOf(tex) !== k)
-			})
-			if (!dupes.length) {
-				setStatus(`No duplicate textures on ${name}.`, 3000)
-				return
-			}
-			let merged = 0
-			this.editChunks(`Remove texture duplicates on ${name}`, dupes, (c) => (merged += mergeDuplicateSlots(side, t.splatRes, t.chunkSlots, t.weights, c)))
-			setStatus(`Merged ${merged} duplicate texture layer${merged === 1 ? '' : 's'} on ${name}.`, 3000)
+		const chunks = ops.tileChunks(t, tx, tz)
+		if (what === 'textures') ops.clearChunkTextures(t, history, chunks, `Clear textures on ${name}`)
+		else if (what === 'setBase') ops.setChunkBase(t, history, chunks, editor.paintLayer, `Clear textures and set base on ${name}`)
+		else {
+			const merged = ops.mergeChunkDuplicates(t, history, chunks, `Remove texture duplicates on ${name}`)
+			setStatus(merged ? `Merged ${merged} duplicate texture layer${merged === 1 ? '' : 's'} on ${name}.` : `No duplicate textures on ${name}.`, 3000)
 		}
 	}
 
@@ -6532,18 +6158,8 @@ export class Engine {
 	/** The paint chunks the selected area touches, or none without a selection. */
 	selectedChunks(): number[] {
 		const s = editor.selection
-		if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) return []
-		const side = this.terrain.paintChunksPerSide
-		const cx0 = Math.max(0, Math.floor(s.x0 / CHUNK_CELLS))
-		const cz0 = Math.max(0, Math.floor(s.z0 / CHUNK_CELLS))
-		const cx1 = Math.min(side - 1, Math.floor((s.x1 - 1) / CHUNK_CELLS))
-		const cz1 = Math.min(side - 1, Math.floor((s.z1 - 1) / CHUNK_CELLS))
-		const out: number[] = []
-		const shape = areaShape(this.terrain, this.terrain.size)
-		for (let cz = cz0; cz <= cz1; cz++) {
-			for (let cx = cx0; cx <= cx1; cx++) if (!shape || chunkInShape(shape, this.terrain.size, cx, cz)) out.push(cz * side + cx)
-		}
-		return out
+		if (!s) return []
+		return ops.chunksInArea(this.terrain, s, areaShape(this.terrain, this.terrain.size))
 	}
 
 	/** The textures of `chunks` together, each with how many of the chunks hold it, most first. */
@@ -6553,40 +6169,11 @@ export class Engine {
 		return [...counts].map(([tex, n]) => ({ tex, chunks: n })).sort((a, b) => b.chunks - a.chunks || a.tex - b.tex)
 	}
 
-	/** Edits the splat of each chunk in `chunks` through `edit(c)`, as one undo step named `label`. */
-	private editChunks(label: string, chunks: number[], edit: (c: number) => void) {
-		const cmd = this.chunkStroke(label, chunks, edit)
-		if (cmd) this.history.push(cmd)
-	}
-
-	/** editChunks' step, made and applied but not pushed, for a caller that adds to it. */
-	private chunkStroke(label: string, chunks: number[], edit: (c: number) => void) {
-		const t = this.terrain
-		const side = t.paintChunksPerSide
-		const per = t.splatRes / side
-		const stroke = new TerrainStroke(t, label, { splat: true })
-		for (const c of chunks) {
-			if (c < 0 || c >= side * side) continue
-			const x0 = (c % side) * per
-			const z0 = Math.floor(c / side) * per
-			const rect = { x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 }
-			stroke.reserveSplat(rect)
-			edit(c)
-			stroke.touchSplat(rect)
-			t.markSplatDirty(rect)
-		}
-		return stroke.finish()
-	}
-
 	/** Replaces palette texture `tex` with `path` in `chunks` only (undoable). */
 	replaceTextureInChunks(chunks: number[], tex: number, path: string) {
-		const t = this.terrain
 		const index = this.useTexture(path)
 		if (index < 0) return
-		this.editChunks(chunks.length === 1 ? 'Replace texture here' : `Replace texture in ${chunks.length} chunks`, chunks, (c) => {
-			const slot = findSlot(t.chunkSlots, c, tex)
-			if (slot >= 0) replaceInChunk(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
-		})
+		ops.replaceTextureInChunks(this.terrain, this.history, chunks, tex, index)
 	}
 
 	/**
@@ -6596,21 +6183,13 @@ export class Engine {
 	 */
 	removeEmptyLayers() {
 		if (this.refuseInWorld()) return
-		const t = this.terrain
-		const side = t.paintChunksPerSide
-		const scope = editor.selection ? this.selectedChunks() : Array.from({ length: side * side }, (_, c) => c)
-		const chunks = scope.filter((c) => hasEmptySlot(side, t.splatRes, t.chunkSlots, t.weights, c))
-		if (!chunks.length) {
+		const scope = editor.selection ? this.selectedChunks() : ops.allChunks(this.terrain)
+		const { chunks, layers } = ops.removeEmptyLayers(this.terrain, this.history, scope)
+		if (!chunks) {
 			setStatus(`No empty texture layers ${editor.selection ? 'in the selected area' : 'on the map'}.`, 3000)
 			return
 		}
-		let layers = 0
-		this.editChunks(`Remove empty layers in ${chunks.length} chunk${chunks.length === 1 ? '' : 's'}`, chunks, (c) => {
-			for (let k = 0; k < SLOTS; k++) if (t.chunkSlots[c * SLOTS + k] !== NO_TEXTURE) layers++
-			compactChunk(side, t.splatRes, t.chunkSlots, t.weights, c)
-			for (let k = 0; k < SLOTS; k++) if (t.chunkSlots[c * SLOTS + k] !== NO_TEXTURE) layers--
-		})
-		setStatus(`Removed ${layers} empty texture layer${layers === 1 ? '' : 's'} in ${chunks.length} chunk${chunks.length === 1 ? '' : 's'}.`, 4000)
+		setStatus(`Removed ${layers} empty texture layer${layers === 1 ? '' : 's'} in ${chunks} chunk${chunks === 1 ? '' : 's'}.`, 4000)
 	}
 
 	/**
@@ -6626,7 +6205,7 @@ export class Engine {
 		}
 		const side = t.paintChunksPerSide
 		const where = editor.selection ? ' in the selected area' : ''
-		const scope = editor.selection ? this.selectedChunks() : Array.from({ length: side * side }, (_, c) => c)
+		const scope = editor.selection ? this.selectedChunks() : ops.allChunks(t)
 		const plan = planRestore(t, editor.palette, base, base.palette, scope, side, t.splatRes)
 		if ('full' in plan) return `This map's texture palette has no room for ${plan.full.length} of the client's textures${where} (${MAX_PALETTE} at most).`
 		if (!plan.changed.length) return `The paint${where} is the client's already.`
@@ -6634,7 +6213,7 @@ export class Engine {
 		const before = [...editor.palette]
 		const after = plan.palette
 		editor.palette = [...after]
-		const cmd = this.chunkStroke('', plan.changed, (c) => restoreChunk(t, base, plan.remap, c, side, t.splatRes))
+		const cmd = ops.chunkStroke(t, '', plan.changed, (c) => restoreChunk(t, base, plan.remap, c, side, t.splatRes))
 		if (cmd) {
 			this.history.push({
 				label: `Restore the client's paint in ${n} chunk${n === 1 ? '' : 's'}`,
@@ -6657,14 +6236,7 @@ export class Engine {
 	 * one undo step (terrain/alphamap.ts). Returns how many chunks refused it for want of a free slot.
 	 */
 	importAlphamap(tex: number, values: Float32Array): number {
-		const t = this.terrain
-		const side = t.paintChunksPerSide
-		let refused = 0
-		const all = Array.from({ length: side * side }, (_, c) => c)
-		this.editChunks(`Import alphamap of ${editor.palette[tex] ?? 'a texture'}`, all, (c) => {
-			if (layAlphamapChunk(t, c, tex, values)) refused++
-		})
-		return refused
+		return ops.importAlphamap(this.terrain, this.history, tex, values, `Import alphamap of ${editor.palette[tex] ?? 'a texture'}`)
 	}
 
 	/** Palette texture `tex`'s weight at every splat texel, 0 to 1 (for the alphamap export). */
@@ -6674,19 +6246,12 @@ export class Engine {
 
 	/** Removes palette texture `tex` from `chunks`: its layer there is empty afterwards (undoable). */
 	deleteTextureInChunks(chunks: number[], tex: number) {
-		const t = this.terrain
-		this.editChunks(chunks.length === 1 ? 'Delete texture here' : `Delete texture in ${chunks.length} chunks`, chunks, (c) => {
-			const slot = findSlot(t.chunkSlots, c, tex)
-			if (slot >= 0) removeSlot(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, slot)
-		})
+		ops.deleteTextureInChunks(this.terrain, this.history, chunks, tex)
 	}
 
 	/** Empties every layer of `chunks`, so they have no textures at all (undoable). */
 	clearChunks(chunks: number[]) {
-		const t = this.terrain
-		this.editChunks(chunks.length === 1 ? 'Delete all textures here' : `Delete all textures in ${chunks.length} chunks`, chunks, (c) => {
-			for (let k = SLOTS - 1; k >= 0; k--) removeSlot(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, k)
-		})
+		ops.clearChunks(this.terrain, this.history, chunks)
 	}
 
 	/** The textures chunk c uses, with their shares (see chunkTextures). */
@@ -6723,95 +6288,18 @@ export class Engine {
 
 	/** Replaces palette texture `from` with `to` across the whole map (undoable). */
 	swapTexture(from: number, to: number) {
-		const t = this.terrain
-		const stroke = new TerrainStroke(t, 'Replace texture', { splat: true })
-		stroke.reserveSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
-		replacePalette(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, from, to)
-		stroke.touchSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
-		t.markSplatDirty()
-		const cmd = stroke.finish()
-		if (cmd) this.history.push(cmd)
+		ops.swapTexture(this.terrain, this.history, from, to)
 		setStatus(`Replaced the texture everywhere on the map.`)
 	}
 
 	/** Makes the whole map one texture, `to` (undoable). */
 	fillTextures(to: number) {
-		const t = this.terrain
-		const stroke = new TerrainStroke(t, 'Fill map with texture', { splat: true })
-		stroke.reserveSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
-		clearPalette(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, to)
-		stroke.touchSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
-		t.markSplatDirty()
-		const cmd = stroke.finish()
-		if (cmd) this.history.push(cmd)
+		ops.fillTextures(this.terrain, this.history, to)
 		setStatus(`The whole map is now one texture.`)
 	}
 
 	regenerateAutoPaint() {
 		if (this.refuseInWorld()) return
-		const t = this.terrain
-		const before = { w: t.weights.slice(), s: t.chunkSlots.slice() }
-		t.autoPaint(editor.waterLevel, editor.waterEnabled)
-		const after = { w: t.weights.slice(), s: t.chunkSlots.slice() }
-		const apply = (s: typeof before) => {
-			t.weights.set(s.w)
-			t.chunkSlots.set(s.s)
-			t.markSplatDirty()
-		}
-		this.history.push({ label: 'Auto paint', undo: () => apply(before), redo: () => apply(after) })
+		ops.regenerateAutoPaint(this.terrain, this.history, editor.waterLevel, editor.waterEnabled)
 	}
-}
-
-/** Sets (`value` 1) or clears the holes of every 2x2 block of `r` (inclusive) that has a cell of `shape`. Returns the cells changed. */
-function fillShapeHoles(holes: Uint8Array, size: number, shape: Uint8Array, r: { x0: number; z0: number; x1: number; z1: number }, value: 0 | 1): number {
-	let n = 0
-	for (let bz = r.z0; bz <= r.z1; bz += 2) {
-		for (let bx = r.x0; bx <= r.x1; bx += 2) {
-			let any = false
-			for (let z = bz; z < Math.min(size, bz + 2) && !any; z++) for (let x = bx; x < Math.min(size, bx + 2); x++) if (shape[z * size + x] === INSIDE) any = true
-			if (!any) continue
-			for (let z = bz; z < Math.min(size, bz + 2); z++) {
-				for (let x = bx; x < Math.min(size, bx + 2); x++) {
-					if (holes[z * size + x] === value) continue
-					holes[z * size + x] = value
-					n++
-				}
-			}
-		}
-	}
-	return n
-}
-
-/** Whether paint chunk (cx, cz) has a cell of `shape`. */
-function chunkInShape(shape: Uint8Array, size: number, cx: number, cz: number): boolean {
-	for (let z = cz * CHUNK_CELLS; z < Math.min(size, (cz + 1) * CHUNK_CELLS); z++) {
-		for (let x = cx * CHUNK_CELLS; x < Math.min(size, (cx + 1) * CHUNK_CELLS); x++) if (shape[z * size + x]) return true
-	}
-	return false
-}
-
-/** A copy of the shadow texels of the inclusive rect `r`, row by row. */
-function shadowTexels(data: Uint8Array, side: number, r: { x0: number; z0: number; x1: number; z1: number }): Uint8Array {
-	const w = r.x1 - r.x0 + 1
-	const out = new Uint8Array(w * (r.z1 - r.z0 + 1))
-	for (let z = r.z0; z <= r.z1; z++) out.set(data.subarray(z * side + r.x0, z * side + r.x1 + 1), (z - r.z0) * w)
-	return out
-}
-
-/**
- * Puts back, from `kept` (shadowTexels' copy of `r`), every texel of `r` outside the cells of `shape`
- * (`perCell` texels a cell side). Returns how many texels inside the shape differ from `kept`.
- */
-function restoreOutsideShape(data: Uint8Array, side: number, r: { x0: number; z0: number; x1: number; z1: number }, kept: Uint8Array, shape: Uint8Array, size: number, perCell: number): number {
-	const w = r.x1 - r.x0 + 1
-	let changed = 0
-	for (let z = r.z0; z <= r.z1; z++) {
-		for (let x = r.x0; x <= r.x1; x++) {
-			const before = kept[(z - r.z0) * w + (x - r.x0)]
-			const i = z * side + x
-			if (!shape[Math.floor(z / perCell) * size + Math.floor(x / perCell)]) data[i] = before
-			else if (data[i] !== before) changed++
-		}
-	}
-	return changed
 }

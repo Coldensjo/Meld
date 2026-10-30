@@ -3,7 +3,7 @@
 // patch, the painted chunk selected and restored: one undo step, which undo takes back and redo puts again. Compiled
 // once more, every chunk's layers and alpha bytes are the client's own, as they were before the first compile. The
 // real client is left alone.
-// touches: frontend/src/lib/terrain/restorePaint.ts, frontend/src/lib/io/region.ts, frontend/src/lib/io/compile.ts, internal/vmangos/region.go
+// touches: frontend/src/lib/terrain/restorePaint.ts, frontend/src/lib/io/region.ts, frontend/src/lib/io/compile.ts, internal/vmangos/region.go, frontend/src/lib/engine/terrainOps.ts
 const { editor, prefs } = await P.state()
 const regionIo = await P.app('/src/lib/io/region.ts')
 const compileIo = await P.app('/src/lib/io/compile.ts')

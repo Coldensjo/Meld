@@ -85,11 +85,21 @@ mask/liquid, image codec or native/game rendering contracts.
   client meshes them (`world/horizonMesh.ts`: chunk corners and centres, four triangles a chunk) and
   drawn by `world/HorizonLayer.ts` unlit in the horizon/fog colour, a silhouette as in the game. Read
   from the client once per document; a map of its own has none.
+- **Batch operations** (`lib/engine/terrainOps.ts`, #559): the menu commands that edit a whole map,
+  the selected area, the tile under the camera or a set of paint chunks as one undo step (Fill Mask,
+  Cut/Fill Hole, Fit Ground, Clear Shadows, Erode's write-back, Clean up, Remove Duplicate Models, the
+  chunk texture edits, Replace/Fill texture, Auto paint) are functions of the terrain, its `History`
+  and its `ObjectLayer`, with the selection and its shape passed in. The Engine method of the same name
+  passes the active document's (or, after an `await`, the document the command started on), refuses
+  in a world view and words the status line from what the function returns. A new batch command goes
+  there, with a case in `tests/terrainOps.test.ts`; `resnapper(t, objects)` is the heights stroke's
+  callback that re-snaps the models standing on the changed ground, and `duplicateKey` is what makes
+  two models duplicates.
 - **Paint mask**:
   - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
     overlay. It isn't saved to the map file.
   - Mask strokes go through `TerrainStroke({ mask: true })`.
-  - `Engine.fillMask(layer)` paints a layer over the mask, weighted by mask value.
+  - `Engine.fillMask(layer)` paints a layer over the mask, weighted by mask value (`terrainOps.fillMask`).
   - With a mask present, picking a texture in the palette fills it.
   - `ui.maskActive` is refreshed after strokes, undo/redo and tab switches.
 - **Splat** (`lib/terrain/chunkPaint.ts`, 1.12 style): the map is cut into paint chunks of 8x8 cells,

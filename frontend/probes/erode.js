@@ -1,5 +1,5 @@
 // Sculpt › Erode (water and thermal strokes) and Terrain › Erode over a selected area on a Mountains map change the heights only where they may, and undo and redo each exactly; with the mask option the paint mask holds where the ground settled, only in the area, and undoes with the heights, the step holding only what changed (#444).
-// touches: frontend/src/lib/terrain/erosion.ts, frontend/src/lib/terrain/erodeArea.ts, frontend/src/lib/tools/SculptTool.ts, frontend/src/components/ErodeDialog.svelte
+// touches: frontend/src/lib/terrain/erosion.ts, frontend/src/lib/terrain/erodeArea.ts, frontend/src/lib/tools/SculptTool.ts, frontend/src/components/ErodeDialog.svelte, frontend/src/lib/engine/terrainOps.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')

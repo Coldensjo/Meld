@@ -1,5 +1,5 @@
 // A scripted Raise stroke on a flat map changes the heights, undo puts them back exactly, redo redoes it. Then cutting holes in a selected area cuts whole 2x2 blocks, and one undo fills them again (once the probe undo-holes).
-// touches: frontend/src/lib/tools/SculptTool.ts, frontend/src/lib/tools/BrushTool.ts, frontend/src/lib/tools/vertexMode.ts, frontend/src/lib/state/history.ts, frontend/src/lib/state/historyCore.ts, frontend/src/lib/terrain/holes.ts
+// touches: frontend/src/lib/tools/SculptTool.ts, frontend/src/lib/tools/BrushTool.ts, frontend/src/lib/tools/vertexMode.ts, frontend/src/lib/state/history.ts, frontend/src/lib/state/historyCore.ts, frontend/src/lib/terrain/holes.ts, frontend/src/lib/engine/terrainOps.ts
 // tier: smoke
 const e = P.e
 const { editor } = await P.state()

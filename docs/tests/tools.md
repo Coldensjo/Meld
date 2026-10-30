@@ -126,6 +126,14 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
   (`bun run probe gizmo-undo`, about 7 s) runs the model, group and spawn drags through the Engine in the
   live app; the spawn is a creature of the world database (so it needs the database), its cone standing in
   for a model not yet loaded, which is enough for `SpawnLayer.boundsOf` to show the gizmo.
+- The menu commands that edit a whole map, area, tile or set of paint chunks (Fill Mask, Cut/Fill
+  Hole, Fit Ground, Clear Shadows, Erode's write-back, the tile Clean up, Remove Duplicate Models, the
+  chunk texture edits, Replace/Fill texture, Auto paint) are `engine/terrainOps.ts` (#559), so they are
+  `tests/terrainOps.test.ts` (`bun test tests/terrainOps.test.ts`, well under a second): each on a real
+  32-cell `Terrain` with a real `ObjectLayer`, one step that Undo and Redo restore byte for byte. Fit
+  Ground runs on a helper cube, whose geometry builds in Bun. Trap: a `TerrainStroke` frees the layers
+  its chunks leave empty when it finishes, so a fixture's second texture needs weight somewhere in each
+  chunk, or the first stroke drops it and a later assertion on that slot fails for no clear reason.
 - Trap: the hole walls draw on a canvas when made, so the test's `ctx.holeWalls` is made on first use
   inside `withCanvas`, which stands a `document` in and takes it away again (`uiScale.test.ts` checks the
   code without one).
