@@ -70,10 +70,11 @@
 		padding: 2px 8px;
 		border-radius: 3px;
 		font-size: 11px;
-		color: var(--text);
+		/* The box is dark in both themes, so its text is fixed light: the theme's --text is dark in the light theme (#929). */
+		color: rgb(232, 232, 232);
 		background: rgba(0, 0, 0, 0.55);
 	}
 	.failed {
-		color: var(--danger-text);
+		color: rgb(255, 154, 160);
 	}
 </style>
