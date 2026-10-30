@@ -146,11 +146,12 @@ Started by the coordinator before the first worker and left running; workers nev
   of the agent harness: the harness stops those after 30 minutes, and a worker then found no server
   (#277, #513, #321). Healthy when `curl -s localhost:34115/wow/status` answers. Read the dead-session
   trap in docs/TESTS.md first: the owner's own session may be half dead.
-- After a worker changes a bound Go method, it restarts `make dev-page` before probing the new binding
-  (kill `wails3.exe`, `Meld-page.exe` and the two `bun` processes, then run any probe, which starts it
-  again): it may not rebuild after a Go change (#319, #387), and the binding then
-  answers null or "is not a function". The runner warns of it (`staleBackend`, in
-  docs/reference/testing-notes.md).
+- After a worker changes a bound Go method, `make dev-page` may not rebuild (#319, #387), and the binding
+  then answers null or "is not a function". The probe runner restarts the page itself when a Go file is
+  newer than the running Go side (#864), so just run a probe; `cd frontend && bun run probe --restart-page`
+  does it on demand. Workers never kill the processes by hand (the agent harness refuses it). The runner
+  will not restart while another live loop holds the loop lock or another probe run is alive, and says
+  so (`staleBackend`, in docs/reference/testing-notes.md).
 
 ## Priority lanes
 

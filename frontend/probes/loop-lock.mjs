@@ -5,6 +5,7 @@
 //   bun probes/loop-lock.mjs take       take the lock, or exit 1 naming the live loop that holds it
 //   bun probes/loop-lock.mjs release    drop it (exit 1 when another live loop holds it)
 //   bun probes/loop-lock.mjs status     say who holds it
+//   bun probes/loop-lock.mjs check      exit 0 when the lock is free, stale or this process's own loop's, 1 when another live loop holds it (the probe runner's page restart asks, #864)
 //   ... --pid <n>                       hold it for that process instead of the claude process above this one
 //
 // The lock is <user cache>/Meld/loop.lock (as Go's os.UserCacheDir): the holder's pid, the process's own start time
@@ -100,6 +101,17 @@ if (cmd === 'status') {
 	const next = { ...me, startedAt: mine ? lock.startedAt : new Date().toISOString(), cwd: process.cwd() }
 	writeFileSync(LOCK, JSON.stringify(next, null, '\t') + '\n')
 	console.log(`loop-lock: ${mine ? 'still held' : 'taken'} by ${describe(next)}`)
+} else if (cmd === 'check') {
+	if (!live) process.exit(0)
+	let mine = false
+	for (let pid = process.pid, n = 0; pid && n < 30; n++) {
+		const p = procs.get(pid)
+		if (!p) break
+		if (pid === lock.pid && p.start === lock.start) mine = true
+		pid = p.ppid
+	}
+	if (!mine) console.error(`loop-lock: held by another live loop: ${describe(lock)}`)
+	process.exit(mine ? 0 : 1)
 } else if (cmd === 'release') {
 	if (!lock) {
 		console.log('loop-lock: already free')
@@ -113,5 +125,5 @@ if (cmd === 'status') {
 	rmSync(LOCK, { force: true })
 	console.log('loop-lock: released')
 } else {
-	fail('usage: bun probes/loop-lock.mjs take | release | status [--pid <n>]')
+	fail('usage: bun probes/loop-lock.mjs take | release | status | check [--pid <n>]')
 }

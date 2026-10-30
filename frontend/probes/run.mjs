@@ -11,6 +11,8 @@
 //   bun run probe --list                 list the probes with their first comment line and their touches line
 //   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
 //   bun run probe --touching <range> --list  name those probes without running them
+//   bun run probe --restart-page         restart `make dev-page` (kill its wails3, Meld-page and Vite processes, start it again) and exit (#864); a run does the same by itself when
+//                                        a Go file is newer than the running Go side, unless another live loop or probe run uses the page
 //   bun run probe --all --shard 1/2      every second probe of the picked set, from the first (#669); --shard 2/2 runs the rest
 //   bun run probe weather-wind --at 03c23de  run against that commit's frontend (probes/at.mjs, #873): a temporary worktree and its own
 //                                        Vite, proxying the Go side to the running dev page; the probes and lib.js stay this checkout's
@@ -60,12 +62,14 @@ let touching = null
 let smoke = false
 let shard = null
 let at = null
+let restartPage = false
 const names = []
 for (let i = 0; i < args.length; i++) {
 	if (args[i] === '--shot') {
 		shotDir = args[++i]
 		if (!shotDir || shotDir.startsWith('--')) fail('--shot needs a folder to save the pictures in, e.g. --shot out')
 	} else if (args[i] === '--profile') profiling = true
+	else if (args[i] === '--restart-page') restartPage = true
 	else if (args[i] === '--trace') {
 		traceDir = args[++i]
 		if (!traceDir || traceDir.startsWith('--')) fail('--trace needs a folder to save the traces in, e.g. --trace out')
@@ -86,9 +90,12 @@ const all = readdirSync(here)
 const header = (name) => parseHeader(readFileSync(join(here, name + '.js'), 'utf8'))
 
 // --list with --touching names the probes it would run, without running them.
+if (restartPage && !names.length && !touching && !smoke) names.push('--restart-page-only')
 const listOnly = touching && names[0] === '--list'
 if (listOnly) names.shift()
-if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
+if (names[0] === '--restart-page-only') {
+	/* handled in main() */
+} else if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
 	for (const n of all) {
 		const { first, touches, tier, quarantine } = header(n)
 		console.log(`${n.padEnd(20)} ${first}`)
@@ -152,8 +159,11 @@ const touchingProbes = (range) => {
 }
 // --all also leaves out the probes marked `// tier: manual` (#426): a slow check of a path commits rarely touch, which --touching
 // still picks when its `touches` files change, and which runs when named.
+function restartOnly0() {
+	return names[0] === '--restart-page-only'
+}
 const isManual = (n) => header(n).tier === 'manual'
-let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && !isManual(n) && selectable(n)) : names.flatMap(expand)
+let picked = restartOnly0() ? [] : names[0] === '--all' ? all.filter((n) => !isBenchmark(n) && !isManual(n) && selectable(n)) : names.flatMap(expand)
 if (smoke) picked = [...new Set([...picked, ...all.filter((n) => header(n).tier === 'smoke' && selectable(n))])]
 if (touching) {
 	const found = touchingProbes(touching)
@@ -172,7 +182,8 @@ if (shard) {
 	picked = picked.filter((_, i) => i % shard.n === shard.k - 1)
 	console.error(`probe: --shard ${shard.k}/${shard.n}: ${picked.length} probes`)
 }
-const run = picked.map(probeFile)
+const restartOnly = names[0] === '--restart-page-only'
+const run = restartOnly ? [] : picked.map(probeFile)
 
 function fail(msg) {
 	console.error(`probe: ${msg}`)
@@ -254,7 +265,7 @@ async function staleBackend() {
 	const started = await devStarted()
 	const g = newestGo()
 	if (!started || !g || g.mtime <= started + 5000) return ''
-	return `the dev server's Go side started at ${new Date(started).toLocaleTimeString()}, before ${basename(g.file)} changed (${new Date(g.mtime).toLocaleTimeString()}): wails3 dev did not rebuild it, so a new binding is missing in the page. Stop wails3.exe, Meld-page.exe and the bun processes and rerun, and the runner starts \`make dev-page\` again`
+	return `the dev server's Go side started at ${new Date(started).toLocaleTimeString()}, before ${basename(g.file)} changed (${new Date(g.mtime).toLocaleTimeString()}): wails3 dev did not rebuild it, so a new binding is missing in the page. Run \`bun run probe --restart-page\` (a probe run does it itself when no other loop or probe run uses the page)`
 }
 
 /** Starts `make dev-page` detached (it outlives this run, for the next one) when the server is down, and waits for it. Only for the default local URL. */
@@ -273,9 +284,69 @@ async function ensureDev() {
 	fail(`the dev server did not come up in 10 minutes (see ${log})`)
 }
 
+/** Why the page must not be restarted now ('' when it may): another live issue loop holds the loop lock (loop-lock.mjs check), or another probe run is using it. */
+function restartBlocked() {
+	const r = spawnSync(process.execPath, [join(here, 'loop-lock.mjs'), 'check'], { encoding: 'utf8', timeout: 60000 })
+	if (r.status === 1) return `${(r.stderr ?? '').trim() || 'another live loop holds the loop lock'}`
+	const others = otherRuns()
+	if (others.length) return `another probe run seems alive (${others.join('; ')})`
+	return ''
+}
+
+/** Stops the dev page's processes: wails3 dev with its children (Meld-page, Vite's bun), then any Meld-page or Vite `bun run dev` left (#864). Matched by name and command line, never every bun, so this run and others' probe runners stay. */
+function killDevPage() {
+	if (process.platform === 'win32') {
+		const ps = `Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'wails3.exe','Meld-page.exe' -or ($_.Name -in 'bun.exe','node.exe' -and $_.CommandLine -match 'run dev' -and $_.CommandLine -notmatch 'probes') } | ForEach-Object { "$($_.ProcessId)" }`
+		const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8', timeout: 30000 })
+		const pids = (r.stdout ?? '')
+			.split(/\r?\n/)
+			.map((l) => l.trim())
+			.filter(Boolean)
+		for (const pid of pids) spawnSync('taskkill', ['/pid', pid, '/T', '/F'], { stdio: 'ignore' })
+		return pids.length
+	}
+	const r = spawnSync('ps', ['-eo', 'pid,args'], { encoding: 'utf8', timeout: 15000 })
+	const pids = []
+	for (const l of (r.stdout ?? '').split('\n')) {
+		const m = /^\s*(\d+)\s+(.*)$/.exec(l)
+		if (m && Number(m[1]) !== process.pid && (/(^|\/)(wails3|Meld-page)( |$)/.test(m[2]) || (/bun.*run dev/.test(m[2]) && !/probes/.test(m[2])))) pids.push(Number(m[1]))
+	}
+	for (const pid of pids) {
+		try {
+			process.kill(pid, 'SIGKILL')
+		} catch {
+			/* gone */
+		}
+	}
+	return pids.length
+}
+
+/** Restarts `make dev-page` (#864): kills its processes and lets ensureDev start it again. Returns false, after saying why, when it must not (the loop lock, a probe run). */
+async function restartDev(why) {
+	if (process.env.MELD_URL) return false
+	const blocked = restartBlocked()
+	if (blocked) {
+		console.error(`probe: not restarting the dev page (${why}): ${blocked}`)
+		return false
+	}
+	console.error(`probe: restarting the dev page: ${why}`)
+	const n = killDevPage()
+	console.error(`probe: stopped ${n} process(es)`)
+	for (let i = 0; i < 20 && !(await devDown()); i++) await sleep(500)
+	await ensureDev()
+	return true
+}
+
 async function main() {
 	await ensureDev()
-	const stale = process.env.MELD_URL ? '' : await staleBackend()
+	let stale = process.env.MELD_URL ? '' : await staleBackend()
+	if (restartOnly || stale) {
+		if (await restartDev(restartOnly ? '--restart-page' : stale)) stale = await staleBackend()
+		if (restartOnly) {
+			console.log(JSON.stringify({ restarted: !stale, ...(stale ? { staleBackend: stale } : {}) }))
+			process.exit(stale ? 1 : 0)
+		}
+	}
 	if (stale) console.error(`probe: warning: ${stale}`)
 	// --at <commit> (#873): the page comes from that commit's frontend in a temporary worktree, the Go side stays the dev page's.
 	let atRun = null
