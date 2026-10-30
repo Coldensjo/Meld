@@ -183,11 +183,17 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 ## Looking into files without the app (`meldtool`)
 
 `cmd/meldtool` (#611) reads the files Meld reads and writes, from the repository root with
-`go run ./cmd/meldtool <command>`, instead of a scratch Go test or the dev page. It only reads (`mpq cat
--o` writes the file you name, nothing else). A tile argument is a file on disk or, when no such file
+`go run ./cmd/meldtool <command>`, instead of a scratch Go test or the dev page. It is also the start
+of Meld's command line tools (#778; part 1 is #893): nothing it does writes into the client or the
+server (`-o` writes the file you name, nothing else), its output is JSON (`--table` on the record
+commands prints a table for people), and a later command that writes will print what it would do and
+act only with `--write`. A tile, texture or model argument is a file on disk or, when no such file
 exists, an archive path read from the client: `--client` (the client folder, its Data folder or one
 `.MPQ`), else `config.json`'s `wowPath`, so on the owner's machine a bare `World\Maps\...` path works.
-Its own tests (`cmd/meldtool/meldtool_test.go`, synthetic tiles and archives) run in `make test`.
+The server is `--server` (a VMaNGOS folder with `run\mangosd.conf`), else `vmangosPath`.
+Its own tests (`cmd/meldtool/meldtool_test.go` and `commands_test.go`, synthetic tiles, archives,
+models and maps) run in `make test`; `TestRecordsLive` and `TestModelInfoClient` read the machine's
+server and client (`testclient`, skipped without them), so `make test-full` covers them.
 
 - `wmap info <file.wmap>`: the version, size, palette, objects by kind (`m2`, `wmo`, `helper`), hole
   cells, liquid layers by type, chunks by zone, impassable chunks, no-effect cells, shadows, region and
@@ -210,6 +216,34 @@ Its own tests (`cmd/meldtool/meldtool_test.go`, synthetic tiles and archives) ru
   only fixed kinds.
 - `bindings [--json]`: the bound methods (`func (a *App) X` in the root package, the files this OS
   builds) with their signatures and file:line, read from the sources, no build or wails needed.
+- `blp decode -o out.png <texture>` and `blp encode [--format auto|dxt1|dxt3] [--mips=false] -o out.blp
+  <in.png>`: a texture's first mip as a PNG with its alpha, and a PNG as the client's textures are stored
+  (`wow.EncodeBLP`: DXT3 when the image has alpha, else DXT1, with mips down to 1x1). Both print the
+  header (size, format, alpha depth, mips, bytes). Encode wants sides that are powers of two from 4 to
+  4096. Check: `blp decode -o g.png 'Interface\WorldMap\Elwynn\Goldshire1.blp'`, then `blp encode -o
+  g.blp g.png` gives 88580 bytes, the size of the client's own file. There is no palettized encoder.
+- `m2 info <model.m2>`: the header (version, name, flags, bounding box and radius in model space, z up,
+  the arrays' counts), the texture table (a file, or the replaceable slot's type a display fills), the
+  animation IDs, and what the editor draws of it (`wow.ParseM2`: vertices, triangles, batches by
+  texture, lights, emitters), or `drawError` for a model that draws nothing.
+- `wmo info <model.wmo>`: the root's counts, bounding box, materials, doodad sets and the doodads'
+  models, and each group (name, flags, interior) with its vertices, triangles less the collision-only
+  ones, doodad references and liquid, read from the group file beside the root (on disk or in the
+  client); `missing` says why a group file could not be read.
+- `heightmap export -o out.png <file.wmap>` and `heightmap import [--min -1024] [--max 1024] -o
+  out.wmap <file.wmap> <image>`: the map's heights as the app's Export Heightmap writes them (16-bit
+  grey, black -1024 yards, white 1024; `clamped` counts heights outside), and an image's greys set as
+  the heights from `--min` to `--max`, stretched bilinearly when its size differs: the app's Import
+  Heightmap in its Set mode over the whole map (`io/heightmapImport.ts`, which `importedHeights` must
+  match). Import writes `-o` as a new file. `shadowsStale` says the map has baked shadows to bake again.
+  An export and import round trip moves a height by up to 0.03 yards (the 16-bit step).
+- `creature|object|item get <entry>` and `spell get <entry>`: the template's newest patch row (the
+  spell's `spell_template` row for the server's build) with its columns, as the editors read it.
+  `creature|item search <text>`, `object search <text>` and `spell search <text>` (by name or entry,
+  `--limit`, 100): the editors' searches; the object search filters the asset browser's object list,
+  so it needs the client too, and the spell search reads only the client's `Spell.dbc`. Like the app,
+  these start the server folder's database when it is down. Check: `creature search --table hogger`
+  lists entry 448.
 
 ## Rendering and UI in the live app (Claude in Chrome)
 

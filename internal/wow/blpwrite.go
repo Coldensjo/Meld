@@ -14,38 +14,69 @@ const blpHeaderLen = 148
 // type 1, DXT1 without alpha, one mip and a zeroed palette, so a 256x256 tile is 33940 bytes like the
 // client's own (textures\Minimap, surveyed 2026-10-16). w and h must be multiples of 4.
 func EncodeMinimapBLP(rgba []byte, w, h int) ([]byte, error) {
-	if w <= 0 || h <= 0 || w%4 != 0 || h%4 != 0 {
+	return EncodeBLP(rgba, w, h, false, false)
+}
+
+// EncodeBLP writes a w by h RGBA image as a BLP2 of type 1 with a zeroed palette, the form the
+// client's own textures take: DXT3 with 8-bit alpha (alpha depth 8, alpha type 1) when alpha is set,
+// else DXT1 without alpha; with mips, every level down to 1x1 (each half the last, colour weighted by
+// alpha), else the first only. With mips w and h must be powers of two, without them multiples of 4.
+func EncodeBLP(rgba []byte, w, h int, alpha, mips bool) ([]byte, error) {
+	if mips && (w <= 0 || h <= 0 || w&(w-1) != 0 || h&(h-1) != 0 || w > 4096 || h > 4096) {
+		return nil, errors.New("blp: the size must be a power of two")
+	}
+	if !mips && (w <= 0 || h <= 0 || w%4 != 0 || h%4 != 0 || w > 4096 || h > 4096) {
 		return nil, errors.New("blp: the size must be a positive multiple of 4")
 	}
 	if len(rgba) != w*h*4 {
 		return nil, errors.New("blp: the pixels don't match the size")
 	}
-	data := EncodeDXT1(rgba, w, h)
-	out := make([]byte, blpHeaderLen+1024, blpHeaderLen+1024+len(data))
+	encode := EncodeDXT1
+	if alpha {
+		encode = EncodeDXT3
+	}
+	w0, h0 := w, h
+	var levels [][]byte
+	for {
+		levels = append(levels, encode(rgba, w, h))
+		if !mips || (w == 1 && h == 1) || len(levels) == 16 {
+			break
+		}
+		rgba, w, h = halve(rgba, w, h)
+	}
+	out := make([]byte, blpHeaderLen+1024)
 	copy(out, "BLP2")
 	binary.LittleEndian.PutUint32(out[4:], 1) // type 1: the BLP2 content kind every client texture has
 	out[8] = 2                                // compression: DXT
-	out[9] = 0                                // alpha depth 0: DXT1 without alpha
-	out[10] = 0                               // alpha type
-	out[11] = 0                               // no mips beyond the first
-	binary.LittleEndian.PutUint32(out[12:], uint32(w))
-	binary.LittleEndian.PutUint32(out[16:], uint32(h))
-	binary.LittleEndian.PutUint32(out[20:], uint32(len(out)))
-	binary.LittleEndian.PutUint32(out[20+64:], uint32(len(data)))
-	return append(out, data...), nil
+	if alpha {
+		out[9] = 8  // alpha depth 8
+		out[10] = 1 // alpha type 1: DXT3
+	}
+	if mips {
+		out[11] = 1
+	}
+	binary.LittleEndian.PutUint32(out[12:], uint32(w0))
+	binary.LittleEndian.PutUint32(out[16:], uint32(h0))
+	for i, m := range levels {
+		binary.LittleEndian.PutUint32(out[20+i*4:], uint32(len(out)))
+		binary.LittleEndian.PutUint32(out[20+64+i*4:], uint32(len(m)))
+		out = append(out, m...)
+	}
+	return out, nil
 }
 
-// EncodeDXT1 compresses a w by h RGBA image (multiples of 4) into DXT1 blocks, four colours each: the
-// block's colours are fitted along their principal axis (the range fit stb_dxt and squish use), then
-// each pixel takes the nearest of the four.
+// EncodeDXT1 compresses a w by h RGBA image into DXT1 blocks, four colours each: the block's colours
+// are fitted along their principal axis (the range fit stb_dxt and squish use), then each pixel takes
+// the nearest of the four. A size not a multiple of 4 (the small mips) repeats its edge pixels into
+// the block.
 func EncodeDXT1(rgba []byte, w, h int) []byte {
-	out := make([]byte, 0, w*h/2)
+	out := make([]byte, 0, ((w+3)/4)*((h+3)/4)*8)
 	var block [16][3]float64
 	for by := 0; by < h; by += 4 {
 		for bx := 0; bx < w; bx += 4 {
 			for y := 0; y < 4; y++ {
 				for x := 0; x < 4; x++ {
-					i := ((by+y)*w + bx + x) * 4
+					i := (min(by+y, h-1)*w + min(bx+x, w-1)) * 4
 					block[y*4+x] = [3]float64{float64(rgba[i]), float64(rgba[i+1]), float64(rgba[i+2])}
 				}
 			}
@@ -148,36 +179,7 @@ func unpack565(c uint16) [3]float64 {
 // zeroed palette, so a 256x256 piece is 88580 bytes like Elwynn's Goldshire1.blp. w and h must be
 // powers of two (the overlay tiles are 256, or the power of two past the piece's last column or row).
 func EncodeOverlayBLP(rgba []byte, w, h int) ([]byte, error) {
-	if w <= 0 || h <= 0 || w&(w-1) != 0 || h&(h-1) != 0 || w > 4096 || h > 4096 {
-		return nil, errors.New("blp: the size must be a power of two")
-	}
-	if len(rgba) != w*h*4 {
-		return nil, errors.New("blp: the pixels don't match the size")
-	}
-	w0, h0 := w, h
-	var mips [][]byte
-	for {
-		mips = append(mips, EncodeDXT3(rgba, w, h))
-		if (w == 1 && h == 1) || len(mips) == 16 {
-			break
-		}
-		rgba, w, h = halve(rgba, w, h)
-	}
-	out := make([]byte, blpHeaderLen+1024)
-	copy(out, "BLP2")
-	binary.LittleEndian.PutUint32(out[4:], 1)
-	out[8] = 2  // compression: DXT
-	out[9] = 8  // alpha depth 8
-	out[10] = 1 // alpha type 1: DXT3
-	out[11] = 1 // mips
-	binary.LittleEndian.PutUint32(out[12:], uint32(w0))
-	binary.LittleEndian.PutUint32(out[16:], uint32(h0))
-	for i, m := range mips {
-		binary.LittleEndian.PutUint32(out[20+i*4:], uint32(len(out)))
-		binary.LittleEndian.PutUint32(out[20+64+i*4:], uint32(len(m)))
-		out = append(out, m...)
-	}
-	return out, nil
+	return EncodeBLP(rgba, w, h, true, true)
 }
 
 // halve is a w by h RGBA image at half the size each way (not below 1), each pixel the mean of the

@@ -156,7 +156,7 @@ existing TemplateEditor explanation in [client integration](client.md), not a se
 ## Related developer tools
 
 - [Testing](../TESTS.md): choose checks, isolate writes and find regression recipes.
-- `cmd/meldtool`: inspect maps, tiles, archives and bridge signatures without the editor.
+- `cmd/meldtool`: inspect maps, tiles, archives, models and bridge signatures without the editor; convert BLP textures and heightmaps; read the world database's creatures, objects, items and spells (JSON out, nothing written into the client or server).
 - `internal/testclient`: locate local installations for read-only integration tests.
 - `internal/sandbox`: redirect probe client reads/writes to an isolated client copy.
 - `internal/recovery` and `internal/sessionlog`: crash recovery and diagnostic logs.

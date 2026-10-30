@@ -84,6 +84,37 @@ func openClient(dir string) (*client, error) {
 	return &client{files: set, list: set.List, close: set.Close}, nil
 }
 
+// serverDir is dir (a VMaNGOS server folder, whose run\mangosd.conf names the databases), or
+// config.json's vmangosPath when dir is empty.
+func serverDir(dir string) (string, error) {
+	if dir == "" {
+		dir = config.Load().VmangosPath
+		if dir == "" {
+			return "", errors.New("no server: pass --server, or set the VMaNGOS server folder in Meld")
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "run", "mangosd.conf")); err != nil {
+		return "", fmt.Errorf("%s is not a VMaNGOS server folder (no run\\mangosd.conf)", dir)
+	}
+	return dir, nil
+}
+
+// clientDataDir is the Data folder of dir (a client folder or its Data folder), or of config.json's
+// wowPath when dir is empty: what the vmangos package reads the client's tables from.
+func clientDataDir(dir string) (string, error) {
+	if dir == "" {
+		dir = config.Load().WowPath
+		if dir == "" {
+			return "", errors.New("no client: pass --client, or set the client folder in Meld")
+		}
+	}
+	data, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", dir, err)
+	}
+	return data, nil
+}
+
 // tileSource reads tiles from disk, or from the client when no such file exists. The client is
 // opened on the first such read.
 type tileSource struct {
@@ -117,6 +148,24 @@ func (s *tileSource) read(name string) (data []byte, bigAlpha, big bool, err err
 		}
 	}
 	return data, false, false, nil
+}
+
+// file returns a file's bytes from disk, or from the client (by its archive path, either slash)
+// when no such file exists.
+func (s *tileSource) file(name string) ([]byte, error) {
+	if b, err := os.ReadFile(name); err == nil {
+		return b, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if s.c == nil {
+		c, err := openClient(s.dir)
+		if err != nil {
+			return nil, fmt.Errorf("%s is not a file, and %w", name, err)
+		}
+		s.c = c
+	}
+	return s.c.read(name)
 }
 
 func (s *tileSource) close() {
