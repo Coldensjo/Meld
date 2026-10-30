@@ -268,7 +268,8 @@ var soundStemRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 // SoundFileName is the file name a sound file takes in the client: its name, spaces as underscores,
 // letters, digits, _ and - only, with its .wav or .mp3 extension in lower case.
 func SoundFileName(file string) (string, error) {
-	base := filepath.Base(file)
+	// Both separators, so a Windows path splits on Linux too (a backslash never passes the name check).
+	base := filepath.Base(file[strings.LastIndexAny(file, `/\`)+1:])
 	ext := strings.ToLower(filepath.Ext(base))
 	if ext != ".wav" && ext != ".mp3" {
 		return "", fmt.Errorf("%s: a sound is a .wav or .mp3 file", base)
