@@ -53,6 +53,7 @@
 	import { answerConfirm } from '../lib/state/confirm'
 	import { APP_VERSION } from '../lib/version'
 	import { keysOf, shortcutSections } from '../lib/ui/commands'
+	import { texName as textureName } from '../lib/wow/texName'
 
 	const close = () => (ui.dialog = null)
 
@@ -80,7 +81,6 @@
 	// The texture dialog's choices: palette indices.
 	let texFrom = $state(0)
 	let texTo = $state(1)
-	const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 
 	/** The help window's sections: a title and short paragraphs each (Help › Help…, F1). */
 	const HELP: Array<[string, string[]]> = $derived([
