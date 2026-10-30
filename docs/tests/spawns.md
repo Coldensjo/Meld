@@ -424,6 +424,23 @@ Checks: the Messages tab's texts shown under a condition (`SaveConditionText`, `
   shows the one with the highest condition_id (`Player::GetGossipTextId`).
 - The menu traps under the previous heading apply here too.
 
+## Creature editor: what it says on its own (#160, probe `messages-ai-lines`)
+
+Checks: the Messages tab's AI lines (`SaveAILine`: a talk command's broadcast text, run by a
+`creature_ai_events` row's action script).
+- Probe: `bun run probe messages-ai-lines` edits and reverts one of Crushridge Ogre's (2252) three
+  aggro lines; nothing written.
+- Write test (by hand, a scratch Go test calling `SaveAILine` with `t.Setenv(testDatabaseEnv, "1")`,
+  since the test guard (#885) panics on a real mariadb call otherwise): note `max(entry)` of
+  broadcast_text and `max(id)` of creature_ai_scripts. On 2252 (event and script 225201, run by no
+  other event) change "I'll crush you!" (1925): the script row's `dataint` becomes the new text, and
+  2253 still says 1925. On 4701 (event 470103) change text 7302 of script 470003, which 4700, 4701
+  and 4702's events all run: 4701's event now runs a copy (one past the highest script id, all three
+  rows copied), 4700 and 4702 keep 470003. Clean up: delete the rows above the maxima, set 225201's
+  `dataint` back to 1925 and event 470103's `action1_script` back to 470003.
+- Trap: a talk command picks one of up to four texts (`dataint` to `dataint4`), so one script row
+  can be three lines in the tab; they are listed in slot order.
+
 ## Flight paths (#180)
 
 Probe: `flight-paths`.

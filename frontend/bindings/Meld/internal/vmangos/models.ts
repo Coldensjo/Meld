@@ -9,7 +9,8 @@ import * as adt$0 from "../adt/models.js";
  * AILine is a line the creature says on its own: a talk command (SCRIPT_COMMAND_TALK) run by one of
  * its creature AI events. Event is creature_ai_events.event_type (EVENT_T_* in VMaNGOS's
  * CreatureEventAI.h: 4 aggro, 6 death...), Chance its event_chance, Chat broadcast_text.chat_type
- * (CHAT_TYPE_*: 0 say, 1 yell, 2 emote...).
+ * (CHAT_TYPE_*: 0 say, 1 yell, 2 emote...). EventID is the creature_ai_events row and ScriptID the
+ * creature_ai_scripts id whose talk command names broadcast text TextID.
  */
 export interface AILine {
     "event": number;
@@ -17,6 +18,16 @@ export interface AILine {
     "chat": number;
     "textId": number;
     "text": string;
+    "eventId": number;
+    "scriptId": number;
+}
+
+/**
+ * AILineSaved is what SaveAILine changed: the script the creature's event now runs, and the SQL it ran.
+ */
+export interface AILineSaved {
+    "scriptId": number;
+    "sql": string;
 }
 
 /**
@@ -596,7 +607,7 @@ export interface GameEvent {
  * Gossip is what a creature says when a player talks to it: its gossip menu (creature_template's
  * gossip_menu_id, 0 for none), how many creature templates share that menu, the menu's text rows
  * and options (gossip_menu_option), the creature's npc_flags (an option shows only when they hold
- * its NpcFlag) and the lines its AI says on its own, which the editor lists but doesn't change.
+ * its NpcFlag) and the lines its AI says on its own, whose text the editor changes (SaveAILine).
  */
 export interface Gossip {
     "menuId": number;

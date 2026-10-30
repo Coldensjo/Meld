@@ -56,19 +56,22 @@ type GossipOption struct {
 // AILine is a line the creature says on its own: a talk command (SCRIPT_COMMAND_TALK) run by one of
 // its creature AI events. Event is creature_ai_events.event_type (EVENT_T_* in VMaNGOS's
 // CreatureEventAI.h: 4 aggro, 6 death...), Chance its event_chance, Chat broadcast_text.chat_type
-// (CHAT_TYPE_*: 0 say, 1 yell, 2 emote...).
+// (CHAT_TYPE_*: 0 say, 1 yell, 2 emote...). EventID is the creature_ai_events row and ScriptID the
+// creature_ai_scripts id whose talk command names broadcast text TextID.
 type AILine struct {
-	Event  int    `json:"event"`
-	Chance int    `json:"chance"`
-	Chat   int    `json:"chat"`
-	TextID int    `json:"textId"`
-	Text   string `json:"text"`
+	Event    int    `json:"event"`
+	Chance   int    `json:"chance"`
+	Chat     int    `json:"chat"`
+	TextID   int    `json:"textId"`
+	Text     string `json:"text"`
+	EventID  int    `json:"eventId"`
+	ScriptID int    `json:"scriptId"`
 }
 
 // Gossip is what a creature says when a player talks to it: its gossip menu (creature_template's
 // gossip_menu_id, 0 for none), how many creature templates share that menu, the menu's text rows
 // and options (gossip_menu_option), the creature's npc_flags (an option shows only when they hold
-// its NpcFlag) and the lines its AI says on its own, which the editor lists but doesn't change.
+// its NpcFlag) and the lines its AI says on its own, whose text the editor changes (SaveAILine).
 type Gossip struct {
 	MenuID   int            `json:"menuId"`
 	Shared   int            `json:"shared"`
@@ -113,9 +116,9 @@ func readGossip(db worldDB, entry int) (Gossip, error) {
 		g.MenuID, _ = strconv.Atoi(f[0])
 		g.NpcFlags, _ = strconv.Atoi(f[1])
 	}
-	raw, err = runSQL(db, fmt.Sprintf("SELECT e.event_type, e.event_chance, b.chat_type, b.entry, COALESCE(b.male_text, '') FROM creature_ai_events e "+
+	raw, err = runSQL(db, fmt.Sprintf("SELECT e.event_type, e.event_chance, b.chat_type, b.entry, COALESCE(b.male_text, ''), e.id, s.id FROM creature_ai_events e "+
 		"JOIN creature_ai_scripts s ON s.id IN (e.action1_script, e.action2_script, e.action3_script) AND s.command = 0 "+
-		"JOIN broadcast_text b ON b.entry IN (s.dataint, s.dataint2, s.dataint3, s.dataint4) WHERE e.creature_id = %d ORDER BY e.id, s.delay, b.entry", entry))
+		"JOIN broadcast_text b ON b.entry IN (s.dataint, s.dataint2, s.dataint3, s.dataint4) WHERE e.creature_id = %d ORDER BY e.id, s.delay, FIELD(b.entry, s.dataint, s.dataint2, s.dataint3, s.dataint4)", entry))
 	if err != nil {
 		return g, err
 	}
@@ -163,8 +166,8 @@ func parseGossipOptions(raw []byte) []GossipOption {
 // parseAILines reads readGossip's creature AI lines.
 func parseAILines(raw []byte) []AILine {
 	var out []AILine
-	for _, f := range batchRows(raw, 5) {
-		out = append(out, AILine{Event: f.num(0), Chance: f.num(1), Chat: f.num(2), TextID: f.num(3), Text: f[4]})
+	for _, f := range batchRows(raw, 7) {
+		out = append(out, AILine{Event: f.num(0), Chance: f.num(1), Chat: f.num(2), TextID: f.num(3), Text: f[4], EventID: f.num(5), ScriptID: f.num(6)})
 	}
 	return out
 }
@@ -532,4 +535,108 @@ func SaveGossipOptions(serverRoot string, entry int, opts []GossipOption) (Greet
 		return GreetingSaved{}, err
 	}
 	return GreetingSaved{MenuID: after.MenuID, SQL: sql}, nil
+}
+
+// AILineSaved is what SaveAILine changed: the script the creature's event now runs, and the SQL it ran.
+type AILineSaved struct {
+	ScriptID int    `json:"scriptId"`
+	SQL      string `json:"sql"`
+}
+
+// aiScriptCols are creature_ai_scripts' columns after id, in order, for copying a script.
+var aiScriptCols = []string{"delay", "priority", "command", "datalong", "datalong2", "datalong3", "datalong4", "target_param1", "target_param2",
+	"target_type", "data_flags", "dataint", "dataint2", "dataint3", "dataint4", "x", "y", "z", "o", "condition_id", "comments"}
+
+// aiLineSQL changes what one talk line of a creature's AI says (#160): event eventID runs script
+// scriptID, whose talk commands name broadcast text old. As greetingSQL does, it never edits a
+// broadcast_text: it adds one with text (the old one's chat type, language and emotes; no sound, which
+// spoke the old words; a female text only where the old one had its own) as @text_b. A script no other
+// event runs (shared false) gets the new text in place of old; a shared one is copied whole as
+// @script with the text swapped, and only this event is pointed at the copy, so other creatures keep
+// theirs. The event, its chance and its other actions stay as they are.
+func aiLineSQL(eventID, scriptID, old int, text string, shared bool) string {
+	var b strings.Builder
+	q := sqlQuote(text)
+	b.WriteString("SET @text_b = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `broadcast_text`);\n")
+	fmt.Fprintf(&b, "INSERT INTO `broadcast_text` (`entry`, `male_text`, `female_text`, `chat_type`, `language_id`, `emote_id1`, `emote_id2`, `emote_id3`, `emote_delay1`, `emote_delay2`, `emote_delay3`) "+
+		"SELECT @text_b, %s, IF(COALESCE(`female_text`, '') = '', `female_text`, %s), `chat_type`, `language_id`, `emote_id1`, `emote_id2`, `emote_id3`, `emote_delay1`, `emote_delay2`, `emote_delay3` FROM `broadcast_text` WHERE `entry` = %d;\n", q, q, old)
+	swap := func(col string) string {
+		return fmt.Sprintf("IF(`command` = 0 AND `%s` = %d, @text_b, `%s`)", col, old, col)
+	}
+	if !shared {
+		fmt.Fprintf(&b, "UPDATE `creature_ai_scripts` SET `dataint` = IF(`dataint` = %d, @text_b, `dataint`), `dataint2` = IF(`dataint2` = %d, @text_b, `dataint2`), "+
+			"`dataint3` = IF(`dataint3` = %d, @text_b, `dataint3`), `dataint4` = IF(`dataint4` = %d, @text_b, `dataint4`) WHERE `id` = %d AND `command` = 0;", old, old, old, old, scriptID)
+		return b.String()
+	}
+	b.WriteString("SET @script = GREATEST((SELECT COALESCE(MAX(`id`), 0) FROM `creature_ai_scripts`), " +
+		"(SELECT COALESCE(MAX(GREATEST(`action1_script`, `action2_script`, `action3_script`)), 0) FROM `creature_ai_events`)) + 1;\n")
+	cols := make([]string, len(aiScriptCols))
+	vals := make([]string, len(aiScriptCols))
+	for i, c := range aiScriptCols {
+		cols[i] = "`" + c + "`"
+		vals[i] = cols[i]
+		if strings.HasPrefix(c, "dataint") {
+			vals[i] = swap(c)
+		}
+	}
+	fmt.Fprintf(&b, "INSERT INTO `creature_ai_scripts` (`id`, %s) SELECT @script, %s FROM `creature_ai_scripts` WHERE `id` = %d;\n", strings.Join(cols, ", "), strings.Join(vals, ", "), scriptID)
+	fmt.Fprintf(&b, "UPDATE `creature_ai_events` SET `action1_script` = IF(`action1_script` = %d, @script, `action1_script`), `action2_script` = IF(`action2_script` = %d, @script, `action2_script`), "+
+		"`action3_script` = IF(`action3_script` = %d, @script, `action3_script`) WHERE `id` = %d;", scriptID, scriptID, scriptID, eventID)
+	return b.String()
+}
+
+// SaveAILine sets what creature template entry's AI says in one talk line (aiLineSQL): the line
+// event eventID's script scriptID says with broadcast text textID now says text. It returns the
+// script the event now runs with the SQL it ran.
+func SaveAILine(serverRoot string, entry, eventID, scriptID, textID int, text string) (AILineSaved, error) {
+	if strings.TrimSpace(text) == "" {
+		return AILineSaved{}, fmt.Errorf("the line is empty")
+	}
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return AILineSaved{}, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return AILineSaved{}, err
+	}
+	g, err := readGossip(db, entry)
+	if err != nil {
+		return AILineSaved{}, err
+	}
+	found := false
+	for _, l := range g.Lines {
+		if l.EventID == eventID && l.ScriptID == scriptID && l.TextID == textID {
+			if l.Text == text {
+				return AILineSaved{ScriptID: scriptID}, nil
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return AILineSaved{}, fmt.Errorf("creature %d's AI has no line %d in script %d of event %d", entry, textID, scriptID, eventID)
+	}
+	raw, err := runSQL(db, fmt.Sprintf("SELECT COUNT(*) FROM `creature_ai_events` WHERE `id` <> %d AND %d IN (`action1_script`, `action2_script`, `action3_script`)", eventID, scriptID))
+	if err != nil {
+		return AILineSaved{}, err
+	}
+	shared := strings.TrimSpace(string(raw)) != "0"
+	sql := aiLineSQL(eventID, scriptID, textID, text, shared)
+	if err := runScript(db, sql); err != nil {
+		return AILineSaved{}, err
+	}
+	raw, err = runSQL(db, fmt.Sprintf("SELECT `action1_script`, `action2_script`, `action3_script` FROM `creature_ai_events` WHERE `id` = %d", eventID))
+	if err != nil {
+		return AILineSaved{}, err
+	}
+	now := scriptID
+	if shared {
+		// The copy: the event's action that held scriptID before.
+		for _, f := range strings.Fields(string(raw)) {
+			if n, _ := strconv.Atoi(f); n > now {
+				now = n
+			}
+		}
+	}
+	return AILineSaved{ScriptID: now, SQL: sql}, nil
 }

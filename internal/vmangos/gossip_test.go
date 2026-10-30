@@ -164,8 +164,8 @@ func TestParseGossipOptionsAndLines(t *testing.T) {
 	if len(o) != 1 || o[0].BroadcastText != 3000 || o[0].NpcFlag != 128 || o[0].Text != "I want to browse your goods." {
 		t.Fatalf("got %+v", o)
 	}
-	l := parseAILines([]byte("4\t100\t0\t1925\tI'll crush you!\n"))
-	if len(l) != 1 || l[0].Event != 4 || l[0].TextID != 1925 || l[0].Text != "I'll crush you!" {
+	l := parseAILines([]byte("4\t100\t0\t1925\tI'll crush you!\t225201\t225201\n"))
+	if len(l) != 1 || l[0].Event != 4 || l[0].TextID != 1925 || l[0].Text != "I'll crush you!" || l[0].EventID != 225201 || l[0].ScriptID != 225201 {
 		t.Fatalf("got %+v", l)
 	}
 }
@@ -174,5 +174,39 @@ func TestParseGossipTexts(t *testing.T) {
 	got := parseGossipTexts([]byte("5724\t0\tYer no warrior\t\n1215\t98\tThe big wars\tThe big wars\n"))
 	if len(got) != 2 || got[0].TextID != 5724 || got[1].Condition != 98 || got[0].Female != "" {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestAILineSQL(t *testing.T) {
+	// A script only this event runs: a new text swapped into its talk commands, nothing copied.
+	sql := aiLineSQL(225201, 225201, 1925, "I'll squash you!", false)
+	for _, want := range []string{
+		`SELECT @text_b, 'I\'ll squash you!', IF(COALESCE(` + "`female_text`, '') = '', `female_text`, " + `'I\'ll squash you!'), ` + "`chat_type`",
+		"FROM `broadcast_text` WHERE `entry` = 1925;",
+		"`dataint` = IF(`dataint` = 1925, @text_b, `dataint`)",
+		"`dataint4` = IF(`dataint4` = 1925, @text_b, `dataint4`) WHERE `id` = 225201 AND `command` = 0;",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("own: missing %q in\n%s", want, sql)
+		}
+	}
+	if strings.Contains(sql, "UPDATE `broadcast_text`") || strings.Contains(sql, "@script") || strings.Contains(sql, "creature_ai_events") {
+		t.Fatalf("own: a shared row was edited or the script copied:\n%s", sql)
+	}
+	// A script other events run too: copied whole with the text swapped, only this event repointed.
+	sql = aiLineSQL(7, 500, 1925, "Hi", true)
+	for _, want := range []string{
+		"INSERT INTO `creature_ai_scripts` (`id`, `delay`,",
+		"SELECT @script, `delay`,",
+		"IF(`command` = 0 AND `dataint2` = 1925, @text_b, `dataint2`)",
+		"`comments` FROM `creature_ai_scripts` WHERE `id` = 500;",
+		"`action3_script` = IF(`action3_script` = 500, @script, `action3_script`) WHERE `id` = 7;",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("shared: missing %q in\n%s", want, sql)
+		}
+	}
+	if strings.Contains(sql, "UPDATE `creature_ai_scripts`") {
+		t.Fatalf("shared: the shared script was edited:\n%s", sql)
 	}
 }

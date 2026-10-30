@@ -4,6 +4,7 @@ import type * as M from '../../../../bindings/Meld/internal/vmangos/models'
 import type { V2 } from '../v2'
 
 export type AILine = V2<M.AILine>
+export type AILineSaved = V2<M.AILineSaved>
 export type Account = V2<M.Account>
 export type AccountCharacter = V2<M.AccountCharacter>
 export type AnimInfo = V2<M.AnimInfo>

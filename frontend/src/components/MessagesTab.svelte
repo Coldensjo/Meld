@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
-	import { DeleteConditionText, ReadGossip, SaveConditionText, SaveGossipOptions, SaveGreeting } from '../lib/wails/App'
+	import { DeleteConditionText, ReadGossip, SaveAILine, SaveConditionText, SaveGossipOptions, SaveGreeting } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import MoneyField from './MoneyField.svelte'
 	import RefField from './RefField.svelte'
@@ -11,10 +11,11 @@
 
 	// The creature editor's Messages tab (#145, #158): what the creature says when a player talks to
 	// it, its gossip menu's greeting, its texts shown under a condition (#160) and options, and the
-	// lines its AI says on its own (read only). Broadcast texts are shared between creatures, so Go
-	// never edits one: a greeting or conditioned text save adds new text rows and points this
-	// creature's menu at them, an edited option text goes into the option's own row, and a shared
-	// menu is copied first. An option's menu, script, map point and condition, and a text's
+	// lines its AI says on its own (their text only, #160). Broadcast texts are shared between
+	// creatures, so Go never edits one: a greeting or conditioned text save adds new text rows and
+	// points this creature's menu at them, an edited option text goes into the option's own row, a
+	// shared menu is copied first, and an AI line gets a new text in its script (a script other
+	// creatures' events run is copied for this creature's event first). An option's menu, script, map point and condition, and a text's
 	// condition, are pickers of the world database's rows (#700).
 
 	const MENU: CreatureField = { col: 'action_menu_id', label: 'Menu', ref: 'gossip', options: [[-1, 'Closes the window']], hint: 'The gossip menu it opens; −1 closes the window' }
@@ -108,6 +109,31 @@
 		}
 	}
 
+	/** An AI line being edited: its text now and as last read. */
+	type AIText = { line: vmangos.AILine; text: string }
+	let aiTexts = $state<AIText[]>([])
+	let savingLine = $state(-1)
+	const lineDirty = (l: AIText) => l.text !== l.line.text
+	const anyLineDirty = $derived(aiTexts.some(lineDirty))
+
+	async function saveLine(i: number) {
+		const l = aiTexts[i]
+		savingLine = i
+		const end = startSaving("Saving the creature's AI line")
+		error = ''
+		try {
+			const r = await SaveAILine(entry, l.line.eventId, l.line.scriptId, l.line.textId, l.text)
+			await load()
+			const copied = r.scriptId !== l.line.scriptId ? ` (its event now runs script ${r.scriptId}, a copy of the shared ${l.line.scriptId})` : ''
+			setStatus(`Saved a line creature ${entry} says on its own${copied}. Restart the world server to hear it in the game.`, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			savingLine = -1
+			end()
+		}
+	}
+
 	/** The options being edited, and as last read (JSON), to tell an edit. */
 	const optionRows = new RowList<vmangos.GossipOption[]>({ empty: [] })
 	const options = $derived(optionRows.rows)
@@ -116,7 +142,7 @@
 	const greetingDirty = $derived(male !== savedMale || female !== savedFemale)
 
 	$effect(() => {
-		dirty = greetingDirty || optionsDirty || anyCondDirty
+		dirty = greetingDirty || optionsDirty || anyCondDirty || anyLineDirty
 	})
 
 	function readOptions(g: vmangos.Gossip) {
@@ -197,6 +223,7 @@
 			savedFemale = female = t && t.female !== t.male ? t.female : ''
 			readOptions(g)
 			readConds(g)
+			aiTexts = (g.lines ?? []).map((line) => ({ line, text: line.text }))
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -204,7 +231,7 @@
 		}
 	}
 
-	/** Drops every unsaved change: the greeting, the conditioned texts and the options (the editor's Discard). */
+	/** Drops every unsaved change: the greeting, the conditioned texts, the options and the AI lines (the editor's Discard). */
 	export function revert() {
 		void load()
 	}
@@ -329,14 +356,24 @@
 			</div>
 		{/each}
 
-		{#if gossip?.lines?.length}
-			<h3>What it says on its own ({gossip.lines.length})</h3>
-			<p class="dim">Lines its creature AI says (creature_ai_events and their talk scripts). Listed only; they are edited with the scripts.</p>
-			<ul>
-				{#each gossip.lines as l, i (i)}
-					<li><span class="dim">{nameOf(AI_EVENTS, l.event)}{l.chance < 100 ? ` (${l.chance}%)` : ''} · {nameOf(CHAT_TYPES, l.chat)}</span> {l.text}</li>
-				{/each}
-			</ul>
+		{#if aiTexts.length}
+			<h3>What it says on its own ({aiTexts.length})</h3>
+			<p class="dim">
+				Lines its creature AI says (creature_ai_events and their talk scripts). A saved line is a new text row, so other creatures saying the old one keep it; a script other creatures' events run too is copied for this creature
+				first. The event and its chance are edited with the scripts.
+			</p>
+			{#each aiTexts as l, i (l)}
+				<div class="option ai-line">
+					<div class="line">
+						<span class="dim">{nameOf(AI_EVENTS, l.line.event)}{l.line.chance < 100 ? ` (${l.line.chance}%)` : ''} · {nameOf(CHAT_TYPES, l.line.chat)}</span>
+						<input class="text" bind:value={l.text} aria-label="What it says" />
+						<span class="row-actions">
+							<button disabled={!lineDirty(l) || savingLine >= 0} onclick={() => (l.text = l.line.text)}>Revert</button>
+							<button class="active" disabled={!lineDirty(l) || savingLine >= 0 || !l.text.trim()} onclick={() => saveLine(i)}>{savingLine === i ? 'Saving…' : lineDirty(l) ? 'Save' : 'Saved'}</button>
+						</span>
+					</div>
+				</div>
+			{/each}
 		{/if}
 	{/if}
 </div>
@@ -377,13 +414,6 @@
 		width: 100%;
 		resize: vertical;
 		font: inherit;
-	}
-	ul {
-		margin: 0;
-		padding-left: 18px;
-	}
-	li {
-		padding: 2px 0;
 	}
 	.option {
 		display: flex;

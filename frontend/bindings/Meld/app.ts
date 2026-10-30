@@ -1359,6 +1359,15 @@ export function SandboxWriteFile(name: string, data: string): $CancellablePromis
 }
 
 /**
+ * SaveAILine sets what one talk line of a creature template's AI says (the Messages tab's "What it
+ * says on its own", #160): the line event eventID's script scriptID says with broadcast text textID
+ * now says text. Only this creature's event changes; a shared script is copied first.
+ */
+export function SaveAILine(entry: number, eventID: number, scriptID: number, textID: number, text: string): $CancellablePromise<vmangos$0.AILineSaved> {
+    return $Call.ByID(1595973684, entry, eventID, scriptID, textID, text);
+}
+
+/**
  * SaveAreaTriggers writes the Portals dialog's changed triggers (rows) and removed ones (remove, by
  * ID) into the client's AreaTrigger.dbc in Meld's patch and into the world database's
  * areatrigger_template and areatrigger_teleport, which the server reads. Nothing is closed or

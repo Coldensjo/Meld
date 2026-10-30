@@ -463,6 +463,17 @@ func (a *App) DeleteConditionText(entry, textID int) (vmangos.GreetingSaved, err
 	return vmangos.DeleteConditionText(server, entry, textID)
 }
 
+// SaveAILine sets what one talk line of a creature template's AI says (the Messages tab's "What it
+// says on its own", #160): the line event eventID's script scriptID says with broadcast text textID
+// now says text. Only this creature's event changes; a shared script is copied first.
+func (a *App) SaveAILine(entry, eventID, scriptID, textID int, text string) (vmangos.AILineSaved, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return vmangos.AILineSaved{}, err
+	}
+	return vmangos.SaveAILine(server, entry, eventID, scriptID, textID, text)
+}
+
 // SaveGossipOptions replaces the options (the lines a player can pick) of a creature template's
 // gossip menu, and returns its gossip menu now.
 func (a *App) SaveGossipOptions(entry int, options []vmangos.GossipOption) (vmangos.GreetingSaved, error) {

@@ -3,6 +3,7 @@
 
 export type {
     AILine,
+    AILineSaved,
     Account,
     AccountCharacter,
     AnimInfo,

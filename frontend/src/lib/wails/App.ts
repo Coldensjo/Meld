@@ -194,6 +194,7 @@ export const RegionPending: Call<AppApi['RegionPending']> = (...a) => api().Regi
 export const RegionShadows: NonNullCall<AppApi['RegionShadows']> = (...a) => api().RegionShadows(...a) as never
 export const RestartServer: Call<AppApi['RestartServer']> = (...a) => api().RestartServer(...a) as never
 export const SandboxWriteFile: Call<AppApi['SandboxWriteFile']> = (...a) => api().SandboxWriteFile(...a) as never
+export const SaveAILine: Call<AppApi['SaveAILine']> = (...a) => api().SaveAILine(...a) as never
 export const SaveAreaTriggers: Call<AppApi['SaveAreaTriggers']> = (...a) => api().SaveAreaTriggers(...a) as never
 export const SaveAreas: Call<AppApi['SaveAreas']> = (...a) => api().SaveAreas(...a) as never
 export const SaveBrushDialog: Call<AppApi['SaveBrushDialog']> = (...a) => api().SaveBrushDialog(...a) as never

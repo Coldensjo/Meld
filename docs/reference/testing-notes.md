@@ -848,6 +848,7 @@ the same scene, the report before and after.
 - Creature editor: Shop tab (npc_vendor, #145, probe `creature-shop`)
 - Creature editor: Quests and Messages tabs (#158)
 - Creature editor: texts shown under a condition (#160, probe `messages-conditions`)
+- Creature editor: what it says on its own (#160, probe `messages-ai-lines`)
 - Creature editor: Spells tab (creature_spells, #243)
 - Portals and area triggers (#141, #18; Teleport to destination #306, spawn teleports #308, probe `teleport-trigger`; layout #718, probe `portals-fit`)
 - Flight paths (#180, probe `flight-paths`)

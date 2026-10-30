@@ -533,6 +533,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (`creature_spells.scriptId_1..8`) are listed too (#736). A row with a `table` opens to its commands
   (the lazy `ScriptCommands` binding, a whitelist of the script tables; names in
   `lib/world/scriptCommands.ts`, from `ScriptCommands.h`); EventAI events do not open. A first step toward the node editor (#30) and Lua (#28).
+- **AI lines** (#160): the creature editor's Messages tab edits the text of what a creature says on
+  its own (`SaveAILine`, `aiLineSQL` in `internal/vmangos/gossip.go`), text only, as the owner chose:
+  a new `broadcast_text` (the old one's chat type, language and emotes, no sound) replaces the old
+  one in the event's talk script; a script other events run too is copied first and only this
+  creature's event repointed, so shared rows are never edited. The event, its chance and its other
+  actions are left to the node editor (#30).
 - **Flight paths** (#180): `internal/vmangos/taxi.go` reads and writes the client's three taxi tables
   (`LoadTaxiTables`, `ReadTaxiNetwork`, `SetTaxi`; 1.12 layouts: TaxiNodes 16 fields with the Horde
   mount at 14 and the Alliance one at 15, TaxiPath 4, TaxiPathNode 9). VMaNGOS reads the stops from

@@ -28,6 +28,7 @@ func TestSandboxRefusesWorldDatabaseWrites(t *testing.T) {
 		"SaveConditionText":   func() error { _, err := a.SaveConditionText(-1, 0, 1, "", ""); return err },
 		"DeleteConditionText": func() error { _, err := a.DeleteConditionText(-1, 0); return err },
 		"SaveGossipOptions":   func() error { _, err := a.SaveGossipOptions(-1, nil); return err },
+		"SaveAILine":          func() error { _, err := a.SaveAILine(-1, 0, 0, 0, "x"); return err },
 		"SaveGreeting":        func() error { _, err := a.SaveGreeting(-1, "", ""); return err },
 		"SaveItem":            func() error { _, err := a.SaveItem(-1, 0, nil); return err },
 		"SaveObject":          func() error { _, err := a.SaveObject(-1, 0, nil); return err },
