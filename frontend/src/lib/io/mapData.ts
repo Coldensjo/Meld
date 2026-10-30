@@ -11,6 +11,7 @@ import { base64ToBytes, bytesToBase64 } from './base64'
 import { readReference } from '../terrain/referenceImage'
 import { readPaths } from '../terrain/paths'
 import { readLiquidKinds } from '../water/liquids'
+import { decodePathApplies, encodePathApplies } from '../tools/pathRecord'
 
 export function toMapData(s: MapSnapshot): mapfile.MapData {
 	// The binding only needs the fields, which it sends as JSON; the ones left undefined take Go's zero values.
@@ -50,6 +51,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
 		noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
 		shadows: s.shadows ? bytesToBase64(s.shadows) : undefined,
+		// What the paths' last applies replaced (#395), so applying one again after reopening takes it back.
+		pathApplies: s.pathApplies?.length ? bytesToBase64(encodePathApplies(s.pathApplies)) : undefined,
 	}
 	return data
 }
@@ -142,5 +145,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		chunkDataKnown: version >= 5 && !m.chunkDataUnknown,
 		// Format 6 keeps the baked shadows; empty means the map holds none of its own.
 		shadows: m.shadows ? base64ToBytes(m.shadows) : null,
+		// Format 8 keeps what the paths' last applies replaced; an older map's paths have none.
+		...(m.pathApplies ? { pathApplies: decodePathApplies(base64ToBytes(m.pathApplies), m.size, m.splatRes) } : {}),
 	}
 }

@@ -30,18 +30,20 @@ export class LiquidStroke {
 		if (!this.before.has(c)) this.before.set(c, this.map.layers(c).map(cloneLayer))
 	}
 
+	/** The chunks that ended up different, each with its layers before; the stroke starts over. */
+	changed(): Map<number, LiquidLayer[]> {
+		const before = new Map<number, LiquidLayer[]>()
+		for (const [c, layers] of this.before) if (!sameLayers(layers, this.map.layers(c))) before.set(c, layers)
+		this.before.clear()
+		return before
+	}
+
 	finish(): Command | null {
 		const map = this.map
-		const before = new Map<number, LiquidLayer[]>()
-		const after = new Map<number, LiquidLayer[]>()
-		for (const [c, layers] of this.before) {
-			const now = map.layers(c)
-			if (sameLayers(layers, now)) continue
-			before.set(c, layers)
-			after.set(c, now.map(cloneLayer))
-		}
-		this.before.clear()
+		const before = this.changed()
 		if (!before.size) return null
+		const after = new Map<number, LiquidLayer[]>()
+		for (const c of before.keys()) after.set(c, map.layers(c).map(cloneLayer))
 		const apply = (m: Map<number, LiquidLayer[]>) => {
 			for (const [c, layers] of m) map.set(c, layers.map(cloneLayer))
 		}

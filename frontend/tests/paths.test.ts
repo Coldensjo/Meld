@@ -322,6 +322,7 @@ test('a fence stands its model along the path, one undo step removing them all',
 		remove(id: number) {
 			placed.delete(id)
 		},
+		objects: placed,
 		markRegionDirty() {},
 	} as unknown as ObjectLayer
 	const f = road(

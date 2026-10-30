@@ -17,6 +17,8 @@
 //	noEffect   []byte   Size^2 bytes: 1 where a cell grows no ground effect doodads (version 5)
 //	shadowLen  uint32   length of the shadows blob: 0, or ShadowBytes (version 6)
 //	shadows    []byte   the baked terrain shadows, a bit per shadow texel (version 6)
+//	appliedLen uint32   length of the path applies blob (version 8)
+//	applied    []byte   what each path's last apply replaced (version 8, below)
 //
 // The baked shadows (each chunk's MCSH, kept at its resolution) have ShadowTexels texels a cell, so
 // Size*ShadowTexels a side; texel i (row-major) is bit i&7 of byte i>>3. An empty blob means the map
@@ -26,6 +28,18 @@
 // uint8 liquid type (LiquidType.dbc: 1 water, 2 ocean, 3 magma, 4 slime, or a building's row such as
 // 21, whose kind the header's LiquidKinds keeps), uint64 cell mask (bit z*8+x), 81 float32 surface
 // heights and 81 depth bytes, each 9x9 row-major.
+//
+// The path applies blob (#395) keeps, for each path of the header's Paths whose last apply is in the
+// map, what that apply replaced, so applying the path again after the map is reopened takes it back
+// first. It is a uint32 record count, then each record: uint32 path ID; uint32 n and n uint32 vertex
+// indices (row-major, (Size+1)^2), then their n float32 heights before the apply; uint32 n and n
+// uint32 paint chunk indices, then their n*4 slot bytes, then their weights, n*(per*per*4) bytes with
+// per = SplatRes/(Size/8) texels a chunk side, row-major in each chunk; uint32 n and n uint32 liquid
+// chunk indices the apply changed, then a uint32 layer count and the layers those chunks held before,
+// each as a liquids blob record (a chunk with none before has no layer); uint32 n and n uint32 model
+// IDs a fence apply stood (PlacedObject.ID), then a uint32 length and the bytes of their type. An
+// empty blob means no path's apply is remembered. Version 7 and older have no such blob: their paths
+// open with no last apply, and applying one again lays it over what the old apply wrote.
 //
 // Version 7 adds no blob: it is the first whose header's vmangos may place the map on the client's
 // 64x64 tile grid and leave tiles of its square out (TileX, TileY, Tiles, #46). An older Meld refuses
@@ -57,8 +71,8 @@ import (
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Versions 1 to 6 are still read.
-	Version = 7
+	// Version is the format written. Versions 1 to 7 are still read.
+	Version = 8
 	// ShadowTexels is the baked shadow map's texels per cell side (64 a chunk, as MCSH has them).
 	ShadowTexels = 8
 	// LiquidRecordSize is the bytes of one liquid layer in the liquids blob.
@@ -133,8 +147,8 @@ type Header struct {
 	// pixels, and where it lies. Optional; older readers ignore it.
 	Reference *ReferenceImage `json:"reference,omitempty"`
 	// Paths are the roads, rivers and fences drawn along a curve with the Path tool (#167), kept so they can be moved and
-	// applied again; what an apply wrote is in the heights and paint. Never exported. Optional; older
-	// readers ignore it.
+	// applied again; what an apply wrote is in the heights and paint, and what its last apply replaced
+	// in MapData.PathApplies (version 8). Never exported. Optional; older readers ignore it.
 	Paths []MapPath `json:"paths,omitempty"`
 	// LiquidsUnknown says the liquids blob is not all of the region's liquids: the map was opened from a
 	// file older than version 4, which kept none, so it holds only what was drawn since, and a region's
@@ -231,8 +245,11 @@ type MapData struct {
 	NoEffect   string `json:"noEffect,omitempty"`
 	// Shadows is the baked shadows' bits (version 6, ShadowBytes); empty means none of the map's own.
 	Shadows string `json:"shadows,omitempty"`
-	SplatA  string `json:"splatA,omitempty"` // base64 RGBA8, version 1
-	SplatB  string `json:"splatB,omitempty"` // base64 RGBA8, version 1
+	// PathApplies is the path applies blob (version 8): what each path's last apply replaced. Empty
+	// means none.
+	PathApplies string `json:"pathApplies,omitempty"`
+	SplatA      string `json:"splatA,omitempty"` // base64 RGBA8, version 1
+	SplatB      string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
 
 func (h *Header) validate() error {
@@ -330,6 +347,105 @@ func (h *Header) checkLiquids(b []byte) error {
 	return nil
 }
 
+// paintChunkTexels is a paint chunk's side in splat texels, or 0 when the splat isn't whole texels a chunk.
+func (h *Header) paintChunkTexels() int {
+	c := h.Size / ChunkCells
+	if c == 0 || h.SplatRes%c != 0 {
+		return 0
+	}
+	return h.SplatRes / c
+}
+
+// blobReader reads little-endian fields off a blob, remembering the first read past its end.
+type blobReader struct {
+	b   []byte
+	off int
+	err error
+}
+
+func (r *blobReader) u32() int {
+	if r.err != nil {
+		return 0
+	}
+	if len(r.b)-r.off < 4 {
+		r.err = errors.New("truncated")
+		return 0
+	}
+	v := binary.LittleEndian.Uint32(r.b[r.off:])
+	r.off += 4
+	return int(v)
+}
+
+// count reads a uint32 count of items of size bytes each, checking that many fit in what is left.
+func (r *blobReader) count(size int) int {
+	n := r.u32()
+	if r.err == nil && size > 0 && n > (len(r.b)-r.off)/size {
+		r.err = fmt.Errorf("%d items of %d bytes in %d left", n, size, len(r.b)-r.off)
+		return 0
+	}
+	return n
+}
+
+func (r *blobReader) skip(n int) {
+	if r.err == nil && n > len(r.b)-r.off {
+		r.err = errors.New("truncated")
+	}
+	if r.err == nil {
+		r.off += n
+	}
+}
+
+// indices reads n uint32 indices, each below limit.
+func (r *blobReader) indices(n, limit int, what string) {
+	for k := 0; k < n && r.err == nil; k++ {
+		if i := r.u32(); r.err == nil && i >= limit {
+			r.err = fmt.Errorf("%s %d of %d", what, i, limit)
+		}
+	}
+}
+
+// checkPathApplies rejects a path applies blob that runs short or long, or names a vertex or chunk off
+// the map.
+func (h *Header) checkPathApplies(b []byte) error {
+	if len(b) == 0 {
+		return nil
+	}
+	verts := (h.Size + 1) * (h.Size + 1)
+	chunks := h.chunkCount()
+	per := h.paintChunkTexels()
+	chunkWeights := per * per * SlotsPerChunk
+	r := &blobReader{b: b}
+	n := r.u32()
+	for i := 0; i < n && r.err == nil; i++ {
+		r.u32() // the path's ID
+		nh := r.count(8)
+		r.indices(nh, verts, "vertex")
+		r.skip(nh * 4)
+		np := r.count(4 + SlotsPerChunk + chunkWeights)
+		if np > 0 && per == 0 {
+			r.err = fmt.Errorf("paint of a splat of %d texels over %d chunks a side", h.SplatRes, h.Size/ChunkCells)
+		}
+		r.indices(np, chunks, "paint chunk")
+		r.skip(np * (SlotsPerChunk + chunkWeights))
+		nl := r.count(4)
+		r.indices(nl, chunks, "liquid chunk")
+		layers := r.count(LiquidRecordSize)
+		for k := 0; k < layers && r.err == nil; k++ {
+			r.indices(1, chunks, "liquid layer chunk")
+			r.skip(LiquidRecordSize - 4)
+		}
+		r.skip(r.count(4) * 4) // the fence's model IDs
+		r.skip(r.count(1))     // and their type
+	}
+	if r.err == nil && r.off != len(b) {
+		r.err = fmt.Errorf("%d bytes past the last record", len(b)-r.off)
+	}
+	if r.err != nil {
+		return fmt.Errorf("path applies: %w", r.err)
+	}
+	return nil
+}
+
 // Write encodes m to w in the current version.
 func Write(w io.Writer, m *MapData) error {
 	if err := m.validate(); err != nil {
@@ -398,6 +514,16 @@ func Write(w io.Writer, m *MapData) error {
 	var shadowLen [4]byte
 	binary.LittleEndian.PutUint32(shadowLen[:], uint32(len(shadows)))
 	blobs = append(blobs, shadowLen[:], shadows)
+	applies, err := base64.StdEncoding.DecodeString(m.PathApplies)
+	if err != nil {
+		return fmt.Errorf("path applies: %w", err)
+	}
+	if err := m.checkPathApplies(applies); err != nil {
+		return err
+	}
+	var appliesLen [4]byte
+	binary.LittleEndian.PutUint32(appliesLen[:], uint32(len(applies)))
+	blobs = append(blobs, appliesLen[:], applies)
 
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {
@@ -426,7 +552,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 to 7 are all accepted.
+// Read decodes a map from r. Versions 1 to 8 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -536,6 +662,26 @@ func Read(r io.Reader) (*MapData, error) {
 				}
 			default:
 				return nil, fmt.Errorf("shadows: %d bytes, want %d", size, m.ShadowBytes())
+			}
+		}
+		if v >= 8 {
+			var n [4]byte
+			if _, err := io.ReadFull(gz, n[:]); err != nil {
+				return nil, fmt.Errorf("path applies: %w", err)
+			}
+			size := binary.LittleEndian.Uint32(n[:])
+			if size > 1<<30 {
+				return nil, errors.New("path applies: too large")
+			}
+			buf := make([]byte, size)
+			if _, err := io.ReadFull(gz, buf); err != nil {
+				return nil, fmt.Errorf("path applies: %w", err)
+			}
+			if err := m.checkPathApplies(buf); err != nil {
+				return nil, err
+			}
+			if size > 0 {
+				m.PathApplies = base64.StdEncoding.EncodeToString(buf)
 			}
 		}
 	}

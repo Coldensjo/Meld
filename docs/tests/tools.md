@@ -474,6 +474,23 @@ model long in Z) and a fence's apply and undo on stand-in layers.
 - The model is measured from its loaded bounds (`loadAsset`) before the apply, so `PathTool.apply`
   is async for a fence; the probe awaits `e.path((t, c) => t.apply(c))`.
 
+## Paths: applying again after reopening (#395, probe `path-road`)
+
+Checks: a road with a hump, a river and a fence applied on a fresh flat map, saved through the Go side
+(`SaveSceneMap`, then `LoadMap`, so `mapfile`'s blob check runs) and opened again in a new tab with no
+history; there the road with its raised point deleted and applied again loses the hump (the step is
+"Apply Road 1 again"), the river moved 40 yd south and applied again leaves no old bed or liquid, the
+fence at a 20 yd spacing applied again replaces its 25 models, and undo brings the saved set back. The
+`reopened` part of `bun run probe path-road`. `frontend/tests/pathRecord.test.ts` covers the record
+through the blob (a road's heights and paint, a river's liquid, a fence's models, a model of another
+type keeping a reused id), which records a save keeps, a grown map's shift and a blob that does not
+fit; `internal/mapfile` (`TestPathAppliesChecked`, `TestReadsVersion7WithoutPathApplies`, the `v8`
+fixture) the Go side. The probe `new-world-rivers` checks that Apply on a generated river is an apply
+"again" (its carve taken back first) and that its undo puts the generated river back.
+- `fromMapData` needs the `version` Go reads (it gates the liquids on it): a probe that goes through
+  `toMapData` and `JSON` alone, without Go, opens with no liquids, so go through `SaveSceneMap` and
+  `LoadMap`.
+
 ## A scripted Sculpt stroke and its undo (probe `undo-sculpt`, smoke)
 
 Checks: a scripted Raise stroke on a flat map changes the heights, undo puts them back exactly and redo

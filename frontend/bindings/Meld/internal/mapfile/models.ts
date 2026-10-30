@@ -95,8 +95,8 @@ export interface MapData {
 
     /**
      * Paths are the roads, rivers and fences drawn along a curve with the Path tool (#167), kept so they can be moved and
-     * applied again; what an apply wrote is in the heights and paint. Never exported. Optional; older
-     * readers ignore it.
+     * applied again; what an apply wrote is in the heights and paint, and what its last apply replaced
+     * in MapData.PathApplies (version 8). Never exported. Optional; older readers ignore it.
      */
     "paths"?: MapPath[] | null;
 
@@ -165,6 +165,12 @@ export interface MapData {
      * Shadows is the baked shadows' bits (version 6, ShadowBytes); empty means none of the map's own.
      */
     "shadows"?: string;
+
+    /**
+     * PathApplies is the path applies blob (version 8): what each path's last apply replaced. Empty
+     * means none.
+     */
+    "pathApplies"?: string;
 
     /**
      * base64 RGBA8, version 1

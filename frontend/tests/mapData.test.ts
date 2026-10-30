@@ -197,6 +197,18 @@ function fullSnapshot(): MapSnapshot {
 			},
 			{ id: 9, name: 'Palisade', kind: 'fence', points: [{ x: 3, y: 0, z: 3 }], width: 2, falloff: 0, grade: 0, texture: '', edge: 0, depth: 1, liquid: 2, model: 'm2:World\\Fence.m2', spacing: 3, turn: 90 },
 		],
+		pathApplies: [
+			{
+				pathId: 4,
+				record: {
+					heights: { index: Int32Array.from([0, 5, (SIZE + 1) ** 2 - 1]), before: Float32Array.from([1.5, -2, 300.25]) },
+					paint: { chunks: Int32Array.from([3, 1]), weights: ramp(2 * 32 * 32 * 4), slots: Uint8Array.from([0, 1, 255, 255, 2, 255, 255, 255]) },
+					liquids: { chunks: Int32Array.from([2, 0]), layers: [[], [{ ...newLayer(2, 4.5), depth: new Float32Array(81).fill(51 / 255) }]] },
+					models: null,
+				},
+			},
+			{ pathId: 9, record: { heights: null, paint: null, liquids: null, models: { ids: Int32Array.from([7, 8]), type: 'm2:World\\Fence.m2' } } },
+		],
 		heights: ramp((SIZE + 1) ** 2 * 4),
 		weights: ramp(64 * 64 * 4),
 		chunkSlots: ramp(CHUNKS * 4),

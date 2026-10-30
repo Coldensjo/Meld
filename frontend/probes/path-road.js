@@ -1,5 +1,5 @@
-// Path tool (#167): clicks drop a road's points, a click on a point picks it and Shift+drag raises it, Apply levels and paints along the curve as one undo step, and applying again after an edit takes the first apply back. Then, each on a fresh flat map in the same page (once the probes path-river and path-fence): the River's Apply carves the bed along the curve and fills it with the liquid, its surface running downhill from the higher end, as one undo step that takes the bed and the liquid back; and the Fence's Apply stands a picked model end to end along the curve at its own length, each turned along the curve, as one undo step that removes them all, applying again after a change replacing them.
-// touches: frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/paths.ts, frontend/src/components/PathEditBar.svelte, frontend/src/lib/water/Water.ts
+// Path tool (#167): clicks drop a road's points, a click on a point picks it and Shift+drag raises it, Apply levels and paints along the curve as one undo step, and applying again after an edit takes the first apply back. Then, each on a fresh flat map in the same page (once the probes path-river and path-fence): the River's Apply carves the bed along the curve and fills it with the liquid, its surface running downhill from the higher end, as one undo step that takes the bed and the liquid back; and the Fence's Apply stands a picked model end to end along the curve at its own length, each turned along the curve, as one undo step that removes them all, applying again after a change replacing them. And (#395) a road's, a river's and a fence's last applies saved through the Go side and read back: on the reopened map, with no history, applying each again after a change still takes the old road's hump, the old river bed and its liquid, and the old fence models back.
+// touches: frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/paths.ts, frontend/src/components/PathEditBar.svelte, frontend/src/lib/water/Water.ts, frontend/src/lib/tools/pathRecord.ts, frontend/src/lib/io/mapData.ts, internal/mapfile/*
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
@@ -201,8 +201,126 @@ const fence = await (async () => {
 	}
 })()
 
+// Reopened (#395): a road's, a river's and a fence's last applies are saved through the Go side and
+// read back, so on the reopened map, which has no history, applying each again still takes the old one back.
+const reopened = await (async () => {
+	e.newDocument(256, 'flat', 0, 'Probe')
+	editor.tool = 'path'
+	await P.frames(1)
+	const V3 = e.controller.target.constructor
+	const t0 = e.terrain
+	const h0 = t0.heightAt(256, 256)
+	const tool = e.debug.tools.path
+	const ev = new PointerEvent('pointerdown')
+	/** Starts a path of `kind` through the points, as clicks on empty ground. */
+	const lay = (kind, pts) => {
+		tool.pick(-1)
+		editor.pathKind = kind
+		for (const [x, z] of pts) {
+			e.debug.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
+			tool.onDown(e.debug.ctx, new V3(x, t0.heightAt(x, z), z), ev)
+			tool.onUp(e.debug.ctx)
+		}
+		return editor.pathId
+	}
+	const road = lay('road', [
+		[150, 256],
+		[256, 290],
+		[360, 256],
+	])
+	editor.paths.find((p) => p.id === road).points[1].y = h0 + 8
+	e.path((tl, c) => tl.apply(c))
+	const river = lay('river', [
+		[150, 120],
+		[360, 120],
+	])
+	e.path((tl, c) => tl.setField(c, 'width', 14))
+	e.path((tl, c) => tl.apply(c))
+	const model = 'm2:World\\Azeroth\\Duskwood\\PassiveDoodads\\Fence\\DuskWoodFenceSegment.m2'
+	const fence = lay('fence', [
+		[200, 400],
+		[310, 400],
+	])
+	e.path((tl, c) => tl.setField(c, 'model', model))
+	await e.path((tl, c) => tl.apply(c))
+	await P.frames(1)
+	const hump = t0.heightAt(256, 290) - h0
+	const fenceCount = e.objects.list().filter((o) => o.type === model).length
+	const bedBefore = t0.heightAt(256, 120) - h0
+	const { toMapData, fromMapData } = await P.app('/src/lib/io/mapData.ts')
+	const App = window.go.main.App
+	const raw = await App.LoadMap(await App.SaveSceneMap(toMapData(e.snapshot())))
+	const blob = (raw.pathApplies ?? '').length
+	e.openDocument(fromMapData(raw), '')
+	editor.tool = 'path'
+	await P.frames(1)
+	const t = e.terrain
+	const fresh = t !== t0 && e.history.steps().length === 0
+	// The road straightened and applied again: the hump goes with the old apply.
+	tool.pick(road)
+	editor.pathPoint = 1
+	e.path((tl, c) => tl.deletePoint(c))
+	e.path((tl, c) => tl.apply(c))
+	const humpAfter = t.heightAt(256, 290) - h0
+	const roadLabel = e.history.peek()?.label
+	// The river moved 40 yd south and applied again: its old bed and liquid go.
+	tool.pick(river)
+	const list = editor.paths.map((p) => (p.id === river ? { ...p, points: p.points.map((q) => ({ ...q, z: q.z + 40 })) } : p))
+	editor.paths = list
+	e.path((tl, c) => tl.apply(c))
+	const oldBed = t.heightAt(256, 120) - h0
+	const newBed = t.heightAt(256, 160) - h0
+	const liquids = e.debug.doc.liquids
+	const cell = (x, z) => {
+		const gx = Math.floor(x / t.cellSize),
+			gz = Math.floor(z / t.cellSize)
+		return liquids.layers(Math.floor(gz / 8) * liquids.side + Math.floor(gx / 8)).some((l) => l.cells[(gz % 8) * 8 + (gx % 8)])
+	}
+	const oldWet = cell(256, 121)
+	const newWet = cell(256, 161)
+	// The fence at a wider spacing applied again replaces its models.
+	tool.pick(fence)
+	e.path((tl, c) => tl.setField(c, 'spacing', 20))
+	await e.path((tl, c) => tl.apply(c))
+	const respaced = e.objects.list().filter((o) => o.type === model).length
+	// Undo of the fence's apply on the reopened map brings the saved models back.
+	e.history.undo()
+	const restored = e.objects.list().filter((o) => o.type === model).length
+	return {
+		ok:
+			hump > 4 &&
+			fenceCount > 10 &&
+			bedBefore < -1 &&
+			blob > 0 &&
+			fresh &&
+			close(humpAfter, 0) &&
+			roadLabel === 'Apply Road 1 again' &&
+			close(oldBed, 0) &&
+			newBed < -1 &&
+			!oldWet &&
+			newWet &&
+			respaced >= 4 &&
+			respaced <= 7 &&
+			restored === fenceCount,
+		hump,
+		fenceCount,
+		bedBefore,
+		blob,
+		fresh,
+		humpAfter,
+		roadLabel,
+		oldBed,
+		newBed,
+		oldWet,
+		newWet,
+		respaced,
+		restored,
+	}
+})()
+
 return {
 	ok:
+		reopened.ok &&
 		river.ok &&
 		fence.ok &&
 		drawn &&
@@ -232,4 +350,5 @@ return {
 	saved,
 	river,
 	fence,
+	reopened,
 }

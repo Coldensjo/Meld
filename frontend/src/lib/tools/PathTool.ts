@@ -2,12 +2,14 @@
 // landscape splines. A click drops a control point on the ground (into the picked path, or a new one),
 // a drag moves a point over the ground and Shift+drag raises or lowers it; Apply bakes the path into
 // the map as one undo step, and applying it again first takes back what its last apply wrote. The
-// paths are per-map state (`editor.paths`, saved in the map file's `paths` header), never exported.
+// paths are per-map state (`editor.paths`, saved in the map file's `paths` header), never exported;
+// what each one's last apply replaced is kept per map too (pathRecord.ts), and saved with it (#395).
 import { pressed } from '../ui/commands'
 import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import type { Command } from '../state/history'
 import type { Terrain } from '../terrain/Terrain'
+import { appliesOf, type PathApply } from './pathRecord'
 import { editor, setStatus } from '../state/editor.svelte'
 import { paletteIndex } from '../terrain/chunkPaint'
 import { copyPaths, nearestSegment, newPath, samplePath, type MapPath, type PathPoint } from '../terrain/paths'
@@ -25,12 +27,6 @@ const POINT_COLOR = new THREE.Color(0xff9a3c)
 const OTHER_COLOR = new THREE.Color(0x9a8f80)
 /** How far off the pointer's ray a point may be and still be picked, radians (about 8 px in a 1000 px view). */
 const PICK_ANGLE = 0.012
-
-/** What a path's last apply wrote, and whether it is in the map now (its undo step not undone). */
-interface Applied {
-	cmd: Command
-	live: boolean
-}
 
 /** Draws every path's curve, the picked one's width on the ground, and a marker on each point. */
 class PathView {
@@ -158,8 +154,6 @@ export class PathTool implements Tool {
 	private drag: { id: number; index: number; before: MapPath[]; paths: MapPath[]; height: boolean; offset: number; moved: boolean; label: string } | null = null
 	/** A run of changes to one field of one path, merged into one undo step while it stays on top. */
 	private fieldRun: { cmd: Command; id: number; key: PathField; before: MapPath[] } | null = null
-	/** Each map's paths' last applies, by path id. */
-	private applies = new WeakMap<Terrain, Map<number, Applied>>()
 
 	activate(ctx: ToolContext) {
 		ctx.scene.add(this.view.group)
@@ -337,12 +331,6 @@ export class PathTool implements Tool {
 		this.fieldRun = { cmd, id: p.id, key, before }
 	}
 
-	private appliedOf(t: Terrain): Map<number, Applied> {
-		let m = this.applies.get(t)
-		if (!m) this.applies.set(t, (m = new Map()))
-		return m
-	}
-
 	/**
 	 * Bakes the picked path into the map as one undo step. If its last apply is still in the map, it is
 	 * taken back first (the ground and paint it covered return to what they were before it), so moving
@@ -369,7 +357,8 @@ export class PathTool implements Tool {
 			if (ctx.terrain !== t || !this.current()) return
 		}
 		const path = this.current()!
-		const applied = this.appliedOf(ctx.terrain)
+		// A map just opened has its paths' last applies from its file, live, since it has no history.
+		const applied = appliesOf(ctx.terrain)
 		const prev = applied.get(path.id)
 		const again = !!prev?.live
 		if (prev && again) {
@@ -379,14 +368,14 @@ export class PathTool implements Tool {
 		const tex = path.texture ? paletteIndex(editor.palette, path.texture) : -1
 		const res = applyPath({ terrain: ctx.terrain, objects: ctx.objects, liquids: ctx.liquids, sea: editor.waterEnabled ? editor.waterLevel : null }, path, tex, piece)
 		setStatus(res.message, 5000)
-		if (!res.cmd) {
+		if (!res.cmd || !res.record) {
 			if (prev && again) {
 				prev.cmd.redo()
 				prev.live = true
 			}
 			return
 		}
-		const fresh: Applied = { cmd: res.cmd, live: true }
+		const fresh: PathApply = { record: res.record, cmd: res.cmd, live: true }
 		applied.set(path.id, fresh)
 		const id = path.id
 		ctx.history.push({

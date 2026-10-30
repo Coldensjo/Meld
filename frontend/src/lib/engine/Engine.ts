@@ -5,7 +5,8 @@ import { sandBand, shapeLakeBeaches } from '../terrain/beach'
 import { hasBeaches, type ImageGround } from '../terrain/generate'
 import { fillLakes, shoreLevels } from '../water/lakes'
 import { planWater, riverPoints, riverWidth, type River } from '../water/rivers'
-import { layRiver } from '../tools/pathApply'
+import { layRiver, recordCommand } from '../tools/pathApply'
+import { appliesOf, savedApplies, type SavedApply } from '../tools/pathRecord'
 import { fbm } from './noise'
 import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
@@ -334,6 +335,8 @@ export interface MapSnapshot {
 	reference: ReferenceImage | null
 	/** The map's paths (terrain/paths.ts), kept so they can be moved and applied again. */
 	paths: MapPath[]
+	/** What the paths' last applies in the map replaced (tools/pathRecord.ts, format 8, #395); absent or empty for none. */
+	pathApplies?: SavedApply[]
 	heights: Uint8Array
 	/** Four weights per splat texel (format 2). */
 	weights: Uint8Array
@@ -2829,7 +2832,10 @@ export class Engine {
 			path.falloff = path.width / 2
 			path.liquid = liquid
 			d.meta.paths.push(path)
-			const { sm } = layRiver({ terrain: t, objects: d.objects, liquids: d.liquids }, path, raise)
+			const targets = { terrain: t, objects: d.objects, liquids: d.liquids }
+			const { sm, record } = layRiver(targets, path, raise)
+			// The carve is the river's last apply, so Apply on it takes the carve back first (#395, #774).
+			if (record) appliesOf(t).set(path.id, { record, cmd: recordCommand(targets, record, `Apply ${path.name}`), live: true })
 			for (let i = 0; i < sm.n; i++) {
 				const v = at(sm.z[i]) * V + at(sm.x[i])
 				if (!(level[v] >= sm.y[i])) level[v] = sm.y[i]
@@ -3764,6 +3770,7 @@ export class Engine {
 			scopedEffects: structuredClone(plainScoped(m.scopedEffects ?? noScopedEffects())),
 			reference: copyReference(m.reference),
 			paths: copyPaths(m.paths ?? []),
+			pathApplies: savedApplies(t, m.paths ?? []),
 			heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
 			weights: t.weights,
 			chunkSlots: t.chunkSlots,
@@ -3871,6 +3878,12 @@ export class Engine {
 			scopedEffects: structuredClone(m.scopedEffects ?? noScopedEffects()),
 			reference: copyReference(m.reference),
 			paths: copyPaths(m.paths ?? []),
+		}
+		// The paths' last applies, live: a reopened map has no history to have undone them (#395).
+		const applies = appliesOf(t)
+		for (const { pathId, record } of m.pathApplies ?? []) {
+			const path = m.paths.find((p) => p.id === pathId)
+			if (path) applies.set(pathId, { record, cmd: recordCommand({ terrain: t, objects: d.objects, liquids: d.liquids }, record, `Apply ${path.name}`), live: true })
 		}
 		// A map made for the client may leave tiles of its square out (#46).
 		if (m.vmangos?.tiles) t.setTileMask(maskBytes(m.vmangos.tiles, m.size / TILE_CELLS))

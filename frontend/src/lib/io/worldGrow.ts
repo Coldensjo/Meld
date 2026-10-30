@@ -3,6 +3,7 @@ import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../terrain/chunk
 import { SHADOW_PER_CELL, packShadowBits, unpackShadowBits } from '../terrain/bakedShadows'
 import { tileKey } from '../world/groundEffects'
 import { LIQUID_CELLS, LIQUID_RECORD_BYTES, TILE_CELLS, TILE_YARDS } from '../wow/format'
+import { shiftApplies } from '../tools/pathRecord'
 
 // Growing a map made for the client to a bigger square of tiles (#46, the owner's 4A): Map Properties
 // adds a tile outside the square, so the terrain is made again that much bigger with the old square
@@ -101,6 +102,7 @@ export function growSnapshot(s: MapSnapshot, dx: number, dy: number, size: numbe
 		scopedEffects: { zones: structuredClone(s.scopedEffects.zones), tiles },
 		reference: s.reference ? { ...s.reference, x: s.reference.x + mx, z: s.reference.z + mz } : null,
 		paths: s.paths.map((p) => ({ ...p, points: p.points.map((q) => ({ ...q, x: q.x + mx, z: q.z + mz })) })),
+		pathApplies: s.pathApplies && shiftApplies(s.pathApplies, s.size, cells, ox, oz),
 		heights: new Uint8Array(h.buffer),
 		weights,
 		chunkSlots,

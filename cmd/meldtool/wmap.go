@@ -33,15 +33,17 @@ type wmapSummary struct {
 	LiquidLayers map[string]int `json:"liquidLayers,omitempty"`
 	// Zones counts the chunks by AreaTable ID, ImpassableChunks the chunks flagged impassable and
 	// NoEffectCells the cells that grow no ground effect doodads.
-	Zones            map[string]int          `json:"zones,omitempty"`
-	ImpassableChunks int                     `json:"impassableChunks"`
-	NoEffectCells    int                     `json:"noEffectCells"`
-	Shadows          bool                    `json:"shadows"`
-	Paths            int                     `json:"paths"`
-	Region           *mapfile.ClientRegion   `json:"region,omitempty"`
-	Vmangos          *mapfile.VmangosFolder  `json:"vmangos,omitempty"`
-	Reference        *mapfile.ReferenceImage `json:"reference,omitempty"`
-	Unknown          []string                `json:"unknown,omitempty"`
+	Zones            map[string]int `json:"zones,omitempty"`
+	ImpassableChunks int            `json:"impassableChunks"`
+	NoEffectCells    int            `json:"noEffectCells"`
+	Shadows          bool           `json:"shadows"`
+	Paths            int            `json:"paths"`
+	// PathApplies counts the paths whose last apply the map keeps (version 8, #395).
+	PathApplies int                     `json:"pathApplies"`
+	Region      *mapfile.ClientRegion   `json:"region,omitempty"`
+	Vmangos     *mapfile.VmangosFolder  `json:"vmangos,omitempty"`
+	Reference   *mapfile.ReferenceImage `json:"reference,omitempty"`
+	Unknown     []string                `json:"unknown,omitempty"`
 }
 
 func wmapInfo(args []string, out io.Writer) error {
@@ -138,6 +140,13 @@ func summarize(m *mapfile.MapData) (*wmapSummary, error) {
 		}
 	}
 	s.Shadows = m.Shadows != ""
+	applies, err := blob("pathApplies", m.PathApplies)
+	if err != nil {
+		return nil, err
+	}
+	if len(applies) >= 4 {
+		s.PathApplies = int(binary.LittleEndian.Uint32(applies))
+	}
 	for name, on := range map[string]bool{"holes": m.HolesUnknown, "liquids": m.LiquidsUnknown, "chunkData": m.ChunkDataUnknown} {
 		if on {
 			s.Unknown = append(s.Unknown, name)

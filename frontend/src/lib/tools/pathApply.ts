@@ -1,16 +1,18 @@
 // Applying a path (#167, terrain/paths.ts) to the map: what each kind writes into the ground, recorded
 // for undo by what it touched only. A path can run diagonally across a whole region, so the stroke
 // recorders of brush.ts, which keep the rect around everything touched, would hold most of the map's
-// paint; here the heights are kept vertex by vertex and the paint chunk by chunk.
+// paint; here the heights are kept vertex by vertex and the paint chunk by chunk. What an apply
+// replaced is its record (pathRecord.ts), which the map file keeps too (#395), and its undo step is
+// made from the record alone, so a record read back from the file takes the apply back as well.
 import type { Terrain } from '../terrain/Terrain'
-import type { ObjectLayer } from '../world/ObjectLayer'
+import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
-import { addedCommand } from '../world/objectCommands'
 import { compactChunk, SLOTS } from '../terrain/chunkPaint'
 import { paintPixel } from './brush'
 import { PATH_KINDS, crossWeight, downhill, fencePieces, limitGrade, pathField, riverBed, samplePath, type MapPath, type PathSamples } from '../terrain/paths'
 import { LIQUID_CELLS, LIQUID_VERTS, autoOpacity, cloneLayer, newLayer, type LiquidLayer, type LiquidMap } from '../water/liquids'
 import { LiquidStroke } from '../water/liquidStroke'
+import { recordBytes, type PathRecord } from './pathRecord'
 
 /** The heights a path changed, vertex by vertex, before and after. */
 class HeightEdit {
@@ -28,128 +30,129 @@ class HeightEdit {
 		this.before.push(this.t.heights[i])
 	}
 
-	/** The vertex rect the edit covers, or null when it has none. */
-	rect(): { x0: number; z0: number; x1: number; z1: number } | null {
+	/** The vertices written and their heights before, once the mesh and the models standing there follow the new ones. */
+	finish(objects: ObjectLayer): PathRecord['heights'] {
 		if (!this.index.length) return null
-		const V = this.t.verts
-		let x0 = Infinity,
-			z0 = Infinity,
-			x1 = -Infinity,
-			z1 = -Infinity
-		for (const i of this.index) {
-			const x = i % V
-			const z = (i - x) / V
-			if (x < x0) x0 = x
-			if (x > x1) x1 = x
-			if (z < z0) z0 = z
-			if (z > z1) z1 = z
-		}
-		return { x0, z0, x1, z1 }
-	}
-
-	finish(objects: ObjectLayer): { undo(): void; redo(): void; bytes: number } | null {
-		const r = this.rect()
-		if (!r) return null
-		const t = this.t
 		const index = Int32Array.from(this.index)
-		const before = Float32Array.from(this.before)
-		const after = Float32Array.from(index, (i) => t.heights[i])
-		const cs = t.cellSize
-		const write = (v: Float32Array) => {
-			for (let k = 0; k < index.length; k++) t.heights[index[k]] = v[k]
-			t.markDirty(r.x0, r.z0, r.x1, r.z1)
-			objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		}
-		// The apply wrote them already: the mesh and the models standing there follow now.
-		t.markDirty(r.x0, r.z0, r.x1, r.z1)
-		objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		return { bytes: index.byteLength + before.byteLength + after.byteLength, undo: () => write(before), redo: () => write(after) }
+		markHeights(this.t, objects, index)
+		return { index, before: Float32Array.from(this.before) }
 	}
+}
+
+/** The vertex rect holding the vertices `index` of a grid `V` wide. */
+function vertexRect(V: number, index: Int32Array): { x0: number; z0: number; x1: number; z1: number } {
+	let x0 = Infinity,
+		z0 = Infinity,
+		x1 = -Infinity,
+		z1 = -Infinity
+	for (const i of index) {
+		const x = i % V
+		const z = (i - x) / V
+		if (x < x0) x0 = x
+		if (x > x1) x1 = x
+		if (z < z0) z0 = z
+		if (z > z1) z1 = z
+	}
+	return { x0, z0, x1, z1 }
+}
+
+/** Redraws the ground at vertices `index`, and stands the models there on it again. */
+function markHeights(t: Terrain, objects: ObjectLayer, index: Int32Array) {
+	if (!index.length) return
+	const r = vertexRect(t.verts, index)
+	const cs = t.cellSize
+	t.markDirty(r.x0, r.z0, r.x1, r.z1)
+	objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+}
+
+type ChunkPaint = { weights: Uint8Array; slots: Uint8Array }
+
+/** Paint chunk c's weights (its texels row-major) and slots. */
+function readChunk(t: Terrain, c: number): ChunkPaint {
+	const per = t.splatRes / t.paintChunksPerSide
+	const R = t.splatRes
+	const side = t.paintChunksPerSide
+	const x0 = (c % side) * per
+	const z0 = Math.floor(c / side) * per
+	const weights = new Uint8Array(per * per * SLOTS)
+	for (let z = 0; z < per; z++) {
+		const s = ((z0 + z) * R + x0) * SLOTS
+		weights.set(t.weights.subarray(s, s + per * SLOTS), z * per * SLOTS)
+	}
+	return { weights, slots: t.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS) }
+}
+
+function writeChunk(t: Terrain, c: number, v: ChunkPaint) {
+	const per = t.splatRes / t.paintChunksPerSide
+	const R = t.splatRes
+	const side = t.paintChunksPerSide
+	const x0 = (c % side) * per
+	const z0 = Math.floor(c / side) * per
+	for (let z = 0; z < per; z++) t.weights.set(v.weights.subarray(z * per * SLOTS, (z + 1) * per * SLOTS), ((z0 + z) * R + x0) * SLOTS)
+	t.chunkSlots.set(v.slots, c * SLOTS)
+}
+
+/** Redraws the paint of chunks `chunks`. */
+function markPaint(t: Terrain, chunks: Int32Array) {
+	if (!chunks.length) return
+	const side = t.paintChunksPerSide
+	const per = t.splatRes / side
+	let x0 = Infinity,
+		z0 = Infinity,
+		x1 = -Infinity,
+		z1 = -Infinity
+	for (const c of chunks) {
+		const cx = c % side
+		const cz = Math.floor(c / side)
+		x0 = Math.min(x0, cx * per)
+		z0 = Math.min(z0, cz * per)
+		x1 = Math.max(x1, cx * per + per - 1)
+		z1 = Math.max(z1, cz * per + per - 1)
+	}
+	t.markSplatDirty({ x0, z0, x1, z1 })
 }
 
 /** The paint a path changed, a whole paint chunk at a time (painting may reorder a chunk's slots). */
 class PaintEdit {
-	private chunks = new Map<number, { weights: Uint8Array; slots: Uint8Array }>()
+	private chunks = new Map<number, ChunkPaint>()
 
 	constructor(private t: Terrain) {}
 
-	private get per() {
-		return this.t.splatRes / this.t.paintChunksPerSide
-	}
-
-	private read(c: number): { weights: Uint8Array; slots: Uint8Array } {
-		const t = this.t
-		const per = this.per
-		const R = t.splatRes
-		const side = t.paintChunksPerSide
-		const x0 = (c % side) * per
-		const z0 = Math.floor(c / side) * per
-		const weights = new Uint8Array(per * per * SLOTS)
-		for (let z = 0; z < per; z++) {
-			const s = ((z0 + z) * R + x0) * SLOTS
-			weights.set(t.weights.subarray(s, s + per * SLOTS), z * per * SLOTS)
-		}
-		return { weights, slots: t.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS) }
-	}
-
-	private write(c: number, v: { weights: Uint8Array; slots: Uint8Array }) {
-		const t = this.t
-		const per = this.per
-		const R = t.splatRes
-		const side = t.paintChunksPerSide
-		const x0 = (c % side) * per
-		const z0 = Math.floor(c / side) * per
-		for (let z = 0; z < per; z++) t.weights.set(v.weights.subarray(z * per * SLOTS, (z + 1) * per * SLOTS), ((z0 + z) * R + x0) * SLOTS)
-		t.chunkSlots.set(v.slots, c * SLOTS)
-	}
-
 	/** Saves the chunk holding texel (x, z) before it is first painted. */
 	reserveTexel(x: number, z: number) {
-		const per = this.per
+		const per = this.t.splatRes / this.t.paintChunksPerSide
 		const c = Math.floor(z / per) * this.t.paintChunksPerSide + Math.floor(x / per)
-		if (!this.chunks.has(c)) this.chunks.set(c, this.read(c))
+		if (!this.chunks.has(c)) this.chunks.set(c, readChunk(this.t, c))
 	}
 
-	finish(): { undo(): void; redo(): void; bytes: number } | null {
+	/** The chunks painted and their paint before, once the slots painting emptied are freed and the chunks redrawn. */
+	finish(): PathRecord['paint'] {
 		if (!this.chunks.size) return null
 		const t = this.t
-		const side = t.paintChunksPerSide
-		const per = this.per
-		const before = new Map(this.chunks)
-		const after = new Map<number, { weights: Uint8Array; slots: Uint8Array }>()
-		let x0 = Infinity,
-			z0 = Infinity,
-			x1 = -Infinity,
-			z1 = -Infinity
-		for (const c of before.keys()) {
+		const chunks = Int32Array.from(this.chunks.keys())
+		const weights = new Uint8Array(chunks.length * (t.splatRes / t.paintChunksPerSide) ** 2 * SLOTS)
+		const slots = new Uint8Array(chunks.length * SLOTS)
+		let k = 0
+		for (const [c, v] of this.chunks) {
 			// Frees the slots painting emptied, as a brush stroke's end does.
-			compactChunk(side, t.splatRes, t.chunkSlots, t.weights, c)
-			after.set(c, this.read(c))
-			const cx = c % side
-			const cz = Math.floor(c / side)
-			x0 = Math.min(x0, cx * per)
-			z0 = Math.min(z0, cz * per)
-			x1 = Math.max(x1, cx * per + per - 1)
-			z1 = Math.max(z1, cz * per + per - 1)
+			compactChunk(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c)
+			weights.set(v.weights, k * v.weights.length)
+			slots.set(v.slots, k * SLOTS)
+			k++
 		}
-		const rect = { x0, z0, x1, z1 }
-		t.markSplatDirty(rect)
-		const apply = (m: Map<number, { weights: Uint8Array; slots: Uint8Array }>) => {
-			for (const [c, v] of m) this.write(c, v)
-			t.markSplatDirty(rect)
-		}
-		let bytes = 0
-		for (const m of [before, after]) for (const v of m.values()) bytes += v.weights.byteLength + v.slots.byteLength
-		return { bytes, undo: () => apply(before), redo: () => apply(after) }
+		markPaint(t, chunks)
+		return { chunks, weights, slots }
 	}
 }
 
 /** Sample spacing along a path, yards: well under a cell, so the field is smooth. */
 const SAMPLE_STEP = 0.5
 
-/** What an apply wrote, as one undo step, and what the author should hear about it. */
+/** What an apply wrote, as one undo step, what it replaced, and what the author should hear about it. */
 export interface PathApplied {
 	cmd: Command | null
+	/** What the apply replaced (null when it wrote nothing), which `cmd` is made from. */
+	record: PathRecord | null
 	/** A sentence for the status bar: what was done, or why part of it wasn't. */
 	message: string
 }
@@ -163,8 +166,6 @@ export interface PathTargets {
 	sea?: number | null
 }
 
-type Part = { undo(): void; redo(): void; bytes?: number }
-
 /** A fence's model as the apply needs it: its length along the curve, and whether that is its local Z. */
 export interface FencePiece {
 	length: number
@@ -177,19 +178,23 @@ export interface FencePiece {
  */
 export function applyPath(m: PathTargets, path: MapPath, tex: number, piece?: FencePiece): PathApplied {
 	const kind = PATH_KINDS.find((k) => k.id === path.kind)?.name ?? 'Path'
-	if (path.points.length < 2) return { cmd: null, message: `A ${kind.toLowerCase()} needs two points at least: click the ground to add them.` }
+	if (path.points.length < 2) return { cmd: null, record: null, message: `A ${kind.toLowerCase()} needs two points at least: click the ground to add them.` }
 	const t = m.terrain
 	const sm = samplePath(path.points, SAMPLE_STEP)
-	if (path.kind === 'fence') return placeFence(m.objects, sm, path, piece)
-	const parts: Part[] = []
+	const label = `Apply ${path.name}`
+	if (path.kind === 'fence') {
+		const fence = placeFence(m.objects, sm, path, piece)
+		return { ...fence, cmd: fence.record && recordCommand(m, fence.record, label) }
+	}
 	const heights = new HeightEdit(t)
 	let note = ''
+	let liquids: PathRecord['liquids'] = null
 	if (path.kind === 'river') {
 		downhill(sm)
 		const sea = m.sea ?? null
 		carveRiver(t, sm, path, heights, sea === null ? undefined : (v) => (t.heights[v] < sea ? 0 : Infinity))
 		const liquid = fillRiver(m, sm, path)
-		if (liquid.cmd) parts.push(liquid.cmd)
+		liquids = liquid.liquids
 		if (!liquid.cells) note = ' It holds no liquid: the curve is narrower than a cell.'
 	} else {
 		limitGrade(sm, path.grade)
@@ -197,28 +202,86 @@ export function applyPath(m: PathTargets, path: MapPath, tex: number, piece?: Fe
 	}
 	const paint = new PaintEdit(t)
 	const refused = tex >= 0 ? paintAlong(t, sm, path, tex, paint) : 0
-	parts.unshift(...[heights.finish(m.objects), paint.finish()].filter((p) => p !== null))
+	const record: PathRecord = { heights: heights.finish(m.objects), paint: paint.finish(), liquids, models: null }
+	const wrote = !!(record.heights || record.paint || record.liquids)
 	const message = refused
 		? `${kind} applied, but part of its paint was refused: those chunks already hold four other textures (the 1.12 limit).`
 		: tex < 0 && path.texture
 			? `${kind} applied without its paint: pick its texture in the asset browser first, so the map has it.`
 			: `${kind} applied: ${Math.round(sm.length)} yd.`
-	return { cmd: combine(`Apply ${path.name}`, parts), message: message + note }
+	return { cmd: wrote ? recordCommand(m, record, label) : null, record: wrote ? record : null, message: message + note }
+}
+
+/**
+ * The undo step of an apply that replaced `r`: undo keeps what is in the map there now and writes back
+ * what the apply replaced (the heights and paint, the liquid chunks, and no fence models), and redo
+ * writes what undo kept. Made from the record alone, so one read back from the map file (#395) takes
+ * its apply back as one made just now does.
+ */
+export function recordCommand(m: Pick<PathTargets, 'terrain' | 'objects' | 'liquids'>, r: PathRecord, label: string): Command {
+	const t = m.terrain
+	let kept: { heights: Float32Array | null; paint: ChunkPaint[] | null; liquids: LiquidLayer[][] | null; models: WorldObject[] } | null = null
+	const writeHeights = (v: Float32Array) => {
+		const index = r.heights!.index
+		for (let k = 0; k < index.length; k++) t.heights[index[k]] = v[k]
+		markHeights(t, m.objects, index)
+	}
+	const writePaint = (chunks: Int32Array, v: (k: number) => ChunkPaint) => {
+		chunks.forEach((c, k) => writeChunk(t, c, v(k)))
+		markPaint(t, chunks)
+	}
+	return {
+		label,
+		bytes: recordBytes(r) * 2,
+		undo: () => {
+			const p = r.paint
+			const models: WorldObject[] = []
+			if (r.models) {
+				for (const id of r.models.ids) {
+					const o = m.objects.objects.get(id)
+					if (o?.type !== r.models.type) continue
+					models.push({ ...o })
+					m.objects.remove(id)
+				}
+			}
+			kept = {
+				heights: r.heights ? Float32Array.from(r.heights.index, (i) => t.heights[i]) : null,
+				paint: p ? Array.from(p.chunks, (c) => readChunk(t, c)) : null,
+				liquids: r.liquids ? Array.from(r.liquids.chunks, (c) => m.liquids.layers(c).map(cloneLayer)) : null,
+				models,
+			}
+			if (r.heights) writeHeights(r.heights.before)
+			if (p) {
+				const n = p.weights.length / p.chunks.length
+				writePaint(p.chunks, (k) => ({ weights: p.weights.subarray(k * n, (k + 1) * n), slots: p.slots.subarray(k * SLOTS, (k + 1) * SLOTS) }))
+			}
+			if (r.liquids) r.liquids.chunks.forEach((c, k) => m.liquids.set(c, r.liquids!.layers[k].map(cloneLayer)))
+		},
+		redo: () => {
+			const k = kept
+			if (!k) return
+			if (k.heights) writeHeights(k.heights)
+			if (k.paint && r.paint) writePaint(r.paint.chunks, (i) => k.paint![i])
+			if (k.liquids && r.liquids) r.liquids.chunks.forEach((c, i) => m.liquids.set(c, k.liquids![i].map(cloneLayer)))
+			for (const o of k.models) m.objects.add({ ...o })
+		},
+	}
 }
 
 /**
  * A fence: the path's model stood on the ground in the middle of each span along the curve, turned
  * along it (`fencePieces`), spans of the spacing or of the model's own length.
  */
-function placeFence(objects: ObjectLayer, sm: PathSamples, path: MapPath, piece?: FencePiece): PathApplied {
-	if (!path.model) return { cmd: null, message: `Pick the fence's model first: click one in the asset browser while the path is picked.` }
+function placeFence(objects: ObjectLayer, sm: PathSamples, path: MapPath, piece?: FencePiece): { record: PathRecord | null; message: string } {
+	if (!path.model) return { record: null, message: `Pick the fence's model first: click one in the asset browser while the path is picked.` }
 	const span = path.spacing > 0 ? path.spacing : (piece?.length ?? 0)
-	if (span < 0.25) return { cmd: null, message: `The fence's model has no length to lay end to end: set a Spacing.` }
+	if (span < 0.25) return { record: null, message: `The fence's model has no length to lay end to end: set a Spacing.` }
 	const pieces = fencePieces(sm, span, !!piece?.alongZ, path.turn)
-	if (pieces.length > MAX_FENCE_MODELS) return { cmd: null, message: `That would stand ${pieces.length} models: more than ${MAX_FENCE_MODELS}. Raise the spacing or shorten the path.` }
+	if (pieces.length > MAX_FENCE_MODELS) return { record: null, message: `That would stand ${pieces.length} models: more than ${MAX_FENCE_MODELS}. Raise the spacing or shorten the path.` }
+	if (!pieces.length) return { record: null, message: `The fence is shorter than one model: lengthen the path or lower the spacing.` }
 	const added = pieces.map((p) => objects.add({ type: path.model, x: p.x, z: p.z, yOff: 0, rotY: p.rotY, scale: 1 }))
-	const cmd = addedCommand(objects, added, `Apply ${path.name}`)
-	return { cmd, message: `Fence applied: ${added.length} models over ${Math.round(sm.length)} yd.` }
+	const record: PathRecord = { heights: null, paint: null, liquids: null, models: { ids: Int32Array.from(added, (o) => o.id), type: path.model } }
+	return { record, message: `Fence applied: ${added.length} models over ${Math.round(sm.length)} yd.` }
 }
 
 /** The most models one fence apply stands, so a tiny spacing over a long curve can't hang the editor. */
@@ -273,29 +336,33 @@ function carveRiver(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightE
 /**
  * Lays a new world's river (#763, water/rivers.ts) along `path` as `applyPath` lays a River, without
  * an undo step: no ground is raised more than `raise(v)` yards (0 under the sea or a lake, so the
- * banks don't dam the mouth). Returns its samples, whose heights are the surface, and the cells filled.
+ * banks don't dam the mouth). Returns its samples, whose heights are the surface, the cells filled,
+ * and its record (null if it wrote nothing), so the Path tool's Apply on it takes the carve back first (#395).
  */
-export function layRiver(m: PathTargets, path: MapPath, raise: (v: number) => number): { sm: PathSamples; cells: number } {
+export function layRiver(m: PathTargets, path: MapPath, raise: (v: number) => number): { sm: PathSamples; cells: number; record: PathRecord | null } {
 	const sm = samplePath(path.points, SAMPLE_STEP)
 	downhill(sm)
-	carveRiver(m.terrain, sm, path, new HeightEdit(m.terrain), raise)
-	return { sm, cells: fillRiver(m, sm, path).cells }
+	const heights = new HeightEdit(m.terrain)
+	carveRiver(m.terrain, sm, path, heights, raise)
+	const liquid = fillRiver(m, sm, path)
+	const record: PathRecord = { heights: heights.finish(m.objects), paint: null, liquids: liquid.liquids, models: null }
+	return { sm, cells: liquid.cells, record: record.heights || record.liquids ? record : null }
 }
 
 /**
  * Fills a river with its liquid: every cell whose centre is within half the width gets a layer of the
  * path's liquid (the chunk's other liquids leave that cell), its four corners at the surface of the
  * curve's nearest point. Neighbouring chunks take the same height at a shared corner, so the surface
- * slopes down the river without steps. Returns the undo of what changed and the cells covered.
+ * slopes down the river without steps. Returns the chunks changed with their layers before, and the cells covered.
  */
-function fillRiver(m: PathTargets, sm: PathSamples, path: MapPath): { cmd: Command | null; cells: number } {
+function fillRiver(m: PathTargets, sm: PathSamples, path: MapPath): { liquids: PathRecord['liquids']; cells: number } {
 	const t = m.terrain
 	const cs = t.cellSize
 	const half = path.width / 2
 	const cells = pathField(sm, cs, cs / 2, half, t.size - 1)
 	// The surface at every corner of those cells, from the curve's height nearest the corner.
 	const corners = pathField(sm, cs, 0, half + cs * 1.5, t.size)
-	if (!cells || !corners) return { cmd: null, cells: 0 }
+	if (!cells || !corners) return { liquids: null, cells: 0 }
 	const map = m.liquids
 	const stroke = new LiquidStroke(map, 'river')
 	const work = new Map<number, LiquidLayer[]>()
@@ -338,8 +405,8 @@ function fillRiver(m: PathTargets, sm: PathSamples, path: MapPath): { cmd: Comma
 		}
 	}
 	for (const [c, layers] of work) map.set(c, layers)
-	const cmd = stroke.finish()
-	return { cmd, cells: covered }
+	const changed = stroke.changed()
+	return { liquids: changed.size ? { chunks: Int32Array.from(changed.keys()), layers: [...changed.values()] } : null, cells: covered }
 }
 
 /**
@@ -366,17 +433,4 @@ function paintAlong(t: Terrain, sm: PathSamples, path: MapPath, tex: number, pai
 		}
 	}
 	return refused
-}
-
-/** One command doing `parts` in order, undoing them in reverse, holding the bytes they hold. */
-export function combine(label: string, parts: ReadonlyArray<{ undo(): void; redo(): void; bytes?: number }>): Command | null {
-	if (!parts.length) return null
-	return {
-		label,
-		bytes: parts.reduce((n, p) => n + (p.bytes ?? 0), 0),
-		undo: () => {
-			for (let i = parts.length - 1; i >= 0; i--) parts[i].undo()
-		},
-		redo: () => parts.forEach((p) => p.redo()),
-	}
 }

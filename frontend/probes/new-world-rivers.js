@@ -1,5 +1,5 @@
-// A new world's rivers (#763): in the Start dialog's New world, the water row has a Rivers slider (none at first) and the Liquid select, greyed out until Lakes or Rivers asks for it; Rivers at 4 with Magma puts magma's orange into the Rolling hills picture without lakes; Create world makes a Medium (3×3) Rolling hills world (seed 4242) with up to 4 River paths in the Path tool's list, each of magma, falling from the high ground at least 8 yd to a mouth at the sea or a lake, its liquid magma layers only, never under the sea, the surface the same on both sides of every chunk edge it crosses (fillRiver's rule), the ground carved under it, sand on its banks, no scattered model standing in it, and `exportInput` sending the layers. Saves a view with `--shot`. Nothing written.
-// touches: frontend/src/components/NewMapDialog.svelte, frontend/src/lib/water/rivers.ts, frontend/src/lib/water/lakes.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/presets.ts
+// A new world's rivers (#763): in the Start dialog's New world, the water row has a Rivers slider (none at first) and the Liquid select, greyed out until Lakes or Rivers asks for it; Rivers at 4 with Magma puts magma's orange into the Rolling hills picture without lakes; Create world makes a Medium (3×3) Rolling hills world (seed 4242) with up to 4 River paths in the Path tool's list, each of magma, falling from the high ground at least 8 yd to a mouth at the sea or a lake, its liquid magma layers only, never under the sea, the surface the same on both sides of every chunk edge it crosses (fillRiver's rule), the ground carved under it, sand on its banks, no scattered model standing in it, and `exportInput` sending the layers; the Path tool's Apply on the first river takes its carve back first (#395: the step is an apply "again") and its undo puts the generated river back. Saves a view with `--shot`. Nothing written.
+// touches: frontend/src/components/NewMapDialog.svelte, frontend/src/lib/water/rivers.ts, frontend/src/lib/water/lakes.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/presets.ts, frontend/src/lib/tools/pathRecord.ts, frontend/src/lib/tools/PathTool.ts
 const { ui, editor } = await P.state()
 const r = {}
 const slide = (input, value) => {
@@ -119,6 +119,22 @@ try {
 	r.wetModels = wetModels
 	const input = P.e.exportInput()
 	r.exportLayers = [...input.liquids.entries()].length
+	// The carve is the river's last apply (#395, #774): the Path tool's Apply on it takes the carve back
+	// first, so the step is an apply "again", and its undo puts the generated river back.
+	if (paths[0]) {
+		const was = t.heights.slice()
+		editor.tool = 'path'
+		await P.frames(1)
+		const tool = P.e.debug.tools.path
+		tool.pick(paths[0].id)
+		P.e.path((tl, c) => tl.apply(c))
+		r.reapplyLabel = P.e.history.peek()?.label
+		let shift = 0
+		for (let i = 0; i < was.length; i++) shift = Math.max(shift, Math.abs(t.heights[i] - was[i]))
+		r.reapplyShift = +shift.toFixed(2)
+		P.e.history.undo()
+		r.reapplyUndone = t.heights.every((h, i) => h === was[i])
+	}
 	// A view down the biggest river from above its middle.
 	const p = paths[0]
 	if (p) {
@@ -152,5 +168,6 @@ const ok =
 	r.steps === 0 &&
 	r.sandShare > 0.5 &&
 	r.wetModels === 0 &&
-	r.exportLayers > 0
+	r.exportLayers > 0 &&
+	(!r.rivers.length || (r.reapplyLabel === `Apply ${r.rivers[0].name} again` && r.reapplyUndone))
 return { ok, ...r }

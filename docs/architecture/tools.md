@@ -148,9 +148,19 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
   equal span along the curve (`fencePieces`: spans of the spacing, or of the model's longer side,
   which `PathTool.apply` measures from the loaded model first; turned along the span's chord, a
   quarter more for a model long in Z) through `ObjectLayer.add`; it records only what it touched (heights per vertex, paint per chunk), since a diagonal road's rect
-  would hold most of a region's paint. Applying again first undoes the path's last apply while it is
-  live (`PathTool.applies`, per terrain, not saved), inside the new undo step, so undoing that step
-  puts the old apply back; what was painted or sculpted in the chunks it covered since is lost there.
+  would hold most of a region's paint. What an apply replaced is its record (`tools/pathRecord.ts`,
+  `PathRecord`: the vertices and their heights, the paint chunks, the liquid chunks' layers, a fence's
+  model IDs and type), and its undo step is made from the record alone (`recordCommand`: undo keeps
+  what is there now and writes the record back, redo writes what undo kept). Applying again first
+  undoes the path's last apply while it is live (`appliesOf(terrain)`, by path id), inside the new
+  undo step, so undoing that step puts the old apply back; what was painted or sculpted in the chunks
+  it covered since is lost there. The live records of the paths still in the map are saved with it
+  (`savedApplies`, the map file's path applies blob, version 8, #395) and read back live, since a
+  reopened map has no history to have undone them, so applying again after reopening still takes the
+  old road, bed, liquid or fence back. A fence's take-back removes only the models of its ids that
+  still have its type. A new world's rivers (`Engine.layRivers`, `layRiver`) leave their carve as their
+  last apply too, so Apply on one takes the generated carve back first (#774). A grown map moves the
+  records with its old square (`shiftApplies`, io/worldGrow.ts).
 
 ## Selection, clipboard & nudging
 

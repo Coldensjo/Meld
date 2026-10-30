@@ -30,9 +30,14 @@ Those steps cover region reload guards, square growth and height arithmetic, not
 mask/liquid, image codec or native/game rendering contracts.
 
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
-  float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows). Blobs
-  cross the bridge as base64 strings. If you change the format, bump `Version`, update the tests and add the new version's fixture
+  float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows + path
+  applies). Blobs cross the bridge as base64 strings. If you change the format, bump `Version`, update the tests and add the new version's fixture
   (`internal/mapfile/testdata`, `TestFixtures`, docs/tests/terrain.md).
+  Version 8 adds the path applies blob (#395): for each path whose last apply is in the map, what that
+  apply replaced (the vertices and their heights, the paint chunks, the liquid chunks and their layers,
+  a fence's model IDs and type; the layout is in `mapfile.go`), written and read by `tools/pathRecord.ts`
+  (`encodePathApplies`, `decodePathApplies`) and checked by Go (`checkPathApplies`). A version 7 map's
+  paths open with no last apply.
   Version 7 adds no blob: its header's `vmangos` may place a map made for the client on the 64×64
   grid and leave tiles of its square out (`tileX`, `tileY`, `tiles`, #46; the Start dialog below), and
   an older Meld refuses the file rather than publish such a map whole at the grid's corner.

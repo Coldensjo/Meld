@@ -584,15 +584,26 @@ export function encodeLiquids(map: LiquidMap): Uint8Array {
 	const out = new Uint8Array(4 + all.length * RECORD)
 	const dv = new DataView(out.buffer)
 	dv.setUint32(0, all.length, true)
-	all.forEach(([c, l], k) => {
-		const o = 4 + k * RECORD
-		dv.setUint32(o, c, true)
-		dv.setUint8(o + 4, l.id)
-		for (let i = 0; i < NC; i++) if (l.cells[i]) out[o + 5 + (i >> 3)] |= 1 << (i & 7)
-		for (let i = 0; i < NV; i++) dv.setFloat32(o + 13 + i * 4, l.heights[i], true)
-		for (let i = 0; i < NV; i++) out[o + 13 + NV * 4 + i] = Math.round(l.depth[i] * 255)
-	})
+	all.forEach(([c, l], k) => writeLiquidRecord(dv, 4 + k * RECORD, c, l))
 	return out
+}
+
+/** Writes layer `l` of chunk `c` as one liquids blob record at byte `o` of `dv`, whose bytes are zero there. */
+export function writeLiquidRecord(dv: DataView, o: number, c: number, l: LiquidLayer) {
+	dv.setUint32(o, c, true)
+	dv.setUint8(o + 4, l.id)
+	for (let i = 0; i < NC; i++) if (l.cells[i]) dv.setUint8(o + 5 + (i >> 3), dv.getUint8(o + 5 + (i >> 3)) | (1 << (i & 7)))
+	for (let i = 0; i < NV; i++) dv.setFloat32(o + 13 + i * 4, l.heights[i], true)
+	for (let i = 0; i < NV; i++) dv.setUint8(o + 13 + NV * 4 + i, Math.round(l.depth[i] * 255))
+}
+
+/** The liquids blob record at byte `o` of `dv`: its chunk and its layer. */
+export function readLiquidRecord(dv: DataView, o: number): { c: number; layer: LiquidLayer } {
+	const l = newLayer(dv.getUint8(o + 4), 0)
+	for (let i = 0; i < NC; i++) l.cells[i] = (dv.getUint8(o + 5 + (i >> 3)) >> (i & 7)) & 1
+	for (let i = 0; i < NV; i++) l.heights[i] = dv.getFloat32(o + 13 + i * 4, true)
+	for (let i = 0; i < NV; i++) l.depth[i] = dv.getUint8(o + 13 + NV * 4 + i) / 255
+	return { c: dv.getUint32(o, true), layer: l }
 }
 
 /** Fills `map` from a liquids blob. Layers in chunks off the map are skipped. */
@@ -602,14 +613,9 @@ export function decodeLiquids(map: LiquidMap, blob: Uint8Array) {
 	const n = dv.getUint32(0, true)
 	const by = new Map<number, LiquidLayer[]>()
 	for (let k = 0; k < n && 4 + (k + 1) * RECORD <= blob.length; k++) {
-		const o = 4 + k * RECORD
-		const c = dv.getUint32(o, true)
+		const { c, layer } = readLiquidRecord(dv, 4 + k * RECORD)
 		if (c >= map.side * map.side) continue
-		const l = newLayer(blob[o + 4], 0)
-		for (let i = 0; i < NC; i++) l.cells[i] = (blob[o + 5 + (i >> 3)] >> (i & 7)) & 1
-		for (let i = 0; i < NV; i++) l.heights[i] = dv.getFloat32(o + 13 + i * 4, true)
-		for (let i = 0; i < NV; i++) l.depth[i] = blob[o + 13 + NV * 4 + i] / 255
-		by.set(c, [...(by.get(c) ?? []), l])
+		by.set(c, [...(by.get(c) ?? []), layer])
 	}
 	for (const [c, layers] of by) map.set(c, layers)
 }

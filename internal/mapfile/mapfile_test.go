@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -62,16 +63,46 @@ func sample(size int) *MapData {
 			Reference:      &ReferenceImage{Path: `C:\plans\zone.png`, Mode: "ground", Opacity: 0.6, Shown: true, X: 64, Z: 48, W: 128, H: 96, Turn: 0.25},
 			Paths:          []MapPath{{ID: 3, Name: "Road 1", Kind: "road", Points: []PathPoint{{X: 1, Y: 2, Z: 3}, {X: 40, Y: 5, Z: 60}}, Width: 8, Falloff: 4, Edge: 1, Grade: 12, Texture: `Tileset\Elwynn\ElwynnCobblestoneBase.blp`}, {ID: 4, Name: "River 1", Kind: "river", Width: 14, Depth: 3.5, Liquid: 2}, {ID: 5, Name: "Fence 1", Kind: "fence", Model: `m2:World\Generic\fence.m2`, Spacing: 3, Turn: 90}},
 		},
-		Heights:    base64.StdEncoding.EncodeToString(h),
-		Weights:    base64.StdEncoding.EncodeToString(w),
-		ChunkSlots: base64.StdEncoding.EncodeToString(slots),
-		Holes:      base64.StdEncoding.EncodeToString(holes),
-		Liquids:    base64.StdEncoding.EncodeToString(liquids),
-		AreaIDs:    base64.StdEncoding.EncodeToString(areas),
-		ChunkFlags: base64.StdEncoding.EncodeToString(flags),
-		NoEffect:   base64.StdEncoding.EncodeToString(noEffect),
-		Shadows:    base64.StdEncoding.EncodeToString(shadows),
+		Heights:     base64.StdEncoding.EncodeToString(h),
+		Weights:     base64.StdEncoding.EncodeToString(w),
+		ChunkSlots:  base64.StdEncoding.EncodeToString(slots),
+		Holes:       base64.StdEncoding.EncodeToString(holes),
+		Liquids:     base64.StdEncoding.EncodeToString(liquids),
+		AreaIDs:     base64.StdEncoding.EncodeToString(areas),
+		ChunkFlags:  base64.StdEncoding.EncodeToString(flags),
+		NoEffect:    base64.StdEncoding.EncodeToString(noEffect),
+		Shadows:     base64.StdEncoding.EncodeToString(shadows),
+		PathApplies: base64.StdEncoding.EncodeToString(appliesBlob(size, res, 3)),
 	}
+}
+
+// appliesBlob is a path applies blob of one record, for path id: two vertices, one paint chunk, one
+// liquid chunk that held a layer, and a fence of two models.
+func appliesBlob(size, res, id int) []byte {
+	var b []byte
+	u32 := func(v ...uint32) {
+		for _, x := range v {
+			b = binary.LittleEndian.AppendUint32(b, x)
+		}
+	}
+	per := res / (size / ChunkCells)
+	u32(1, uint32(id))
+	u32(2, 5, uint32((size+1)*(size+1)-1), math.Float32bits(1.5), math.Float32bits(-2))
+	u32(1, 1)
+	b = append(b, 0, 1, 255, 255)
+	for i := 0; i < per*per*SlotsPerChunk; i++ {
+		b = append(b, byte(i))
+	}
+	u32(1, 2, 1)
+	layer := make([]byte, LiquidRecordSize)
+	binary.LittleEndian.PutUint32(layer, 2)
+	layer[4] = 1
+	layer[5] = 0xff
+	b = append(b, layer...)
+	u32(2, 7, 8)
+	typ := `m2:World\Generic\fence.m2`
+	u32(uint32(len(typ)))
+	return append(b, typ...)
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -88,7 +119,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("version = %d, want %d", got.Version, Version)
 	}
 	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes || got.Liquids != m.Liquids ||
-		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect || got.Shadows != m.Shadows {
+		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect || got.Shadows != m.Shadows || got.PathApplies != m.PathApplies || got.PathApplies == "" {
 		t.Fatal("blob mismatch")
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
@@ -283,6 +314,52 @@ func TestReadsVersion5WithoutShadows(t *testing.T) {
 	}
 	if m.Version != 5 || m.Shadows != "" || m.NoEffect == "" {
 		t.Fatalf("version 5 fields: version %d, shadows %d bytes", m.Version, len(m.Shadows))
+	}
+}
+
+// A version 7 map has no path applies blob: its paths open with no last apply (#395).
+func TestReadsVersion7WithoutPathApplies(t *testing.T) {
+	m, err := Read(bytes.NewReader(writeOld(t, sample(32), 7)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != 7 || m.PathApplies != "" || m.Shadows == "" || len(m.Paths) != 3 {
+		t.Fatalf("version 7 fields: version %d, path applies %d chars", m.Version, len(m.PathApplies))
+	}
+}
+
+// A path applies blob that names a vertex or chunk off the map, or runs short or long, is refused on
+// write and on read; an empty one means none.
+func TestPathAppliesChecked(t *testing.T) {
+	good := appliesBlob(32, 128, 3)
+	bad := map[string][]byte{
+		"vertex off the map": func() []byte {
+			b := append([]byte{}, good...)
+			binary.LittleEndian.PutUint32(b[12:], 33*33)
+			return b
+		}(),
+		"truncated":      good[:len(good)-1],
+		"trailing bytes": append(append([]byte{}, good...), 0),
+		"huge count":     append([]byte{1, 0, 0, 0, 3, 0, 0, 0, 0xff, 0xff, 0xff, 0x7f}, good[12:]...),
+	}
+	for name, b := range bad {
+		m := sample(32)
+		m.PathApplies = base64.StdEncoding.EncodeToString(b)
+		if err := Write(io.Discard, m); err == nil || !strings.Contains(err.Error(), "path applies") {
+			t.Errorf("%s: write gave %v", name, err)
+		}
+		if _, err := Read(bytes.NewReader(writeOld(t, m, 8))); err == nil || !strings.Contains(err.Error(), "path applies") {
+			t.Errorf("%s: read gave %v", name, err)
+		}
+	}
+	m := sample(32)
+	m.PathApplies = ""
+	var buf bytes.Buffer
+	if err := Write(&buf, m); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := Read(&buf); err != nil || got.PathApplies != "" {
+		t.Fatalf("no path applies: %v, %d chars", err, len(got.PathApplies))
 	}
 }
 
