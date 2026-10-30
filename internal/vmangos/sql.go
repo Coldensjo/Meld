@@ -35,7 +35,7 @@ type Spawn struct {
 	X, Y, Z, O float64
 	// Rotation is the game object's rotation quaternion. Nil means the facing O, turned about Z.
 	Rotation *[4]float64
-	// Scale is the editor's scale. VMaNGOS takes scale from the template, so a change is reported.
+	// Scale is the editor's scale. VMaNGOS (and CMaNGOS) take scale from the template, so a change is reported.
 	Scale float64
 	// RespawnMin and RespawnMax are the respawn time's range in seconds; zero for the default.
 	RespawnMin, RespawnMax int
@@ -203,10 +203,17 @@ func addonChanges(s Spawn, orig *Spawn) []string {
 	return out
 }
 
-// ExportSQL turns spawn edits into SQL for the world database. Running the output twice gives the
-// same result: added spawns are inserted under the editor's guids, changed ones are updated, and
+// ExportSQL turns spawn edits into SQL for the VMaNGOS world database. Running the output twice gives
+// the same result: added spawns are inserted under the editor's guids, changed ones are updated, and
 // deleted ones are removed with the rows that refer to them.
 func ExportSQL(edits []Edit, now time.Time) Result {
+	return ExportSQLFor(VMaNGOS, edits, now)
+}
+
+// ExportSQLFor is ExportSQL for the world database of core (#894). What the core's schema can't hold
+// (cmangos.go) is listed in Skipped.
+func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
+	cm := core == CMaNGOSClassic
 	sorted := append([]Edit(nil), edits...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Spawn.GUID < sorted[j].Spawn.GUID })
 
@@ -235,6 +242,11 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 				continue
 			}
 			out = append(out, "-- Delete "+name)
+			if cm {
+				out = append(out, cmangosDeleteSQL(s)...)
+				res.Deleted++
+				continue
+			}
 			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", table, s.GUID))
 			for _, link := range links {
 				out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", link, s.GUID))
@@ -253,7 +265,7 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 		// author's own scale.
 		entryChanged := e.Original != nil && e.Original.Entry != s.Entry
 		if e.Original != nil && !entryChanged && math.Abs(e.Original.Scale-s.Scale) > 1e-3 {
-			res.Skipped = append(res.Skipped, fmt.Sprintf("%s: its scale (%s); VMaNGOS takes scale from the template", name, num(s.Scale)))
+			res.Skipped = append(res.Skipped, fmt.Sprintf("%s: its scale (%s); %s takes scale from the template", name, num(s.Scale), core.Title()))
 		}
 		q := quaternion(s)
 		lo, hi := respawn(s)
@@ -267,7 +279,9 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 				ids = fmt.Sprintf("%d, %d", e.Original.Entry, s.Entry)
 			}
 			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` IN (%s);", table, s.GUID, ids))
-			if s.Kind == Creature {
+			if cm {
+				out = append(out, cmangosInsertSQL(s, lo, hi, q))
+			} else if s.Kind == Creature {
 				out = append(out, fmt.Sprintf("INSERT INTO `creature` (`guid`, `id`, `map`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 					"`spawntimesecsmin`, `spawntimesecsmax`, `wander_distance`, `health_percent`, `mana_percent`, `movement_type`, `spawn_flags`, "+
 					"`visibility_mod`, `patch_min`, `patch_max`) VALUES (%d, %d, %d, %s, %s, %s, %s, %d, %d, %s, 100, 100, %d, 0, 0, 0, 10);",
@@ -281,7 +295,9 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			res.Added++
 		} else {
 			out = append(out, "-- Change "+name)
-			if s.Kind == Creature {
+			if cm && s.Kind == Creature {
+				out = append(out, cmangosCreatureUpdateSQL(s, lo, hi))
+			} else if s.Kind == Creature {
 				out = append(out, fmt.Sprintf("UPDATE `creature` SET `map` = %d, `position_x` = %s, `position_y` = %s, `position_z` = %s, "+
 					"`orientation` = %s, `spawntimesecsmin` = %d, `spawntimesecsmax` = %d, `wander_distance` = %s, `movement_type` = %d WHERE `guid` = %d;",
 					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), lo, hi, num(s.WanderDistance), s.MovementType, s.GUID))
@@ -302,7 +318,13 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			if e.Original != nil {
 				was = e.Original.Path
 			}
-			if !samePath(s.Path, was) || (e.Created && len(s.Path) > 0) {
+			if cm && (!samePath(s.Path, was) || (e.Created && len(s.Path) > 0)) {
+				lines, skipped := cmangosPathSQL(s)
+				out = append(out, lines...)
+				for _, k := range skipped {
+					res.Skipped = append(res.Skipped, name+": "+k)
+				}
+			} else if !samePath(s.Path, was) || (e.Created && len(s.Path) > 0) {
 				out = append(out, fmt.Sprintf("DELETE FROM `creature_movement` WHERE `id` = %d AND `path_id` = 0;", s.GUID))
 				if len(s.Path) > 0 {
 					rows := make([]string, len(s.Path))
@@ -317,7 +339,16 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 		}
 
 		// The creature_addon columns that changed: its display, equipment and pose.
-		if s.Kind == Creature {
+		if cm && s.Kind == Creature {
+			lines, skipped := cmangosAddonSQL(s, e.Original)
+			out = append(out, lines...)
+			for _, k := range skipped {
+				res.Skipped = append(res.Skipped, name+": "+k)
+			}
+			if formationChanged(s, e.Original) {
+				res.Skipped = append(res.Skipped, name+": its formation; CMaNGOS keeps formations in spawn groups, which Meld doesn't write")
+			}
+		} else if s.Kind == Creature {
 			if cols := addonChanges(s, e.Original); len(cols) > 0 {
 				out = append(out, fmt.Sprintf("INSERT INTO `creature_addon` (`guid`, `patch`) SELECT %d, 0 FROM DUAL "+
 					"WHERE NOT EXISTS (SELECT 1 FROM `creature_addon` WHERE `guid` = %d);", s.GUID, s.GUID))
@@ -385,6 +416,12 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 		fmt.Sprintf("-- Exported %s: %d added, %d changed, %d deleted.", now.UTC().Format(time.RFC3339), res.Added, res.Changed, res.Deleted),
 		"-- Import it into the world database, then restart the world server (mangosd).",
 		"-- The world tables keep no undo: to go back, restore the world database from its dump.",
+	}
+	if cm {
+		header[0] = "-- Meld spawn edits for a CMaNGOS classic world database (`classicmangos`)."
+		// The editor's guids come from the VMaNGOS database it reads; an INSERT under a guid this
+		// database already gives another spawn fails on the key rather than replacing that spawn.
+		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.")
 	}
 	if len(res.Skipped) > 0 {
 		header = append(header, "--", "-- Not exported:")

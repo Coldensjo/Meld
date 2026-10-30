@@ -165,13 +165,24 @@ func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
 	return vmangos.ModelAnimations(dataDir, model)
 }
 
-// SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
-func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
+// SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it, in
+// the schema of core ("vmangos" or "cmangos-classic": Edit › Preferences › Compile and export › Spawn
+// SQL for, #894). Another core than VMaNGOS takes the map's ID from the client's Map.dbc, since the
+// VMaNGOS server's isn't its.
+func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit, coreName string) (vmangos.Result, error) {
+	core := vmangos.ParseCore(coreName)
+	if core != vmangos.VMaNGOS {
+		dataDir, err := a.clientDataDir()
+		if err != nil {
+			return vmangos.Result{}, err
+		}
+		return vmangos.SpawnSQL(core, "", dataDir, mapName, x, y, size, edits, time.Now())
+	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return vmangos.Result{}, err
 	}
-	return vmangos.SpawnSQL(server, dataDir, mapName, x, y, size, edits, time.Now())
+	return vmangos.SpawnSQL(core, server, dataDir, mapName, x, y, size, edits, time.Now())
 }
 
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
@@ -185,7 +196,7 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 	if err := vmangos.CheckCreatedGUIDs(server, edits); err != nil {
 		return vmangos.Result{}, err
 	}
-	res, err := vmangos.SpawnSQL(server, dataDir, mapName, x, y, size, edits, time.Now())
+	res, err := vmangos.SpawnSQL(vmangos.VMaNGOS, server, dataDir, mapName, x, y, size, edits, time.Now())
 	if err != nil {
 		return res, err
 	}

@@ -20,6 +20,15 @@ are available on Linux. Client-only editing and writing a patch are separate fro
 | **Compile to Server** | Server map data built from the client's tiles, plus the region's spawn edits | Bring server collision/navigation data and spawns up to date |
 | **Compile All** | Client map files, server map data and the region's spawn edits | Update both sides after editing a region |
 | **Save Spawns to Database** | Creature and game object edits in the world database | Save spawn changes without rebuilding terrain |
+| **Export Spawn SQL…** | An SQL file of the region's spawn edits, for VMaNGOS or CMaNGOS classic | Import the spawns into another server's world database yourself |
+
+**Export Spawn SQL…** writes for the server core chosen under **Edit › Preferences… › Compile and
+export › Spawn SQL for**. For **CMaNGOS classic**, the file uses CMaNGOS's tables and lists at the
+top what they cannot hold: a spawn's display and equipment, formations, and a waypoint's wander
+distance and script are left out. Meld still reads spawns from, and saves them to, the VMaNGOS
+database only, so a new spawn's guid is one the VMaNGOS database had free; if your CMaNGOS database
+already uses it, the import stops on that row instead of replacing the other spawn. The client
+patch is the same for every core.
 
 **Compile acts on the open region**, not every edited tab. Switch to each region you intend to
 compile. A whole-continent world view is for browsing: use **Edit Here** to open an editable block.

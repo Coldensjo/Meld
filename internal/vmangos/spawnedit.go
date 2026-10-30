@@ -84,10 +84,10 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 	return s
 }
 
-// SpawnSQL turns a region's spawn edits into SQL for the server's world database. The region is
-// the block of size tiles at (x, y) of map mapName; dataDir is the client's Data folder, whose Map.dbc
-// gives the map ID when no server folder is set.
-func SpawnSQL(serverRoot, dataDir, mapName string, x, y, size int, edits []SpawnEdit, now time.Time) (Result, error) {
+// SpawnSQL turns a region's spawn edits into SQL for the world database of core (#894). The region
+// is the block of size tiles at (x, y) of map mapName; dataDir is the client's Data folder, whose
+// Map.dbc gives the map ID when no server folder is set.
+func SpawnSQL(core Core, serverRoot, dataDir, mapName string, x, y, size int, edits []SpawnEdit, now time.Time) (Result, error) {
 	if err := checkRegion(x, y, size); err != nil {
 		return Result{}, err
 	}
@@ -104,7 +104,7 @@ func SpawnSQL(serverRoot, dataDir, mapName string, x, y, size int, edits []Spawn
 		}
 		list = append(list, ed)
 	}
-	return ExportSQL(list, now), nil
+	return ExportSQLFor(core, list, now), nil
 }
 
 // runScript runs an SQL script against the world database through mariadb's input, one

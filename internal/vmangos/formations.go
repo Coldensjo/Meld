@@ -115,7 +115,7 @@ func formationSQL(s Spawn, orig *Spawn) []string {
 	if orig != nil {
 		was = *orig
 	}
-	if s.Leader == was.Leader && math.Abs(s.FollowDist-was.FollowDist) < 1e-4 && math.Abs(s.FollowAngle-was.FollowAngle) < 1e-4 && s.GroupFlags == was.GroupFlags {
+	if !formationChanged(s, orig) {
 		return nil
 	}
 	var out []string
@@ -129,4 +129,14 @@ func formationSQL(s Spawn, orig *Spawn) []string {
 			s.Leader, s.GUID, num(max(s.FollowDist, 0)), num(slotAngle(s.FollowAngle)), max(s.GroupFlags, 0)))
 	}
 	return out
+}
+
+// formationChanged says whether a creature's formation (its leader, slot or flags) differs from the
+// original's, or from none for a spawn without one.
+func formationChanged(s Spawn, orig *Spawn) bool {
+	var was Spawn
+	if orig != nil {
+		was = *orig
+	}
+	return s.Leader != was.Leader || math.Abs(s.FollowDist-was.FollowDist) >= 1e-4 || math.Abs(s.FollowAngle-was.FollowAngle) >= 1e-4 || s.GroupFlags != was.GroupFlags
 }

@@ -193,7 +193,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
   spawn's database state before its first edit, so `edits()` lists what changed (`SpawnChanges` re-compares only the spawns touched since the last count); File › Save Spawns to
   Database… (and Compile to Server and Compile All, #342) saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
-  one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
+  one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. File › Export
+  Spawn SQL… writes for the core of Preferences › Compile and export › Spawn SQL for (the `exportCore`
+  pref, passed to `SpawnEditSQL`, #894): VMaNGOS, or CMaNGOS classic (`vmangos.Core`,
+  `ExportSQLFor`; the CMaNGOS statements and the schema differences are in `vmangos/cmangos.go`). What
+  CMaNGOS's tables can't hold (a spawn's display and equipment, formations, a waypoint's wander
+  distance and script) is left out and listed in the file's header; its map ID comes from the
+  client's Map.dbc. Saving to the database, and every other server tool, stays VMaNGOS-only. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. A game object's entry can
   change (#136, `objectEntryFields`: entry, name, type, display, model and the template's size as
   its scale); the SQL then writes `gameobject.id`. A tilted game object (`gameobject.rotation0` or

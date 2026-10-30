@@ -308,6 +308,27 @@ written. `TestMotherPoolSQL` checks the `pool_pool` SQL; it was also run on temp
   data, shown by the faint line, not a bug in `slotPosition`. `History.peek()` is null once an
   undo has run (it only sees the top of a stack with nothing to redo), so undo a known number of steps.
 
+## Spawn SQL for CMaNGOS classic (#894)
+
+No probe: the Go tests below, and a run against a real CMaNGOS schema by hand.
+
+Checks: File › Export Spawn SQL… with Preferences › Compile and export › Spawn SQL for set to CMaNGOS
+classic writes CMaNGOS's columns, and lists in the header what its tables can't hold.
+- Unit: `go test ./internal/vmangos/ -run CMaNGOS`. `TestCMaNGOSSpawnSQLMatchesTheSchema` checks every
+  table and column each statement names against `internal/vmangos/testdata/cmangos-classic-spawns.sql`
+  (the spawn tables' columns, written out by hand from cmangos/mangos-classic's `sql/base/mangos.sql`;
+  no data), so a VMaNGOS column slipping into the CMaNGOS writer fails without a database.
+- By hand, against the real schema (no CMaNGOS server needed, nothing touches the VMaNGOS database):
+  `mariadb-install-db --datadir=<scratch>/db --port=3399`, start `mariadbd --defaults-file=<scratch>/db/my.ini
+  --console` in the background, `CREATE DATABASE cm`, load CMaNGOS's `sql/base/mangos.sql` (download it
+  to the scratch folder, never into the repo: it is GPL), then run an export twice
+  (`ExportSQLFor(CMaNGOSClassic, cmangosEdits(), fixedTime)` written to a file from a throwaway test)
+  and read the rows back; `mariadb-admin -P 3399 -u root shutdown` ends it. Done for #894: both runs
+  passed, and a spawn group row of the same guid but the other type survived the delete.
+- Trap: the VMaNGOS world database's own user (`mangos` in `run/mangosd.conf`) may not create
+  databases, hence the scratch server. When CMaNGOS's schema moves on (its `db_version` column names
+  the last update, `required_z2836_...`), compare the tables in the fixture with the new base file.
+
 ## Creature path editing on the map (#138)
 
 Hand check: in the dev page, as below; no probe covers it.

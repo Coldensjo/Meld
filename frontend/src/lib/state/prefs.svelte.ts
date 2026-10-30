@@ -151,6 +151,8 @@ export function defaultPrefs() {
 		checkBeforeCompile: false,
 		/** Compile to Server rebuilds the server's movement maps (mmaps) of the tiles it rebuilt (#173); read by Go from the saved prefs. */
 		buildMoveMaps: true,
+		/** Preferences › Compile and export › Spawn SQL for (#894): the server core File › Export Spawn SQL writes for, passed to SpawnEditSQL. Saving to the database stays VMaNGOS. */
+		exportCore: 'vmangos' as 'vmangos' | 'cmangos-classic',
 		/** View › Performance Overlay (#179): where the frame's time goes, by subsystem and GPU pass, in the viewport's corner. */
 		perfOverlay: false,
 		/** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */

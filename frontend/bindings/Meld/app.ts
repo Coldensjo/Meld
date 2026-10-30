@@ -1953,10 +1953,13 @@ export function SoundFiles(): $CancellablePromise<string[] | null> {
 }
 
 /**
- * SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
+ * SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it, in
+ * the schema of core ("vmangos" or "cmangos-classic": Edit › Preferences › Compile and export › Spawn
+ * SQL for, #894). Another core than VMaNGOS takes the map's ID from the client's Map.dbc, since the
+ * VMaNGOS server's isn't its.
  */
-export function SpawnEditSQL(mapName: string, x: number, y: number, size: number, edits: vmangos$0.SpawnEdit[] | null): $CancellablePromise<vmangos$0.Result> {
-    return $Call.ByID(3851791552, mapName, x, y, size, edits);
+export function SpawnEditSQL(mapName: string, x: number, y: number, size: number, edits: vmangos$0.SpawnEdit[] | null, coreName: string): $CancellablePromise<vmangos$0.Result> {
+    return $Call.ByID(3851791552, mapName, x, y, size, edits, coreName);
 }
 
 /**

@@ -14,7 +14,7 @@ Open **Edit › Preferences…** (`Ctrl+,` by default). Search there to locate a
 | Folders | WoW client, VMaNGOS server and optional Benilla folders (projects select their own client), and the other clients you import models and textures from (Tools › Import from Another Client…) |
 | Camera and input | Camera behavior, tablet input and keyboard shortcuts |
 | Graphics | Quality-related preferences; current rendering controls also live in Graphics and Lighting menus |
-| Compile and export | Map checking and additional compile/export behavior |
+| Compile and export | Map checking, additional compile/export behavior, and the server core Export Spawn SQL writes for |
 | Game | Selected game client, window mode and resolution |
 
 Use **Game › Game Login** for the account and character used by launch/play workflows. Configuring

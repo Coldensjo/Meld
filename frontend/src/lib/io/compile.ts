@@ -63,17 +63,22 @@ async function compileSpawns(engine: Engine): Promise<CompileSpawns> {
 /** The restart hint after spawns were saved with no server rebuild (whose end says to start the world server, #661). */
 const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server to see the spawns.' : '')
 
-/** Saves the active region's spawn edits as an SQL script for the world database, without running it. */
+/**
+ * Saves the active region's spawn edits as an SQL script for the world database, without running it, for the
+ * core Preferences › Compile and export › Spawn SQL for picks (#894).
+ */
 export function exportSpawnSql(engine: Engine) {
 	return guarded('Export spawn SQL', async () => {
 		const b = editor.regionBlock
 		const edits = engine.spawnEdits()
 		if (!b || !editor.regionMap || edits.length === 0) return
-		const res = await SpawnEditSQL(editor.regionMap, b.x, b.y, b.size, edits)
-		const path = await SaveSQLDialog(`${editor.regionMap}-spawns`)
+		const res = await SpawnEditSQL(editor.regionMap, b.x, b.y, b.size, edits, prefs.exportCore)
+		const cmangos = prefs.exportCore === 'cmangos-classic'
+		const path = await SaveSQLDialog(`${editor.regionMap}-spawns${cmangos ? '-cmangos' : ''}`)
 		if (!path) return
 		await WriteTextFile(path, res.sql)
-		setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits to ${path}.`, 8000)
+		const skipped = res.skipped?.length ? ` ${res.skipped.length} ${res.skipped.length === 1 ? 'change' : 'changes'} could not be written (listed at the top of the file).` : ''
+		setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits for ${cmangos ? 'CMaNGOS classic' : 'VMaNGOS'} to ${path}.${skipped}`, 10000)
 	})
 }
 

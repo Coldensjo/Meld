@@ -277,6 +277,18 @@
 			prefs.buildMoveMaps,
 			(v) => (prefs.buildMoveMaps = v),
 		),
+		choice<typeof prefs.exportCore>(
+			'compile',
+			'exportCore',
+			'Spawn SQL for',
+			'The server core File › Export Spawn SQL… writes its SQL for. What CMaNGOS’s tables can’t hold (a spawn’s display and equipment, formations, waypoint scripts) is listed in the file. Saving spawns to the database stays VMaNGOS.',
+			[
+				['VMaNGOS', 'vmangos'],
+				['CMaNGOS classic', 'cmangos-classic'],
+			],
+			prefs.exportCore,
+			(v) => (prefs.exportCore = v),
+		),
 		check(
 			'compile',
 			'minimapAllModels',

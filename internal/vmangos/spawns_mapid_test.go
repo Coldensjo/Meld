@@ -49,7 +49,7 @@ func TestSpawnMapIDFromTheClientWithoutAServerFolder(t *testing.T) {
 	if _, err := serverMapID("", data, "Nowhere"); err == nil || !strings.Contains(err.Error(), "Nowhere") {
 		t.Errorf("a map the client lacks: %v", err)
 	}
-	res, err := SpawnSQL("", data, "MyIsle", 32, 32, 1, []SpawnEdit{{Spawn: WorldSpawn{Kind: KindNPC, GUID: 7, Entry: 8}, Created: true}}, time.Unix(0, 0))
+	res, err := SpawnSQL(VMaNGOS, "", data, "MyIsle", 32, 32, 1, []SpawnEdit{{Spawn: WorldSpawn{Kind: KindNPC, GUID: 7, Entry: 8}, Created: true}}, time.Unix(0, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
