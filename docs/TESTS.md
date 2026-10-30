@@ -180,7 +180,8 @@ for the benchmark scene and measurement details.
   find a UI texture's path and the FrameXML that uses it, instead of a throwaway Go test (#698).
   It also converts BLP textures to and from PNG, prints an M2's or WMO's facts, moves a `.wmap`'s
   heights to and from a heightmap image, and reads the world database's creatures, objects, items and
-  spells (`get`, `search`), all as JSON (#893). See the
+  spells (`get`, `search`), all as JSON (#893); `meldtool mcp` offers the same commands to an AI
+  agent as an MCP server on stdio (#777). See the
   [meldtool notes](reference/testing-notes.md#looking-into-files-without-the-app-meldtool).
 - For a client round trip, compare an edited export with an unedited export through the same save
   path. Comparing only to the original client tile can mistake normal writer changes for a regression.

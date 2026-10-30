@@ -5,6 +5,7 @@
 // heights to and from a heightmap image. And it reads an M2's or WMO's facts and the world database's
 // creatures, objects, items and spells (#778, #893). No subcommand writes into the client or the
 // server; one that does will print what it would do and act only with --write (#778's decision).
+// And `meldtool mcp` offers the commands to an AI agent as an MCP server on stdin and stdout (#777).
 //
 //	go run ./cmd/meldtool wmap info <file.wmap>
 //	go run ./cmd/meldtool adt dump [--client DIR] [--chunk x,y] [--placements] <tile>
@@ -16,6 +17,7 @@
 //	go run ./cmd/meldtool m2 info|wmo info [--client DIR] <model>
 //	go run ./cmd/meldtool heightmap export|import ...
 //	go run ./cmd/meldtool creature|object|item|spell get|search ...
+//	go run ./cmd/meldtool mcp
 //
 // A tile, texture or model is a file on disk or, when no such file exists, an archive path
 // (World\Maps\...) read from the client. The client is --client (the client folder, its Data folder,
@@ -51,6 +53,8 @@ client or the server. The output is JSON, or a table with --table where a comman
   meldtool object search [--server DIR] [--client DIR] [--limit 100] [--table] <name or entry>
   meldtool spell get [--server DIR] [--client DIR] [--table] <entry>
   meldtool spell search [--client DIR] [--limit 100] [--table] <name or id>
+
+  meldtool mcp   an MCP server on stdin and stdout, giving an AI agent these commands as tools
 
 A tile, texture or model is a file on disk, or an archive path (World\Maps\<map>\<map>_<x>_<y>.adt)
 read from the client: --client (the client folder, its Data folder or one .MPQ), else config.json's
@@ -126,6 +130,8 @@ func dispatch(args []string, out io.Writer) error {
 		return heightmapImport(args[2:], out)
 	case recordKinds[args[0]].get != nil && (sub == "get" || sub == "search"):
 		return record(args[0], sub, args[2:], out)
+	case args[0] == "mcp":
+		return mcpServe(args[1:], out)
 	case args[0] == "bindings":
 		return bindings(args[1:], out)
 	case args[0] == "help" || args[0] == "-h" || args[0] == "--help":

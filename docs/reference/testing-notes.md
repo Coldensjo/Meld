@@ -244,6 +244,21 @@ server and client (`testclient`, skipped without them), so `make test-full` cove
   so it needs the client too, and the spell search reads only the client's `Spell.dbc`. Like the app,
   these start the server folder's database when it is down. Check: `creature search --table hogger`
   lists entry 448.
+- `mcp`: an MCP server on stdin and stdout (#777, no port), so an AI agent can call these commands
+  as tools: one tool a command (`wmap_info`, `adt_dump`, ..., `creature_get`, `spell_search`; the
+  table is `mcpTools` in `cmd/meldtool/mcp.go`), its arguments the command's flags and positional
+  arguments by name (`client`, `server`, `out` for `-o`), run through the same `dispatch` as the
+  command line, the output its text (`--table` is not offered: JSON only). A wrong argument, a missing
+  file or a command's error comes back as an error result the agent can read. A command that writes
+  into the client or the server will take a `write` argument, false by default (its dry run). Add it
+  to Claude Code with `go build -o build/bin/meldtool.exe ./cmd/meldtool`, then `claude mcp add meld
+  -- C:\WoW\meld\build\bin\meldtool.exe mcp`. Traps: a relative path is taken from the folder the
+  agent started the server in, so pass absolute ones; an output past 200 kB is cut (an unfiltered
+  `mpq_ls` lists 4.5 MB); a binary file from `mpq_cat` needs `out`; and the SDK drops the replies
+  still pending when stdin closes, so a hand check must keep stdin open until each reply is read (a
+  `printf ... | meldtool mcp` prints nothing). `mcp_test.go` drives the server in memory with the
+  SDK's client (`TestMCPCalls`), and `TestMCPToolsDispatch` fails when a tool names a command
+  `dispatch` doesn't know.
 
 ## Rendering and UI in the live app (Claude in Chrome)
 
