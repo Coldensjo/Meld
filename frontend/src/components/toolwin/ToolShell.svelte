@@ -2,12 +2,21 @@
 	import HistoryToolWindow from './HistoryToolWindow.svelte'
 	import InspectorToolWindow from './InspectorToolWindow.svelte'
 	import { EDITOR_WINDOWS, type EditorKind } from '../../lib/toolwin/editors'
+	import { startDebugLog } from '../../lib/io/debugLog'
+	import { onMount } from 'svelte'
 
 	// The page of a tool window open as its own OS window (#909, app_toolwindows.go): main.ts mounts this in
 	// place of App.svelte for `?window=<kind>`. No Engine, no map, no prefs: the window shows what the main
 	// page publishes over the channel (lib/toolwin) and sends its commands back.
 
 	let { kind }: { kind: string } = $props()
+
+	// With MELD_DEBUG_LOG (or MELD_DEBUG_WINDOWS, #917) the window's console warnings and errors go to the
+	// session log too, as the main page's do.
+	onMount(() => {
+		const stop = startDebugLog()
+		return () => void stop.then((f) => f())
+	})
 
 	const isEditorKind = (k: string): k is EditorKind => k in EDITOR_WINDOWS
 

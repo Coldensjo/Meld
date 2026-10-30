@@ -82,7 +82,7 @@ type App struct {
 }
 
 func NewApp() *App {
-	a := &App{wow: wow.NewClient(), other: wow.NewClient(), cfg: config.Load(), debugLog: debugLogOn()}
+	a := &App{wow: wow.NewClient(), other: wow.NewClient(), cfg: config.Load(), debugLog: debugLogOn() || len(debugWindowKinds()) > 0}
 	// The asset server previews an icon added while the game ran before the patch has it (#364).
 	a.wow.SetOverlay(a.clientOverlay)
 	// A patch write closes the client's archives for its rename only, and the asset server forgets
@@ -94,6 +94,7 @@ func NewApp() *App {
 func (a *App) startup() {
 	a.startRecovery()
 	a.startSessionLog()
+	a.startDebugWindows(debugWindowKinds())
 	// Client files saved while the game ran last time go into the patch once it isn't running.
 	a.watchPending()
 	if a.cfg.WowPath != "" {

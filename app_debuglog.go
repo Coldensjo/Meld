@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // The debug log (#626): started with MELD_DEBUG_LOG set (to anything but 0), the built app writes
@@ -78,4 +82,84 @@ func (a *App) logRequests(h http.Handler) http.Handler {
 		}()
 		h.ServeHTTP(sw, r)
 	})
+}
+
+// The tool-window switch (#917): MELD_DEBUG_WINDOWS, a comma-separated list of tool window kinds
+// ("history,inspector"), makes the built app open those windows a few seconds after it starts, and write
+// each channel message between the main page and the tool windows (toolwin:state, :cmd, :reply, :args,
+// :closed, :close-asked) to the session log with its kind and a short summary, so a desktop check of a
+// tool window needs no scratch build. It turns the debug log on as well, and only opens windows and
+// logs: it edits nothing, so no map goes dirty.
+const debugWindowsEnv = "MELD_DEBUG_WINDOWS"
+
+// debugWindowsDelay is how long after the start the windows open, for the main page to have loaded.
+const debugWindowsDelay = 6 * time.Second
+
+// debugWindowKinds reads the tool window kinds the switch names.
+func debugWindowKinds() []string {
+	var kinds []string
+	for _, k := range strings.Split(os.Getenv(debugWindowsEnv), ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			kinds = append(kinds, k)
+		}
+	}
+	return kinds
+}
+
+// channelEvents are the Wails events of the tool windows' channel (lib/toolwin/channel.ts).
+var channelEvents = []string{"toolwin:state", "toolwin:cmd", "toolwin:reply", "toolwin:args", "toolwin:closed", "toolwin:close-asked"}
+
+// channelSummary is a log line's text for a channel message: the event, the window's kind and a short
+// summary (a command's type, a state's size, otherwise the start of the message).
+func channelSummary(name string, data any) string {
+	if list, ok := data.([]any); ok && len(list) == 1 {
+		data = list[0]
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return name
+	}
+	var m map[string]json.RawMessage
+	_ = json.Unmarshal(raw, &m)
+	var kind string
+	_ = json.Unmarshal(m["kind"], &kind)
+	var what string
+	switch name {
+	case "toolwin:state":
+		what = fmt.Sprintf("state %d bytes", len(m["state"]))
+	case "toolwin:cmd":
+		var c struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal(m["cmd"], &c)
+		what = "cmd " + c.Type
+	default:
+		what = string(raw)
+		if len(what) > 160 {
+			what = what[:160] + "..."
+		}
+	}
+	return fmt.Sprintf("%s channel %s %s: %s", time.Now().Format("15:04:05"), name, kind, what)
+}
+
+// startDebugWindows logs the channel and opens the windows MELD_DEBUG_WINDOWS names.
+func (a *App) startDebugWindows(kinds []string) {
+	if a.app == nil || len(kinds) == 0 {
+		return
+	}
+	for _, name := range channelEvents {
+		a.app.Event.On(name, func(e *application.CustomEvent) {
+			if a.slog != nil {
+				_ = a.slog.Append([]string{channelSummary(e.Name, e.Data)})
+			}
+		})
+	}
+	go func() {
+		time.Sleep(debugWindowsDelay)
+		for _, k := range kinds {
+			if _, err := a.OpenToolWindow(k, nil); err != nil && a.slog != nil {
+				_ = a.slog.Append([]string{time.Now().Format("15:04:05") + " channel open " + k + ": " + err.Error()})
+			}
+		}
+	}()
 }

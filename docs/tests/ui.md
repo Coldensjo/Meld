@@ -99,14 +99,16 @@ undoes to it and the status line says so), move and resize the window, close it 
 History's check clears), reopen it (same place), then close the main window (History closes with it
 and the process ends; with an unsaved map the main window asks first and History stays open).
 
-- Without a hand at the desktop (#909's check, the screen was locked so clicks did nothing): build a
-  scratch copy whose main page pushes a few steps and sets `ui.history = true` after ~9 s, whose tool
-  window `fetch`es `/wow/scratch?n=<steps>&pos=<position>` on each state and sends a `go` once, start it
-  with `MELD_DEBUG_LOG=1` and read the session log's `asset GET` lines: `/?window=history`, the
-  `ToolShell` chunk, then the states before and after the `go`. The windows and their places are
-  readable from PowerShell (`EnumWindows` with `GetWindowRect` for the process id), and `PostMessage`
-  `WM_CLOSE` (0x10) to a window's handle is its ✕. Restore the scratch files and rebuild `frontend/dist`
-  afterwards, and delete the scratch sessions' `.alive` files in `%LOCALAPPDATA%\Meld\recovery`.
+- Without a hand at the desktop (#917, no scratch build): start the built app with
+  `MELD_DEBUG_WINDOWS=history` (a comma-separated list of tool window kinds, e.g. `history,inspector`;
+  it turns `MELD_DEBUG_LOG` on too). About 6 s after the start it opens those windows and the session log
+  (`%LOCALAPPDATA%` cache, `Meld\logs`) gets a `channel toolwin:<event> <kind>: <summary>` line for each
+  channel message (state with its size, cmd with its type, closed, args, reply), the `asset GET` lines of
+  each window's page load (`/?window=history`, the `ToolShell` chunk) and the tool window's console
+  warnings and errors. It only opens and logs, it edits nothing: a check that needs edits or clicks still
+  needs the hand, or a scratch build. The windows and their places are readable from PowerShell
+  (`EnumWindows` with `GetWindowRect` for the process id), and `PostMessage` `WM_CLOSE` (0x10) to a
+  window's handle is its X. Delete the session's `.alive` file in `%LOCALAPPDATA%\Meldecovery` after a kill.
 - Traps: the place is saved in `config.json` (`toolWindows`), in device-independent pixels; one off
   every screen (a monitor gone) is not used and the window opens centred. The tool window is its own
   page: its console is not the main page's, and `MELD_DEBUG_LOG`'s console lines come from the main

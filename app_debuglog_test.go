@@ -64,3 +64,30 @@ func TestLogRequests(t *testing.T) {
 	// Without a log folder nothing is written and nothing breaks.
 	(&App{debugLog: true}).logRequests(h).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/x", nil))
 }
+
+func TestDebugWindowKinds(t *testing.T) {
+	t.Setenv(debugWindowsEnv, " history, inspector,,")
+	got := debugWindowKinds()
+	if len(got) != 2 || got[0] != "history" || got[1] != "inspector" {
+		t.Errorf("kinds %v", got)
+	}
+	t.Setenv(debugWindowsEnv, "")
+	if len(debugWindowKinds()) != 0 {
+		t.Error("empty switch names kinds")
+	}
+}
+
+func TestChannelSummary(t *testing.T) {
+	cmd := channelSummary("toolwin:cmd", []any{map[string]any{"kind": "history", "cmd": map[string]any{"type": "go", "i": 3}}})
+	if !strings.HasSuffix(cmd, "channel toolwin:cmd history: cmd go") {
+		t.Errorf("cmd line %q", cmd)
+	}
+	st := channelSummary("toolwin:state", map[string]any{"kind": "inspector", "state": []int{1, 2}})
+	if !strings.HasSuffix(st, "channel toolwin:state inspector: state 5 bytes") {
+		t.Errorf("state line %q", st)
+	}
+	closed := channelSummary("toolwin:closed", map[string]any{"kind": "history"})
+	if !strings.Contains(closed, `{"kind":"history"}`) {
+		t.Errorf("closed line %q", closed)
+	}
+}
