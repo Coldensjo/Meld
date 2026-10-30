@@ -228,6 +228,7 @@ side effect or a universal default; verify the disposable server's setting befor
   out byte for byte the same (2026-10-25).
 - Traps: without `--threads` the generator asks for a count on the console and hangs; without `--silent`
   it waits for a key at the end. The in-game check (a mob pathing over a raised hill) needs `mmap.enabled = 1`.
+- `C:\WoW\scripts\update-maps.bat` (outside the repo, #678) extracts the maps and vmaps and then prints that the mmaps are stale; `update-maps.bat mmaps` alone deletes every map's `<id>*.mmap` and `<id>*.mmtile` (not `go*.mmtile`) and runs `MoveMapGenerator.exe` for all maps with `--silent --threads N` (hours; log `vmangos\logs\build-mmaps.log`). Not run end to end.
 
 ## Compile to Server and Compile All save the spawn edits (#342)
 Checks: Compile to Server and Compile All write the region's spawn edits into the world database
