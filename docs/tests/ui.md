@@ -214,6 +214,29 @@ visual: the preview draws.
   `SpellEditor` chunk and Fireball's icon, `EnumWindows` lists a window titled Spells, and `WM_CLOSE` on
   it (nothing unsaved) closes it alone. Restore `App.svelte` and build again afterwards.
 
+## The quest editor as its own OS window (#914, probe `quest-editor`)
+
+Checks: in the desktop app Database › Quests…, a creature's or game object's Quests tab (Edit, New
+quest…) and every other place that opens a quest open the quest editor as its own OS window, titled
+Quests, beside the creature or object editor (no longer a layer over it), on the item editor's flow
+(above). The giver the Quests tab passes (`{ kind, id, name, ready }`) goes through the window's query
+(`slotTarget`), so New quest… still offers "Started and ended by <creature>". A save of givers, a new
+quest or a delete sends `forget` with `questLists`, which bumps the main page's `ui.questsVersion`: the
+creature's Quests tab there reads its lists again (unless it holds edits of its own). The Givers tab's
+"selected on the map" giver comes from the main page (`EditorView.spawn`). On the browser page it stays
+full screen: the probe `quest-editor` checks that editor. The shapes: `bun test tests/editorWindows.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+open a creature with quests (Database › Creatures…), on its Quests tab click Edit on a quest: it opens in
+a Quests window beside the creature editor. On the quest's Givers tab add the creature as a giver of
+another quest (or New quest… with "Started and ended by" ticked) and save: the creature editor's Quests
+tab lists it. Select a spawn on the map: the Givers tab offers it.
+
+- Without a hand at the desktop (#914's check): a scratch `App.svelte` whose `onMount` sets
+  `ui.questEditor = { entry: -1, giver: { kind: 'creature', id: 197, name: 'Marshal McBride', ready: true } }`
+  after 9 s, as for the spell editor above: the session log shows `asset GET /?target=...giver...&window=quest`
+  and the `QuestEditor` chunk, and `EnumWindows` lists a window titled Quests beside the main one.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway

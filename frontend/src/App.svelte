@@ -22,7 +22,7 @@
 	$effect(() => {
 		if (ui.creatureEditor && !CreatureEditor) void import('./components/CreatureEditor.svelte').then((m) => (CreatureEditor = m.default))
 		if (ui.objectEditor && !ObjectEditor) void import('./components/ObjectEditor.svelte').then((m) => (ObjectEditor = m.default))
-		if (ui.questEditor && !QuestEditor) void import('./components/QuestEditor.svelte').then((m) => (QuestEditor = m.default))
+		if (ui.questEditor && !QuestEditor && !editorInWindow('quest')) void import('./components/QuestEditor.svelte').then((m) => (QuestEditor = m.default))
 		if (ui.itemEditor && !ItemEditor && !editorInWindow('item')) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
 		if (ui.spellEditor && !SpellEditor && !editorInWindow('spell')) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
 		if (ui.iconsTool && !IconsWindow) void import('./components/IconsWindow.svelte').then((m) => (IconsWindow = m.default))

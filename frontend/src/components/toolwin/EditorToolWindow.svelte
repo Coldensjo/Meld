@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount, type Component } from 'svelte'
-	import { prefs, ui } from '../../lib/state/editor.svelte'
+	import { editor as editorState, prefs, ui } from '../../lib/state/editor.svelte'
 	import { forwardStatus } from '../../lib/state/status.svelte'
 	import { applyLook, onToolArgs, onToolCloseAsked, onToolState, sendToolCommand } from '../../lib/toolwin/client'
-	import { EDITOR_PREF_KEYS, EDITOR_PREF_WRITES, EDITOR_SLOTS, EDITOR_WINDOWS, editorTarget, queryArgs, type EditorKind, type EditorPrefs, type EditorView } from '../../lib/toolwin/editors'
+	import { EDITOR_PREF_KEYS, EDITOR_PREF_WRITES, EDITOR_SLOTS, EDITOR_WINDOWS, queryArgs, slotTarget, type EditorKind, type EditorPrefs, type EditorView } from '../../lib/toolwin/editors'
 	import { sendEditorCommand, setEditorPage } from '../../lib/toolwin/editorPage'
 	import { SetToolWindowUnsaved } from '../../lib/wails/App'
 	import { WindowClose } from '../../lib/wails/runtime'
@@ -23,7 +23,7 @@
 
 	/** What the window page needs of an editor: the target to open now, and its close that asks first. */
 	interface EditorExports {
-		openTarget(t: { entry: number }): void
+		openTarget(t: ReturnType<typeof slotTarget>): void
 		askClose(): void
 	}
 	type EditorComponent = Component<{ onunsaved?: (unsaved: boolean) => void }, EditorExports>
@@ -32,19 +32,15 @@
 	const EDITORS: Record<EditorKind, () => Promise<{ default: EditorComponent }>> = {
 		item: () => import('../ItemEditor.svelte'),
 		spell: () => import('../SpellEditor.svelte'),
-	}
-
-	/** The slot's target from the window's arguments: an entry, 0 (find one) when they hold none. */
-	const entryTarget = (args: Record<string, string | undefined>) => {
-		const t = editorTarget(args)
-		return { entry: typeof t?.entry === 'number' ? t.entry : 0 }
+		quest: () => import('../QuestEditor.svelte'),
 	}
 
 	// svelte-ignore state_referenced_locally
 	const slot = EDITOR_WINDOWS[kind]
 	// svelte-ignore state_referenced_locally
 	setEditorPage(kind)
-	ui[slot] = entryTarget(queryArgs(location.search))
+	// svelte-ignore state_referenced_locally
+	ui[slot] = slotTarget(kind, queryArgs(location.search))
 
 	let editor = $state<EditorExports>()
 	let unsaved = false
@@ -107,8 +103,10 @@
 			const p = msg.state.prefs
 			fromMain = { ...p }
 			for (const k of EDITOR_PREF_KEYS) if (k in p) Object.assign(prefs, { [k]: p[k] })
+			// The map's selected spawn, which the quest editor offers as a giver.
+			editorState.selectedSpawn = msg.state.spawn ?? null
 		})
-		const offArgs = onToolArgs(kind, (args) => editor?.openTarget(entryTarget(args)))
+		const offArgs = onToolArgs(kind, (args) => editor?.openTarget(slotTarget(kind, args)))
 		const offAsked = onToolCloseAsked(kind, () => {
 			editor?.askClose()
 			// The answer: Go lets the next close through only if it is still unsaved and unanswered for long.

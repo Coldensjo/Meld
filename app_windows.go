@@ -36,6 +36,7 @@ var toolWindowKinds = map[string]toolWindowKind{
 	// The database editors (#912 onwards), as wide as they were full screen.
 	"item":  {title: "Items", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 	"spell": {title: "Spells", width: 1400, height: 900, minWidth: 960, minHeight: 560},
+	"quest": {title: "Quests", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 }
 
 // toolWindowPrefix starts the Wails name of every tool window, followed by its kind.

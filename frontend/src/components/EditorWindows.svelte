@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte'
-	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { throttle } from '../lib/toolwin/channel'
 	import { editorInWindow, editorWindowFailed } from '../lib/toolwin/editorHost.svelte'
 	import { EDITOR_PREF_KEYS, EDITOR_WINDOWS, editorArgs, readEditorCommand, type EditorForget, type EditorKind, type EditorPrefs, type EditorView } from '../lib/toolwin/editors'
@@ -40,7 +40,7 @@
 	const view = (): EditorView => {
 		const p = {} as EditorPrefs
 		for (const k of EDITOR_PREF_KEYS) Object.assign(p, { [k]: prefs[k] })
-		return { prefs: p }
+		return { prefs: p, spawn: $state.snapshot(editor.selectedSpawn) }
 	}
 	const publishAll = () => {
 		const v = view()
@@ -53,6 +53,7 @@
 		for (const k of EDITOR_PREF_KEYS) void prefs[k]
 		void prefs.theme
 		void prefs.uiScale
+		void editor.selectedSpawn
 		publish()
 	})
 
@@ -68,6 +69,9 @@
 			forgetName('spell', e)
 		}
 		if (f.spellTables) forgetSpellTables()
+		for (const e of f.quests ?? []) forgetName('quest', e)
+		// The quest editor saved givers, made or deleted a quest (#914): the creature or object editor's Quests tab here reads its lists again.
+		if (f.questLists) ui.questsVersion++
 	}
 
 	onMount(() => {

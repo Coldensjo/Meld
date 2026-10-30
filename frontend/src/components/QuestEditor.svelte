@@ -10,12 +10,21 @@
 	import EditorFrame from './EditorFrame.svelte'
 	import QuestGiversTab from './QuestGiversTab.svelte'
 	import TemplateFields from './TemplateFields.svelte'
+	import { shareForget } from '../lib/toolwin/editorPage'
+	import type { QuestGiverRef } from '../lib/toolwin/editors'
 
 	// The quest editor (#259, World › Quests…, or a quest's Edit in the creature editor's Quests tab):
 	// find a quest or make one (blank, or a copy of the open one), edit every column of its
 	// quest_template row on tabs, and say who starts and ends it. Save writes the row (Go checks it
 	// against the server's rules first) and then the givers; nothing is written before. The server
 	// reads quests when it starts or on `.reload all_quest`.
+
+	// In the desktop app it opens as its own OS window (#914, components/toolwin/EditorToolWindow.svelte),
+	// beside the creature or object editor whose Quests tab opened it, which runs it whole on that page's
+	// own `ui.questEditor` and is told here when it has unsaved changes. What it saves reaches the main
+	// page through shareForget: the quests' names, and `questLists`, which has the Quests tabs there read
+	// their lists again (ui.questsVersion).
+	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
 
 	const target = $derived(ui.questEditor)
 
@@ -50,6 +59,30 @@
 	/** How many changes each tab holds, for its label. */
 	const tabChanges = $derived(tabChangeCounts(tabs, changes))
 
+	$effect(() => onunsaved?.(unsaved))
+
+	/** Opens the editor on `t` (its window was opened again on another quest), asking about unsaved changes first. */
+	export function openTarget(t: { entry: number; giver?: QuestGiverRef }) {
+		if (!target) ui.questEditor = t
+		else if (target.entry !== t.entry || target.giver?.id !== t.giver?.id || target.giver?.kind !== t.giver?.kind)
+			ed.leave(() => {
+				ed.note = ''
+				ui.questEditor = t
+			})
+	}
+
+	/** Closes the editor, asking first with unsaved changes: its window's own close button (#914). */
+	export function askClose() {
+		ed.close()
+	}
+
+	/** Tells the session (and the main page, from the quest editor's window) that quests changed: `named` lost their names. */
+	function questsChanged(...named: number[]) {
+		for (const e of named) forgetName('quest', e)
+		ui.questsVersion++
+		shareForget({ quests: named, questLists: true })
+	}
+
 	function open(entry: number) {
 		if (target?.entry === entry) return
 		ed.leave(() => {
@@ -75,7 +108,7 @@
 				}
 				const g = (await giversTab?.save()) ?? ''
 				if (g) done.push(g)
-				ui.questsVersion++
+				questsChanged(...(n > 0 ? [r.entry] : []))
 				ed.note = `Saved ${done.join(' and ')} of ${values.Title || 'the quest'} (quest ${r.entry}) to the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to use it.`
 				setStatus(ed.note, 10000)
 			},
@@ -105,9 +138,8 @@
 		ed.error = ''
 		try {
 			await DeleteQuest(entry)
-			forgetName('quest', entry)
+			questsChanged(entry)
 			plan = null
-			ui.questsVersion++
 			ui.questEditor = { entry: 0 }
 			ed.note = `Deleted quest ${entry}, ${title}, from the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to drop it.`
 			setStatus(ed.note, 10000)
@@ -164,7 +196,7 @@
 				given = `, started and ended by ${g.name}`
 			}
 			newTitle = ''
-			ui.questsVersion++
+			questsChanged()
 			ui.questEditor = { entry, giver: g }
 			tab = 'quest'
 			ed.note = `Made quest ${entry}, ${title}${given}. Fill it in and save.`

@@ -5,12 +5,14 @@
 // there (and clears it), and the window page sends back what the main page must know: an editor of
 // another kind to open, the status line, the preferences it changes, and the caches a save makes stale.
 // This module holds only the shapes, so the tests load it.
+import type { vmangos } from '../wails/models'
 import type { ToolCommand } from './channel'
 
 /** The editors that open in their own window: the tool window kind (app_windows.go) and the `ui` slot that opens it. */
 export const EDITOR_WINDOWS = {
 	item: 'itemEditor',
 	spell: 'spellEditor',
+	quest: 'questEditor',
 } as const
 
 export type EditorKind = keyof typeof EDITOR_WINDOWS
@@ -43,6 +45,29 @@ export function editorTarget(args: Record<string, string | undefined>): Record<s
 	}
 }
 
+/** A quest editor's giver (QuestsTab: the creature or object whose Quests tab opened it, #914). */
+export interface QuestGiverRef {
+	kind: 'creature' | 'object'
+	id: number
+	name: string
+	ready: boolean
+}
+
+/** The giver in a quest target, or undefined when it holds none or a malformed one. */
+function giverOf(v: unknown): QuestGiverRef | undefined {
+	if (!isObject(v)) return undefined
+	if ((v.kind !== 'creature' && v.kind !== 'object') || typeof v.id !== 'number' || typeof v.name !== 'string' || typeof v.ready !== 'boolean') return undefined
+	return { kind: v.kind, id: v.id, name: v.name, ready: v.ready }
+}
+
+/** The value of the editor's `ui` slot the window's arguments open it on: an entry (0, find one, when they hold none), and a quest's giver. */
+export function slotTarget(kind: EditorKind, args: Record<string, string | undefined>): { entry: number; giver?: QuestGiverRef } {
+	const t = editorTarget(args)
+	const entry = typeof t?.entry === 'number' ? t.entry : 0
+	const giver = kind === 'quest' ? giverOf(t?.giver) : undefined
+	return giver ? { entry, giver } : { entry }
+}
+
 /** The arguments of the page's own query (`?window=item&target=...`). */
 export function queryArgs(search: string): Record<string, string> {
 	return Object.fromEntries(new URLSearchParams(search))
@@ -66,6 +91,8 @@ export const EDITOR_PREF_WRITES = ['itemSort', 'itemSortDesc'] as const satisfie
 /** What the main page publishes to an editor window: the preferences it reads. */
 export interface EditorView {
 	prefs: EditorPrefs
+	/** The spawn selected on the map, which the quest editor's Givers tab offers as a giver (#914). */
+	spawn: vmangos.WorldSpawn | null
 }
 
 /** The caches of the main page that an editor's save, import or delete made stale. */
@@ -80,6 +107,10 @@ export interface EditorForget {
 	spells?: number[]
 	/** The client's spell tables the pickers read (refNames forgetSpellTables), after a save added an icon or category. */
 	spellTables?: boolean
+	/** Quests whose names changed (refNames forgetName 'quest'), #914. */
+	quests?: number[]
+	/** A quest or its givers changed: the creature and object editors' Quests tabs read their lists again (ui.questsVersion). */
+	questLists?: boolean
 }
 
 /** An editor window's commands to the main page. */
@@ -113,7 +144,10 @@ export function readEditorCommand(cmd: ToolCommand): EditorCommand | null {
 		case 'forget': {
 			if (!isObject(c.forget)) return null
 			const f = c.forget
-			return { type: 'forget', forget: { items: numbers(f.items), itemIcons: f.itemIcons === true, looks: f.looks === true, spells: numbers(f.spells), spellTables: f.spellTables === true } }
+			return {
+				type: 'forget',
+				forget: { items: numbers(f.items), itemIcons: f.itemIcons === true, looks: f.looks === true, spells: numbers(f.spells), spellTables: f.spellTables === true, quests: numbers(f.quests), questLists: f.questLists === true },
+			}
 		}
 	}
 	return null
