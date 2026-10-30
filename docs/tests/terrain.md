@@ -857,7 +857,9 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   `P.lookAt` puts the camera where it is told, under a hill too, and the terrain seen from below
   shows its underside with the dark earth colour under it; a view down at a spot needs a high pitch
   and distance (the probe uses 1.1 rad and 150 yd). Trap: the runner turns `worldAround` off before
-  every probe, so a probe of it turns it on itself.
+  every probe, so a probe of it turns it on itself. Trap (#902): a probe that reads the horizon's
+  index waits for `!horizonPending` in the stats as well as for the loads to end; on the GPU it
+  read the index before the pack for the last tiles, and found horizon cells on their ground.
 - Probe: `world-minimap` (about 12 s): in Azeroth's world view the minimap is the overview cut to the
   map's tiles' square (`worldExtent`, `bun test tests/worldMinimap.test.ts`), the heights canvas hidden,
   the marker on the camera and Edit Here's block outlined; a click on a tile some way off moves the

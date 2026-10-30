@@ -30,10 +30,10 @@ const s = doc.surround
 await P.until(
 	() => {
 		const st = e.surroundStats()
-		return st && st.loaded > 0 && !st.loading && !st.queued && !st.painting && !st.paintWaiting ? st : null
+		return st && st.loaded > 0 && !st.loading && !st.queued && !st.painting && !st.paintWaiting && !st.horizonPending ? st : null
 	},
 	180000,
-	'the tiles around the block loaded and painted',
+	'the tiles around the block loaded and painted, and the horizon packed for them',
 )
 await P.frames(3)
 const st = e.surroundStats()

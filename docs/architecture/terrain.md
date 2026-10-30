@@ -369,7 +369,9 @@ mask/liquid, image codec or native/game rendering contracts.
   WDL horizon stands in, as a region's far horizon does (View › Far Horizon): the `WorldHorizon`
   binding (`vmangos.ReadWorldHorizon`) sends every WDL tile once, meshed whole by `horizonMesh`, and
   `packHorizon` keeps in its index the tiles within the reach and 5 tiles more that have no ground
-  drawn, at most every 250 ms as tiles land. The frame sets its colour and shows it
+  drawn, at most every 250 ms while tiles are being read and at once when the last read lands (#902:
+  the wait alone left the horizon over the last tiles' ground for up to 250 ms, which the GPU's fast
+  frames caught; `stats().horizonPending` says a pack is still due). The frame sets its colour and shows it
   (`WorldStream.showHorizon`), so a probe hides it through its material. The plan is worked out again
   only when the eye crosses a quarter tile. The fog closes at the reach (`applyViewDistance`).
   Within `PAINT_REACH` (a tile and a half, the tiles at stride 1 and 2) a tile is drawn in its own

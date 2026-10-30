@@ -297,7 +297,8 @@ export class WorldStream {
 			// The models' shadows fall on the painted ground, as on a region's.
 			t.mesh.receiveShadow = true
 		}
-		if (this.horizonDirty && this.horizonFull && performance.now() - this.horizonPacked >= HORIZON_EVERY) this.packHorizon()
+		// At once when no read is under way (the last tiles landed, #902): the wait is only for while they stream.
+		if (this.horizonDirty && this.horizonFull && (this.loads === 0 || performance.now() - this.horizonPacked >= HORIZON_EVERY)) this.packHorizon()
 	}
 
 	/**
@@ -402,7 +403,7 @@ export class WorldStream {
 	/**
 	 * What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's
 	 * count, the models placed, the tiles drawn at each stride ("1", "2", "4"), the horizon's tiles
-	 * drawn, and the paint: tiles drawn in their texture layers, their layers being read or waiting
+	 * drawn and whether it is still to be packed for the tiles drawn (`horizonPending`), and the paint: tiles drawn in their texture layers, their layers being read or waiting
 	 * to be (`painting`, the reads and the queue), read but their textures still loading
 	 * (`paintWaiting`), and failed; and the tiles whose liquids are drawn (`wet`) with their triangles.
 	 */
@@ -415,6 +416,7 @@ export class WorldStream {
 		models: number
 		strides: Record<GroundStride, number>
 		horizon: number
+		horizonPending: boolean
 		painted: number
 		painting: number
 		paintWaiting: number
@@ -456,6 +458,7 @@ export class WorldStream {
 			models: this.models.count,
 			strides,
 			horizon: this.horizonShown,
+			horizonPending: this.horizonDirty && !!this.horizonFull,
 			painted,
 			painting,
 			paintWaiting: this.waiting.size,
