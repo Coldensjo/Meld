@@ -1925,6 +1925,15 @@ export function SetGameWindow(mode: string, resolution: string): $CancellablePro
 }
 
 /**
+ * SetToolWindowUnsaved tells whether the tool window of kind holds unsaved edits of its own (a database
+ * editor's values, #912), so closing it with its title bar's button asks its page first. A call also
+ * answers a close that was stopped.
+ */
+export function SetToolWindowUnsaved(kind: string, unsaved: boolean): $CancellablePromise<void> {
+    return $Call.ByID(3786126785, kind, unsaved);
+}
+
+/**
  * SetUnsaved tells whether an open map has unsaved changes, so closing the window asks first.
  * File › Quit's own dialog clears it before quitting.
  */

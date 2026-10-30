@@ -163,8 +163,8 @@ The window layout, the asset browser and the dock panels and floating windows.
     `HistoryList.svelte` draws its contents from a plain `HistoryView` (`lib/toolwin/history.ts`);
     `HistoryWindow.svelte` builds the view from the Engine and shows it in the page, or, in the desktop
     app, opens History as its own OS window (below) and feeds that.
-  - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History and the Inspector, #910, use it so
-    far): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
+  - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History, the Inspector (#910), the doodad brush
+    editor (#911) and the item editor (#912) use it so far): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
     window named `tool-<kind>` loading `/?window=<kind>&<args>`, or shows and focuses the open one and
     sends it `toolwin:args`. `main.ts` mounts `components/toolwin/ToolShell.svelte` for `?window=`
     instead of `App.svelte` (both imported dynamically, so the tool page loads about 80 KB, not the
@@ -184,7 +184,10 @@ The window layout, the asset browser and the dock panels and floating windows.
       reused when on a screen (`onScreen`); the main window's `WindowClosing` listener closes every tool
       window once its hook (the unsaved-maps check, main window only) lets the close through, since
       Wails quits only when the last window has closed; `Quit` saves their places first. A tool window
-      with unsaved edits of its own would ask in its `WindowClosing` hook (`OpenToolWindow`).
+      with unsaved edits of its own tells Go (`SetToolWindowUnsaved(kind, unsaved)`), and its
+      `WindowClosing` hook then cancels the title bar's ✕ and sends `toolwin:close-asked` `{kind}`, which
+      the page answers by showing its question (and calling `SetToolWindowUnsaved` again); an unanswered
+      second close after 2 s goes through (`toolCloseGuard`). The main window closing drops those marks.
     - The doodad brush editor (#911, kind `doodad-brushes`): `DoodadBrushWindow.svelte` hosts it on the
       main page (in the page, or feeding the window), `components/toolwin/DoodadBrushToolWindow.svelte` is the
       window, and both draw `DoodadBrushEditor.svelte` on a `BrushStore` (`prefs` in the page, the window's
@@ -198,6 +201,25 @@ The window layout, the asset browser and the dock panels and floating windows.
       Import, Export, Paint with it and status lines are commands the main page runs. `ui.brushEditorWindow`
       lets the main window's keys reach the map while the editor is in its own window. `ToolShell`
       imports it lazily, since it brings three.js (the preview), so History and the Inspector stay light.
+    - The database editors (#912, the item editor first, kind `item`; `lib/toolwin/editors.ts` lists
+      each kind's `ui` slot in `EDITOR_WINDOWS`): the editor runs whole in its window's page, since it
+      reaches the world database only through bindings. On the main page `EditorWindows.svelte` watches
+      the slot (`ui.itemEditor`): in the desktop app it opens the window with the target as its
+      `target` argument (JSON) and clears the slot, so App never mounts the full-screen editor
+      (`editorInWindow`; a window that fails to open sets `editorWindowFailed` and the editor shows full
+      screen as before). The window (`components/toolwin/EditorToolWindow.svelte`) sets its own page's
+      slot from the query and mounts the editor with its right-click menus (`ContextMenu`) and the Saving
+      bar. Close, Esc and Discard clear the slot, which closes the window; the ✕ goes through the
+      Discard bar (above). Opened again while open, it opens the new target through the editor's
+      `openTarget`, which asks about unsaved changes first. What the main page must do comes back as
+      commands: an editor of another kind set from inside (`open`, its slot and value), the status lines
+      (`forwardStatus` in `status.svelte.ts` sends every `setStatus` there), the preferences it writes
+      (the item sort; the main page publishes the ones the editors read, `EDITOR_PREF_KEYS`), and the
+      caches a save, import or delete made stale (`forget`: item rows and names, display icons, the look
+      picker's list, now in `lib/wow/itemDisplays.ts`; the editor calls `shareForget`). A new editor
+      kind needs its slot in `EDITOR_WINDOWS`, its loader in `EditorToolWindow`'s `EDITORS`, a
+      `toolWindowKinds` entry in Go, the `onunsaved` prop and the `openTarget`/`askClose` exports, its
+      `forget`s shared, and App's lazy import gated on `editorInWindow`.
     - Traps: `a.win` stays the main window (titles, and the file dialogs, which come up over it even
       when a tool window asked). `window.open` is not an option: Wails v3.0.0 handles neither
       WebView2's `NewWindowRequested` nor WebKitGTK's `create`, so it returns null on Linux.

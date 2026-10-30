@@ -23,7 +23,7 @@
 		if (ui.creatureEditor && !CreatureEditor) void import('./components/CreatureEditor.svelte').then((m) => (CreatureEditor = m.default))
 		if (ui.objectEditor && !ObjectEditor) void import('./components/ObjectEditor.svelte').then((m) => (ObjectEditor = m.default))
 		if (ui.questEditor && !QuestEditor) void import('./components/QuestEditor.svelte').then((m) => (QuestEditor = m.default))
-		if (ui.itemEditor && !ItemEditor) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
+		if (ui.itemEditor && !ItemEditor && !editorInWindow('item')) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
 		if (ui.spellEditor && !SpellEditor) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
 		if (ui.iconsTool && !IconsWindow) void import('./components/IconsWindow.svelte').then((m) => (IconsWindow = m.default))
 		if (ui.soundsTool && !SoundsWindow) void import('./components/SoundsWindow.svelte').then((m) => (SoundsWindow = m.default))
@@ -33,6 +33,8 @@
 	import SignSwapWindow from './components/SignSwapWindow.svelte'
 	import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
 	import DoodadBrushWindow from './components/DoodadBrushWindow.svelte'
+	import EditorWindows from './components/EditorWindows.svelte'
+	import { editorInWindow } from './lib/toolwin/editorHost.svelte'
 	import Inspector from './components/Inspector.svelte'
 	import HistoryWindow from './components/HistoryWindow.svelte'
 	import ScriptWindow from './components/ScriptWindow.svelte'
@@ -290,6 +292,7 @@
 <ModelPreviewWindow />
 {#if ui.signSwap}<SignSwapWindow />{/if}
 <DoodadBrushWindow />
+<EditorWindows />
 <AppDialogs />
 <SavingBar />
 <ContextMenu />

@@ -265,6 +265,7 @@ export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().Se
 export const SetGameClient: Call<AppApi['SetGameClient']> = (...a) => api().SetGameClient(...a) as never
 export const SetGameLogin: Call<AppApi['SetGameLogin']> = (...a) => api().SetGameLogin(...a) as never
 export const SetGameWindow: Call<AppApi['SetGameWindow']> = (...a) => api().SetGameWindow(...a) as never
+export const SetToolWindowUnsaved: Call<AppApi['SetToolWindowUnsaved']> = (...a) => api().SetToolWindowUnsaved(...a) as never
 export const SetUnsaved: Call<AppApi['SetUnsaved']> = (...a) => api().SetUnsaved(...a) as never
 export const SetVmangosPath: Call<AppApi['SetVmangosPath']> = (...a) => api().SetVmangosPath(...a) as never
 export const SetWowPath: Call<AppApi['SetWowPath']> = (...a) => api().SetWowPath(...a) as never

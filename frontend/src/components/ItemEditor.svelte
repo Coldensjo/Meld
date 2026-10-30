@@ -33,6 +33,7 @@
 	import ItemTooltipBox from './ItemTooltipBox.svelte'
 	import EditorFrame from './EditorFrame.svelte'
 	import TemplateFields from './TemplateFields.svelte'
+	import { shareForget } from '../lib/toolwin/editorPage'
 
 	// The item editor (#353, Tools › Items…): find an item or make one (blank, or a copy of the open
 	// one), edit every column of its item_template row on tabs, and see it as the game shows it: its
@@ -41,6 +42,10 @@
 	// grid of their icons (hovering one previews it) or typed, and its icon can be picked apart from
 	// the model: Save then makes the display that pairs them. Save writes the row to the world database; Export writes items to an SQL
 	// script, and Import reads one back. The server reads items when it starts.
+
+	// In the desktop app it opens as its own OS window (#912, components/toolwin/EditorToolWindow.svelte),
+	// which runs it whole on that page's own `ui.itemEditor`, and tells it here when it has unsaved changes.
+	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
 
 	const target = $derived(ui.itemEditor)
 
@@ -105,13 +110,34 @@
 		})
 	}
 
-	/** Forgets what the session knows of items that changed, so tooltips and pickers read them again. */
+	$effect(() => onunsaved?.(unsaved))
+
+	/** Opens the editor on `t` (its window was opened again on another item), asking about unsaved changes first. */
+	export function openTarget(t: { entry: number }) {
+		if (!target) ui.itemEditor = t
+		else open(t.entry)
+	}
+
+	/** Closes the editor, asking first with unsaved changes: its window's own close button (#912). */
+	export function askClose() {
+		ed.close()
+	}
+
+	/** Forgets what the session knows of items that changed, so tooltips and pickers read them again (in the main window too, #912). */
 	function forgetItems(entries: number[]) {
 		for (const e of entries) {
 			forgetItemRow(e)
 			forgetName('item', e)
 		}
+		shareForget({ items: entries })
 		searchVersion++
+	}
+
+	/** The client's displays changed: forgets their icons and the look picker's list, here and in the main window. */
+	function forgetDisplays(icons: boolean) {
+		if (icons) forgetItemIcons()
+		forgetLooks()
+		shareForget({ itemIcons: icons, looks: true })
 	}
 
 	const RESTART = 'Restart the world server for the server to use it; the game asks for the item again when it starts from Meld.'
@@ -127,7 +153,7 @@
 				if (lookChanges) {
 					const d = await ItemDisplayVariant(display, pendingIcon, pendingVisual)
 					if (d.added) {
-						forgetItemIcons()
+						forgetDisplays(true)
 						const what = [pendingIcon, pendingVisual >= 0 ? `shooting like ${SHOOTS_LIKE[subclass] ?? 'its weapon'}` : ''].filter(Boolean).join(', ')
 						added = ` Added display ${d.id} (its model with ${what}) to the client's patch.`
 					}
@@ -139,7 +165,7 @@
 				if (n > 0) checkRefused(await SaveItem(r.entry, r.patch, ed.changes))
 				ed.markSaved()
 				forgetItems([r.entry])
-				forgetLooks()
+				forgetDisplays(false)
 				ed.note = `Saved ${n} ${n === 1 ? 'value' : 'values'} of ${values.name} (item ${r.entry}) to the world database.${added} ${RESTART}`
 				setStatus(ed.note, 10000)
 			},
@@ -175,7 +201,7 @@
 		try {
 			await DeleteItem(entry)
 			forgetItems([entry])
-			forgetLooks()
+			forgetDisplays(false)
 			deletePlan = null
 			pendingIcon = ''
 			pendingVisual = -1

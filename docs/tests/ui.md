@@ -170,6 +170,27 @@ fill in (rendered by the main window). Close Meld and reopen it: the brush kept 
   brushes and must not send any (`ready`), or its empty list would replace the user's. `prefs` in the
   window's page are defaults (only `browserNames` and `fpsLimit` are copied from the view) and are never saved.
 
+## The item editor as its own OS window (#912, probe `item-editor`)
+
+Checks: in the desktop app Database › Items… (and every place that opens an item) opens the item editor as
+its own OS window, titled Items, instead of full screen; opening another item while it is open brings it to
+the front and opens that item, asking about unsaved changes first. Its Close, Esc and Discard them close
+the window; the title bar's ✕ with unsaved values shows the Discard bar instead (Go's `toolCloseGuard`:
+`go test . -run ToolWindowCloseGuard`). A save makes the main window forget the item's row, name and icons
+(its tooltips and names read them again), its status line shows in the main window's status bar, and the
+sort of the search is kept in the main page's prefs. On the browser page it stays full screen: the probe
+`item-editor` checks that editor. The target, slot and command shapes: `bun test tests/editorWindows.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+open Database › Items…, find an item, change its name, close the window with the ✕ (the Discard bar shows;
+Keep editing), Save, then look at the item's name somewhere in the main window (a creature's loot, an
+equipped item in the creature editor): it shows the new name. Change the sort, close and reopen the
+window: the sort was kept. Right-click a found item: its menu opens in the item window.
+
+- Traps: the window's `prefs` are defaults apart from `EDITOR_PREF_KEYS`, copied from the main page, and
+  are never saved; a preference the editor writes must be in `EDITOR_PREF_WRITES` to reach the main page.
+  An editor slot of another kind set in the window goes to the main page, so its editor opens there.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway

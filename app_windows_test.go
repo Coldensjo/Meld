@@ -3,6 +3,7 @@ package main
 import (
 	"net/url"
 	"testing"
+	"time"
 
 	"Meld/internal/config"
 
@@ -60,5 +61,42 @@ func TestToolWindowOnScreen(t *testing.T) {
 	}
 	if onScreen(config.Place{X: 0, Y: 0, Width: 300, Height: 300}, nil) {
 		t.Error("onScreen with no screens = true")
+	}
+}
+
+// A tool window with unsaved edits (#912) stops its close and asks its page; an answer (SetToolWindowUnsaved)
+// resets that, a page that never answers lets the second close through after closeAckWait, and the main
+// window closing forgets every mark.
+func TestToolWindowCloseGuard(t *testing.T) {
+	var g toolCloseGuard
+	now := time.Unix(1000, 0)
+	if g.stop("item", now) {
+		t.Fatal("a clean window's close was stopped")
+	}
+	g.set("item", true)
+	if !g.stop("item", now) {
+		t.Fatal("an unsaved window's close went through")
+	}
+	if g.stop("history", now) {
+		t.Fatal("another kind's close was stopped")
+	}
+	if !g.stop("item", now.Add(closeAckWait/2)) {
+		t.Fatal("a second close soon after went through while the page may still answer")
+	}
+	if g.stop("item", now.Add(4*closeAckWait)) {
+		t.Fatal("a close long after an unanswered one was stopped")
+	}
+	g.set("item", true)
+	if !g.stop("item", now.Add(5*closeAckWait)) {
+		t.Fatal("after an answer the close was not stopped again")
+	}
+	g.set("item", false)
+	if g.stop("item", now.Add(6*closeAckWait)) {
+		t.Fatal("a window whose edits were saved was stopped")
+	}
+	g.set("item", true)
+	g.forget()
+	if g.stop("item", now) {
+		t.Fatal("forget left the mark")
 	}
 }

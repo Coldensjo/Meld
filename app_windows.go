@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"Meld/internal/config"
 
@@ -31,6 +33,8 @@ var toolWindowKinds = map[string]toolWindowKind{
 	"inspector": {title: "Inspector", width: 320, height: 640, minWidth: 260, minHeight: 240},
 	// The doodad brush editor (#911): the model picker beside the brush, as wide as it was full screen.
 	"doodad-brushes": {title: "Doodad brushes", width: 1440, height: 880, minWidth: 1000, minHeight: 520},
+	// The database editors (#912 onwards), as wide as they were full screen.
+	"item": {title: "Items", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 }
 
 // toolWindowPrefix starts the Wails name of every tool window, followed by its kind.
@@ -87,9 +91,14 @@ func (a *App) OpenToolWindow(kind string, args map[string]string) (bool, error) 
 	}
 	w := a.newWindow(opts)
 	// Its place is kept for the next time it opens, and the main page learns it closed (its menu's check
-	// mark). A tool window holding unsaved edits of its own (a template editor) will ask its page here
-	// first, cancelling the close, as the main window's hook does (main.go).
-	w.RegisterHook(events.Common.WindowClosing, func(*application.WindowEvent) {
+	// mark). A tool window holding unsaved edits of its own (a template editor, SetToolWindowUnsaved) asks
+	// its page first instead, cancelling the close, as the main window's hook does (main.go).
+	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if a.toolClose.stop(kind, time.Now()) {
+			e.Cancel()
+			a.emit("toolwin:close-asked", map[string]any{"kind": kind})
+			return
+		}
 		a.saveToolWindow(kind, w)
 		a.emit("toolwin:closed", map[string]any{"kind": kind})
 	})
@@ -109,6 +118,8 @@ func (a *App) CloseToolWindow(kind string) {
 // closeToolWindows closes every tool window, once the main window closes: Wails quits only when the
 // last window has closed, so one left open would keep Meld running.
 func (a *App) closeToolWindows() {
+	// The main window closing drops a tool window's unsaved edits, as it did the full-screen editor's.
+	a.toolClose.forget()
 	for _, w := range a.toolWindows() {
 		w.Close()
 	}
@@ -157,4 +168,55 @@ func onScreen(p config.Place, areas []application.Rect) bool {
 		}
 	}
 	return false
+}
+
+// SetToolWindowUnsaved tells whether the tool window of kind holds unsaved edits of its own (a database
+// editor's values, #912), so closing it with its title bar's button asks its page first. A call also
+// answers a close that was stopped.
+func (a *App) SetToolWindowUnsaved(kind string, unsaved bool) {
+	a.toolClose.set(kind, unsaved)
+}
+
+// toolCloseGuard stops a tool window's close while its page has unsaved edits, as the main window's
+// beforeClose does for a map: the page is asked (toolwin:close-asked) and shows its Discard bar. A page
+// that hangs never answers, so a second close after closeAckWait without an answer goes through.
+type toolCloseGuard struct {
+	mu      sync.Mutex
+	unsaved map[string]bool
+	// asked is when a close of each kind was stopped and not yet answered, in Unix ms.
+	asked map[string]int64
+}
+
+func (g *toolCloseGuard) set(kind string, unsaved bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.unsaved == nil {
+		g.unsaved = map[string]bool{}
+	}
+	g.unsaved[kind] = unsaved
+	delete(g.asked, kind)
+}
+
+// stop decides a close of kind at now: stopped while it is unsaved, unless an earlier stopped close
+// went unanswered for longer than closeAckWait.
+func (g *toolCloseGuard) stop(kind string, now time.Time) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.unsaved[kind] {
+		return false
+	}
+	if g.asked == nil {
+		g.asked = map[string]int64{}
+	}
+	ms := now.UnixMilli()
+	asked := g.asked[kind]
+	g.asked[kind] = ms
+	return asked == 0 || ms-asked <= closeAckWait.Milliseconds()
+}
+
+// forget drops every unsaved mark, so the closes that follow go through.
+func (g *toolCloseGuard) forget() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.unsaved, g.asked = nil, nil
 }

@@ -1,22 +1,8 @@
 <script lang="ts" module>
-	import { ListItemDisplays } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
-
-	// The list is read once a session; forgetLooks drops it after a display was added.
-	let displays: Promise<vmangos.ItemDisplayEntry[]> | null = null
-
-	export function loadItemDisplays(): Promise<vmangos.ItemDisplayEntry[]> {
-		if (!displays) {
-			displays = ListItemDisplays().then((d) => d ?? [])
-			displays.catch(() => (displays = null))
-		}
-		return displays
-	}
-
-	/** Drops the display list, after a display was added or an item's display changed. */
-	export function forgetLooks() {
-		displays = null
-	}
+	import { loadItemDisplays } from '../lib/wow/itemDisplays'
+	// The display list lives in lib/wow/itemDisplays.ts, so the main page can forget it without this component (#912).
+	export { forgetLooks, loadItemDisplays } from '../lib/wow/itemDisplays'
 </script>
 
 <script lang="ts">

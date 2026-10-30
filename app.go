@@ -34,7 +34,9 @@ type App struct {
 	win *application.WebviewWindow
 	// toolMu keeps two OpenToolWindow calls from making the same tool window twice (app_windows.go).
 	toolMu sync.Mutex
-	wow    *wow.Client
+	// toolClose holds the tool windows' unsaved edits and their stopped closes (app_windows.go, #912).
+	toolClose toolCloseGuard
+	wow       *wow.Client
 	// other is the client assets are imported from (app_otherclient.go, #858), read-only.
 	other *wow.Client
 	// handoffs holds the binary parts of bound replies until the page fetches them (#636).

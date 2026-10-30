@@ -13,6 +13,8 @@ export const COMMAND_EVENT = 'toolwin:cmd'
 export const REPLY_EVENT = 'toolwin:reply'
 /** The event Go sends when a tool window closes (its close button, or CloseToolWindow): `{ kind }`. */
 export const CLOSED_EVENT = 'toolwin:closed'
+/** The event Go sends a tool window whose close it stopped, as it has unsaved edits (SetToolWindowUnsaved, #912): `{ kind }`. */
+export const CLOSE_ASKED_EVENT = 'toolwin:close-asked'
 /** The event Go sends an open tool window when it is opened again with new arguments: `{ kind, args }`. */
 export const ARGS_EVENT = 'toolwin:args'
 

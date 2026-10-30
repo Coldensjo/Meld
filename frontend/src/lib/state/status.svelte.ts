@@ -34,8 +34,17 @@ export function publishViewportHint() {
 }
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined
+/** Where a tool window's page sends its status lines (#912): the main window's status bar, which it has none of. */
+let statusElsewhere: ((msg: string, timeout: number) => void) | null = null
+export function forwardStatus(fn: ((msg: string, timeout: number) => void) | null) {
+	statusElsewhere = fn
+}
 /** Shows `msg` in the status bar, and the log, for `timeout` ms (0 keeps it). */
 export function setStatus(msg: string, timeout = 4000) {
+	if (statusElsewhere) {
+		statusElsewhere(msg, timeout)
+		return
+	}
 	if (msg && msg !== 'Ready' && msg !== ui.status) logLine(msg)
 	ui.status = msg
 	clearTimeout(statusTimer)
