@@ -10,6 +10,7 @@ import type { ToolCommand } from './channel'
 /** The editors that open in their own window: the tool window kind (app_windows.go) and the `ui` slot that opens it. */
 export const EDITOR_WINDOWS = {
 	item: 'itemEditor',
+	spell: 'spellEditor',
 } as const
 
 export type EditorKind = keyof typeof EDITOR_WINDOWS
@@ -75,6 +76,10 @@ export interface EditorForget {
 	itemIcons?: boolean
 	/** The client's item displays the look picker lists (ItemLookPicker's forgetLooks). */
 	looks?: boolean
+	/** Spells (lib/wow/spells.ts forgetSpell) and their names (refNames forgetName 'spell'), #913. */
+	spells?: number[]
+	/** The client's spell tables the pickers read (refNames forgetSpellTables), after a save added an icon or category. */
+	spellTables?: boolean
 }
 
 /** An editor window's commands to the main page. */
@@ -108,7 +113,7 @@ export function readEditorCommand(cmd: ToolCommand): EditorCommand | null {
 		case 'forget': {
 			if (!isObject(c.forget)) return null
 			const f = c.forget
-			return { type: 'forget', forget: { items: numbers(f.items), itemIcons: f.itemIcons === true, looks: f.looks === true } }
+			return { type: 'forget', forget: { items: numbers(f.items), itemIcons: f.itemIcons === true, looks: f.looks === true, spells: numbers(f.spells), spellTables: f.spellTables === true } }
 		}
 	}
 	return null

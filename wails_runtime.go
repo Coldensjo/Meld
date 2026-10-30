@@ -46,6 +46,16 @@ func cancelled(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "cancel")
 }
 
+// dialogWindow is the window a file dialog comes up over: the active one, which is the window whose
+// page asked (a database editor in its own window, #913, or the doodad brush window whose command the
+// main page runs), so the dialog does not raise the main window over it; the main window when none is.
+func (a *App) dialogWindow() application.Window {
+	if w := a.app.Window.Current(); w != nil {
+		return w
+	}
+	return a.win
+}
+
 func (a *App) openDialog(o dialogOptions, dirs bool) *application.OpenFileDialogStruct {
 	return a.app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:                o.Title,
@@ -54,7 +64,7 @@ func (a *App) openDialog(o dialogOptions, dirs bool) *application.OpenFileDialog
 		CanChooseFiles:       !dirs,
 		CanChooseDirectories: dirs,
 		CanCreateDirectories: o.CanCreateDirectories || dirs,
-		Window:               a.win,
+		Window:               a.dialogWindow(),
 	})
 }
 
@@ -105,7 +115,7 @@ func (a *App) saveFile(o dialogOptions) (string, error) {
 		Filename:             o.DefaultFilename,
 		Filters:              o.Filters,
 		CanCreateDirectories: true,
-		Window:               a.win,
+		Window:               a.dialogWindow(),
 	}).PromptForSingleSelection()
 	if cancelled(err) {
 		return "", nil

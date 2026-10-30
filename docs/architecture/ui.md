@@ -164,7 +164,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     `HistoryWindow.svelte` builds the view from the Engine and shows it in the page, or, in the desktop
     app, opens History as its own OS window (below) and feeds that.
   - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History, the Inspector (#910), the doodad brush
-    editor (#911) and the item editor (#912) use it so far): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
+    editor (#911) and the item (#912) and spell (#913) editors use it so far): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
     window named `tool-<kind>` loading `/?window=<kind>&<args>`, or shows and focuses the open one and
     sends it `toolwin:args`. `main.ts` mounts `components/toolwin/ToolShell.svelte` for `?window=`
     instead of `App.svelte` (both imported dynamically, so the tool page loads about 80 KB, not the
@@ -201,7 +201,7 @@ The window layout, the asset browser and the dock panels and floating windows.
       Import, Export, Paint with it and status lines are commands the main page runs. `ui.brushEditorWindow`
       lets the main window's keys reach the map while the editor is in its own window. `ToolShell`
       imports it lazily, since it brings three.js (the preview), so History and the Inspector stay light.
-    - The database editors (#912, the item editor first, kind `item`; `lib/toolwin/editors.ts` lists
+    - The database editors (#912, the item editor first, kind `item`, then the spell editor, kind `spell`, #913; `lib/toolwin/editors.ts` lists
       each kind's `ui` slot in `EDITOR_WINDOWS`): the editor runs whole in its window's page, since it
       reaches the world database only through bindings. On the main page `EditorWindows.svelte` watches
       the slot (`ui.itemEditor`): in the desktop app it opens the window with the target as its
@@ -216,12 +216,13 @@ The window layout, the asset browser and the dock panels and floating windows.
       (`forwardStatus` in `status.svelte.ts` sends every `setStatus` there), the preferences it writes
       (the item sort; the main page publishes the ones the editors read, `EDITOR_PREF_KEYS`), and the
       caches a save, import or delete made stale (`forget`: item rows and names, display icons, the look
-      picker's list, now in `lib/wow/itemDisplays.ts`; the editor calls `shareForget`). A new editor
+      picker's list, now in `lib/wow/itemDisplays.ts`; spell rows and names, and the spell tables after a save; the editor calls `shareForget`). A new editor
       kind needs its slot in `EDITOR_WINDOWS`, its loader in `EditorToolWindow`'s `EDITORS`, a
       `toolWindowKinds` entry in Go, the `onunsaved` prop and the `openTarget`/`askClose` exports, its
       `forget`s shared, and App's lazy import gated on `editorInWindow`.
-    - Traps: `a.win` stays the main window (titles, and the file dialogs, which come up over it even
-      when a tool window asked). `window.open` is not an option: Wails v3.0.0 handles neither
+    - Traps: `a.win` stays the main window (titles). The file dialogs come up over the active window
+      (`dialogWindow` in `wails_runtime.go`, #913), the one whose page asked or whose command the main page
+      runs, so Import… in an editor's window does not raise the main window over it. `window.open` is not an option: Wails v3.0.0 handles neither
       WebView2's `NewWindowRequested` nor WebKitGTK's `create`, so it returns null on Linux.
   - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
     cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain

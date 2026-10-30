@@ -24,7 +24,7 @@
 		if (ui.objectEditor && !ObjectEditor) void import('./components/ObjectEditor.svelte').then((m) => (ObjectEditor = m.default))
 		if (ui.questEditor && !QuestEditor) void import('./components/QuestEditor.svelte').then((m) => (QuestEditor = m.default))
 		if (ui.itemEditor && !ItemEditor && !editorInWindow('item')) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
-		if (ui.spellEditor && !SpellEditor) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
+		if (ui.spellEditor && !SpellEditor && !editorInWindow('spell')) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
 		if (ui.iconsTool && !IconsWindow) void import('./components/IconsWindow.svelte').then((m) => (IconsWindow = m.default))
 		if (ui.soundsTool && !SoundsWindow) void import('./components/SoundsWindow.svelte').then((m) => (SoundsWindow = m.default))
 		if (ui.characterEditor && !CharacterEditor) void import('./components/CharacterEditor.svelte').then((m) => (CharacterEditor = m.default))

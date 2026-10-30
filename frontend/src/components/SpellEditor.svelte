@@ -15,6 +15,7 @@
 	import SpellPicker from './SpellPicker.svelte'
 	import SpellVisualComposer, { STAGES, loadVisualEffects, stageEffects } from './SpellVisualComposer.svelte'
 	import TemplateFields from './TemplateFields.svelte'
+	import { shareForget } from '../lib/toolwin/editorPage'
 
 	// The spell editor (#294, Tools › Spells…): find a spell or make one as a copy of the open one, edit
 	// every column of its spell_template row on tabs (the text, casting, levels and rules, and each of
@@ -23,6 +24,10 @@
 	// the row to the world database and the same spell into Spell.dbc in Meld's patch (a new icon into
 	// SpellIcon.dbc) at once, or once the game has closed when it runs (#365), so the two agree. Export
 	// writes the spell's spell_template rows to an SQL script, and Import reads one back into both (#357).
+
+	// In the desktop app it opens as its own OS window (#913, components/toolwin/EditorToolWindow.svelte),
+	// which runs it whole on that page's own `ui.spellEditor`, and tells it here when it has unsaved changes.
+	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
 
 	const target = $derived(ui.spellEditor)
 
@@ -92,10 +97,24 @@
 		})
 	}
 
-	/** Forgets what the session knows of a spell that changed, so names, icons and searches read it again. */
+	$effect(() => onunsaved?.(unsaved))
+
+	/** Opens the editor on `t` (its window was opened again on another spell), asking about unsaved changes first. */
+	export function openTarget(t: { entry: number }) {
+		if (!target) ui.spellEditor = t
+		else open(t.entry)
+	}
+
+	/** Closes the editor, asking first with unsaved changes: its window's own close button (#913). */
+	export function askClose() {
+		ed.close()
+	}
+
+	/** Forgets what the session knows of a spell that changed, so names, icons and searches read it again (in the main window too, #913). */
 	function forget(entry: number) {
 		forgetSpell(entry)
 		forgetName('spell', entry)
+		shareForget({ spells: [entry] })
 		searchVersion++
 	}
 
@@ -111,6 +130,7 @@
 				pendingVisual = null
 				// Its icon or category may be new: the pickers read the tables again.
 				forgetSpellTables()
+				shareForget({ spellTables: true })
 				values.spellVisual1 = String(r.visual)
 				ed.markSaved()
 				forget(rec.entry)

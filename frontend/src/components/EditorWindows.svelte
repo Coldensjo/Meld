@@ -7,7 +7,8 @@
 	import { nativeToolWindows, onToolCommand, openToolWindow, publishToolState } from '../lib/toolwin/host'
 	import { forgetLooks } from '../lib/wow/itemDisplays'
 	import { forgetItemIcons, forgetItemRow } from '../lib/wow/items'
-	import { forgetName } from '../lib/wow/refNames'
+	import { forgetName, forgetSpellTables } from '../lib/wow/refNames'
+	import { forgetSpell } from '../lib/wow/spells'
 
 	// The main page's side of the database editors in their own OS windows (#912, lib/toolwin/editors.ts).
 	// When an editor's `ui` slot is set here (a menu, a link in another editor) in the desktop app, its
@@ -62,6 +63,11 @@
 		}
 		if (f.itemIcons) forgetItemIcons()
 		if (f.looks) forgetLooks()
+		for (const e of f.spells ?? []) {
+			forgetSpell(e)
+			forgetName('spell', e)
+		}
+		if (f.spellTables) forgetSpellTables()
 	}
 
 	onMount(() => {

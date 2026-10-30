@@ -17,6 +17,7 @@ test("a target goes through the window's query and back", () => {
 
 test('each window kind has its own slot, among the editor slots', () => {
 	expect(editorKindOf('itemEditor')).toBe('item')
+	expect(editorKindOf('spellEditor')).toBe('spell')
 	expect(editorKindOf('creatureEditor')).toBe('')
 	for (const slot of Object.values(EDITOR_WINDOWS)) expect(EDITOR_SLOTS as readonly string[]).toContain(slot)
 })
@@ -31,10 +32,12 @@ test('an editor window command is read only when well formed', () => {
 	expect(readEditorCommand({ type: 'status' })).toBeNull()
 	// Only the preferences the window writes, of the right type.
 	expect(readEditorCommand({ type: 'prefs', prefs: { itemSort: 'quality', itemSortDesc: 'yes', theme: 'light' } })).toEqual({ type: 'prefs', prefs: { itemSort: 'quality' } })
-	expect(readEditorCommand({ type: 'forget', forget: { items: [3, 'x', 4], looks: true } })).toEqual({ type: 'forget', forget: { items: [3, 4], itemIcons: false, looks: true } })
+	expect(readEditorCommand({ type: 'forget', forget: { items: [3, 'x', 4], looks: true } })).toEqual({ type: 'forget', forget: { items: [3, 4], itemIcons: false, looks: true, spells: undefined, spellTables: false } })
+	// A spell's save (#913): its row and name, and the tables when it added an icon.
+	expect(readEditorCommand({ type: 'forget', forget: { spells: [133, null], spellTables: true } })).toEqual({ type: 'forget', forget: { items: undefined, itemIcons: false, looks: false, spells: [133], spellTables: true } })
 	expect(readEditorCommand({ type: 'forget' })).toBeNull()
 	expect(readEditorCommand({ type: 'hello' })).toBeNull()
 	// It went over Wails as JSON.
 	const sent = JSON.parse(JSON.stringify({ type: 'forget', forget: { itemIcons: true } }))
-	expect(readEditorCommand(sent)).toEqual({ type: 'forget', forget: { items: undefined, itemIcons: true, looks: false } })
+	expect(readEditorCommand(sent)).toEqual({ type: 'forget', forget: { items: undefined, itemIcons: true, looks: false, spells: undefined, spellTables: false } })
 })

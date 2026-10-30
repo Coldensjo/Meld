@@ -31,6 +31,7 @@
 	/** Each editor, imported only in its own window. */
 	const EDITORS: Record<EditorKind, () => Promise<{ default: EditorComponent }>> = {
 		item: () => import('../ItemEditor.svelte'),
+		spell: () => import('../SpellEditor.svelte'),
 	}
 
 	/** The slot's target from the window's arguments: an entry, 0 (find one) when they hold none. */

@@ -191,6 +191,29 @@ window: the sort was kept. Right-click a found item: its menu opens in the item 
   are never saved; a preference the editor writes must be in `EDITOR_PREF_WRITES` to reach the main page.
   An editor slot of another kind set in the window goes to the main page, so its editor opens there.
 
+## The spell editor as its own OS window (#913, probe `spell-editor`)
+
+Checks: in the desktop app Database › Spells… (and every place that opens a spell) opens the spell editor
+as its own OS window, titled Spells, on the item editor's flow (above): opening another spell while it is
+open asks about unsaved changes first, Close, Esc and Discard them close it, and the ✕ with unsaved values
+shows the Discard bar. A save makes the main window forget the spell's row and name (and the spell tables
+when it added an icon), so a creature's spell list and the tooltips read them again. The visual composer's
+preview is its own `CreaturePreview` renderer, not the main page's Engine, so it draws in the window. On
+the browser page it stays full screen: the probe `spell-editor` checks that editor. The shapes:
+`bun test tests/editorWindows.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+open Database › Spells…, find a spell, change its name, close the window with the ✕ (the Discard bar shows;
+Keep editing), Save, then look at the spell's name in the main window (a creature's Spells tab). Click
+Import…: the file dialog comes up over the spell window, not the main one (`dialogWindow`). Compose its
+visual: the preview draws.
+
+- Without a hand at the desktop (#913's check): a scratch `App.svelte` whose `onMount` sets
+  `ui.spellEditor = { entry: 133 }` after 9 s, built with `make build-windows` and started with
+  `MELD_DEBUG_LOG=1`: the session log shows `asset GET /?target=%7B%22entry%22%3A133%7D&window=spell`, the
+  `SpellEditor` chunk and Fireball's icon, `EnumWindows` lists a window titled Spells, and `WM_CLOSE` on
+  it (nothing unsaved) closes it alone. Restore `App.svelte` and build again afterwards.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway
