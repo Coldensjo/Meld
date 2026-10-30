@@ -109,7 +109,7 @@ make dev-page        # the browser page at http://localhost:34115 the probes dri
 make build-linux     # go build -tags "production gtk3" → build/bin/Meld
 make build-windows   # the .syso (icon, manifest) + go build -tags production → build/bin/Meld.exe
 make test            # go test ./internal/... ./cmd/... . + frontend unit tests (`bun test`); builds frontend/dist first when missing
-make check           # gofmt + go vet (same rule) + golangci-lint (skipped if missing) + bindings-check (frontend/bindings and lib/wails match the bound methods) + notices-check + (cd frontend && bun run check)
+make check           # gofmt + go vet (same rule) + golangci-lint (skipped if missing) + bindings-check (frontend/bindings and lib/wails match the bound methods) + notices-check + (cd frontend && bun run lint && bun run check; lint is ESLint)
 make verify          # check + test + the build for this OS: the gate before a commit
 make bindings        # regenerate frontend/bindings (wails3 generate bindings) and frontend/src/lib/wails/App.ts, models.ts
 make format          # gofmt -w + Prettier over frontend (frontend/.prettierrc.json); make check fails on unformatted files
@@ -283,7 +283,7 @@ These are repeated from the docs above, since breaking one breaks things far fro
 
 ## Conventions
 
-- TypeScript strict, no `any` in committed code. Prettier formats the frontend (`frontend/.prettierrc.json`:
+- TypeScript strict, no `any` in committed code (ESLint enforces it, with `as unknown as` only behind a disable comment that says why: `bun run lint`). Prettier formats the frontend (`frontend/.prettierrc.json`:
   tabs, single quotes, no semicolons, 240 columns): run `make format` before committing, since `make check`
   fails on a file Prettier would change.
 - Svelte 5 runes only (`$state`, `$derived`, `$props`, `onclick=`). No legacy `export let` or

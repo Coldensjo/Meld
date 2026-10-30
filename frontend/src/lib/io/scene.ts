@@ -94,6 +94,7 @@ export async function copyPerfReport(engine: Engine) {
 /** Opens the scene's map (or switches to its tab) and restores everything else the scene holds. */
 export async function loadScene(engine: Engine, text: string) {
 	// Check the whole scene before anything is opened or written, so a bad paste changes nothing.
+	// eslint-disable-next-line no-restricted-syntax -- the prefs object read by key
 	const scene = parseScene(text, prefs as unknown as Record<string, unknown>)
 
 	if ('region' in scene.map) {
@@ -136,6 +137,7 @@ export async function pasteScene(engine: Engine) {
 // For Claude and the browser console (wails dev): window.__loadScene(text) opens a pasted scene and
 // window.__sceneText() returns the current one, without the clipboard.
 if (import.meta.env.DEV) {
+	// eslint-disable-next-line no-restricted-syntax -- dev-only globals on window
 	const w = window as unknown as Record<string, unknown>
 	w.__loadScene = (text: string) => engineRef.current && loadScene(engineRef.current, text)
 	w.__sceneText = () => engineRef.current && sceneText(engineRef.current)

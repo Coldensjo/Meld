@@ -40,6 +40,9 @@ jobs:
       - run: go test -short -tags gtk3 ./internal/... ./cmd/...
       - run: bun run test
         working-directory: frontend
+      - name: ESLint (no explicit any, no unexplained as unknown as)
+        run: bun run lint
+        working-directory: frontend
       - run: bun run check
         working-directory: frontend
       # The root package embeds frontend/dist, so it is vetted, linted and tested after the build.

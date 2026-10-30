@@ -22,7 +22,7 @@ Run from the repository root:
 | --- | --- |
 | `make test` | Short-mode Go tests under `internal/`, `cmd/` and the root package; frontend Bun tests |
 | `make test-full` | The same suites without short mode, including heavier client scans |
-| `make check` | Formatting, Go vet/lint, binding and licence-notice consistency, Svelte and TypeScript |
+| `make check` | Formatting, Go vet/lint, binding and licence-notice consistency, ESLint, Svelte and TypeScript |
 | `make verify` | Checks, tests and a desktop build for the current OS |
 | `make fuzz` | Time-bounded mutation runs against the client format parsers |
 

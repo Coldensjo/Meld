@@ -110,7 +110,7 @@ lint: frontend-dist
 check: bindings-check notices-check format-check frontend-dist lint
 	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
 	go vet -tags "$(LINUX_TAGS)" ./internal/... ./cmd/... .
-	cd frontend && bun run check
+	cd frontend && bun run lint && bun run check
 
 # Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev-page` (docs/TESTS.md, "Probes").
 # The whole set outgrew the agent harness's 30-minute task limit (#669): `make probe SHARD=1/2`, then `SHARD=2/2`, runs it in halves.

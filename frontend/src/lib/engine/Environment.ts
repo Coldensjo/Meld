@@ -70,6 +70,7 @@ vec3 moon(vec3 dir, vec3 sunDir) {
 
 function buildSkyMaterial(): THREE.ShaderMaterial {
 	// @types/three types SkyShader loosely; it is a standard shader object.
+	// eslint-disable-next-line no-restricted-syntax -- @types/three types SkyShader loosely
 	const base = Sky.SkyShader as unknown as {
 		uniforms: Record<string, THREE.IUniform>
 		vertexShader: string

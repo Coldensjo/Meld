@@ -7,6 +7,7 @@ import { NavScene, type GatherJob, type SceneUpdate } from './navScene'
 
 type Request = { id: number; job: TileJob | GatherJob } | { scene: SceneUpdate[] }
 
+// eslint-disable-next-line no-restricted-syntax -- the worker scope, typed without the webworker lib
 const scope = self as unknown as {
 	onmessage: ((e: MessageEvent<Request>) => void) | null
 	postMessage(message: unknown, transfer: Transferable[]): void

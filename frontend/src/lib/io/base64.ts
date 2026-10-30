@@ -9,6 +9,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
 	let s = ''
 	const CH = 0x8000
 	for (let i = 0; i < bytes.length; i += CH) {
+		// eslint-disable-next-line no-restricted-syntax -- apply takes any array-like, but its type says number[]
 		s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH) as unknown as number[])
 	}
 	return btoa(s)

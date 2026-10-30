@@ -126,6 +126,7 @@
 		// this effect, which would re-apply every preference and walk them all for a save (#461).
 		const snapshot = {} as Record<string, unknown>
 		for (const k of prefKeys) snapshot[k] = prefs[k as keyof typeof prefs]
+		// eslint-disable-next-line no-restricted-syntax -- the snapshot holds every key but the session, which applyPrefs does not read
 		engineRef.current?.applyPrefs(snapshot as unknown as typeof prefs)
 		if (prefsLoaded) savePrefs()
 	})

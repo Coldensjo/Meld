@@ -36,7 +36,7 @@ make dev-page        # the same app as a browser page at http://localhost:34115 
 make build-windows   # build/bin/Meld.exe
 make build-linux     # build/bin/Meld
 make test            # Go and frontend unit tests
-make check           # go vet + golangci-lint + svelte-check/tsc
+make check           # go vet + golangci-lint + ESLint + svelte-check/tsc
 ```
 
 GitHub Actions runs the checks and short tests on Linux at every push (`.github/workflows/check.yml`);

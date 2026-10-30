@@ -57,6 +57,7 @@ export async function loadPrefs() {
 
 /** Sends the changed preferences and, once they are written, takes them as the new baseline. */
 async function send() {
+	// eslint-disable-next-line no-restricted-syntax -- the prefs object read by key
 	const patch = changedPrefs(prefs as unknown as Record<string, unknown>, baseline)
 	if (!patch) return
 	try {
