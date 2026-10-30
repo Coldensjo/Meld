@@ -8,7 +8,7 @@ import type { ToolCommand } from './channel'
 import { prefShapeOk } from '../state/prefsPatch'
 import type { BrushStore, DoodadBrush } from '../tools/doodadBrush'
 
-/** The tool window kind of the doodad brush editor (app_windows.go's toolWindowKinds). */
+/** The tool window kind of the doodad brush editor (app_toolwindows.go's toolWindowKinds). */
 export const BRUSHES_KIND = 'doodad-brushes'
 
 export interface BrushesView {

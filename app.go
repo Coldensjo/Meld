@@ -32,9 +32,9 @@ type App struct {
 	ctx context.Context
 	app *application.App
 	win *application.WebviewWindow
-	// toolMu keeps two OpenToolWindow calls from making the same tool window twice (app_windows.go).
+	// toolMu keeps two OpenToolWindow calls from making the same tool window twice (app_toolwindows.go).
 	toolMu sync.Mutex
-	// toolClose holds the tool windows' unsaved edits and their stopped closes (app_windows.go, #912).
+	// toolClose holds the tool windows' unsaved edits and their stopped closes (app_toolwindows.go, #912).
 	toolClose toolCloseGuard
 	wow       *wow.Client
 	// other is the client assets are imported from (app_otherclient.go, #858), read-only.

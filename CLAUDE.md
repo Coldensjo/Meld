@@ -138,7 +138,7 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
   is no `createFrom`: build a Go struct as a typed object literal.
 - The app is one service (`App`, `application.NewService` in `main.go`); `wails_runtime.go` holds the
   dialog, event and window helpers the bound methods call (`a.openFile`, `a.emit`, `a.setTitle`, and
-  `a.window`/`a.newWindow` for the tool windows that open as their own OS windows, `app_windows.go`,
+  `a.window`/`a.newWindow` for the tool windows that open as their own OS windows, `app_toolwindows.go`,
   docs/architecture/ui.md). The browser page is a separate build (`-tags server`): it has no window, no
   native dialogs and no native clipboard (the page uses the browser's), and `serverMode` tells the Go side.
 

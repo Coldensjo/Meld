@@ -9,7 +9,7 @@ import type { vmangos } from '../wails/models'
 import type { ToolCommand } from './channel'
 import { readMapCall, type MapCall, type SpawnFieldsView } from './spawnFields'
 
-/** The editors that open in their own window: the tool window kind (app_windows.go) and the `ui` slot that opens it. */
+/** The editors that open in their own window: the tool window kind (app_toolwindows.go) and the `ui` slot that opens it. */
 export const EDITOR_WINDOWS = {
 	item: 'itemEditor',
 	spell: 'spellEditor',

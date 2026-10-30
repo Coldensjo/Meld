@@ -24,7 +24,7 @@ window.addEventListener(
 )
 window.addEventListener('pointerdown', () => delete document.documentElement.dataset.kbdNav, true)
 
-// A tool window open as its own OS window (`?window=<kind>`, #909, app_windows.go) mounts a light shell
+// A tool window open as its own OS window (`?window=<kind>`, #909, app_toolwindows.go) mounts a light shell
 // without the Engine or a map; the main page mounts the editor. Each is imported only where it runs, so a
 // tool window doesn't load the editor's modules.
 const target = document.getElementById('app')!

@@ -164,7 +164,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     `HistoryWindow.svelte` builds the view from the Engine and shows it in the page, or, in the desktop
     app, opens History as its own OS window (below) and feeds that.
   - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History, the Inspector (#910), the doodad brush
-    editor (#911) and the item (#912), spell (#913), quest (#914) and creature (#915) editors use it so far): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
+    editor (#911) and the item (#912), spell (#913), quest (#914) and creature (#915) editors use it so far): `OpenToolWindow(kind, args)` (`app_toolwindows.go`, kinds in `toolWindowKinds`) opens a Wails
     window named `tool-<kind>` loading `/?window=<kind>&<args>`, or shows and focuses the open one and
     sends it `toolwin:args`. `main.ts` mounts `components/toolwin/ToolShell.svelte` for `?window=`
     instead of `App.svelte` (both imported dynamically, so the tool page loads about 80 KB, not the

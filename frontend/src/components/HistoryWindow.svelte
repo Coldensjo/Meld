@@ -8,7 +8,7 @@
 	import HistoryList from './HistoryList.svelte'
 
 	// The History window (Edit › History, ui.history). In the desktop app it opens as its own OS window
-	// (#909: app_windows.go, components/toolwin/HistoryToolWindow.svelte), which this component feeds over
+	// (#909: app_toolwindows.go, components/toolwin/HistoryToolWindow.svelte), which this component feeds over
 	// the channel (lib/toolwin): the view on each ui.historyVersion, and the steps it asks for run here.
 	// On the browser page (server mode, the probes), or when that window can't open, it floats in the page.
 

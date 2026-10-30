@@ -143,12 +143,12 @@ func (a *App) window(name string) *application.WebviewWindow {
 	return ww
 }
 
-// newWindow opens another window beside the main one (a tool window, app_windows.go).
+// newWindow opens another window beside the main one (a tool window, app_toolwindows.go).
 func (a *App) newWindow(o application.WebviewWindowOptions) *application.WebviewWindow {
 	return a.app.Window.NewWithOptions(o)
 }
 
-// toolWindows are the tool windows open now (app_windows.go); none without the app.
+// toolWindows are the tool windows open now (app_toolwindows.go); none without the app.
 func (a *App) toolWindows() []*application.WebviewWindow {
 	if a.app == nil {
 		return nil

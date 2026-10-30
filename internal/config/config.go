@@ -25,7 +25,7 @@ type Config struct {
 	Prefs json.RawMessage `json:"prefs,omitempty"`
 	// Window is the main window's size when it was last closed.
 	Window Window `json:"window,omitempty"`
-	// ToolWindows is where each tool window opened as its own OS window (app_windows.go, #909) was
+	// ToolWindows is where each tool window opened as its own OS window (app_toolwindows.go, #909) was
 	// last closed, by kind ("history").
 	ToolWindows map[string]Place `json:"toolWindows,omitempty"`
 	// GameClient is the game Meld closes and opens around an export: "" for the WoW client (Wow.exe),

@@ -1,5 +1,5 @@
 // The channel between the main page and the tool windows that open as their own OS windows (#909,
-// app_windows.go). Each tool window is its own Wails window and JavaScript context, so it can't reach
+// app_toolwindows.go). Each tool window is its own Wails window and JavaScript context, so it can't reach
 // the Engine or the main page's `editor`/`ui` state: the main page publishes the window's state over a
 // Wails event (throttled, never per frame), the window sends commands back, and a window that loads
 // asks for the current state with a `hello` command. Every message carries the window's kind, since

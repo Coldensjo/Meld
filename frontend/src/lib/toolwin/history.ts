@@ -2,7 +2,7 @@
 // (#909): the main page builds it from the active map's undo stack and publishes it on the channel.
 import type { HistoryStep } from '../state/historyCore'
 
-/** The tool window kind of the History window (app_windows.go's toolWindowKinds). */
+/** The tool window kind of the History window (app_toolwindows.go's toolWindowKinds). */
 export const HISTORY_KIND = 'history'
 
 export interface HistoryView {

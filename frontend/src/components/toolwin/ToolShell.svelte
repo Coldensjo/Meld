@@ -3,7 +3,7 @@
 	import InspectorToolWindow from './InspectorToolWindow.svelte'
 	import { EDITOR_WINDOWS, type EditorKind } from '../../lib/toolwin/editors'
 
-	// The page of a tool window open as its own OS window (#909, app_windows.go): main.ts mounts this in
+	// The page of a tool window open as its own OS window (#909, app_toolwindows.go): main.ts mounts this in
 	// place of App.svelte for `?window=<kind>`. No Engine, no map, no prefs: the window shows what the main
 	// page publishes over the channel (lib/toolwin) and sends its commands back.
 

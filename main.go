@@ -110,7 +110,7 @@ func main() {
 			e.Cancel()
 		}
 	})
-	// A close that goes through closes the tool windows too (app_windows.go), or Meld would keep running.
+	// A close that goes through closes the tool windows too (app_toolwindows.go), or Meld would keep running.
 	app.win.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
 		app.closeToolWindows()
 	})

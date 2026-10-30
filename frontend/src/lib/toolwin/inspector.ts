@@ -9,7 +9,7 @@ import type { vmangos } from '../wails/models'
 import type { WorldObject } from '../world/ObjectLayer'
 import type { ToolCommand } from './channel'
 
-/** The tool window kind of the Inspector (app_windows.go's toolWindowKinds). */
+/** The tool window kind of the Inspector (app_toolwindows.go's toolWindowKinds). */
 export const INSPECTOR_KIND = 'inspector'
 
 /** What a click on the map does while a spawn's pool or formation is being built (ui.spawnPick). */
