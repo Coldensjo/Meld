@@ -8,6 +8,7 @@ import { packedCount } from './shadowReach'
 import { firstPick } from './instanceHit'
 import { meshCalls, meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { spawnQuaternion } from './spawnTilt'
+import { spawnKey } from './spawnKey'
 import { SpawnChanges } from './spawnChanges'
 
 /** The spawns of one kind and model, and what's needed to draw the ones in view. */
@@ -37,7 +38,7 @@ export const SPAWN_COLORS: Record<SpawnKind, number> = {
 const KINDS: SpawnKind[] = ['monster', 'npc', 'object']
 
 /** A spawn's key: its kind and guid, unique within a region. */
-export const spawnKey = (s: { kind: string; guid: number }) => `${s.kind}/${s.guid}`
+export { spawnKey }
 
 /** A copy of a spawn that edits of the original can't reach. */
 export const cloneSpawn = (s: vmangos.WorldSpawn): vmangos.WorldSpawn => JSON.parse(JSON.stringify(s)) as vmangos.WorldSpawn

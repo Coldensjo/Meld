@@ -5,6 +5,7 @@
 	import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { SpawnEmotes } from '../lib/wails/App'
+	import { localSpawnActions, spawnPanel } from '../lib/toolwin/inspectorHost'
 	import type { vmangos } from '../lib/wails/models'
 	import { loadWeapons, SLOTS } from './WeaponPicker.svelte'
 	import DisplayPicker from './DisplayPicker.svelte'
@@ -24,6 +25,9 @@
 	}
 	let { s, onswitch }: Props = $props()
 	const creature = $derived(s.kind !== 'object')
+	// The pool and formation fields read the region's spawns and act on the map; a pick of another spawn goes through the editor (onswitch).
+	const panel = $derived(spawnPanel())
+	const spawnAct = $derived(localSpawnActions(onswitch))
 
 	// The looping emotes a creature can hold (Emotes.dbc's STATE_* rows), read from the client once.
 	let emotes = $state<vmangos.Emote[]>([])
@@ -157,7 +161,7 @@
 		>
 	</div>
 
-	<PoolFields {s} {onswitch} />
+	<PoolFields {s} {panel} act={spawnAct} />
 
 	<ScriptFields {s} />
 
@@ -186,7 +190,7 @@
 			>
 		</div>
 
-		<FormationFields {s} {onswitch} />
+		<FormationFields {s} {panel} act={spawnAct} />
 
 		{@const points = s.waypoints ?? []}
 		<h4>Path</h4>

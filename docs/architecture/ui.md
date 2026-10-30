@@ -163,8 +163,8 @@ The window layout, the asset browser and the dock panels and floating windows.
     `HistoryList.svelte` draws its contents from a plain `HistoryView` (`lib/toolwin/history.ts`);
     `HistoryWindow.svelte` builds the view from the Engine and shows it in the page, or, in the desktop
     app, opens History as its own OS window (below) and feeds that.
-  - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History is the
-    first): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
+  - **Tool windows as their own OS windows** (#909, the plumbing for #861's windows; History and the Inspector, #910, use it so
+    far): `OpenToolWindow(kind, args)` (`app_windows.go`, kinds in `toolWindowKinds`) opens a Wails
     window named `tool-<kind>` loading `/?window=<kind>&<args>`, or shows and focuses the open one and
     sends it `toolwin:args`. `main.ts` mounts `components/toolwin/ToolShell.svelte` for `?window=`
     instead of `App.svelte` (both imported dynamically, so the tool page loads about 80 KB, not the
@@ -208,6 +208,19 @@ The window layout, the asset browser and the dock panels and floating windows.
     selection to that kind); the selected area (size, holes, cut/fill, copy, mask); or, with a
     creature or game object of the region selected, its pool and formation (`PoolFields`,
     `FormationFields`, #172; client.md). With nothing selected it only shows a hint.
+    It reads nothing of the Engine or the editor state itself (#910): it draws a plain `InspectorView`
+    and calls `InspectorActions` (`lib/toolwin/inspector.ts`), which `lib/toolwin/inspectorHost.ts`
+    builds on the main page (`inspectorView()`, a `$derived` beside `ui.historyVersion`, and
+    `localActions()`, which keeps a scrub's `before` copy). `PoolFields` and `FormationFields` likewise
+    take a `SpawnPanel` (the spawns they read, the map pick under way) and `SpawnPanelActions` by spawn
+    key; the spawn editors pass `spawnPanel()` and `localSpawnActions(onswitch)`. In the desktop app
+    `Inspector.svelte` opens the panel as its own OS window (`components/toolwin/InspectorToolWindow.svelte`,
+    kind `inspector`, below) and feeds it: the view published on a change (throttled to 100 ms, none
+    while the window scrubs a number), the window's actions sent back as `call` commands by name, its
+    scrubs as `edit` commands (live ones at most once a frame, then the commit, numbered by scrub so a
+    late one is dropped: `EditGestures`), so each edit is one step of the main page's History; keys the
+    window's fields don't keep go back as `key` commands, where Esc and the Inspector key close it and
+    Undo and Redo run.
   - **Map Properties** (`MapPropertiesDialog.svelte`, File > Map Properties…, `ui.dialog =
     'mapProps'`) holds the map's facts and the world settings (sea on/off, sea level, steep
     slopes as rock). The sea level is one height for the whole map and is read-only for a part

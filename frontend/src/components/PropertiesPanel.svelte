@@ -1,42 +1,37 @@
 <script lang="ts">
 	import PropField from './PropField.svelte'
-	import { editor, ui } from '../lib/state/editor.svelte'
-	import { engineRef } from '../lib/state/engineRef'
-	import { displayName, isWowType, wowPath } from '../lib/models/assets'
-	import { baseType, doodadSetOf } from '../lib/models/wmoSet'
+	import { doodadSetOf } from '../lib/models/wmoSet'
 	import { WMODoodadSets } from '../lib/wails/App'
 	import { hasBackend } from '../lib/io/backend'
-	import { copyToClipboard } from '../lib/ui/clipboard'
-	import type { WorldObject } from '../lib/world/ObjectLayer'
-	import { spawnKey } from '../lib/world/SpawnLayer'
+	import type { InspectorActions, InspectorView, ObjectPatch } from '../lib/toolwin/inspector'
+	import { spawnKey } from '../lib/world/spawnKey'
 	import FormationFields from './FormationFields.svelte'
 	import PoolFields from './PoolFields.svelte'
 
 	// What is selected, and everything about it: one model's placement as numbers and actions, a
 	// mixed selection's models by kind, the selected ground area, a creature's or game object's pool
-	// and formation (#172), or the map when nothing is.
+	// and formation (#172), or the map when nothing is. It draws a plain view and acts through `act`
+	// (lib/toolwin/inspector.ts), so the same panel works in the page and in the Inspector's own OS
+	// window (#910), where the view is the main page's snapshot and each action a command back to it.
+
+	interface Props {
+		view: InspectorView
+		act: InspectorActions
+	}
+	let { view, act }: Props = $props()
 
 	// Live preview while scrubbing a field; one undo step on release.
-	let before: WorldObject | undefined
-	const startEdit = () => {
-		const s = editor.selected
-		before = s ? { ...s } : undefined
-	}
-	const live = (patch: Partial<WorldObject>) => engineRef.current?.editSelected(patch, false)
-	const commit = (patch: Partial<WorldObject>) => {
-		engineRef.current?.editSelected(patch, true, before)
-		before = undefined
-	}
+	const startEdit = () => act.start()
+	const live = (patch: ObjectPatch) => act.live(patch)
+	const commit = (patch: ObjectPatch) => act.commit(patch)
 	const deg = (r: number) => (r * 180) / Math.PI
 	const rad = (d: number) => (d * Math.PI) / 180
 	/** A world angle shown as 0..360. */
 	const turn = (r: number) => ((deg(r) % 360) + 360) % 360
 
-	const e = $derived(engineRef.current)
-	const selected = $derived(editor.selected)
-	const count = $derived(editor.selectedIds.length)
-	const parent = $derived(selected?.parent !== undefined ? e?.objects.objects.get(selected.parent) : undefined)
-	const modelPath = $derived(selected ? (isWowType(selected.type) ? wowPath(baseType(selected.type)) : selected.type) : '')
+	const model = $derived(view.kind === 'model' ? view : null)
+	const selected = $derived(model?.o)
+	const modelPath = $derived(model?.path ?? '')
 
 	/** A selected WMO's doodad sets by index, read from the client when it is picked. */
 	let sets = $state<string[]>([])
@@ -56,66 +51,26 @@
 	})
 	/** A doodad set's name without the client's "Set_" prefix. */
 	const setName = (n: string, i: number) => (i === 0 ? 'Global only' : n.replace(/^Set_/, '') || `Set ${i}`)
-
-	/** The selected models by kind, most numerous first, for a selection of several. */
-	const breakdown = $derived.by(() => {
-		const objects = e?.objects.objects
-		const counts = new Map<string, number>()
-		for (const id of editor.selectedIds) {
-			const o = objects?.get(id)
-			if (o) counts.set(o.type, (counts.get(o.type) ?? 0) + 1)
-		}
-		return [...counts].sort((a, b) => b[1] - a[1]).map(([type, n]) => ({ type, n }))
-	})
-
-	/** The selection groups the selected models are in, with their sizes; re-read after every undo step, which grouping is. */
-	const groups = $derived.by(() => {
-		void ui.historyVersion
-		const layer = e?.objects
-		const ids = new Set<number>()
-		for (const id of editor.selectedIds) {
-			const g = layer?.objects.get(id)?.group
-			if (g) ids.add(g)
-		}
-		return layer ? [...ids].map((g) => layer.groupMembers(g).size) : []
-	})
-
-	const area = $derived(editor.selection)
-	const holes = $derived(area ? (e?.holesInSelection() ?? 0) : 0)
-
-	/** Makes the selected model the one the Place tool puts down. */
-	function placeMore(type: string) {
-		editor.prefab = type
-		editor.tool = 'place'
-	}
-
-	async function copyPath() {
-		try {
-			await copyToClipboard(modelPath)
-		} catch {
-			/* no clipboard in this context */
-		}
-	}
 </script>
 
 <div class="props">
-	{#if selected && count <= 1}
+	{#if model && selected}
 		<div class="title">
-			<span class="name" title={modelPath}>{displayName(selected.type)}</span>
+			<span class="name" title={modelPath}>{model.name}</span>
 			<span class="id">#{selected.id}</span>
 		</div>
-		<button class="path" onclick={copyPath} title="The model's path in the client. Click to copy it.">{modelPath}</button>
+		<button class="path" onclick={() => act.copyPath(modelPath)} title="The model's path in the client. Click to copy it.">{modelPath}</button>
 		{#if selected.parent !== undefined}
 			<div class="attached">
-				<span>Attached to <b>{parent ? displayName(parent.type) : '#' + selected.parent}</b>, so its position is local to it.</span>
-				<button onclick={() => e?.detachSelected()} title="Keep it where it stands, but no longer move with the parent">Detach</button>
+				<span>Attached to <b>{model.parentName}</b>, so its position is local to it.</span>
+				<button onclick={() => act.detach()} title="Keep it where it stands, but no longer move with the parent">Detach</button>
 			</div>
 		{/if}
 
-		{#if groups.length}
+		{#if model.groupSize}
 			<div class="attached">
-				<span>In a group of {groups[0]} models.</span>
-				<button onclick={() => e?.ungroupSelected()} title="Break up the group (Ctrl+Shift+G)">Ungroup</button>
+				<span>In a group of {model.groupSize} models.</span>
+				<button onclick={() => act.ungroup()} title="Break up the group (Ctrl+Shift+G)">Ungroup</button>
 			</div>
 		{/if}
 
@@ -177,7 +132,7 @@
 			<select
 				class="set"
 				value={doodadSetOf(selected.type)}
-				onchange={(ev) => e?.setDoodadSet(Number(ev.currentTarget.value))}
+				onchange={(ev) => act.setDoodadSet(Number(ev.currentTarget.value))}
 				title="The furniture and decorations the building shows besides its global set, as the game draws this placement"
 				aria-label="Doodad set"
 			>
@@ -191,49 +146,52 @@
 		<PropField label="Scale" value={selected.scale} step={0.01} digits={2} min={0.05} max={20} unit="×" onstart={startEdit} oninput={(v) => live({ scale: v })} onchange={(v) => commit({ scale: v })} title="1 is the model's own size" />
 
 		<div class="actions">
-			<button onclick={() => e?.focusSelected()} title="Move the camera to it (F)">Focus</button>
-			<button onclick={() => e?.duplicateSelected()} title="Put a copy down next to it (Ctrl+Shift+D)">Duplicate</button>
-			<button onclick={() => e?.toggleHideSelected()} title="Hide it for this session (H). The Layers panel shows hidden models again.">Hide</button>
-			<button onclick={() => e?.deleteSelected()} title="Remove it from the map (Delete)">Delete</button>
+			<button onclick={() => act.focus()} title="Move the camera to it (F)">Focus</button>
+			<button onclick={() => act.duplicate()} title="Put a copy down next to it (Ctrl+Shift+D)">Duplicate</button>
+			<button onclick={() => act.hide()} title="Hide it for this session (H). The Layers panel shows hidden models again.">Hide</button>
+			<button onclick={() => act.remove()} title="Remove it from the map (Delete)">Delete</button>
 		</div>
 		<div class="actions">
-			<button onclick={() => placeMore(selected.type)} title="Place more of this model with the Place tool">Place more</button>
-			<button onclick={() => e?.selectModelsOfType(selected.type)} title="Select every one of this model on the map">Select all of these</button>
+			<button onclick={() => act.placeMore(selected.type)} title="Place more of this model with the Place tool">Place more</button>
+			<button onclick={() => act.selectType(selected.type, false)} title="Select every one of this model on the map">Select all of these</button>
 		</div>
-	{:else if count > 1}
-		<div class="title"><span class="name">{count} models selected</span></div>
+	{:else if view.kind === 'models'}
+		{@const groups = view.groups}
+		<div class="title"><span class="name">{view.count} models selected</span></div>
 		<div class="section">By model</div>
 		<ul class="list">
-			{#each breakdown as b (b.type)}
+			{#each view.breakdown as b (b.type)}
 				<li>
-					<button class="kind" onclick={() => e?.selectModelsOfType(b.type, true)} title="Keep only these selected">
+					<button class="kind" onclick={() => act.selectType(b.type, true)} title="Keep only these selected">
 						<span class="n">{b.n}×</span>
-						<span class="kname">{displayName(b.type)}</span>
+						<span class="kname">{b.name}</span>
 					</button>
-					<button class="small" onclick={() => placeMore(b.type)} title="Place more of this model">Place</button>
+					<button class="small" onclick={() => act.placeMore(b.type)} title="Place more of this model">Place</button>
 				</li>
 			{/each}
 		</ul>
 		<div class="grouping">
 			{#if groups.length}
 				<span>{groups.length === 1 ? `One group of ${groups[0]} models` : `${groups.length} groups (${groups.join(', ')} models)`}: a click on any member selects the whole group.</span>
-				<button onclick={() => e?.ungroupSelected()} title="Break up the groups (Ctrl+Shift+G)">Ungroup</button>
+				<button onclick={() => act.ungroup()} title="Break up the groups (Ctrl+Shift+G)">Ungroup</button>
 			{:else}
 				<span class="dim">Not grouped.</span>
-				<button onclick={() => e?.groupSelected()} title="Group them, so a click on one selects them all (Ctrl+G)">Group</button>
+				<button onclick={() => act.group()} title="Group them, so a click on one selects them all (Ctrl+G)">Group</button>
 			{/if}
 		</div>
 		<p class="dim">Drag one to move them all. The arrow keys move them and <kbd>R</kbd> spins them. Click a model alone to edit its numbers.</p>
 		<div class="actions">
-			<button onclick={() => e?.focusSelected()} title="Move the camera to them (F)">Focus</button>
-			<button onclick={() => e?.duplicateSelected()} title="Put copies down next to them (Ctrl+Shift+D)">Duplicate</button>
-			<button onclick={() => e?.toggleHideSelected()} title="Hide them for this session (H)">Hide</button>
-			<button onclick={() => e?.deleteSelected()} title="Remove them from the map (Delete)">Delete</button>
+			<button onclick={() => act.focus()} title="Move the camera to them (F)">Focus</button>
+			<button onclick={() => act.duplicate()} title="Put copies down next to them (Ctrl+Shift+D)">Duplicate</button>
+			<button onclick={() => act.hide()} title="Hide them for this session (H)">Hide</button>
+			<button onclick={() => act.remove()} title="Remove them from the map (Delete)">Delete</button>
 		</div>
 		<div class="actions">
-			<button onclick={() => e?.deselect()}>Deselect <kbd>Esc</kbd></button>
+			<button onclick={() => act.deselect()}>Deselect <kbd>Esc</kbd></button>
 		</div>
-	{:else if area}
+	{:else if view.kind === 'area'}
+		{@const area = view}
+		{@const holes = view.holes}
 		<div class="title"><span class="name">Selected area</span></div>
 		<div class="facts">
 			<span class="k">Size</span><span>{area.x1 - area.x0} × {area.z1 - area.z0} cells</span>
@@ -242,23 +200,23 @@
 			<span class="k">Holes</span><span>{holes}</span>
 		</div>
 		<div class="actions">
-			<button onclick={() => e?.setHoleInSelection(true)} title="Cut the ground away here, so a cave or a cellar can go below">Cut hole</button>
-			<button disabled={!holes} onclick={() => e?.setHoleInSelection(false)} title="Put the ground back here">Fill hole</button>
+			<button onclick={() => act.setHole(true)} title="Cut the ground away here, so a cave or a cellar can go below">Cut hole</button>
+			<button disabled={!holes} onclick={() => act.setHole(false)} title="Put the ground back here">Fill hole</button>
 		</div>
 		<div class="actions">
-			<button onclick={() => e?.copySelection()} title="Copy the area's ground, textures and models (Ctrl+C)">Copy</button>
-			<button onclick={() => e?.maskFromSelection()} title="Make this area the paint mask, which texture fills apply to">Mask it</button>
-			<button onclick={() => e?.deselect()}>Deselect</button>
+			<button onclick={() => act.copyArea()} title="Copy the area's ground, textures and models (Ctrl+C)">Copy</button>
+			<button onclick={() => act.maskArea()} title="Make this area the paint mask, which texture fills apply to">Mask it</button>
+			<button onclick={() => act.deselect()}>Deselect</button>
 		</div>
 		<p class="dim">Drag on the ground to select another area. Models standing in it are selected too.</p>
-	{:else if editor.selectedSpawn}
-		{@const s = editor.selectedSpawn}
+	{:else if view.kind === 'spawn'}
+		{@const s = view.s}
 		<div class="title"><span class="name">{s.name}</span><span class="id">{s.kind === 'object' ? 'object' : 'creature'} {s.entry} · spawn {s.guid}</span></div>
-		<PoolFields {s} />
-		{#if s.kind !== 'object'}<FormationFields {s} />{/if}
+		<PoolFields {s} panel={view.panel} {act} />
+		{#if s.kind !== 'object'}<FormationFields {s} panel={view.panel} {act} />{/if}
 		<div class="actions">
-			<button onclick={() => (s.kind === 'object' ? (ui.objectEditor = { key: spawnKey(s), entry: s.entry }) : (ui.creatureEditor = { key: spawnKey(s), entry: s.entry }))}>Open editor…</button>
-			<button onclick={() => e?.focusSpawn(s)}>Focus <kbd>F</kbd></button>
+			<button onclick={() => act.openSpawnEditor(spawnKey(s))}>Open editor…</button>
+			<button onclick={() => act.focusSpawn(spawnKey(s))}>Focus <kbd>F</kbd></button>
 		</div>
 	{:else}
 		<p class="dim">Select a model with the Select tool (<kbd>V</kbd>) to see its placement here, or drag on the ground to select an area.</p>

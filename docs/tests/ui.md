@@ -112,6 +112,36 @@ and the process ends; with an unsaved map the main window asks first and History
   page: its console is not the main page's, and `MELD_DEBUG_LOG`'s console lines come from the main
   page only.
 
+## The Inspector as its own OS window (#910, probe `inspector-window`)
+
+Checks: in the desktop app I (or Edit › Inspector) opens the Inspector as its own OS window, on the
+tool-window plumbing of #909 (above). It shows the main page's snapshot of the selection (one model, several,
+an area, a spawn's pool and formation, or nothing), and its edits run on the main page as undo steps: a
+scrubbed number is one step, Ctrl+Z in it undoes the map, Esc and I in it close it. On the browser page
+it stays in the page: the probe `inspector-window` checks that panel (nothing, two models, one model's
+typed Height as one step that undo takes back, a follower's Leave formation as one step, a pool's
+mate), and runs the window's commands as the main page does, out of order (a late live edit after its
+commit is dropped, the scrub is one step). The command shapes, the once-a-frame live edits and the
+scrub numbering: `bun test tests/inspectorWindow.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+select a model, press I (its own window opens, titled Inspector), scrub its Height in the window (the
+model moves in the main window as you drag), release, press Ctrl+Z in the window: the model goes back
+in one step. Select another model, two models, a ground area, a spawn: the window follows. Press Esc in
+it: it closes, and Edit › Inspector's check clears.
+
+- Without a hand at the desktop (#910's check): the scratch route of "History as its own OS window",
+  with the main page's onMount making a new map, adding a helper cube with `e.objects.add` (no undo
+  step), selecting it and setting `ui.inspector` after ~9 s, and the tool window `fetch`ing
+  `/wow/scratch-win?kind=..&y=<yOff>` on each state, then sending `start`, two `live` and a `commit`
+  through `remoteActions`, then `key` Ctrl+Z and Escape. The log showed the view at y=5, 8 after the
+  commit (no state during the scrub), 5 after Ctrl+Z with History at position 0, and `ui.inspector`
+  false after Escape. Set `editor.dirty = false` at the end, or `WM_CLOSE` on the main window is
+  stopped by the unsaved-map question.
+- Traps: the window's panel draws only what the main page publishes, so a field that reads the Engine
+  or `editor` directly shows nothing there; give it to `InspectorView` (`inspectorHost.ts`). The doodad
+  set names are the one thing the panel asks Go for itself (`WMODoodadSets`, a binding any window has).
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway
