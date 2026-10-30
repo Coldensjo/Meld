@@ -75,10 +75,10 @@ bindings:
 	$(WAILS3) generate bindings -ts -i -silent -d frontend/bindings
 	cd frontend && bun scripts/bindings.mjs
 
-# Fails when a bound method (func (a *App) X in the root *.go files, but Wails' ServiceStartup) has no
+# Fails when a bound method (func (a *App) X in the root *.go files, but Wails' ServiceStartup and ServiceShutdown) has no
 # function in frontend/bindings/Meld/app.ts, or the reverse, or lib/wails is out of step with them: run `make bindings`. Needs no wails3.
 bindings-check:
-	@grep -hoE '^func \(a \*App\) [A-Z][A-Za-z0-9]*' *.go | sed 's/.* //' | grep -vx ServiceStartup | sort -u > .bindings-go.tmp; 	grep -oE '^export function [A-Za-z0-9]+' frontend/bindings/Meld/app.ts | sed 's/.* //' | sort -u > .bindings-ts.tmp; 	diff=$$(comm -3 .bindings-go.tmp .bindings-ts.tmp); rm -f .bindings-go.tmp .bindings-ts.tmp; 	test -z "$$diff" || { echo 'frontend/bindings/Meld/app.ts is out of step with the bound methods (go on the left, ts indented); run make bindings:'; echo "$$diff"; exit 1; }
+	@grep -hoE '^func \(a \*App\) [A-Z][A-Za-z0-9]*' *.go | sed 's/.* //' | grep -vxE 'Service(Startup|Shutdown)' | sort -u > .bindings-go.tmp; 	grep -oE '^export function [A-Za-z0-9]+' frontend/bindings/Meld/app.ts | sed 's/.* //' | sort -u > .bindings-ts.tmp; 	diff=$$(comm -3 .bindings-go.tmp .bindings-ts.tmp); rm -f .bindings-go.tmp .bindings-ts.tmp; 	test -z "$$diff" || { echo 'frontend/bindings/Meld/app.ts is out of step with the bound methods (go on the left, ts indented); run make bindings:'; echo "$$diff"; exit 1; }
 	@cd frontend && bun scripts/bindings.mjs --check
 
 # Formats the Go sources (gofmt) and the frontend (Prettier with the Svelte plugin, frontend/.prettierrc.json).

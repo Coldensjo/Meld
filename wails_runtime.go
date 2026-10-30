@@ -18,6 +18,14 @@ func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) 
 	return nil
 }
 
+// ServiceShutdown runs when the app ends, by File > Quit or by closing the last window: on Windows the
+// second ends Run without the OnShutdown hooks (Wails v3.0.0 runs those only from Quit) but still shuts
+// the services down, so the session ends here (#918).
+func (a *App) ServiceShutdown() error {
+	a.shutdown()
+	return nil
+}
+
 // fileFilter is one entry of a dialog's file type list: a name and a semicolon-separated list of
 // patterns, such as "*.png;*.jpg".
 type fileFilter = application.FileFilter

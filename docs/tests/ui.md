@@ -77,6 +77,10 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
 - `$p.CloseMainWindow()` is the ✕: with a dirty map the process stays and "Unsaved changes" shows;
   clicking Quit without saving (its screen position from the screenshot; the screenshot's pixels are
   the screen's) ends the process with no second prompt.
+- Closing the window ends the recovery session (#918): note the `*.alive` files in
+  `%LOCALAPPDATA%\Meld\recovery`, start the exe, wait for the new one, `PostMessage(hwnd, WM_CLOSE)`
+  (user32 through `Add-Type`) with every map saved, and the new `.alive` file is gone once the process
+  ends. Wails v3.0.0 on Windows skips `OnShutdown` on that path, so the end lives in `ServiceShutdown`.
 - Trap: this runs the owner's real app on their config; its session restore opens their tabs. Only
   edit an untitled map, and quit without saving.
 

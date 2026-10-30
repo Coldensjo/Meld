@@ -72,8 +72,7 @@ func main() {
 			},
 			DisableLogging: true,
 		},
-		LogLevel:   logLevel(),
-		OnShutdown: app.shutdown,
+		LogLevel: logLevel(),
 		Linux: application.LinuxOptions{
 			ProgramName: "Meld",
 		},
