@@ -77,6 +77,7 @@ export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().Export
 export const ExternalDatabaseInfo: Call<AppApi['ExternalDatabaseInfo']> = (...a) => api().ExternalDatabaseInfo(...a) as never
 export const Factions: NonNullCall<AppApi['Factions']> = (...a) => api().Factions(...a) as never
 export const ForgetProject: Call<AppApi['ForgetProject']> = (...a) => api().ForgetProject(...a) as never
+export const ForgetThumbnails: Call<AppApi['ForgetThumbnails']> = (...a) => api().ForgetThumbnails(...a) as never
 export const GameClient: Call<AppApi['GameClient']> = (...a) => api().GameClient(...a) as never
 export const GameEvents: NonNullCall<AppApi['GameEvents']> = (...a) => api().GameEvents(...a) as never
 export const GameLogin: Call<AppApi['GameLogin']> = (...a) => api().GameLogin(...a) as never

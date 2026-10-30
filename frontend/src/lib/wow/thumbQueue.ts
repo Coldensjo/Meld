@@ -93,6 +93,27 @@ export class ThumbQueue<T> {
 		this.pump()
 	}
 
+	/**
+	 * Forgets the results of the keys `stale` picks (their file changed, #922), giving their results to
+	 * `onEvict` once the caller has let go of them; the next request works the key again. Returns the keys forgotten.
+	 */
+	forget(stale: (key: string) => boolean): { keys: string[]; release: () => void } {
+		const keys: string[] = []
+		const old: Promise<T>[] = []
+		for (const [key, p] of this.results) {
+			if (!stale(key)) continue
+			keys.push(key)
+			old.push(p)
+		}
+		for (const key of keys) this.results.delete(key)
+		return {
+			keys,
+			release: () => {
+				if (this.onEvict) for (const p of old) p.then(this.onEvict, () => {})
+			},
+		}
+	}
+
 	/** The number of keys waiting to start. */
 	get pendingCount() {
 		return this.pending.size

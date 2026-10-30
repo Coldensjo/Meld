@@ -71,7 +71,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   patch write: it imports again with `wow.ImportOptions` (`replaceAssets` for the refused assets,
   `replaceNeeded` with the last import's paths for the kept files), and the files written over the
   current client's copy come back as `replaced`. The patch write's `Forget` drops what Meld decoded
-  from them. A file neither has is reported (`missing`). The files go into Meld's
+  from them, and once they are in the patch the page drops its own (#922, `otherClient.svelte.ts`
+  `written`): `wow/replaced.ts` sorts them into models (a WMO group as its root) and textures,
+  `assets.ts` `reloadReplaced` loads again every kept model that is one or maps one (the old asset
+  drawn until the new one comes, then let go of; the texture and shared-material caches forget the
+  textures), and `thumbs.ts` `forgetThumbs` deletes their thumbnails in memory and on disk
+  (`ForgetThumbnails`) and tells the tiles (`THUMBS_FORGOTTEN`) to ask again. Not dropped: the
+  thumbnail on disk of a model not loaded that maps a replaced texture, a spawn look's or a prefab's
+  thumbnail on disk, and particles or liquids already drawing a replaced texture. A file neither has is reported (`missing`). The files go into Meld's
   patch through `queueClientFiles` (at once, or once the game has closed, #661), at most 512 MB an
   import, and the page lists the client again (`refreshAssetLists`) once they are in.
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so

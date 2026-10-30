@@ -218,3 +218,48 @@ test('a failed key reports the error and can be asked for again', async () => {
 	)
 	assert.deepEqual(started, ['bad', 'bad'])
 })
+
+test('a forgotten key is worked again, and its old result goes to onEvict once released (#922)', async () => {
+	let n = 0
+	const evicted: string[] = []
+	const q = new ThumbQueue<string>(
+		(key) => Promise.resolve(`${key}#${++n}`),
+		3,
+		512,
+		(v) => evicted.push(v),
+	)
+	const got: string[] = []
+	q.request(
+		'm2:a.m2',
+		0,
+		(u) => got.push(u),
+		() => {},
+	)
+	q.request(
+		'm2:b.m2',
+		0,
+		(u) => got.push(u),
+		() => {},
+	)
+	await new Promise((r) => setTimeout(r, 0))
+	const { keys, release } = q.forget((k) => k === 'm2:a.m2')
+	assert.deepEqual(keys, ['m2:a.m2'])
+	assert.equal(q.keptCount, 1)
+	release()
+	await new Promise((r) => setTimeout(r, 0))
+	assert.deepEqual(evicted, ['m2:a.m2#1'])
+	q.request(
+		'm2:a.m2',
+		0,
+		(u) => got.push(u),
+		() => {},
+	)
+	q.request(
+		'm2:b.m2',
+		0,
+		(u) => got.push(u),
+		() => {},
+	)
+	await new Promise((r) => setTimeout(r, 0))
+	assert.deepEqual(got.sort(), ['m2:a.m2#1', 'm2:a.m2#3', 'm2:b.m2#2', 'm2:b.m2#2'])
+})

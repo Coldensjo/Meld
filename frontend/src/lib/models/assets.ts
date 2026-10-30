@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { fetchMesh, loadTexture, releaseTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowLiquid, type WowMesh } from '../wow/api'
+import { fetchMesh, forgetTextures, loadTexture, releaseTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowLiquid, type WowMesh } from '../wow/api'
 import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
@@ -10,6 +10,7 @@ import { adoptModel, buildModel } from './modelBuild'
 import { farLayersDrawn, farLod, farPlan, releaseFarLayers } from './farLayers'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
 import { RETRY_MS } from '../wow/loadCache'
+import { modelPathOf, type ReplacedFiles } from '../wow/replaced'
 import type { LiquidClass } from '../water/liquids'
 
 /**
@@ -74,6 +75,8 @@ const pending = new Map<string, Promise<ModelAsset>>()
 const building = new Set<ModelAsset>()
 /** Assets built outside the registry (thumbnails, previews) and not yet released: their shared materials are in use. */
 const loose = new Set<ModelAsset>()
+/** Kept assets a file replacement is loading again (`reloadReplaced`), still drawn until the new ones come: their materials are in use. */
+const replacing = new Set<ModelAsset>()
 /** Types released while they loaded (`releaseAssets`): let go of on arrival unless asked for again. */
 const dropOnArrival = new Set<string>()
 const listeners = new Set<(type: string) => void>()
@@ -418,6 +421,7 @@ function evict(gone: ModelAsset[]) {
 	for (const a of assets.values()) use(a)
 	for (const a of building) use(a)
 	for (const a of loose) use(a)
+	for (const a of replacing) use(a)
 	for (const a of gone)
 		for (const m of materialsOf(a)) {
 			const key = m.userData.cacheKey as string | undefined
@@ -428,6 +432,56 @@ function evict(gone: ModelAsset[]) {
 			m.dispose()
 		}
 	for (const t of textures) if (!mapped.has(t)) releaseTexture(t)
+}
+
+/** How long the replaced models stay after their new ones came: the layers swap theirs in on the next frames. */
+const SWAP_GRACE_MS = 2000
+
+/**
+ * Loads again the kept models an import wrote over (#922, `wow/replaced.ts`): those whose own file
+ * it replaced, and those mapping a replaced texture, which the texture cache forgets. Each stays
+ * drawn until its new one arrives (`onAssetLoaded` then swaps it in, as for a first load); then the
+ * old geometry, materials and textures are let go of. A model that failed is tried again at once.
+ * Returns the types loaded again.
+ */
+export function reloadReplaced(files: ReplacedFiles): string[] {
+	if (!files.models.size && !files.textures.size) return []
+	const freeTextures = forgetTextures(files.textures)
+	// A shared material maps one texture: one mapping a replaced texture is made anew.
+	const dropped: THREE.Material[] = []
+	for (const [key, m] of materialCache)
+		if (files.textures.has(m.userData.texture as string)) {
+			materialCache.delete(key)
+			dropped.push(m)
+		}
+	const maps = (a: ModelAsset) =>
+		materialsOf(a).some((m) => files.textures.has(m.userData.texture as string)) || a.emitters.some((e) => files.textures.has(e.texture.toLowerCase())) || a.ribbons.some((r) => files.textures.has(r.texture.toLowerCase()))
+	const types: string[] = []
+	for (const [type, a] of assets) if (!isHelper(type) && (files.models.has(modelPathOf(type)) || maps(a))) types.push(type)
+	for (const type of failedAt.keys()) if (files.models.has(modelPathOf(type))) failedAt.delete(type)
+	const old: ModelAsset[] = []
+	for (const type of types) {
+		const a = assets.get(type)!
+		assets.delete(type)
+		animatedAssets.delete(type)
+		replacing.add(a)
+		old.push(a)
+	}
+	void Promise.allSettled(types.map((t) => loadAsset(t))).then(() =>
+		setTimeout(() => {
+			for (const a of old) replacing.delete(a)
+			if (old.length) evict(old)
+			const used = new Set<THREE.Material>()
+			for (const a of [...assets.values(), ...building, ...loose, ...replacing]) for (const m of materialsOf(a)) used.add(m)
+			for (const m of dropped)
+				if (!used.has(m)) {
+					m.userData.released = true
+					m.dispose()
+				}
+			freeTextures()
+		}, SWAP_GRACE_MS),
+	)
+	return types
 }
 
 /** Whether the registry keeps the model `type`, loaded (for tests and probes; unlike `getAsset`, never starts a load). */

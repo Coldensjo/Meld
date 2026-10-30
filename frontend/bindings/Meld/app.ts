@@ -474,6 +474,13 @@ export function ForgetProject(dir: string): $CancellablePromise<void> {
 }
 
 /**
+ * ForgetThumbnails deletes the cached palette thumbnails of keys, whose files an import replaced (#922).
+ */
+export function ForgetThumbnails(keys: string[] | null): $CancellablePromise<void> {
+    return $Call.ByID(2530616441, keys);
+}
+
+/**
  * GameClient says which game client Meld uses.
  */
 export function GameClient(): $CancellablePromise<$models.GameClientInfo> {

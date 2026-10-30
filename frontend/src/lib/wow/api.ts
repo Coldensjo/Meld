@@ -399,6 +399,32 @@ export function releaseTexture(path: string): boolean {
 	return true
 }
 
+/**
+ * Forgets the cached textures of `keys` (lower-case paths) whose files a write replaced (#922), so the
+ * next `loadTexture` reads them again. What already maps one keeps drawing it: the returned function
+ * frees the old ones once nothing does, but for those something other than a model asked for
+ * (liquids, particles), which may still draw them.
+ */
+export function forgetTextures(keys: Iterable<string>): () => void {
+	const old: Promise<THREE.Texture>[] = []
+	for (const key of keys) {
+		const p = textureCache.get(key)
+		if (!p) continue
+		textureCache.delete(key)
+		if (!pinnedTextures.has(key)) old.push(p)
+	}
+	return () => {
+		for (const p of old)
+			p.then(
+				(t) => {
+					cachedTextures.delete(t)
+					t.dispose()
+				},
+				() => {},
+			)
+	}
+}
+
 /** How many client textures are cached for models alone, and how many for anything else (for tests and probes). */
 export function cachedTextureCounts(): { models: number; pinned: number } {
 	let pinned = 0

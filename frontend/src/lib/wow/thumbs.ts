@@ -5,9 +5,10 @@ import { buildWowAsset, getAsset, releaseWowAsset, texturesReady, wowPath, type 
 import { placementEuler } from '../world/placement'
 import type { Prefab } from './prefabs'
 import { fetchMesh, texturePreview } from './api'
-import { SaveThumbnail } from '../wails/App'
+import { ForgetThumbnails, SaveThumbnail } from '../wails/App'
 import { bytesToBase64 } from '../io/base64'
 import { ThumbQueue } from './thumbQueue'
+import { thumbReplaced, type ReplacedFiles } from './replaced'
 
 // Palette thumbnails. Models render into an offscreen target on the main
 // WebGL context (sharing GPU textures with the scene), then get cached as PNG
@@ -232,6 +233,32 @@ async function produce(key: string): Promise<string> {
 	const blob = prefab ? await renderPrefab(prefab) : await renderModel(key)
 	toCache(key, blob)
 	return URL.createObjectURL(blob)
+}
+
+/** The window event telling the tiles which thumbnails were forgotten (`forgetThumbs`): its detail is their keys, lower-case. */
+export const THUMBS_FORGOTTEN = 'meld:thumbs-forgotten'
+
+/**
+ * Forgets the thumbnails showing a replaced file (#922): those of the replaced models and textures,
+ * the ones of `types` too (the kept models that map a replaced texture, `reloadReplaced`), in memory
+ * and in the disk cache, and tells the tiles showing one to ask again (`THUMBS_FORGOTTEN`). A model
+ * that maps a replaced texture keeps its thumbnail on disk unless it is in `types`.
+ */
+export async function forgetThumbs(files: ReplacedFiles, types: Iterable<string> = []): Promise<void> {
+	const also = new Set<string>()
+	for (const t of types) also.add(t.toLowerCase())
+	const { keys, release } = queue.forget((k) => thumbReplaced(k, files) || also.has(k.toLowerCase()))
+	const disk = new Set<string>()
+	for (const k of [...keys, ...also]) if (!k.startsWith('tex:')) disk.add(k.toLowerCase())
+	for (const p of files.models) disk.add((p.endsWith('.wmo') ? 'wmo:' : 'm2:') + p)
+	// Gone from the disk before a tile asks again, so it doesn't read the old picture back.
+	if (disk.size) await ForgetThumbnails([...disk].map((k) => VERSION + '|' + k)).catch((err: unknown) => console.warn('thumbnail cache forget failed', err))
+	const forgotten = new Set<string>()
+	for (const k of keys) forgotten.add(k.toLowerCase())
+	for (const k of disk) forgotten.add(k)
+	for (const p of files.textures) forgotten.add('tex:' + p)
+	window.dispatchEvent(new CustomEvent<Set<string>>(THUMBS_FORGOTTEN, { detail: forgotten }))
+	release()
 }
 
 /**

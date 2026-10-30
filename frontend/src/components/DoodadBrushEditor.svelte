@@ -7,7 +7,7 @@
 	import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
 	import AssetPreview from './AssetPreview.svelte'
 	import { displayName } from '../lib/models/assets'
-	import { requestThumb } from '../lib/wow/thumbs'
+	import { requestThumb, THUMBS_FORGOTTEN } from '../lib/wow/thumbs'
 	import { loadCatalog } from '../lib/wow/catalogIndex'
 	import { categoryOrder } from '../lib/wow/catalog'
 	import { searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
@@ -103,14 +103,25 @@
 
 	/** Shows a model's thumbnail in `node` (an img) once it is rendered. */
 	function thumb(node: HTMLImageElement, key: string) {
+		let current = key
 		let cancel = requestThumb(key, (u) => (node.src = u))
+		const load = (k: string) => {
+			current = k
+			cancel()
+			node.removeAttribute('src')
+			cancel = requestThumb(k, (u) => (node.src = u))
+		}
+		// Its file was written over (#922): the picture is made again.
+		const onForgotten = (e: Event) => {
+			if ((e as CustomEvent<Set<string>>).detail.has(current.toLowerCase())) load(current)
+		}
+		window.addEventListener(THUMBS_FORGOTTEN, onForgotten)
 		return {
-			update(k: string) {
+			update: load,
+			destroy: () => {
+				window.removeEventListener(THUMBS_FORGOTTEN, onForgotten)
 				cancel()
-				node.removeAttribute('src')
-				cancel = requestThumb(k, (u) => (node.src = u))
 			},
-			destroy: () => cancel(),
 		}
 	}
 

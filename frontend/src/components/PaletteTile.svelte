@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { requestThumb } from '../lib/wow/thumbs'
+	import { requestThumb, THUMBS_FORGOTTEN } from '../lib/wow/thumbs'
 
 	interface Props {
 		thumbKey: string
@@ -61,18 +61,28 @@
 			{ root: scrollRoot(node), rootMargin: '120px' },
 		)
 		io.observe(node)
+		/** Asks for the thumbnail again, as for a new key. */
+		const again = () => {
+			cancel?.()
+			cancel = null
+			url = ''
+			failed = false
+			io.unobserve(node)
+			io.observe(node)
+		}
+		// Its file was written over (#922): the picture is made again.
+		const onForgotten = (e: Event) => {
+			if ((e as CustomEvent<Set<string>>).detail.has(current.toLowerCase())) again()
+		}
+		window.addEventListener(THUMBS_FORGOTTEN, onForgotten)
 		return {
 			update(k: string) {
 				if (k === current) return
 				current = k
-				cancel?.()
-				cancel = null
-				url = ''
-				failed = false
-				io.unobserve(node)
-				io.observe(node)
+				again()
 			},
 			destroy() {
+				window.removeEventListener(THUMBS_FORGOTTEN, onForgotten)
 				io.disconnect()
 				cancel?.()
 			},

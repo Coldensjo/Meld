@@ -4,6 +4,9 @@ import { EventsOn } from '../wails/runtime'
 import { hasBackend } from '../io/backend'
 import { prefs } from '../state/editor.svelte'
 import { refreshAssetLists } from './api'
+import { reloadReplaced } from '../models/assets'
+import { replacedFiles } from './replaced'
+import { forgetThumbs } from './thumbs'
 
 // The client models and textures are imported from (#858): Tools › Import from Another Client…
 // (components/OtherClientDialog.svelte). Go opens it read-only beside the current one and serves it
@@ -93,19 +96,35 @@ export async function forgetOtherClient(path: string): Promise<void> {
  */
 export async function importOther(paths: string[], opts: wow.ImportOptions = { replaceAssets: false, replaceNeeded: false }): Promise<main.AssetsImported> {
 	const res = await ImportOtherAssets(paths, opts)
-	if (res.files > 0 && !res.waiting) refreshAssetLists()
-	if (res.files > 0 && res.waiting) listOnceWritten()
+	if (res.files > 0 && !res.waiting) written(res.replaced)
+	if (res.files > 0 && res.waiting) listOnceWritten(res.replaced)
 	return res
 }
 
-let offPending: (() => void) | null = null
+/**
+ * Once the files are in the patch: lists the client again, and drops what the page holds of the
+ * files written over the current client's copy (#922), its models, textures and thumbnails.
+ */
+function written(replaced: string[]) {
+	refreshAssetLists()
+	if (!replaced.length) return
+	const files = replacedFiles(replaced)
+	void forgetThumbs(files, reloadReplaced(files))
+}
 
-/** Lists the client again once the files waiting for the game to close are in the patch. */
-function listOnceWritten() {
+let offPending: (() => void) | null = null
+/** The replaced files of the imports waiting for the game to close. */
+let replacedPending: string[] = []
+
+/** Does `written` once the files waiting for the game to close are in the patch. */
+function listOnceWritten(replaced: string[]) {
+	replacedPending.push(...replaced)
 	offPending ??= EventsOn('client:pending', (n: number) => {
 		if (n > 0) return
 		offPending?.()
 		offPending = null
-		refreshAssetLists()
+		const all = replacedPending
+		replacedPending = []
+		written(all)
 	})
 }
