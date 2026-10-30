@@ -21,3 +21,8 @@ export function sendEditorCommand(cmd: EditorCommand) {
 export function shareForget(forget: EditorForget) {
 	sendEditorCommand({ type: 'forget', forget })
 }
+
+/** The kind of editor window this page is, '' in the main page. */
+export function editorPageKind(): EditorKind | '' {
+	return pageKind
+}

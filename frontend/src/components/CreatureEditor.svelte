@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
-	import { engineRef } from '../lib/state/engineRef'
+	import { shareForget } from '../lib/toolwin/editorPage'
+	import type { SlotTarget } from '../lib/toolwin/editors'
+	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
 	import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { fieldGroups, withBit } from '../lib/world/creatureFields'
-	import { creatureTemplateOf, selectSpawn } from '../lib/world/spawnEdits'
+	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
 	import CreaturePreview from './CreaturePreview.svelte'
@@ -22,6 +24,14 @@
 	// edits the spawn it was opened from (each change an undo step, saved with the region's spawns)
 	// and its creature template, every column of creature_template, saved to the world database with
 	// Save. A new creature starts here too, from scratch or as a copy.
+
+	// In the desktop app it opens as its own OS window (#915, components/toolwin/EditorToolWindow.svelte),
+	// which runs it whole on that page's own `ui.creatureEditor` and is told here when it has unsaved
+	// changes. What it does on the map goes through mapActions (lib/toolwin/spawnFieldsHost.svelte.ts):
+	// in its window each is a command the main page runs, so a spawn edit or a saved template applied to
+	// the spawns is an undo step of the main page's History; the spawn it shows is the main page's selected one.
+	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
+	const map = mapActions()
 
 	type Tab = 'spawn' | 'creature' | 'looks' | 'spells' | 'shop' | 'quests' | 'messages'
 
@@ -71,6 +81,26 @@
 	const saved = $derived(ed.saved)
 	const changes = $derived(ed.changes)
 	const changeCount = $derived(ed.changeCount)
+	const unsaved = $derived(ed.unsaved)
+	$effect(() => onunsaved?.(unsaved))
+
+	/** Opens the editor on `t` (its window was opened again on another creature or spawn), asking about unsaved changes first. */
+	export function openTarget(t: SlotTarget) {
+		const next = { key: t.key ?? null, entry: t.entry }
+		if (!target) ui.creatureEditor = next
+		else if (target.key !== next.key || target.entry !== next.entry) ed.leave(() => (ui.creatureEditor = next))
+	}
+
+	/** Closes the editor, asking first with unsaved changes: its window's own close button (#915). */
+	export function askClose() {
+		ed.close()
+	}
+
+	/** Forgets the creature displays the display pickers list, here and in the main page. */
+	function forgetDisplays() {
+		forgetCreatureDisplays()
+		shareForget({ creatureDisplays: true })
+	}
 	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
@@ -144,9 +174,9 @@
 		void ed.save('Saving the creature', async () => {
 			const before = { ...saved }
 			await SaveCreature(r.entry, r.patch, changes)
-			forgetCreatureDisplays()
+			forgetDisplays()
 			ed.markSaved()
-			await engineRef.current?.applyCreatureTemplate(r.entry, values, before)
+			await map.applyCreatureTemplate(r.entry, $state.snapshot(values), before)
 			setStatus(`Saved ${values.name} (entry ${r.entry}) to the world database. Restart the world server and the game to see it in the game.`, 10000)
 		})
 	}
@@ -166,8 +196,7 @@
 
 	function place() {
 		if (!record) return
-		ui.placeCreature = creatureTemplateOf(record.entry, values)
-		editor.tool = 'select'
+		map.placeCreature(creatureTemplateOf(record.entry, $state.snapshot(values)))
 		ed.close(true)
 		setStatus(`Click the ground to place ${values.name}. Shift+click places more; Esc stops.`, 10000)
 	}
@@ -176,13 +205,13 @@
 	function startNew() {
 		ed.leave(() => {
 			ed.close(true)
-			ui.creatures = true
+			map.openCreatures()
 		})
 	}
 	/** A pool mate or formation member was picked: the editor moves to it, once unsaved changes are dealt with. */
 	function switchTo(o: vmangos.WorldSpawn) {
 		ed.leave(() => {
-			selectSpawn(o)
+			selectSpawnOnMap(o)
 			ui.creatureEditor = { key: spawnKey(o), entry: o.entry }
 		})
 	}
@@ -200,7 +229,7 @@
 		ed.error = ''
 		try {
 			const entry = await CreateCreature(record.entry, name)
-			forgetCreatureDisplays()
+			forgetDisplays()
 			copying = false
 			ui.creatureEditor = { key: null, entry }
 			setStatus(`Copied to creature ${entry}, ${name}. Edit it, save, then place it.`, 8000)

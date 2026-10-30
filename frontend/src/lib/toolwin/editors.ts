@@ -7,12 +7,14 @@
 // This module holds only the shapes, so the tests load it.
 import type { vmangos } from '../wails/models'
 import type { ToolCommand } from './channel'
+import { readMapCall, type MapCall, type SpawnFieldsView } from './spawnFields'
 
 /** The editors that open in their own window: the tool window kind (app_windows.go) and the `ui` slot that opens it. */
 export const EDITOR_WINDOWS = {
 	item: 'itemEditor',
 	spell: 'spellEditor',
 	quest: 'questEditor',
+	creature: 'creatureEditor',
 } as const
 
 export type EditorKind = keyof typeof EDITOR_WINDOWS
@@ -60,10 +62,18 @@ function giverOf(v: unknown): QuestGiverRef | undefined {
 	return { kind: v.kind, id: v.id, name: v.name, ready: v.ready }
 }
 
-/** The value of the editor's `ui` slot the window's arguments open it on: an entry (0, find one, when they hold none), and a quest's giver. */
-export function slotTarget(kind: EditorKind, args: Record<string, string | undefined>): { entry: number; giver?: QuestGiverRef } {
+/** What an editor's `ui` slot holds: an entry, a quest's giver, and the spawn (its spawnKey, or null) a creature's editor was opened from. */
+export interface SlotTarget {
+	entry: number
+	giver?: QuestGiverRef
+	key?: string | null
+}
+
+/** The value of the editor's `ui` slot the window's arguments open it on: an entry (0, find one, when they hold none), a quest's giver, and a creature's spawn. */
+export function slotTarget(kind: EditorKind, args: Record<string, string | undefined>): SlotTarget {
 	const t = editorTarget(args)
 	const entry = typeof t?.entry === 'number' ? t.entry : 0
+	if (kind === 'creature') return { key: typeof t?.key === 'string' ? t.key : null, entry }
 	const giver = kind === 'quest' ? giverOf(t?.giver) : undefined
 	return giver ? { entry, giver } : { entry }
 }
@@ -93,6 +103,10 @@ export interface EditorView {
 	prefs: EditorPrefs
 	/** The spawn selected on the map, which the quest editor's Givers tab offers as a giver (#914). */
 	spawn: vmangos.WorldSpawn | null
+	/** What the creature editor's spawn fields read of the map (#915). */
+	spawnFields: SpawnFieldsView
+	/** ui.questsVersion: a quest or its givers changed, so the Quests tabs read their lists again (#915). */
+	questsVersion: number
 }
 
 /** The caches of the main page that an editor's save, import or delete made stale. */
@@ -111,6 +125,8 @@ export interface EditorForget {
 	quests?: number[]
 	/** A quest or its givers changed: the creature and object editors' Quests tabs read their lists again (ui.questsVersion). */
 	questLists?: boolean
+	/** The creature displays the display picker lists (DisplayPicker's forgetCreatureDisplays), after a creature's save or copy (#915). */
+	creatureDisplays?: boolean
 }
 
 /** An editor window's commands to the main page. */
@@ -123,6 +139,10 @@ export type EditorCommand =
 	| { type: 'prefs'; prefs: Partial<EditorPrefs> }
 	/** Caches to forget. */
 	| { type: 'forget'; forget: EditorForget }
+	/** An action on the map, run by the main page (lib/toolwin/spawnFields.ts), #915. */
+	| ({ type: 'map' } & MapCall)
+	/** What the window's editor has open now (null: it closed), so the main page can move it to a spawn picked there. */
+	| { type: 'target'; target: SlotTarget | null }
 
 const numbers = (v: unknown): number[] | undefined => (Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : undefined)
 
@@ -146,9 +166,25 @@ export function readEditorCommand(cmd: ToolCommand): EditorCommand | null {
 			const f = c.forget
 			return {
 				type: 'forget',
-				forget: { items: numbers(f.items), itemIcons: f.itemIcons === true, looks: f.looks === true, spells: numbers(f.spells), spellTables: f.spellTables === true, quests: numbers(f.quests), questLists: f.questLists === true },
+				forget: {
+					items: numbers(f.items),
+					itemIcons: f.itemIcons === true,
+					looks: f.looks === true,
+					spells: numbers(f.spells),
+					spellTables: f.spellTables === true,
+					quests: numbers(f.quests),
+					questLists: f.questLists === true,
+					creatureDisplays: f.creatureDisplays === true,
+				},
 			}
 		}
+		case 'map': {
+			const call = readMapCall(c.name, c.args)
+			return call ? { type: 'map', ...call } : null
+		}
+		case 'target':
+			if (c.target === null) return { type: 'target', target: null }
+			return isObject(c.target) && typeof c.target.entry === 'number' ? { type: 'target', target: { entry: c.target.entry, key: typeof c.target.key === 'string' ? c.target.key : null } } : null
 	}
 	return null
 }

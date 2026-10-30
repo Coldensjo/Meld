@@ -3,11 +3,15 @@
 	import { editor as editorState, prefs, ui } from '../../lib/state/editor.svelte'
 	import { forwardStatus } from '../../lib/state/status.svelte'
 	import { applyLook, onToolArgs, onToolCloseAsked, onToolState, sendToolCommand } from '../../lib/toolwin/client'
-	import { EDITOR_PREF_KEYS, EDITOR_PREF_WRITES, EDITOR_SLOTS, EDITOR_WINDOWS, queryArgs, slotTarget, type EditorKind, type EditorPrefs, type EditorView } from '../../lib/toolwin/editors'
+	import { EDITOR_PREF_KEYS, EDITOR_PREF_WRITES, EDITOR_SLOTS, EDITOR_WINDOWS, queryArgs, slotTarget, type EditorKind, type EditorPrefs, type EditorView, type SlotTarget } from '../../lib/toolwin/editors'
 	import { sendEditorCommand, setEditorPage } from '../../lib/toolwin/editorPage'
+	import { mapActions, windowSpawnFields, windowWeaponPick } from '../../lib/toolwin/spawnFieldsHost.svelte'
+	import { spawnKey } from '../../lib/world/spawnKey'
 	import { SetToolWindowUnsaved } from '../../lib/wails/App'
 	import { WindowClose } from '../../lib/wails/runtime'
 	import ContextMenu from '../ContextMenu.svelte'
+	import Modal from '../Modal.svelte'
+	import WeaponPicker, { equipChange, SLOTS } from '../WeaponPicker.svelte'
 	import SavingBar from '../SavingBar.svelte'
 
 	// A database editor in its own OS window (#912, lib/toolwin/editors.ts): the editor itself, whole, on
@@ -17,13 +21,14 @@
 	// opens that target here, asking about unsaved changes first. An editor of another kind opened from
 	// in here goes to the main page, as do the status lines, the preferences it changes and the caches a
 	// save makes stale (components/EditorWindows.svelte). Its right-click menus and the Saving bar are this
-	// page's.
+	// page's, and so is the gear picker of the creature editor's spawn fields (#915), whose pick goes to the
+	// main page as a spawn edit.
 
 	let { kind }: { kind: EditorKind } = $props()
 
 	/** What the window page needs of an editor: the target to open now, and its close that asks first. */
 	interface EditorExports {
-		openTarget(t: ReturnType<typeof slotTarget>): void
+		openTarget(t: SlotTarget): void
 		askClose(): void
 	}
 	type EditorComponent = Component<{ onunsaved?: (unsaved: boolean) => void }, EditorExports>
@@ -33,6 +38,7 @@
 		item: () => import('../ItemEditor.svelte'),
 		spell: () => import('../SpellEditor.svelte'),
 		quest: () => import('../QuestEditor.svelte'),
+		creature: () => import('../CreatureEditor.svelte'),
 	}
 
 	// svelte-ignore state_referenced_locally
@@ -40,7 +46,7 @@
 	// svelte-ignore state_referenced_locally
 	setEditorPage(kind)
 	// svelte-ignore state_referenced_locally
-	ui[slot] = slotTarget(kind, queryArgs(location.search))
+	Object.assign(ui, { [slot]: slotTarget(kind, queryArgs(location.search)) })
 
 	let editor = $state<EditorExports>()
 	let unsaved = false
@@ -62,11 +68,29 @@
 		}
 	}
 
-	// The editor closed (Close, Esc, Discard them): so does its window.
+	// The editor closed (Close, Esc, Discard them): so does its window. The main page is told what it has open.
 	$effect(() => {
-		if (ui[slot]) opened = true
+		const t = ui[slot]
+		sendEditorCommand({ type: 'target', target: t ? ($state.snapshot(t) as SlotTarget) : null })
+		if (t) opened = true
 		else if (opened) void closeWindow()
 	})
+
+	// The gear picker of the spawn fields: the spawn is the main page's selected one, which the fields show.
+	const weaponSpawn = $derived(windowWeaponPick.pick && editorState.selectedSpawn && spawnKey(editorState.selectedSpawn) === windowWeaponPick.pick.key ? editorState.selectedSpawn : null)
+	const closeWeapons = () => (windowWeaponPick.pick = null)
+	async function pickWeapon(entry: number) {
+		const p = windowWeaponPick.pick
+		const s = weaponSpawn
+		closeWeapons()
+		if (!p || !s) return
+		try {
+			const { vals, label } = await equipChange(s, p.slot, entry)
+			mapActions().edit(p.key, vals, label)
+		} catch (err) {
+			sendEditorCommand({ type: 'status', text: `Equipping failed: ${err}`, timeout: 8000 })
+		}
+	}
 
 	// An editor of another kind opened from in here (a link) opens from the main page.
 	$effect(() => {
@@ -105,6 +129,9 @@
 			for (const k of EDITOR_PREF_KEYS) if (k in p) Object.assign(prefs, { [k]: p[k] })
 			// The map's selected spawn, which the quest editor offers as a giver.
 			editorState.selectedSpawn = msg.state.spawn ?? null
+			// What the creature editor's spawn fields read of the map, and the Quests tabs' version (#915).
+			if (msg.state.spawnFields) windowSpawnFields.view = msg.state.spawnFields
+			if (typeof msg.state.questsVersion === 'number') ui.questsVersion = msg.state.questsVersion
 		})
 		const offArgs = onToolArgs(kind, (args) => editor?.openTarget(slotTarget(kind, args)))
 		const offAsked = onToolCloseAsked(kind, () => {
@@ -126,5 +153,10 @@
 	{@const Editor = m.default}
 	<Editor bind:this={editor} onunsaved={setUnsaved} />
 {/await}
+{#if windowWeaponPick.pick && weaponSpawn}
+	<Modal title="{SLOTS[windowWeaponPick.pick.slot]} of {weaponSpawn.name}" width={980} onclose={closeWeapons}>
+		<WeaponPicker which={windowWeaponPick.pick.slot} selected={weaponSpawn.equipItems?.[windowWeaponPick.pick.slot] ?? 0} onpick={pickWeapon} />
+	</Modal>
+{/if}
 <SavingBar />
 <ContextMenu />

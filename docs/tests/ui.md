@@ -237,6 +237,30 @@ tab lists it. Select a spawn on the map: the Givers tab offers it.
   after 9 s, as for the spell editor above: the session log shows `asset GET /?target=...giver...&window=quest`
   and the `QuestEditor` chunk, and `EnumWindows` lists a window titled Quests beside the main one.
 
+## The creature editor as its own OS window (#915, probes `creature-pickers`, `creature-spells`)
+
+Checks: in the desktop app a spawn's right-click Edit creature…, the Inspector's button, the Creatures
+workspace and the spawn browser open the creature editor as its own OS window, titled Creatures, on the
+item editor's flow (above), its target's spawn `key` going through the window's query (`slotTarget`). What
+it does on the map goes to the main page as `map` commands (`lib/toolwin/spawnFields.ts`), run there on
+`localMapActions`: every This spawn field, pool and formation action, Edit path on the map, Place in world,
+New creature (the guide opens in the main window) and, after a save, `applyCreatureTemplate`, so each is an
+undo step of the main window's History. The spawn it shows is the main page's selected one: another
+selected on the map drops the This spawn tab, as in the page. The gear picker (Main hand…) opens in the
+window. A save or copy sends `forget` with `creatureDisplays`. On the browser page it stays full screen:
+the creature probes check that editor. The shapes: `bun test tests/editorWindows.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+right-click a creature spawn, Edit creature…: it opens in its own window. On This spawn change its
+respawn time: the main window's History lists the step. On Looks pick another display and save: the
+spawn on the map changes, and one Undo in the main window brings it back. Pick a pool or formation mate:
+the editor moves to it and the map selects it. Click Main hand…: the picker opens in the window.
+
+- Without a hand at the desktop, as for the spell editor above: a scratch `App.svelte` whose `onMount`
+  sets `ui.creatureEditor = { key: null, entry: 197 }` after 9 s; the session log shows
+  `asset GET /?target=...&window=creature` and the `CreatureEditor` chunk, and `EnumWindows` lists a
+  window titled Creatures.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway

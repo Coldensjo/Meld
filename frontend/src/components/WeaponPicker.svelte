@@ -1,6 +1,7 @@
 <script lang="ts" module>
-	import { ListWeapons } from '../lib/wails/App'
+	import { EquipmentFor, ListWeapons } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
+	import type { SpawnFields } from '../lib/world/spawnEdits'
 
 	// The world database's holdable items, read once for the whole session (the Go side caches them
 	// too). The spawn fields use the list for the names of a spawn's items.
@@ -15,6 +16,15 @@
 
 	/** The equipment slots: creature_equip_template's item1, item2 and item3. */
 	export const SLOTS = ['Main hand', 'Off hand', 'Ranged'] as const
+
+	/** The change that puts item `entry` (0 for none) in slot `slot` of spawn `s`: the equipment template with those items, and its undo step's label. */
+	export async function equipChange(s: vmangos.WorldSpawn, slot: number, entry: number): Promise<{ vals: SpawnFields; label: string }> {
+		const items = [...(s.equipItems ?? [0, 0, 0])] as number[]
+		while (items.length < 3) items.push(0)
+		items[slot] = entry
+		const equipment = await EquipmentFor(items)
+		return { vals: { equipment, equipItems: items }, label: `${SLOTS[slot]} (${s.name})` }
+	}
 
 	/** The inventory types a slot takes. */
 	const SLOT_INV: Record<number, number[]> = {

@@ -26,8 +26,7 @@
 	import HotkeyManager from './HotkeyManager.svelte'
 	import PreferencesDialog from './PreferencesDialog.svelte'
 	import OtherClientDialog from './OtherClientDialog.svelte'
-	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
-	import { EquipmentFor } from '../lib/wails/App'
+	import WeaponPicker, { equipChange, SLOTS } from './WeaponPicker.svelte'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -69,13 +68,10 @@
 		const s = weaponSpawn
 		const engine = engineRef.current
 		if (!p || !s || !engine) return close()
-		const items = [...(s.equipItems ?? [0, 0, 0])] as number[]
-		while (items.length < 3) items.push(0)
-		items[p.slot] = entry
 		close()
 		try {
-			const equipment = await EquipmentFor(items)
-			await engine.editSpawn(p.key, { equipment, equipItems: items }, `${SLOTS[p.slot]} (${s.name})`)
+			const { vals, label } = await equipChange(s, p.slot, entry)
+			await engine.editSpawn(p.key, vals, label)
 		} catch (err) {
 			setStatus(`Equipping failed: ${err}`, 8000)
 		}

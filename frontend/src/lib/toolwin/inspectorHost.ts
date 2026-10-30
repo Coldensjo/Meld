@@ -12,6 +12,7 @@ import type { WorldObject } from '../world/ObjectLayer'
 import { leaveMotherChanges, leavePoolChanges, motherLimitChanges, poolSettingChanges } from '../world/pools'
 import { selectSpawn } from '../world/spawnEdits'
 import { spawnKey } from '../world/SpawnLayer'
+import { editorWindowTarget } from './editorHost.svelte'
 import { relatedSpawns, type InspectorActions, type InspectorView, type SpawnPanel, type SpawnPanelActions } from './inspector'
 
 /** The model's path in the client (or its type, for a helper shape). */
@@ -92,7 +93,9 @@ export function localSpawnActions(onswitch?: (o: vmangos.WorldSpawn) => void): S
 			selectSpawn(drawn)
 			if (drawn.kind === 'object') {
 				if (ui.objectEditor?.key) ui.objectEditor = { key, entry: drawn.entry }
-			} else if (ui.creatureEditor?.key) ui.creatureEditor = { key, entry: drawn.entry }
+			}
+			// A creature editor open on a spawn in its own window (#915) moves to the picked one too, asking there about its unsaved edits.
+			else if (ui.creatureEditor?.key || editorWindowTarget.creature?.key) ui.creatureEditor = { key, entry: drawn.entry }
 		},
 		poolSetting: (key, vals, label) => change(key, (s) => ({ changes: poolSettingChanges(editor.spawns, s, vals), label: `${label} (pool ${s.pool})` })),
 		motherLimit: (key, limit) => change(key, (s) => ({ changes: motherLimitChanges(editor.spawns, s, limit), label: `Master pool limit (pool ${s.motherPool})` })),

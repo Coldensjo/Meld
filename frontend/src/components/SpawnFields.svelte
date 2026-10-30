@@ -1,11 +1,9 @@
 <script lang="ts">
-	import { editor, ui } from '../lib/state/editor.svelte'
-	import { engineRef } from '../lib/state/engineRef'
 	import { orientationDegrees } from '../lib/world/spawnInfo'
 	import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { SpawnEmotes } from '../lib/wails/App'
-	import { localSpawnActions, spawnPanel } from '../lib/toolwin/inspectorHost'
+	import { mapActions, spawnFieldsView } from '../lib/toolwin/spawnFieldsHost.svelte'
 	import type { vmangos } from '../lib/wails/models'
 	import { loadWeapons, SLOTS } from './WeaponPicker.svelte'
 	import DisplayPicker from './DisplayPicker.svelte'
@@ -26,8 +24,10 @@
 	let { s, onswitch }: Props = $props()
 	const creature = $derived(s.kind !== 'object')
 	// The pool and formation fields read the region's spawns and act on the map; a pick of another spawn goes through the editor (onswitch).
-	const panel = $derived(spawnPanel())
-	const spawnAct = $derived(localSpawnActions(onswitch))
+	// In an editor's own window (#915) the view is the main page's copy and every action a command to it, which runs it as an undo step there.
+	const fieldsView = $derived(spawnFieldsView())
+	const panel = $derived(fieldsView.panel)
+	const spawnAct = $derived(mapActions(onswitch))
 
 	// The looping emotes a creature can hold (Emotes.dbc's STATE_* rows), read from the client once.
 	let emotes = $state<vmangos.Emote[]>([])
@@ -57,8 +57,7 @@
 	const itemName = (entry: number) => (entry ? (weaponNames.get(entry) ?? `Item ${entry}`).replace(/^monster\s*-\s*/i, '') : 'None')
 	/** Opens the gear picker for a slot of this spawn. */
 	function chooseWeapon(slot: number) {
-		ui.weaponPick = { key: spawnKey(s), slot }
-		ui.dialog = 'weapon'
+		spawnAct.chooseWeapon(spawnKey(s), slot)
 	}
 
 	/** The display picker under the Display box, open (#705). */
@@ -72,7 +71,7 @@
 
 	/** Applies an edit to the spawn, as one undo step named `label`. */
 	function edit(vals: SpawnFields, label: string) {
-		void engineRef.current?.editSpawn(spawnKey(s), vals, `${label} (${s.name})`)
+		spawnAct.edit(spawnKey(s), vals, `${label} (${s.name})`)
 	}
 
 	/** A number field's value, or null when it isn't a number (the edit is dropped). */
@@ -204,7 +203,7 @@
 			<ol class="points">
 				{#each points as p, i (i)}
 					<li>
-						<button class="row" class:active={editor.selectedWaypoint === i} onclick={() => (editor.selectedWaypoint = i)}>
+						<button class="row" class:active={fieldsView.waypoint === i} onclick={() => spawnAct.pickWaypoint(i)}>
 							<span class="name">Point {i + 1}</span>
 							{#if p.waitMs > 0}<span class="dim">waits {p.waitMs / 1000} s</span>{/if}
 							{#if p.scriptId}<span class="dim">script {p.scriptId}</span>{/if}
@@ -212,8 +211,8 @@
 					</li>
 				{/each}
 			</ol>
-			{#if editor.selectedWaypoint >= 0 && points[editor.selectedWaypoint]}
-				{@const i = editor.selectedWaypoint}
+			{#if fieldsView.waypoint >= 0 && points[fieldsView.waypoint]}
+				{@const i = fieldsView.waypoint}
 				{@const p = points[i]}
 				<div class="fields">
 					<label
@@ -244,17 +243,12 @@
 					>
 				</div>
 				<div class="row-buttons">
-					<button
-						onclick={() => {
-							const e = engineRef.current
-							if (e) e.focusPoint(p.x, p.z)
-						}}>Focus point</button
-					>
+					<button onclick={() => spawnAct.focusPoint(p.x, p.z)}>Focus point</button>
 					<button
 						class="danger"
 						onclick={() => {
 							edit({ waypoints: withPoint(points, i, null) }, 'Delete path point')
-							editor.selectedWaypoint = Math.min(i, points.length - 2)
+							spawnAct.pickWaypoint(Math.min(i, points.length - 2))
 						}}>Delete point</button
 					>
 				</div>
@@ -263,16 +257,18 @@
 			<p class="dim">No path. Edit the path and click the ground to give it one.</p>
 		{/if}
 		<div class="row-buttons">
-			<button class:active={ui.pathEdit} title="Edit the path on the map" onclick={() => (ui.pathEdit ? (ui.pathEdit = false) : engineRef.current?.editPath(spawnKey(s)))}>{ui.pathEdit ? 'Done' : 'Edit path on the map'}</button>
+			<button class:active={fieldsView.pathEdit} title="Edit the path on the map" onclick={() => (fieldsView.pathEdit ? spawnAct.stopPathEdit() : spawnAct.editPath(spawnKey(s)))}
+				>{fieldsView.pathEdit ? 'Done' : 'Edit path on the map'}</button
+			>
 			<button
 				disabled={!points.length}
 				onclick={() => {
 					edit({ waypoints: [] }, 'Clear path')
-					editor.selectedWaypoint = -1
+					spawnAct.pickWaypoint(-1)
 				}}>Clear path</button
 			>
 		</div>
-		{#if ui.pathEdit}
+		{#if fieldsView.pathEdit}
 			<p class="dim hint">Click the ground to add a point after the picked one. Drag a point to move it; Delete removes the picked point; Esc stops.</p>
 		{/if}
 

@@ -2,9 +2,13 @@
 	import { onMount, untrack } from 'svelte'
 	import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { throttle } from '../lib/toolwin/channel'
-	import { editorInWindow, editorWindowFailed } from '../lib/toolwin/editorHost.svelte'
+	import { editorInWindow, editorWindowFailed, editorWindowTarget } from '../lib/toolwin/editorHost.svelte'
+	import { relatedSpawns } from '../lib/toolwin/inspector'
+	import { localMapActions } from '../lib/toolwin/spawnFieldsHost.svelte'
+	import { runMapCall, type SpawnFieldsView } from '../lib/toolwin/spawnFields'
 	import { EDITOR_PREF_KEYS, EDITOR_WINDOWS, editorArgs, readEditorCommand, type EditorForget, type EditorKind, type EditorPrefs, type EditorView } from '../lib/toolwin/editors'
-	import { nativeToolWindows, onToolCommand, openToolWindow, publishToolState } from '../lib/toolwin/host'
+	import { nativeToolWindows, onToolCommand, onToolWindowClosed, openToolWindow, publishToolState } from '../lib/toolwin/host'
+	import { forgetCreatureDisplays } from './DisplayPicker.svelte'
 	import { forgetLooks } from '../lib/wow/itemDisplays'
 	import { forgetItemIcons, forgetItemRow } from '../lib/wow/items'
 	import { forgetName, forgetSpellTables } from '../lib/wow/refNames'
@@ -31,17 +35,24 @@
 				void openToolWindow(kind, editorArgs(target)).then((ok) => {
 					if (ok) return
 					editorWindowFailed[kind] = true
-					ui[slot] = target
+					Object.assign(ui, { [slot]: target })
 				})
 			})
 		})
 	}
 
+	/** What the creature editor's spawn fields read (#915): the selected spawn's pool and formation mates, the pick and path edit on the map. */
+	const spawnFields = (): SpawnFieldsView => {
+		const s = editor.selectedSpawn
+		return { panel: { spawns: s ? $state.snapshot(relatedSpawns(editor.spawns, s)) : [], pick: $state.snapshot(ui.spawnPick) }, pathEdit: ui.pathEdit, waypoint: editor.selectedWaypoint }
+	}
 	const view = (): EditorView => {
 		const p = {} as EditorPrefs
 		for (const k of EDITOR_PREF_KEYS) Object.assign(p, { [k]: prefs[k] })
-		return { prefs: p, spawn: $state.snapshot(editor.selectedSpawn) }
+		return { prefs: p, spawn: $state.snapshot(editor.selectedSpawn), spawnFields: spawnFields(), questsVersion: ui.questsVersion }
 	}
+	/** The map actions an editor's window sends (#915), run here on the active map. */
+	const mapAct = localMapActions()
 	const publishAll = () => {
 		const v = view()
 		for (const kind of kinds) publishToolState(kind, v)
@@ -54,6 +65,11 @@
 		void prefs.theme
 		void prefs.uiScale
 		void editor.selectedSpawn
+		void editor.spawns
+		void ui.spawnPick
+		void ui.pathEdit
+		void editor.selectedWaypoint
+		void ui.questsVersion
 		publish()
 	})
 
@@ -72,6 +88,7 @@
 		for (const e of f.quests ?? []) forgetName('quest', e)
 		// The quest editor saved givers, made or deleted a quest (#914): the creature or object editor's Quests tab here reads its lists again.
 		if (f.questLists) ui.questsVersion++
+		if (f.creatureDisplays) forgetCreatureDisplays()
 	}
 
 	onMount(() => {
@@ -98,11 +115,19 @@
 					case 'forget':
 						forget(cmd.forget)
 						break
+					case 'map':
+						runMapCall(cmd, mapAct)
+						break
+					case 'target':
+						editorWindowTarget[kind] = cmd.target
+						break
 				}
 			}),
 		)
+		const closed = kinds.map((kind) => onToolWindowClosed(kind, () => (editorWindowTarget[kind] = null)))
 		return () => {
 			for (const off of offs) off()
+			for (const off of closed) off()
 			publish.cancel()
 		}
 	})
