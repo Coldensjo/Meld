@@ -487,7 +487,7 @@ func (m *modelTables) itemAttachment(a wow.Attachment, row int) bool {
 // standIn is a creature display of a plain character of race and sex for the item editor to dress
 // (plainLook, which keeps only its skin, face and hair): the humanoid display
 // (CreatureDisplayInfoExtra: 1 race, 2 sex, 8-17 worn items, 18 the baked skin) that wears the
-// fewest items, one with a baked skin first, the lowest ID of those. 0 when the client has none.
+// fewest items, one with hair first (a style the race has a submesh and a texture for), then one with a baked skin, the lowest ID of those. 0 when the client has none.
 func (m *modelTables) standIn(race, sex int) uint32 {
 	if m == nil || m.creatureExtra == nil || m.creatureExtra.fields <= 18 {
 		return 0
@@ -509,10 +509,34 @@ func (m *modelTables) standIn(race, sex int) uint32 {
 		if x.str(er, 18) == "" {
 			score++
 		}
+		if !m.hasHair(race, uint32(sex), x.u32(er, 5), x.u32(er, 6)) {
+			score += 100
+		}
 		id := t.u32(r, 0)
 		if score < bestScore || (score == bestScore && id < best) {
 			best, bestScore = id, score
 		}
 	}
 	return best
+}
+
+// hasHair says a character of race and sex with hair style and colour shows hair: CharHairGeosets
+// gives the style a submesh and CharSections a hair texture (a style with neither is bald).
+func (m *modelTables) hasHair(race int, sex, style, color uint32) bool {
+	t := m.hairGeosets
+	if t == nil || t.fields <= 4 {
+		return true
+	}
+	geo := false
+	for r := 0; r < t.records; r++ {
+		if t.u32(r, 1) == uint32(race) && t.u32(r, 2) == sex && t.u32(r, 3) == style {
+			geo = t.u32(r, 4) > 0
+			break
+		}
+	}
+	if !geo {
+		return false
+	}
+	row, ok := m.section(uint32(race), sex, 3, style, color)
+	return ok && m.sections.str(row, 6) != ""
 }

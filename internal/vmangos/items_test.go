@@ -210,6 +210,10 @@ func TestItemsLive(t *testing.T) {
 	if !look.Shown || !strings.Contains(look.Model, `Character\Human\Male`) || !strings.Contains(look.Look, "att=1") || !strings.HasPrefix(look.Item, weaponItems) {
 		t.Fatalf("held look %+v", look)
 	}
+	// The human male stand-in keeps hair (#927): a hair texture, not a bald display's.
+	if !strings.Contains(look.Look, `Human%5CHair`) {
+		t.Fatalf("no hair in %+v", look)
+	}
 	// A chest piece isn't shown on the character, which still stands in.
 	if look, _ := ItemModelLook(dataDir, d, 5, 2, 1); look.Shown || !strings.Contains(look.Model, `Character\Orc\Female`) {
 		t.Fatalf("worn look %+v", look)
