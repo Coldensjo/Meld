@@ -30,7 +30,7 @@
 		sel.value = ''
 		const engine = engineRef.current
 		if (!engine) return
-		if (how === 'grow' || how === 'shrink' || how === 'feather') engine.modifyMask(how)
+		if (how === 'grow' || how === 'shrink' || how === 'feather' || how === 'border' || how === 'smooth') engine.modifyMask(how)
 		else if (how === 'invert') engine.invertMask()
 		else if (how === 'clear') engine.clearMask()
 	}
@@ -129,10 +129,12 @@
 				<option value="grow" disabled={!ui.maskActive}>Grow by {ms.step} yd</option>
 				<option value="shrink" disabled={!ui.maskActive}>Shrink by {ms.step} yd</option>
 				<option value="feather" disabled={!ui.maskActive}>Feather over {ms.step} yd</option>
+				<option value="border" disabled={!ui.maskActive}>Border by {ms.step} yd</option>
+				<option value="smooth" disabled={!ui.maskActive}>Smooth over {ms.step} yd</option>
 				<option value="invert">Invert</option>
 				<option value="clear" disabled={!ui.maskActive}>Clear</option>
 			</select>
-			<OptSlider label="By" bind:value={ms.step} min={0.5} max={32} step={0.5} digits={1} width={50} title="How many yards Grow, Shrink and Feather change the mask by" />
+			<OptSlider label="By" bind:value={ms.step} min={0.5} max={32} step={0.5} digits={1} width={50} title="How many yards Grow, Shrink, Feather, Border and Smooth change the mask by" />
 		</div>
 	{/if}
 {/if}

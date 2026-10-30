@@ -1,11 +1,11 @@
-// Paint › Mask › Select by (#183): the magic wand's click, and Grow, Shrink and Feather Mask. The texel
+// Paint › Mask › Select by (#183): the magic wand's click, and Grow, Shrink, Feather, Border and Smooth Mask. The texel
 // arithmetic is `terrain/maskSelect.ts`; this reads the map under each texel and records the undo step.
 import * as THREE from 'three'
 import { editor, setStatus } from '../state/editor.svelte'
 import type { History } from '../state/history'
 import type { Terrain } from '../terrain/Terrain'
 import type { LiquidMap } from '../water/liquids'
-import { combineMask, featherMask, growMask, shrinkMask, wandSelect, type MaskOp } from '../terrain/maskSelect'
+import { borderMask, combineMask, featherMask, growMask, shrinkMask, smoothMask, wandSelect, type MaskHow, type MaskOp } from '../terrain/maskSelect'
 import { dominantTexel, textureWeightTexel } from '../terrain/chunkPaint'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { TerrainStroke } from './brush'
@@ -91,14 +91,18 @@ export function wandClick(t: Terrain, liquids: LiquidMap, history: History, hit:
 	setStatus(`${verb}: ${Math.round(n * ts * ts)} square yards by ${what}${s.contiguous ? ', joined to the click' : ''}.`, 4000)
 }
 
-/** Mask › Grow, Shrink or Feather by `editor.maskSelect.step` yards, one undo step. */
-export function modifyMask(t: Terrain, history: History, how: 'grow' | 'shrink' | 'feather') {
+const MODIFY: Record<MaskHow, { label: string; run: (m: Uint8Array, res: number, texels: number) => void }> = {
+	grow: { label: 'Grow mask', run: growMask },
+	shrink: { label: 'Shrink mask', run: shrinkMask },
+	feather: { label: 'Feather mask', run: featherMask },
+	border: { label: 'Border mask', run: borderMask },
+	smooth: { label: 'Smooth mask', run: smoothMask },
+}
+
+/** Mask › Grow, Shrink, Feather, Border or Smooth by `editor.maskSelect.step` yards, one undo step. */
+export function modifyMask(t: Terrain, history: History, how: MaskHow) {
 	const R = t.splatRes
 	const texels = editor.maskSelect.step / (t.worldSize / R)
-	const label = how === 'grow' ? 'Grow mask' : how === 'shrink' ? 'Shrink mask' : 'Feather mask'
-	editWholeMask(t, history, label, (m) => {
-		if (how === 'grow') growMask(m, R, texels)
-		else if (how === 'shrink') shrinkMask(m, R, texels)
-		else featherMask(m, R, texels)
-	})
+	const op = MODIFY[how]
+	editWholeMask(t, history, op.label, (m) => op.run(m, R, texels))
 }

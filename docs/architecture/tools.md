@@ -46,7 +46,7 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
   - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
     the cells that changed: `BlockSnapshot.diff` keeps, for each saved block under the dirty rect, the
     bounding rect of the cells that differ, before and after (a `GridPatch`), so a whole-mask step (the
-    wand, Grow/Shrink/Feather Mask, Erode map) holds only what it changed. The step's `bytes` says what
+    wand, Grow/Shrink/Feather/Border/Smooth Mask, Erode map) holds only what it changed. The step's `bytes` says what
     it holds, for the history's byte budget (#444).
   - **Image brushes** (`tools/brushImage.ts`): a greyscale image from the user's folder
     (`prefs.brushImageDir`, read by Go into grey levels) multiplies the brush weight inside

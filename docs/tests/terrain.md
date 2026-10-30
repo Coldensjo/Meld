@@ -256,9 +256,11 @@ cone's foot, empty on its peak, nothing outside the rect written).
   beside the ridge, about 45% of the square's texels, a sixth of them full.
 - One drop a cell moves up to about 40% of a small steep cone's height (the unit test's bound is half); the dialog defaults to 0.5.
 
-## Mask wand, Grow, Shrink and Feather (#183)
+## Mask wand, Grow, Shrink, Feather, Border and Smooth (#183, #769)
 
-No probe: the unit tests below, and a hand check in the dev page.
+Probe: `mask-modify` (Border and Smooth from the Paint panel's Modify mask drop-down, and their undo; the
+drop-down sits in the panel the options bar's Paint button opens, not on the bar). The wand is the unit
+tests below and a hand check in the dev page.
 
 Checks: Paint › Mask's Select by (`editor.maskSelect`, `tools/maskWand.ts`; the texel arithmetic is
 `terrain/maskSelect.ts`, unit tests in `maskSelect.test.ts`). In the dev page, on Northshire (Azeroth
@@ -268,7 +270,9 @@ Checks: Paint › Mask's Select by (`editor.maskSelect`, `tools/maskWand.ts`; th
 with `v` on the ground at x 150, z 300. Count the mask's texels at 128 or more. Texture, contiguous:
 about 52k texels; with `contiguous = false`, 83k; slope 30° to 90° over the whole map, added with
 Shift, about 137k in 45 ms. Each click is one undo step named after the pick ("Add to mask by slope"),
-and `__engine.modifyMask('grow' | 'shrink' | 'feather')` runs in under 20 ms.
+and `__engine.modifyMask('grow' | 'shrink' | 'feather' | 'border' | 'smooth')` runs in under 20 ms, each one
+undo step named "Grow mask", "Border mask" and so on. Border leaves a hard band `step` yards wide on
+each side of the edge (empty for a mask with no edge); Smooth leaves a hard mask with its corners rounded.
 
 - The options bar's Modify mask drop-down listens through Svelte 5's delegated `change`: a probe must
   dispatch `new Event('change', { bubbles: true })`, or nothing happens.

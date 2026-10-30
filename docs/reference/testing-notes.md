@@ -782,7 +782,7 @@ the same scene, the report before and after.
 - A new world painted with a zone's textures (#733, probe `new-world-pack`)
 - A new world with a zone's trees (#758, probe `new-world-trees`)
 - A new world's sea level and lakes (#759, probe `new-world-lakes`)
-- Mask wand, Grow, Shrink and Feather (#183)
+- Mask wand, Grow, Shrink, Feather, Border and Smooth (#183, #769)
 - Lasso and polygon areas (#183)
 - Check Map (#176)
 - Fit ground to models and Stamp (#168)

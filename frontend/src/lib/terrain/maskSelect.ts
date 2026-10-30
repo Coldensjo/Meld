@@ -1,4 +1,4 @@
-// Paint › Mask › Select by (#183): the magic wand and the mask's Grow, Shrink and Feather, as
+// Paint › Mask › Select by (#183): the magic wand and the mask's Grow, Shrink, Feather, Border and Smooth (#769), as
 // Photoshop's Select menu does them, over the paint mask (a byte per splat texel, a row of `res` texels).
 // Kept free of three.js so it can be tested on its own.
 
@@ -7,6 +7,9 @@ export type MaskPick = 'brush' | 'texture' | 'height' | 'slope' | 'water'
 
 /** How the wand's texels meet the mask already there: Shift adds, Alt subtracts, a plain click replaces. */
 export type MaskOp = 'replace' | 'add' | 'subtract'
+
+/** Mask › Modify: how a whole-mask change reshapes it, by the options bar's step. */
+export type MaskHow = 'grow' | 'shrink' | 'feather' | 'border' | 'smooth'
 
 /**
  * Writes 255 into `out` for the texels the wand takes and 0 elsewhere: every texel that is `inside`, or
@@ -131,6 +134,36 @@ export function shrinkMask(mask: Uint8Array, res: number, texels: number) {
 	chamfer(res, (p) => mask[p] < 128, dist)
 	const reach = Math.round(texels * STRAIGHT)
 	for (let p = 0; p < mask.length; p++) if (dist[p] <= reach) mask[p] = 0
+}
+
+/**
+ * Keeps only a band along the mask's edge, `texels` wide on each side of it (Grow minus Shrink): the
+ * texels that close to the other side of the half-full line become full, the rest are cleared. A mask
+ * with no edge (empty, or full to the map's edge) comes out empty.
+ */
+export function borderMask(mask: Uint8Array, res: number, texels: number) {
+	if (texels <= 0) return
+	const n = res * res
+	const toIn = new Uint16Array(n)
+	const toOut = new Uint16Array(n)
+	chamfer(res, (p) => mask[p] >= 128, toIn)
+	chamfer(res, (p) => mask[p] < 128, toOut)
+	const reach = Math.round(texels * STRAIGHT)
+	for (let p = 0; p < n; p++) {
+		const d = mask[p] >= 128 ? toOut[p] : toIn[p]
+		mask[p] = d <= reach ? 255 : 0
+	}
+}
+
+/**
+ * Rounds off the mask's outline over about `texels`: Feather, then each texel full where the blur is at
+ * least half and empty elsewhere, so corners round, specks and spikes narrower than that vanish and
+ * notches fill. The result is a hard mask.
+ */
+export function smoothMask(mask: Uint8Array, res: number, texels: number) {
+	if (texels <= 0) return
+	featherMask(mask, res, texels)
+	for (let p = 0; p < mask.length; p++) mask[p] = mask[p] >= 128 ? 255 : 0
 }
 
 /**

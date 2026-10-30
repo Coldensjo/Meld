@@ -58,6 +58,7 @@ import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, type Rect } from '../tools/brush'
 import { editWholeMask, modifyMask } from '../tools/maskWand'
+import type { MaskHow } from '../terrain/maskSelect'
 import { copyPaths, newPath, RIVER_BANK, type MapPath } from '../terrain/paths'
 import { PathTool } from '../tools/PathTool'
 import { loadMeta, stashMeta } from './docMeta'
@@ -4050,8 +4051,8 @@ export class Engine {
 		this.refreshMaskState()
 	}
 
-	/** Mask › Grow, Shrink or Feather Mask by the options bar's step (#183). */
-	modifyMask(how: 'grow' | 'shrink' | 'feather') {
+	/** Mask › Grow, Shrink, Feather, Border or Smooth Mask by the options bar's step (#183, #769). */
+	modifyMask(how: MaskHow) {
 		if (!ui.maskActive) {
 			setStatus('The mask is empty. Paint a mask first (Paint tool › Mask).')
 			return

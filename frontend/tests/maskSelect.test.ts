@@ -1,7 +1,7 @@
 // Run with: bun test tests/maskSelect.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { combineMask, featherMask, growMask, shrinkMask, wandSelect } from '../src/lib/terrain/maskSelect.ts'
+import { borderMask, combineMask, featherMask, growMask, shrinkMask, smoothMask, wandSelect } from '../src/lib/terrain/maskSelect.ts'
 
 const count = (m: Uint8Array, v = 255) => m.reduce((n, x) => n + (x === v ? 1 : 0), 0)
 
@@ -84,4 +84,51 @@ test('feather softens an edge and keeps the middle and far texels', () => {
 	assert.ok(Math.abs(m[row + 31] + m[row + 32] - 255) <= 2)
 	// A blur along z changes nothing in a mask that is the same down every column.
 	assert.equal(m[0 * res + 30], m[63 * res + 30])
+})
+
+test('border keeps a band on both sides of a square edge', () => {
+	const res = 32
+	const m = new Uint8Array(res * res)
+	for (let z = 10; z < 20; z++) for (let x = 10; x < 20; x++) m[z * res + x] = 255
+	borderMask(m, res, 2)
+	const row = 15 * res
+	// Two texels out and two in along a straight side, nothing beyond either.
+	assert.equal(m[row + 7], 0)
+	assert.equal(m[row + 8], 255)
+	assert.equal(m[row + 11], 255)
+	assert.equal(m[row + 12], 0)
+	assert.equal(m[row + 15], 0)
+	// Hard: every texel full or empty.
+	assert.equal(count(m) + count(m, 0), res * res)
+	// Grow minus shrink: (14x14 less the chamfer's cut corners) less the 6x6 core.
+	assert.equal(count(m), 14 * 14 - 4 * 3 - 6 * 6)
+	// A mask with no edge comes out empty.
+	const full = new Uint8Array(res * res).fill(255)
+	borderMask(full, res, 2)
+	assert.equal(count(full), 0)
+})
+
+test('smooth removes a one-texel spike and fills a one-texel notch', () => {
+	const res = 64
+	const m = new Uint8Array(res * res)
+	// The left half full, with a spike out of its edge at z 20 and a notch into it at z 40.
+	for (let z = 0; z < res; z++) for (let x = 0; x < 32; x++) m[z * res + x] = 255
+	m[20 * res + 32] = 255
+	m[20 * res + 33] = 255
+	m[40 * res + 31] = 0
+	m[40 * res + 30] = 0
+	smoothMask(m, res, 4)
+	assert.equal(m[20 * res + 32], 0)
+	assert.equal(m[20 * res + 33], 0)
+	assert.equal(m[40 * res + 31], 255)
+	assert.equal(m[40 * res + 30], 255)
+	// The straight edge stays where it was, and the result is hard.
+	assert.equal(m[5 * res + 31], 255)
+	assert.equal(m[5 * res + 32], 0)
+	assert.equal(count(m) + count(m, 0), res * res)
+	// A lone speck vanishes.
+	const s = new Uint8Array(res * res)
+	s[10 * res + 10] = 255
+	smoothMask(s, res, 4)
+	assert.equal(count(s), 0)
 })

@@ -177,7 +177,9 @@ In **Paint mask** mode:
 2. Hold **Alt**, or choose Erase, to remove parts of it.
 3. Click a palette texture to fill the mask with that texture.
 
-Use Fill mask, Invert, From selection and Clear to prepare larger areas. **Paint › Auto-paint Textures by Height and Slope**
+Use Fill mask, Invert, From selection and Clear to prepare larger areas. The options bar's **Modify mask**
+(also under **Paint › Paint mask**) grows, shrinks, feathers, borders (keeps a band along the edge) or
+smooths (rounds the outline) the whole mask by the **By** step in yards. **Paint › Auto-paint Textures by Height and Slope**
 assigns textures by height and slope. Round and square brushes are available; square brushes can
 snap to the grid for aligned work.
 
