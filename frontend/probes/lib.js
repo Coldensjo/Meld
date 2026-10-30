@@ -77,11 +77,15 @@ const P = {
 	/**
 	 * The runner calls this before every probe: Flying View, the camera the probes were written for (the
 	 * app's default before #750, which made Orbit View the default). A probe that wants Orbit View sets
-	 * `cameraFollowGround: true` (its scene's prefs, as `P.BENCH` does, or the pref itself).
+	 * `cameraFollowGround: true` (its scene's prefs, as `P.BENCH` does, or the pref itself). And no world
+	 * around a region (View › World Around the Block, #15, on by default): the regions the probes were
+	 * written for drew only their block, and `bench`'s counts are the block's; a probe of the world
+	 * around sets `worldAround: true` itself (`world-around`).
 	 */
 	async flyingStart() {
 		const { prefs } = await P.state()
 		prefs.cameraFollowGround = false
+		prefs.worldAround = false
 		await P.frames(1)
 	},
 

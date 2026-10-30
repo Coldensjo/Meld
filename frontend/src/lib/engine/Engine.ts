@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { GenerateKind, Terrain } from '../terrain/Terrain'
+import { Terrain, type GenerateKind } from '../terrain/Terrain'
 import { CoastShape, presetById, snowLine, type ShapeOptions, type WorldWater } from '../terrain/presets'
 import { sandBand, shapeLakeBeaches } from '../terrain/beach'
 import { hasBeaches, type ImageGround } from '../terrain/generate'
@@ -106,7 +106,7 @@ import { spawnType } from '../world/spawnInfo'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import { turnObjectClip } from '../world/clipTurn'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
-import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
+import { ObjectLayer, type WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { planRestore, restoreChunk } from '../terrain/restorePaint'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, convertGlobalLayers, paletteIndex } from '../terrain/chunkPaint'
@@ -186,6 +186,9 @@ const WORLD_MAX_DISTANCE = 2000
 const WORLD_STAND_IN = 8
 /** The fewest frames between two redraws of a world view's far shadow map for a scene change (`markShadows`). */
 const WORLD_FAR_FRAMES = 30
+/** What `shadowSceneChanged` saw change: the map's own casters, or textures and streamed models landing. */
+const SCENE_OWN = 1
+const SCENE_STREAMED = 2
 /** How far off the ground a world view opened without a view looks from, in yards. */
 const WORLD_FOCUS_DISTANCE = 400
 
@@ -754,6 +757,12 @@ export class Engine {
 			const world = this.doc?.world
 			if (world) {
 				const g = world.heightAt(x, z)
+				return Number.isNaN(g) ? this.controller.target.y : g
+			}
+			// Off a region's block the ground is the world streamed around it (#15), where it has loaded.
+			const around = this.doc?.surround
+			if (around && !this.terrain.contains(x, z)) {
+				const g = around.heightAt(x, z)
 				return Number.isNaN(g) ? this.controller.target.y : g
 			}
 			const h = this.terrain.heightAt(x, z)
@@ -1590,6 +1599,7 @@ export class Engine {
 		this.controller.setWalk(ui.walkCamera && !this.topDown)
 		this.controller.update(dt)
 		this.updateWorld()
+		this.updateSurround()
 		this.taxi.updateFlight()
 		this.updateTopDown()
 		this.fillFrameView(dt, time)
@@ -1684,6 +1694,7 @@ export class Engine {
 			)
 		}
 		this.objects.update()
+		this.doc.surroundObjects?.update()
 		this.boxes.update(this.objects, this.prefs.showBoxes, this.terrain.heightUploadVersion)
 		this.updateTriggers()
 		this.taxi.update(this.prefs.showFlightPaths, this.topDown)
@@ -1850,6 +1861,12 @@ export class Engine {
 		// A world view draws the doodads as far as the game does (#15); a region keeps every one in sight to edit.
 		v.doodadReach = !!this.doc.world
 		this.objects.cull(v)
+		// The world around a region's block draws its doodads as far as the game does, as a world view's.
+		const around = this.doc.surroundObjects
+		if (around) {
+			v.doodadReach = true
+			around.cull(v)
+		}
 		// Spawns show through a room's walls by preference (#150): the camera often sits inside a building
 		// while the author works on the creatures around it.
 		const gate = v.gate
@@ -1872,6 +1889,7 @@ export class Engine {
 		const prefab = editor.tool === 'place' ? editor.prefab : ''
 		const doodads = editor.tool === 'doodad'
 		const spawns = this.doc.spawnLayer
+		const around = this.doc.surroundObjects
 		// Moving textures (waterfalls, lava) and changing colours (glows, shimmers) follow the same clock;
 		// with animations off they hold still.
 		// A pose, or a moving material whose shadow changed, of a model in the near cascade's box redraws
@@ -1879,7 +1897,7 @@ export class Engine {
 		if (updateMaterialAnimations(ms) && materialsNear()) this.nearPosed = true
 		for (const [type, a] of animatedAssets) {
 			if (still && a.anim!.posedAt === 0) continue
-			if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.drawsType(type)) {
+			if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || around?.hasVisible(type) || spawns.drawsType(type)) {
 				a.anim!.update(ms)
 				if (a.skeleton && castsNear(a.skeleton)) this.nearPosed = true
 			}
@@ -1962,9 +1980,11 @@ export class Engine {
 		const clientLit = this.lighting.update(lightId, this.hour, time, this.prefs.clouds && !this.topDown && !skyless)
 		;(this.scene.background as THREE.Color).copy(skyless ? EARTH : s.horizon)
 		if (fog) fog.color.copy(skyless && !clientLit ? EARTH : s.horizon)
-		this.horizon.update(this.doc.id, this.doc.meta.region, this.prefs.showHorizon && wow.loaded && !this.topDown, s.horizon)
-		// A world view's horizon is its own, past the tiles it streams (#15).
+		// A world view's horizon is its own, past the tiles it streams, and so is a region's with the world around it (#15).
+		const around = this.doc.surround
+		this.horizon.update(this.doc.id, this.doc.meta.region, this.prefs.showHorizon && wow.loaded && !this.topDown && !around, s.horizon)
 		this.doc.world?.showHorizon(this.prefs.showHorizon && !this.topDown, s.horizon)
+		around?.showHorizon(this.prefs.showHorizon && !this.topDown, s.horizon)
 
 		const tu = this.terrain.material.uniforms
 		tu.sunDir.value.copy(s.keyDir)
@@ -2444,7 +2464,15 @@ export class Engine {
 		const world = this.doc.world
 		// Ground ahead is looked for as far as the camera sees.
 		const reach = this.persp.far
-		const ahead = world ? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, reach, 8) : this.terrain.raycast(this.shadowRay, focus, reach) ? focus.distanceTo(eye) : -1
+		// Off a region's block, the world streamed around it (#15).
+		const around = this.doc.surround
+		const ahead = world
+			? marchGround(this.worldHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, reach, 8)
+			: this.terrain.raycast(this.shadowRay, focus, reach)
+				? focus.distanceTo(eye)
+				: around
+					? marchGround(this.aroundHeight, eye.x, eye.y, eye.z, fwd.x, fwd.y, fwd.z, reach, 8)
+					: -1
 		const dist = ahead < 0 ? SHADOW_NO_GROUND : ahead
 		const nearExtent = THREE.MathUtils.clamp(dist, SHADOW_NEAR_MIN, SHADOW_NEAR_MAX)
 		const farExtent = THREE.MathUtils.clamp(dist * SHADOW_FAR_SCALE, SHADOW_FAR_MIN, SHADOW_FAR_MAX)
@@ -2478,11 +2506,15 @@ export class Engine {
 		const swapped = this.objects !== this.shadowObjects
 		const scene = this.shadowSceneChanged()
 		if (scene) this.farStale = true
+		// In a region, its own change (an edit) redraws the far map at once; only the world around's models
+		// and textures landing are held, as a world view's are.
+		if (scene & SCENE_OWN && !this.doc.world) this.farOwn = true
 		this.farAge++
-		const held = !!this.doc.world && !swapped && this.farAge < WORLD_FAR_FRAMES
+		const held = (!!this.doc.world || (!!this.doc.surround && !this.farOwn)) && !swapped && this.farAge < WORLD_FAR_FRAMES
 		if (this.prefsChanged || fits & SHADOW_FAR || (this.farStale && !held)) {
 			env.far.shadow.needsUpdate = true
 			this.farStale = false
+			this.farOwn = false
 			this.farAge = 0
 		}
 		const view = !this.viewProj.equals(this.shadowViewProj)
@@ -2495,8 +2527,12 @@ export class Engine {
 		this.prefsChanged = false
 	}
 
-	/** Whether what casts a shadow changed since the last call: the placed objects, the ground, the spawns or a model's texture. */
-	private shadowSceneChanged(): boolean {
+	/**
+	 * What of what casts a shadow changed since the last call: SCENE_OWN for the map's own (the placed
+	 * objects, the ground, the spawns), SCENE_STREAMED for a model's texture bound or the world around a
+	 * region's models (#15); 0 for nothing.
+	 */
+	private shadowSceneChanged(): number {
 		const k = this.shadowKey
 		const t = this.terrain
 		const objects = this.objects
@@ -2505,14 +2541,18 @@ export class Engine {
 		const v2 = t.holesVersion
 		const v3 = this.doc.spawnLayer.changeStamp
 		const v4 = texturesBoundCount()
-		if (objects === this.shadowObjects && k[0] === v0 && k[1] === v1 && k[2] === v2 && k[3] === v3 && k[4] === v4) return false
+		const v5 = this.doc.surroundObjects?.version ?? -1
+		const own = objects !== this.shadowObjects || k[0] !== v0 || k[1] !== v1 || k[2] !== v2 || k[3] !== v3
+		const streamed = k[4] !== v4 || k[5] !== v5
+		if (!own && !streamed) return 0
 		this.shadowObjects = objects
 		k[0] = v0
 		k[1] = v1
 		k[2] = v2
 		k[3] = v3
 		k[4] = v4
-		return true
+		k[5] = v5
+		return (own ? SCENE_OWN : 0) | (streamed ? SCENE_STREAMED : 0)
 	}
 	/** Scratch for `cullInstances`, which keeps a shadow's lookup matrix across its frustum update. */
 	private drawnShadowMatrix = new THREE.Matrix4()
@@ -2520,13 +2560,17 @@ export class Engine {
 	private shadowRay = new THREE.Ray()
 	/** The world view's streamed ground height, NaN where no tile is loaded, for `marchGround`. */
 	private worldHeight = (x: number, z: number): number => this.doc.world?.heightAt(x, z) ?? NaN
+	/** The streamed ground around a region's block (#15), NaN on the block and where no tile is loaded. */
+	private aroundHeight = (x: number, z: number): number => this.doc.surround?.heightAt(x, z) ?? NaN
 	private shadowFocus = new THREE.Vector3()
 	private shadowNear = new THREE.Vector3()
 	private shadowFar = new THREE.Vector3()
 	private shadowObjects: ObjectLayer | null = null
-	private shadowKey = [-1, -1, -1, -1, -1]
+	private shadowKey = [-1, -1, -1, -1, -1, -1]
 	/** The far shadow map waits on a scene change (`markShadows`), and the frames since it was last redrawn. */
 	private farStale = false
+	/** The far map waits on a change of the map's own (`SCENE_OWN`), which a region with the world around it doesn't hold. */
+	private farOwn = false
 	private farAge = Infinity
 	/** The fits `fitShadows` changed since the last `markShadows` (SHADOW_NEAR, SHADOW_FAR bits). */
 	private shadowFits = 0
@@ -2575,6 +2619,14 @@ export class Engine {
 		d.water.mesh.visible = p.showWater && editor.waterEnabled
 		d.liquidRenderer.group.visible = p.showWater
 		if (d.world) d.world.water.visible = p.showWater
+		if (d.surround) {
+			d.surround.group.visible = p.showTerrain
+			d.surround.water.visible = p.showWater
+		}
+		if (d.surroundObjects) {
+			d.surroundObjects.group.visible = p.showObjects
+			d.surroundObjects.setKindsShown(p.showDoodads, p.showBuildings)
+		}
 		// The WMOs' liquids (#287) share one material.
 		wmoLiquidMaterial().visible = p.showWater
 		d.objects.group.visible = p.showObjects
@@ -2685,7 +2737,7 @@ export class Engine {
 		editor.selection = null
 		ui.pasting = false
 		this.nudgeSession = null
-		this.controller.bounds = d.world ? WORLD_SIDE : d.terrain.worldSize
+		this.applyBounds(d)
 		this.controller.maxDistance = d.world ? WORLD_MAX_DISTANCE : d.terrain.worldSize * 1.6
 		this.applyLayerVisibility(this.prefs)
 		if (d.camera) {
@@ -2903,6 +2955,78 @@ export class Engine {
 		c.focus(x, z)
 		const world = this.doc.world
 		this.worldFocus = world && Number.isNaN(world.heightAt(x, z)) ? { doc: this.doc.id, x, z, distance: c.distance } : null
+	}
+
+	/**
+	 * Where the camera's target may go: a world view's whole map, a region's block, or with the world
+	 * streamed around the block (#15) the region's whole map, in the region's frame.
+	 */
+	private applyBounds(d: MapDocument) {
+		const c = this.controller
+		const around = d.surround
+		c.bounds = d.world || around ? WORLD_SIDE : d.terrain.worldSize
+		c.boundsX0 = around ? -around.originX : 0
+		c.boundsZ0 = around ? -around.originZ : 0
+	}
+
+	/**
+	 * Keeps the active region's world around its block (View › World Around the Block, #15; the owner's
+	 * choice of 2026-10-30): the client's tiles past the block, streamed around the camera as a world
+	 * view streams them, look-only, the block's own tiles left out. Started when the region opens or the
+	 * preference goes on, started again when the block changes (grown, reverted), and let go of when the
+	 * preference goes off. A region of a single building (no tiles) has none.
+	 */
+	private updateSurround() {
+		const d = this.doc
+		const r = d.meta.region
+		const want = this.prefs.worldAround && wow.loaded && !d.world && r && !r.wmoOnly ? `${r.mapName.toLowerCase()} ${r.x} ${r.y} ${r.size}` : ''
+		if (d.surroundKey !== want) {
+			d.surroundKey = want
+			const old = d.surround
+			if (old) {
+				const layer = d.surroundObjects!
+				const types = layer.modelTypes(new Set())
+				this.scene.remove(old.group, old.water, layer.group)
+				old.dispose()
+				layer.dispose()
+				d.surroundGround?.dispose()
+				d.surround = null
+				d.surroundObjects = null
+				d.surroundGround = null
+				this.releaseModels(types)
+			}
+			if (want && r) {
+				const ground = new Terrain(WORLD_STAND_IN)
+				const layer = new ObjectLayer(ground)
+				layer.lookOnly = true
+				const s = new WorldStream(r.mapName, layer, (x, z) => ground.heightAt(x, z), d.terrain.material, r, new Set(r.uids.values()))
+				d.surround = s
+				d.surroundObjects = layer
+				d.surroundGround = ground
+				this.scene.add(s.group, s.water, layer.group)
+				this.applyLayerVisibility(this.prefs)
+			}
+			this.applyBounds(d)
+		}
+		const s = d.surround
+		if (!s) return
+		const eye = this.camera.position
+		s.update(eye.x, eye.z, streamReach(this.viewDistance))
+		// The models only the dropped tiles used go with their batches when nothing else uses them, as a world view's.
+		if (s.takeDropped()) {
+			const gone = d.surroundObjects!.dropEmptyBatches(new Set())
+			if (gone.size) this.releaseModels(gone)
+		}
+	}
+
+	/** The tiles of the map the active region's world around it streams (tileKey, the block's too), or null without one. */
+	surroundTiles(): ReadonlySet<number> | null {
+		return this.doc.surround?.tileKeys ?? null
+	}
+
+	/** The streaming of the world around the active region (`WorldStream.stats`), or null without one. */
+	surroundStats(): ReturnType<WorldStream['stats']> | null {
+		return this.doc.surround?.stats() ?? null
 	}
 
 	/** Streams the active world view's tiles around the camera, and looks at `worldFocus` once it can. */

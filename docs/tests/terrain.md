@@ -842,6 +842,22 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%);
   with the ground's strides, 2.45M triangles, the bare ground's 687k down to 143k; the horizon adds
   about 180k triangles and no draw call worth counting.
+- Probe: `world-around` (about 55 s; the world around a region, View › World Around the Block): opens
+  the region of Azeroth's tile 32_48 (Northshire) with the preference off, then on, and checks that
+  `engine.surroundStats()` (as `worldStats()`) has every tile within the reach but the block's own
+  drawn (`tiles`: `blockDrawn` 0), a neighbour tile's mesh at its map corner less the block's
+  (`frame`), the near ones painted, the WDL horizon on no tile of the block and the region's own
+  horizon (the scene's object named `horizon`) hidden, the view differing with the stream hidden, the
+  models in their own look-only layer (`doc.surroundObjects`) with no copy of a region building at its
+  spot (`twice` 0) and drawn (looking down at the streamed building nearest the block's east edge,
+  the view differs with the layer hidden), the region's objects, history, dirty mark and
+  `regionKey()` unchanged (`lookOnly`), the camera riding the streamed ground off the block, Edit Here
+  refusing over the block and opening the block east of it past the edge (a project lent in the
+  state; the region stays open), and the preference off letting the stream and its layer go. Trap:
+  `P.lookAt` puts the camera where it is told, under a hill too, and the terrain seen from below
+  shows its underside with the dark earth colour under it; a view down at a spot needs a high pitch
+  and distance (the probe uses 1.1 rad and 150 yd). Trap: the runner turns `worldAround` off before
+  every probe, so a probe of it turns it on itself.
 - Probe: `world-minimap` (about 12 s): in Azeroth's world view the minimap is the overview cut to the
   map's tiles' square (`worldExtent`, `bun test tests/worldMinimap.test.ts`), the heights canvas hidden,
   the marker on the camera and Edit Here's block outlined; a click on a tile some way off moves the

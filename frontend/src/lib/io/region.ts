@@ -303,14 +303,20 @@ export function openWorldView(engine: Engine, mapName?: string, at?: { x: number
 /**
  * File › Edit Here (#15): from a world view, opens the block of up to WORLD_EDIT_BLOCK tiles a side
  * around the camera's target in a region tab (or switches to it), with the camera where it was. The
- * world view stays open in its tab.
+ * world view stays open in its tab. From a region with the world around it (View › World Around the
+ * Block) and the camera past its block, it does the same for the block there (the owner's choice of
+ * 2026-10-30: nothing happens on its own when the camera leaves the block); the region stays open in
+ * its tab, edits and all.
  */
 export function editWorldHere(engine: Engine) {
 	return guarded('Edit here', async () => {
-		const mapName = engine.activeWorld()
-		const have = engine.worldTiles()
+		const world = engine.activeWorld()
+		const region = world ? null : engine.activeRegion()
+		const around = region && !region.wmoOnly ? engine.surroundTiles() : null
+		const mapName = world ?? (around ? region!.mapName : null)
+		const have = engine.worldTiles() ?? around
 		if (!mapName || !have) {
-			setStatus('Edit Here opens a block of a world view (File › World View).', 6000)
+			setStatus('Edit Here opens a block of a world view (File › World View), or of the world around a region (View › World Around the Block).', 6000)
 			return
 		}
 		// Editing the client's maps needs a project (#48), as the Start dialog's Open does.
@@ -321,9 +327,18 @@ export function editWorldHere(engine: Engine) {
 		}
 		const shift = TILE_CELLS * CELL_SIZE
 		const c = engine.controller
+		// In the map's frame: a region's is its block corner's less.
 		const target = c.target.clone()
+		if (around) {
+			target.x += region!.x * shift
+			target.z += region!.y * shift
+		}
 		const view = { yaw: c.yaw, pitch: c.pitch, distance: c.distance }
 		const tile = { x: Math.floor(target.x / shift), y: Math.floor(target.z / shift) }
+		if (around && blockHolds(region!, tile)) {
+			setStatus("The camera is over this region's own block: fly past its edge, then Edit Here opens the block there.", 6000)
+			return
+		}
 		const block = blockAround(tile, have, WORLD_EDIT_BLOCK)
 		if (!block) {
 			setStatus(`${mapName} has no tile at ${tile.x}_${tile.y} to edit.`, 6000)

@@ -171,7 +171,9 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				},
 				// The world view (#15): the region's whole map streamed around the camera, and back to a block to edit.
 				{ kind: 'action', label: 'World View', disabled: !backend || ui.busy || !editor.regionBlock, run: withEngine((e) => io.openWorldView(e)) },
-				...(editor.worldMap ? [{ kind: 'action' as const, label: 'Edit Here (Open the Block Around the Camera)', disabled: !backend || ui.busy, run: withEngine((e) => io.editWorldHere(e)) }] : []),
+				...(editor.worldMap || (editor.regionBlock && prefs.worldAround)
+					? [{ kind: 'action' as const, label: 'Edit Here (Open the Block Around the Camera)', disabled: !backend || ui.busy, run: withEngine((e) => io.editWorldHere(e)) }]
+					: []),
 				{ kind: 'sep' },
 				// Projects (#48): a project folder and the client it edits, with the recent ones to switch to.
 				{ kind: 'action', label: ui.project ? `Project: ${ui.project.name}…` : 'Project…', disabled: !backend, run: () => (ui.dialog = 'project') },
@@ -404,6 +406,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'check', label: 'Show chunk lines', checked: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines) },
 				{ kind: 'check', label: 'Reference Image… (trace a plan of your own)', checked: ui.referenceWindow, toggle: () => (ui.referenceWindow = !ui.referenceWindow) },
 				{ kind: 'check', label: 'Far Horizon (the map around a region)', checked: prefs.showHorizon, toggle: () => (prefs.showHorizon = !prefs.showHorizon) },
+				{ kind: 'check', label: 'World Around the Block (the client’s tiles past a region)', checked: prefs.worldAround, toggle: () => (prefs.worldAround = !prefs.worldAround) },
 				{ kind: 'check', label: 'Bounding boxes (one per model)', checked: prefs.showBoxes, toggle: () => (prefs.showBoxes = !prefs.showBoxes) },
 				{ kind: 'check', label: 'Hover outline (what a click would select)', checked: prefs.hoverOutline, toggle: () => (prefs.hoverOutline = !prefs.hoverOutline) },
 				{ kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },

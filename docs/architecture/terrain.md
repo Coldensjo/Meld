@@ -429,8 +429,30 @@ mask/liquid, image codec or native/game rendering contracts.
   (`loadAreas`) while Detail info is on, so the zone has its name without the Map data tool. Copy
   Teleport (`teleportAtCursor`) takes that streamed cursor too, and Launch and Play Here (`playerSpot`)
   stand on the streamed ground (`WorldStream.heightAt`; the streamed models are look-only, so no floor),
-  on the map's own ID (`openMapId`, #754) in the whole map's frame (#756). Not yet: editing
-  in the world view itself.
+  on the map's own ID (`openMapId`, #754) in the whole map's frame (#756).
+- **The world around a region** (#15, the owner's choice of 2026-10-30, "A a": editing stays the block
+  editor, and a region gets the world around it): with View › World Around the Block on
+  (`prefs.worldAround`, the default), `Engine.updateSurround` gives the active region tab of the
+  client's tiles (not a single building's) a second `WorldStream`, `MapDocument.surround`, made with
+  the block (`around`): it leaves the block's tiles out of what it streams and of its horizon (`skip`),
+  and works in the region's frame (its groups sit at minus the block's corner, `originX`/`originZ`;
+  `update`, `heightAt` and the models' spots are converted, and the painted tiles' `paintOrigin` is
+  their corner less it). Its models go into a look-only `ObjectLayer` of their own,
+  `MapDocument.surroundObjects`, over a flat stand-in `Terrain` (`surroundGround`), never into the
+  region's `objects`, so no save, compile, fingerprint, selection, object list or check reaches one;
+  the frame updates and culls it beside `objects` (doodads to the client's reach, as a world view's)
+  and poses its animated types, but it has no lights, flames, particles, WMO rooms or model boxes yet.
+  A model the region holds by unique ID (`RegionRef.uids`) is left out of the neighbour tiles that also
+  list it (`heldUids`). The stream is keyed by the block (`surroundKey`), so growing or reopening the
+  block starts it again, and the preference going off lets it go with its models (`releaseModels`).
+  The region's own horizon (`HorizonLayer`) is hidden while it runs; the stream's stands in. The
+  camera may leave the block for the whole map (`applyBounds`: `CameraController.boundsX0`/`boundsZ0`),
+  and off the block its ground is the stream's. Nothing happens on its own when it leaves: File › Edit
+  Here in a region tab, with the camera's target past the block, opens the block there in a new tab
+  (or switches to one holding it), the region staying open with its edits; over the block it says so.
+  The streamed models and textures landing hold the far shadow map as a world view's do; a change to
+  the region's own (`SCENE_OWN` in `shadowSceneChanged`) still redraws it at once. The probe runner
+  turns the preference off before every probe (`P.flyingStart`), so only `world-around` streams.
 - **Growing a region**: the File menu's extend entries (`lib/ui/menus.ts`, shown for a region) call
   `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

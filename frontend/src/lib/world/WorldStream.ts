@@ -106,6 +106,10 @@ function liquidGeometryOf(liquids: readonly TileLiquid[], stride: GroundStride):
  * being read, the map's WDL horizon stands in, as a region's far horizon does (`HorizonLayer`). Each
  * tile's liquids (`/wow/groundliquids`, its MCLQ layers) are read with its ground and drawn in `water`
  * with a region's liquid material, at the ground's stride (`liquidMesh`).
+ *
+ * A region tab runs one too, around its block (#15, the owner's choice of 2026-10-30: the region tab
+ * gets the world around it): `around` is the block, whose own tiles it leaves out (the region's terrain
+ * draws them), and the stream then works in the region's frame, the block's corner at its origin.
  */
 export class WorldStream {
 	readonly group = new THREE.Group()
@@ -114,6 +118,13 @@ export class WorldStream {
 	/** The map's tiles with an ADT, by tileKey; null until /wow/tiles answers. */
 	private tiles: Map<number, StreamTile> | null = null
 	private have = new Set<number>()
+	/** The tiles of `have` it streams: all but the block's around a region. */
+	private wantable = new Set<number>()
+	/** The block's tiles (tileKey) around a region, which the region draws: neither streamed nor under the horizon. */
+	private readonly skip = new Set<number>()
+	/** The map frame's point at the stream's origin, in yards: the block's corner around a region, 0 for a world view. */
+	readonly originX: number
+	readonly originZ: number
 	private loads = 0
 	/** The tiles to load, nearest first; worked out again when the camera crosses a tile or the reach changes. */
 	private queue: number[] = []
@@ -127,7 +138,7 @@ export class WorldStream {
 	private disposed = false
 	/** Why the map's tile list could not be read, '' when it was. */
 	error = ''
-	/** The loaded tiles' models in `objects`, each placed once however many tiles list it. */
+	/** The loaded tiles' models in `objects` (none without one), each placed once however many tiles list it. */
 	private models = new TileModelShare()
 	/** A dropped tile took models away since `takeDropped` was last asked. */
 	private dropped = false
@@ -152,18 +163,31 @@ export class WorldStream {
 	private waiting = new Set<StreamTile>()
 
 	/**
-	 * `objects` is the world view's document's layer, whose terrain is a flat stand-in: `groundAt` is
-	 * its height, which a model's height above it (`yOff`) is taken from. `terrainMaterial` is the
-	 * stand-in's material, whose light the painted tiles share.
+	 * `objects` is the layer the tiles' models go in, null for none; its terrain is a flat stand-in:
+	 * `groundAt` is its height, which a model's height above it (`yOff`) is taken from.
+	 * `terrainMaterial` is the material whose light the painted tiles share (the world view's stand-in's,
+	 * or a region's terrain's). `around` is the block of a region tab the stream surrounds, and `heldUids`
+	 * the unique IDs of the models the region holds (`RegionRef.uids`): the client lists a model in every
+	 * tile it overlaps, so a neighbour tile lists some of the block's, which the region draws itself.
 	 */
 	constructor(
 		readonly mapName: string,
-		private objects: ObjectLayer,
+		private objects: ObjectLayer | null,
 		private groundAt: (x: number, z: number) => number,
 		terrainMaterial: THREE.ShaderMaterial,
+		around?: { x: number; y: number; size: number },
+		private heldUids: ReadonlySet<number> = new Set(),
 	) {
 		this.painter = new WorldPainter(terrainMaterial)
-		this.group.name = 'world'
+		this.originX = (around?.x ?? 0) * TILE_YARDS
+		this.originZ = (around?.y ?? 0) * TILE_YARDS
+		if (around) for (let y = around.y; y < around.y + around.size; y++) for (let x = around.x; x < around.x + around.size; x++) this.skip.add(tileKey(x, y))
+		// The tiles' meshes stay in the map's frame; the groups move them into the stream's.
+		for (const g of [this.group, this.water]) {
+			g.position.set(-this.originX, 0, -this.originZ)
+			g.updateMatrix()
+		}
+		this.group.name = around ? 'world around' : 'world'
 		this.water.name = 'world liquids'
 		// Drawn after the terrain and models, as a region's liquids.
 		this.water.renderOrder = 10
@@ -207,6 +231,7 @@ export class WorldStream {
 						gen: 0,
 					})
 					this.have.add(key)
+					if (!this.skip.has(key)) this.wantable.add(key)
 				}
 				this.planX = NaN
 			})
@@ -216,19 +241,21 @@ export class WorldStream {
 			})
 	}
 
-	/** The map's tiles with an ADT (tileKey); empty until read. */
+	/** The map's tiles with an ADT (tileKey), the block's around a region too; empty until read. */
 	get tileKeys(): ReadonlySet<number> {
 		return this.have
 	}
 
 	/**
-	 * Keeps the tiles within `reach` yards of the camera's eye at (x, z) loaded, each at the stride for
-	 * its distance, and lets go of those a tile further. Cheap while the camera stays in a quarter of a
-	 * tile: called every frame.
+	 * Keeps the tiles within `reach` yards of the camera's eye at (x, z) (in the stream's frame) loaded,
+	 * each at the stride for its distance, and lets go of those a tile further. Cheap while the camera
+	 * stays in a quarter of a tile: called every frame.
 	 */
 	update(x: number, z: number, reach: number) {
 		const tiles = this.tiles
 		if (!tiles) return
+		x += this.originX
+		z += this.originZ
 		this.eyeX = x
 		this.eyeZ = z
 		const q = TILE_YARDS / 4
@@ -238,7 +265,7 @@ export class WorldStream {
 			this.planX = qx
 			this.planZ = qz
 			this.planReach = reach
-			this.queue = wantedTiles(x, z, reach, this.have)
+			this.queue = wantedTiles(x, z, reach, this.wantable)
 			const keep = keepReach(reach)
 			for (const t of tiles.values()) {
 				if (!t.ground && !t.loading) continue
@@ -326,7 +353,7 @@ export class WorldStream {
 			list.length,
 			(k) => {
 				const t = list[k]
-				const on = !tiles?.get(t.key)?.mesh && tileDistance(this.eyeX, this.eyeZ, t.x, t.y) <= far
+				const on = !tiles?.get(t.key)?.mesh && !this.skip.has(t.key) && tileDistance(this.eyeX, this.eyeZ, t.x, t.y) <= far
 				if (on) shown++
 				return on
 			},
@@ -350,8 +377,10 @@ export class WorldStream {
 		return d
 	}
 
-	/** The ground's height at (x, z), NaN where no tile is loaded. */
+	/** The ground's height at (x, z) in the stream's frame, NaN where no tile is loaded. */
 	heightAt(x: number, z: number): number {
+		x += this.originX
+		z += this.originZ
 		const tx = Math.floor(x / TILE_YARDS)
 		const ty = Math.floor(z / TILE_YARDS)
 		if (tx < 0 || ty < 0 || tx > 63 || ty > 63) return NaN
@@ -360,7 +389,7 @@ export class WorldStream {
 		return groundHeight(g, (x / TILE_YARDS - tx) * GROUND_CELLS, (z / TILE_YARDS - ty) * GROUND_CELLS)
 	}
 
-	/** The loaded tile under the world point (x, z), with what has been read of it, or null for none. */
+	/** The loaded tile under the point (x, z) of the map's frame, with what has been read of it, or null for none. */
 	tileAt(x: number, z: number): WorldTileData | null {
 		const tx = Math.floor(x / TILE_YARDS)
 		const ty = Math.floor(z / TILE_YARDS)
@@ -442,16 +471,18 @@ export class WorldStream {
 		this.loads++
 		try {
 			const query = `map=${encodeURIComponent(this.mapName)}&x=${t.x}&y=${t.y}`
-			// The models are read beside the ground; a tile whose models fail still shows its ground.
-			const models = fetch(`/wow/groundmodels?${query}`)
-				.then(async (r) => {
-					if (!r.ok) throw new Error((await r.text()).trim() || `${r.status}`)
-					return ((await r.json()) as TileModel[] | null) ?? []
-				})
-				.catch((err): TileModel[] => {
-					console.warn(`the models of tile ${this.mapName} ${t.x}_${t.y} not read`, err)
-					return []
-				})
+			// The models are read beside the ground (with a layer to place them in); a tile whose models fail still shows its ground.
+			const models: Promise<TileModel[]> = !this.objects
+				? Promise.resolve([])
+				: fetch(`/wow/groundmodels?${query}`)
+						.then(async (r) => {
+							if (!r.ok) throw new Error((await r.text()).trim() || `${r.status}`)
+							return ((await r.json()) as TileModel[] | null) ?? []
+						})
+						.catch((err): TileModel[] => {
+							console.warn(`the models of tile ${this.mapName} ${t.x}_${t.y} not read`, err)
+							return []
+						})
 			// So are the liquids; a tile whose liquids fail shows its ground dry.
 			const liquids = fetch(`/wow/groundliquids?${query}`)
 				.then(async (r) => {
@@ -466,7 +497,7 @@ export class WorldStream {
 			if (!res.ok) throw new Error((await res.text()).trim() || `${res.status}`)
 			const ground = parseGround(await res.arrayBuffer())
 			const image = t.file ? await fetchImage(t.file).catch(() => null) : null
-			const placed = await models
+			const placed = (await models).filter((m) => !m.uid || !this.heldUids.has(m.uid))
 			const wet = await liquids
 			// Let go of while it was read (the camera moved off, or the tab closed).
 			if (this.disposed || t.gen !== gen) return
@@ -500,7 +531,7 @@ export class WorldStream {
 			const p = parsePaint(await res.arrayBuffer())
 			// Let go of while it was read (the camera moved off, the tile was dropped or the tab closed).
 			if (this.disposed || t.paintGen !== gen || !t.mesh) return
-			const painted = this.painter.paint(t.x, t.y, p)
+			const painted = this.painter.paint(t.x, t.y, p, this.originX, this.originZ)
 			if (!painted) throw new Error("the world view's palette is full")
 			t.paint = painted
 			t.paintIn = p
@@ -574,13 +605,15 @@ export class WorldStream {
 		this.water.add(mesh)
 	}
 
-	/** Places one of a tile's models in the document's layer, at its height in the client. */
+	/** Places one of a tile's models in the layer, at its height in the client. */
 	private place(m: TileModel): number {
-		return this.objects.add({
+		const x = m.x - this.originX
+		const z = m.z - this.originZ
+		return this.objects!.add({
 			type: m.type,
-			x: m.x,
-			z: m.z,
-			yOff: m.y - this.groundAt(m.x, m.z),
+			x,
+			z,
+			yOff: m.y - this.groundAt(x, z),
 			rotY: m.rotY,
 			scale: m.scale,
 			tiltX: m.tiltX,
@@ -602,7 +635,7 @@ export class WorldStream {
 		this.dropPaint(t)
 		t.paintFailed = false
 		this.models.drop(t.key, (id) => {
-			this.objects.remove(id)
+			this.objects?.remove(id)
 			this.dropped = true
 		})
 		if (!t.mesh) return

@@ -187,6 +187,22 @@ export class MapDocument {
 	 * placed and taken away by the stream. Null for every other map.
 	 */
 	world: WorldStream | null = null
+	/**
+	 * For a region of the client's tiles, the world around its block (#15, View › World Around the
+	 * Block): the map's other tiles streamed around the camera, in the region's frame, look-only. It is
+	 * not the map: nothing saves, compiles or edits it. Kept by `Engine.updateSurround`, keyed by the
+	 * block (`surroundKey`, '' for none).
+	 */
+	surround: WorldStream | null = null
+	surroundKey = ''
+	/**
+	 * The world around's models (`surround`), in a look-only layer of their own over a flat stand-in
+	 * ground (`surroundGround`, so a model's `yOff` is its height), never the region's `objects`: so no
+	 * save, compile, selection, object list or check reaches one. The frame updates, culls and animates
+	 * it beside `objects` (Engine.updateSurround).
+	 */
+	surroundObjects: ObjectLayer | null = null
+	surroundGround: Terrain | null = null
 
 	constructor(size: number, name: string, cellSize = CELL_SIZE) {
 		this.terrain = new Terrain(size, cellSize)
@@ -224,6 +240,7 @@ export class MapDocument {
 	/** Adds every model type the map holds or draws to `into`: its objects, spawns and tufts (#505). */
 	modelTypes(into: Set<string>): Set<string> {
 		this.objects.modelTypes(into)
+		this.surroundObjects?.modelTypes(into)
 		this.spawnLayer.modelTypes(into)
 		this.groundEffects.modelTypes(into)
 		return into
@@ -236,12 +253,17 @@ export class MapDocument {
 	sceneObjects(): THREE.Object3D[] {
 		const list: THREE.Object3D[] = [this.terrain.group, this.water.mesh, this.water.floor, this.objects.group, this.groundEffects.group, this.spawnLayer.group, this.liquidRenderer.group]
 		if (this.world) list.push(this.world.group, this.world.water)
+		if (this.surround) list.push(this.surround.group, this.surround.water)
+		if (this.surroundObjects) list.push(this.surroundObjects.group)
 		return list
 	}
 
 	dispose() {
 		// First: it takes its models out of `objects`.
 		this.world?.dispose()
+		this.surround?.dispose()
+		this.surroundObjects?.dispose()
+		this.surroundGround?.dispose()
 		this.groundEffects.dispose()
 		this.terrain.dispose()
 		this.water.dispose()

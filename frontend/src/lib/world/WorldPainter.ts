@@ -64,9 +64,10 @@ export class WorldPainter {
 
 	/**
 	 * The material for tile (x, y)'s paint `p`, or null when the shared palette has no room left for
-	 * its textures (the tile then keeps its minimap image).
+	 * its textures (the tile then keeps its minimap image). (ox, oz) is the map's point at the scene's
+	 * origin (a region's block corner, `WorldStream.originX`), 0 for a world view.
 	 */
-	paint(x: number, y: number, p: TilePaintIn): PaintedTile | null {
+	paint(x: number, y: number, p: TilePaintIn, ox = 0, oz = 0): PaintedTile | null {
 		const entries: number[] = []
 		const take = (path: string) => {
 			const i = this.slots.acquire(path)
@@ -91,7 +92,7 @@ export class WorldPainter {
 		const u = m.uniforms
 		for (const k of SHARED) u[k] = this.source.uniforms[k]
 		u.palette = this.paletteUniform
-		;(u.paintOrigin.value as THREE.Vector2).set(x * TILE_YARDS, y * TILE_YARDS)
+		;(u.paintOrigin.value as THREE.Vector2).set(x * TILE_YARDS - ox, y * TILE_YARDS - oz)
 		// The client's own paint, as it has it: no rock on the slopes, and no sea of the editor's.
 		u.cliffAuto.value = 0
 		u.waterEnabled.value = 0

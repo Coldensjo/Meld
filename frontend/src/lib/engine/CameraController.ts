@@ -35,7 +35,10 @@ export class CameraController {
 	distance = 90
 	minDistance = 4
 	maxDistance = 900
+	/** The side of the square the target stays in (with a tenth over each edge), from (boundsX0, boundsZ0). */
 	bounds = 512
+	boundsX0 = 0
+	boundsZ0 = 0
 	/** Preferences: multipliers for move speed / mouse orbit, and Y inversion. */
 	speed = 1
 	sensitivity = 1
@@ -315,8 +318,8 @@ export class CameraController {
 	}
 
 	private clampTarget() {
-		this.target.x = THREE.MathUtils.clamp(this.target.x, -this.bounds * 0.1, this.bounds * 1.1)
-		this.target.z = THREE.MathUtils.clamp(this.target.z, -this.bounds * 0.1, this.bounds * 1.1)
+		this.target.x = THREE.MathUtils.clamp(this.target.x, this.boundsX0 - this.bounds * 0.1, this.boundsX0 + this.bounds * 1.1)
+		this.target.z = THREE.MathUtils.clamp(this.target.z, this.boundsZ0 - this.bounds * 0.1, this.boundsZ0 + this.bounds * 1.1)
 	}
 
 	update(dt: number) {

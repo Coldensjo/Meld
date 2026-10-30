@@ -23,6 +23,7 @@ export const VIEW_PREFS = [
 	'showTerrain',
 	'showWater',
 	'showObjects',
+	'worldAround',
 	'showDoodads',
 	'showBuildings',
 	'showMonsters',

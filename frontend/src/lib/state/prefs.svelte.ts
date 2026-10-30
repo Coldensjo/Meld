@@ -29,6 +29,11 @@ export function defaultPrefs() {
 		minimapAllModels: false,
 		/** View › Far Horizon: past an open region, the map's coarse WDL ground in the fog colour, as the client draws it. */
 		showHorizon: true,
+		/**
+		 * View › World Around the Block (#15): a region tab streams the client's tiles of its map past the
+		 * block, as a world view does, look-only; only the block is edited.
+		 */
+		worldAround: true,
 		/** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
 		showBoxes: false,
 		/** View › Hover outline (#641): a faint stroke round the model or spawn a Select click would pick. */

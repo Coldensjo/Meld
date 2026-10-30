@@ -55,6 +55,9 @@ saved views are in the Bookmarks menu.
 2. Move to the area you want, then choose **File › Edit Here (Open the Block Around the Camera)**.
    Select a project if asked. Meld opens the available block around the camera target in a region
    tab, or switches to an already-open region containing it. The world-view tab stays open.
+   With **View › World Around the Block** on (the default), a region tab also streams the client's
+   tiles past its block, look-only, so you can fly on from it; Edit Here there, with the camera past
+   the block's edge, opens the block under the camera in a new tab and leaves the region open.
 3. Edit and Save As a working copy in that region tab. Compile separately to update the client;
    browsing the world view is not a save or publish operation.
 
@@ -387,6 +390,9 @@ before changing your map. See [asset troubleshooting](troubleshooting.md).
 - **World View** streams nearby terrain/models and shows a coarse horizon beyond them. Ground
   detail and small-doodad reach vary with distance; absence at a distance is not proof of missing
   map data. Use Edit Here for authoring, as described [above](#explore-a-world-then-open-an-editable-block).
+- **View › World Around the Block** draws the same streamed tiles around a region tab's block. Only
+  the block is edited, saved and compiled; the brushes stop at its edge, and the streamed ground and
+  models outside it cannot be selected. Turn it off to draw the block alone (and the coarse horizon).
 - Models load asynchronously; failed models can remain placeholders. Far models may use simplified
   geometry; picking uses the full model. Instances of one animated model share an idle pose/clock,
   not independent gameplay animation states.

@@ -671,6 +671,10 @@ the same scene, the report before and after.
   probe runner starts every probe in Flying View (`P.flyingStart`, the camera the probes were written
   for), so a hand-written scene or a probe that places the camera by target and distance must still set
   `cameraFollowGround: true` (#256).
+- Trap: the runner also turns View › World Around the Block off before every probe (`worldAround`, on by
+  default since #15): a region in a probe draws its block alone, as the probes were written for. A probe
+  of the world around a region turns it on (`world-around`); a hand-written scene in the dev page gets
+  the user's own setting, so a region there streams its neighbour tiles too.
 
 ## Index of feature checks
 
@@ -745,7 +749,7 @@ the same scene, the report before and after.
 - Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
 - Cutting holes in a selected area (probe `undo-sculpt`)
 - Map Properties' world settings are undoable (#571, probe `world-settings`)
-- The world view: streamed tiles and Edit Here (#15, probe `world-view`), its minimap (probe `world-minimap`), Detail info in it (probe `world-detail`), its own map's ID (probe `world-map-id`, #754), Launch and Copy Teleport in it (probe `world-teleport`, #756), and a flight through it (probe `perf-world-flight`, #742)
+- The world view: streamed tiles and Edit Here (#15, probe `world-view`), the world around a region (probe `world-around`), its minimap (probe `world-minimap`), Detail info in it (probe `world-detail`), its own map's ID (probe `world-map-id`, #754), Launch and Copy Teleport in it (probe `world-teleport`, #756), and a flight through it (probe `perf-world-flight`, #742)
 
 ### Tools and placing models (`docs/tests/tools.md`)
 
