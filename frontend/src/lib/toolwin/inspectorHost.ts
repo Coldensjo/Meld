@@ -92,9 +92,9 @@ export function localSpawnActions(onswitch?: (o: vmangos.WorldSpawn) => void): S
 			}
 			selectSpawn(drawn)
 			if (drawn.kind === 'object') {
-				if (ui.objectEditor?.key) ui.objectEditor = { key, entry: drawn.entry }
+				if (ui.objectEditor?.key || editorWindowTarget.object?.key) ui.objectEditor = { key, entry: drawn.entry }
 			}
-			// A creature editor open on a spawn in its own window (#915) moves to the picked one too, asking there about its unsaved edits.
+			// A creature or object editor open on a spawn in its own window (#915, #916) moves to the picked one too, asking there about its unsaved edits.
 			else if (ui.creatureEditor?.key || editorWindowTarget.creature?.key) ui.creatureEditor = { key, entry: drawn.entry }
 		},
 		poolSetting: (key, vals, label) => change(key, (s) => ({ changes: poolSettingChanges(editor.spawns, s, vals), label: `${label} (pool ${s.pool})` })),

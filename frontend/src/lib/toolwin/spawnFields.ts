@@ -1,4 +1,4 @@
-// What the creature editor (and, later, the object editor) does on the map (#915): the spawn fields'
+// What the creature and object editors do on the map (#915, #916): the spawn fields'
 // edits (components/SpawnFields.svelte), each an undo step of the main page's History, selecting another
 // spawn, and a saved template applied to its spawns on the map. In the main page these run on the Engine
 // (lib/toolwin/spawnFieldsHost.svelte.ts); in an editor's own OS window each is a `map` command sent to the
@@ -37,6 +37,10 @@ export interface MapActions extends SpawnPanelActions {
 	placeCreature(t: vmangos.CreatureTemplate): void
 	/** Opens the creature guide (CreaturesWorkspace). */
 	openCreatures(): void
+	/** The object template was saved: its spawns on the map take the new values, as one undo step (#916). */
+	applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>): void | Promise<void>
+	/** Makes the template the Place tool's object, in the Select tool. */
+	placeObject(t: vmangos.ObjectTemplate): void
 }
 
 /** The actions that go to the main page as a `map` command: all but the gear picker, which an editor's window opens itself. */
@@ -64,6 +68,8 @@ const CALLS: Record<MapCallName, true> = {
 	applyCreatureTemplate: true,
 	placeCreature: true,
 	openCreatures: true,
+	applyObjectTemplate: true,
+	placeObject: true,
 }
 export const MAP_CALL_NAMES = Object.keys(CALLS) as MapCallName[]
 

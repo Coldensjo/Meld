@@ -15,6 +15,7 @@ export const EDITOR_WINDOWS = {
 	spell: 'spellEditor',
 	quest: 'questEditor',
 	creature: 'creatureEditor',
+	object: 'objectEditor',
 } as const
 
 export type EditorKind = keyof typeof EDITOR_WINDOWS
@@ -62,11 +63,13 @@ function giverOf(v: unknown): QuestGiverRef | undefined {
 	return { kind: v.kind, id: v.id, name: v.name, ready: v.ready }
 }
 
-/** What an editor's `ui` slot holds: an entry, a quest's giver, and the spawn (its spawnKey, or null) a creature's editor was opened from. */
+/** What an editor's `ui` slot holds: an entry, a quest's giver, the spawn (its spawnKey, or null) a creature's or object's editor was opened from, and the tab an object's opens on. */
 export interface SlotTarget {
 	entry: number
 	giver?: QuestGiverRef
 	key?: string | null
+	/** The object editor's Edit text… (#916). */
+	tab?: 'text'
 }
 
 /** The value of the editor's `ui` slot the window's arguments open it on: an entry (0, find one, when they hold none), a quest's giver, and a creature's spawn. */
@@ -74,6 +77,10 @@ export function slotTarget(kind: EditorKind, args: Record<string, string | undef
 	const t = editorTarget(args)
 	const entry = typeof t?.entry === 'number' ? t.entry : 0
 	if (kind === 'creature') return { key: typeof t?.key === 'string' ? t.key : null, entry }
+	if (kind === 'object') {
+		const key = typeof t?.key === 'string' ? t.key : null
+		return t?.tab === 'text' ? { key, entry, tab: 'text' } : { key, entry }
+	}
 	const giver = kind === 'quest' ? giverOf(t?.giver) : undefined
 	return giver ? { entry, giver } : { entry }
 }
@@ -127,6 +134,8 @@ export interface EditorForget {
 	questLists?: boolean
 	/** The creature displays the display picker lists (DisplayPicker's forgetCreatureDisplays), after a creature's save or copy (#915). */
 	creatureDisplays?: boolean
+	/** The object templates the spawn browser lists (SpawnBrowser's forgetObjectTemplates) and the object displays (DisplayPicker's forgetObjectDisplays), after an object's save or new one (#916). */
+	objectTemplates?: boolean
 }
 
 /** An editor window's commands to the main page. */
@@ -175,6 +184,7 @@ export function readEditorCommand(cmd: ToolCommand): EditorCommand | null {
 					quests: numbers(f.quests),
 					questLists: f.questLists === true,
 					creatureDisplays: f.creatureDisplays === true,
+					objectTemplates: f.objectTemplates === true,
 				},
 			}
 		}

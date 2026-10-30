@@ -8,7 +8,8 @@
 	import { runMapCall, type SpawnFieldsView } from '../lib/toolwin/spawnFields'
 	import { EDITOR_PREF_KEYS, EDITOR_WINDOWS, editorArgs, readEditorCommand, type EditorForget, type EditorKind, type EditorPrefs, type EditorView } from '../lib/toolwin/editors'
 	import { nativeToolWindows, onToolCommand, onToolWindowClosed, openToolWindow, publishToolState } from '../lib/toolwin/host'
-	import { forgetCreatureDisplays } from './DisplayPicker.svelte'
+	import { forgetCreatureDisplays, forgetObjectDisplays } from './DisplayPicker.svelte'
+	import { forgetObjectTemplates } from './SpawnBrowser.svelte'
 	import { forgetLooks } from '../lib/wow/itemDisplays'
 	import { forgetItemIcons, forgetItemRow } from '../lib/wow/items'
 	import { forgetName, forgetSpellTables } from '../lib/wow/refNames'
@@ -89,6 +90,10 @@
 		// The quest editor saved givers, made or deleted a quest (#914): the creature or object editor's Quests tab here reads its lists again.
 		if (f.questLists) ui.questsVersion++
 		if (f.creatureDisplays) forgetCreatureDisplays()
+		if (f.objectTemplates) {
+			forgetObjectTemplates()
+			forgetObjectDisplays()
+		}
 	}
 
 	onMount(() => {

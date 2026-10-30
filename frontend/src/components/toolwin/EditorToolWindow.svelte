@@ -39,6 +39,7 @@
 		spell: () => import('../SpellEditor.svelte'),
 		quest: () => import('../QuestEditor.svelte'),
 		creature: () => import('../CreatureEditor.svelte'),
+		object: () => import('../ObjectEditor.svelte'),
 	}
 
 	// svelte-ignore state_referenced_locally

@@ -1,4 +1,4 @@
-// The two sides of the creature editor's map actions (#915, spawnFields.ts). In the main page they run on
+// The two sides of the creature and object editors' map actions (#915, #916, spawnFields.ts). In the main page they run on
 // the Engine and the editor state; in an editor's own window they are `map` commands to the main page, and
 // what the spawn fields read is the copy the main page publishes (EditorToolWindow.svelte sets it here).
 import { editor, ui } from '../state/editor.svelte'
@@ -46,6 +46,12 @@ export function localMapActions(onswitch?: (o: vmangos.WorldSpawn) => void): Map
 			editor.tool = 'select'
 		},
 		openCreatures: () => (ui.creatures = true),
+		applyObjectTemplate: async (entry, now, was) => void (await e()?.applyObjectTemplate(entry, now, was)),
+		placeObject(t) {
+			ui.placeObject = t
+			ui.placeCreature = null
+			editor.tool = 'select'
+		},
 	}
 }
 

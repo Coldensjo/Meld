@@ -38,6 +38,7 @@ var toolWindowKinds = map[string]toolWindowKind{
 	"spell":    {title: "Spells", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 	"quest":    {title: "Quests", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 	"creature": {title: "Creatures", width: 1400, height: 900, minWidth: 960, minHeight: 560},
+	"object":   {title: "Game objects", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 }
 
 // toolWindowPrefix starts the Wails name of every tool window, followed by its kind.

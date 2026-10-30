@@ -2,13 +2,15 @@
 	import { untrack } from 'svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
-	import { engineRef } from '../lib/state/engineRef'
+	import { shareForget } from '../lib/toolwin/editorPage'
+	import type { SlotTarget } from '../lib/toolwin/editors'
+	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
 	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups, pageColumn } from '../lib/world/objectFields'
-	import { objectEntryFields, selectSpawn } from '../lib/world/spawnEdits'
+	import { objectEntryFields } from '../lib/world/spawnEdits'
 	import { objectTypeName, spawnType } from '../lib/world/spawnInfo'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import CreaturePreview from './CreaturePreview.svelte'
@@ -36,6 +38,15 @@
 	// sounds the game plays near the object, its display's sound slots in the client's
 	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save. Text (#139) edits what a
 	// readable object (a tombstone, a plaque, a note) says, its page_text pages, saved with the same Save.
+
+	// In the desktop app it opens as its own OS window (#916, components/toolwin/EditorToolWindow.svelte), as
+	// the creature editor does: it runs whole on that page's own `ui.objectEditor` and tells the window when it
+	// has unsaved changes. What it does on the map (the spawn's fields and its change to another object, a
+	// saved template applied to its spawns, Place in world, a pool mate picked) goes through mapActions
+	// (lib/toolwin/spawnFieldsHost.svelte.ts): in its window each is a command the main page runs as an undo
+	// step of its History; the spawn it shows is the main page's selected one.
+	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
+	const map = mapActions()
 
 	type Tab = 'spawn' | 'object' | 'display' | 'text' | 'sounds' | 'contents' | 'quests' | 'find' | 'new'
 
@@ -108,6 +119,27 @@
 	const unsaved = $derived(changeCount > 0 || lootDirty || pagesDirty || soundsDirty)
 	/** Anything unsaved at all, the quests (saved apart) too: what closing asks about. */
 	const anyUnsaved = $derived(ed.unsaved)
+	$effect(() => onunsaved?.(anyUnsaved))
+
+	/** Opens the editor on `t` (its window was opened again on another object or spawn, or on its Text tab), asking about unsaved changes first. */
+	export function openTarget(t: SlotTarget) {
+		const next = t.tab ? { key: t.key ?? null, entry: t.entry, tab: t.tab } : { key: t.key ?? null, entry: t.entry }
+		if (!target) ui.objectEditor = next
+		else if (target.key !== next.key || target.entry !== next.entry) ed.leave(() => (ui.objectEditor = next))
+		else if (next.tab) tab = next.tab
+	}
+
+	/** Closes the editor, asking first with unsaved changes: its window's own close button (#916). */
+	export function askClose() {
+		ed.close()
+	}
+
+	/** Forgets the object templates and displays the lists read, here and in the main page. */
+	function forgetObjects() {
+		forgetObjectTemplates()
+		forgetObjectDisplays()
+		shareForget({ objectTemplates: true })
+	}
 	// The model of the template's display, for the preview and the Display box's note.
 	let templateModel = $state('')
 	$effect(() => {
@@ -189,9 +221,8 @@
 				const before = { ...saved }
 				await SaveObject(r.entry, r.patch, changes)
 				ed.markSaved()
-				forgetObjectTemplates()
-				forgetObjectDisplays()
-				await engineRef.current?.applyObjectTemplate(r.entry, values, before)
+				forgetObjects()
+				await map.applyObjectTemplate(r.entry, $state.snapshot(values), before)
 			}
 			const rows = (await lootTab?.save()) ?? -1
 			const pages = (await pagesTab?.save()) ?? -1
@@ -246,9 +277,7 @@
 
 	function place() {
 		if (!record) return
-		ui.placeObject = templateOf(record.entry, saved)
-		ui.placeCreature = null
-		editor.tool = 'select'
+		map.placeObject(templateOf(record.entry, $state.snapshot(saved)))
 		ed.close(true)
 		setStatus(`Click the ground to place ${saved.name}. Shift+click places more; Esc stops.`, 10000)
 	}
@@ -294,7 +323,7 @@
 	/** A pool mate was picked: the editor moves to it, once unsaved changes are dealt with. */
 	function switchTo(o: vmangos.WorldSpawn) {
 		const go = () => {
-			selectSpawn(o)
+			selectSpawnOnMap(o)
 			ui.objectEditor = { key: spawnKey(o), entry: o.entry }
 		}
 		ed.leave(go)
@@ -304,7 +333,7 @@
 		const s = spawn
 		if (!s || t.entry === s.entry) return
 		hovered = null
-		void engineRef.current?.editSpawn(spawnKey(s), objectEntryFields(t), `Change ${s.name} to ${t.name}`)
+		map.edit(spawnKey(s), objectEntryFields(t), `Change ${s.name} to ${t.name}`)
 	}
 
 	// A new object: from scratch or as a copy of the one that was open.
@@ -335,8 +364,7 @@
 			const base = copyThis && copySource ? copySource.entry : 0
 			const entry = await CreateObject(base, name)
 			newName = ''
-			forgetObjectTemplates()
-			forgetObjectDisplays()
+			forgetObjects()
 			templates = []
 			ui.objectEditor = { key: null, entry }
 			setStatus(`Made game object ${entry}, ${name}. Edit it, save, then place it.`, 8000)

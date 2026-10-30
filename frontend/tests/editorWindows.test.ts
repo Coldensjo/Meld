@@ -31,7 +31,8 @@ test('each window kind has its own slot, among the editor slots', () => {
 	expect(editorKindOf('spellEditor')).toBe('spell')
 	expect(editorKindOf('questEditor')).toBe('quest')
 	expect(editorKindOf('creatureEditor')).toBe('creature')
-	expect(editorKindOf('objectEditor')).toBe('')
+	expect(editorKindOf('objectEditor')).toBe('object')
+	expect(editorKindOf('characterEditor')).toBe('')
 	for (const slot of Object.values(EDITOR_WINDOWS)) expect(EDITOR_SLOTS as readonly string[]).toContain(slot)
 })
 
@@ -47,23 +48,26 @@ test('an editor window command is read only when well formed', () => {
 	expect(readEditorCommand({ type: 'prefs', prefs: { itemSort: 'quality', itemSortDesc: 'yes', theme: 'light' } })).toEqual({ type: 'prefs', prefs: { itemSort: 'quality' } })
 	expect(readEditorCommand({ type: 'forget', forget: { items: [3, 'x', 4], looks: true } })).toEqual({
 		type: 'forget',
-		forget: { items: [3, 4], itemIcons: false, looks: true, spells: undefined, spellTables: false, quests: undefined, questLists: false, creatureDisplays: false },
+		forget: { items: [3, 4], itemIcons: false, looks: true, spells: undefined, spellTables: false, quests: undefined, questLists: false, creatureDisplays: false, objectTemplates: false },
 	})
 	// A spell's save (#913): its row and name, and the tables when it added an icon.
 	expect(readEditorCommand({ type: 'forget', forget: { spells: [133, null], spellTables: true } })).toEqual({
 		type: 'forget',
-		forget: { items: undefined, itemIcons: false, looks: false, spells: [133], spellTables: true, quests: undefined, questLists: false, creatureDisplays: false },
+		forget: { items: undefined, itemIcons: false, looks: false, spells: [133], spellTables: true, quests: undefined, questLists: false, creatureDisplays: false, objectTemplates: false },
 	})
 	// A quest's save (#914): its name, and the Quests tabs' lists.
-	expect(readEditorCommand({ type: 'forget', forget: { quests: [7], questLists: true, creatureDisplays: false } })).toEqual({
+	expect(readEditorCommand({ type: 'forget', forget: { quests: [7], questLists: true, creatureDisplays: false, objectTemplates: false } })).toEqual({
 		type: 'forget',
-		forget: { items: undefined, itemIcons: false, looks: false, spells: undefined, spellTables: false, quests: [7], questLists: true, creatureDisplays: false },
+		forget: { items: undefined, itemIcons: false, looks: false, spells: undefined, spellTables: false, quests: [7], questLists: true, creatureDisplays: false, objectTemplates: false },
 	})
 	expect(readEditorCommand({ type: 'forget' })).toBeNull()
 	expect(readEditorCommand({ type: 'hello' })).toBeNull()
 	// It went over Wails as JSON.
 	const sent = JSON.parse(JSON.stringify({ type: 'forget', forget: { itemIcons: true } }))
-	expect(readEditorCommand(sent)).toEqual({ type: 'forget', forget: { items: undefined, itemIcons: true, looks: false, spells: undefined, spellTables: false, quests: undefined, questLists: false, creatureDisplays: false } })
+	expect(readEditorCommand(sent)).toEqual({
+		type: 'forget',
+		forget: { items: undefined, itemIcons: true, looks: false, spells: undefined, spellTables: false, quests: undefined, questLists: false, creatureDisplays: false, objectTemplates: false },
+	})
 })
 
 test("a creature's spawn goes through the window's query (#915)", () => {
@@ -115,4 +119,18 @@ test("a creature window's map actions and its open target reach the main page as
 	expect(readEditorCommand({ type: 'target', target: null })).toEqual({ type: 'target', target: null })
 	expect(readEditorCommand({ type: 'target', target: { key: 5 } })).toBeNull()
 	expect(readEditorCommand({ type: 'forget', forget: { creatureDisplays: true } })).toMatchObject({ type: 'forget', forget: { creatureDisplays: true } })
+})
+
+test("an object's spawn and its Text tab go through the window's query, and its map actions reach the main page (#916)", () => {
+	expect(editorKindOf('objectEditor')).toBe('object')
+	expect(slotTarget('object', editorArgs({ key: 'o:12', entry: 1731 }))).toEqual({ key: 'o:12', entry: 1731 })
+	expect(slotTarget('object', editorArgs({ key: 'o:12', entry: 2000, tab: 'text' }))).toEqual({ key: 'o:12', entry: 2000, tab: 'text' })
+	expect(slotTarget('object', editorArgs({ key: null, entry: 0, tab: 'spawn' }))).toEqual({ key: null, entry: 0 })
+	const sent: MapCall[] = []
+	const act = remoteMapActions((c) => sent.push(JSON.parse(JSON.stringify(c))), { chooseWeapon: () => {}, spawns: () => [], keyOf: () => '' })
+	act.applyObjectTemplate(1731, { name: 'New' }, { name: 'Old' })
+	act.placeObject({ entry: 1731, name: 'Copper Vein', type: 3, display: 310, size: 1, model: 'x.mdx' })
+	expect(sent.map((c) => c.name)).toEqual(['applyObjectTemplate', 'placeObject'])
+	for (const c of sent) expect(readEditorCommand({ type: 'map', ...c })).toEqual({ type: 'map', ...c })
+	expect(readEditorCommand({ type: 'forget', forget: { objectTemplates: true } })).toMatchObject({ type: 'forget', forget: { objectTemplates: true } })
 })

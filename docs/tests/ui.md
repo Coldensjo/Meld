@@ -263,6 +263,28 @@ the editor moves to it and the map selects it. Click Main hand…: the picker op
   `asset GET /?target=...&window=creature` and the `CreatureEditor` chunk, and `EnumWindows` lists a
   window titled Creatures.
 
+## The game object editor as its own OS window (#916)
+
+Checks: in the desktop app Database › Game Objects…, a spawn's right-click Edit object… and Edit text…,
+the Inspector's button and the spawn browser open the game object editor as its own OS window, titled
+Game objects, on the creature editor's flow (above): its target's spawn `key` and `tab` (Edit text…) go
+through the window's query (`slotTarget`), and what it does on the map goes to the main page as `map`
+commands run on `localMapActions`: Which object (`edit`, the spawn turned into another object), every This
+spawn field, the Contents tab's respawn time, a pool mate picked, Place in world (`placeObject`) and, after
+a save, `applyObjectTemplate`, each an undo step of the main window's History. A save or New object sends
+`forget` with `objectTemplates`. The spawn it shows is the main page's selected one, so an undo in the main
+window that turns the spawn back makes the Object tab follow it. On the browser page it stays full screen.
+The shapes: `bun test tests/editorWindows.test.ts`.
+
+By hand, in `make dev` or the built `build/bin/Meld.exe` (Windows; the Linux build needs a Linux machine):
+right-click a game object spawn (a vein), Edit object…: it opens in its own window. On This spawn pick
+another object: the spawn on the map changes, and one Undo in the main window brings it back (the editor
+follows). Edit text… on a readable object opens the window on its Text tab.
+
+- Without a hand at the desktop: `MELD_DEBUG_WINDOWS=object` (above, #917) opens the window on Find object;
+  the session log shows `asset GET /?window=object`, the `ObjectEditor` chunk and a `channel toolwin:cmd
+  object: target` line.
+
 ## What the built app did: the debug log (#626)
 
 Checks: whether the built app (not `make dev`) asked for a file or met an error, without a throwaway

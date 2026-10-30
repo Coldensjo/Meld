@@ -5,7 +5,7 @@
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { RowList } from '../lib/ui/rowList.svelte'
-	import { engineRef } from '../lib/state/engineRef'
+	import { mapActions } from '../lib/toolwin/spawnFieldsHost.svelte'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { objectTypeName } from '../lib/world/spawnInfo'
 	import { QUALITY_VARS } from '../lib/wow/itemTooltip'
@@ -153,7 +153,8 @@
 	/** The spawn's respawn time, as one undo step, as the This spawn tab sets it. */
 	function respawn(min: number, max: number) {
 		if (!spawn) return
-		void engineRef.current?.editSpawn(spawnKey(spawn), { respawnSecs: Math.max(0, min), respawnMaxSecs: Math.max(0, min, max) }, `Respawn time (${spawn.name})`)
+		// In the object editor's own window (#916) a command to the main page, an undo step there.
+		mapActions().edit(spawnKey(spawn), { respawnSecs: Math.max(0, min), respawnMaxSecs: Math.max(0, min, max) }, `Respawn time (${spawn.name})`)
 	}
 	const secs = (e: Event) => {
 		const v = (e.currentTarget as HTMLInputElement).valueAsNumber
