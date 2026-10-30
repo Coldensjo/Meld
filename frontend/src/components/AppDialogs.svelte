@@ -130,10 +130,9 @@
 {#if ui.dialog === 'about'}
 	<Modal title="About Meld" onclose={close}>
 		<div class="about">
-			<div class="logo">⛰</div>
 			<div>
 				<p class="name">Meld <span>v{APP_VERSION}</span></p>
-				<p>A 3D world editor for building WoW-style landscapes: sculpt terrain, paint textures, shape water and roads, and place doodads and buildings.</p>
+				<p>A world editor for building World of Warcraft: sculpt terrain, paint textures, shape water and roads, and place doodads and buildings.</p>
 				<p class="dim">Built with Wails (Go), Svelte 5 and Three.js.</p>
 				<p class="dim">
 					Models and textures are read at runtime from your own World of Warcraft 1.12 client. No game assets are included with or distributed by this application. World of Warcraft is a trademark of Blizzard Entertainment, Inc.;
@@ -444,11 +443,6 @@
 	.about {
 		display: flex;
 		gap: 14px;
-	}
-	.logo {
-		font-size: 40px;
-		line-height: 1;
-		color: var(--accent-text);
 	}
 	.name {
 		margin-top: 0;
