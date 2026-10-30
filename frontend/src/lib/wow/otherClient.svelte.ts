@@ -1,5 +1,5 @@
 import { BrowseOtherClient, ImportOtherAssets, OpenOtherClient } from '../wails/App'
-import type { main } from '../wails/models'
+import type { main, wow } from '../wails/models'
 import { EventsOn } from '../wails/runtime'
 import { hasBackend } from '../io/backend'
 import { prefs } from '../state/editor.svelte'
@@ -89,9 +89,10 @@ export async function forgetOtherClient(path: string): Promise<void> {
 /**
  * Copies the other client's assets at `paths` with what they need into the current client's patch
  * (Go's `ImportOtherAssets`), then has the asset browser list the client again when they went in.
+ * A file the current client has a different copy of is written over only as `opts` allow (#878).
  */
-export async function importOther(paths: string[]): Promise<main.AssetsImported> {
-	const res = await ImportOtherAssets(paths)
+export async function importOther(paths: string[], opts: wow.ImportOptions = { replaceAssets: false, replaceNeeded: false }): Promise<main.AssetsImported> {
+	const res = await ImportOtherAssets(paths, opts)
 	if (res.files > 0 && !res.waiting) refreshAssetLists()
 	if (res.files > 0 && res.waiting) listOnceWritten()
 	return res

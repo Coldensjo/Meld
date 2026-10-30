@@ -108,6 +108,17 @@ func m2Refs(b []byte) (textures, models []string) {
 	return textures, models
 }
 
+// ImportOptions are the opt-ins to replace what the current client has a different copy of (#878).
+// Without them nothing it already shows changes.
+type ImportOptions struct {
+	// ReplaceAssets writes a chosen asset whose own file the current client has a different copy of,
+	// instead of refusing it (Differs).
+	ReplaceAssets bool `json:"replaceAssets"`
+	// ReplaceNeeded writes a file an imported asset needs that the current client has a different
+	// copy of, instead of keeping the current client's (Kept).
+	ReplaceNeeded bool `json:"replaceNeeded"`
+}
+
 // ImportPlan is what importing assets from one client into another writes and finds.
 type ImportPlan struct {
 	// Files are the files to write into the current client's patch.
@@ -120,19 +131,24 @@ type ImportPlan struct {
 	Present []string
 	// Refused are the chosen assets left out, each with the reason.
 	Refused []string
+	// Differs are the refused assets whose own file the current client has a different copy of: the
+	// ones ReplaceAssets would import.
+	Differs []string
 	// Kept are the files an imported asset needs that the current client has a different copy of:
 	// the current client's stays, so what already uses it doesn't change.
 	Kept []string
 	// Missing are the files an imported asset names that neither client has.
 	Missing []string
+	// Replaced are the files written over a different copy the current client has (ImportOptions).
+	Replaced []string
 }
 
 // PlanImport works out what copying the assets at paths (models, buildings or textures) from src
 // into dst takes: each asset's own file and every file it needs, read from src, less the ones dst
-// has already. A file dst has a different copy of is never replaced: an asset whose own file differs
-// is refused, and a needed file that differs is kept as dst has it (Kept), so nothing the current
-// client shows changes.
-func PlanImport(src, dst *Client, paths []string) (ImportPlan, error) {
+// has already. A file dst has a different copy of is replaced only as opts allow: otherwise an asset
+// whose own file differs is refused (Differs), and a needed file that differs is kept as dst has it
+// (Kept), so nothing the current client shows changes.
+func PlanImport(src, dst *Client, paths []string, opts ImportOptions) (ImportPlan, error) {
 	var plan ImportPlan
 	if src == dst {
 		return plan, errors.New("the other client is the current one")
@@ -140,7 +156,7 @@ func PlanImport(src, dst *Client, paths []string) (ImportPlan, error) {
 	// seen are the files an earlier asset took care of, written are those of them it writes, and
 	// chosen the assets already answered for.
 	seen, written, chosen := map[string]bool{}, map[string]bool{}, map[string]bool{}
-	kept, missing := map[string]bool{}, map[string]bool{}
+	kept, missing, replaced := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, root := range paths {
 		root = strings.ReplaceAll(strings.TrimSpace(root), "/", `\`)
 		rk := strings.ToLower(root)
@@ -162,7 +178,8 @@ func PlanImport(src, dst *Client, paths []string) (ImportPlan, error) {
 			plan.Refused = append(plan.Refused, fmt.Sprintf("%s: not in the other client (%v)", root, err))
 			continue
 		}
-		if have, err := dst.read(root); err == nil && !bytes.Equal(have, b) {
+		if have, err := dst.read(root); err == nil && !bytes.Equal(have, b) && !opts.ReplaceAssets {
+			plan.Differs = append(plan.Differs, root)
 			plan.Refused = append(plan.Refused, root+": the current client has a different file there, which Meld doesn't replace")
 			continue
 		}
@@ -170,6 +187,7 @@ func PlanImport(src, dst *Client, paths []string) (ImportPlan, error) {
 		// known to fit, so one that doesn't leaves none of its files behind.
 		var files []mpq.File
 		var size int64
+		var over []string
 		local := map[string]bool{strings.ToLower(root): true}
 		queue := []string{root}
 		for len(queue) > 0 {
@@ -195,7 +213,12 @@ func PlanImport(src, dst *Client, paths []string) (ImportPlan, error) {
 			case err != nil:
 				files = append(files, mpq.File{Name: p, Data: body})
 				size += int64(len(body))
-			case !bytes.Equal(have, body):
+			case bytes.Equal(have, body):
+			case p == root && opts.ReplaceAssets, p != root && opts.ReplaceNeeded:
+				files = append(files, mpq.File{Name: p, Data: body})
+				size += int64(len(body))
+				over = append(over, p)
+			default:
 				kept[p] = true
 			}
 		}
@@ -211,12 +234,15 @@ func PlanImport(src, dst *Client, paths []string) (ImportPlan, error) {
 			for _, f := range files {
 				written[strings.ToLower(f.Name)] = true
 			}
+			for _, p := range over {
+				replaced[p] = true
+			}
 		}
 		for k := range local {
 			seen[k] = true
 		}
 	}
-	plan.Kept, plan.Missing = sortedKeys(kept), sortedKeys(missing)
+	plan.Kept, plan.Missing, plan.Replaced = sortedKeys(kept), sortedKeys(missing), sortedKeys(replaced)
 	return plan, nil
 }
 

@@ -62,10 +62,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   asset's own file and what it names, read from the other client: an M2's hardcoded textures and its
   particles' geometry and recursion models (vanilla M2s have no `.skin` files), a WMO's groups,
   materials' textures, doodads of every set and skybox, a tileset's `_s` twin, each walked in turn. A
-  file the current client has the same is skipped; one it has a different copy of is never replaced
-  (the owner's choice A on #858 is a copy into the patch; the loop's rule): a chosen asset whose own
-  file differs is refused, a needed file that differs is kept as it is (`kept`), so nothing the current
-  client already shows changes. A file neither has is reported (`missing`). The files go into Meld's
+  file the current client has the same is skipped; one it has a different copy of is not replaced by
+  default (the owner's choice A on #858 is a copy into the patch; the loop's rule): a chosen asset whose
+  own file differs is refused (`differs`), a needed file that differs is kept as it is (`kept`), so
+  nothing the current client already shows changes. The result then offers "Replace this client's
+  copy…" for each list (#878), behind a confirm that says every map and the game show the other
+  client's version from then on and that the undo is putting `patch-3.MPQ.prev` back before the next
+  patch write: it imports again with `wow.ImportOptions` (`replaceAssets` for the refused assets,
+  `replaceNeeded` with the last import's paths for the kept files), and the files written over the
+  current client's copy come back as `replaced`. The patch write's `Forget` drops what Meld decoded
+  from them. A file neither has is reported (`missing`). The files go into Meld's
   patch through `queueClientFiles` (at once, or once the game has closed, #661), at most 512 MB an
   import, and the page lists the client again (`refreshAssetLists`) once they are in.
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so

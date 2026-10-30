@@ -3,4 +3,5 @@
 import type * as M from '../../../../bindings/Meld/internal/wow/models'
 import type { V2 } from '../v2'
 
+export type ImportOptions = V2<M.ImportOptions>
 export type Status = V2<M.Status>

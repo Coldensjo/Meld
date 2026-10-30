@@ -54,15 +54,19 @@ func samePath(x, y string) bool {
 }
 
 // AssetsImported is what ImportOtherAssets did (wow.ImportPlan, less the files): the assets copied,
-// those the current client has already and those refused, the needed files kept as the current
-// client has them and those neither client has, how many files and bytes it wrote, and whether they
-// wait for the game to close before the patch has them.
+// those the current client has already and those refused (with the refused ones whose own file the
+// current client has a different copy of apart, for the dialog's Replace), the needed files kept as
+// the current client has them, those neither client has and those written over the current client's
+// copy, how many files and bytes it wrote, and whether they wait for the game to close before the
+// patch has them.
 type AssetsImported struct {
 	Imported []string `json:"imported"`
 	Present  []string `json:"present"`
 	Refused  []string `json:"refused"`
+	Differs  []string `json:"differs"`
 	Kept     []string `json:"kept"`
 	Missing  []string `json:"missing"`
+	Replaced []string `json:"replaced"`
 	Files    int      `json:"files"`
 	Bytes    int64    `json:"bytes"`
 	Waiting  bool     `json:"waiting"`
@@ -71,8 +75,8 @@ type AssetsImported struct {
 // ImportOtherAssets copies the other client's assets at paths (models, buildings, tilesets), with
 // every file each needs, into the current client's patch under the same paths, without closing the
 // game: at once, or once it has closed (#661). A file the current client has a different copy of is
-// never replaced (wow.PlanImport).
-func (a *App) ImportOtherAssets(paths []string) (AssetsImported, error) {
+// replaced only as opts allow (wow.PlanImport, #878).
+func (a *App) ImportOtherAssets(paths []string, opts wow.ImportOptions) (AssetsImported, error) {
 	if !a.other.Status().Loaded {
 		return AssetsImported{}, errors.New("no other client is open")
 	}
@@ -83,14 +87,15 @@ func (a *App) ImportOtherAssets(paths []string) (AssetsImported, error) {
 	if !a.wow.Status().Loaded {
 		return AssetsImported{}, errors.New("the current client isn't loaded")
 	}
-	plan, err := wow.PlanImport(a.other, a.wow, paths)
+	plan, err := wow.PlanImport(a.other, a.wow, paths, opts)
 	if err != nil {
 		return AssetsImported{}, err
 	}
 	// Lists, never null, for the page.
 	list := func(s []string) []string { return append([]string{}, s...) }
 	res := AssetsImported{
-		Imported: list(plan.Imported), Present: list(plan.Present), Refused: list(plan.Refused), Kept: list(plan.Kept), Missing: list(plan.Missing),
+		Imported: list(plan.Imported), Present: list(plan.Present), Refused: list(plan.Refused), Differs: list(plan.Differs),
+		Kept: list(plan.Kept), Missing: list(plan.Missing), Replaced: list(plan.Replaced),
 		Files: len(plan.Files), Bytes: plan.Bytes,
 	}
 	if len(plan.Files) == 0 {

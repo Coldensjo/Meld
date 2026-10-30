@@ -10,12 +10,14 @@
 	import { prefs, wow } from '../lib/state/editor.svelte'
 	import { hasBackend } from '../lib/io/backend'
 	import { browseOther, clientId, forgetOtherClient, importOther, listOther, openOther, other, saveOtherClient } from '../lib/wow/otherClient.svelte'
-	import type { main } from '../lib/wails/models'
+	import { askConfirm } from '../lib/state/confirm'
+	import type { main, wow as wowModels } from '../lib/wails/models'
 
 	// Tools › Import from Another Client… (#858): another client's models, buildings and textures as
 	// thumbnails, read-only; the chosen ones go into the current client's patch with every file they
 	// need, under the same paths (Go's ImportOtherAssets). A file the current client has a different
-	// copy of is never replaced. The clients are the preferences' saved list, a name and a folder each.
+	// copy of is replaced only when asked after an import that met one, behind a warning (#878). The
+	// clients are the preferences' saved list, a name and a folder each.
 
 	let { onclose }: { onclose: () => void } = $props()
 
@@ -39,6 +41,8 @@
 	let loadingList = $state(false)
 	let busy = $state(false)
 	let result = $state<main.AssetsImported | null>(null)
+	/** What the last import was asked, for its Replace buttons. */
+	let last: { paths: string[]; opts: wowModels.ImportOptions } = { paths: [], opts: { replaceAssets: false, replaceNeeded: false } }
 	let failure = $state('')
 	let newPath = $state('')
 	let picked = $state('')
@@ -109,18 +113,36 @@
 		chosen = chosenSet.has(it.key) ? chosen.filter((k) => k !== it.key) : [...chosen, it.key]
 	}
 
-	async function runImport() {
+	async function runImport(paths = chosen.map(pathOf), opts: wowModels.ImportOptions = { replaceAssets: false, replaceNeeded: false }) {
 		busy = true
 		failure = ''
 		result = null
+		last = { paths, opts }
 		try {
-			result = await importOther(chosen.map(pathOf))
+			result = await importOther(paths, opts)
 			chosen = []
 		} catch (e) {
 			failure = String(e)
 		} finally {
 			busy = false
 		}
+	}
+
+	const REPLACE_WARNING =
+		'The current client then reads the other client’s version of these files: every map and the game show it from then on, and Meld has no command to take it out again. ' +
+		'To undo, close Meld and the game and put Data\\patch-3.MPQ.prev (the patch as it was) back over patch-3.MPQ, before Meld writes the patch again.'
+
+	/** Imports the refused assets again, writing their own files over the current client's. */
+	async function replaceAssets(paths: string[]) {
+		if (!(await askConfirm(`Replace this client’s copy of ${plural(paths.length, 'asset')} with the other client’s? ${REPLACE_WARNING}`, { title: 'Replace this client’s files', ok: 'Replace' }))) return
+		// A plain list, not the result's reactive one, for the binding.
+		await runImport([...paths], { replaceAssets: true, replaceNeeded: false })
+	}
+
+	/** Imports the last import's assets again, writing the needed files kept as they were over the current client's. */
+	async function replaceKept(n: number) {
+		if (!(await askConfirm(`Replace this client’s copy of the ${plural(n, 'file')} the imported assets need with the other client’s? ${REPLACE_WARNING}`, { title: 'Replace this client’s files', ok: 'Replace' }))) return
+		await runImport(last.paths, { ...last.opts, replaceNeeded: true })
 	}
 
 	const mb = (n: number) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
@@ -211,12 +233,32 @@
 					<ul>
 						{#each result.refused as r (r)}<li>{r}</li>{/each}
 					</ul>
+					{#if result.differs.length}
+						{@const differs = result.differs}
+						<p class="replace">
+							<button class="replace-assets" disabled={busy} onclick={() => void replaceAssets(differs)}>Replace this client’s copy…</button>
+							<span class="dim">of the {plural(differs.length, 'asset')} it has a different file for</span>
+						</p>
+					{/if}
 				{/if}
 				{#if result.kept.length}
+					{@const kept = result.kept.length}
 					<details>
-						<summary>{plural(result.kept.length, 'file')} this client has a different copy of, kept as it is</summary>
+						<summary>{plural(kept, 'file')} this client has a different copy of, kept as it is</summary>
 						<ul>
 							{#each result.kept as k (k)}<li>{k}</li>{/each}
+						</ul>
+					</details>
+					<p class="replace">
+						<button class="replace-kept" disabled={busy} onclick={() => void replaceKept(kept)}>Replace this client’s copy…</button>
+						<span class="dim">of the {plural(kept, 'file')} kept</span>
+					</p>
+				{/if}
+				{#if result.replaced.length}
+					<details>
+						<summary class="warn">{plural(result.replaced.length, 'file')} written over this client’s copy (patch-3.MPQ.prev holds the patch as it was)</summary>
+						<ul>
+							{#each result.replaced as r (r)}<li>{r}</li>{/each}
 						</ul>
 					</details>
 				{/if}
@@ -297,6 +339,14 @@
 		max-height: 120px;
 		overflow-y: auto;
 		font: 11px var(--mono);
+	}
+	.replace {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.warn {
+		color: var(--warn);
 	}
 	.chosen {
 		margin-right: auto;

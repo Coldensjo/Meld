@@ -35,16 +35,20 @@ export interface AreaTriggerList {
 
 /**
  * AssetsImported is what ImportOtherAssets did (wow.ImportPlan, less the files): the assets copied,
- * those the current client has already and those refused, the needed files kept as the current
- * client has them and those neither client has, how many files and bytes it wrote, and whether they
- * wait for the game to close before the patch has them.
+ * those the current client has already and those refused (with the refused ones whose own file the
+ * current client has a different copy of apart, for the dialog's Replace), the needed files kept as
+ * the current client has them, those neither client has and those written over the current client's
+ * copy, how many files and bytes it wrote, and whether they wait for the game to close before the
+ * patch has them.
  */
 export interface AssetsImported {
     "imported": string[] | null;
     "present": string[] | null;
     "refused": string[] | null;
+    "differs": string[] | null;
     "kept": string[] | null;
     "missing": string[] | null;
+    "replaced": string[] | null;
     "files": number;
     "bytes": number;
     "waiting": boolean;

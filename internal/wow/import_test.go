@@ -90,7 +90,7 @@ func TestPlanImport(t *testing.T) {
 		mpq.File{Name: `World\A\Clash.m2`, Data: testM2()},
 	)
 
-	plan, err := PlanImport(src, dst, []string{`World\A\Hut.wmo`, `World/A/Tree.m2`, `Tileset\A\Grass.blp`, `World\A\Rock.m2`, `World\A\Clash.m2`, `World\A\Gone.m2`})
+	plan, err := PlanImport(src, dst, []string{`World\A\Hut.wmo`, `World/A/Tree.m2`, `Tileset\A\Grass.blp`, `World\A\Rock.m2`, `World\A\Clash.m2`, `World\A\Gone.m2`}, ImportOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,10 +126,42 @@ func TestPlanImport(t *testing.T) {
 	if len(plan.Missing) != 0 {
 		t.Errorf("missing %v, want none", plan.Missing)
 	}
+	if want := []string{`World\A\Clash.m2`}; !reflect.DeepEqual(plan.Differs, want) || len(plan.Replaced) != 0 {
+		t.Errorf("differs %v, want %v; replaced %v, want none", plan.Differs, want, plan.Replaced)
+	}
+
+	// The opt-ins (#878): ReplaceAssets writes the clashing model itself but keeps its needed files
+	// as the current client has them; ReplaceNeeded writes the tree's bark over ours.
+	plan, err = PlanImport(src, dst, []string{`World\A\Clash.m2`, `World\A\Tree.m2`}, ImportOptions{ReplaceAssets: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{`World\A\Clash.m2`, `World\A\Tree.m2`}; !reflect.DeepEqual(plan.Imported, want) || len(plan.Refused) != 0 || len(plan.Differs) != 0 {
+		t.Errorf("replace assets: imported %v, want %v; refused %q", plan.Imported, want, plan.Refused)
+	}
+	if want := []string{`World\A\Clash.m2`}; !reflect.DeepEqual(plan.Replaced, want) || !reflect.DeepEqual(plan.Kept, []string{`World\A\Bark.blp`}) {
+		t.Errorf("replace assets: replaced %v, want %v; kept %v", plan.Replaced, want, plan.Kept)
+	}
+	plan, err = PlanImport(src, dst, []string{`World\A\Tree.m2`, `World\A\Clash.m2`}, ImportOptions{ReplaceNeeded: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{`World\A\Bark.blp`}; !reflect.DeepEqual(plan.Replaced, want) || len(plan.Kept) != 0 || len(plan.Differs) != 1 {
+		t.Errorf("replace needed: replaced %v, want %v; kept %v; differs %v", plan.Replaced, want, plan.Kept, plan.Differs)
+	}
+	var bark string
+	for _, f := range plan.Files {
+		if f.Name == `World\A\Bark.blp` {
+			bark = string(f.Data)
+		}
+	}
+	if bark != "bark, theirs" {
+		t.Errorf("replace needed wrote bark %q", bark)
+	}
 
 	// A texture neither client has is reported, and the model still comes.
 	src2 := openTestClient(t, mpq.File{Name: `World\B\Lamp.m2`, Data: testM2(`World\B\Glow.blp`)})
-	plan, err = PlanImport(src2, dst, []string{`World\B\Lamp.m2`})
+	plan, err = PlanImport(src2, dst, []string{`World\B\Lamp.m2`}, ImportOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +169,7 @@ func TestPlanImport(t *testing.T) {
 		t.Errorf("files %d, missing %v", len(plan.Files), plan.Missing)
 	}
 
-	if _, err := PlanImport(dst, dst, nil); err == nil {
+	if _, err := PlanImport(dst, dst, nil, ImportOptions{}); err == nil {
 		t.Error("a client imported into itself")
 	}
 }

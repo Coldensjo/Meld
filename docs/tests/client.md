@@ -518,15 +518,24 @@ with every file they need into the current client's patch under the same paths.
   its doodad with the doodad's textures; a tileset brings its `_s` twin; a needed texture the current
   client has a different copy of is kept, a chosen model it has a different copy of is refused, one it
   has the same is `present`, one the other client lacks refused, a texture neither has `missing`; a
-  client into itself refused). `TestImportOtherAssets` (in the root package: no other client open is
-  an error, the current client's folder can't be opened as the other one, the tileset and its twin
-  land in `patch-3.MPQ`, and a second import finds them present).
+  client into itself refused; #878's opt-ins: `ReplaceAssets` writes the clashing model but keeps its
+  needed files, `ReplaceNeeded` writes the other client's bark, each listed in `Replaced`).
+  `TestImportOtherAssets` (in the root package: no other client open is an error, the current
+  client's folder can't be opened as the other one, the tileset and its twin land in `patch-3.MPQ`, a
+  second import finds them present, and a tileset the current client has a different copy of is
+  refused, then replaced with `ReplaceAssets` and read at once by the open client).
+- Trap (Go test): close an `mpq.Open` of the patch before the next write, and register the current
+  client with `vmangos.SetClientReader` as `app.go` does, or the write fails with "patch-3.MPQ is in
+  use" on Windows.
 - Probe: `other-client`: the real client is read as the other one while the throwaway client
   (`P.sandboxClient`) is the current one, so the two hold the same files. Adding the real folder in the
   dialog opens it; "Only what this client lacks" leaves nothing; unticked, "barrel" lists tiles with the
   `has` badge and a thumbnail; `fetchMesh` of an `@<id>:` path gives textures with the same prefix that
   load; importing the chosen tile reports it as one the client has already, nothing is written (the
-  real patch keeps its size and time), and Close closes the other client. About 5 s.
+  real patch keeps its size and time); with a stand-in `ImportOtherAssets` answering a clash (#878),
+  "Replace this client's copy…" under Not imported asks first and imports the refused asset again with
+  `replaceAssets`, the one under the kept files imports the last paths again with `replaceNeeded`, and
+  the written-over list shows; Close closes the other client. About 6 s.
 - Trap: the probe page can't open the current client as the other one (refused), so a probe needs the
   sandbox on to read the real client beside it. The dev page has no folder dialog: type the folder and
   press Add.

@@ -522,10 +522,10 @@ export function ImportItems(path: string): $CancellablePromise<number[] | null> 
  * ImportOtherAssets copies the other client's assets at paths (models, buildings, tilesets), with
  * every file each needs, into the current client's patch under the same paths, without closing the
  * game: at once, or once it has closed (#661). A file the current client has a different copy of is
- * never replaced (wow.PlanImport).
+ * replaced only as opts allow (wow.PlanImport, #878).
  */
-export function ImportOtherAssets(paths: string[] | null): $CancellablePromise<$models.AssetsImported> {
-    return $Call.ByID(3220663819, paths);
+export function ImportOtherAssets(paths: string[] | null, opts: wow$0.ImportOptions): $CancellablePromise<$models.AssetsImported> {
+    return $Call.ByID(3220663819, paths, opts);
 }
 
 /**
