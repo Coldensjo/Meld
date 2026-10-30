@@ -85,6 +85,10 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   every `WORLD_FAR_FRAMES` (30) frames (`Engine.markShadows`, #15): streaming tiles change the scene on
   most frames, and each far redraw there is about 2,000 calls and 5 ms of shadow pass. A held change
   is drawn once the frames are up; a far fit moving, a preference or a tab switch still redraws at once.
+  What that pass draws (#898, perf-world-flight's start view over Goldshire, far texel 2.3 yd): 1,995
+  calls, 1,275 of them from 28 whole WMOs (Stormwind alone 469, the dungeons under Elwynn about 590),
+  334 from 70 far WMO LODs and 386 from 171 M2 batches. Casters smaller than a far texel are 15 calls
+  and 1k triangles, so leaving them out was not worth a rule; the WMOs are where the calls are (#926).
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
   for the shadows to read.
