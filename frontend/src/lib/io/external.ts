@@ -7,6 +7,7 @@ import { hasBackend } from './backend'
 import type { Engine } from '../engine/Engine'
 import { setStatus, ui } from '../state/editor.svelte'
 import type { vmangos } from '../wails/models'
+import { editorWindowTarget } from '../toolwin/editorHost.svelte'
 import { refreshServerStatus } from './game'
 import { reloadAllSpawns, unsavedSpawnRegions } from './region'
 
@@ -30,8 +31,14 @@ export async function refreshExternal() {
  * Why the database can't be switched now, or '': an open database editor or unsaved spawn edits
  * hold rows read from the database in use, which a save would then write into the other one.
  */
+/** Whether a database editor is open, full screen in the page or in its own OS window (the window's last `target` command, null once it closes; #920). */
+export function databaseEditorOpen(): boolean {
+	if (ui.creatureEditor || ui.objectEditor || ui.questEditor || ui.itemEditor || ui.spellEditor || ui.characterEditor) return true
+	return Object.values(editorWindowTarget).some(Boolean)
+}
+
 function switchBlocked(engine: Engine | null): string {
-	if (ui.creatureEditor || ui.objectEditor || ui.questEditor || ui.itemEditor || ui.spellEditor || ui.characterEditor) return 'close the database editors first'
+	if (databaseEditorOpen()) return 'close the database editors first'
 	const unsaved = engine ? unsavedSpawnRegions(engine) : []
 	if (unsaved.length) return `save or revert the spawn changes in ${unsaved.join(', ')} first (File › Save Spawns to Database…)`
 	return ''
