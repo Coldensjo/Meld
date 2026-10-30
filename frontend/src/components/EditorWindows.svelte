@@ -7,6 +7,8 @@
 	import { localMapActions } from '../lib/toolwin/spawnFieldsHost.svelte'
 	import { runMapCall, type SpawnFieldsView } from '../lib/toolwin/spawnFields'
 	import { EDITOR_PREF_KEYS, EDITOR_WINDOWS, editorArgs, readEditorCommand, type EditorForget, type EditorKind, type EditorPrefs, type EditorView } from '../lib/toolwin/editors'
+	import { forwardedEditCommand } from '../lib/toolwin/keys'
+	import { runCommand } from '../lib/ui/runCommand'
 	import { nativeToolWindows, onToolCommand, onToolWindowClosed, openToolWindow, publishToolState } from '../lib/toolwin/host'
 	import { forgetCreatureDisplays, forgetObjectDisplays } from './DisplayPicker.svelte'
 	import { forgetObjectTemplates } from './SpawnBrowser.svelte'
@@ -102,6 +104,11 @@
 			onToolCommand(kind, (raw) => {
 				if (raw.type === 'hello') {
 					publishToolState(kind, view())
+					return
+				}
+				if (raw.type === 'key') {
+					const id = forwardedEditCommand(raw)
+					if (id) runCommand(id)
 					return
 				}
 				const cmd = readEditorCommand(raw)

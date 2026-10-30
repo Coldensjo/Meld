@@ -5,6 +5,8 @@
 	import { throttle } from '../lib/toolwin/channel'
 	import { closeToolWindow, nativeToolWindows, onToolCommand, onToolWindowClosed, openToolWindow, publishToolState } from '../lib/toolwin/host'
 	import { HISTORY_KIND, goTarget, historyView } from '../lib/toolwin/history'
+	import { forwardedEditCommand } from '../lib/toolwin/keys'
+	import { runCommand } from '../lib/ui/runCommand'
 	import HistoryList from './HistoryList.svelte'
 
 	// The History window (Edit › History, ui.history). In the desktop app it opens as its own OS window
@@ -61,7 +63,10 @@
 		if (!nativeToolWindows()) return
 		const offCommand = onToolCommand(HISTORY_KIND, (cmd) => {
 			if (cmd.type === 'hello') publishNow()
-			else {
+			else if (cmd.type === 'key') {
+				const id = forwardedEditCommand(cmd)
+				if (id) runCommand(id)
+			} else {
 				const to = goTarget(cmd, engineRef.current?.history.steps().length ?? 0)
 				if (to !== null) go(to)
 			}

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
-	import { applyLook, onToolState, sendToolCommand } from '../../lib/toolwin/client'
-	import { INSPECTOR_KIND, keyOf, remoteActions, type InspectorView } from '../../lib/toolwin/inspector'
-	import { controlKeepsKey, formField } from '../../lib/ui/keys'
+	import { applyLook, forwardKeys, onToolState, sendToolCommand } from '../../lib/toolwin/client'
+	import { INSPECTOR_KIND, remoteActions, type InspectorView } from '../../lib/toolwin/inspector'
 	import PropertiesPanel from '../PropertiesPanel.svelte'
 
 	// The Inspector in its own OS window (#910): the view of the selection the main page publishes
@@ -23,11 +22,7 @@
 
 	// The keys a field of the panel doesn't keep go to the main page, which closes the window on Esc and I
 	// and undoes or redoes on its Undo and Redo keys, as with the Inspector in the page.
-	function onkeydown(e: KeyboardEvent) {
-		const field = formField(e.target)
-		if (field === 'text' || (field === 'control' && controlKeepsKey(e))) return
-		sendToolCommand(INSPECTOR_KIND, { type: 'key', key: keyOf(e) })
-	}
+	const onkeydown = forwardKeys(INSPECTOR_KIND)
 </script>
 
 <svelte:window {onkeydown} />

@@ -85,3 +85,18 @@ test('a go command is kept to the stack', () => {
 	expect(goTarget({ type: 'go', to: '2' }, 5)).toBeNull()
 	expect(goTarget({ type: 'hello' }, 5)).toBeNull()
 })
+
+test('a forwarded key round trips and only the Undo and Redo keys run as editing commands (#919)', async () => {
+	const { keyCommand, readKeyCommand } = await import('../src/lib/toolwin/channel.ts')
+	const { forwardedEditCommand } = await import('../src/lib/toolwin/keys.ts')
+	const z = { key: 'z', code: 'KeyZ', ctrlKey: true, metaKey: false, shiftKey: false }
+	const msg = JSON.parse(JSON.stringify(keyCommand(z)))
+	expect(msg).toEqual({ type: 'key', key: z })
+	expect(readKeyCommand(msg)).toEqual(z)
+	expect(readKeyCommand({ type: 'key', key: 'z' })).toBeNull()
+	expect(readKeyCommand({ type: 'go' })).toBeNull()
+	expect(forwardedEditCommand(msg)).toBe('undo')
+	expect(forwardedEditCommand(keyCommand({ ...z, key: 'y', code: 'KeyY' }))).toBe('redo')
+	expect(forwardedEditCommand(keyCommand({ ...z, key: 'q', code: 'KeyQ' }))).toBeNull()
+	expect(forwardedEditCommand({ type: 'hello' })).toBeNull()
+})

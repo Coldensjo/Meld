@@ -1,9 +1,10 @@
 // A tool window's side of the channel (#909, channel.ts): the page of a tool window open as its own OS
 // window. It runs no Engine and holds no map; it shows the state the main page publishes and sends
 // commands back. It must not load or save prefs, nor listen to the main page's events (App.svelte's).
+import { controlKeepsKey, formField } from '../ui/keys'
 import { applyUiScale } from '../ui/uiScale'
 import { EventsBroadcast, EventsOn } from '../wails/runtime'
-import { ARGS_EVENT, CLOSE_ASKED_EVENT, COMMAND_EVENT, REPLY_EVENT, STATE_EVENT, commandMessage, isFor, readReply, readState, type StateMessage, type ToolCommand, type ToolLook } from './channel'
+import { ARGS_EVENT, CLOSE_ASKED_EVENT, COMMAND_EVENT, REPLY_EVENT, STATE_EVENT, commandMessage, isFor, keyCommand, readReply, readState, type StateMessage, type ToolCommand, type ToolLook } from './channel'
 
 /** Calls `fn` with each state the main page publishes for `kind`; returns a function that stops listening. */
 export function onToolState<S>(kind: string, fn: (msg: StateMessage<S>) => void): () => void {
@@ -38,6 +39,20 @@ export function onToolReply(kind: string, fn: (reply: Record<string, unknown>) =
 /** Sends the main page a command for the tool window of `kind`. */
 export function sendToolCommand(kind: string, cmd: ToolCommand) {
 	void EventsBroadcast(COMMAND_EVENT, commandMessage(kind, cmd))
+}
+
+/**
+ * A keydown handler for a tool window (`<svelte:window {onkeydown} />`) that forwards the keys no field
+ * keeps to the main page as `key` commands (#919), which runs Undo and Redo on them (lib/toolwin/keys.ts).
+ * A text field keeps all its keys, so the browser's own text undo works there.
+ */
+export function forwardKeys(kind: string): (e: KeyboardEvent) => void {
+	return (e) => {
+		if (e.defaultPrevented) return
+		const field = formField(e.target)
+		if (field === 'text' || (field === 'control' && controlKeepsKey(e))) return
+		sendToolCommand(kind, keyCommand(e))
+	}
 }
 
 /** Looks as the main page does: its theme and interface size. */

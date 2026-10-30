@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
-	import { applyLook, onToolState, sendToolCommand } from '../../lib/toolwin/client'
+	import { applyLook, forwardKeys, onToolState, sendToolCommand } from '../../lib/toolwin/client'
 	import { HISTORY_KIND, historyView, type HistoryCommand, type HistoryView } from '../../lib/toolwin/history'
 	import { WindowClose } from '../../lib/wails/runtime'
 	import HistoryList from '../HistoryList.svelte'
@@ -24,7 +24,12 @@
 		const cmd: HistoryCommand = { type: 'go', to }
 		sendToolCommand(HISTORY_KIND, cmd)
 	}
+
+	// Undo and Redo keys go to the main page (#919), and the list follows.
+	const onkeydown = forwardKeys(HISTORY_KIND)
 </script>
+
+<svelte:window {onkeydown} />
 
 <main class="history" aria-label="History">
 	<HistoryList {view} ongo={go} onclose={() => void WindowClose()} />

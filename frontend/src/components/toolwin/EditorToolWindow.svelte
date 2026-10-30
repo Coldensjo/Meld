@@ -2,7 +2,7 @@
 	import { onMount, type Component } from 'svelte'
 	import { editor as editorState, prefs, ui } from '../../lib/state/editor.svelte'
 	import { forwardStatus } from '../../lib/state/status.svelte'
-	import { applyLook, onToolArgs, onToolCloseAsked, onToolState, sendToolCommand } from '../../lib/toolwin/client'
+	import { applyLook, forwardKeys, onToolArgs, onToolCloseAsked, onToolState, sendToolCommand } from '../../lib/toolwin/client'
 	import { EDITOR_PREF_KEYS, EDITOR_PREF_WRITES, EDITOR_SLOTS, EDITOR_WINDOWS, queryArgs, slotTarget, type EditorKind, type EditorPrefs, type EditorView, type SlotTarget } from '../../lib/toolwin/editors'
 	import { sendEditorCommand, setEditorPage } from '../../lib/toolwin/editorPage'
 	import { mapActions, windowSpawnFields, windowWeaponPick } from '../../lib/toolwin/spawnFieldsHost.svelte'
@@ -48,6 +48,10 @@
 	setEditorPage(kind)
 	// svelte-ignore state_referenced_locally
 	Object.assign(ui, { [slot]: slotTarget(kind, queryArgs(location.search)) })
+
+	// Undo and Redo keys go to the main page (#919): the window's spawn edits are undo steps of its History.
+	// svelte-ignore state_referenced_locally
+	const onkeydown = forwardKeys(kind)
 
 	let editor = $state<EditorExports>()
 	let unsaved = false
@@ -150,6 +154,7 @@
 	})
 </script>
 
+<svelte:window {onkeydown} />
 {#await EDITORS[kind]() then m}
 	{@const Editor = m.default}
 	<Editor bind:this={editor} onunsaved={setUnsaved} />

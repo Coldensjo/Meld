@@ -5,6 +5,8 @@
 // asks for the current state with a `hello` command. Every message carries the window's kind, since
 // Go sends each event to every window. This module holds only the message shapes, so the tests load it.
 
+import type { KeyLike } from '../ui/commands'
+
 /** The event the main page publishes a tool window's state on: a {@link StateMessage}. */
 export const STATE_EVENT = 'toolwin:state'
 /** The event a tool window sends its commands on: a {@link CommandMessage}. */
@@ -39,6 +41,19 @@ export interface CommandMessage {
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+
+/** A key a tool window forwards to the main page: `{ type: 'key', key }` (the editing shortcuts, Undo and Redo, work from any tool window, #919). */
+export function keyCommand(e: KeyLike): ToolCommand {
+	return { type: 'key', key: { key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey } }
+}
+
+/** The key of a forwarded `key` command, or null when `cmd` is not a well-formed one. */
+export function readKeyCommand(cmd: ToolCommand): KeyLike | null {
+	const c = cmd as Record<string, unknown>
+	if (c.type !== 'key' || !isObject(c.key) || typeof c.key.key !== 'string') return null
+	const k = c.key
+	return { key: k.key as string, code: typeof k.code === 'string' ? k.code : '', ctrlKey: k.ctrlKey === true, metaKey: k.metaKey === true, shiftKey: k.shiftKey === true }
+}
 
 export function stateMessage<S>(kind: string, state: S, look: ToolLook): StateMessage<S> {
 	return { kind, state, look }

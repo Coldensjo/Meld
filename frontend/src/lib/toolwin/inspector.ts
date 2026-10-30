@@ -7,7 +7,7 @@
 import type { KeyLike } from '../ui/commands'
 import type { vmangos } from '../wails/models'
 import type { WorldObject } from '../world/ObjectLayer'
-import type { ToolCommand } from './channel'
+import { readKeyCommand, type ToolCommand } from './channel'
 
 /** The tool window kind of the Inspector (app_toolwindows.go's toolWindowKinds). */
 export const INSPECTOR_KIND = 'inspector'
@@ -169,11 +169,6 @@ export function cleanPatch(p: unknown): ObjectPatch {
 	return out
 }
 
-/** The key of a keydown, as a plain object that goes over the channel. */
-export function keyOf(e: KeyLike): KeyLike {
-	return { key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey }
-}
-
 /** The command if `cmd` is a well-formed Inspector command, else null. */
 export function readInspectorCommand(cmd: ToolCommand): InspectorCommand | null {
 	const c = cmd as Record<string, unknown>
@@ -186,9 +181,8 @@ export function readInspectorCommand(cmd: ToolCommand): InspectorCommand | null 
 		return { type: 'edit', commit: c.commit, patch: cleanPatch(c.patch), gesture: c.gesture }
 	}
 	if (c.type === 'key') {
-		const k = c.key
-		if (!isObject(k) || typeof k.key !== 'string') return null
-		return { type: 'key', key: { key: k.key, code: typeof k.code === 'string' ? k.code : '', ctrlKey: k.ctrlKey === true, metaKey: k.metaKey === true, shiftKey: k.shiftKey === true } }
+		const key = readKeyCommand(cmd)
+		return key ? { type: 'key', key } : null
 	}
 	return null
 }

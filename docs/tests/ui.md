@@ -98,6 +98,9 @@ open Edit › History, make an edit in the main window (the list grows), click a
 undoes to it and the status line says so), move and resize the window, close it with its ✕ (Edit ›
 History's check clears), reopen it (same place), then close the main window (History closes with it
 and the process ends; with an unsaved map the main window asks first and History stays open).
+Shortcuts (#919): with the History window focused (and likewise the Inspector's or an editor's window, outside a
+text field), Ctrl+Z and Ctrl+Y undo and redo the map and the list follows; the forwarded key's shape:
+`bun test tests/toolwin.test.ts`.
 
 - Without a hand at the desktop (#917, no scratch build): start the built app with
   `MELD_DEBUG_WINDOWS=history` (a comma-separated list of tool window kinds, e.g. `history,inspector`;
