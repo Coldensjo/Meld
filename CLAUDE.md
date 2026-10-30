@@ -292,9 +292,12 @@ These are repeated from the docs above, since breaking one breaks things far fro
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI
   framework dependency.
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
-- In agent shells, write source, edit scripts and any text with backticks, mixed quotes or backslashes
-  (client paths) with the Write and Edit tools, never a Bash heredoc: it fails to parse or halves the
-  backslashes (short heredocs, such as a commit message, are fine).
+- In agent shells, an unquoted heredoc delimiter (`<<EOF`) expands `$` and backticks and halves
+  backslashes; a quoted one (`<<'EOF'`) protects `$` and backticks, so a commit message or a
+  `--body-file` with backticks is fine that way. It still halves doubled backslashes in the agents'
+  Git Bash (`\\` comes out as `\`), so write any text with backslashes (client paths) with the Write and
+  Edit tools, never a heredoc, and write multi-line source and edit scripts that way too: a long code
+  block in a command can also trip the harness's own command parser.
 - The app ships asset-free. All models and textures come from the user's own WoW install at
   runtime; there are no built-in prefabs. The one exception is the helper shapes (`models/helpers.ts`,
   types `helper:*`, the owner's decision): generated cubes, discs, spheres and a human-height post,

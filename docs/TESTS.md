@@ -11,6 +11,16 @@ a passing unit test does not prove a shader renders or a compiled map works in t
 - Do not run builds, formatters or live-app probes against another person's active session without
   coordinating. A probe uses its own browser page, but shares the Go backend.
 - Never put Blizzard assets in committed fixtures. Use synthetic data or read a local installation.
+- In a shell, quote a heredoc's delimiter when the text holds `$` or backticks. Unquoted, the shell
+  expands them and halves backslashes; quoted, `$` and backticks pass through:
+
+  ```sh
+  cat <<EOF      # `$HOME` is expanded, and Textures\\Weather\\x.blp loses a backslash each
+  cat <<'EOF'    # `$HOME` stays as typed
+  ```
+
+  In the agents' Git Bash a quoted delimiter still halves doubled backslashes, so write text with
+  backslashes (client paths, JS strings, regexes) with the Write tool, and multi-line source too.
 - Check the exit status and skip messages. A test that skipped because the client was absent did not
   verify compatibility with that client.
 
