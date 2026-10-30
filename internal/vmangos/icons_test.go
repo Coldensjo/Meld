@@ -46,19 +46,15 @@ func iconClient(t *testing.T) string {
 	return dir
 }
 
-func TestIconName(t *testing.T) {
-	for file, want := range map[string]string{
-		filepath.Join(string(filepath.Separator)+"art", "INV_Misc_MyThing.png"): "INV_Misc_MyThing",
-		"/home/me/my icon 2.PNG": "my_icon_2",
-		"Spell-Fire.png":         "Spell-Fire",
-	} {
-		if got, err := IconName(file); err != nil || got != want {
-			t.Errorf("%s: %q %v, want %q", file, got, err, want)
+func TestCheckIconName(t *testing.T) {
+	for _, name := range []string{"INV_Misc_MyThing", "my_icon_2", "Spell-Fire"} {
+		if err := CheckIconName(name); err != nil {
+			t.Errorf("%s: %v", name, err)
 		}
 	}
-	for _, file := range []string{"bad.name.png", "über.png", ".png"} {
-		if got, err := IconName(file); err == nil {
-			t.Errorf("%s: took %q", file, got)
+	for _, name := range []string{"bad.name", "über", "", "a b", `..\up`, strings.Repeat("a", 101)} {
+		if CheckIconName(name) == nil {
+			t.Errorf("%q was taken", name)
 		}
 	}
 }
@@ -68,18 +64,20 @@ func TestPlanIconImport(t *testing.T) {
 	red := iconPNG(t, 64, color.NRGBA{255, 0, 0, 255})
 	files, names, refused, err := PlanIconImport(dir, []IconSource{
 		{Name: "Probe_New", PNG: iconPNG(t, 128, color.NRGBA{0, 0, 255, 255})},
-		{Name: "inv_misc_bag_07", PNG: red},     // the client's own, any case: kept
-		{Name: "Meld_Added", PNG: red},          // added earlier: replaced
-		{Name: "probe_new", PNG: red},           // the same name twice in one import
-		{Name: "Wide", PNG: []byte("no image")}, // not a PNG
-	})
+		{Name: "inv_misc_bag_07", PNG: red},      // the client's own, any case: kept
+		{Name: "Meld_Added", PNG: red},           // added earlier: replaced
+		{Name: "probe_new", PNG: red},            // the same name twice in one import
+		{Name: "Wide", PNG: []byte("no image")},  // not a PNG
+		{Name: "bad name", PNG: red},             // not a name
+		{Name: "Short", Pixels: []byte{1, 2, 3}}, // not a whole picture
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Join(names, ",") != "Probe_New,Meld_Added" || len(files) != 2 {
 		t.Fatalf("names %v, %d files", names, len(files))
 	}
-	if len(refused) != 3 || !strings.Contains(refused[0], "client has an icon") || !strings.Contains(refused[1], "two files") || !strings.Contains(refused[2], "PNG") {
+	if len(refused) != 5 || !strings.Contains(refused[0], "client has an icon") || !strings.Contains(refused[1], "two pictures") || !strings.Contains(refused[2], "PNG") || !strings.Contains(refused[3], "letters") || !strings.Contains(refused[4], "bytes") {
 		t.Fatalf("refused %q", refused)
 	}
 	if files[0].Name != `Interface\Icons\Probe_New.blp` {
@@ -126,7 +124,7 @@ func TestPendingIcons(t *testing.T) {
 	pendingRoot = func() string { return root }
 	defer func() { pendingRoot = old }()
 	dir := iconClient(t)
-	files, _, _, err := PlanIconImport(dir, []IconSource{{Name: "Waiting_One", PNG: iconPNG(t, 64, color.NRGBA{0, 255, 0, 255})}})
+	files, _, _, err := PlanIconImport(dir, []IconSource{{Name: "Waiting_One", PNG: iconPNG(t, 64, color.NRGBA{0, 255, 0, 255})}}, false)
 	if err != nil || len(files) != 1 {
 		t.Fatal(files, err)
 	}
@@ -147,6 +145,113 @@ func TestPendingIcons(t *testing.T) {
 	}
 	if n, _, err := ExportIcons(dir, []string{"Waiting_One"}, t.TempDir()); err != nil || n != 1 {
 		t.Fatalf("exported %d, %v", n, err)
+	}
+	ForgetIcons()
+}
+
+// iconPixels is an IconSize square RGBA picture of one colour, as the page sends it.
+func iconPixels(c color.NRGBA) []byte {
+	pix := make([]byte, wow.IconSize*wow.IconSize*4)
+	for i := 0; i < len(pix); i += 4 {
+		pix[i], pix[i+1], pix[i+2], pix[i+3] = c.R, c.G, c.B, c.A
+	}
+	return pix
+}
+
+// readIconRed is the red of the icon's top left pixel as the client reads it (Meld's patch first).
+func readIconRed(t *testing.T, dir, name string) byte {
+	t.Helper()
+	set, err := mpq.OpenDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	b, err := set.ReadFile(IconPath(name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := wow.DecodeBLP(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return img.Pix[0]
+}
+
+// Replace and Delete (#717): a client's icon is overridden in Meld's patch only with replace, and
+// deleting the override brings the client's back; an added icon deleted is gone, and one waiting is
+// dropped unwritten.
+func TestReplaceAndDeleteIcons(t *testing.T) {
+	root := t.TempDir()
+	old := pendingRoot
+	pendingRoot = func() string { return root }
+	defer func() { pendingRoot = old }()
+	dir := iconClient(t)
+	blue := iconPixels(color.NRGBA{0, 0, 255, 255})
+	files, names, refused, err := PlanIconImport(dir, []IconSource{{Name: "INV_Misc_Bag_07", Pixels: blue}, {Name: "Probe_Pixels", Pixels: blue}}, true)
+	if err != nil || len(refused) != 0 || strings.Join(names, ",") != "INV_Misc_Bag_07,Probe_Pixels" {
+		t.Fatalf("names %v, refused %v, %v", names, refused, err)
+	}
+	if _, err := InstallPatch(dir, files); err != nil {
+		t.Fatal(err)
+	}
+	if r := readIconRed(t, dir, "INV_Misc_Bag_07"); r > 20 {
+		t.Fatalf("the replaced icon reads red %d", r)
+	}
+	for name, want := range map[string]IconState{
+		"INV_Misc_Bag_07": {InPatch: true, InClient: true},
+		"Probe_Pixels":    {InPatch: true},
+		"Meld_Added":      {InPatch: true},
+		"Missing":         {},
+	} {
+		if st, err := ReadIconState(dir, name); err != nil || st != want {
+			t.Errorf("%s: %+v %v, want %+v", name, st, err, want)
+		}
+	}
+	if _, err := ReadIconState(dir, `..\up`); err == nil {
+		t.Error("a path was taken as a name")
+	}
+
+	// Waiting: an added icon the game hasn't got yet.
+	waiting, _, _, err := PlanIconImport(dir, []IconSource{{Name: "Waiting_Two", Pixels: blue}}, false)
+	if err != nil || len(waiting) != 1 {
+		t.Fatal(waiting, err)
+	}
+	if err := AddPending(dir, waiting); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := ReadIconState(dir, "Waiting_Two"); st != (IconState{Waiting: true}) {
+		t.Fatalf("waiting state %+v", st)
+	}
+
+	// Deleting the override and the added one leaves the client's icon and the waiting one alone,
+	// and takes the waiting one into the patch.
+	if _, err := RemovePatchFiles(dir, []string{IconPath("INV_Misc_Bag_07"), IconPath("Probe_Pixels")}); err != nil {
+		t.Fatal(err)
+	}
+	if r := readIconRed(t, dir, "INV_Misc_Bag_07"); r < 240 {
+		t.Fatalf("the client's icon reads red %d after the delete", r)
+	}
+	ForgetIcons()
+	list, err := ListItemIcons(dir)
+	if err != nil || strings.Join(list, ",") != "INV_Misc_Bag_07,Meld_Added,Waiting_Two" {
+		t.Fatalf("listed %v %v", list, err)
+	}
+	if st, _ := ReadIconState(dir, "Waiting_Two"); st != (IconState{InPatch: true}) {
+		t.Fatalf("the waiting icon wasn't written: %+v", st)
+	}
+
+	// A waiting icon deleted is dropped without a write.
+	if err := AddPending(dir, []mpq.File{{Name: IconPath("Waiting_Three"), Data: waiting[0].Data}}); err != nil {
+		t.Fatal(err)
+	}
+	if dropped, err := DropPendingFiles(dir, []string{IconPath("Waiting_Three")}); err != nil || !dropped {
+		t.Fatalf("dropped %v %v", dropped, err)
+	}
+	if dropped, err := DropPendingFiles(dir, []string{IconPath("Waiting_Three")}); err != nil || dropped {
+		t.Fatalf("dropped twice %v %v", dropped, err)
+	}
+	if st, _ := ReadIconState(dir, "Waiting_Three"); st != (IconState{}) {
+		t.Fatalf("the dropped icon is %+v", st)
 	}
 	ForgetIcons()
 }

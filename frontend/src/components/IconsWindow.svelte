@@ -1,11 +1,15 @@
 <script lang="ts">
-	import { ExportIcons, ExportIconsDialog, SpellsWithIcon } from '../lib/wails/App'
-	import type { vmangos } from '../lib/wails/models'
+	import { DeleteIcon, ExportIcons, ExportIconsDialog, IconState, OpenImageDialog, SpellsWithIcon } from '../lib/wails/App'
+	import type { main, vmangos } from '../lib/wails/models'
+	import { askConfirm } from '../lib/state/confirm'
+	import { forgetIconImages } from '../lib/wow/items'
+	import { forgetSpellIcons } from '../lib/wow/spells'
 	import { ui } from '../lib/state/editor.svelte'
 	import { leaveField, takeEscape } from '../lib/state/escape'
 	import { copyToClipboard } from '../lib/ui/clipboard'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import IconGrid from './IconGrid.svelte'
+	import IconGrid, { forgetIcons, importedNote } from './IconGrid.svelte'
+	import IconImportDialog from './IconImportDialog.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadItemDisplays } from './ItemLookPicker.svelte'
 
@@ -16,6 +20,9 @@
 	// that names it (an icon no spell has used has none; the spell editor adds it when a spell first
 	// takes it). Items reach an icon through their display (ItemDisplayInfo.dbc), never by an ID of it,
 	// so the tool only says which items show it (the owner's decision on #683: 1A, 2A).
+	// Replace… puts a picture over the picked icon under its name, in Meld's patch (an override for one
+	// of the client's own), and Delete… takes an icon Meld added or replaced out of the patch, after a
+	// question that counts the spells and items showing it (#717, the owner's choice: 1A).
 
 	const target = $derived(ui.iconsTool)
 
@@ -29,6 +36,13 @@
 	let note = $state('')
 	let error = $state('')
 	let root = $state<HTMLElement | null>(null)
+	/** Where the picked icon is (Meld's patch, waiting, the client's own), null while it is read. */
+	let place = $state<vmangos.IconState | null>(null)
+	/** The picture picked for Replace…, while its import step is open. */
+	let replacing = $state<string | null>(null)
+	let busy = $state(false)
+	/** Bumped after a Replace… or Delete…, so the picked icon's place and preview are read again. */
+	let changed = $state(0)
 
 	$effect(() => {
 		if (target?.icon) picked = target.icon
@@ -56,6 +70,71 @@
 			},
 		)
 	})
+
+	$effect(() => {
+		const name = picked
+		void changed
+		place = null
+		if (!name) return
+		void IconState(name).then(
+			(s) => name === picked && (place = s),
+			() => name === picked && (place = { inPatch: false, waiting: false, inClient: false }),
+		)
+	})
+
+	const deletable = $derived(!!place && (place.inPatch || place.waiting))
+
+	/** Shows the icon named name afresh, after its picture changed or went. */
+	function refresh(name: string) {
+		forgetIcons()
+		forgetIconImages([name])
+		forgetSpellIcons([name])
+		changed++
+	}
+
+	async function replacePicked() {
+		const name = picked
+		if (!name) return
+		const path = await OpenImageDialog(`Replace ${name}`).catch((e) => ((error = String(e)), ''))
+		if (!path) return
+		note = error = ''
+		replacing = path
+	}
+
+	function replaced(r: main.IconsImported) {
+		replacing = null
+		error = ''
+		if (r.names?.length) refresh(r.names[0])
+		note = importedNote(r, 'Replaced')
+	}
+
+	async function deletePicked() {
+		const name = picked
+		if (!name || !place || !deletable) return
+		const nSpells = spells?.count ?? 0
+		const users = [nSpells ? `${nSpells.toLocaleString()} spell${nSpells === 1 ? '' : 's'}` : '', items.count ? `${items.count.toLocaleString()} item${items.count === 1 ? '' : 's'}` : ''].filter(Boolean)
+		const use = users.length ? `${users.join(' and ')} use${users.length === 1 && (nSpells || items.count) === 1 ? 's' : ''} this icon` : 'No spell or item uses this icon'
+		const after = place.inClient
+			? `The client's own ${name} shows again.`
+			: users.length
+				? "They show the game's missing texture instead from its next start, until they take another icon."
+				: 'The game no longer has it from its next start.'
+		const text = `${use} (only spells and items are counted; classes, talents and the interface may use it too). Delete ${name} from Meld's patch? ${after}`
+		if (!(await askConfirm(text, { title: 'Delete an icon', ok: 'Delete' }))) return
+		busy = true
+		note = error = ''
+		try {
+			const r = await DeleteIcon(name)
+			error = ''
+			refresh(name)
+			if (!r.restored) picked = ''
+			note = r.restored ? `Deleted ${name} from Meld's patch: the client's own icon shows again.` : `Deleted ${name}.`
+		} catch (e) {
+			error = String(e)
+		} finally {
+			busy = false
+		}
+	}
 
 	/** The items whose display shows the picked icon: how many, and a few of their names. */
 	const items = $derived.by(() => {
@@ -131,13 +210,20 @@
 		{#if note}<div class="bar ok">{note}</div>{/if}
 		<div class="body">
 			<section class="grid-area">
-				<IconGrid selected={picked} iconsFirst="none" onpick={(n) => (picked = n)} onapply={(n) => copy(n, 'the name')} onhover={(n) => (hover = n)} />
+				{#key changed}<IconGrid selected={picked} iconsFirst="none" onpick={(n) => (picked = n)} onapply={(n) => copy(n, 'the name')} onhover={(n) => (hover = n)} />{/key}
 			</section>
 			<aside aria-label="The icon">
 				{#if shown}
-					<div class="stage"><ItemIcon icon={shown} size={128} /></div>
+					{#key changed}<div class="stage"><ItemIcon icon={shown} size={128} /></div>{/key}
 					<h3 class="name" title={shown}>{shown}</h3>
 					<p class="dim path">Interface\Icons\{shown}.blp</p>
+				{/if}
+				{#if picked && place && !hover}
+					<p class="dim where">
+						{place.inPatch || place.waiting
+							? `${place.inClient ? "Replaced in Meld's patch (the client's own is kept)" : "Added in Meld's patch"}${place.inPatch ? '' : ', waiting for the game to close'}.`
+							: "One of the client's own icons."}
+					</p>
 				{/if}
 				{#if picked}
 					<div class="buttons">
@@ -146,6 +232,16 @@
 							>Copy spell icon ID{spells?.spellIconId ? ` (${spells.spellIconId})` : ''}</button
 						>
 						<button onclick={exportPicked} title="Save this icon as a PNG file in a folder">Export as PNG…</button>
+						<button disabled={busy} onclick={replacePicked} title="Put a PNG picture over this icon under its name, in Meld's patch: everything showing it shows the new picture. The client's own icon is kept.">Replace…</button>
+						<button
+							disabled={busy || !deletable || !spells}
+							onclick={deletePicked}
+							title={deletable
+								? place?.inClient
+									? "Take the replacement out of Meld's patch, so the client's own icon shows again"
+									: "Take this icon out of Meld's patch"
+								: "Only an icon Meld added or replaced can be deleted: the client's own archives are never written"}>Delete…</button
+						>
 					</div>
 					<div class="uses">
 						<h4>Spells</h4>
@@ -179,6 +275,7 @@
 			</aside>
 		</div>
 	</div>
+	{#if replacing}<IconImportDialog paths={[replacing]} replace={picked} ondone={replaced} onclose={() => (replacing = null)} />{/if}
 {/if}
 
 <style>
@@ -264,7 +361,8 @@
 		overflow-wrap: anywhere;
 		user-select: text;
 	}
-	.path {
+	.path,
+	.where {
 		margin: 0;
 		overflow-wrap: anywhere;
 		user-select: text;

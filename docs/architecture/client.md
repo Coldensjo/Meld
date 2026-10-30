@@ -709,12 +709,19 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   once on screen (`ItemIcon` `lazy`).
   The icon grid (`components/IconGrid.svelte`, which `ItemLookPicker` shows for its icons; the same
   in the spell editor and the Icons tool, #683) has Import PNG… and Export … as PNG… (#364,
-  `app_icons.go`, `internal/vmangos/icons.go`, `internal/wow/icon.go`). Import takes square PNG files,
-  each named after its file (letters, digits, `_` and `-`, spaces as `_`), scaled to 64x64 by area
-  (`resample`) and written as most of the client's icons are, DXT3 with mips (`EncodeOverlayBLP`), to
-  `Interface\Icons\<name>.blp` in Meld's patch through `saveClientFiles` (at once, or once the game has
-  closed, #365); a name the client has outside Meld's patch is refused, one Meld added before is
-  replaced. A waiting icon is listed (`ListItemIcons` adds the pending files) and previewed: the asset
+  `app_icons.go`, `internal/vmangos/icons.go`, `internal/wow/icon.go`). Import takes PNG files through
+  an import step (`components/IconImportDialog.svelte`, #717): each picture under its file's name (an
+  input; letters, digits, `_` and `-`, spaces as `_`, Go's `CheckIconName`) with a 64 x 64 preview, and
+  three options kept for the session: Fit to size (on: the whole picture scaled into the icon keeping
+  its shape; off: its middle at its own size), Border (off: the client's grey bevelled frame with cut
+  corners, 4 px, drawn pixel by pixel in `lib/wow/iconPicture.ts` from colours measured on the client's
+  icons, never copied; the picture is fitted inside it) and Black background (on: each pixel over
+  black, inside the frame's outline with Border). The page makes the pixels (no editing in Go) and
+  `ImportIconPictures` writes them as most of the client's icons are, DXT3 with mips
+  (`wow.IconFromPixels`, `EncodeOverlayBLP`), to `Interface\Icons\<name>.blp` in Meld's patch through
+  `saveClientFiles` (at once, or once the game has closed, #365); a name the client has outside Meld's
+  patch is refused, one Meld added before is replaced (`PlanIconImport`, `replace` false). The PNG
+  path (`IconFromPNG`, scaled by area in `resample`) is left for the Go tests and `meldtool`. A waiting icon is listed (`ListItemIcons` adds the pending files) and previewed: the asset
   server reads waiting `Interface\Icons` files first (`wow.Client.SetOverlay`, `vmangos.PendingIcon`).
   The imported icon is picked; a spell or item that takes it adds its SpellIcon.dbc or
   ItemDisplayInfo.dbc row on Save as for any icon. Export saves the icons the grid shows (all, or the
@@ -770,7 +777,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   name), disabled when no row has it yet (the spell editor adds one when a spell first takes it).
   Items reach an icon through their ItemDisplayInfo.dbc display, so the tool only lists the items
   whose displays show it (from `ListItemDisplays`' `uses` and `names`; none without the world
-  database). It writes nothing but the PNG import, through #364's path.
+  database). It shows where the picked icon is (`IconState`: in Meld's patch, waiting, the client's
+  own). Replace… (#717, the owner's choice 1A) runs the import step on one picture under the picked
+  name with `replace`, so a client's icon is overridden in Meld's patch (the game reads the patch
+  first; the base archives are never written). Delete… takes an icon Meld added or replaced out of the
+  patch (`DeleteIcon`: `vmangos.RemovePatchFiles` writes the patch again without it through
+  `installPatch`'s `drop`, taking the waiting files along; one only waiting is dropped with
+  `DropPendingFiles`), which brings the client's picture back for an override. It asks first with how
+  many spells and items show the icon (the side's counts; classes, talents and the interface are not
+  counted, and the question says so). With the icon in the patch and the game running it refuses
+  (Windows: the game holds the patch open, and a removal can't wait as a write does); the client's
+  own icons can't be deleted.
 - **Sound tool** (`components/SoundsWindow.svelte`, `ui.soundsTool`, #684): full screen (z-index 165),
   opened by Tools › Sounds… (`{ id: 0 }`; an ID opens it on that SoundEntries row). Its Sounds tab is
   the shared `SoundPicker` (`tall`) and its Files tab every WAV and MP3 under `Sound\` (`SoundFiles`,

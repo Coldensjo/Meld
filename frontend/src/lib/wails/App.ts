@@ -54,6 +54,7 @@ export const CreateSpell: Call<AppApi['CreateSpell']> = (...a) => api().CreateSp
 export const DeleteAccount: Call<AppApi['DeleteAccount']> = (...a) => api().DeleteAccount(...a) as never
 export const DeleteCharacter: Call<AppApi['DeleteCharacter']> = (...a) => api().DeleteCharacter(...a) as never
 export const DeleteConditionText: Call<AppApi['DeleteConditionText']> = (...a) => api().DeleteConditionText(...a) as never
+export const DeleteIcon: Call<AppApi['DeleteIcon']> = (...a) => api().DeleteIcon(...a) as never
 export const DeleteItem: Call<AppApi['DeleteItem']> = (...a) => api().DeleteItem(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never
@@ -81,7 +82,8 @@ export const GameEvents: NonNullCall<AppApi['GameEvents']> = (...a) => api().Gam
 export const GameLogin: Call<AppApi['GameLogin']> = (...a) => api().GameLogin(...a) as never
 export const GameWindow: Call<AppApi['GameWindow']> = (...a) => api().GameWindow(...a) as never
 export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api().GroundEffects(...a) as never
-export const ImportIcons: Call<AppApi['ImportIcons']> = (...a) => api().ImportIcons(...a) as never
+export const IconState: Call<AppApi['IconState']> = (...a) => api().IconState(...a) as never
+export const ImportIconPictures: Call<AppApi['ImportIconPictures']> = (...a) => api().ImportIconPictures(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
 export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
 export const ImportSound: Call<AppApi['ImportSound']> = (...a) => api().ImportSound(...a) as never

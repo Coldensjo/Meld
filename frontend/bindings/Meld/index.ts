@@ -15,6 +15,8 @@ export type {
     GameLoginInfo,
     GameWindowInfo,
     HeightmapData,
+    IconDeleted,
+    IconPicture,
     IconsExported,
     IconsImported,
     LightIDs,

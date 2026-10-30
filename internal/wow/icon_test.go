@@ -84,3 +84,21 @@ func TestIconFromPNGRefuses(t *testing.T) {
 		t.Error("bytes that aren't a PNG were taken")
 	}
 }
+
+func TestIconFromPixels(t *testing.T) {
+	pix := make([]byte, IconSize*IconSize*4)
+	for i := 0; i < len(pix); i += 4 {
+		pix[i], pix[i+3] = 200, 255
+	}
+	blp, err := IconFromPixels(pix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := DecodeBLP(blp)
+	if err != nil || img.W != IconSize || img.H != IconSize || img.Pix[0] < 190 || img.Pix[3] != 255 {
+		t.Fatalf("the red picture reads %v %v", img, err)
+	}
+	if _, err := IconFromPixels(pix[:100]); err == nil {
+		t.Error("a short picture was taken")
+	}
+}

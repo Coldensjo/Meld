@@ -769,6 +769,17 @@ export interface IconSpells {
 }
 
 /**
+ * IconState says where an icon is: in Meld's patch, waiting for the game to close before the patch
+ * has it, and in the client's own archives (outside Meld's patch). Only an icon in the patch or
+ * waiting can be deleted (#717); deleting one the client has too brings the client's picture back.
+ */
+export interface IconState {
+    "inPatch": boolean;
+    "waiting": boolean;
+    "inClient": boolean;
+}
+
+/**
  * Inventory is a character's equipment, bags, bank and keyring, how many of the bank's bag slots it
  * has bought, and how many more items it keeps where the editor doesn't reach (the buyback slots).
  */

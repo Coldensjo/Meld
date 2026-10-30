@@ -54,6 +54,7 @@ export type HeightGrid = V2<M.HeightGrid>
 export type HorizonTile = V2<M.HorizonTile>
 export type IconDisplay = V2<M.IconDisplay>
 export type IconSpells = V2<M.IconSpells>
+export type IconState = V2<M.IconState>
 export type Inventory = V2<M.Inventory>
 export type InventoryItem = V2<M.InventoryItem>
 export type InventoryTemplate = V2<M.InventoryTemplate>

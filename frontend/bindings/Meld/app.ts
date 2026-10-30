@@ -297,6 +297,16 @@ export function DeleteConditionText(entry: number, textID: number): $Cancellable
 }
 
 /**
+ * DeleteIcon takes the icon named name out of Meld's patch (#717), and drops it if it waits for the
+ * game to close. Only an icon Meld added or replaced can go: the client's own archives are never
+ * written, so deleting a replaced icon brings the client's picture back. A patch the game holds open
+ * can't be written again without it, so with the icon in the patch the game must be closed first.
+ */
+export function DeleteIcon(name: string): $CancellablePromise<$models.IconDeleted> {
+    return $Call.ByID(1243629711, name);
+}
+
+/**
  * DeleteItem removes item template entry and the shop and loot rows that name it, clears the quest
  * columns that name it, and returns the SQL.
  */
@@ -502,12 +512,21 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
 }
 
 /**
- * ImportIcons adds the PNG files at paths to the client as icons under Interface\Icons, each named
- * after its file, in Meld's patch without closing anything (as the spell editor saves, #365): at once,
- * or once the game has closed. The game shows them from its next start.
+ * IconState says whether the icon named name is in Meld's patch (or waits for it) and in the client's
+ * own archives, for the Icons tool's Delete (#717).
  */
-export function ImportIcons(paths: string[] | null): $CancellablePromise<$models.IconsImported> {
-    return $Call.ByID(977777418, paths);
+export function IconState(name: string): $CancellablePromise<vmangos$0.IconState> {
+    return $Call.ByID(197901069, name);
+}
+
+/**
+ * ImportIconPictures adds the pictures to the client as icons under Interface\Icons, in Meld's patch
+ * without closing anything (as the spell editor saves, #365): at once, or once the game has closed.
+ * The game shows them from its next start. A name the client has outside Meld's patch is refused
+ * unless replace is set (the Icons tool's Replace…, #717), which overrides the client's icon.
+ */
+export function ImportIconPictures(pics: $models.IconPicture[] | null, replace: boolean): $CancellablePromise<$models.IconsImported> {
+    return $Call.ByID(301581046, pics, replace);
 }
 
 /**

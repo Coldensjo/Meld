@@ -1,4 +1,4 @@
-// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, a cost past an unsigned int is an unsaved edit (Go refuses it, a Go test; Save is never pressed), Change icon… has Import PNG… and Export all as PNG… and a search narrows the export to its matches (#364), previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written. Then the icon bindings refuse a missing PNG file and folder, and Tools › Icons… (#683) shows the same grid (IconGrid) with every icon, and a picked icon's name (Copy name puts it on the clipboard), its SpellIcon.dbc ID and the spells that show it (once the probe icons).
+// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, a cost past an unsigned int is an unsaved edit (Go refuses it, a Go test; Save is never pressed), Change icon… has Import PNG… and Export all as PNG… and a search narrows the export to its matches (#364), previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written. Then the icon bindings refuse a bad icon name, a picture of the wrong size and a missing folder, and Tools › Icons… (#683) shows the same grid (IconGrid) with every icon, and a picked icon's name (Copy name puts it on the clipboard), its SpellIcon.dbc ID and the spells that show it (once the probe icons).
 // touches: frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/lib/wow/spells.ts, internal/vmangos/spells.go, internal/vmangos/spelltext.go, frontend/src/components/SpellIcon.svelte, frontend/src/components/IconGrid.svelte, frontend/src/components/IconsWindow.svelte, app_icons.go, internal/vmangos/icons.go, internal/wow/icon.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -120,10 +120,16 @@ const newName = root().querySelector('.new-form input[type=text]')?.value
 ui.spellEditor = null
 await P.frames(1)
 
-// The icon bindings, without a dialog: a PNG that isn't there is refused by its name, a folder that isn't there too.
-// Import PNG… itself is Go's (TestPlanIconImport, TestPendingIcons); loading-screen and world-map write through P.sandboxClient.
-const { ImportIcons, ExportIcons } = window.go.main.App
-const imported = await ImportIcons(['C:/Meld-probe-missing/Probe Icon.png']).catch((e) => ({ error: String(e) }))
+// The icon bindings, without a dialog: a bad name and a picture that isn't 64 x 64 are refused (nothing written), a folder that isn't there too.
+// Import PNG… itself is icon-import's (on P.sandboxClient) and Go's (TestPlanIconImport, TestPendingIcons).
+const { ImportIconPictures, ExportIcons } = window.go.main.App
+const imported = await ImportIconPictures(
+	[
+		{ name: 'Probe Icon', pixels: '' },
+		{ name: 'Probe_Icon', pixels: btoa('short') },
+	],
+	false,
+).catch((e) => ({ error: String(e) }))
 const exported = await ExportIcons(['Spell_Fire_FlameBolt'], 'C:/Meld-probe-missing').catch((e) => ({ error: String(e) }))
 
 // Tools › Icons… (#683): the shared grid lists every icon, a search and a click pick one, and the side shows
@@ -178,8 +184,9 @@ const ok =
 	iconGrid.narrowed.icon === 'Spell_Fire_FlameBolt' &&
 	iconGrid.narrowed.exportText === 'Export 1 as PNG…' &&
 	!imported.names?.length &&
-	imported.refused?.length === 1 &&
-	imported.refused[0].startsWith('Probe_Icon:') &&
+	imported.refused?.length === 2 &&
+	imported.refused[0].startsWith('Probe Icon:') &&
+	imported.refused[1].startsWith('Probe_Icon:') &&
 	/not a folder/.test(exported.error ?? '') &&
 	iconsTool.exportText === 'Export all as PNG…' &&
 	iconsTool.name === 'Spell_Fire_FlameBolt' &&

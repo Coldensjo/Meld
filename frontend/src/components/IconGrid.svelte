@@ -1,5 +1,6 @@
 <script lang="ts" module>
-	import { ExportIcons, ExportIconsDialog, ImportIcons, ListItemIcons, OpenIconsDialog } from '../lib/wails/App'
+	import { ExportIcons, ExportIconsDialog, ListItemIcons, OpenIconsDialog } from '../lib/wails/App'
+	import type { main } from '../lib/wails/models'
 
 	// The list is read once a session; forgetIcons drops it after icons were added.
 	let icons: Promise<string[]> | null = null
@@ -16,6 +17,19 @@
 	export function forgetIcons() {
 		icons = null
 	}
+
+	/** A sentence of what an import added or refused, for the grid's and the Icons tool's notes. */
+	export function importedNote(r: main.IconsImported, verb = 'Added'): string {
+		const names = r.names ?? []
+		const parts: string[] = []
+		if (names.length) {
+			const it = names.length === 1 ? 'it' : 'them'
+			const when = r.waiting ? ` Meld's patch takes ${it} once the game has closed;` : ''
+			parts.push(`${verb} ${names.join(', ')} ${verb === 'Added' ? "to the client's icons" : "in Meld's patch"}.${when} ${r.waiting ? 'the' : 'The'} game shows ${it} from its next start.`)
+		}
+		if (r.refused?.length) parts.push(`Not ${verb === 'Added' ? 'added' : 'replaced'}: ${r.refused.join('; ')}.`)
+		return parts.join(' ')
+	}
 </script>
 
 <script lang="ts">
@@ -24,12 +38,14 @@
 	import { forgetIconImages } from '../lib/wow/items'
 	import { forgetSpellIcons } from '../lib/wow/spells'
 	import ItemIcon from './ItemIcon.svelte'
+	import IconImportDialog from './IconImportDialog.svelte'
 
 	// The grid of every icon of the client (names under Interface\Icons), shared by the item editor's
 	// and the spell editor's Change icon views and the Icons tool (#683), so the three don't diverge.
 	// A search narrows it; only the rows in view are drawn. Hovering a tile previews it, a click picks
-	// it, a double click picks it and applies it. Import PNG… adds PNG files to the client as icons
-	// and picks the first, and Export saves the icons the search shows as PNG files in a folder (#364).
+	// it, a double click picks it and applies it. Import PNG… adds PNG files to the client as icons,
+	// through the import step that fits, frames and backs them (IconImportDialog, #717), and picks the
+	// first; Export saves the icons the search shows as PNG files in a folder (#364).
 
 	interface Props {
 		/** The icon picked now, drawn highlighted. */
@@ -89,33 +105,27 @@
 
 	const plural = (n: number, one: string) => `${n.toLocaleString()} ${one}${n === 1 ? '' : 's'}`
 
+	/** The PNG files picked for the import step, while it is open. */
+	let importing = $state<string[] | null>(null)
+
 	async function importIcons() {
 		const paths = await OpenIconsDialog().catch((e) => ((error = String(e)), null))
-		if (!paths?.length) return
-		busy = true
-		error = note = ''
-		try {
-			const r = await ImportIcons(paths)
-			const names = r.names ?? []
-			const parts: string[] = []
-			if (names.length) {
-				forgetIcons()
-				forgetIconImages(names)
-				forgetSpellIcons(names)
-				iconList = await loadIcons()
-				query = names.length === 1 ? names[0] : ''
-				onpick(names[0])
-				const it = names.length === 1 ? 'it' : 'them'
-				const when = r.waiting ? ` Meld's patch takes ${it} once the game has closed;` : ''
-				parts.push(`Added ${names.join(', ')} to the client's icons.${when} ${r.waiting ? 'the' : 'The'} game shows ${it} from its next start.`)
-			}
-			if (r.refused?.length) parts.push(`Not added: ${r.refused.join('; ')}.`)
-			note = parts.join(' ')
-		} catch (e) {
-			error = String(e)
-		} finally {
-			busy = false
+		if (paths?.length) importing = paths
+	}
+
+	async function imported(r: main.IconsImported) {
+		importing = null
+		error = ''
+		const names = r.names ?? []
+		if (names.length) {
+			forgetIcons()
+			forgetIconImages(names)
+			forgetSpellIcons(names)
+			iconList = await loadIcons()
+			query = names.length === 1 ? names[0] : ''
+			onpick(names[0])
 		}
+		note = importedNote(r)
 	}
 
 	async function exportIcons() {
@@ -143,12 +153,13 @@
 	<div class="row">
 		<input type="search" placeholder="Search: an icon name, such as sword, INV_Axe or potion" bind:value={query} aria-label="Search the icons" />
 		<span class="dim">{count.toLocaleString()} icons</span>
-		<button disabled={busy} onclick={importIcons} title="Add PNG files to the client as icons, each named after its file (square; scaled to 64x64)">Import PNG…</button>
+		<button disabled={busy} onclick={importIcons} title="Add PNG files to the client as icons, each named after its file: fitted to 64 x 64, with a border and a black background if you like">Import PNG…</button>
 		<button disabled={busy || !count} onclick={exportIcons} title="Save the icons shown (all of them, or the search's matches) as PNG files in a folder">Export {count === iconList.length ? 'all' : count.toLocaleString()} as PNG…</button
 		>
 	</div>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#if note}<p class="note">{note}</p>{/if}
+	{#if importing}<IconImportDialog paths={importing} ondone={imported} onclose={() => (importing = null)} />{/if}
 	<div
 		class="grid-wrap"
 		role="listbox"

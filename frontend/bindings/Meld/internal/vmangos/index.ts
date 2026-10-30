@@ -53,6 +53,7 @@ export type {
     HorizonTile,
     IconDisplay,
     IconSpells,
+    IconState,
     Inventory,
     InventoryItem,
     InventoryTemplate,

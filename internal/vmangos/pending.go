@@ -272,3 +272,51 @@ func WithPending(pending, files []mpq.File) []mpq.File {
 	}
 	return append(out, files...)
 }
+
+// DropPendingFiles drops the files waiting for a client data folder under the given names, unwritten
+// (an added icon deleted before the patch had it, #717), and says whether one waited.
+func DropPendingFiles(dataDir string, names []string) (bool, error) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	dir := pendingDir(dataDir)
+	dropped := false
+	for _, name := range names {
+		key := pendingName(name)
+		err := os.Remove(filepath.Join(dir, key))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return dropped, err
+		}
+		dropped = true
+		loadPending()
+		delete(pendingSet.dirs[dir], key)
+	}
+	if r := heldReader(); r != nil && dropped {
+		r.Forget(names...)
+	}
+	return dropped, nil
+}
+
+// RemovePatchFiles writes Meld's patch again without the files named names, taking the waiting files
+// along as InstallWithPending does (one of those names waiting is dropped, unwritten). The game must
+// not hold the patch open (Windows); the caller checks that, as removing can't wait as a write does.
+func RemovePatchFiles(dataDir string, names []string) (string, error) {
+	patchMu.Lock()
+	defer patchMu.Unlock()
+	if _, err := DropPendingFiles(dataDir, names); err != nil {
+		return "", err
+	}
+	pending, err := PendingFiles(dataDir)
+	if err != nil {
+		return "", err
+	}
+	patch, err := installPatch(dataDir, pending, names...)
+	if err != nil || len(pending) == 0 {
+		return patch, err
+	}
+	err = ClearPending(dataDir, pending)
+	ForgetSpells()
+	return patch, err
+}

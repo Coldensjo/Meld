@@ -937,7 +937,7 @@ the same scene, the report before and after.
 - Border models in the tiles outside the block (#647)
 - A map's own loading screen (Map Properties › Picture…, #218)
 - World map of a zone (World › World Map, #181; exploration overlays, #219)
-- Icons from PNG files and back, and the Icons tool (#364, #683, probe `spell-editor`)
+- Icons from PNG files and back, and the Icons tool (#364, #683, #717, probes `spell-editor`, `icon-import`)
 - Import from another client (#858, probe `other-client`)
 - Icons beside item, spell and class names (#682, probe `editor-icons`)
 - Money as gold, silver and copper (#679, probe `money-fields`)

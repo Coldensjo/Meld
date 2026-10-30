@@ -171,14 +171,21 @@ with your backup, and repair only the affected data rather than blindly rerunnin
 
 ## Import or export icons
 
-1. Open **Tools › Icons…**, or an item/spell icon picker. Prepare square PNGs from 8 to 4096 pixels
-   on each side. Meld rescales them to 64 × 64 pixels; non-square, out-of-range or invalid PNGs
-   are refused. The filename without its extension
-   becomes the icon name: spaces become underscores; only letters, digits, underscores and hyphens
-   are allowed, with a maximum of 100 characters.
-2. Use **Import PNG…** and inspect both the accepted and refused results. Duplicate names within
-   a batch are refused. A name present in a non-Meld client archive cannot be replaced: rename it.
-   Reimporting an icon previously added only through Meld replaces that Meld icon.
+1. Open **Tools › Icons…**, or an item/spell icon picker, and use **Import PNG…**. The import step
+   shows each picture as a 64 × 64 icon under a name taken from its filename (spaces become
+   underscores; only letters, digits, underscores and hyphens, at most 100 characters), which you can
+   change there. **Fit to size** scales the whole picture into the icon keeping its shape (off, its
+   middle is kept at its own size); **Border** draws the grey bevelled frame with cut corners the
+   client's icons have; **Black background** paints black under transparent pixels.
+2. Press **Import** and inspect both the accepted and refused results. Duplicate names within a
+   batch are refused. A name present in a non-Meld client archive is refused here: to change one of
+   the client's icons, pick it in Tools › Icons… and use **Replace…**, which writes the new picture
+   under the same name into Meld's patch (the client's own file is kept). Reimporting an icon
+   previously added only through Meld replaces that Meld icon.
+   **Delete…** in Tools › Icons… takes an icon Meld added or replaced out of Meld's patch, after
+   saying how many spells and items use it (other users, such as talents and the interface, are not
+   counted). A replaced icon gets the client's picture back; an added one is gone, and whatever still
+   names it shows the game's missing texture. With the icon in the patch, close the game first.
 3. Successful imports write or queue BLP files under the client's Interface\Icons immediately.
    They do not wait for the item/spell to be saved. Cancelling the parent editor does not undo them.
    A batch can partly succeed; inspect the reported names rather than assuming all-or-nothing.

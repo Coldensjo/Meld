@@ -108,6 +108,22 @@ export interface HeightmapData {
 }
 
 /**
+ * IconDeleted is what DeleteIcon did: whether the client's own icon of that name shows again.
+ */
+export interface IconDeleted {
+    "restored": boolean;
+}
+
+/**
+ * IconPicture is a picture the page made into an icon (#717): its name under Interface\Icons and its
+ * wow.IconSize square RGBA pixels, fitted, framed and backed as the import step chose.
+ */
+export interface IconPicture {
+    "name": string;
+    "pixels": string | null;
+}
+
+/**
  * IconsExported is what ExportIcons wrote: how many PNG files, and the icons it could not read.
  */
 export interface IconsExported {
@@ -116,8 +132,8 @@ export interface IconsExported {
 }
 
 /**
- * IconsImported is what ImportIcons added: the icons' names, the files refused with the reason, and
- * whether the icons wait for the game to close before the patch has them.
+ * IconsImported is what ImportIconPictures added: the icons' names, the pictures refused with the
+ * reason, and whether the icons wait for the game to close before the patch has them.
  */
 export interface IconsImported {
     "names": string[] | null;

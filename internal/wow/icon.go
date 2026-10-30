@@ -37,6 +37,16 @@ func IconFromPNG(data []byte) ([]byte, error) {
 	return EncodeOverlayBLP(pix, IconSize, IconSize)
 }
 
+// IconFromPixels makes a client icon from an IconSize by IconSize RGBA picture (not premultiplied, row
+// 0 at the top), one the page has already fitted, framed and backed (#717), written as IconFromPNG
+// writes it.
+func IconFromPixels(pix []byte) ([]byte, error) {
+	if len(pix) != IconSize*IconSize*4 {
+		return nil, fmt.Errorf("an icon's picture is %d bytes, want %d (%dx%d RGBA)", len(pix), IconSize*IconSize*4, IconSize, IconSize)
+	}
+	return EncodeOverlayBLP(pix, IconSize, IconSize)
+}
+
 // IconPNG is a client texture (an icon's BLP) as a PNG image, alpha kept.
 func IconPNG(blp []byte) ([]byte, error) {
 	img, err := DecodeBLP(blp)

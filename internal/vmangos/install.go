@@ -58,8 +58,9 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	return installPatch(dataDir, files)
 }
 
-// installPatch is InstallPatch, for a caller holding patchMu.
-func installPatch(dataDir string, files []mpq.File) (string, error) {
+// installPatch is InstallPatch, for a caller holding patchMu. The files named in drop are left out of
+// the new patch (the Icons tool's Delete, #717).
+func installPatch(dataDir string, files []mpq.File, drop ...string) (string, error) {
 	target := filepath.Join(dataDir, PatchName)
 	// A patch the game has open can't be replaced: say so before anything is backed up or written.
 	if err := checkFree(target); err != nil {
@@ -85,14 +86,15 @@ func installPatch(dataDir string, files []mpq.File) (string, error) {
 			}
 		}
 		// Tiles edited earlier stay in the patch; the ones given here replace theirs.
-		if keep, err = carryOver(old, files); err != nil {
+		if keep, err = carryOver(old, files, drop...); err != nil {
 			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
 		}
 	}
-	changed := make([]string, 0, len(files))
+	changed := make([]string, 0, len(files)+len(drop))
 	for _, f := range files {
 		changed = append(changed, f.Name)
 	}
+	changed = append(changed, drop...)
 	if len(keep) > 0 {
 		index, err := minimapIndex(old, files, keep)
 		if err != nil {
@@ -228,15 +230,18 @@ func droppedNames(before, after []mpq.Entry) []string {
 
 // carryOver lists the files of an existing patch that aren't in files, so replacing the patch keeps
 // the tiles exported before. Their bytes are read from a only when the new patch is written. The
-// archive's own marker and listfile are left out.
-func carryOver(a *mpq.Archive, files []mpq.File) ([]mpq.Entry, error) {
+// archive's own marker and listfile are left out, and so are the files named in drop.
+func carryOver(a *mpq.Archive, files []mpq.File, drop ...string) ([]mpq.Entry, error) {
 	names, err := a.ListFile()
 	if err != nil {
 		return nil, err
 	}
-	replaced := make(map[string]bool, len(files))
+	replaced := make(map[string]bool, len(files)+len(drop))
 	for _, f := range files {
 		replaced[strings.ToUpper(strings.ReplaceAll(f.Name, "/", `\`))] = true
+	}
+	for _, name := range drop {
+		replaced[strings.ToUpper(strings.ReplaceAll(name, "/", `\`))] = true
 	}
 	var out []mpq.Entry
 	for _, name := range names {
