@@ -104,12 +104,17 @@ if (cmd === 'status') {
 } else if (cmd === 'check') {
 	if (!live) process.exit(0)
 	let mine = false
+	let top = null
 	for (let pid = process.pid, n = 0; pid && n < 30; n++) {
 		const p = procs.get(pid)
 		if (!p) break
 		if (pid === lock.pid && p.start === lock.start) mine = true
+		top = p
 		pid = p.ppid
 	}
+	// Under Git Bash's `timeout` the chain breaks: MSYS's fork leaves timeout.exe with a parent pid that no longer exists, so the walk never
+	// reaches claude (#900). A chain that ends at such an orphaned MSYS process (timeout, bash, sh) with the lock live counts as the loop's own.
+	if (!mine && top && /^(timeout|bash|sh)(\.exe)?$/i.test(top.name) && !procs.has(top.ppid)) mine = true
 	if (!mine) console.error(`loop-lock: held by another live loop: ${describe(lock)}`)
 	process.exit(mine ? 0 : 1)
 } else if (cmd === 'release') {

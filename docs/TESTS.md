@@ -102,9 +102,7 @@ signal stops the run (Ctrl-C, a kill, a harness's time limit), with `stopped` an
 reached in `notRun`. The runner checks
 the dev server and may start or restart it when no explicit `MELD_URL` is set. Do not use it while
 someone else relies on the shared development backend. With an explicit `MELD_URL`, the runner
-uses that server rather than managing one itself. Under a loop, don't wrap `bun run probe` in Git Bash's
-`timeout`: the runner then can't find the loop among its parent processes, refuses to restart a stale page
-after a binding change and fails on the missing binding (#900); run it plainly, or from PowerShell.
+uses that server rather than managing one itself. Under Git Bash's `timeout` the process chain to the loop breaks (MSYS leaves `timeout.exe` an orphaned parent pid), so `loop-lock.mjs check` counts a chain that ends at an orphaned `timeout`/`bash`/`sh` as the loop's own (#900) and the runner restarts a stale page as usual.
 
 To ask whether a probe already failed at an older commit (a full-run check's failure, say), run it with
 `--at <commit>` (#873): `bun run probe weather-wind --at 03c23de4`. The runner checks that commit out into a
