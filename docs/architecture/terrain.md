@@ -588,6 +588,9 @@ mask/liquid, image codec or native/game rendering contracts.
   one away, Shift+click adds the 3×3 round it, a drag goes on; the Size buttons pick a whole square)
   and a preset from `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands,
   so a world is bounded by sea); the cards are drawn by `drawPresetPreview`, over the picked shape.
+  The page is split into sections shown one at a time (Basics, Land, Water, Textures and trees, Seed
+  and ID, #776), stacked in one grid cell so the dialog keeps the tallest one's size and fits a 720p
+  window; Land and Water show the picked ground larger beside their controls (`bigPreview`).
   **The ground** (#744): `presetHeight` gives heights in yards, laid out in tiles rather than the
   map's 0..1 (so a big map has more hills, not the same few stretched), through domain-warped noise,
   with the coast still laid out over the map. Off the coast the ground goes down to `seabed` (about

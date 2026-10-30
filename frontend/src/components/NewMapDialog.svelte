@@ -88,17 +88,18 @@
 			fromImage = true
 		})
 	}
-	/** Draws the chosen image into its card as the world it makes, by Min, Max and Sea. */
+	/** Draws the chosen image into `canvas`, `px` a side, as the world it makes, by Min, Max and Sea. */
+	function drawImage(canvas: HTMLCanvasElement, px: number) {
+		if (!image) return
+		const r = imageRatios(image, px + 1)
+		const { min, max, sea } = imageLook
+		const h = new Float32Array(r.length)
+		for (let i = 0; i < r.length; i++) h[i] = min + r[i] * (max - min)
+		drawHeights(canvas, h, px, sea ? water.sea : null, square.size, shape, worldWater)
+	}
+	/** Draws the chosen image into its card. */
 	function imagePreview(canvas: HTMLCanvasElement) {
-		$effect(() => {
-			if (!image) return
-			const px = 96
-			const r = imageRatios(image, px + 1)
-			const { min, max, sea } = imageLook
-			const h = new Float32Array(r.length)
-			for (let i = 0; i < r.length; i++) h[i] = min + r[i] * (max - min)
-			drawHeights(canvas, h, px, sea ? water.sea : null, square.size, shape, worldWater)
-		})
+		$effect(() => drawImage(canvas, 96))
 	}
 
 	let mapId = $state(1900)
@@ -122,9 +123,34 @@
 	}
 	const sizeShown = $derived(mask ? 0 : square.size)
 
+	// The page's sections (#776, the owner's choice of tabs): one shown at a time, so the page fits a
+	// 720p window, with Create world in the footer whichever is shown. A section with a mistake in it is
+	// marked, since Create world stays greyed out until it is fixed.
+	type Section = 'basics' | 'land' | 'water' | 'ground' | 'seed'
+	let section = $state<Section>('basics')
+	const shownSections = $derived(
+		[
+			{ id: 'basics' as const, label: 'Basics', bad: !nameOk },
+			{ id: 'land' as const, label: 'Land', bad: !imageOk },
+			{ id: 'water' as const, label: 'Water', bad: false },
+			{ id: 'ground' as const, label: 'Textures and trees', bad: false },
+			{ id: 'seed' as const, label: 'Seed and ID', bad: !mapIdOk },
+		].filter((s) => s.id !== 'ground' || hasBackend()),
+	)
+
 	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness, Sea depth, Beaches or the water change. */
 	function preview(canvas: HTMLCanvasElement, id: PresetId) {
-		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land, beach: look.beach }, worldWater))
+		$effect(() => drawPresetPreview(canvas, id, seed, 96, heightOptions(), worldWater))
+	}
+	const heightOptions = () => ({ tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land, beach: look.beach })
+	/** Pixels a side of the larger picture beside the Land and Water sections. */
+	const BIG = 160
+	/** Draws the picked ground (the preset or the image) into the Land and Water sections' picture. */
+	function bigPreview(canvas: HTMLCanvasElement) {
+		$effect(() => {
+			if (fromImage) drawImage(canvas, BIG)
+			else drawPresetPreview(canvas, preset, seed, BIG, heightOptions(), worldWater)
+		})
 	}
 
 	// --- the client's maps and zones, read once --------------------------------------------------
@@ -309,210 +335,257 @@
 </script>
 
 <Modal title="Start" width={860} onclose={close}>
-	<div class="modes">
-		<button class:active={mode === 'new'} onclick={() => (ui.newMapMode = 'new')}>New world</button>
-		<button class:active={mode === 'open'} onclick={() => (ui.newMapMode = 'open')} disabled={!hasBackend()}>Part of Azeroth</button>
+	<div class="top">
+		<div class="modes">
+			<button class:active={mode === 'new'} onclick={() => (ui.newMapMode = 'new')}>New world</button>
+			<button class:active={mode === 'open'} onclick={() => (ui.newMapMode = 'open')} disabled={!hasBackend()}>Part of Azeroth</button>
+		</div>
+		{#if mode === 'new'}
+			<div class="tabs" role="tablist">
+				{#each shownSections as s (s.id)}
+					<button
+						role="tab"
+						data-section={s.id}
+						aria-selected={section === s.id}
+						class:active={section === s.id}
+						class:bad={s.bad}
+						onclick={() => (section = s.id)}
+						title={s.bad ? 'Something here needs fixing before the world can be made' : undefined}>{s.label}</button
+					>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	{#if mode === 'new'}
 		<div class="body new">
-			<p class="dim">A world of its own for the client and server. Once published it can be reached from Azeroth through a portal.</p>
-			<div class="row">
-				<label class="field">
-					<span>Name</span>
-					<input type="text" bind:value={name} spellcheck="false" />
-				</label>
-				<div class="field">
-					<span>Size</span>
-					<div class="sizes">
-						{#each SIZES as s (s.tiles)}
-							<button class="size" class:active={sizeShown === s.tiles} onclick={() => pickSize(s.tiles)} title={s.note}>
-								<b>{s.label}</b><small>{s.note}</small>
-							</button>
-						{/each}
+			{#if clientError}<p class="warn">{clientError}</p>{/if}
+			<!-- The sections share one cell, the hidden ones kept laid out, so the dialog keeps one size whichever is shown (#776). -->
+			<div class="sections">
+				<div class="section" class:shown={section === 'basics'} data-section-body="basics">
+					<div class="row">
+						<label class="field">
+							<span>Name</span>
+							<input type="text" bind:value={name} spellcheck="false" />
+						</label>
+						<div class="field">
+							<span>Size</span>
+							<div class="sizes">
+								{#each SIZES as s (s.tiles)}
+									<button class="size" class:active={sizeShown === s.tiles} onclick={() => pickSize(s.tiles)} title={s.note}>
+										<b>{s.label}</b><small>{s.note}</small>
+									</button>
+								{/each}
+							</div>
+						</div>
+					</div>
+					{#if !nameOk}<p class="warn">Use letters, digits, - and _ for the name: it is the map's folder in the client.</p>{/if}
+					<div class="row">
+						<div class="field">
+							<span>Tiles on the client's map</span>
+							<TileGrid {tiles} cell={4} onchange={(t) => (tiles = t)} />
+						</div>
+						<div class="field grow">
+							<span>Ground</span>
+							<div class="presets">
+								{#each PRESETS as p (p.id)}
+									<button
+										class="preset"
+										class:active={!fromImage && preset === p.id}
+										onclick={() => {
+											preset = p.id
+											fromImage = false
+										}}
+										title={p.blurb}
+									>
+										<canvas use:preview={p.id} width="96" height="96"></canvas>
+										<b>{p.name}</b>
+									</button>
+								{/each}
+								<button
+									class="preset fromimage"
+									class:active={fromImage}
+									onclick={() => void pickImage()}
+									disabled={!hasBackend()}
+									title="A 16-bit greyscale PNG from Gaea, World Machine, World Creator or the like, stretched over the whole world"
+								>
+									{#if image}
+										<canvas use:imagePreview width="96" height="96"></canvas>
+									{:else}
+										<span class="pick">PNG</span>
+									{/if}
+									<b>Heightmap…</b>
+								</button>
+							</div>
+							<p class="dim blurb">{fromImage && image ? `From ${image.name}, stretched over the whole world. Its heights are set under Land.` : presetById(preset).blurb}</p>
+						</div>
 					</div>
 				</div>
-			</div>
-			{#if !nameOk}<p class="warn">Use letters, digits, - and _ for the name: it is the map's folder in the client.</p>{/if}
-			<div class="row">
-				<div class="field">
-					<span>Tiles on the client's map</span>
-					<TileGrid {tiles} onchange={(t) => (tiles = t)} />
-				</div>
-				<div class="presets">
-					{#each PRESETS as p (p.id)}
-						<button
-							class="preset"
-							class:active={!fromImage && preset === p.id}
-							onclick={() => {
-								preset = p.id
-								fromImage = false
-							}}
-							title={p.blurb}
-						>
-							<canvas use:preview={p.id} width="96" height="96"></canvas>
-							<b>{p.name}</b>
-							<small>{p.blurb}</small>
-						</button>
-					{/each}
-					<button
-						class="preset fromimage"
-						class:active={fromImage}
-						onclick={() => void pickImage()}
-						disabled={!hasBackend()}
-						title="A 16-bit greyscale PNG from Gaea, World Machine, World Creator or the like, stretched over the whole world"
-					>
-						{#if image}
-							<canvas use:imagePreview width="96" height="96"></canvas>
+
+				<div class="section split" class:shown={section === 'land'} data-section-body="land">
+					{@render picture()}
+					<div class="controls">
+						{#if fromImage}
+							<div class="row look image">
+								<label class="field num" title="The height in yards the image's black becomes">
+									<span>Black at (yd)</span>
+									<input type="number" step="any" bind:value={imageLook.min} />
+								</label>
+								<label class="field num" title="The height in yards the image's white becomes">
+									<span>White at (yd)</span>
+									<input type="number" step="any" bind:value={imageLook.max} />
+								</label>
+								<label class="check" title="The sea over the ground below Sea level: set Black below it for a coast">
+									<input type="checkbox" bind:checked={imageLook.sea} /> Sea
+								</label>
+								<label class="field slider" title="How much water and gravity carve the ground once it is made. None to start with, since Gaea and World Machine erode their terrain already.">
+									<span>Erosion <b>{imageLook.erosion ? `${Math.round(imageLook.erosion * 100)}%` : 'none'}</b></span>
+									<input type="range" min="0" max="1" step="0.05" bind:value={imageLook.erosion} />
+								</label>
+							</div>
+							{#if !imageOk}<p class="warn">White must be higher than Black.</p>{/if}
 						{:else}
-							<span class="pick">PNG</span>
-						{/if}
-						<b>From a heightmap…</b>
-						<small>{image ? image.name : 'A greyscale PNG made in Gaea, World Machine or the like.'}</small>
-					</button>
-				</div>
-			</div>
-			{#if fromImage}
-				<div class="row look image">
-					<label class="field num" title="The height in yards the image's black becomes">
-						<span>Black at (yd)</span>
-						<input type="number" step="any" bind:value={imageLook.min} />
-					</label>
-					<label class="field num" title="The height in yards the image's white becomes">
-						<span>White at (yd)</span>
-						<input type="number" step="any" bind:value={imageLook.max} />
-					</label>
-					<label class="check" title="The sea over the ground below Sea level: set Black below it for a coast">
-						<input type="checkbox" bind:checked={imageLook.sea} /> Sea
-					</label>
-					<label class="field slider" title="How much water and gravity carve the ground once it is made. None to start with, since Gaea and World Machine erode their terrain already.">
-						<span>Erosion <b>{imageLook.erosion ? `${Math.round(imageLook.erosion * 100)}%` : 'none'}</b></span>
-						<input type="range" min="0" max="1" step="0.05" bind:value={imageLook.erosion} />
-					</label>
-				</div>
-				{#if !imageOk}<p class="warn">White must be higher than Black.</p>{/if}
-			{:else}
-				<div class="row look">
-					<label class="field slider" title="How tall the land stands above the sea">
-						<span>Height <b>{look.relief.toFixed(1)}×</b></span>
-						<input type="range" min="0.4" max="2" step="0.1" bind:value={look.relief} />
-					</label>
-					<label class="field slider" title="How much small detail lies over the hills: bumps, knolls and broken ground">
-						<span>Roughness <b>{look.roughness.toFixed(1)}×</b></span>
-						<input type="range" min="0" max="2" step="0.1" bind:value={look.roughness} />
-					</label>
-					<label class="field slider" title="How much water and gravity carve the ground once it is made: valleys, gullies and scree. Not shown in the pictures; a large world takes a moment longer.">
-						<span>Erosion <b>{look.erosion ? `${Math.round(look.erosion * 100)}%` : 'none'}</b></span>
-						<input type="range" min="0" max="1" step="0.05" bind:value={look.erosion} />
-					</label>
-					<label class="field slider" title={landApplies ? 'How much of the map is land: a small island in open sea at the left, land up to the edges at the right' : 'This preset has no coast'}>
-						<span>Land <b>{Math.round(look.land * 100)}%</b></span>
-						<input type="range" min="0" max="1" step="0.05" bind:value={look.land} disabled={!landApplies} />
-					</label>
-					<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
-						<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>
-						<input type="range" min="0.2" max="3" step="0.1" bind:value={look.seaDepth} disabled={!presetById(preset).water} />
-					</label>
-					<label class="field slider" title={landApplies ? 'How wide the beaches are: a stretch of nearly flat sand along the sea, whatever the height of the land behind it' : 'This preset has no coast'}>
-						<span>Beaches <b>{look.beach ? `${look.beach} yd` : 'none'}</b></span>
-						<input type="range" min="0" max="100" step="5" bind:value={look.beach} disabled={!landApplies} />
-					</label>
-					<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
-				</div>
-			{/if}
-			<div class="row look water">
-				<label class="field slider" title={seaOn ? 'The height of the sea: higher floods the low ground and moves the coast and the beaches inland' : 'This world has no sea'}>
-					<span>Sea level <b>{water.sea} yd</b></span>
-					<input type="range" min="-30" max="60" step="1" bind:value={water.sea} disabled={!seaOn} />
-				</label>
-				<label class="check" title="Fill the land's basins above the sea with lakes, each up to its rim, with sand along their shores">
-					<input type="checkbox" bind:checked={water.lakes} /> Lakes
-				</label>
-				<label
-					class="field slider"
-					title="Rivers from the high ground down to the sea or a lake, the biggest first, each carved and filled as the Path tool's River and left as a path to edit. A river into or out of a lake fills that lake too."
-				>
-					<span>Rivers <b>{water.rivers || 'none'}</b></span>
-					<input type="range" min="0" max={MAX_RIVERS} step="1" bind:value={water.rivers} />
-				</label>
-				<label class="field liquid" title="What the lakes and rivers hold. The sea stays the ocean.">
-					<span>Liquid</span>
-					<select bind:value={water.liquid} disabled={!water.lakes && !water.rivers}>
-						{#each LAKE_LIQUIDS as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-					</select>
-				</label>
-			</div>
-			{#if hasBackend()}
-				<div class="row pack">
-					<label class="field" title="Paint the world with the ground textures a zone of the client uses most: its main ground, rock on the slopes, sand at the shore, snow on the peaks">
-						<span>Ground textures</span>
-						<select value={packArea} onchange={(e) => pickPack(+e.currentTarget.value)} disabled={!wow.loaded || !zones.length}>
-							<option value={0}>Default (Elwynn Forest)</option>
-							{#each packGroups as g (g.name)}
-								<optgroup label={g.name}>
-									{#each g.zones as z (z.AreaID)}<option value={z.AreaID}>{z.Name}</option>{/each}
-								</optgroup>
-							{/each}
-						</select>
-					</label>
-					<div class="packtiles">
-						{#if packReading && packReading === packArea}
-							<span class="dim">Reading the zone's tiles…</span>
-						{:else if packError}
-							<span class="warn">{packError}</span>
-						{:else if pack}
-							{#each pack as p, i (i)}
-								<div class="packtile">
-									<PaletteTile thumbKey={'tex:' + p} label="" title="{LAYERS[i].name}: {p}" size={40} showLabel={false} onclick={() => {}} />
-								</div>
-							{/each}
-						{:else if pack === null}
-							<span class="warn">That zone has no ground of its own: the default textures are used.</span>
+							<div class="row look">
+								<label class="field slider" title="How tall the land stands above the sea">
+									<span>Height <b>{look.relief.toFixed(1)}×</b></span>
+									<input type="range" min="0.4" max="2" step="0.1" bind:value={look.relief} />
+								</label>
+								<label class="field slider" title="How much small detail lies over the hills: bumps, knolls and broken ground">
+									<span>Roughness <b>{look.roughness.toFixed(1)}×</b></span>
+									<input type="range" min="0" max="2" step="0.1" bind:value={look.roughness} />
+								</label>
+								<label class="field slider" title="How much water and gravity carve the ground once it is made: valleys, gullies and scree. Not shown in the pictures; a large world takes a moment longer.">
+									<span>Erosion <b>{look.erosion ? `${Math.round(look.erosion * 100)}%` : 'none'}</b></span>
+									<input type="range" min="0" max="1" step="0.05" bind:value={look.erosion} />
+								</label>
+								<label class="field slider" title={landApplies ? 'How much of the map is land: a small island in open sea at the left, land up to the edges at the right' : 'This preset has no coast'}>
+									<span>Land <b>{Math.round(look.land * 100)}%</b></span>
+									<input type="range" min="0" max="1" step="0.05" bind:value={look.land} disabled={!landApplies} />
+								</label>
+								<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
+									<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>
+									<input type="range" min="0.2" max="3" step="0.1" bind:value={look.seaDepth} disabled={!presetById(preset).water} />
+								</label>
+								<label class="field slider" title={landApplies ? 'How wide the beaches are: a stretch of nearly flat sand along the sea, whatever the height of the land behind it' : 'This preset has no coast'}>
+									<span>Beaches <b>{look.beach ? `${look.beach} yd` : 'none'}</b></span>
+									<input type="range" min="0" max="100" step="5" bind:value={look.beach} disabled={!landApplies} />
+								</label>
+							</div>
+							<button class="link reset" onclick={() => (look = { ...DEFAULT_SHAPE })} disabled={!lookChanged}>Reset</button>
 						{/if}
 					</div>
 				</div>
-			{/if}
-			{#if hasBackend()}
-				<div class="row trees">
-					<label class="field" title="Trees, bushes and rocks over the land: the ones the texture pack's zone places most (Elwynn Forest's with the Default textures), or the models of one of your sets from the asset browser">
-						<span>Trees and rocks</span>
-						<select bind:value={treeSource} disabled={!wow.loaded}>
-							<option value="zone">{treeZone ? `${treeZone.Name}'s` : "The zone's"}</option>
-							{#if prefs.modelSets.length}
-								<optgroup label="Model sets">
-									{#each prefs.modelSets as set (set.name)}<option value={set.name}>{set.name}</option>{/each}
-								</optgroup>
-							{/if}
-							<option value="none">None</option>
-						</select>
-					</label>
-					<label class="field slider" title="How thickly they stand: 1× is as thick as the zone itself (a model set: a light wood)">
-						<span>Density <b>{treeAmount.toFixed(2).replace(/0$/, '')}×</b></span>
-						<input type="range" min="0.25" max="3" step="0.25" bind:value={treeAmount} disabled={!wow.loaded || treeSource === 'none'} />
-					</label>
-					{#if creating}<span class="dim">{creating}</span>{/if}
+
+				<div class="section split" class:shown={section === 'water'} data-section-body="water">
+					{@render picture()}
+					<div class="controls">
+						<div class="row look water">
+							<label class="field slider" title={seaOn ? 'The height of the sea: higher floods the low ground and moves the coast and the beaches inland' : 'This world has no sea'}>
+								<span>Sea level <b>{water.sea} yd</b></span>
+								<input type="range" min="-30" max="60" step="1" bind:value={water.sea} disabled={!seaOn} />
+							</label>
+							<label class="check" title="Fill the land's basins above the sea with lakes, each up to its rim, with sand along their shores">
+								<input type="checkbox" bind:checked={water.lakes} /> Lakes
+							</label>
+							<label
+								class="field slider"
+								title="Rivers from the high ground down to the sea or a lake, the biggest first, each carved and filled as the Path tool's River and left as a path to edit. A river into or out of a lake fills that lake too."
+							>
+								<span>Rivers <b>{water.rivers || 'none'}</b></span>
+								<input type="range" min="0" max={MAX_RIVERS} step="1" bind:value={water.rivers} />
+							</label>
+							<label class="field liquid" title="What the lakes and rivers hold. The sea stays the ocean.">
+								<span>Liquid</span>
+								<select bind:value={water.liquid} disabled={!water.lakes && !water.rivers}>
+									{#each LAKE_LIQUIDS as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+								</select>
+							</label>
+						</div>
+					</div>
 				</div>
-			{/if}
-			<div class="row bottom">
-				<label class="field seed">
-					<span>Seed</span>
-					<span class="seedrow">
-						<input type="number" bind:value={seed} />
-						<button onclick={() => (seed = Math.floor(Math.random() * 100000))} title="Another layout">🎲</button>
-					</span>
-				</label>
-				{#if showId}
-					<label class="field id">
-						<span>Map ID</span>
-						<input type="number" min="1" max="99999" bind:value={mapId} />
-					</label>
-				{:else}
-					<button class="link" onclick={() => (showId = true)}>Map ID {mapId}…</button>
+
+				{#if hasBackend()}
+					<div class="section" class:shown={section === 'ground'} data-section-body="ground">
+						<div class="row pack">
+							<label class="field" title="Paint the world with the ground textures a zone of the client uses most: its main ground, rock on the slopes, sand at the shore, snow on the peaks">
+								<span>Ground textures</span>
+								<select value={packArea} onchange={(e) => pickPack(+e.currentTarget.value)} disabled={!wow.loaded || !zones.length}>
+									<option value={0}>Default (Elwynn Forest)</option>
+									{#each packGroups as g (g.name)}
+										<optgroup label={g.name}>
+											{#each g.zones as z (z.AreaID)}<option value={z.AreaID}>{z.Name}</option>{/each}
+										</optgroup>
+									{/each}
+								</select>
+							</label>
+							<div class="packtiles">
+								{#if packReading && packReading === packArea}
+									<span class="dim">Reading the zone's tiles…</span>
+								{:else if packError}
+									<span class="warn">{packError}</span>
+								{:else if pack}
+									{#each pack as p, i (i)}
+										<div class="packtile">
+											<PaletteTile thumbKey={'tex:' + p} label="" title="{LAYERS[i].name}: {p}" size={40} showLabel={false} onclick={() => {}} />
+										</div>
+									{/each}
+								{:else if pack === null}
+									<span class="warn">That zone has no ground of its own: the default textures are used.</span>
+								{/if}
+							</div>
+						</div>
+						<div class="row trees">
+							<label
+								class="field"
+								title="Trees, bushes and rocks over the land: the ones the texture pack's zone places most (Elwynn Forest's with the Default textures), or the models of one of your sets from the asset browser"
+							>
+								<span>Trees and rocks</span>
+								<select bind:value={treeSource} disabled={!wow.loaded}>
+									<option value="zone">{treeZone ? `${treeZone.Name}'s` : "The zone's"}</option>
+									{#if prefs.modelSets.length}
+										<optgroup label="Model sets">
+											{#each prefs.modelSets as set (set.name)}<option value={set.name}>{set.name}</option>{/each}
+										</optgroup>
+									{/if}
+									<option value="none">None</option>
+								</select>
+							</label>
+							<label class="field slider" title="How thickly they stand: 1× is as thick as the zone itself (a model set: a light wood)">
+								<span>Density <b>{treeAmount.toFixed(2).replace(/0$/, '')}×</b></span>
+								<input type="range" min="0.25" max="3" step="0.25" bind:value={treeAmount} disabled={!wow.loaded || treeSource === 'none'} />
+							</label>
+						</div>
+					</div>
 				{/if}
-				{#if !mapIdOk}<p class="warn">A map ID is a whole number from 1 to 99999.</p>{/if}
-				{#if clientError}<p class="warn">{clientError}</p>{/if}
+
+				<div class="section" class:shown={section === 'seed'} data-section-body="seed">
+					<div class="row bottom">
+						<label class="field seed" title="The number the ground's layout grows from: the same seed with the same choices makes the same world">
+							<span>Seed</span>
+							<span class="seedrow">
+								<input type="number" bind:value={seed} />
+								<button onclick={() => (seed = Math.floor(Math.random() * 100000))} title="Another layout">🎲</button>
+							</span>
+						</label>
+						{#if showId}
+							<label class="field id" title="The map's ID in the client's Map.dbc and the server: the first free one from 1900 up">
+								<span>Map ID</span>
+								<input type="number" min="1" max="99999" bind:value={mapId} />
+							</label>
+						{:else}
+							<button class="link" onclick={() => (showId = true)}>Map ID {mapId}…</button>
+						{/if}
+					</div>
+					{#if !mapIdOk}<p class="warn">A map ID is a whole number from 1 to 99999.</p>{/if}
+				</div>
 			</div>
 		</div>
+		{#snippet picture()}
+			<figure class="picture">
+				<canvas use:bigPreview width={BIG} height={BIG}></canvas>
+				<figcaption class="dim">{fromImage ? (image?.name ?? 'No image picked') : presetById(preset).name}</figcaption>
+			</figure>
+		{/snippet}
 	{:else}
 		<div class="body open">
 			{#if !ui.project}
@@ -560,6 +633,7 @@
 	{/if}
 	{#snippet actions()}
 		{#if mode === 'new'}
+			<span class="dim grow">{creating || 'A world of its own for the client and server. Once published it can be reached from Azeroth through a portal.'}</span>
 			<button onclick={close}>Cancel</button>
 			<button class="active" disabled={!nameOk || !mapIdOk || !imageOk || !!packReading || !!creating} onclick={create}>Create world</button>
 		{:else}
@@ -580,6 +654,13 @@
 </Modal>
 
 <style>
+	.top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 14px;
+		margin-bottom: 10px;
+	}
 	.modes {
 		display: flex;
 		gap: 2px;
@@ -587,7 +668,6 @@
 		border-radius: var(--radius);
 		padding: 2px;
 		width: fit-content;
-		margin-bottom: 10px;
 	}
 	.modes button {
 		border: none;
@@ -638,8 +718,80 @@
 	.row.look {
 		align-items: flex-end;
 	}
-	.row.water .slider {
-		flex: 0 1 240px;
+	.tabs {
+		display: flex;
+		gap: 2px;
+		align-self: stretch;
+	}
+	.tabs button {
+		border: none;
+		border-bottom: 2px solid transparent;
+		border-radius: 0;
+		background: transparent;
+		padding: 4px 12px;
+		color: var(--text-dim);
+	}
+	.tabs button.active {
+		color: var(--text-strong);
+		border-bottom-color: var(--accent);
+	}
+	.tabs button.bad {
+		color: var(--danger-text);
+	}
+	/* Every section in the one cell, so the page is as tall as the tallest whichever is shown. */
+	.sections {
+		display: grid;
+	}
+	.section {
+		grid-area: 1 / 1;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		visibility: hidden;
+	}
+	.section.shown {
+		visibility: visible;
+	}
+	.section.split {
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 16px;
+	}
+	.picture {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		flex: none;
+	}
+	.picture canvas {
+		width: 160px;
+		height: 160px;
+		border-radius: 4px;
+	}
+	.controls {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+	.controls .row.look {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		align-items: end;
+		gap: 14px 18px;
+	}
+	.controls .row.look.image,
+	.controls .row.look.water {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.controls .check {
+		align-self: end;
+	}
+	.blurb {
+		min-height: 2.6em;
 	}
 	.slider {
 		flex: 1;
@@ -649,7 +801,7 @@
 		font-weight: 500;
 	}
 	.link.reset {
-		align-self: center;
+		align-self: flex-start;
 	}
 	.field {
 		display: flex;
@@ -684,7 +836,7 @@
 		flex: 1;
 		min-width: 0;
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(6, 1fr);
 		gap: 6px;
 	}
 	.preset {
@@ -702,20 +854,9 @@
 		border-radius: 4px;
 		image-rendering: auto;
 	}
-	.preset small {
-		font-size: 10px;
-		color: var(--text-dim);
-		line-height: 1.25;
-	}
 	.preset.active {
 		background: var(--panel-3);
 		border-color: var(--accent);
-	}
-	.preset.active small {
-		color: var(--text);
-	}
-	.preset small {
-		overflow-wrap: anywhere;
 	}
 	.fromimage .pick {
 		width: 100%;
@@ -742,6 +883,9 @@
 	.row.pack,
 	.row.trees {
 		align-items: flex-end;
+	}
+	.row.trees .slider {
+		flex: 0 1 280px;
 	}
 	.packtiles {
 		display: flex;
@@ -780,6 +924,9 @@
 	}
 	.grow {
 		flex: 1;
+	}
+	.field.grow {
+		min-width: 0;
 	}
 	.side {
 		display: flex;

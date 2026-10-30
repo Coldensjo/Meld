@@ -31,7 +31,7 @@ try {
 	card().click()
 	await P.until(() => card().classList.contains('active') && card().querySelector('canvas'), 10_000, 'the image picked')
 	await P.frames(2)
-	r.cardName = card().querySelector('small').textContent.trim()
+	r.cardName = d.querySelector('.blurb').textContent.trim()
 	// The picture: a bright middle over a dark (sea) rim.
 	const px = card().querySelector('canvas').getContext('2d').getImageData(0, 0, 96, 96).data
 	const lum = (x, y) => {
@@ -39,6 +39,7 @@ try {
 		return px[i] + px[i + 1] + px[i + 2]
 	}
 	r.pictureMiddleBrighter = lum(48, 48) > lum(2, 2)
+	d.querySelector('[data-section=land]').click()
 	r.labels = [...d.querySelectorAll('.row.look .field > span, .row.look .check')].map((l) => l.textContent.trim().replace(/\s+/g, ' '))
 	r.presetSliders = [...d.querySelectorAll('.slider')].filter((l) => /Height|Roughness|Land|Sea depth/.test(l.textContent)).length
 	const nums = [...d.querySelectorAll('.row.look input[type=number]')]
@@ -65,5 +66,14 @@ try {
 	ui.showNewDialog = false
 }
 
-const ok = r.cardName === 'cone.png' && r.pictureMiddleBrighter && r.presetSliders === 0 && r.labels.some((l) => l.startsWith('Erosion none')) && r.size === 256 && r.middle > 190 && r.corner < -35 && r.water.enabled && r.water.level === 0
+const ok =
+	r.cardName.startsWith('From cone.png,') &&
+	r.pictureMiddleBrighter &&
+	r.presetSliders === 0 &&
+	r.labels.some((l) => l.startsWith('Erosion none')) &&
+	r.size === 256 &&
+	r.middle > 190 &&
+	r.corner < -35 &&
+	r.water.enabled &&
+	r.water.level === 0
 return { ok, ...r }

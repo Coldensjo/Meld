@@ -8,6 +8,7 @@ try {
 	ui.newMapMode = 'new'
 	ui.showNewDialog = true
 	const d = await P.until(() => (document.querySelector('[data-tilegrid] canvas') ? P.dialog('Start') : null), 10_000, 'the Start dialog')
+	d.querySelector('[data-section=ground]').click()
 	const select = await P.until(
 		() => {
 			const s = d.querySelector('.row.pack select')
@@ -27,6 +28,7 @@ try {
 	await P.until(() => d.querySelectorAll('.packtile').length === 8, 30_000, "Tanaris's textures")
 	r.readMs = Math.round(performance.now() - t0)
 	r.tiles = [...d.querySelectorAll('.packtile [title]')].map((e) => e.getAttribute('title'))
+	d.querySelector('[data-section=basics]').click()
 	;[...d.querySelectorAll('.size')].find((b) => b.textContent.includes('Small')).click()
 	const name = d.querySelector('input[type=text]')
 	name.value = 'ProbePack'

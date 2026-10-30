@@ -556,6 +556,22 @@ File menu, and Close Project.
 - Trap: opening a project changes the owner's real config (the client folder and the recent list), so
   a probe must not call `OpenProject`; set `ui.project` in the page instead, as `instance-open` does.
 
+## Start dialog: the New world page's sections fit without scrolling (#776, probe `new-world-shape`)
+
+Checks: the New world page shows one section at a time (Basics, Land, Water, Textures and trees, Seed
+and ID; the owner's choice of tabs), with Create world in the footer, and the dialog fits a 1280x720
+window at the 1.25 UI scale: the probe clicks each tab, checks only that section is visible, and that
+the dialog is at most 512 CSS px tall (720 / 1.25 less the modal's 64 px margin) with its body not
+scrolling. Every section shares one grid cell (`.sections`, the hidden ones `visibility: hidden`), so
+the dialog keeps one size and the probes still find every control by selector; a probe that sets a
+control clicks its tab first (`[data-section=<id>]`). By hand: `bun run probe <probe> --shot <dir>`
+saves the page with the dialog left open, a quick way to see a section's layout.
+- Trap: the dialog had about 8 px to spare at 1.25 when this was written; a new row in Basics (the
+  tallest section, the tile grid beside the preset cards) will push it over. Put a new option in the
+  section it belongs to, or another, rather than in Basics.
+- Trap: the owner's config sets `uiScale` 1.25, so the dev page in a browser (Claude Preview) is
+  zoomed: divide `getBoundingClientRect()` by the root's `zoom` before comparing with a window size.
+
 ## Start dialog: opening an instance (#222, #271, probe `instance-open`)
 
 Checks: with no project open the Start dialog's "Part of Azeroth" asks for one (#48; the probe then

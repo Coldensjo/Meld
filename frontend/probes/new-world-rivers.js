@@ -18,6 +18,7 @@ try {
 	ui.newMapMode = 'new'
 	ui.showNewDialog = true
 	const d = await P.until(() => (document.querySelector('[data-tilegrid] canvas') ? P.dialog('Start') : null), 10_000, 'the Start dialog')
+	d.querySelector('[data-section=basics]').click()
 	const row = d.querySelector('.row.water')
 	const label = (start) => [...row.querySelectorAll('.field')].find((f) => f.querySelector('span')?.textContent.trim().startsWith(start))
 	const rivers = label('Rivers')
@@ -29,7 +30,9 @@ try {
 	name.value = 'ProbeRivers'
 	name.dispatchEvent(new Event('input', { bubbles: true }))
 	;[...d.querySelectorAll('.preset')].find((b) => b.textContent.includes('Rolling hills')).click()
+	d.querySelector('[data-section=seed]').click()
 	slide(d.querySelector('.seed input'), 4242)
+	d.querySelector('[data-section=water]').click()
 	const card = [...d.querySelectorAll('.preset')].find((b) => b.textContent.includes('Rolling hills')).querySelector('canvas')
 	await P.frames(2)
 	r.orangeBefore = orange(card)

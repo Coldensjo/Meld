@@ -1,4 +1,4 @@
-// A new world's ground (#744): in the Start dialog's New world, the Height, Roughness, Erosion, Land, Sea depth and Beaches sliders are there with their defaults, Height redraws the preset pictures, and Create world makes a Large (4×4) Mountains world whose peaks stand over 150 yd with the sea round it going down past 25 yd, eroded (its heights differ from the same seed made with Erosion at none, through `generateHeights`); a Large Rolling hills world tops out between 35 and 110 yd; a Large Canyon (Sea depth and Beaches greyed out for it) has a low floor in the middle and walls over 250 yd at the corners; a Small Island at the default Beaches (40 yd) has land within 20 yd of the sea no more than 1.5 yd over it, painted sand (#766), and a view along its coast. Saves a view over each with `--shot`. Nothing written.
+// A new world's ground (#744): the Start dialog's New world page shows one section at a time (Basics, Land, Water, Textures and trees, Seed and ID, #776) and fits a 1280×720 window at the 1.25 UI scale (512 px tall) without scrolling whichever is shown; the Height, Roughness, Erosion, Land, Sea depth and Beaches sliders are there with their defaults, Height redraws the preset pictures and the Land section's picture, and Create world makes a Large (4×4) Mountains world whose peaks stand over 150 yd with the sea round it going down past 25 yd, eroded (its heights differ from the same seed made with Erosion at none, through `generateHeights`); a Large Rolling hills world tops out between 35 and 110 yd; a Large Canyon (Sea depth and Beaches greyed out for it) has a low floor in the middle and walls over 250 yd at the corners; a Small Island at the default Beaches (40 yd) has land within 20 yd of the sea no more than 1.5 yd over it, painted sand (#766), and a view along its coast. Saves a view over each with `--shot`. Nothing written.
 // touches: frontend/src/components/NewMapDialog.svelte, frontend/src/lib/terrain/presets.ts, frontend/src/lib/terrain/generate.ts, frontend/src/lib/terrain/Terrain.ts
 const { ui } = await P.state()
 const r = {}
@@ -9,6 +9,8 @@ const open = async () => {
 	ui.showNewDialog = true
 	return P.until(() => (document.querySelector('[data-tilegrid] canvas') ? P.dialog('Start') : null), 10_000, 'the Start dialog')
 }
+/** Shows the New world page's section `id` (#776: basics, land, water, ground, seed). */
+const tab = (d, id) => d.querySelector(`[data-section=${id}]`).click()
 /** Sets a range input and tells Svelte. */
 const slide = (input, value) => {
 	input.value = String(value)
@@ -16,13 +18,16 @@ const slide = (input, value) => {
 }
 /** Makes a world of preset `label` (Large, or size `size`) named `name` from the open dialog `d`, with Erosion `erosion`; returns its terrain. */
 const create = async (d, label, name, erosion, size = 'Large') => {
+	tab(d, 'basics')
 	;[...d.querySelectorAll('.size')].find((b) => b.textContent.includes(size)).click()
 	const input = d.querySelector('input[type=text]')
 	input.value = name
 	input.dispatchEvent(new Event('input', { bubbles: true }))
 	;[...d.querySelectorAll('.preset')].find((b) => b.textContent.includes(label)).click()
+	tab(d, 'seed')
 	const seed = d.querySelector('.seed input')
 	slide(seed, 4242)
+	tab(d, 'land')
 	const erode = [...d.querySelectorAll('.slider')].find((l) => l.textContent.includes('Erosion')).querySelector('input')
 	slide(erode, erosion)
 	await P.frames(1)
@@ -50,14 +55,31 @@ const view = async (t, name) => {
 }
 
 let d = await open()
+// The page fits a 1280×720 window at the 1.25 UI scale without scrolling (#776): every section, one shown at a time.
+{
+	const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1
+	const body = d.querySelector('.body')
+	r.sections = []
+	for (const b of d.querySelectorAll('[data-section]')) {
+		b.click()
+		await P.frames(1)
+		const shown = [...d.querySelectorAll('[data-section-body]')].filter((s) => getComputedStyle(s).visibility === 'visible').map((s) => s.dataset.sectionBody)
+		r.sections.push({ id: b.dataset.section, shown: shown.join(), height: Math.round(d.getBoundingClientRect().height / zoom), scrolls: body.scrollHeight > body.clientHeight + 1 })
+	}
+	r.fits = r.sections.length === 5 && r.sections.every((s) => s.shown === s.id && s.height <= 512 && !s.scrolls)
+	tab(d, 'basics')
+}
+tab(d, 'land')
 const sliders = [...d.querySelectorAll('.row.look:not(.water) .slider')]
 r.sliders = sliders.map((l) => l.querySelector('span').textContent.trim())
-// Height redraws the pictures.
+// Height redraws the pictures, the cards' and the Land section's own.
+const big = d.querySelector('[data-section-body=land] .picture canvas')
+const bigBefore = big.toDataURL()
 const card = [...d.querySelectorAll('.preset')].find((b) => b.textContent.includes('Mountains')).querySelector('canvas')
 const before = card.toDataURL()
 slide(sliders[0].querySelector('input'), 2)
 await P.frames(2)
-r.heightRedraws = card.toDataURL() !== before
+r.heightRedraws = card.toDataURL() !== before && big.toDataURL() !== bigBefore
 d.querySelector('.reset').click()
 await P.frames(1)
 r.reset = sliders[0].querySelector('span').textContent.trim()
@@ -137,6 +159,7 @@ const isle = await create(d, 'Island', 'ProbeIsland', 0.5, 'Small')
 }
 
 const ok =
+	r.fits &&
 	r.sliders.length === 6 &&
 	r.beachLabel.includes('40 yd') &&
 	r.beachesOff &&

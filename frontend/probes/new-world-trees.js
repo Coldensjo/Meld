@@ -9,6 +9,7 @@ async function make(name, zone, trees) {
 	ui.newMapMode = 'new'
 	ui.showNewDialog = true
 	const d = await P.until(() => (document.querySelector('[data-tilegrid] canvas') ? P.dialog('Start') : null), 10_000, 'the Start dialog')
+	d.querySelector('[data-section=ground]').click()
 	const select = await P.until(
 		() => {
 			const s = d.querySelector('.row.pack select')
@@ -25,6 +26,7 @@ async function make(name, zone, trees) {
 	r.treeLabel = ts.options[0].textContent.trim()
 	ts.value = trees
 	ts.dispatchEvent(new Event('change', { bubbles: true }))
+	d.querySelector('[data-section=basics]').click()
 	;[...d.querySelectorAll('.size')].find((b) => b.textContent.includes('Small')).click()
 	const input = d.querySelector('input[type=text]')
 	input.value = name
