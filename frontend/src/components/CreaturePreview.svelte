@@ -247,18 +247,18 @@
 		left: 10px;
 		top: 8px;
 		font-size: 12px;
-		color: var(--text-dim);
+		color: var(--preview-text);
 		pointer-events: none;
 	}
 	.warn {
-		color: var(--danger-text);
+		color: var(--preview-danger);
 	}
 	.spin {
 		position: absolute;
 		right: 10px;
 		bottom: 8px;
 		font-size: 12px;
-		color: var(--text-dim);
+		color: var(--preview-text);
 	}
 	.dim {
 		margin: 0;

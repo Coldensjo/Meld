@@ -96,3 +96,12 @@ test('component styles use app.css tokens, not colour literals', () => {
 	}
 	assert.deepEqual(bad, [])
 })
+
+for (const [name, selector] of themes) {
+	test(`${name} theme: preview text reaches 4.5:1 on the preview background (#932)`, () => {
+		const t = tokens(selector)
+		for (const fg of ['preview-text', 'preview-danger']) {
+			for (const bg of fg === 'preview-text' ? ['preview-glow', 'preview-edge'] : ['preview-edge']) assert.ok(ratio(t[fg], t[bg]) >= 4.5, `${name}: ${fg} on ${bg} is ${ratio(t[fg], t[bg]).toFixed(2)}`)
+		}
+	})
+}

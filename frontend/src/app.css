@@ -39,6 +39,8 @@
 	--preview-bg: #1a1d24;
 	--preview-glow: #5a6373;
 	--preview-edge: #2b3038;
+	--preview-text: #f2f4f7;
+	--preview-danger: #ffb3b8;
 	--radius: 3px;
 	--font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
 	--mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
@@ -93,6 +95,8 @@
 	--preview-bg: #1a1d24;
 	--preview-glow: #5a6373;
 	--preview-edge: #2b3038;
+	--preview-text: #f2f4f7;
+	--preview-danger: #ffb3b8;
 	color-scheme: light;
 }
 
