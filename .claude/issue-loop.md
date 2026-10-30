@@ -186,6 +186,26 @@ Other repositories on this machine the loop must never commit to or push:
 - `C:\WoW\vmangos`, `C:\WoW\noggit-red`, `C:\WoW\benilla` (upstream clones; our changes are on their
   `local` branches, which the loop leaves alone too). Push only `main` of this repository.
 
+## The owner's uncommitted changes (#896)
+
+The owner edits this checkout between and during runs, so files can be dirty that no worker touched
+(#160's worker lost an edit to `AppDialogs.svelte` that way; the coordinator recovered it from a
+dropped stash). The rules, for the coordinator and every worker:
+
+- Coordinator: at the start of the run, after the lock and before the pull, record
+  `git status --short` and `git diff > <scratchpad>/owner-dirty.patch` (plus `git diff --stat`). After
+  each worker, run `git status --short` again: every file that was dirty at the start must still hold
+  the same diff (`git diff -- <file>` against the patch). If one does not, restore it from the patch
+  (`git apply`) or the worker's stash, and note it in the run log. Never `git pull --rebase
+  --autostash` blindly over such files without that patch saved first.
+- Worker: list the files dirty before you start (`git status --short`). Never run a whole-tree
+  `git stash`, `git stash -u`, `git checkout -- .`, `git restore .`, `git reset --hard` or `git clean`.
+  Never `git checkout` or `git restore` a file you did not change yourself. Stash only your own files,
+  by name (`git stash push -m "loop #<n>" -- <files>`). If a file you must change is already dirty with
+  someone else's edit, do not stash or discard it: edit around it, or stop and ask (`asked-owner`).
+  Stage by name. Before reporting, check that every file that was dirty at the start still holds its
+  diff, and say in the report's "Friction" line if one changed.
+
 ## Generated files
 
 - `frontend/bindings/` and `frontend/src/lib/wails/App.ts`, `models.ts` are generated from the bound Go
