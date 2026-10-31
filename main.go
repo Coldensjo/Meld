@@ -73,6 +73,7 @@ func main() {
 			DisableLogging: true,
 		},
 		LogLevel: logLevel(),
+		Windows:  application.WindowsOptions{AdditionalBrowserArgs: debugPortArgs()},
 		Linux: application.LinuxOptions{
 			ProgramName: "Meld",
 		},

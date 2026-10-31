@@ -199,12 +199,7 @@ for the benchmark scene and measurement details.
   agent as an MCP server on stdio (#777). See the
   [meldtool notes](reference/testing-notes.md#looking-into-files-without-the-app-meldtool).
 - An HTML5 drag that fails only in the desktop window needs a real mouse in a real WebView2: the
-  probes' synthetic `DragEvent`s pass anyway (#930). Build a throwaway Meld with
-  `Windows: application.WindowsOptions{AdditionalBrowserArgs: []string{"--remote-debugging-port=9333"}}`
-  in `main.go`'s options (the `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` variable is not picked up), drive
-  the page over CDP (`http://127.0.0.1:9333/json/list`, `Runtime.evaluate`) to open the view and log the
-  drag events, and move the real cursor with `SetCursorPos` and `mouse_event` from PowerShell, offset by
-  the window's `ClientToScreen`. Trap: the Wails runtime's document listener sets `dropEffect = 'none'`
+  probes' synthetic `DragEvent`s pass anyway (#930). Start the built `Meld.exe` with `MELD_DEBUG_PORT=9333` (`$env:MELD_DEBUG_PORT = '9333'; Start-Process build\bin\Meld.exe`; off by default, Windows only, #989), which opens WebView2's DevTools protocol on `127.0.0.1:9333` (`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` is not picked up under Wails), so no throwaway build is needed. `bun frontend/probes/desktop/cdp.mjs --file script.js` (or `--expr`) evaluates a script in the main page (`/json/list`, `Runtime.evaluate`) to open the view and log the drag events, and `scripts/real-drag.ps1 -FromX .. -FromY .. -ToX .. -ToY .. -Shot drag.png` moves the real cursor between two client points (`SetCursorPos`, `mouse_event`, offset by `ClientToScreen`) and takes a screenshot. Trap: the Wails runtime's document listener sets `dropEffect = 'none'`
   on every drag whose types hold `Files`, and dragging an `<img>` adds `Files`, so a draggable element
   holding an image must make the image `draggable="false"` (ItemIcon does).
 - For a client round trip, compare an edited export with an unedited export through the same save

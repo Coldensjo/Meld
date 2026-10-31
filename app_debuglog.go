@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,22 @@ import (
 // check in the built app, whose console can't be reached, needs no throwaway build. Off by default:
 // it would flood the file.
 const debugLogEnv = "MELD_DEBUG_LOG"
+
+// The debug port (#989): started with MELD_DEBUG_PORT set to a port number, the built Windows app
+// opens WebView2's DevTools protocol on 127.0.0.1:<port> (--remote-debugging-port), so a bug that
+// only shows in the desktop window can be driven with frontend/probes/desktop/cdp.mjs and no
+// throwaway build. WebView2's own WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS is not picked up under
+// Wails. Off by default: the port lets any local process run script in the page. Ignored on Linux.
+const debugPortEnv = "MELD_DEBUG_PORT"
+
+// debugPortArgs answers the browser arguments the switch adds: none unless it holds a port from 1 to 65535.
+func debugPortArgs() []string {
+	n, err := strconv.Atoi(strings.TrimSpace(os.Getenv(debugPortEnv)))
+	if err != nil || n < 1 || n > 65535 {
+		return nil
+	}
+	return []string{fmt.Sprintf("--remote-debugging-port=%d", n)}
+}
 
 // debugLogPath answers the page whether the debug log is on ("1" or "0"), once at its start.
 const debugLogPath = "/meld/debug-log"
