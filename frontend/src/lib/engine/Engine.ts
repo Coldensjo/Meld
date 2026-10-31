@@ -3327,8 +3327,8 @@ export class Engine {
 	spawnEdits(): vmangos.SpawnEdit[] {
 		return this.spawnActions.spawnEdits()
 	}
-	markSpawnsSaved() {
-		this.spawnActions.markSpawnsSaved()
+	markSpawnsSaved(keys?: Iterable<string>) {
+		this.spawnActions.markSpawnsSaved(keys)
 	}
 
 	/**

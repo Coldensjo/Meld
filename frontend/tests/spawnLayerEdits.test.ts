@@ -189,3 +189,20 @@ test('random edit sequences: every save leaves the database as the editor shows 
 		assert.deepEqual(new Map([...db].sort()), new Map([...shown].sort()), `${where}: database and editor differ`)
 	}
 })
+
+test('a save of some edits marks only those saved: the left-out ones stay edits (#960)', () => {
+	const layer = loaded([spawn('monster', 10, 100, 1), spawn('monster', 20, 100, 2), spawn('object', 30, 300)])
+	spawnChange(layer, 'monster/10', { x: 5 }, 'Move')
+	spawnChange(layer, 'monster/20', { x: 6 }, 'Move')
+	spawnDelete(layer, 'object/30', 'Delete')
+	spawnAdd(layer, spawn('monster', 40, 200), 'Add')
+	assert.equal(layer.editCount(), 4)
+	layer.markSaved(['monster/10', 'object/30', 'monster/40'])
+	assert.deepEqual(editsOf(layer), [{ key: 'monster/20', guid: 20, entry: 100, created: false, deleted: false }])
+	// The saved move is the spawn's saved state now: moving it back is an edit again.
+	spawnChange(layer, 'monster/10', { x: 1 }, 'Move')
+	assert.deepEqual(
+		editsOf(layer).map((e) => e.key),
+		['monster/20', 'monster/10'],
+	)
+})

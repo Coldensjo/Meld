@@ -307,6 +307,24 @@ client files and world database rows the write would make, without writing.
 - Trap: in a published map, changing one tile also lists its neighbours, since their edge normals take
   its heights (#492); that is what Publish writes, not a fault of the list.
 
+## Leave items out of a write and copy their SQL from the Changes window (#960, probe `changes-leave-out`)
+Checks: for a region, unticking a tile or a spawn edit in the Changes window leaves it out of Compile,
+Save Spawns and Export Spawn SQL while it stays pending; Copy, Copy ticked SQL and Copy all SQL put the
+SQL on the clipboard.
+- Probe: `bun run probe changes-leave-out` (about 12 s): Azeroth 31_50 with a raised vertex and two
+  stand-in moved spawns; unticks one spawn and the tile, checks `MapDocument.leftOut`, the three copies,
+  Save Spawns' dialog count, that Save Spawns sends only the ticked spawn and marks only it saved, and
+  that Compile to Client passes the tile in `RegionEdit.skip` and forgets the compiled fingerprint.
+  `ApplySpawnEdits`, `markSpawnsSaved` and `SaveRegion` are stand-ins, so nothing is written.
+- Unit tests: `go test -run TestRegionBorderModelsOutsideBlock ./internal/vmangos/` (a skipped tile's
+  file is left out and the counts follow), `bun test tests/leaveOut.test.ts` (the ties of a formation
+  and a pool, the split, the seam warning) and `bun test tests/spawnLayerEdits.test.ts` (a partial
+  `markSaved` keeps the rest as edits).
+- By hand, with a server: move two spawns, untick one, Save Spawns: the database has one change
+  (`SELECT position_x FROM creature WHERE guid = ...`) and the other is still listed.
+- Trap: the window needs a VMaNGOS folder to list the spawns (`VmangosPath`); a probe that stubs it
+  empty to keep a compile off the server must do so after the window has listed them.
+
 ## Compile keeps the client's alpha where nothing was painted (#526)
 Checks: a region's compile writes the client's own 64x64 alpha maps back on every chunk and texel the
 editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.

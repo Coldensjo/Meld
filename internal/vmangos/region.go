@@ -90,6 +90,10 @@ type RegionEdit struct {
 	// Headers are the zones, impassable flags, holes and baked shadows of the block's chunks, by block
 	// chunk index. Chunks not listed keep the client's, and so do the fields a header leaves unset.
 	Headers []HeaderSpec `json:"headers"`
+	// Skip names tiles ("x_y") the author unticked in the Changes window (#960): RegionChanges leaves
+	// their files out, so the patch keeps its copies and the edits stay pending for the next compile.
+	// The map-wide files (WDT, WDL) are always written.
+	Skip []string `json:"skip,omitempty"`
 }
 
 // RegionPaint is a painted chunk of a region: its index in the block (rows of 16*Size chunks), its
@@ -984,6 +988,8 @@ type RegionResult struct {
 	Waiting bool `json:"waiting"`
 	// List names the files that differ, each with its reason (RegionPending only, #959).
 	List []FileChange `json:"list"`
+	// Skipped names the changed tiles ("x_y") RegionEdit.Skip left out of the write (#960).
+	Skipped []string `json:"skipped"`
 }
 
 // ClientMapID is the ID of the map the client's Map.dbc gives the folder name (case-insensitive); ok is
@@ -1019,7 +1025,29 @@ func fileTileName(name string) string {
 	return parts[len(parts)-2] + "_" + parts[len(parts)-1]
 }
 
-// RegionChanges builds the edited block's files and keeps those that differ from the patch's copies.
+// skipTiles leaves out of files the tiles skip names ("x_y"), and names those it left out.
+func skipTiles(files []mpq.File, skip []string) ([]mpq.File, []string) {
+	if len(skip) == 0 {
+		return files, nil
+	}
+	left := make(map[string]bool, len(skip))
+	for _, t := range skip {
+		left[t] = true
+	}
+	kept := files[:0:0]
+	var skipped []string
+	for _, f := range files {
+		if t := fileTileName(f.Name); t != "" && left[t] {
+			skipped = append(skipped, t)
+			continue
+		}
+		kept = append(kept, f)
+	}
+	return kept, skipped
+}
+
+// RegionChanges builds the edited block's files and keeps those that differ from the patch's copies,
+// less the tiles e.Skip leaves out.
 func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, error) {
 	res := RegionResult{Tiles: e.Size * e.Size}
 	files, err := BuildRegion(dataDir, e)
@@ -1030,6 +1058,7 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 	if err != nil {
 		return nil, res, err
 	}
+	changed, res.Skipped = skipTiles(changed, e.Skip)
 	for _, f := range changed {
 		if fileTileName(f.Name) == "" {
 			continue

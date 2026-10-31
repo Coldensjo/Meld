@@ -38,6 +38,12 @@ and its SQL; for a new client world, the files and the `map_template` row Publis
 earlier write left waiting for the game to close are listed apart. The Publish and Save Spawns
 confirmations open the same list with **Review changes…**.
 
+For an open region, untick a tile or a spawn in that list to leave it out of the next Compile, Save
+Spawns or Export Spawn SQL: it stays pending, and stays unticked until you tick it again (or close the
+map). Spawns of one formation or pool whose grouping you changed tick together. Leaving out a tile next
+to one that is written warns you, since the ground steps where they meet. **Copy** beside a spawn or
+row, **Copy ticked SQL** and **Copy all SQL** put the SQL on the clipboard, to run elsewhere or keep.
+
 **Compile acts on the open region**, not every edited tab. Switch to each region you intend to
 compile. A whole-continent world view is for browsing: use **Edit Here** to open an editable block.
 

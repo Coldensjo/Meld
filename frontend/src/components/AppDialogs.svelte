@@ -33,7 +33,7 @@
 	import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
-	import { saveSpawns } from '../lib/io/compile'
+	import { regionSpawnEdits, saveSpawns } from '../lib/io/compile'
 	import { compileAndLaunch, enableSoap, launchGame } from '../lib/io/game'
 	import { connectExternal, databaseLabel } from '../lib/io/external'
 	import { revertMap } from '../lib/io/mapio'
@@ -230,11 +230,13 @@
 		{/snippet}
 	</Modal>
 {:else if ui.dialog === 'saveSpawns'}
+	{@const kept = engineRef.current ? regionSpawnEdits(engineRef.current).kept.length : 0}
 	<Modal title="Save spawns to the world database" width={400} onclose={close}>
 		<p>
-			Write {ui.spawnChanges}
-			{ui.spawnChanges === 1 ? 'change' : 'changes'} to the creatures and game objects of {editor.region} into the server's world database?
+			Write {ui.spawnChanges - kept}
+			{ui.spawnChanges - kept === 1 ? 'change' : 'changes'} to the creatures and game objects of {editor.region} into the server's world database?
 		</p>
+		{#if kept}<p class="dim">{kept} {kept === 1 ? 'edit is' : 'edits are'} left out (unticked in Review changes…) and will still wait after the save.</p>{/if}
 		<p class="dim">The world database keeps no undo. The SQL that is run is kept in the user cache folder (Meld/spawn-sql). Restart the world server to see the changes in the game.</p>
 		{#snippet actions()}
 			<button title="List each spawn the save adds, changes or deletes, with its SQL" onclick={reviewChanges}>Review changes…</button>

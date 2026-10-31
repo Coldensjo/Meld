@@ -475,10 +475,10 @@ export class SpawnActions {
 		return this.host.doc.spawnLayer.edits()
 	}
 
-	/** The world database now has the active region's spawn edits. */
-	markSpawnsSaved() {
+	/** The world database now has the active region's spawn edits, or those of the spawns `keys` names (#960). */
+	markSpawnsSaved(keys?: Iterable<string>) {
 		const layer = this.host.doc.spawnLayer
-		layer.markSaved()
+		layer.markSaved(keys)
 		syncSpawnUi(layer)
 	}
 

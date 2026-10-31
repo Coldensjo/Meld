@@ -214,6 +214,12 @@ func TestRegionBorderModelsOutsideBlock(t *testing.T) {
 	if res.Changed != 1 || res.Outside != 1 || len(res.ChangedTiles) != 2 {
 		t.Fatalf("the compile wrote %d block tiles and %d outside (%v), want 1 and 1", res.Changed, res.Outside, res.ChangedTiles)
 	}
+	// The tile outside unticked in the Changes window (#960): the write leaves it out, the block's tile stays.
+	skipped := edit
+	skipped.Skip = []string{"1_0"}
+	if kept, res, err := RegionChanges(dir, skipped); err != nil || res.Changed != 1 || res.Outside != 0 || len(res.Skipped) != 1 || res.Skipped[0] != "1_0" || len(kept) != len(out)-1 || len(res.ChangedTiles) != 1 || res.ChangedTiles[0] != "0_0" {
+		t.Fatalf("with 1_0 skipped the compile wrote %d files (%d block, %d outside, skipped %v, tiles %v, err %v), want the block's tile alone", len(kept), res.Changed, res.Outside, res.Skipped, res.ChangedTiles, err)
+	}
 	by := tiles(out)
 	var added uint32
 	for uid := range by["0_0"] {

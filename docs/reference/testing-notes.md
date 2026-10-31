@@ -967,6 +967,7 @@ the same scene, the report before and after.
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
 - A WMO-only map's frame and Launch spot (#272, probe `wmo-only-frame`)
 - Review Changes before Compile, Save Spawns and Publish (#959, probe `changes-window`)
+- Leave items out of a write and copy their SQL from the Changes window (#960, probe `changes-leave-out`)
 
 ### Scripting (`docs/tests/scripting.md`)
 

@@ -1838,6 +1838,13 @@ export interface RegionEdit {
      * chunk index. Chunks not listed keep the client's, and so do the fields a header leaves unset.
      */
     "headers": HeaderSpec[] | null;
+
+    /**
+     * Skip names tiles ("x_y") the author unticked in the Changes window (#960): RegionChanges leaves
+     * their files out, so the patch keeps its copies and the edits stay pending for the next compile.
+     * The map-wide files (WDT, WDL) are always written.
+     */
+    "skip"?: string[] | null;
 }
 
 /**
@@ -1935,6 +1942,11 @@ export interface RegionResult {
      * List names the files that differ, each with its reason (RegionPending only, #959).
      */
     "list": FileChange[] | null;
+
+    /**
+     * Skipped names the changed tiles ("x_y") RegionEdit.Skip left out of the write (#960).
+     */
+    "skipped": string[] | null;
 }
 
 /**

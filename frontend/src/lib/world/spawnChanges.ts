@@ -18,6 +18,12 @@ export class SpawnChanges<S> {
 		this.marked.clear()
 	}
 
+	/** Forgets `key`: its edit was saved on its own (#960). */
+	forget(key: string) {
+		this.changed.delete(key)
+		this.marked.delete(key)
+	}
+
 	/** Compares the marked spawns with their originals; `created` spawns always count. */
 	settle(spawn: (key: string) => S | undefined, original: (key: string) => S | undefined, created: (key: string) => boolean) {
 		for (const key of this.marked) {

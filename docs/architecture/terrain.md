@@ -598,6 +598,18 @@ mask/liquid, image codec or native/game rendering contracts.
   edited one in a published map is listed too: its edge's normals take the neighbour's heights (#492).
   The zone, trigger and flight path tables are not in the list: their editors write them on their own
   Save.
+- **Leaving items out** (#960): for a region, each tile and spawn edit in the Changes window has a tick.
+  An unticked one is kept in `MapDocument.leftOut` (`spawn:<spawnKey>`, `tile:<x>_<y>`, `io/leaveOut.ts`;
+  for the session, not in the map file) and stays pending. `writeSpawns` (Save Spawns, Compile All and
+  Compile to Server) and Export Spawn SQL send only `regionSpawnEdits(engine).write` and mark only those
+  saved (`SpawnLayer.markSaved(keys)`); edits tied together (a creature whose formation changed and its
+  leader's edit, the edits that change one pool: `spawnTies`) tick and untick together. Compile sends the
+  unticked tiles as `RegionEdit.Skip`, which `RegionChanges` drops (`RegionResult.Skipped` names them);
+  the WDT and WDL are always written, the WDL from every tile's heights. After a compile that skipped a
+  tile, `MapDocument.compiled` is forgotten so Launch asks the Go side again. The window warns of a tile
+  left out beside a written one (`seamWarnings`), since the seam steps. Publish's list has no ticks: a
+  map made for the client is written whole. Copy, Copy ticked SQL and Copy all SQL (`changesSql`, which
+  builds the chosen spawns' script again so the pools' own rows come with it) put SQL on the clipboard.
   `RegionEdit.Heights` crosses the bridge as base64 of the float32s, as `MapData.Heights` does
   (`vmangos.EncodeHeights`, `DecodeHeights`); so do `RegionView.Heights` (LoadRegion) and Publish's
   `TileSpec.Outer`, typed `vmangos.HeightGrid`, a float slice in Go whose JSON is that string

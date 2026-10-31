@@ -173,6 +173,12 @@ export class MapDocument {
 	 * the region don't rebuild the block each time until it is edited (#531). Null until first asked.
 	 */
 	pending: PendingAnswer | null = null
+	/**
+	 * The items the author unticked in the Changes window (#960), left out of the writes until ticked
+	 * again: `spawn:<spawnKey>` and `tile:<x>_<y>` (io/leaveOut.ts). Kept for the session, not in the map
+	 * file; a key whose edit is gone is ignored.
+	 */
+	readonly leftOut = new Set<string>()
 	/** The palette the terrain's shader was last given, as one string, to tell when it changes. */
 	paletteFrom: unknown = null
 	meta: DocMeta

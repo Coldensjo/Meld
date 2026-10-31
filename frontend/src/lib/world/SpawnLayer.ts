@@ -558,8 +558,22 @@ export class SpawnLayer {
 		return out
 	}
 
-	/** The world database now has every edit: they become the spawns' saved state. */
-	markSaved() {
+	/**
+	 * The world database now has every edit, or those of the spawns `keys` names (the rest were left out
+	 * of the write in the Changes window, #960, and stay edits): they become the spawns' saved state.
+	 */
+	markSaved(keys?: Iterable<string>) {
+		if (keys) {
+			// Settled first, so a left-out spawn marked since the last count keeps its mark.
+			this.settle()
+			for (const key of keys) {
+				this.originals.delete(key)
+				this.created.delete(key)
+				this.deleted.delete(key)
+				this.changes.forget(key)
+			}
+			return
+		}
 		this.originals.clear()
 		this.created.clear()
 		this.deleted.clear()

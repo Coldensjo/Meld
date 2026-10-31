@@ -12,6 +12,7 @@ import { TILE_CHUNKS } from '../wow/format'
 import { vmangos } from '../wails/models'
 import { EventsOn } from '../wails/runtime'
 import { applyNote } from './applyNote'
+import { countOf, pickSpawnEdits, skippedTiles, spawnItem } from './leaveOut'
 
 /**
  * Writes the active region's spawn edits (moved, changed, added and deleted creatures and objects)
@@ -21,24 +22,35 @@ import { applyNote } from './applyNote'
 export function saveSpawns(engine: Engine) {
 	return guarded('Save spawns', async () => {
 		const saved = await withSaving('Saving spawns to the world database', () => writeSpawns(engine))
-		if (saved) setStatus(`${saved} Restart the world server to see them.`, 12000)
+		if (saved.wrote) setStatus(`${saved.note} Restart the world server to see them.`, 12000)
+		else if (saved.note) setStatus(`Nothing saved: ${saved.note}`, 10000)
 	})
 }
 
 /**
  * Writes the active region's spawn edits into the world database, unguarded, for Save Spawns and the
- * compile (#342). Returns the status sentence, or '' when there was nothing to write; throws when the
- * write failed.
+ * compile (#342), less those unticked in the Changes window (#960). Returns the status sentence ('' when
+ * there was nothing to write or leave out) and whether it wrote any; throws when the write failed.
  */
-async function writeSpawns(engine: Engine): Promise<string> {
+async function writeSpawns(engine: Engine): Promise<{ note: string; wrote: boolean }> {
 	const b = editor.regionBlock
-	const edits = engine.spawnEdits()
-	if (!b || !editor.regionMap || edits.length === 0) return ''
-	const res = await ApplySpawnEdits(editor.regionMap, b.x, b.y, b.size, edits)
-	engine.markSpawnsSaved()
+	const { write, kept } = regionSpawnEdits(engine)
+	if (!b || !editor.regionMap) return { note: '', wrote: false }
+	if (write.length === 0) return { note: kept.length ? leftOutNote(kept.length) : '', wrote: false }
+	const res = await ApplySpawnEdits(editor.regionMap, b.x, b.y, b.size, write)
+	engine.markSpawnsSaved(kept.length ? write.map((e) => spawnItem(e).slice('spawn:'.length)) : undefined)
 	const skipped = res.skipped?.length ? ` Not written: ${res.skipped.join('; ')}.` : ''
-	return `Saved spawns to the world database: ${res.added} added, ${res.changed} changed, ${res.deleted} deleted.${skipped}`
+	const left = kept.length ? ` ${leftOutNote(kept.length)}` : ''
+	return { note: `Saved spawns to the world database: ${res.added} added, ${res.changed} changed, ${res.deleted} deleted.${skipped}${left}`, wrote: true }
 }
+
+/** The active region's spawn edits, less those unticked in the Changes window (#960), which stay edits. */
+export function regionSpawnEdits(engine: Engine) {
+	return pickSpawnEdits(engine.spawnEdits(), engine.activeDocument().leftOut)
+}
+
+/** Says how many spawn edits the Changes window left out of a write. */
+const leftOutNote = (n: number) => `${countOf(n, 'spawn edit was', 'spawn edits were')} left out (unticked in File › Review Changes…) and still ${n === 1 ? 'waits' : 'wait'}.`
 
 /** What the compile's spawn write did: its status note, whether it wrote any, and whether it failed. */
 type CompileSpawns = { note: string; saved: boolean; failed: boolean }
@@ -53,7 +65,7 @@ const noSpawns: CompileSpawns = { note: '', saved: false, failed: false }
 async function compileSpawns(engine: Engine): Promise<CompileSpawns> {
 	try {
 		const saved = await writeSpawns(engine)
-		return saved ? { note: ` ${saved}`, saved: true, failed: false } : noSpawns
+		return saved.note ? { note: ` ${saved.note}`, saved: saved.wrote, failed: false } : noSpawns
 	} catch (err) {
 		console.error(err)
 		return { note: ` The spawn edits were not saved to the world database (${err}), so the server was left alone.`, saved: false, failed: true }
@@ -70,15 +82,19 @@ const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server 
 export function exportSpawnSql(engine: Engine) {
 	return guarded('Export spawn SQL', async () => {
 		const b = editor.regionBlock
-		const edits = engine.spawnEdits()
-		if (!b || !editor.regionMap || edits.length === 0) return
+		const { write: edits, kept } = regionSpawnEdits(engine)
+		if (!b || !editor.regionMap || edits.length === 0) {
+			if (kept.length) setStatus(`Nothing exported: ${leftOutNote(kept.length)}`, 8000)
+			return
+		}
 		const res = await SpawnEditSQL(editor.regionMap, b.x, b.y, b.size, edits, prefs.exportCore)
 		const cmangos = prefs.exportCore === 'cmangos-classic'
 		const path = await SaveSQLDialog(`${editor.regionMap}-spawns${cmangos ? '-cmangos' : ''}`)
 		if (!path) return
 		await WriteTextFile(path, res.sql)
 		const skipped = res.skipped?.length ? ` ${res.skipped.length} ${res.skipped.length === 1 ? 'change' : 'changes'} could not be written (listed at the top of the file).` : ''
-		setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits for ${cmangos ? 'CMaNGOS classic' : 'VMaNGOS'} to ${path}.${skipped}`, 10000)
+		const left = kept.length ? ` ${leftOutNote(kept.length)}` : ''
+		setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits for ${cmangos ? 'CMaNGOS classic' : 'VMaNGOS'} to ${path}.${skipped}${left}`, 10000)
 	})
 }
 
@@ -195,9 +211,19 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 			}
 			const d = engine.activeDocument()
 			const compiled = { key: engine.regionKey(), changes: d.history.changes }
-			const res = await SaveRegion(regionEdit(engine, region))
-			// The patch now holds what the map held when the compile started.
-			d.compiled = compiled
+			// The tiles unticked in the Changes window are left out (#960).
+			const skip = skippedTiles(d.leftOut)
+			const res = await SaveRegion({ ...regionEdit(engine, region), skip })
+			if (res.skipped?.length) {
+				// The patch still lacks the left-out tiles' edits: whether it does is asked of the Go side again.
+				d.compiled = { key: null, changes: -1 }
+				d.pending = null
+			} else {
+				// The patch now holds what the map held when the compile started.
+				d.compiled = compiled
+			}
+			const left = res.skipped ?? []
+			const leftTiles = left.length ? ` ${countOf(left.length, 'changed tile was', 'changed tiles were')} left out (unticked in File › Review Changes…) and still ${left.length === 1 ? 'waits' : 'wait'}.` : ''
 			const server = await VmangosPath()
 			// The spawns need the server folder (it holds the database's settings); without one they wait.
 			const spawns = target === 'all' && server ? await compileSpawns(engine) : noSpawns
@@ -206,10 +232,16 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 				const others = engine.otherEditedRegions()
 				const elsewhere = others.length ? ` ${others.join(', ')} ${others.length === 1 ? 'was' : 'were'} edited since the last compile: Compile works on the open tab, so switch to it.` : ''
 				const rebuild = target === 'all' && server && res.mapId >= 0 ? " Compile to Server rebuilds the server's map data of the region anyway." : ''
-				setStatus(`Nothing changed in ${name} since the last compile, so the patch and the game were left alone.${elsewhere}${spawns.note}${restartNote(spawns)}${rebuild}`, 10000)
+				const nothing = left.length ? `Nothing of ${name} was written to the client.` : `Nothing changed in ${name} since the last compile, so the patch and the game were left alone.`
+				setStatus(`${nothing}${leftTiles}${elsewhere}${spawns.note}${restartNote(spawns)}${rebuild}`, 10000)
 				return
 			}
-			const unchanged = res.tiles - res.changed
+			// The block's tiles left out are not unchanged.
+			const leftIn = left.filter((t) => {
+				const [x, y] = t.split('_').map(Number)
+				return x >= region.x && x < region.x + region.size && y >= region.y && y < region.y + region.size
+			}).length
+			const unchanged = res.tiles - res.changed - leftIn
 			// Tiles outside the block that list a model by its edge are written too (#647).
 			const outside = res.outside ? `, and ${res.outside} ${res.outside === 1 ? 'tile' : 'tiles'} beside it for the models by its edge` : ''
 			// A running game holds the patch: the files wait for it to close, since Meld never closes it (#661).
@@ -217,7 +249,9 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 			const wrote =
 				(res.building
 					? `${verb} ${region.mapName}'s building (its WDT) for ${res.patch}.`
-					: `${verb} ${res.changed} of ${res.tiles} tiles of ${name} for the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`) + applyNote(res)
+					: `${verb} ${res.changed} of ${res.tiles} tiles of ${name} for the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`) +
+				leftTiles +
+				applyNote(res)
 			// Only a continent of the client has map data to rebuild this way, and only when a tile changed.
 			const rebuildable = !!server && res.mapId >= 0 && !!res.changedTiles?.length
 			if (target === 'client') {
