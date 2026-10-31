@@ -2,6 +2,7 @@
 // persisted in the app config through lib/state/prefs.ts.
 import type { SessionTab } from '../io/session'
 import type { DoodadBrush } from '../tools/doodadBrush'
+import type { Biome } from '../terrain/biome'
 import type { FitMode } from '../terrain/fitGround'
 import type { BrushStack } from '../tools/brushStack'
 import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
@@ -200,6 +201,9 @@ export function defaultPrefs() {
 		brushStacks: [] as BrushStack[],
 		brushStack: '',
 		doodadBrush: '',
+		/** The biomes (terrain/biome.ts, #957), Paint › Biomes…, and the name of the one Apply Biome lays. Each embeds its doodad brushes. Replace the list, never edit it in place. */
+		biomes: [] as Biome[],
+		biome: '',
 		/**
 		 * The Script Brush tool (#29): the scripts folder's file it loads, and its brushes' setting (tag) values,
 		 * by `file/brush` and then the tag's label. Replace an inner record, never edit it in place.

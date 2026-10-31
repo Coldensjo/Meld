@@ -63,6 +63,13 @@ const triple: Check = (v) => Array.isArray(v) && v.length === 3 && v.every(num)
 const rules = obj({ slope: pair, height: orNull(pair), aboveSea: bool, onTextures: arr(str), offTextures: arr(str), textureMin: num, avoidWater: bool, avoidHoles: bool })
 const doodadEntry = obj({ type: str, weight: num, scaleMin: opt(num), scaleMax: opt(num), sink: opt(num), tilt: opt(num), align: opt(num) })
 const doodadBrush = obj({ name: str, spacing: num, entries: arr(doodadEntry), rules: opt(rules) })
+const biome = obj({
+	name: str,
+	textures: arr(str),
+	rules: obj({ rock: pair, dirt: pair, lush: num, variation: num, sand: num, snow: orNull(num) }),
+	effects: (v) => isObj(v) && Object.values(v).every(num),
+	scatter: arr(obj({ brush: doodadBrush, density: num, clumps: bool })),
+})
 // Fields added after the first release are optional here: an older saved value must still load.
 const stackItem = obj({
 	tool: oneOf('sculpt', 'paint'),
@@ -115,6 +122,7 @@ const sessionTab = obj({
 const shapes: Record<string, Check> = {
 	doodadBrushes: arr(doodadBrush),
 	brushStacks: arr(obj({ name: str, items: arr(stackItem) })),
+	biomes: arr(biome),
 	modelSets: arr(obj({ name: str, models: arr(str) })),
 	otherClients: arr(obj({ name: str, path: str })),
 	spawnBrush,

@@ -16,6 +16,7 @@
 	import WorldMapDialog from './WorldMapDialog.svelte'
 	import LightsDialog from './LightsDialog.svelte'
 	import BrushStackDialog from './BrushStackDialog.svelte'
+	import BiomesDialog from './BiomesDialog.svelte'
 	import TextureLooksDialog from './TextureLooksDialog.svelte'
 	import SpawnRulesDialog from './SpawnRulesDialog.svelte'
 	import HeightmapImportDialog from './HeightmapImportDialog.svelte'
@@ -373,6 +374,8 @@
 	<LightsDialog onclose={close} />
 {:else if ui.dialog === 'stack'}
 	<BrushStackDialog onclose={close} />
+{:else if ui.dialog === 'biomes'}
+	<BiomesDialog onclose={close} />
 {:else if ui.dialog === 'looks'}
 	<TextureLooksDialog onclose={close} />
 {:else if ui.dialog === 'spawnRules'}

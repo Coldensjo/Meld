@@ -334,6 +334,17 @@ settings; it is not the creation-time lake/river shore pass. Keep manual paintin
 before trying it. See [terrain contracts](architecture/terrain.md#generation-and-scope-contracts)
 and [liquid scope](architecture/water.md#editing-scope-and-exchange).
 
+**Paint › Biomes…** keeps biomes: a texture for each of auto-paint's roles (base, lush patches, dirt
+rim, rock, sand, snow) with the slopes and heights that place them, a ground effect per texture and
+the doodad brushes to scatter, with a density each. **Make biome** builds one from a zone of the client
+(its textures, their ground effects, its trees and rocks); **Use paint texture** sets a role to the
+texture picked in the palette, and **Add doodad brush** adds a copy of the Doodad tool's brush. **Apply
+to Selection** (also **Paint › Apply Biome "…" to Selection**) paints, sets the effects and scatters
+inside the selected area, fading out inside its edge over the mask step; **Apply to Mask** does it
+over the paint mask. Either is one undo step. A biome's ground effects become the map's own for those
+textures everywhere on the map. Where a chunk would need more than four textures, its weakest old one
+gives way, and the status line says in how many chunks.
+
 ### Exchange images, models and brushes
 
 Use an editable map and the desktop backend for file dialogs. Save As a separate `.wmap` first,

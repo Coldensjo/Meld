@@ -693,6 +693,27 @@ mask/liquid, image codec or native/game rendering contracts.
   rotation and Follow ground don't apply) and the brushes' rules: dry ground 2 yd above the sea, at
   most 30° for plants and 45° for rocks, 10 yd under the snow line. Each brush is one undo step
   (Scatter trees, Scatter rocks). A Small Island of Duskwood gets about 300 models.
+  **Biomes** (#957, after World Creator's): a saved look for an area, `terrain/biome.ts` `Biome`, kept
+  in `prefs.biomes` (checked in `prefsPatch.ts`; `prefs.biome` names the one the menu applies,
+  `terrain/activeBiome.ts`) and edited in Paint › Biomes… (`BiomesDialog.svelte`). It holds a texture
+  path per role of auto-paint's six (base, lush, dirt, rock, sand, snow; an empty role falls back as a
+  texture pack's do, `roleTextures`), the rules' thresholds in degrees and yards (`BiomeRules`, turned
+  into `autoPaint.ts` `PaintRules` by `paintRules`; `texelRoles` is the per-texel rule shared with
+  `autoPaintRoles`, whose defaults are `AUTO_PAINT_RULES`), a ground effect ID per texture, and its
+  doodad brushes embedded as copies with a density per 10,000 square yards and a clumps switch. Make
+  from a zone (`wow/zoneBiome.ts` `biomeFromZone`) builds one from `ZoneTextures` (`packPalette`), the
+  client's effect of each texture (`groundEffectTables`) and `ZoneDoodads` (`zoneScatter`, plants in
+  clumps, 2 yd over the sea). `Engine.applyBiome` lays it on the selected area (`featherInside`: full
+  inside, fading to nothing over the mask step, `editor.maskSelect.step`, inside the area's edge, never
+  past it) or on the paint mask (by its value), as one undo step (`History.batch`): it adds the missing
+  textures to the palette, paints through `terrainOps.paintBiomeOver` (`paintBiome`: each texel blends
+  the biome over its own paint by the mask; each touched chunk keeps its four heaviest textures, three
+  where the biome covers it whole, none of the biome's under 4%, and an old texture that had to go is
+  counted and named in the status line), sets the effects as the map's own (`editor.textureEffects`,
+  for the whole map, not just the area) and fills each brush with `DoodadBrushTool.fill` through the
+  same mask (attempts from the density over the area, doubled with clumps). The lush noise is seeded
+  by the biome's name, so two applies of one biome side by side match. A brush's `onTextures` rule
+  sees the biome's paint, since the scatter runs after it. #958 (the biome brush) builds on it.
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'

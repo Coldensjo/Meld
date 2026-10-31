@@ -16,6 +16,7 @@ import { SETTLED_FULL, settledMask } from '../terrain/erodeArea'
 import { layAlphamapChunk } from '../terrain/alphamap'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, clearPalette, compactChunk, findSlot, hasEmptySlot, mergeDuplicateSlots, removeSlot, replaceInChunk, replacePalette, resetTexel } from '../terrain/chunkPaint'
 import { TILE_CELLS, TILE_CHUNKS } from '../wow/format'
+import { paintBiome, type BiomePaint, type BiomePaintResult } from '../terrain/biome'
 import { groupTransformCommand, removedCommand } from '../world/objectCommands'
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
@@ -125,8 +126,11 @@ export function applyErosion(t: Terrain, history: History, objects: ObjectLayer,
 
 /** The bounds (inclusive texels) of the paint mask's set texels, or null when the mask is empty. */
 export function maskBounds(t: Terrain): Rect | null {
-	const R = t.splatRes
-	const m = t.mask
+	return maskBoundsOf(t.mask, t.splatRes)
+}
+
+/** The bounds (inclusive texels) of the set texels of `m`, a mask of R by R texels, or null when it is empty. */
+export function maskBoundsOf(m: Uint8Array, R: number): Rect | null {
 	let x0 = R,
 		z0 = R,
 		x1 = -1,
@@ -184,6 +188,25 @@ export function fillMask(t: Terrain, history: History, layer: number): number | 
 	const cmd = stroke.finish()
 	if (cmd) history.push(cmd)
 	return refused
+}
+
+/**
+ * Paints a biome (terrain/biome.ts `paintBiome`) over `mask` (a value per splat texel) as one undo step
+ * pushed to `history`. Returns what it painted; a mask with nothing set pushes no step.
+ */
+export function paintBiomeOver(t: Terrain, history: History, mask: Uint8Array, p: BiomePaint): BiomePaintResult {
+	const b = maskBoundsOf(mask, t.splatRes)
+	if (!b) return { chunks: 0, replaced: 0, bounds: null }
+	const stroke = new TerrainStroke(t, 'Paint biome', { splat: true })
+	stroke.reserveSplat(b)
+	const r = paintBiome(t, mask, b, p)
+	if (r.bounds) {
+		stroke.touchSplat(r.bounds)
+		t.markSplatDirty(r.bounds)
+	}
+	const cmd = stroke.finish()
+	if (cmd) history.push(cmd)
+	return r
 }
 
 // ---------------------------------------------------------------- holes

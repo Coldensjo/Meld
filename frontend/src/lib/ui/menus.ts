@@ -152,6 +152,8 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 
 	// The Graphics › Quality preset all of whose values the prefs hold now, or null (#203).
 	const graphicsPreset = presetOf(prefs)
+	// The biome Apply Biome lays (terrain/activeBiome.ts, which this module can't import).
+	const biome = prefs.biomes.find((b) => b.name === prefs.biome) ?? prefs.biomes[0] ?? null
 	const server = serverControls(ui.serverStatus, ui.serverAction)
 
 	return [
@@ -338,6 +340,11 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Fill Selection with Doodad Brush', disabled: !editor.selection, run: withEngine((e) => e.fillWithDoodadBrush(false)) },
 				{ kind: 'action', label: 'Fill Mask with Doodad Brush', disabled: !ui.maskActive, run: withEngine((e) => e.fillWithDoodadBrush(true)) },
+				{ kind: 'sep' },
+				// Biomes (#957): textures by rules, ground effects and scatter in one step.
+				{ kind: 'action', label: 'Biomes…', run: () => (ui.dialog = 'biomes') },
+				{ kind: 'action', label: biome ? `Apply Biome "${biome.name}" to Selection` : 'Apply Biome to Selection', disabled: !editor.selection || !biome, run: withEngine((e) => biome && e.applyBiome(biome, false)) },
+				{ kind: 'action', label: biome ? `Apply Biome "${biome.name}" to Mask` : 'Apply Biome to Mask', disabled: !ui.maskActive || !biome, run: withEngine((e) => biome && e.applyBiome(biome, true)) },
 			]),
 		},
 		{

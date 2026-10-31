@@ -458,6 +458,7 @@ export interface ProjectInfo {
 /** The dialogs `ui.dialog` opens (components/AppDialogs.svelte); null when none is open. */
 export type DialogId =
 	| 'stack'
+	| 'biomes'
 	| 'about'
 	| 'help'
 	| 'log'

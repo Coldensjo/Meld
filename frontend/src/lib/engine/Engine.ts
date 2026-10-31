@@ -11,7 +11,8 @@ import { fbm } from './noise'
 import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
-import type { Command } from '../state/history'
+import { History, type Command } from '../state/history'
+import { featherInside, roleTextures, type Biome, type BiomePaintResult } from '../terrain/biome'
 import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, defaultPrefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
@@ -121,7 +122,7 @@ import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
 import type { EdgeSegment } from '../check/terrainChecks'
 import { loadAreas } from '../wow/areas'
-import { animatedAssets, displayName, getAsset, type ModelAsset, releaseAssets, texturesBoundCount, updateMaterialAnimations, withParticleModels } from '../models/assets'
+import { animatedAssets, displayName, getAsset, loadAsset, type ModelAsset, releaseAssets, texturesBoundCount, updateMaterialAnimations, withParticleModels } from '../models/assets'
 import { baseType, withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { castsNear, clearNearCasters, materialsNear, setFarCascade, setNearCascade } from '../world/shadowReach'
@@ -4146,6 +4147,81 @@ export class Engine {
 		}
 		const n = this.doodadTool.fill(this.ctx, brush, area, mask)
 		setStatus(n ? `Placed ${n} models of "${brush.name}".` : `"${brush.name}" found no room there: its rules or spacing ruled out every spot.`, 6000)
+	}
+
+	/**
+	 * Paint › Apply Biome (#957): lays biome `b` over the selected area (fading out inside its edge over
+	 * the mask step, `editor.maskSelect.step`) or the paint mask (by its value): its textures by its
+	 * rules, its ground effects as the map's own, and its doodad brushes' scatter, as one undo step.
+	 * The brushes' models load first, since the spacing reads their size. Returns the status it set.
+	 */
+	async applyBiome(b: Biome, useMask: boolean): Promise<string> {
+		const say = (s: string) => (setStatus(s, 6000), s)
+		if (this.refuseInWorld()) return ''
+		const textures = roleTextures(b)
+		if (!textures[0]) return say(`The biome "${b.name}" has no base texture. Give it one in Paint › Biomes….`)
+		const t = this.terrain
+		const R = t.splatRes
+		let area = editor.selection
+		const mask = new Uint8Array(R * R)
+		if (useMask) {
+			area = ops.maskCells(t)
+			if (!area) return say('The mask is empty. Paint a mask first (Paint tool › Mask).')
+			mask.set(t.mask)
+		} else {
+			if (!area) return say('Select an area first (Select tool, drag on the ground).')
+			const inside = new Uint8Array(R * R)
+			ops.markAreaTexels(t, area, areaShape(t, t.size), inside)
+			const tpc = R / t.size
+			const feather = editor.maskSelect.step / (t.cellSize / tpc)
+			featherInside(inside, R, { x0: area.x0 * tpc, z0: area.z0 * tpc, x1: area.x1 * tpc - 1, z1: area.z1 * tpc - 1 }, feather, mask)
+		}
+		const newTextures = [...new Set(textures.filter((p) => p && paletteIndex(editor.palette, p) < 0))]
+		if (editor.palette.length + newTextures.length > MAX_PALETTE) return say(`This map's texture palette has no room for the biome's ${newTextures.length} new textures (${MAX_PALETTE} at most).`)
+		const doc = this.doc
+		const types = [...new Set(b.scatter.flatMap((s) => s.brush.entries.map((e) => e.type)))]
+		if (types.length) {
+			setStatus(`Loading the models of "${b.name}"…`, 0)
+			await Promise.all(types.map((type) => loadAsset(type).catch(() => null)))
+			if (this.doc !== doc) return say('The map changed while the biome loaded its models; apply it again.')
+		}
+		let painted: BiomePaintResult | null = null
+		let placed = 0
+		const area0 = area
+		const cmd = History.batch(`Apply biome "${b.name}"`, (h) => {
+			if (newTextures.length) {
+				const before = [...editor.palette]
+				editor.palette = [...before, ...newTextures]
+				const after = [...editor.palette]
+				h.push({ label: 'Add textures', undo: () => (editor.palette = [...before]), redo: () => (editor.palette = [...after]) })
+			}
+			const roleTex = textures.map((p) => paletteIndex(editor.palette, p))
+			const seed = [...b.name].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) | 0, 7)
+			painted = ops.paintBiomeOver(t, h, mask, { roleTex, rules: b.rules, waterLevel: editor.waterLevel, waterEnabled: editor.waterEnabled, seed })
+			const effects = Object.entries(b.effects).filter(([p, id]) => textures.includes(p) && editor.textureEffects[p] !== id)
+			if (effects.length) {
+				const before = { ...editor.textureEffects }
+				editor.textureEffects = { ...before, ...Object.fromEntries(effects) }
+				const after = { ...editor.textureEffects }
+				h.push({ label: 'Set ground effects', undo: () => (editor.textureEffects = { ...before }), redo: () => (editor.textureEffects = { ...after }) })
+			}
+			const ctx: ToolContext = Object.create(this.ctx, { history: { value: h } })
+			const cs = t.cellSize
+			const yd2 = (area0.x1 - area0.x0) * (area0.z1 - area0.z0) * cs * cs
+			const open = (x: number, z: number) => (t.isOff(x, z) ? 0 : 1)
+			for (const [i, s] of b.scatter.entries()) {
+				if (!s.brush.entries.length || s.density <= 0) continue
+				const clumps = (x: number, z: number) => (t.isOff(x, z) ? 0 : THREE.MathUtils.smoothstep(fbm(x * 0.006, z * 0.006, 3, seed + 7 + i), 0.38, 0.62))
+				const attempts = Math.round(((s.density * yd2) / 1e4) * (s.clumps ? 2 : 1))
+				placed += this.doodadTool.fill(ctx, s.brush, area0, mask, { attempts, keep: s.clumps ? clumps : open, own: true, label: `Scatter ${s.brush.name}` })
+			}
+		})
+		if (cmd) this.history.push(cmd)
+		const p = painted as BiomePaintResult | null
+		if (!p?.chunks && !placed) return say(`"${b.name}" changed nothing there.`)
+		let msg = `Applied "${b.name}": ${p?.chunks ?? 0} chunks painted, ${placed} models placed.`
+		if (p?.replaced) msg += ` In ${p.replaced} chunks a texture of the old paint gave way (four textures a chunk at most).`
+		return say(msg)
 	}
 
 	/**

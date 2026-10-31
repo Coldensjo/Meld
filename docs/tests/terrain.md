@@ -930,3 +930,20 @@ Checks: the sea on and off, the sea level and the texture roles in Map Propertie
 that undo and redo restore, mark the map dirty, and survive a tab switch. A drag of the sea level writes
 live and commits one step that names where it began.
 - Probe: `bun run probe world-settings` (two flat maps).
+
+## Biomes: Apply Biome to a selection or the mask (#957, probe `biome-apply`)
+
+Checks: a biome's textures join the palette and paint only in the chunks of the selected area (its middle
+all the biome's textures, rock on the steep ground), its ground effect becomes the map's own, its doodad
+brush scatters only inside the area, and one undo step takes back the paint, the palette, the effect and
+the models; redo brings them back. The Biomes dialog opens from `ui.dialog = 'biomes'`.
+- Unit tests: `bun test tests/biome.test.ts` (the paint on a synthetic flat and ramp, the four-texture
+  limit on a chunk that already holds four, the selection's inside fade, the role fallbacks,
+  `History.batch`, a biome made from a zone and its prefs check).
+- Probe: `bun run probe biome-apply` (a Mountains map, colour swatches for textures and helper cubes for
+  models, so it needs no client; about 5 s).
+- By hand with the client: Paint › Biomes…, pick a zone (Elwynn Forest) and Make biome, select an area
+  with the Select tool, Apply to Selection: the zone's grass, rock and dirt inside, tufts on them, trees
+  and rocks inside only, the edge blending over the mask step.
+- Trap: the status line's "a texture of the old paint gave way" counts border chunks where the old paint
+  and the biome together need more than four textures; on an auto-painted map most border chunks do.

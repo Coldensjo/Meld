@@ -60,45 +60,66 @@ function over(w: Float32Array, role: number, a: number) {
 	w[role] += a
 }
 
-/** The packed weights and chunk roles (as `packRoles` gives them) of a world's planned paint. */
-export function autoPaintRoles(p: AutoPaintInput): { weights: Uint8Array; chunkSlots: Uint8Array } {
+/**
+ * The thresholds of the paint's rules (#957): the defaults are a new world's (`AUTO_PAINT_RULES`), a
+ * biome (terrain/biome.ts) sets its own. Slopes are rise over run.
+ */
+export interface PaintRules {
+	/** The slope (over ROCK_YARDS) the rock starts at and the one it covers the ground at. */
+	rock: [number, number]
+	/** The slope (over DIRT_YARDS) the dirt rim starts at and the one it is full at. */
+	dirt: [number, number]
+	/** About the share of the ground the lush patches cover, 0 to 1. */
+	lush: number
+	/** Yards a wave of the variation noise spans. */
+	variation: number
+	/** The snow line in yards above the sea, or null for the world's own (`snowLine`). */
+	snow: number | null
+}
+
+export const AUTO_PAINT_RULES: PaintRules = { rock: [0.62, 0.9], dirt: [0.4, 0.6], lush: 0.5, variation: VARIATION_YARDS, snow: null }
+
+/**
+ * The rules' weights of texel (i, j) over the six roles, each 0 to 255, written into `out` (at least six
+ * long; the rest left at 0). Built once per paint: the closure reuses its scratch.
+ */
+export function texelRoles(p: AutoPaintInput, rules: PaintRules = AUTO_PAINT_RULES): (i: number, j: number, out: Float32Array) => void {
 	const { heights, size, cellSize, res, roles, waterLevel, sand, shores, seed } = p
 	const worldSize = size * cellSize
 	const verts = size + 1
 	let maxH = -Infinity
 	for (let i = 0; i < heights.length; i++) maxH = Math.max(maxH, heights[i])
-	const snow = snowLine(waterLevel, maxH)
-	const w = new Float32Array(roles)
-	const f = 1 / VARIATION_YARDS
+	const snow = rules.snow === null ? snowLine(waterLevel, maxH) : waterLevel + rules.snow
+	const w = new Float32Array(Math.max(roles, SNOW + 1))
+	const f = 1 / rules.variation
+	const lushFrom = 1 - rules.lush
 	const noiseSeed = (seed * 7919 + 99) | 0
 	const h = (x: number, z: number) => heightAt(heights, size, cellSize, x, z)
 	// The slope over `e` yards each way: over a few yards, the cliffs' rock keeps clean edges where a
 	// texel's own slope flickers with every bump of the ground.
 	const slopeAt = (x: number, z: number, e: number) => Math.hypot(h(x + e, z) - h(x - e, z), h(x, z + e) - h(x, z - e)) / (2 * e)
-	return packRoles(
-		p.side,
-		res,
-		roles,
-		(i, j, out) => {
-			const x = ((i + 0.5) / res) * worldSize
-			const z = ((j + 0.5) / res) * worldSize
-			const y = h(x, z)
-			const slope = slopeAt(x, z, ROCK_YARDS)
-			w.fill(0)
-			w[GRASS] = 1
-			over(w, LUSH, smoothstep(0.5, 0.58, fbm(x * f, z * f, 3, noiseSeed)))
-			// Dirt rims the rock's foot: the slopes just short of the rock's.
-			over(w, DIRT, smoothstep(0.4, 0.6, slopeAt(x, z, DIRT_YARDS)) * 0.9)
-			if (p.waterEnabled) over(w, SAND, Math.min(1, Math.max(0, (waterLevel + sand - y) / SAND_BAND)))
-			if (shores) {
-				const lake = shores[Math.round(z / cellSize) * verts + Math.round(x / cellSize)]
-				if (y < lake + sand) over(w, SAND, Math.min(1, Math.max(0, (lake + sand - y) / SAND_BAND)))
-			}
-			over(w, SNOW, Math.min(1, Math.max(0, (y - snow) / 6)))
-			over(w, ROCK, smoothstep(0.62, 0.9, slope))
-			for (let k = 0; k < roles; k++) out[k] = w[k] * 255
-		},
-		AUTO_PAINT_ROLES,
-		AUTO_PAINT_MIN_SHARE,
-	)
+	return (i, j, out) => {
+		const x = ((i + 0.5) / res) * worldSize
+		const z = ((j + 0.5) / res) * worldSize
+		const y = h(x, z)
+		const slope = slopeAt(x, z, ROCK_YARDS)
+		w.fill(0)
+		w[GRASS] = 1
+		over(w, LUSH, smoothstep(lushFrom, lushFrom + 0.08, fbm(x * f, z * f, 3, noiseSeed)))
+		// Dirt rims the rock's foot: the slopes just short of the rock's.
+		over(w, DIRT, smoothstep(rules.dirt[0], rules.dirt[1], slopeAt(x, z, DIRT_YARDS)) * 0.9)
+		if (p.waterEnabled) over(w, SAND, Math.min(1, Math.max(0, (waterLevel + sand - y) / SAND_BAND)))
+		if (shores) {
+			const lake = shores[Math.round(z / cellSize) * verts + Math.round(x / cellSize)]
+			if (y < lake + sand) over(w, SAND, Math.min(1, Math.max(0, (lake + sand - y) / SAND_BAND)))
+		}
+		over(w, SNOW, Math.min(1, Math.max(0, (y - snow) / 6)))
+		over(w, ROCK, smoothstep(rules.rock[0], rules.rock[1], slope))
+		for (let k = 0; k < roles; k++) out[k] = w[k] * 255
+	}
+}
+
+/** The packed weights and chunk roles (as `packRoles` gives them) of a world's planned paint. */
+export function autoPaintRoles(p: AutoPaintInput): { weights: Uint8Array; chunkSlots: Uint8Array } {
+	return packRoles(p.side, p.res, p.roles, texelRoles(p), AUTO_PAINT_ROLES, AUTO_PAINT_MIN_SHARE)
 }

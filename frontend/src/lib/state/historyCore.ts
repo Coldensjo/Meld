@@ -148,6 +148,29 @@ export class History {
 		return true
 	}
 
+	/**
+	 * Runs `fn` against a scratch history and returns the steps it pushed as one command labelled
+	 * `label` (undone last first), or null when it pushed none: an edit made of several (Apply Biome,
+	 * #957) becomes one undo step.
+	 */
+	static batch(label: string, fn: (h: History) => void): Command | null {
+		const h = new History({ dirty() {}, sync() {} })
+		h.budget = Infinity
+		fn(h)
+		const cmds = h.stack.slice(0, h.index)
+		if (!cmds.length) return null
+		return {
+			label,
+			bytes: cmds.reduce((s, c) => s + (c.bytes ?? 0), 0),
+			undo: () => {
+				for (let i = cmds.length - 1; i >= 0; i--) cmds[i].undo()
+			},
+			redo: () => {
+				for (const c of cmds) c.redo()
+			},
+		}
+	}
+
 	/** Re-publish undo/redo availability (after switching documents). */
 	refresh() {
 		this.sync()
