@@ -970,7 +970,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   item (item_template is not reloaded after a delete: the server drops every prototype and reads
   them again, which a deleted item still carried would be left without). Spawns are not reloaded:
   `.reload creature`/`.reload gameobject` (`ObjectMgr::LoadCreatures(true)`) reread the spawn rows and
-  add a new spawn to its grid, but a spawn already loaded keeps its place until the server restarts. The editors' own notes say the reload in one phrase (`SERVER_RELOADS`, `lib/io/applyNote.ts`).
+  add a new spawn to its grid, but a spawn already loaded keeps its place until the server restarts,
+  and even a new spawn appears only in a grid loaded after the reload: `AddCreatureToGrid` adds the
+  guid to the cell's list, which a grid reads once when it loads (`Map::EnsureGridLoaded`), and
+  mangosd.conf's `GridUnload = 0` keeps every visited grid loaded, so a spawn placed near a character
+  never shows (#974, parked). The editors' own notes say the reload in one phrase (`SERVER_RELOADS`, `lib/io/applyNote.ts`).
 - **The Game Login character's test actions** (#962, `lib/io/gameCharacter.ts`,
   `internal/vmangos/soapcharacter.go`): the spawn menu's Set <character>'s level and the Mail to
   <character> items of a loot row and the item editor's list send `.character level <name> <n>` and
