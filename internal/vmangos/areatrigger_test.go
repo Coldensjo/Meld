@@ -76,6 +76,21 @@ func TestAreaTriggerSQL(t *testing.T) {
 			t.Fatalf("missing %q in\n%s", want, sql)
 		}
 	}
+	// A stock name past 64 characters (trigger 98's is 72) is saved whole into areatrigger_template
+	// and cut to areatrigger_teleport's 64 (#943).
+	long := strings.Repeat("Ä", 70)
+	a := AreaTrigger{ID: 98, Radius: 5, Name: long, Teleport: &TriggerTeleport{Map: 1}}
+	if err := checkTrigger(a); err != nil {
+		t.Fatal(err)
+	}
+	sql = AreaTriggerSQL([]AreaTrigger{a}, nil)
+	if !strings.Contains(sql, "VALUES (98, 5875, '"+long+"',") || !strings.Contains(sql, "VALUES (98, 0, '"+strings.Repeat("Ä", 64)+"',") {
+		t.Fatalf("a long name:\n%s", sql)
+	}
+	a.Name = strings.Repeat("x", 129)
+	if checkTrigger(a) == nil {
+		t.Fatal("a name past 128 characters was accepted")
+	}
 }
 
 // TestClientAreaTriggers reads the client's own AreaTrigger.dbc: 1.12's ten-field rows, written back

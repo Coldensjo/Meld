@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
-	import { AreaTriggers, MapEntries, SaveAreaTriggers } from '../lib/wails/App'
+	import { AreaTriggers, ExportAreaTriggers, ImportAreaTriggers, MapEntries, OpenAreaTriggersDialog, PlanAreaTriggerImport, SaveAreaTriggers } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { untrack } from 'svelte'
 	import { docs, setStatus, ui } from '../lib/state/editor.svelte'
@@ -15,7 +15,10 @@
 	// server runs for them (areatrigger_teleport), as a dungeon entrance does. Add one where the
 	// camera is, size it, and pick where it sends a player: a spot typed in, or the camera of any open
 	// map tab. Save writes the client's table into Meld's patch and the server's tables. A form saved
-	// with Save, like Zones: not undo steps.
+	// with Save, like Zones: not undo steps. Export map…, Export trigger… and Import… (#943) write and
+	// read an SQL script of the triggers' areatrigger_template rows and teleports, with their
+	// AreaTrigger rows in "-- meld trigger" lines (internal/vmangos/triggerscripts.go); an import goes
+	// through Save's write after its plan.
 
 	interface Props {
 		onclose: () => void
@@ -67,9 +70,7 @@
 				error = 'This map has no client map ID: open a part of Azeroth or a map made for the client.'
 				return
 			}
-			const r = await AreaTriggers(mapId)
-			triggers = r.triggers ?? []
-			nextId = r.nextId
+			await loadTriggers(mapId)
 			picked = listed[0]?.id ?? null
 		} catch (err) {
 			error = String(err)
@@ -78,6 +79,14 @@
 		}
 	}
 	void init()
+
+	async function loadTriggers(id: number) {
+		const r = await AreaTriggers(id)
+		triggers = r.triggers ?? []
+		nextId = r.nextId
+		dirty = []
+		removed = []
+	}
 
 	// The 3D view draws the list as it is edited, the picked one highlighted.
 	$effect(() => {
@@ -216,6 +225,86 @@
 		}
 	}
 
+	// Export and import (#943).
+	let note = $state('')
+	const unsaved = $derived(dirty.length + removed.length)
+
+	async function exportTriggers(ids: number[], what: string) {
+		if (mapId === null) return
+		error = ''
+		note = ''
+		try {
+			const file = what.replace(/[^\w\- ]+/g, '').trim() || 'portals'
+			const path = await ExportAreaTriggers(mapId, ids, file)
+			if (!path) return
+			const n = ids.length || triggers.filter((x) => x.id < nextId).length
+			note = `Exported ${what} (${n} ${n === 1 ? 'trigger' : 'triggers'}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
+			setStatus(note, 8000)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	/** An import being confirmed: the script's path and what it writes. */
+	let plan = $state<{ path: string; plan: vmangos.TriggerImport } | null>(null)
+	let importing = $state(false)
+
+	async function askImport() {
+		error = ''
+		note = ''
+		if (unsaved && !(await askConfirm('Drop the unsaved portal changes? The triggers are read again after the import.', { title: 'Unsaved changes', ok: 'Drop them' }))) return
+		try {
+			const path = await OpenAreaTriggersDialog()
+			if (!path) return
+			plan = { path, plan: await PlanAreaTriggerImport(path) }
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	async function confirmImport() {
+		if (!plan || mapId === null) return
+		const { path } = plan
+		importing = true
+		const end = startSaving('Importing the area triggers')
+		error = ''
+		try {
+			const res = await ImportAreaTriggers(path)
+			plan = null
+			await loadTriggers(mapId)
+			if (!triggers.some((x) => x.id === picked)) picked = listed[0]?.id ?? null
+			const where = [res.patch ? 'the client' : '', res.server ? "the server's area triggers" : ''].filter(Boolean).join(' and ')
+			const teleports = res.server && res.teleports ? `, ${res.teleports} with a teleport,` : ''
+			const elsewhere = (res.maps ?? []).filter((m) => m !== mapId)
+			const others = elsewhere.length ? ` Some are on ${elsewhere.length === 1 ? 'map' : 'maps'} ${elsewhere.join(', ')}, which this list doesn't show.` : ''
+			const after = res.server ? '' : ' Set the VMaNGOS server folder: without the server, a trigger does nothing.'
+			note = `Imported ${res.triggers} ${res.triggers === 1 ? 'trigger' : 'triggers'}${teleports} into ${where || 'nowhere new (nothing differed)'}.${others}${after}${applyNote(res)}`
+			setStatus(note, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			importing = false
+			end()
+		}
+	}
+
+	/** A trigger of the plan, as the plan bar says it. */
+	function triggerText(a: vmangos.TriggerImportRow, server: boolean): string {
+		const parts = [String(a.id)]
+		if (a.mapId !== mapId) parts.push(`on ${mapName(a.mapId)}`)
+		if (!a.exists) parts.push('new')
+		else if (a.otherMap || a.was) parts.push(`replaces ${a.was ? `"${a.was}"` : 'the trigger'}${a.otherMap ? ` of ${mapName(a.wasMap)}` : ''}`)
+		else parts.push('replaces it')
+		if (a.kept && server) parts.push("the server's name and teleport kept")
+		else if (a.teleport) parts.push(`to ${mapName(a.teleport.map)}`)
+		return `${a.name || `Trigger ${a.id}`} (${parts.join(', ')})`
+	}
+
+	/** The first `n` of `items` joined, with how many more. */
+	function some(items: string[], n = 12): string {
+		return items.slice(0, n).join('; ') + (items.length > n ? `; and ${items.length - n} more` : '')
+	}
+
 	async function close() {
 		if ((dirty.length || removed.length) && !(await askConfirm('Close without saving the portal changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
 		engineRef.current?.endTriggerEdit()
@@ -232,6 +321,30 @@
 
 <Modal title="Portals and area triggers" width={780} onclose={close}>
 	{#if error}<p class="error">{error}</p>{/if}
+	{#if note && !plan}<p class="note">{note}</p>{/if}
+	{#if plan}
+		{@const p = plan.plan}
+		{@const rows = p.triggers ?? []}
+		{@const refused = p.refused ?? []}
+		<div class="plan" role="group" aria-label="Import plan">
+			<div class="what">
+				<strong>Import {rows.length} {rows.length === 1 ? 'trigger' : 'triggers'} into the client's AreaTrigger.dbc{p.server ? " and the server's areatrigger_template and areatrigger_teleport" : ''}?</strong>
+				<span>{some(rows.map((a) => triggerText(a, p.server)))}.</span>
+				{#if (p.maps ?? []).some((m) => m !== mapId)}<span>The trigger and map IDs are the exporting client's, kept as they are.</span>{/if}
+				{#if p.missingMaps?.length}<span>Not in this client's Map.dbc: map {p.missingMaps.join(', ')}. The triggers are written, but no map of this client has them.</span>{/if}
+				{#if p.missingTargets?.length}<span>Teleports to maps this client's Map.dbc lacks, so a server built from it lacks them too and refuses those teleports: map {p.missingTargets.join(', ')}.</span>{/if}
+				{#if !p.server}<span>The names and teleports are left out: set the VMaNGOS server folder to import them.</span>
+				{:else}<span>{p.teleports} {p.teleports === 1 ? 'trigger teleports' : 'triggers teleport'} after the import.</span>{/if}
+				{#if p.others}<span>{p.others} server {p.others === 1 ? 'row is' : 'rows are'} of triggers the script has no meld line of, and left out.</span>{/if}
+				{#if p.skipped}<span>{p.skipped} other {p.skipped === 1 ? 'statement is' : 'statements are'} left out: only the triggers and their teleports are imported.</span>{/if}
+				{#if p.unknown?.length}<span>Columns Meld doesn't write are left out: {p.unknown.join(', ')}.</span>{/if}
+				{#if refused.length}<span class="refused">Refused, nothing is written: {refused.join('; ')}.</span>
+				{:else}<span>A replaced trigger can't be brought back, unless you exported it first.</span>{/if}
+			</div>
+			<button onclick={() => (plan = null)}>Cancel</button>
+			<button class="active" disabled={importing || refused.length > 0} onclick={() => void confirmImport()}>{importing ? 'Importing…' : 'Import'}</button>
+		</div>
+	{/if}
 	<div class="top">
 		<span class="dim">{loading ? 'Reading the triggers…' : mapId !== null ? `${mapName(mapId)}: ${triggers.length} triggers, nearest the camera first.` : ''}</span>
 		<button onclick={add} disabled={!here || mapId === null} title="A new portal (a 5 yd sphere) where the camera is">New portal here</button>
@@ -254,7 +367,7 @@
 				<div class="grid">
 					<label class="k" for="at-name">Name</label>
 					<span class="row">
-						<input id="at-name" maxlength="64" value={t.name} oninput={(e) => edit('name', (e.target as HTMLInputElement).value)} />
+						<input id="at-name" maxlength="128" value={t.name} oninput={(e) => edit('name', (e.target as HTMLInputElement).value)} />
 						<span class="dim nowrap" title="The trigger's ID in AreaTrigger.dbc">ID {t.id}</span>
 					</span>
 				</div>
@@ -343,6 +456,11 @@
 		the game reads when it starts) and the server's areatrigger_template and areatrigger_teleport.
 	</p>
 	{#snippet actions()}
+		<button onclick={() => void askImport()} disabled={importing || saving || mapId === null} title="Read area triggers and their teleports from an SQL script into the client and the server, as Save writes them">Import…</button>
+		<button onclick={() => mapId !== null && void exportTriggers([], mapName(mapId))} disabled={!triggers.some((x) => x.id < nextId)} title="Write every saved area trigger of this map, with its teleport, to an SQL script"
+			>Export map…</button
+		>
+		<button onclick={() => t && void exportTriggers([t.id], t.name || `Trigger ${t.id}`)} disabled={!t || t.id >= nextId} title="Write the picked trigger, as saved, with its teleport to an SQL script">Export trigger…</button>
 		<button onclick={close}>Close</button>
 		<button class="active" onclick={() => void save()} disabled={(!dirty.length && !removed.length) || saving}>{saving ? 'Saving…' : `Save${dirty.length + removed.length ? ` (${dirty.length + removed.length})` : ''}`}</button>
 	{/snippet}
@@ -352,6 +470,34 @@
 	.error {
 		color: var(--danger-text);
 		margin: 0 0 8px;
+	}
+	.note {
+		color: var(--ok);
+		margin: 0 0 8px;
+		font-size: 12px;
+		overflow-wrap: anywhere;
+	}
+	.plan {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		margin: 0 0 8px;
+		padding: 8px;
+		font-size: 12px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--panel-2);
+	}
+	.plan .what {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		overflow-wrap: anywhere;
+	}
+	.plan .refused {
+		color: var(--danger-text);
 	}
 	.dim {
 		color: var(--text-dim);

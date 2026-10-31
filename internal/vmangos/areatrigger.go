@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"Meld/internal/mpq"
 )
@@ -119,8 +120,10 @@ func checkTrigger(a AreaTrigger) error {
 	if a.Radius == 0 && (a.BoxX == 0 || a.BoxY == 0 || a.BoxZ == 0) {
 		return fmt.Errorf("trigger %d has no size: give it a radius or a box", a.ID)
 	}
-	if len(a.Name) > 64 {
-		return fmt.Errorf("trigger %d: the name is longer than 64 characters", a.ID)
+	// areatrigger_template's name is 128 characters (the stock rows go past 64, #943); the teleport's
+	// 64 take the start of it (teleportName).
+	if utf8.RuneCountInString(a.Name) > 128 {
+		return fmt.Errorf("trigger %d: the name is longer than 128 characters", a.ID)
 	}
 	if t := a.Teleport; t != nil {
 		if t.Level < 0 || t.Level > 255 {
@@ -217,6 +220,14 @@ func NewAreaTriggerID(dbc []byte, serverMax uint32) (uint32, error) {
 	return top + 1, nil
 }
 
+// teleportName is a trigger's name cut to areatrigger_teleport's 64 characters.
+func teleportName(name string) string {
+	if utf8.RuneCountInString(name) <= 64 {
+		return name
+	}
+	return string([]rune(name)[:64])
+}
+
 func num32(v float32) string {
 	return strconv.FormatFloat(float64(v), 'f', -1, 32)
 }
@@ -237,7 +248,7 @@ func AreaTriggerSQL(rows []AreaTrigger, remove []uint32) string {
 		fmt.Fprintf(&b, "DELETE FROM `areatrigger_teleport` WHERE `id` = %d;\n", a.ID)
 		if t := a.Teleport; t != nil {
 			fmt.Fprintf(&b, "INSERT INTO `areatrigger_teleport` (`id`, `patch`, `name`, `message`, `required_level`, `target_map`, `target_position_x`, `target_position_y`, `target_position_z`, `target_orientation`) VALUES (%d, 0, %s, %s, %d, %d, %s, %s, %s, %s);\n",
-				a.ID, sqlQuote(a.Name), sqlQuote(t.Message), t.Level, t.Map, num32(t.X), num32(t.Y), num32(t.Z), num32(t.O))
+				a.ID, sqlQuote(teleportName(a.Name)), sqlQuote(t.Message), t.Level, t.Map, num32(t.X), num32(t.Y), num32(t.Z), num32(t.O))
 		}
 	}
 	return b.String()

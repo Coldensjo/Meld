@@ -599,7 +599,7 @@ Read only.
 
 ## Portals and area triggers (#141, #18)
 
-Probes: `teleport-trigger` (#306) and `portals-fit` (#718); a write is a hand check.
+Probes: `teleport-trigger` (#306), `portals-fit` (#718) and `portal-scripts` (#943); a write is a hand check.
 
 Checks: World › Portals and Area Triggers… lists the open map's AreaTrigger.dbc volumes with the
 server's names and teleports, draws them, and saves them to the client's patch and the world DB.
@@ -637,6 +637,26 @@ server's names and teleports, draws them, and saves them to the client's patch a
   portals to test by hand: `SELECT entry, type, name FROM gameobject_template WHERE type IN (10, 22)`
   joined to `gameobject` (the city portals are summoned by mages, not spawned; Inner Maraudon's
   178404 and the Naxxramas portals are).
+- Export and Import (#943): Export trigger… and Export map… write an SQL script of the saved
+  triggers (their `areatrigger_template` rows and teleports, the AreaTrigger rows in `-- meld trigger`
+  lines), and Import… plans a script and, on confirmation, writes it as Save does.
+  Go: `vmangos.TestTriggerScriptRoundTrip` (every field and an awkward name back through the meld
+  lines and the server's statements; a script exported without a server holds only the meld lines and
+  keeps the server's names and teleports), `TestTriggerImportPlan` (another map's or name's trigger
+  named, a missing trigger map and teleport target listed, the highest build up to 5875 taken, other
+  rows, statements and columns counted), `TestTriggerScriptRefusesWhatItCantRead`, and
+  `TestClientTriggerScriptRoundTrip` (needs the client; with the server, its names and teleports):
+  Azeroth's triggers exported and planned back replace themselves and write AreaTrigger.dbc
+  unchanged. In the root package, `TestImportAreaTriggersWritesAsSave` imports into a made-up client
+  without a server folder and checks a refused script writes nothing. Probe `portal-scripts` (about
+  9 s, on the throwaway client; nothing written): trigger 78's Export trigger… hands the binding map
+  0, [78] and its name; Import… of a script the probe writes shows the real plan (78 replaces itself
+  with the server's name and teleport kept, a new trigger teleporting to map 9999, which no client
+  has, one statement left out); a stand-in `ImportAreaTriggers` then gets the note and the triggers
+  read again. Trap: the stock `areatrigger_template` has 43 names past 64 characters (trigger 98's is
+  72), which Save refused until #943; the column takes 128, `areatrigger_teleport.name` 64
+  (`teleportName` cuts it). Not checked here: an import into the real client and server, and the game
+  running an imported teleport (the owner's check).
 - Left click (#307): with the Select tool and the triggers drawn, a click (not a drag) on a trigger selects it (`ui.pickedTrigger`, which the Portals dialog follows and sets), a click away lets go; the probe covers it.
 - Trap: the default camera flies, so its target is the camera itself: a probe that sets the view on
   a trigger's centre puts the camera inside it, and a trigger the camera is inside is never picked.

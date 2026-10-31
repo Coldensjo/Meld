@@ -178,6 +178,8 @@ export type {
     TileSpec,
     Transport,
     TransportLeg,
+    TriggerImport,
+    TriggerImportRow,
     TriggerTeleport,
     UnreadyGiver,
     Vendor,

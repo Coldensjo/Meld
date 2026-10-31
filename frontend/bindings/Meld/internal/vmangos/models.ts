@@ -2935,6 +2935,69 @@ export interface TransportLeg {
 }
 
 /**
+ * TriggerImport is what importing an area triggers script would write.
+ */
+export interface TriggerImport {
+    "triggers": TriggerImportRow[] | null;
+
+    /**
+     * Maps are the maps the triggers are on, each once; MissingMaps those this client's Map.dbc lacks.
+     */
+    "maps": number[] | null;
+    "missingMaps": number[] | null;
+
+    /**
+     * Teleports counts the triggers that teleport after the import; MissingTargets are the maps they
+     * send a player to that this client's Map.dbc lacks, which a server built from it lacks too.
+     */
+    "teleports": number;
+    "missingTargets": number[] | null;
+
+    /**
+     * Server says a server folder is set, so areatrigger_template and areatrigger_teleport are written
+     * too; without one, the names and teleports are left out.
+     */
+    "server": boolean;
+    "others": number;
+    "skipped": number;
+    "unknown": string[] | null;
+
+    /**
+     * Refused are the problems that stop the import; nothing is written while there is one.
+     */
+    "refused": string[] | null;
+}
+
+/**
+ * TriggerImportRow is a trigger of a script as the import plan lists it.
+ */
+export interface TriggerImportRow {
+    "id": number;
+    "mapId": number;
+    "name": string;
+
+    /**
+     * Exists says the client has a trigger of this ID, which the import replaces; OtherMap that it is
+     * on another map, WasMap, and Was the server's name for it when another, for a plan that says
+     * when the ID is another trigger's on this client.
+     */
+    "exists": boolean;
+    "otherMap": boolean;
+    "wasMap": number;
+    "was": string;
+
+    /**
+     * Teleport is where the trigger sends a player after the import, or nil.
+     */
+    "teleport": TriggerTeleport | null;
+
+    /**
+     * Kept says the script has no server row of the trigger, so the server's name and teleport stay.
+     */
+    "kept": boolean;
+}
+
+/**
  * TriggerTeleport is an areatrigger_teleport row: the target map, position and facing, the level a
  * player needs, and the message one below it gets.
  */

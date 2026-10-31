@@ -39,6 +39,20 @@ export interface AreaSaveResult {
 }
 
 /**
+ * AreaTriggerImportResult is what ImportAreaTriggers wrote: Save's result (AreaSaveResult's fields),
+ * and how many triggers on which maps.
+ */
+export interface AreaTriggerImportResult {
+    "patch": string;
+    "server": boolean;
+    "waiting": boolean;
+    "restart": boolean;
+    "triggers": number;
+    "teleports": number;
+    "maps": number[] | null;
+}
+
+/**
  * AreaTriggerList is a map's area triggers with the server's names and teleports, and the ID a new
  * trigger takes.
  */

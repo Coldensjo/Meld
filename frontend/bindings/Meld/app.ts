@@ -414,6 +414,15 @@ export function EquipmentItems(id: number): $CancellablePromise<number[]> {
 }
 
 /**
+ * ExportAreaTriggers asks where to save an SQL script of a map's area triggers and writes it there
+ * (#943): the triggers of ids (all of the map's when empty) as the client has them, and with a server
+ * folder set their names and teleports. Returns the path, or "" if cancelled.
+ */
+export function ExportAreaTriggers(mapID: number, ids: number[] | null, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(2444351623, mapID, ids, suggested);
+}
+
+/**
  * ExportAreas asks where to save an SQL script of a map's zones and writes it there (#942): the areas
  * of ids (all of the map's when empty) as the client has them, and with a server folder set their
  * zones' weather. Returns the path, or "" if cancelled.
@@ -583,6 +592,15 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
  */
 export function IconState(name: string): $CancellablePromise<vmangos$0.IconState> {
     return $Call.ByID(197901069, name);
+}
+
+/**
+ * ImportAreaTriggers writes the area triggers of the SQL script at path as Save writes the dialog's
+ * (SaveAreaTriggers): into the client's AreaTrigger.dbc and the server's areatrigger_template and
+ * areatrigger_teleport. Nothing is written while the plan refuses the script.
+ */
+export function ImportAreaTriggers(path: string): $CancellablePromise<$models.AreaTriggerImportResult> {
+    return $Call.ByID(3946726424, path);
 }
 
 /**
@@ -1081,6 +1099,13 @@ export function ObjectTables(): $CancellablePromise<vmangos$0.ObjectTables> {
 }
 
 /**
+ * OpenAreaTriggersDialog asks for an SQL script of area triggers to import. Returns "" if cancelled.
+ */
+export function OpenAreaTriggersDialog(): $CancellablePromise<string> {
+    return $Call.ByID(2763315273);
+}
+
+/**
  * OpenAreasDialog asks for an SQL script of zones to import. Returns "" if cancelled.
  */
 export function OpenAreasDialog(): $CancellablePromise<string> {
@@ -1246,6 +1271,15 @@ export function OwnObjectDisplay(display: number): $CancellablePromise<$models.O
  */
 export function PlanAreaImport(path: string): $CancellablePromise<vmangos$0.AreaImport> {
     return $Call.ByID(3018252750, path);
+}
+
+/**
+ * PlanAreaTriggerImport says what importing the area triggers of the SQL script at path would write:
+ * which triggers are new and which replace one of this client's, their names and teleports, and the
+ * maps this client lacks.
+ */
+export function PlanAreaTriggerImport(path: string): $CancellablePromise<vmangos$0.TriggerImport> {
+    return $Call.ByID(4143530136, path);
 }
 
 /**

@@ -599,6 +599,155 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 	return res, nil
 }
 
+// ExportAreaTriggers asks where to save an SQL script of a map's area triggers and writes it there
+// (#943): the triggers of ids (all of the map's when empty) as the client has them, and with a server
+// folder set their names and teleports. Returns the path, or "" if cancelled.
+func (a *App) ExportAreaTriggers(mapID uint32, ids []uint32, suggested string) (string, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return "", err
+	}
+	dbc, err := vmangos.LoadAreaTriggerTable(dataDir)
+	if err != nil {
+		return "", err
+	}
+	all, err := vmangos.ReadAreaTriggers(dbc, mapID)
+	if err != nil {
+		return "", err
+	}
+	rows := all
+	if len(ids) > 0 {
+		want := map[uint32]bool{}
+		for _, id := range ids {
+			want[id] = true
+		}
+		rows = nil
+		for _, r := range all {
+			if want[r.ID] {
+				rows = append(rows, r)
+			}
+		}
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if hasDB(server) && len(rows) > 0 {
+		if _, err := vmangos.TriggerExtras(server, rows); err != nil {
+			return "", fmt.Errorf("world database: %w", err)
+		}
+	}
+	mapName := ""
+	if maps, err := vmangos.LoadMapEntries(dataDir); err == nil {
+		for _, m := range maps {
+			if m.ID == mapID {
+				mapName = m.Name
+			}
+		}
+	}
+	script, err := vmangos.TriggerScript(rows, hasDB(server), mapName, time.Now())
+	if err != nil {
+		return "", err
+	}
+	if suggested == "" {
+		suggested = "portals"
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Area Triggers", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenAreaTriggersDialog asks for an SQL script of area triggers to import. Returns "" if cancelled.
+func (a *App) OpenAreaTriggersDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Area Triggers", Filters: sqlFilters})
+}
+
+// planTriggerImport reads the area triggers script at path and plans its import into the client and,
+// when server has a database, the server.
+func (a *App) planTriggerImport(server, path string) (vmangos.TriggerImport, []vmangos.AreaTrigger, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.TriggerImport{}, nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.TriggerImport{}, nil, err
+	}
+	dbc, err := vmangos.LoadAreaTriggerTable(dataDir)
+	if err != nil {
+		return vmangos.TriggerImport{}, nil, err
+	}
+	var maps map[uint32]bool
+	if entries, err := vmangos.LoadMapEntries(dataDir); err == nil {
+		maps = make(map[uint32]bool, len(entries))
+		for _, m := range entries {
+			maps[m.ID] = true
+		}
+	}
+	var lookup func([]uint32) (map[uint32]vmangos.AreaTrigger, error)
+	if hasDB(server) {
+		lookup = func(ids []uint32) (map[uint32]vmangos.AreaTrigger, error) {
+			rows := make([]vmangos.AreaTrigger, len(ids))
+			for i, id := range ids {
+				rows[i].ID = id
+			}
+			if _, err := vmangos.TriggerExtras(server, rows); err != nil {
+				return nil, err
+			}
+			out := make(map[uint32]vmangos.AreaTrigger, len(rows))
+			for _, r := range rows {
+				out[r.ID] = r
+			}
+			return out, nil
+		}
+	}
+	return vmangos.PlanTriggerImport(dbc, string(b), maps, lookup)
+}
+
+// PlanAreaTriggerImport says what importing the area triggers of the SQL script at path would write:
+// which triggers are new and which replace one of this client's, their names and teleports, and the
+// maps this client lacks.
+func (a *App) PlanAreaTriggerImport(path string) (vmangos.TriggerImport, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	plan, _, err := a.planTriggerImport(server, path)
+	return plan, err
+}
+
+// AreaTriggerImportResult is what ImportAreaTriggers wrote: Save's result (AreaSaveResult's fields),
+// and how many triggers on which maps.
+type AreaTriggerImportResult struct {
+	Patch     string   `json:"patch"`
+	Server    bool     `json:"server"`
+	Waiting   bool     `json:"waiting"`
+	Restart   bool     `json:"restart"`
+	Triggers  int      `json:"triggers"`
+	Teleports int      `json:"teleports"`
+	Maps      []uint32 `json:"maps"`
+}
+
+// ImportAreaTriggers writes the area triggers of the SQL script at path as Save writes the dialog's
+// (SaveAreaTriggers): into the client's AreaTrigger.dbc and the server's areatrigger_template and
+// areatrigger_teleport. Nothing is written while the plan refuses the script.
+func (a *App) ImportAreaTriggers(path string) (AreaTriggerImportResult, error) {
+	// Before anything is read: the throwaway client's server tables are the real ones (#383).
+	server, err := a.optionalServerForWrite()
+	if err != nil {
+		return AreaTriggerImportResult{}, err
+	}
+	plan, rows, err := a.planTriggerImport(server, path)
+	if err != nil {
+		return AreaTriggerImportResult{}, err
+	}
+	if len(plan.Refused) > 0 {
+		return AreaTriggerImportResult{}, fmt.Errorf("the area triggers are not imported: %s", strings.Join(plan.Refused, "; "))
+	}
+	res, err := a.SaveAreaTriggers(rows, nil)
+	return AreaTriggerImportResult{Patch: res.Patch, Server: res.Server, Waiting: res.Waiting, Restart: res.Restart, Triggers: len(rows), Teleports: plan.Teleports, Maps: plan.Maps}, err
+}
+
 // TaxiNetwork lists map mapID's flight stops and the routes from or to them from the client's taxi
 // tables, with the IDs a new stop (above the world database's taxi_nodes too, when a server folder
 // is set) and route take, for the Flight Paths window (#180).

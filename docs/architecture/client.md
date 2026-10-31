@@ -599,6 +599,19 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   view, not the game's character (Play here does that).
   A Select-tool left click that does not drag picks a trigger by the same rule (`Engine.triggerUnderPointer`,
   `finishTriggerClick`), and `ui.pickedTrigger` is the pick the Portals dialog follows and sets (#307).
+  The dialog's Export trigger…, Export map… and Import… (#943, `vmangos/triggerscripts.go`, bindings
+  `ExportAreaTriggers`, `PlanAreaTriggerImport`, `ImportAreaTriggers`) write and read an SQL script:
+  each trigger's `AreaTriggerSQL` (its `areatrigger_template` row, a `DELETE` of its teleport and the
+  new one), with the AreaTrigger.dbc rows as `-- meld trigger` lines (`vmangos/meldlines.go`, as the
+  zones' script, #942). Exported without a server folder, the script holds only the meld lines, since
+  an empty name and no teleport would wipe a server's. The import takes the geometry from the meld
+  lines alone (a script without them is refused) and the name and teleport from the statements (the
+  highest build up to 5875, the highest patch); a trigger without a server row in the script keeps
+  the server's name and teleport (`TriggerExtras`). It writes through `SaveAreaTriggers`, so it is
+  Save in every respect. Its plan keeps the script's IDs, names a replaced trigger of another map or
+  name, and lists maps, and teleport targets, this client's Map.dbc lacks: the server checks a
+  teleport's map against its own DBCs and drops one it lacks. A trigger name may be 128 characters
+  (`areatrigger_template`, stock names reach 85); the teleport's copy is cut to its column's 64.
 - **A spawn's scripts** (#137): the editors' This spawn tab (`SpawnFields.svelte`) lists, read-only,
   what the world database attaches to the spawn (`ScriptFields.svelte`, the `SpawnScripts` binding,
   `internal/vmangos/scripts.go`, one query): its template's `script_name` (C++), a creature's

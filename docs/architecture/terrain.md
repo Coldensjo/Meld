@@ -827,8 +827,8 @@ mask/liquid, image codec or native/game rendering contracts.
   SQL script: each area's `area_template` row (`AreaSQL`) and each zone's `game_weather` row, or a
   `DELETE` of it for a zone without weather, so the script alone replaces a server's weather; the
   AreaTable.dbc rows travel as `-- meld area` comment lines (`vmangos/meldlines.go`, the shared
-  writer and reader of client rows in a script, which the portal and flight path scripts are to use
-  too, #943, #944). The export reads the saved client rows, not the dialog's unsaved ones. The
+  writer and reader of client rows in a script, which the portal script uses too, #943, and the
+  flight path script is to, #944). The export reads the saved client rows, not the dialog's unsaved ones. The
   import takes the areas from the meld lines alone (a script without them is refused) and the
   weather from the `game_weather` statements, and writes them through `SaveAreas`, so it is Save in
   every respect (patch, `area_template`, weather reload, the restart note). Its plan keeps the

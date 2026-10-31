@@ -9,6 +9,7 @@ export {
 export type {
     AreaImportResult,
     AreaSaveResult,
+    AreaTriggerImportResult,
     AreaTriggerList,
     AssetsImported,
     ClientSandbox,
