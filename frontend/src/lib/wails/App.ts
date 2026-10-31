@@ -38,6 +38,7 @@ export const BrowseWowFolder: Call<AppApi['BrowseWowFolder']> = (...a) => api().
 export const CharacterLooks: Call<AppApi['CharacterLooks']> = (...a) => api().CharacterLooks(...a) as never
 export const CharacterModelLook: Call<AppApi['CharacterModelLook']> = (...a) => api().CharacterModelLook(...a) as never
 export const CheckSpawnIDs: Call<AppApi['CheckSpawnIDs']> = (...a) => api().CheckSpawnIDs(...a) as never
+export const CheckWorldData: Call<AppApi['CheckWorldData']> = (...a) => api().CheckWorldData(...a) as never
 export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) => api().ClassLevelStats(...a) as never
 export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) => api().ClearThumbnailCache(...a) as never
 export const ClientFilesWaiting: Call<AppApi['ClientFilesWaiting']> = (...a) => api().ClientFilesWaiting(...a) as never

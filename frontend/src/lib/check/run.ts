@@ -15,6 +15,7 @@ import type { Box, Finding } from './findings'
 import { checkDuplicateModels, checkModelHeights, type CheckModel } from './models'
 import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type CheckSpawn, type IdReport, type IdSpawn, type SpawnProbes } from './spawns'
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones, type EdgeSegment } from './terrainChecks'
+import { checkWorldData, CREATURE_REFS, OBJECT_REFS, type WorldDataReport } from './worldData'
 
 export interface CheckInput {
 	terrain: Terrain
@@ -34,6 +35,13 @@ export interface CheckInput {
 	edges: EdgeSegment[] | null
 	/** Asks the world database what it has under the unsaved spawns' guids and entries; null without a server. */
 	spawnIds: ((q: SpawnIdQuery) => Promise<IdReport>) | null
+	/**
+	 * Asks the world database about the templates the spawns use (#951); a string instead says why the
+	 * World data group is left out (no world database in this build).
+	 */
+	worldData: ((q: WorldDataQuery) => Promise<WorldDataReport>) | string
+	/** Where the camera is (world x, z): a template's finding points at its spawn nearest it. */
+	from?: { x: number; z: number }
 	/** Says what runs now, for the status bar. */
 	progress?: (what: string) => void
 }
@@ -44,6 +52,14 @@ export interface SpawnIdQuery {
 	objectGuids: number[]
 	creatureEntries: number[]
 	objectEntries: number[]
+}
+
+/** The templates the World data group checks and their id columns (Go's `vmangos.WorldDataQuery`). */
+export interface WorldDataQuery {
+	creatureEntries: number[]
+	objectEntries: number[]
+	creatureRefs: Array<{ type: number; col: string; kind: string }>
+	objectRefs: Array<{ type: number; col: string; kind: string }>
 }
 
 /** The six ways the inside test looks from a creature's chest. */
@@ -211,6 +227,8 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 		}
 	}
 
+	findings.push(...(await worldDataFindings(input)))
+
 	if (input.edges) {
 		progress?.('region edges')
 		findings.push(...checkRegionEdges(input.edges, t.heights, t.verts, t.cellSize))
@@ -234,4 +252,21 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 	const rank = { error: 0, warning: 1, info: 2 }
 	findings.sort((a, b) => a.check.localeCompare(b.check) || rank[a.severity] - rank[b.severity])
 	return { findings, unchecked }
+}
+
+/** The World data group (#951): asks the world database about the spawns' templates, or says why it can't. */
+async function worldDataFindings(input: CheckInput): Promise<Finding[]> {
+	const left = (why: string): Finding[] => [{ check: 'World data', severity: 'info', group: 'world', message: why, x: NaN, z: NaN, target: { kind: 'none' } }]
+	if (typeof input.worldData === 'string') return left(input.worldData)
+	const spawns = input.spawns.spawns.map((s) => ({ key: spawnKey(s), kind: s.kind, entry: s.entry, x: s.x, z: s.z }))
+	if (!spawns.length) return []
+	input.progress?.('world data')
+	const entries = (obj: boolean) => [...new Set(spawns.filter((s) => (s.kind === 'object') === obj && s.entry > 0).map((s) => s.entry))]
+	const plain = (refs: typeof CREATURE_REFS) => refs.map(({ type, col, kind }) => ({ type, col, kind }))
+	try {
+		const report = await input.worldData({ creatureEntries: entries(false), objectEntries: entries(true), creatureRefs: plain(CREATURE_REFS), objectRefs: plain(OBJECT_REFS) })
+		return checkWorldData(spawns, report, input.from ?? null)
+	} catch (err) {
+		return left(`The world data wasn't checked: the world database could not be asked (${err}).`)
+	}
 }

@@ -183,8 +183,10 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 				return
 			}
 			// Edit › Preferences › Compile and export › Check the map before compile (#195): errors stop the compile and open the list.
+			// The World data group's (#951) don't: they are the database's templates, which the compile doesn't write, and a
+			// region's own server spawns can bring such errors with them.
 			if (prefs.checkBeforeCompile) {
-				const errors = (await engine.checkMap()).findings.filter((f) => f.severity === 'error').length
+				const errors = (await engine.checkMap()).findings.filter((f) => f.severity === 'error' && f.group !== 'world').length
 				if (errors) {
 					ui.checkMap = true
 					setStatus(`Compile stopped: the map check found ${errors} ${errors === 1 ? 'error' : 'errors'}. Fix them, or turn off Check the map before compile in Edit › Preferences › Compile and export.`, 10000)

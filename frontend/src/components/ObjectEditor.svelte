@@ -9,6 +9,7 @@
 	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
+	import { focusField } from '../lib/ui/focusField'
 	import { fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups, pageColumn } from '../lib/world/objectFields'
 	import { objectEntryFields } from '../lib/world/spawnEdits'
@@ -125,11 +126,29 @@
 
 	/** Opens the editor on `t` (its window was opened again on another object or spawn, or on its Text tab), asking about unsaved changes first. */
 	export function openTarget(t: SlotTarget) {
-		const next = t.tab ? { key: t.key ?? null, entry: t.entry, tab: t.tab } : { key: t.key ?? null, entry: t.entry }
+		const next = { key: t.key ?? null, entry: t.entry, ...(t.tab ? { tab: t.tab } : {}), ...(t.field ? { field: t.field } : {}) }
 		if (!target) ui.objectEditor = next
 		else if (target.key !== next.key || target.entry !== next.entry) ed.leave(() => (ui.objectEditor = next))
 		else if (next.tab) tab = next.tab
+		else if (t.field) wantField = t.field
 	}
+
+	// Opened on a column (File › Check Map's Edit, #951): once its template is read, the Object tab,
+	// scrolled to the column's field.
+	let wantField = $state<string | null>(null)
+	$effect(() => {
+		const f = target?.field
+		if (f) untrack(() => (wantField = f))
+	})
+	$effect(() => {
+		const col = wantField
+		if (!col || !record || record.entry !== target?.entry) return
+		untrack(() => {
+			wantField = null
+			tab = 'object'
+			focusField(col)
+		})
+	})
 
 	/** Closes the editor, asking first with unsaved changes: its window's own close button (#916). */
 	export function askClose() {

@@ -579,15 +579,16 @@ export const ui = $state({
 	spawnPick: null as { mode: 'lead' | 'follow' | 'pool' | 'joinPool' | 'joinMother'; key: string } | null,
 	/**
 	 * The creature editor, full screen: the creature template `entry`, and the spawn `key` it was
-	 * opened from (null for a template alone, such as a new creature).
+	 * opened from (null for a template alone, such as a new creature); `field` opens it on that column
+	 * (File › Check Map's Edit, #951).
 	 */
-	creatureEditor: null as { key: string | null; entry: number } | null,
+	creatureEditor: null as { key: string | null; entry: number; field?: string } | null,
 	/**
 	 * The game object editor, full screen (#136): the game object template `entry`, and the spawn `key`
 	 * it was opened from (null for a template alone, such as a new object); `tab` opens it on that tab
-	 * (the right-click menu's Edit text…, #139).
+	 * (the right-click menu's Edit text…, #139) and `field` on that column (File › Check Map's Edit, #951).
 	 */
-	objectEditor: null as { key: string | null; entry: number; tab?: 'text' } | null,
+	objectEditor: null as { key: string | null; entry: number; tab?: 'text'; field?: string } | null,
 	/**
 	 * The large preview window (#197, the right-click menu's Preview): a model type (`m2:`, `wmo:` with
 	 * its set, `helper:`, or a spawn's dressed type), its name and its scale; null while closed.

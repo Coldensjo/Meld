@@ -176,7 +176,7 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import type { SpawnChange } from '../world/formations'
 import { poolMates } from '../world/pools'
 import { selectSpawn, spawnsAdd, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../wails/App'
+import { AreaTriggers, CheckSpawnIDs, CheckWorldData, Factions, MapEntries, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../wails/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
@@ -6179,6 +6179,8 @@ export class Engine {
 			knownArea,
 			edges,
 			spawnIds: 'go' in window && region ? (q) => CheckSpawnIDs(q as vmangos.SpawnIDQuery) : null,
+			worldData: 'go' in window ? (q) => CheckWorldData(q) : "The world data wasn't checked: this page has no world database.",
+			from: { x: this.controller.target.x, z: this.controller.target.z },
 			progress: (what) => setStatus(`Checking the map: ${what}…`, 0),
 		})
 		const n = r.findings.length
@@ -6194,7 +6196,7 @@ export class Engine {
 			const ids = tg.ids.filter((id) => this.objects.objects.has(id))
 			editor.tool = 'select'
 			selectObjects(this.objects, ids)
-		} else if (tg.kind === 'spawn') {
+		} else if (tg.kind === 'spawn' || tg.kind === 'template') {
 			const s = this.doc.spawnLayer.get(tg.key)
 			if (!s) return
 			editor.tool = 'select'

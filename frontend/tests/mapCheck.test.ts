@@ -6,6 +6,7 @@ import { checkDuplicateModels, checkModelHeights, type CheckModel } from '../src
 import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type IdSpawn, type SpawnProbes } from '../src/lib/check/spawns.ts'
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones } from '../src/lib/check/terrainChecks.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
+import { CREATURE_REFS, OBJECT_REFS, checkWorldData, type WorldTemplate } from '../src/lib/check/worldData.ts'
 
 const model = (id: number, over: Partial<CheckModel> = {}): CheckModel => ({ id, type: 'm2:crate', name: 'Crate', x: 10, z: 10, yOff: 0, rotY: 0, scale: 1, box: null, ...over })
 const box = (x: number, y: number, z: number, w = 1, h = 1): CheckModel['box'] => ({ min: [x - w, y, z - w], max: [x + w, y + h, z + w] })
@@ -209,4 +210,83 @@ test('a region edge off the client tile next to it is a seam, a matching one is 
 	assert.deepEqual([found[0].x, found[0].z], [8, 0])
 	assert.equal(found[1].severity, 'warning')
 	assert.deepEqual([found[1].x, found[1].z], [16, 4])
+})
+
+const tmpl = (entry: number, over: Partial<WorldTemplate> = {}): WorldTemplate => ({ entry, name: `T${entry}`, npcFlags: 0, aiName: '', type: -1, values: {}, starts: [], ends: [], ownVendor: false, ownTrainer: false, aiEvents: 0, ...over })
+
+test('world data: the id columns come from the field lists of the editors', () => {
+	const kinds = new Map(CREATURE_REFS.map((r) => [r.col, r.kind]))
+	assert.equal(kinds.get('gossip_menu_id'), 'gossip')
+	assert.equal(kinds.get('vendor_id'), 'vendor')
+	assert.equal(kinds.get('loot_id'), 'creature loot')
+	assert.equal(kinds.get('equipment_id'), 'equipment')
+	// A chest's lock and loot, a door's lock, a goober's linked trap.
+	const obj = (type: number, col: string) => OBJECT_REFS.find((r) => r.type === type && r.col === col)?.kind
+	assert.equal(obj(3, 'data0'), 'lock')
+	assert.equal(obj(3, 'data1'), 'loot')
+	assert.equal(obj(0, 'data1'), 'lock')
+	assert.equal(obj(10, 'data12'), 'object')
+	assert.equal(obj(0, 'data2'), undefined)
+})
+
+test('world data: a missing row is an error where the game needs it, and points at the nearest spawn', () => {
+	const spawns = [
+		{ key: 'c:far', kind: 'creature', entry: 1, x: 500, z: 500 },
+		{ key: 'c:near', kind: 'creature', entry: 1, x: 10, z: 0 },
+		{ key: 'c:2', kind: 'creature', entry: 2, x: 20, z: 0 },
+		{ key: 'c:3', kind: 'creature', entry: 3, x: 30, z: 0 },
+		{ key: 'o:chest', kind: 'object', entry: 7, x: 40, z: 0 },
+		{ key: 'o:door', kind: 'object', entry: 8, x: 50, z: 0 },
+	]
+	const found = checkWorldData(
+		spawns,
+		{
+			creatures: [
+				// Gossip flag and a gone menu: error; the loot list gone: warning; a quest it starts that is gone.
+				tmpl(1, { name: 'Innkeeper', npcFlags: 1, values: { gossip_menu_id: 900, loot_id: 33 }, starts: [5000, 5001] }),
+				// A vendor with no rows and no list; EventAI without events; a gossip menu gone without the flag (warning).
+				tmpl(2, { npcFlags: 4, aiName: 'EventAI', values: { gossip_menu_id: 900 } }),
+				// A vendor whose list is gone but who has rows of its own: only a warning, and no role finding.
+				tmpl(3, { npcFlags: 4, ownVendor: true, values: { vendor_id: 30 } }),
+			],
+			objects: [
+				tmpl(7, { name: 'Chest', type: 3, values: { data1: 77, data0: 57 } }),
+				// A door's data1 is its lock, not loot: 77 is gone as loot, which the door doesn't name.
+				tmpl(8, { name: 'Door', type: 0, values: { data1: 77 } }),
+			],
+			missing: { gossip: [900], 'creature loot': [33], vendor: [30], loot: [77], quest: [5001], lock: [] },
+			tables: { gossip: 'gossip_menu', 'creature loot': 'creature_loot_template', vendor: 'npc_vendor_template', loot: 'gameobject_loot_template', quest: 'quest_template', lock: 'Lock.dbc' },
+			unchecked: [],
+		},
+		{ x: 0, z: 0 },
+	)
+	const of = (msg: string) => found.find((f) => f.message.includes(msg))
+	const gossip = of('Innkeeper (creature 1): Gossip menu 900')!
+	assert.equal(gossip.severity, 'error')
+	assert.equal(gossip.group, 'world')
+	assert.deepEqual(gossip.target, { kind: 'template', key: 'c:near', template: 'creature', entry: 1, field: 'gossip_menu_id' })
+	assert.equal(of('Innkeeper (creature 1): Loot 33')?.severity, 'warning')
+	assert.equal(of('starts quest 5001')?.severity, 'warning')
+	assert.equal(of('starts quest 5000'), undefined)
+	assert.equal(of('T2 (creature 2): Gossip menu 900')?.severity, 'warning')
+	assert.equal(of('T2 (creature 2) is a vendor')?.severity, 'error')
+	assert.equal(of('T2 (creature 2) runs EventAI')?.check, 'EventAI without events')
+	assert.equal(of('T3 (creature 3): Vendor list 30')?.severity, 'warning')
+	assert.equal(of('T3 (creature 3) is a vendor'), undefined)
+	const chest = of('Chest (object 7): Loot 77')!
+	assert.equal(chest.severity, 'error')
+	assert.match(chest.message, /opens empty/)
+	assert.deepEqual([chest.x, chest.z], [40, 0])
+	assert.equal(of('Door'), undefined)
+	// The errors first within the check.
+	const ids = found.filter((f) => f.check === 'Ids without a row')
+	assert.equal(ids[0].severity, 'error')
+	assert.equal(found.length, 8)
+})
+
+test('world data: a template without a spawn on the map, and an unchecked kind', () => {
+	const found = checkWorldData([], { creatures: [tmpl(1, { npcFlags: 1, values: { gossip_menu_id: 900 } })], objects: [], missing: { gossip: [900] }, tables: {}, unchecked: ['lock'] }, null)
+	assert.equal(found.length, 1)
+	assert.equal(found[0].check, 'World data')
+	assert.match(found[0].message, /Lock\.dbc/)
 })

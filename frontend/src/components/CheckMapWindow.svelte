@@ -6,7 +6,9 @@
 
 	// File › Check Map (#176), after Hammer's Check for Problems: a floating list of what may show
 	// wrong in the game, by check. A click takes the camera there and selects the model or spawn; a
-	// finding with a safe fix has a button for it, one undo step. Check again re-runs the checks.
+	// finding with a safe fix has a button for it, one undo step. Check again re-runs the checks. The
+	// world database's checks (#951) come last, under World data; a template's finding has an Edit
+	// button that opens its editor on the column.
 
 	let findings = $state<Finding[]>([])
 	let unchecked = $state(0)
@@ -35,19 +37,31 @@
 		if (!ui.checkMap) ran = false
 	})
 
-	const groups = $derived.by(() => {
+	const byCheck = (list: Finding[]) => {
 		const out = new Map<string, Finding[]>()
-		for (const f of findings) {
-			let list = out.get(f.check)
-			if (!list) out.set(f.check, (list = []))
-			list.push(f)
+		for (const f of list) {
+			let l = out.get(f.check)
+			if (!l) out.set(f.check, (l = []))
+			l.push(f)
 		}
 		return [...out]
-	})
+	}
+	const groups = $derived(byCheck(findings.filter((f) => f.group !== 'world')))
+	const worldGroups = $derived(byCheck(findings.filter((f) => f.group === 'world')))
 	const count = (s: Severity) => findings.filter((f) => f.severity === s).length
 	const GLYPH = { error: '✖', warning: '▲', info: '●' }
 	const WORD = { error: 'Error', warning: 'Warning', info: 'Info' }
 	const FIX_LABEL = { deleteModels: 'Delete copies', groundModels: 'Put on ground', cropWater: 'Crop water' }
+
+	/** A template finding's Edit: selects its spawn and opens the template's editor on the column. */
+	function edit(f: Finding) {
+		const tg = f.target
+		if (tg.kind !== 'template') return
+		engineRef.current?.focusFinding(f)
+		const at = { key: tg.key, entry: tg.entry, ...(tg.field ? { field: tg.field } : {}) }
+		if (tg.template === 'object') ui.objectEditor = at
+		else ui.creatureEditor = at
+	}
 
 	function fix(f: Finding) {
 		engineRef.current?.fixFinding(f)
@@ -59,6 +73,34 @@
 		fixed = new Set([...fixed, ...list])
 	}
 </script>
+
+{#snippet checkList(check: string, list: Finding[])}
+	{@const fixable = list.filter((f) => f.fix && !fixed.has(f))}
+	<section>
+		<h4>
+			<span>{check}</span>
+			<span class="n">{list.length}</span>
+			{#if fixable.length > 1}
+				<button onclick={() => fixAll(fixable)} title="Apply the fix to every finding of this check">{FIX_LABEL[fixable[0].fix!]} (all)</button>
+			{/if}
+		</h4>
+		<ul>
+			{#each list as f, i (i)}
+				<li class:done={fixed.has(f)}>
+					<button class="go {f.severity}" disabled={Number.isNaN(f.x) && f.target.kind === 'none'} onclick={() => engineRef.current?.focusFinding(f)} title="Go there">
+						<span class="glyph" aria-hidden="true">{GLYPH[f.severity]}</span><span class="vh">{WORD[f.severity]}: </span>{f.message}
+					</button>
+					{#if f.fix && !fixed.has(f)}
+						<button class="fix" onclick={() => fix(f)}>{FIX_LABEL[f.fix]}</button>
+					{/if}
+					{#if f.target.kind === 'template'}
+						<button class="fix" onclick={() => edit(f)} title="Open the {f.target.template}'s editor on this column">Edit</button>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/snippet}
 
 {#if ui.checkMap}
 	<aside class="check" aria-label="Check map">
@@ -81,29 +123,14 @@
 				<p class="empty">Nothing found: no floating, buried or doubled models, no spawns or paths under the ground or through walls, no chunks without a zone, no missing textures and no hidden water.</p>
 			{/if}
 			{#each groups as [check, list] (check)}
-				{@const fixable = list.filter((f) => f.fix && !fixed.has(f))}
-				<section>
-					<h4>
-						<span>{check}</span>
-						<span class="n">{list.length}</span>
-						{#if fixable.length > 1}
-							<button onclick={() => fixAll(fixable)} title="Apply the fix to every finding of this check">{FIX_LABEL[fixable[0].fix!]} (all)</button>
-						{/if}
-					</h4>
-					<ul>
-						{#each list as f, i (i)}
-							<li class:done={fixed.has(f)}>
-								<button class="go {f.severity}" disabled={Number.isNaN(f.x) && f.target.kind === 'none'} onclick={() => engineRef.current?.focusFinding(f)} title="Go there">
-									<span class="glyph" aria-hidden="true">{GLYPH[f.severity]}</span><span class="vh">{WORD[f.severity]}: </span>{f.message}
-								</button>
-								{#if f.fix && !fixed.has(f)}
-									<button class="fix" onclick={() => fix(f)}>{FIX_LABEL[f.fix]}</button>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				</section>
+				{@render checkList(check, list)}
 			{/each}
+			{#if worldGroups.length}
+				<h3>World data</h3>
+				{#each worldGroups as [check, list] (check)}
+					{@render checkList(check, list)}
+				{/each}
+			{/if}
 			{#if unchecked}
 				<p class="empty">{unchecked} models were still loading, so their heights weren't checked. Check again once they show.</p>
 			{/if}
@@ -203,6 +230,15 @@
 		overflow-y: auto;
 		min-height: 0;
 		padding: 4px 0 8px;
+	}
+	h3 {
+		margin: 8px 12px 0;
+		padding-top: 6px;
+		border-top: 1px solid var(--border);
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-dim);
 	}
 	section + section {
 		border-top: 1px solid var(--border-soft);

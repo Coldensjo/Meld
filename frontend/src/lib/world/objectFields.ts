@@ -178,3 +178,16 @@ export function objectFieldGroups(type: number, model = ''): CreatureFieldGroup[
 		},
 	]
 }
+
+/** Every object type's data columns that name a thing, with the editor's label and picker kind: File › Check Map's World data check (#951) reads these. */
+export function objectDataRefs(): Array<{ type: number; col: string; label: string; ref: RefKind }> {
+	const out: Array<{ type: number; col: string; label: string; ref: RefKind }> = []
+	for (const [type, names] of Object.entries(DATA_NAMES)) {
+		names.forEach((name, i) => {
+			if (!name) return
+			const f = dataField(name, i)
+			if (f.ref) out.push({ type: Number(type), col: f.col, label: f.label, ref: f.ref })
+		})
+	}
+	return out
+}

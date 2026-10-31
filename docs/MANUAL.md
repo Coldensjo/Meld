@@ -380,6 +380,10 @@ GPU or game round trip is certified by these source-verified instructions.
 2. Review the grouped errors, warnings and notes. Checks cover model duplicates/heights,
    spawns/paths, zones, textures, hidden painted liquids and, when available, region edges and
    unsaved spawn IDs against the database. This is diagnostic advice, not permission to publish.
+   The **World data** group, last, checks the creature and object templates the map's spawns use:
+   ids (gossip menu, vendor and trainer lists, loot, equipment, spell lists, quests, locks, pages,
+   texts, events) that name no row, vendors and trainers with nothing to sell or teach, and EventAI
+   creatures without events. **Edit** beside such a finding opens the template's editor on the field.
 3. Click a located finding to move the camera there. Model/spawn findings also select their target;
    chunk findings move the camera but do not select a terrain area. Notes without a location may
    have no Go there action.
@@ -389,7 +393,7 @@ GPU or game round trip is certified by these source-verified instructions.
 5. Use **Check again** after edits or fixes: dimmed findings are not a fresh scan. Re-run if the
    window reports models still loading, then follow the [compile guide](guides/saving-and-compiling.md).
 
-Missing client texture/area lists disable their respective existence checks. Unread region borders
+World data errors don't stop a compile, since the compile doesn't write the database. Missing client texture/area lists disable their respective existence checks. Unread region borders
 cannot be compared. Database checks require backend/region context and unsaved spawns; a query failure
 is reported as a note, not a successful ID check, and can trigger the usual
 [database startup path](troubleshooting.md#database-features-cannot-connect). A clean list is not

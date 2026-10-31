@@ -70,16 +70,19 @@ export interface SlotTarget {
 	key?: string | null
 	/** The object editor's Edit text… (#916). */
 	tab?: 'text'
+	/** The column a creature's or object's editor opens on (File › Check Map's Edit, #951). */
+	field?: string
 }
 
 /** The value of the editor's `ui` slot the window's arguments open it on: an entry (0, find one, when they hold none), a quest's giver, and a creature's spawn. */
 export function slotTarget(kind: EditorKind, args: Record<string, string | undefined>): SlotTarget {
 	const t = editorTarget(args)
 	const entry = typeof t?.entry === 'number' ? t.entry : 0
-	if (kind === 'creature') return { key: typeof t?.key === 'string' ? t.key : null, entry }
+	const field = typeof t?.field === 'string' && t.field ? { field: t.field } : {}
+	if (kind === 'creature') return { key: typeof t?.key === 'string' ? t.key : null, entry, ...field }
 	if (kind === 'object') {
 		const key = typeof t?.key === 'string' ? t.key : null
-		return t?.tab === 'text' ? { key, entry, tab: 'text' } : { key, entry }
+		return t?.tab === 'text' ? { key, entry, tab: 'text', ...field } : { key, entry, ...field }
 	}
 	const giver = kind === 'quest' ? giverOf(t?.giver) : undefined
 	return giver ? { entry, giver } : { entry }

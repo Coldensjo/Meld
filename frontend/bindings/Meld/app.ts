@@ -172,6 +172,14 @@ export function CheckSpawnIDs(q: vmangos$0.SpawnIDQuery): $CancellablePromise<vm
 }
 
 /**
+ * CheckWorldData tells File › Check Map's World data group which rows the id columns of the map's
+ * creature and object templates name that the world database (or, for a lock, the client) lacks (#951).
+ */
+export function CheckWorldData(q: vmangos$0.WorldDataQuery): $CancellablePromise<vmangos$0.WorldDataReport> {
+    return $Call.ByID(1980154397, q);
+}
+
+/**
  * ClassLevelStats reads what the server gives a creature of a unit class at each level from from to
  * to (creature_classlevelstats), for the creature guide's stats step.
  */

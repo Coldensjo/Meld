@@ -61,78 +61,90 @@
 	{#each fields as f (f.col)}
 		{@const c = columns.get(f.col)}
 		{@const changed = changes[f.col] !== undefined}
-		{#if f.ref}
-			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} {entry} {owner} />
-		{:else if f.spells}
-			<AuraField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
-		{:else if f.long}
-			<label class="wide" class:changed title={tip(f)}
-				>{f.label}
-				<textarea rows="4" value={value(f)} oninput={(e) => onset(f.col, (e.currentTarget as HTMLTextAreaElement).value)}></textarea>
-				{#if codes}
-					<span class="codes"
-						>Codes:
-						{#each TEXT_CODES as t (t.code)}<button type="button" class="code" title="{t.meaning}. Click to insert at the cursor." onclick={(e) => addCode(e, f.col, t.code)}>{t.label}</button>{/each}
-						<span class="codemean">{TEXT_CODES.map((t) => `${t.code.slice(0, 2)} ${t.meaning}`).join(', ')}.</span></span
-					>
-				{/if}</label
-			>
-		{:else if f.flags}
-			<fieldset class="wide" class:changed title={f.col}>
-				<legend>{f.label}</legend>
-				{#each f.flags as [bit, name] (bit)}
-					<label class="check"
-						><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} />{#if f.classes === 'mask'}<ClassIcon
-								id={classOfBit(bit)}
-							/>{/if}
-						{name}</label
-					>
-				{/each}
-			</fieldset>
-		{:else if f.money}
-			<label class:changed title={tip(f)}
-				>{f.label}
-				<MoneyField value={Number(value(f)) || 0} signed={f.money === 'signed'} costsHint={f.hint} onset={(v) => onset(f.col, String(v))} /></label
-			>
-		{:else if f.bool}
-			<label class="check" class:changed title={tip(f)}><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label
-			>
-		{:else if f.options}
-			<label class:changed title={tip(f)}
-				>{f.label}
-				{#if f.classes === 'id'}
-					<!-- A class: the picked one's icon beside the select (#682). -->
-					<div class="pick">
-						<ClassIcon id={Number(value(f)) || 0} />
-						{@render select(f)}
-					</div>
-				{:else}
-					{@render select(f)}
-				{/if}</label
-			>
-		{:else}
-			<label class:changed class:wide={f.wide || (c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64))} title={tip(f)}
-				><span
-					>{f.label}{#if f.note && f.note(value(f))}<span class="note">· {f.note(value(f))}</span>{/if}</span
+		<!-- data-col: the field an editor opened on a column scrolls to (lib/ui/focusField.ts, #951); display: contents keeps the grid's own items. -->
+		<div class="cell" data-col={f.col}>
+			{#if f.ref}
+				<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} {entry} {owner} />
+			{:else if f.spells}
+				<AuraField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
+			{:else if f.long}
+				<label class="wide" class:changed title={tip(f)}
+					>{f.label}
+					<textarea rows="4" value={value(f)} oninput={(e) => onset(f.col, (e.currentTarget as HTMLTextAreaElement).value)}></textarea>
+					{#if codes}
+						<span class="codes"
+							>Codes:
+							{#each TEXT_CODES as t (t.code)}<button type="button" class="code" title="{t.meaning}. Click to insert at the cursor." onclick={(e) => addCode(e, f.col, t.code)}>{t.label}</button>{/each}
+							<span class="codemean">{TEXT_CODES.map((t) => `${t.code.slice(0, 2)} ${t.meaning}`).join(', ')}.</span></span
+						>
+					{/if}</label
 				>
-				<input
-					type={c?.kind === 'text' ? 'text' : 'number'}
-					step={c?.kind === 'float' ? 'any' : '1'}
-					min={range(c).min}
-					max={range(c).max}
-					maxlength={c?.kind === 'text' && c.maxLen ? c.maxLen : undefined}
-					list={f.suggest ? `suggest-${f.col}` : undefined}
-					value={value(f)}
-					oninput={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).value)}
-				/>{#if f.suggest}<datalist id="suggest-{f.col}"
-						>{#each f.suggest as v (typeof v === 'string' ? v : v[0])}{#if typeof v === 'string'}<option value={v}></option>{:else}<option value={v[0]}>{v[1]}</option>{/if}{/each}</datalist
-					>{/if}</label
-			>
-		{/if}
+			{:else if f.flags}
+				<fieldset class="wide" class:changed title={f.col}>
+					<legend>{f.label}</legend>
+					{#each f.flags as [bit, name] (bit)}
+						<label class="check"
+							><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} />{#if f.classes === 'mask'}<ClassIcon
+									id={classOfBit(bit)}
+								/>{/if}
+							{name}</label
+						>
+					{/each}
+				</fieldset>
+			{:else if f.money}
+				<label class:changed title={tip(f)}
+					>{f.label}
+					<MoneyField value={Number(value(f)) || 0} signed={f.money === 'signed'} costsHint={f.hint} onset={(v) => onset(f.col, String(v))} /></label
+				>
+			{:else if f.bool}
+				<label class="check" class:changed title={tip(f)}
+					><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label
+				>
+			{:else if f.options}
+				<label class:changed title={tip(f)}
+					>{f.label}
+					{#if f.classes === 'id'}
+						<!-- A class: the picked one's icon beside the select (#682). -->
+						<div class="pick">
+							<ClassIcon id={Number(value(f)) || 0} />
+							{@render select(f)}
+						</div>
+					{:else}
+						{@render select(f)}
+					{/if}</label
+				>
+			{:else}
+				<label class:changed class:wide={f.wide || (c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64))} title={tip(f)}
+					><span
+						>{f.label}{#if f.note && f.note(value(f))}<span class="note">· {f.note(value(f))}</span>{/if}</span
+					>
+					<input
+						type={c?.kind === 'text' ? 'text' : 'number'}
+						step={c?.kind === 'float' ? 'any' : '1'}
+						min={range(c).min}
+						max={range(c).max}
+						maxlength={c?.kind === 'text' && c.maxLen ? c.maxLen : undefined}
+						list={f.suggest ? `suggest-${f.col}` : undefined}
+						value={value(f)}
+						oninput={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).value)}
+					/>{#if f.suggest}<datalist id="suggest-{f.col}"
+							>{#each f.suggest as v (typeof v === 'string' ? v : v[0])}{#if typeof v === 'string'}<option value={v}></option>{:else}<option value={v[0]}>{v[1]}</option>{/if}{/each}</datalist
+						>{/if}</label
+				>
+			{/if}
+		</div>
 	{/each}
 </div>
 
 <style>
+	.cell {
+		display: contents;
+	}
+	.grid :global(.field-flash) {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+		border-radius: 3px;
+	}
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);

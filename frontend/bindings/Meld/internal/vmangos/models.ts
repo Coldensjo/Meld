@@ -1535,6 +1535,16 @@ export interface RandomChoice {
 }
 
 /**
+ * RefColumn is a template column that names a row of Kind (a picker's kind, such as "gossip" or
+ * "creature loot"); for a game object, only in templates of object type Type.
+ */
+export interface RefColumn {
+    "type": number;
+    "col": string;
+    "kind": string;
+}
+
+/**
  * RegionEdit is what the editor saves back over a region: its heights and its models.
  */
 export interface RegionEdit {
@@ -2337,6 +2347,40 @@ export interface WeaponEntry {
 }
 
 /**
+ * WorldDataQuery is the templates to check and their id columns.
+ */
+export interface WorldDataQuery {
+    "creatureEntries": number[] | null;
+    "objectEntries": number[] | null;
+    "creatureRefs": RefColumn[] | null;
+    "objectRefs": RefColumn[] | null;
+}
+
+/**
+ * WorldDataReport is what the database has of a WorldDataQuery.
+ */
+export interface WorldDataReport {
+    "creatures": WorldTemplate[] | null;
+    "objects": WorldTemplate[] | null;
+
+    /**
+     * Missing lists, by kind, the set ids that no row of the kind's table has.
+     */
+    "missing": { [_ in string]?: number[] | null } | null;
+
+    /**
+     * Tables names each checked kind's table, for the findings' messages.
+     */
+    "tables": { [_ in string]?: string } | null;
+
+    /**
+     * Unchecked lists the asked kinds that could not be checked (a lock without the client's Lock.dbc,
+     * a kind this side has no table for).
+     */
+    "unchecked": string[] | null;
+}
+
+/**
  * WorldMapOverlay is a WorldMapOverlay.dbc row, and its picture: Width x Height RGBA, row 0 at the
  * top. ID 0 is a new row. Read, Pixels is nil when the client's art is missing; written, empty Pixels
  * keep the client's art (the row must be one of the zone's). Empty, not only nil: Wails v3's models
@@ -2549,6 +2593,40 @@ export interface WorldSpawn {
     "followDist": number;
     "followAngle": number;
     "groupFlags": number;
+}
+
+/**
+ * WorldTemplate is a checked template's newest row as the check needs it.
+ */
+export interface WorldTemplate {
+    "entry": number;
+    "name": string;
+
+    /**
+     * NpcFlags and AIName are a creature's; Type is a game object's.
+     */
+    "npcFlags": number;
+    "aiName": string;
+    "type": number;
+
+    /**
+     * Values holds the asked id columns that are set (not 0), by column.
+     */
+    "values": { [_ in string]?: number } | null;
+
+    /**
+     * Starts and Ends are the quests its quest relations name.
+     */
+    "starts": number[] | null;
+    "ends": number[] | null;
+
+    /**
+     * OwnVendor and OwnTrainer say whether a creature has npc_vendor or npc_trainer rows of its own,
+     * AIEvents how many creature_ai_events rows it has.
+     */
+    "ownVendor": boolean;
+    "ownTrainer": boolean;
+    "aiEvents": number;
 }
 
 /**

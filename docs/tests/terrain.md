@@ -322,7 +322,8 @@ the shape's rim keeps the map's heights). One undo restores every height.
 
 ## Check Map (#176)
 
-No probe: the unit tests below, and a hand check in the dev page.
+The map's own checks have no probe: the unit tests below, and a hand check in the dev page. The World
+data group (#951) has one, `check-map-world`.
 
 Checks: File › Check Map… (`lib/check/`: pure checks in `models.ts`, `spawns.ts`, `terrainChecks.ts`,
 unit tests in `mapCheck.test.ts`; `run.ts` gathers the map and the probes; `Engine.checkMap`,
@@ -348,6 +349,17 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   (or Compile All) then stops with "Compile stopped: … 2 errors" and opens the window, before anything is written.
 - The bindings alone: `await go.main.App.RegionEdges('Azeroth', 32, 48, 1)` (four 129-height rows)
   and `await go.main.App.CheckSpawnIDs({ creatureGuids: [1], objectGuids: [], creatureEntries: [999999], objectEntries: [] })`.
+- World data (#951, `lib/check/worldData.ts`, Go `internal/vmangos/worlddata.go` behind the
+  `CheckWorldData` binding): the id columns of the templates the map's spawns use, taken from the
+  editors' field lists (every field with a picker `ref`; Go checks the kinds it has a table for, in
+  `refTargets`, and the locks against the client's Lock.dbc). `bun run probe check-map-world` plants
+  the Pissed Vendor (1857, a vendor with no rows: Roles without rows), a Food Crate (3701, loot 2597
+  gone: an error) and Innkeeper Farley (295, clean), and clicks the vendor's Edit, which opens the
+  creature editor on its Vendor list field (`data-col` in `TemplateFields`, `lib/ui/focusField.ts`).
+  The vanilla database has no creature whose gossip menu is gone; the unit tests (`mapCheck.test.ts`,
+  `worlddata_test.go`) cover that rule on synthetic rows. In the real database about 18 vendors and 3
+  trainers have no rows and 50 goobers name an event with no script (info), so a region of Azeroth can
+  show a few World data errors that are Blizzard's; they don't stop Compile to Client (`compile.ts`).
 - A save of such a planted spawn is refused (#199): `VMANGOS_DIR=/c/WoW/vmangos go test
   ./internal/vmangos/ -run TestCreatedGUIDLive -v` checks the pre-check and that the SQL alone fails on
   the key, leaving guid 1 as it was. Don't test it by saving from the page: a dev window still running

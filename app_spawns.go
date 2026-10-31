@@ -156,6 +156,16 @@ func (a *App) CheckSpawnIDs(q vmangos.SpawnIDQuery) (vmangos.SpawnIDReport, erro
 	return vmangos.CheckSpawnIDs(server, q)
 }
 
+// CheckWorldData tells File › Check Map's World data group which rows the id columns of the map's
+// creature and object templates name that the world database (or, for a lock, the client) lacks (#951).
+func (a *App) CheckWorldData(q vmangos.WorldDataQuery) (vmangos.WorldDataReport, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil && server == "" && !externalOn() {
+		return vmangos.WorldDataReport{}, err
+	}
+	return vmangos.CheckWorldData(server, dataDir, q)
+}
+
 // ModelAnimations lists the animations an M2 model has, for the creature editor's preview.
 func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
 	dataDir, err := a.clientDataDir()

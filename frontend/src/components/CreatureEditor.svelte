@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { shareForget } from '../lib/toolwin/editorPage'
@@ -7,6 +8,7 @@
 	import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
+	import { focusField } from '../lib/ui/focusField'
 	import { fieldGroups, withBit } from '../lib/world/creatureFields'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
@@ -87,10 +89,28 @@
 
 	/** Opens the editor on `t` (its window was opened again on another creature or spawn), asking about unsaved changes first. */
 	export function openTarget(t: SlotTarget) {
-		const next = { key: t.key ?? null, entry: t.entry }
+		const next = { key: t.key ?? null, entry: t.entry, ...(t.field ? { field: t.field } : {}) }
 		if (!target) ui.creatureEditor = next
 		else if (target.key !== next.key || target.entry !== next.entry) ed.leave(() => (ui.creatureEditor = next))
+		else if (t.field) wantField = t.field
 	}
+
+	// Opened on a column (File › Check Map's Edit, #951): once its template is read, the tab that holds
+	// the column (Looks for the Looks group, else Creature), scrolled to its field.
+	let wantField = $state<string | null>(null)
+	$effect(() => {
+		const f = target?.field
+		if (f) untrack(() => (wantField = f))
+	})
+	$effect(() => {
+		const col = wantField
+		if (!col || !record || record.entry !== target?.entry) return
+		untrack(() => {
+			wantField = null
+			tab = groups.find((g) => g.fields.some((f) => f.col === col))?.title === 'Looks' ? 'looks' : 'creature'
+			focusField(col)
+		})
+	})
 
 	/** Closes the editor, asking first with unsaved changes: its window's own close button (#915). */
 	export function askClose() {
