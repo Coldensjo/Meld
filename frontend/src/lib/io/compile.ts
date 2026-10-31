@@ -2,6 +2,7 @@
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
 import { ApplySpawnEdits, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateRegionServer, VmangosPath } from '../wails/App'
 import { guarded } from './backend'
+import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { withSaving } from '../state/saving'
@@ -20,6 +21,7 @@ import { countOf, pickSpawnEdits, skippedTiles, spawnItem } from './leaveOut'
  * restarted to show them.
  */
 export function saveSpawns(engine: Engine) {
+	if (refuseGuestExport(engine)) return
 	return guarded('Save spawns', async () => {
 		const saved = await withSaving('Saving spawns to the world database', () => writeSpawns(engine))
 		if (saved.wrote) setStatus(`${saved.note} Restart the world server to see them.`, 12000)
@@ -80,6 +82,7 @@ const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server 
  * core Preferences › Compile and export › Spawn SQL for picks (#894).
  */
 export function exportSpawnSql(engine: Engine) {
+	if (refuseGuestExport(engine)) return
 	return guarded('Export spawn SQL', async () => {
 		const b = editor.regionBlock
 		const { write: edits, kept } = regionSpawnEdits(engine)
@@ -185,6 +188,7 @@ function spawnNote() {
  * (while the tiles wait for it) and stop the world server, which reads the spawns when started again.
  */
 export function compileRegion(engine: Engine, target: CompileTarget) {
+	if (refuseGuestExport(engine)) return
 	const label = target === 'client' ? 'Compiling to the client' : target === 'server' ? 'Compiling to the server' : 'Compiling to the client and server'
 	return guarded('Compile region', () =>
 		withSaving(label, async () => {

@@ -2,6 +2,9 @@
 // test can check them without the bindings: who joined or left between two member lists, the status
 // bar's chip, and the serial send queue.
 
+/** Why a guest cannot write the session's map into the client or server (#1005), shown as the menu items' tooltip and the status line. */
+export const GUEST_EXPORT_REASON = "The host exports the session's map"
+
 /** A member of the session, as `session.Peer` gives it. */
 export interface Peer {
 	id: number

@@ -1039,3 +1039,5 @@ host's map as a new unsaved tab; leaving or ending clears the chip and the badge
 - Traps: a session left over from an earlier page (the dev page's Go side outlives a reload) refuses
   the next Host, so a probe calls `LeaveSession()` first. A map opened into an untouched empty tab takes
   its place (as Open does), so `session-join` puts a helper on its own tab to see a new one open.
+
+- `bun run probe session-guest-export` (#1005): sets `shared.role = 'guest'` and `shared.docId` by hand (no transport), then checks the File and Game menu items that write into the client or server are disabled with the reason as their tooltip in the session's tab only, `compileRegion`, `playHere` and `publishVmangosMap` refuse with the status line, and a host keeps them.

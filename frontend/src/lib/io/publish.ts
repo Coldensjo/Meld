@@ -1,6 +1,7 @@
 // Publishing a map made for the client, and Save, which publishes one.
 import { PublishVmangosMap } from '../wails/App'
 import { guarded } from './backend'
+import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { savingDetail, startSaving } from '../state/saving'
@@ -90,6 +91,7 @@ export function publishInput(engine: Engine): PublishInput | string {
  * server's map data is extracted again before the world server restarts. Runs in the background.
  */
 export function publishVmangosMap(engine: Engine) {
+	if (refuseGuestExport(engine)) return
 	return guarded('Publish', async () => {
 		const p = publishInput(engine)
 		if (typeof p === 'string') {
@@ -116,7 +118,7 @@ export function publishVmangosMap(engine: Engine) {
  * players are disconnected. Other maps just save.
  */
 export function saveOrPublish(engine: Engine, saveAs = false) {
-	if (!saveAs && engine.activeVmangos()) {
+	if (!saveAs && engine.activeVmangos() && !refuseGuestExport(engine)) {
 		ui.dialog = 'publish'
 		return
 	}

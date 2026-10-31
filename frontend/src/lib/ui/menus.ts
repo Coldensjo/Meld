@@ -7,6 +7,7 @@ import type { Engine } from '../engine/Engine'
 import type { ProjectInfo, editor as editorState, prefs as prefsState, ui as uiState } from '../state/editor.svelte'
 import type { CameraView } from './cameraView'
 import type { BenchKind } from '../bench/benchMaps'
+import { GUEST_EXPORT_REASON } from '../session/peers'
 import type * as compileIo from '../io/compile'
 import type * as gameIo from '../io/game'
 import type * as externalIo from '../io/external'
@@ -25,7 +26,7 @@ import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../state/graphicsPreset
 import { keysOf, type CommandId } from './commands'
 
 export type MenuItem =
-	| { kind: 'action'; label: string; shortcut?: string; disabled?: boolean; run: () => unknown }
+	| { kind: 'action'; label: string; shortcut?: string; disabled?: boolean; title?: string; run: () => unknown }
 	| { kind: 'check'; label: string; shortcut?: string; checked: boolean; toggle: () => void }
 	| { kind: 'radio'; label: string; shortcut?: string; checked: boolean; select: () => void }
 	| { kind: 'header'; label: string }
@@ -101,6 +102,8 @@ export interface MenuContext {
 	events: RegionEvent[]
 	/** This Meld's part in a shared session (#1000): 'host', 'guest' or ''. */
 	sessionRole: '' | 'host' | 'guest'
+	/** The active tab is the session's map and this Meld a guest: the writes into the client and server are the host's (#1005). */
+	sessionGuestMap: boolean
 	cameraView: CameraView
 	cameraViews: ReadonlyArray<{ id: CameraView; label: string }>
 	benchMaps: ReadonlyArray<{ kind: BenchKind; label: string }>
@@ -132,6 +135,11 @@ const VIEW_COMMAND: Record<CameraView, CommandId> = { orbit: 'orbitView', flying
 const radios = <T>(options: ReadonlyArray<readonly [string, T]>, get: () => T, set: (v: T) => void): MenuItem[] => options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
 
 /** File's session items: host or join outside a session, the code and End for the host, Leave for a guest. */
+/** The disabled state and tooltip of an item that writes into the client or server: off with the reason for a guest in the session's map (#1005). */
+function hostOnly(ctx: MenuContext, off: boolean): { disabled: boolean; title?: string } {
+	return ctx.sessionGuestMap ? { disabled: true, title: GUEST_EXPORT_REASON } : { disabled: off }
+}
+
 function sessionItems(role: MenuContext['sessionRole'], backend: boolean, looking: boolean, ui: MenuContext['ui'], leave: () => void): MenuItem[] {
 	if (role === 'host')
 		return [
@@ -214,9 +222,9 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 					{ kind: 'sep' },
 					{ kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },
 					// The open region into the game (#214): the client's tiles, the server's map data built from them, or both.
-					{ kind: 'action', label: 'Compile to Client', disabled: !backend || ui.busy, run: withEngine((e) => io.compileRegion(e, 'client')) },
-					{ kind: 'action', label: 'Compile to Server', disabled: !backend || ui.busy, run: withEngine((e) => io.compileRegion(e, 'server')) },
-					{ kind: 'action', label: 'Compile All', disabled: !backend || ui.busy, run: withEngine((e) => io.compileRegion(e, 'all')) },
+					{ kind: 'action', label: 'Compile to Client', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileRegion(e, 'client')) },
+					{ kind: 'action', label: 'Compile to Server', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileRegion(e, 'server')) },
+					{ kind: 'action', label: 'Compile All', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileRegion(e, 'all')) },
 					// What Compile, Save Spawns or Publish would write, listed before it is written (#959).
 					{
 						kind: 'action',
@@ -238,8 +246,8 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 								run: withEngine((e) => io.extendRegion(e, side)),
 							})),
 							{ kind: 'sep' as const },
-							{ kind: 'action' as const, label: 'Save Spawns to Database…', disabled: !backend || ui.busy || !ui.spawnChanges, run: () => (ui.dialog = 'saveSpawns') },
-							{ kind: 'action' as const, label: 'Export Spawn SQL…', disabled: !backend || ui.busy || !ui.spawnChanges, run: withEngine((e) => io.exportSpawnSql(e)) },
+							{ kind: 'action' as const, label: 'Save Spawns to Database…', ...hostOnly(ctx, !backend || ui.busy || !ui.spawnChanges), run: () => (ui.dialog = 'saveSpawns') },
+							{ kind: 'action' as const, label: 'Export Spawn SQL…', ...hostOnly(ctx, !backend || ui.busy || !ui.spawnChanges), run: withEngine((e) => io.exportSpawnSql(e)) },
 						]
 					: []),
 				{ kind: 'sep' },
@@ -705,8 +713,8 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 		{
 			name: 'Game',
 			items: [
-				{ kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', disabled: !backend || !ctx.wowLoaded, run: () => io.launchGame(act.engine()) },
-				{ kind: 'action', label: 'Play Here', disabled: !backend || !ctx.wowLoaded, run: () => io.playHere(act.engine()) },
+				{ kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', ...hostOnly(ctx, !backend || !ctx.wowLoaded), run: () => io.launchGame(act.engine()) },
+				{ kind: 'action', label: 'Play Here', ...hostOnly(ctx, !backend || !ctx.wowLoaded), run: () => io.playHere(act.engine()) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Copy Position as Teleport Command', ...cmd('teleport') },
 				...editing([{ kind: 'action', label: 'Export Port Coordinates…', disabled: !backend || ui.busy, run: withEngine((e) => io.exportPortCoords(e)) }]),

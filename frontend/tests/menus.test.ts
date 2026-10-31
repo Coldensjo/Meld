@@ -49,6 +49,7 @@ function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean;
 			wowLoaded: true,
 			events: over.events ?? [],
 			sessionRole: over.sessionRole ?? '',
+			sessionGuestMap: false,
 			cameraView: state.cameraView,
 			cameraViews: [
 				{ id: 'orbit', label: 'Orbit' },

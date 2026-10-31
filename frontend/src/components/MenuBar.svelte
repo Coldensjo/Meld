@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
+	import { docs, editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { compileRegion, exportSpawnSql } from '../lib/io/compile'
@@ -14,7 +14,7 @@
 	import { openProject } from '../lib/io/project'
 	import type { ProjectInfo } from '../lib/state/editor.svelte'
 	import { copyPerfReport, copyScene, pasteScene } from '../lib/io/scene'
-	import { leaveSession, shared } from '../lib/session/shared.svelte'
+	import { isGuestMap, leaveSession, shared } from '../lib/session/shared.svelte'
 	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
 	import { GameEvents } from '../lib/wails/App'
 	import { quitNow } from '../lib/io/session'
@@ -109,6 +109,7 @@
 			wowLoaded: wow.loaded,
 			events: regionEvents(editor.spawns, eventNames),
 			sessionRole: shared.role,
+			sessionGuestMap: isGuestMap(docs.active),
 			cameraView: cameraView(),
 			cameraViews: CAMERA_VIEWS,
 			benchMaps: BENCH_MAPS,
@@ -232,6 +233,7 @@
 									role={item.kind === 'action' ? 'menuitem' : item.kind === 'check' ? 'menuitemcheckbox' : 'menuitemradio'}
 									aria-checked={item.kind === 'action' ? undefined : item.checked}
 									disabled={item.kind === 'action' && item.disabled}
+									title={item.kind === 'action' ? item.title : undefined}
 									onclick={() => activate(item)}
 								>
 									<span class="mark">

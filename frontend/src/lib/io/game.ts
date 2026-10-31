@@ -21,6 +21,7 @@ import {
 	RestartServer,
 } from '../wails/App'
 import { guarded, hasBackend } from './backend'
+import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { formatPortCoords } from './portCoords'
@@ -91,6 +92,7 @@ export async function chooseBenillaFolder() {
  */
 export async function launchGame(engine: Engine | null, opts: { anyway?: boolean } = {}) {
 	if (!hasBackend()) return
+	if (engine && refuseGuestExport(engine)) return
 	const game = ui.gameClient === 'benilla' ? 'Benilla' : 'World of Warcraft'
 	// The game shows the client's tiles: an open region with edits they lack asks first (#214).
 	if (engine && !opts.anyway && (await uncompiledName(engine))) {
@@ -143,6 +145,7 @@ export async function compileAndLaunch(engine: Engine) {
  */
 export async function playHere(engine: Engine | null) {
 	if (!hasBackend() || !engine) return
+	if (refuseGuestExport(engine)) return
 	try {
 		const spot = await engine.playerSpot()
 		if (!spot) {

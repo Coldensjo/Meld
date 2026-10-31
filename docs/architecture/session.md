@@ -15,7 +15,7 @@ server. #728 is the umbrella; its parts are separate issues:
 | Texture paint sync, with the palette | #1002 | Open |
 | Placed objects sync | #1003 | Open |
 | Presence: the others' cameras and brushes | #1004 | Open |
-| Compile, publish and launch by the host only | #1005 | Open |
+| Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
 
 ## The transport (`internal/session`)
 
@@ -71,6 +71,7 @@ server. #728 is the umbrella; its parts are separate issues:
   is Save As), which takes an untouched empty tab's place as Open does. It goes through the page twice
   (the binding, then the WebSocket) as JSON; a Go-side path (`internal/mapfile` and `internal/handoff`)
   is the fallback if a large map turns out too slow.
+- **The host exports.** While this Meld is a guest and the active tab is the session's map (`isGuestMap`), Compile to Client, Server and All, Save Spawns, Export Spawn SQL, Launch and Play Here are off in the menus with the reason (`GUEST_EXPORT_REASON`) as the tooltip, and the actions (`compileRegion`, `saveSpawns`, `exportSpawnSql`, `publishVmangosMap`, `saveOrPublish`, `launchGame`, `playHere`) refuse through `refuseGuestExport`. A guest's other tabs keep them. A new write into the client or server needs the same two guards.
 - The members show in the status bar (`StatusBar.svelte`, `peersLabel`/`peersTitle`), the session's tab
   carries a `session` badge (`DocTabs.svelte`), and a join, a leave and the end are status lines.
 

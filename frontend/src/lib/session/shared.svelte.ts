@@ -11,7 +11,7 @@ import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
 import { setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
-import { HOST_ID, KIND_MAP, changeLine, peerChanges, serialQueue, type Message, type Peer } from './peers'
+import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, changeLine, peerChanges, serialQueue, type Message, type Peer } from './peers'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -103,6 +103,18 @@ export async function joinSession(addr: string, code: string, name: string) {
 		throw err
 	}
 	setStatus('Joined the session; waiting for the map', 8000)
+}
+
+/** True when the map in the active tab (`docId`) is the session's and this Meld is a guest in it: the host alone compiles, publishes and launches it. */
+export function isGuestMap(docId: number): boolean {
+	return shared.role === 'guest' && shared.docId !== 0 && shared.docId === docId
+}
+
+/** Refuses a write into the client or server from the active tab when it is a guest's session map; says why in the status bar. */
+export function refuseGuestExport(engine: { activeDocumentId(): number }): boolean {
+	if (!isGuestMap(engine.activeDocumentId())) return false
+	setStatus(GUEST_EXPORT_REASON + ': ask the host to compile, publish or launch it', 6000)
+	return true
 }
 
 /** Leaves the session: the host ends it for everyone. */
