@@ -86,10 +86,15 @@
 	let users = $state<vmangos.DisplayEntry | null>(null)
 	$effect(() => {
 		const d = display
+		// The last display's users go at once (#994): after a copy is made, the list is read again
+		// (about a third of a second), and the old display's users would show its button until then.
+		users = null
 		if (!active || d <= 0) return
+		let current = true
 		loadDisplays('object')
-			.then((list) => (users = list.find((e) => e.id === d) ?? null))
-			.catch(() => (users = null))
+			.then((list) => current && (users = list.find((e) => e.id === d) ?? null))
+			.catch(() => current && (users = null))
+		return () => (current = false)
 	})
 
 	$effect(() => () => stopSound())
