@@ -16,6 +16,14 @@ server. #728 is the umbrella; its parts are separate issues:
 | Placed objects sync, with the id lanes | #1003 | Done (`lib/session/objects.ts`) |
 | Presence: the others' cameras and brushes | #1004 | Done (`lib/session/presence.ts`, `PresenceView.ts`) |
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
+| Holes | #1016 | Open |
+| Painted liquids | #1017 | Open |
+| The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Open |
+| The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Open |
+| The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
+
+Until those are done, a session syncs only the heights, the paint and the placed objects: every other
+edit stays on the member who made it, and the host's export carries only the host's.
 
 ## The transport (`internal/session`)
 
