@@ -221,11 +221,16 @@
 	{@const tab = docs.tabs.find((t) => t.id === ui.closeDocId)}
 	{@const others = shared.peers.length - 1}
 	{@const dirty = engineRef.current?.isDirty(ui.closeDocId) ?? false}
-	<Modal title="End the session?" width={400} onclose={close}>
+	{@const guest = shared.role === 'guest'}
+	<Modal title={guest ? 'Leave the session?' : 'End the session?'} width={400} onclose={close}>
 		<p>
-			“{tab?.name ?? 'This map'}” is the map you share in the session. Closing it ends the session{others > 0 ? ` for the ${others === 1 ? 'member' : `${others} members`} in it` : ''}{dirty
-				? ', and its unsaved changes are lost'
-				: ''}.
+			{#if guest}
+				“{tab?.name ?? 'This map'}” is the session's map, and its sync stops with the tab. Closing it leaves the session{dirty ? ', and its unsaved changes are lost' : ''}; join again to get the host's map back.
+			{:else}
+				“{tab?.name ?? 'This map'}” is the map you share in the session. Closing it ends the session{others > 0 ? ` for the ${others === 1 ? 'member' : `${others} members`} in it` : ''}{dirty
+					? ', and its unsaved changes are lost'
+					: ''}.
+			{/if}
 		</p>
 		{#snippet actions()}
 			<button onclick={close}>Cancel</button>
@@ -235,8 +240,8 @@
 				onclick={() => {
 					const id = ui.closeDocId
 					close()
-					endSessionAndClose(id).catch((err) => setStatus(`Ending the session failed: ${err}`, 8000))
-				}}>End the session and close</button
+					endSessionAndClose(id).catch((err) => setStatus(`${guest ? 'Leaving' : 'Ending'} the session failed: ${err}`, 8000))
+				}}>{guest ? 'Leave the session and close' : 'End the session and close'}</button
 			>
 		{/snippet}
 	</Modal>

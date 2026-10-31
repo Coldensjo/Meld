@@ -289,17 +289,14 @@ export function isSessionMap(docId: number): boolean {
 	return shared.role !== '' && shared.docId !== 0 && shared.docId === docId
 }
 
-/** True when tab `docId` is the map this Meld hosts in a session: closing it ends the session (#1013), since the sync stops with its document. */
-export function isHostedSessionMap(docId: number): boolean {
-	return shared.role === 'host' && isSessionMap(docId)
-}
-
 /**
- * Ends the session the host shares tab `docId` in, then closes the tab (#1013). The guests get the end
- * ("the host ended the session") instead of going on editing a map whose sync stopped with its document.
+ * Leaves the session tab `docId` is the map of, then closes the tab, since the sync stops with its document.
+ * On the host that ends the session (#1013): the guests get "the host ended the session" instead of going on
+ * editing a map no one else has. On a guest it leaves (#1014): the host's chip drops it, rather than naming a
+ * member whose sync stopped.
  */
 export async function endSessionAndClose(docId: number) {
-	if (isHostedSessionMap(docId)) await leaveSession()
+	if (isSessionMap(docId)) await leaveSession()
 	engineRef.current?.closeDocument(docId)
 }
 

@@ -1142,8 +1142,12 @@ through `replaceSessionMap`, which rebinds the sync and sends the new map to eve
 
 Checks: on the host, closing the tab it shares (File › Close, the tab's close button) asks "End the
 session?" (`ui.dialog === 'closeSession'`), since the sync stops with the tab; confirming ends the
-session for the guests and closes the tab.
+session for the guests and closes the tab. On a guest the same close asks "Leave the session?" and
+confirming leaves it (#1014).
 - `bun run probe session-close`: the page hosts a new map with a `joinBot` in; closing another tab asks
   nothing, `runCommand('closeMap')` on the session's tab opens the dialog, which names the member and
   leaves tab and session as they were when dismissed; clicking `[data-end-session]` ends the session
-  (the bot prints `ended: "the host ended the session"`) and closes the tab.
+  (the bot prints `ended: "the host ended the session"`) and closes the tab. Then the page joins a
+  `hostBot` as a guest: closing its session tab opens the dialog titled "Leave the session?", Cancel
+  keeps it, and the button ("Leave the session and close") leaves, so the host bot's last
+  `session.peers` line holds itself alone (`hostPeers` ends in 1), and closes the tab.

@@ -1,13 +1,13 @@
 <script lang="ts" module>
 	import { docs, editor, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { isHostedSessionMap, shared } from '../lib/session/shared.svelte'
+	import { isSessionMap, shared } from '../lib/session/shared.svelte'
 
-	/** Close a map tab, asking first if it has unsaved changes, or if it is the map the host shares in a session (which closing ends, #1013). */
+	/** Close a map tab, asking first if it has unsaved changes, or if it is the session's map (closing it ends the session on the host, #1013, and leaves it on a guest, #1014). */
 	export function requestClose(id: number) {
 		const engine = engineRef.current
 		if (!engine) return
-		if (isHostedSessionMap(id)) {
+		if (isSessionMap(id)) {
 			ui.closeDocId = id
 			ui.dialog = 'closeSession'
 		} else if (engine.isDirty(id)) {

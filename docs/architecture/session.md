@@ -211,7 +211,9 @@ server. #728 is the umbrella; its parts are separate issues:
   the sync too, so on the host closing the session's tab (the tab's close button, File › Close,
   `requestClose` in `DocTabs.svelte`) asks "End the session?" and ends it before closing
   (`endSessionAndClose`, #1013): the guests get "the host ended the session" rather than editing on
-  alone. A guest closing its own session tab stops only its own sync. A larger heights message (a whole-map import) is a
+  alone. On a guest the same close asks "Leave the session?" and leaves before closing (#1014), so the
+  host's chip drops it rather than naming a member whose sync stopped; the dialog is the same
+  `closeSession` one, worded by `shared.role`. A larger heights message (a whole-map import) is a
   few MB of JSON through the bridge twice.
 - **The firewall.** On Windows, the first `HostSession` makes the firewall ask whether Meld may listen.
   The Go tests bind loopback (`sessionBind` in `app_session.go`) so the test binary doesn't ask.
