@@ -20,6 +20,11 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
   commit: that silently undoes every later change to them (#640's redo of #618 undid #461's prefs
   effect in `App.svelte`). Then check that `git diff <revert>^..HEAD -- <files>` shows only the
   intended change.
+- While the issue loop runs (it holds `<user cache>/Meld/loop.lock`; `cd frontend && bun probes/loop-lock.mjs`
+  shows it), a session outside the loop stages only its own hunks of a file the loop's worker also
+  changed, never the whole file: `git diff -- <file> > my.patch`, trim the patch to your hunks, then
+  `git apply --cached my.patch`. A whole-file stage commits the worker's uncommitted lines under your
+  message (#706). The same goes for the worker when another session has uncommitted edits in a file.
 - Match the style of existing commit messages: one sentence in the imperative mood that says what
   changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
   WebKitGTK crashes on request bodies".
