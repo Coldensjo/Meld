@@ -1111,7 +1111,7 @@ new ids and selection groups in its own lane (the numbers equal to its lane modu
 - Trap: a scripted guest can't read its lane from the handoff before it sends, so the probe relies on
   the host giving the first guest lane 1.
 
-## The session's map keeps its tab (#1007, #1008, probes `session-replace`, `session-replace-guest`)
+## The session's map keeps its tab (#1007, #1008, #1012, probes `session-replace`, `session-replace-guest`)
 
 Checks: while in a session, nothing makes the session's map again in its tab behind the sync's back,
 since its sync is bound to that document (`MapDocument.shared`); the host's Revert and Grow Region go
@@ -1122,13 +1122,15 @@ through `replaceSessionMap`, which rebinds the sync and sends the new map to eve
   (`pristine`) again. Then it hosts again with a `joinBot` in and replaces the map through
   `replaceSessionMap` with a bigger one (Revert's way, without a file): the new tab is the session's,
   the bot gets a second `map` with no `to` and `gen` 1, and the page's next `heights` carries `g: 1`
-  and a rect past the old grid.
+  and a rect past the old grid. Last it grows the map File › Grow region's way (`moveSessionMap`,
+  #1012, a stand-in for `openWowRegion` that opens a new tab and closes the session's): the new tab is
+  the session's and the bot gets a third `map` with `gen` 2.
 - `bun run probe session-replace-guest`: the page joins a `hostBot` that sends its map, then a bigger
   one to everyone with `gen` 1, then a `heights` without `g` (dropped) and one with `g: 1` (applied);
   the new map opens over the session's tab, a guest's `replaceSessionMap` throws
   `GUEST_REPLACE_REASON`, and its next edit and model go out with `g: 1`, the model's id in lane 2
   from the counts the map came with.
-- `bun test tests/menus.test.ts`: Revert to Saved is on for the host and off for a guest, with the reason.
+- `bun test tests/menus.test.ts`: Revert to Saved and Grow region's Add the tiles are on for the host and off for a guest, with the reason; `bun test tests/sessionPeers.test.ts`: `blockShift`.
 - By hand (not in a probe): host a map from the client with a second Meld joined, open Map Properties
   and tick a tile outside the square: after the Grow confirm, the guest's session tab is the grown map
   with its camera moved with the ground (`squareShift`), and a stroke on either side shows on the other.

@@ -11,13 +11,14 @@ import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
 import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
-import { GUEST_EXPORT_REASON, GUEST_REPLACE_REASON, HOST_ID, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, editGen, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
+import { GUEST_EXPORT_REASON, GUEST_REPLACE_REASON, HOST_ID, blockShift, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, editGen, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 import { KIND_PAINT, PaintSync } from './paint'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
 import { TILE_YARDS } from '../wow/format'
-import type { VmangosRef } from '../engine/MapDocument'
+import type { MapDocument, VmangosRef } from '../engine/MapDocument'
+import type { Engine } from '../engine/Engine'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -380,6 +381,28 @@ export function replaceSessionMap(docId: number, replace: () => void) {
 		if (e.documents.includes(d)) d.shared = true
 		throw err
 	}
+	adoptReplacement(e, d)
+}
+
+/**
+ * Runs `open`, which opens tab `docId`'s map bigger in a new tab and closes `docId`'s (File › Grow region,
+ * `extendRegion`, #1012). For the host's session map, the sync then moves to the new tab and the map goes to
+ * everyone, as `replaceSessionMap` does; a guest's is refused.
+ */
+export async function moveSessionMap(docId: number, open: () => Promise<void>) {
+	const e = engineRef.current
+	const d = sessionDoc()
+	if (!e || !d || !isSessionMap(docId)) return open()
+	if (shared.role !== 'host') throw new Error(GUEST_REPLACE_REASON)
+	flushEdits()
+	// The old tab is closed, never replaced in place, so it stays marked shared while the new one loads.
+	await open()
+	d.shared = false
+	adoptReplacement(e, d)
+}
+
+/** After old session map `d` was made again: binds the sync to the active tab and sends it to everyone, or keeps `d` when it is still open (nothing was made). */
+function adoptReplacement(e: Engine, d: MapDocument) {
 	// The new map took the tab's place and is active; a replace that did nothing (a grow of a map not from the client) leaves the old one.
 	const nd = e.activeDocument()
 	if (nd === d || e.documents.includes(d)) {
@@ -470,7 +493,7 @@ function openHandoff(h: MapHandoff) {
 	const id = e.activeDocumentId()
 	if (old) {
 		// A grown map's ground moved in its square: the camera and the bookmarks move with it, as on the host (Engine.growWorld).
-		const shift = squareShift(old.meta.vmangos, snap.vmangos)
+		const shift = squareShift(old.meta.vmangos, snap.vmangos) ?? blockShift(old.meta.region, snap.region)
 		if (shift) {
 			const c = e.controller
 			c.setView(c.target.x + shift.x, c.target.y, c.target.z + shift.z, c.yaw, c.pitch, c.distance)

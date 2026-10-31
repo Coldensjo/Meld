@@ -17,6 +17,7 @@ import { blockAround, blockHolds, spotTile } from '../world/teleport'
 import type { TriggerDestination } from '../world/areaTriggers'
 import { vmangos } from '../wails/models'
 import { regionUncompiled } from './compile'
+import { moveSessionMap } from '../session/shared.svelte'
 
 /**
  * Reads a region's creatures and game objects from the server's world database into its document.
@@ -261,14 +262,21 @@ export async function extendRegion(engine: Engine, side: Side) {
 	target.x += (block.x - grown.x) * shift
 	target.z += (block.y - grown.y) * shift
 	const view = { yaw: c.yaw, pitch: c.pitch, distance: c.distance }
-	return openWowRegion(engine, mapName, grown.x, grown.y, grown.size).then(() => {
-		if (engine.activeDocumentId() === oldId) return
-		engine.closeDocument(oldId)
-		c.target.copy(target)
-		c.yaw = view.yaw
-		c.pitch = view.pitch
-		c.distance = view.distance
-	})
+	const open = () =>
+		openWowRegion(engine, mapName, grown.x, grown.y, grown.size).then(() => {
+			if (engine.activeDocumentId() === oldId) return
+			engine.closeDocument(oldId)
+			c.target.copy(target)
+			c.yaw = view.yaw
+			c.pitch = view.pitch
+			c.distance = view.distance
+		})
+	// A shared session's map: the sync follows the bigger block's tab and the guests get it (#1012).
+	try {
+		await moveSessionMap(oldId, open)
+	} catch (err) {
+		setStatus(`The region could not grow: ${err instanceof Error ? err.message : err}.`, 8000)
+	}
 }
 
 /** The side of the block Edit Here opens from a world view, in tiles (#15). */

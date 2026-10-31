@@ -2,6 +2,8 @@
 // test can check them without the bindings: who joined or left between two member lists, the status
 // bar's chip, and the serial send queue.
 
+import { TILE_YARDS } from '../wow/format'
+
 /** Why a guest cannot write the session's map into the client or server (#1005), shown as the menu items' tooltip and the status line. */
 export const GUEST_EXPORT_REASON = "The host exports the session's map"
 
@@ -136,4 +138,19 @@ export class PartJoiner {
 		this.count = 0
 		this.have = 0
 	}
+}
+
+/** A region's map and block corner, in tiles. */
+export interface BlockCorner {
+	mapName: string
+	x: number
+	y: number
+}
+
+/** How far a region opened again bigger from `was` to `now` moved its ground, in yards: a block grown north or west starts at another tile (#1012). */
+export function blockShift(was: BlockCorner | null | undefined, now: BlockCorner | null | undefined): { x: number; z: number } | null {
+	if (!was || !now || was.mapName.toLowerCase() !== now.mapName.toLowerCase()) return null
+	const x = (was.x - now.x) * TILE_YARDS
+	const z = (was.y - now.y) * TILE_YARDS
+	return x || z ? { x, z } : null
 }

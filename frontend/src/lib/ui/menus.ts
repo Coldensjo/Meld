@@ -242,7 +242,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 							...SIDES.map(([side, name]) => ({
 								kind: 'action' as const,
 								label: `Add the tiles to the ${name}`,
-								disabled: !backend || ui.busy || !growableSides(editor.regionBlock!).includes(side),
+								...(ctx.sessionGuestMap ? { disabled: true, title: GUEST_REPLACE_REASON } : { disabled: !backend || ui.busy || !growableSides(editor.regionBlock!).includes(side) }),
 								run: withEngine((e) => io.extendRegion(e, side)),
 							})),
 							{ kind: 'sep' as const },

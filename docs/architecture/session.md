@@ -169,7 +169,10 @@ server. #728 is the umbrella; its parts are separate issues:
   `myLane`). A guest opens it over its session tab (`openHandoff`: `openDocument(snap, path, docId)`):
   its unsent edits and History are dropped, a tab it saved keeps its file (unsaved), a grown map's
   camera and bookmarks move with the ground (`squareShift`), and a member working in another tab stays
-  there. A guest's replacement throws `GUEST_REPLACE_REASON`, and its Revert and Grow are off with it.
+  there. File › Grow region's Add the tiles (`extendRegion`, #1012) opens the bigger block in a new
+  tab and closes the old one, through `moveSessionMap`, which does the same around it; the guest's
+  camera moves by the block's corner (`blockShift`). A guest's replacement throws
+  `GUEST_REPLACE_REASON`, and its Revert and both Grows are off with it.
   - **The map generation.** `mapGen` counts the host's replacements; every edit message carries the
     one it was made against as `g` (`tagged`; left out at 0) and a member drops the others' with
     another (`receiveEdit`, `editGen` in `peers.ts`). The `seq` alone can't tell: a guest's edit sent
@@ -201,8 +204,10 @@ server. #728 is the umbrella; its parts are separate issues:
   document (a new id) and would stop the sync on that member alone, so the engine refuses it while in a
   session (above) unless it goes through `replaceSessionMap`; a new way to make a map again in its tab
   must go through `Engine.openDocument` with `replaceId` inside `replaceSessionMap`, or check
-  `MapDocument.shared` itself. File › Add the tiles to the north (`extendRegion`) opens a new tab and
-  closes the session's, which stops the sync (#1012). A larger heights message (a whole-map import) is a
+  `MapDocument.shared` itself. A way that opens the new map in a new tab and closes the session's
+  after it, as File › Add the tiles to the north (`extendRegion`) does, goes through
+  `moveSessionMap(docId, open)` instead (#1012), which moves the sync and sends the map the same way;
+  the guest's camera follows the block's corner (`blockShift` in `peers.ts`). A larger heights message (a whole-map import) is a
   few MB of JSON through the bridge twice.
 - **The firewall.** On Windows, the first `HostSession` makes the firewall ask whether Meld may listen.
   The Go tests bind loopback (`sessionBind` in `app_session.go`) so the test binary doesn't ask.

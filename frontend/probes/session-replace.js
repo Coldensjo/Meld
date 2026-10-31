@@ -1,5 +1,5 @@
-// The session's map is never replaced in its tab behind the sync's back (#1007): the page hosts an untouched new map, then a map opened from a snapshot takes a new tab instead of the untouched one's place, and Revert's and Grow Region's replacement of the session's map straight through the engine is refused with the reason, the sync still bound to it; once the session ends the map can be replaced again. Then the host makes the session's map again the way Revert and Grow Region do (replaceSessionMap, #1008) with a scripted guest in (meldtool session join, through P.bun): the sync is bound to the new tab, the bot gets the new map sent to everyone with `gen` 1, and the page's next edit goes out tagged with that map and fits its bigger grid.
-// touches: frontend/src/lib/session/**, frontend/src/lib/engine/MapDocument.ts, frontend/src/lib/io/recovery.ts, frontend/src/lib/io/mapio.ts, frontend/src/components/MapPropertiesDialog.svelte, frontend/src/lib/ui/menus.ts, frontend/src/components/MenuBar.svelte, frontend/probes/session-bot.mjs, frontend/probes/run.mjs, app_session.go, internal/session/**, cmd/meldtool/session.go
+// The session's map is never replaced in its tab behind the sync's back (#1007): the page hosts an untouched new map, then a map opened from a snapshot takes a new tab instead of the untouched one's place, and Revert's and Grow Region's replacement of the session's map straight through the engine is refused with the reason, the sync still bound to it; once the session ends the map can be replaced again. Then the host makes the session's map again the way Revert and Grow Region do (replaceSessionMap, #1008) with a scripted guest in (meldtool session join, through P.bun): the sync is bound to the new tab, the bot gets the new map sent to everyone with `gen` 1, and the page's next edit goes out tagged with that map and fits its bigger grid. Last the host grows the map the way File › Grow region does (moveSessionMap, #1012: the bigger map opens in a new tab and the old one closes, here a scripted stand-in for openWowRegion): the sync follows the new tab and the bot gets it with `gen` 2.
+// touches: frontend/src/lib/session/**, frontend/src/lib/engine/MapDocument.ts, frontend/src/lib/io/recovery.ts, frontend/src/lib/io/mapio.ts, frontend/src/lib/io/region.ts, frontend/src/components/MapPropertiesDialog.svelte, frontend/src/lib/ui/menus.ts, frontend/src/components/MenuBar.svelte, frontend/probes/session-bot.mjs, frontend/probes/run.mjs, app_session.go, internal/session/**, cmd/meldtool/session.go
 // timeout: 180
 const e = P.e
 const S = await P.app('/src/lib/session/shared.svelte.ts')
@@ -54,6 +54,7 @@ await P.frames(1)
 await S.hostSession(0, 'Probe')
 let bot
 let replaced
+let moved
 try {
 	bot = await P.bun('joinBot', `127.0.0.1:${shared.port}`, shared.code, { name: 'Bot', seconds: 10 })
 	await P.until(() => shared.peers.length === 2, 30_000, 'the bot joining')
@@ -70,6 +71,17 @@ try {
 	t.heights[100 * V + 120] = 7
 	t.markDirty(120, 100, 120, 100)
 	await new Promise((r) => setTimeout(r, 600))
+	// #1012: Grow region's path, a new tab opened and the session's closed after it.
+	const from = e.activeDocument()
+	await S.moveSessionMap(from.id, async () => {
+		await P.frames(1)
+		e.openDocument(bigSnap, '')
+		e.closeDocument(from.id)
+	})
+	await P.frames(1)
+	const md = e.activeDocument()
+	moved = { newTab: md.id !== from.id && shared.docId === md.id, oldGone: !e.documents.includes(from), marked: md.shared }
+	await new Promise((r) => setTimeout(r, 600))
 } finally {
 	await S.leaveSession()
 }
@@ -77,11 +89,13 @@ await P.until(() => !shared.role, 5000, 'the session ending')
 const lines = await P.bun('botDone', bot)
 const maps = lines.filter((l) => l.kind === 'map' || l.kind === 'map.part')
 const toAll = maps.find((l) => l.kind === 'map' && !l.to)
+const toAll2 = maps.find((l) => l.kind === 'map' && !l.to && l.data?.gen === 2)
 const edit = lines.find((l) => l.kind === 'heights' && l.from === 1 && l.data?.rect?.x0 === 120)
 const editH = edit ? Array.from(base64ToFloats(edit.data.h)) : null
 const sent = {
 	maps: maps.map((l) => ({ to: l.to ?? 0, gen: l.data?.gen ?? 0, size: l.data?.map?.size })),
 	toAll: toAll ? { gen: toAll.data.gen, size: toAll.data.map.size, counts: toAll.data.ids } : null,
+	moved: toAll2 ? { gen: toAll2.data.gen, size: toAll2.data.map.size } : null,
 	edit: edit ? { g: edit.data.g, rect: edit.data.rect, h: editH, afterMap: !!toAll && edit.seq > toAll.seq } : null,
 }
 const ok =
@@ -103,7 +117,11 @@ const ok =
 	replaced.marked &&
 	replaced.sameTabs &&
 	replaced.size === 128 &&
-	maps.length === 2 &&
+	maps.length === 3 &&
+	moved.newTab &&
+	moved.oldGone &&
+	moved.marked &&
+	sent.moved?.size === 128 &&
 	sent.maps[0].to === 2 &&
 	sent.maps[0].size === 64 &&
 	sent.toAll?.gen === 1 &&
@@ -113,4 +131,4 @@ const ok =
 	sent.edit.afterMap &&
 	sent.edit.h.length === 1 &&
 	sent.edit.h[0] === 7
-return { ok, pristineBefore, ...got, after, replaced, sent }
+return { ok, pristineBefore, ...got, after, replaced, moved, sent }

@@ -274,3 +274,11 @@ test("Revert to Saved is the host's in the session's map: a guest's is off, with
 	assert.ok(revert.kind === 'action' && revert.disabled)
 	assert.equal(revert.title, GUEST_REPLACE_REASON)
 })
+
+test("Grow region's items are the host's in the session's map: a guest's are off, with the reason (#1012)", () => {
+	const region = { editor: { regionBlock: { x: 30, y: 30, size: 2 } } }
+	assert.equal(disabled(makeCtx({ ...region, sessionRole: 'host' }).build(), 'File', 'Add the tiles to the south'), false)
+	const grow = item(makeCtx({ ...region, sessionRole: 'guest', sessionGuestMap: true }).build(), 'File', 'Add the tiles to the south')
+	assert.ok(grow.kind === 'action' && grow.disabled)
+	assert.equal(grow.title, GUEST_REPLACE_REASON)
+})

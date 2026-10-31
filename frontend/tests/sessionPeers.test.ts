@@ -3,7 +3,7 @@
 // status bar's chip, and the send queue that keeps the page's sends in order.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { PartJoiner, changeLine, editGen, peerChanges, peersLabel, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
+import { PartJoiner, blockShift, changeLine, editGen, peerChanges, peersLabel, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
 
 const ann = { id: 1, name: 'Ann' }
 const bob = { id: 2, name: 'Bob' }
@@ -69,4 +69,12 @@ test('the map an edit message was made against: its g, 0 when absent or not a co
 	assert.equal(editGen({ g: '2' }), 0)
 	assert.equal(editGen({ g: 1.5 }), 0)
 	assert.equal(editGen({ g: -1 }), 0)
+})
+
+test("blockShift moves a guest's camera by the grown block's corner (#1012)", () => {
+	const tile = 1600 / 3
+	assert.deepEqual(blockShift({ mapName: 'Azeroth', x: 30, y: 40 }, { mapName: 'azeroth', x: 29, y: 39 }), { x: tile, z: tile })
+	assert.equal(blockShift({ mapName: 'Azeroth', x: 30, y: 40 }, { mapName: 'Azeroth', x: 30, y: 40 }), null)
+	assert.equal(blockShift({ mapName: 'Azeroth', x: 30, y: 40 }, { mapName: 'Kalimdor', x: 29, y: 40 }), null)
+	assert.equal(blockShift(null, { mapName: 'Azeroth', x: 29, y: 40 }), null)
 })
