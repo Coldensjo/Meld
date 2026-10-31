@@ -4577,6 +4577,23 @@ export class Engine {
 	/** What `frame` sets the terrain's editing overlays to, reused every frame. */
 	private overlays: OverlayState = { brushVisible: 0, gridVisible: 0, unpaintable: -1, climbCos: 0, contourStep: 0, chunkLineWorld: 0, maskVisible: 0 }
 
+	/**
+	 * The brush circle as the last frame drew it (its centre, radius and whether it is square), or null
+	 * while the tool has none or the cursor is off the ground: a shared session shows it to the others (#1004).
+	 */
+	brushRing(): { x: number; z: number; r: number; square: boolean } | null {
+		if (!this.overlays.brushVisible) return null
+		const u = this.terrain.material.uniforms
+		const p = u.brushPos.value as THREE.Vector2
+		return { x: p.x, z: p.y, r: u.brushRadius.value as number, square: u.brushSquare.value === 1 }
+	}
+
+	private eyeDir = new THREE.Vector3()
+	/** The 3D view's camera (not the top-down view's): where it is and the way it looks, for a shared session's presence (#1004). The vectors are the engine's own: read them at once. */
+	eye(): { pos: THREE.Vector3; dir: THREE.Vector3 } {
+		return { pos: this.persp.position, dir: this.persp.getWorldDirection(this.eyeDir) }
+	}
+
 	/** Keeps the terrain shader's texture looks (scrolling, overbright) in step with the map's (B-162). */
 	private updateLookTexture(u: Record<string, THREE.IUniform>, time: number) {
 		// time is the timer's elapsed seconds.

@@ -11,7 +11,27 @@ import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
 import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
-import { GUEST_EXPORT_REASON, GUEST_REPLACE_REASON, HOST_ID, blockShift, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, editGen, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
+import {
+	GUEST_EXPORT_REASON,
+	GUEST_REPLACE_REASON,
+	HOST_ID,
+	blockShift,
+	KIND_MAP,
+	KIND_MAP_PART,
+	MAP_PART_CHARS,
+	PartJoiner,
+	changeLine,
+	editGen,
+	nameOf,
+	peerChanges,
+	serialQueue,
+	splitText,
+	type MapPart,
+	type Message,
+	type Peer,
+} from './peers'
+import { KIND_PRESENCE, PRESENCE_MS, PresenceBook, makePresence, presenceKey } from './presence'
+import { PresenceView } from './PresenceView'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 import { KIND_PAINT, PaintSync, remapSlots, reorderPalette } from './paint'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
@@ -150,6 +170,77 @@ const objects = new ObjectSync({
 let lanes = new Lanes()
 let flushTimer: ReturnType<typeof setInterval> | null = null
 
+/** The others' cameras and brush circles (#1004): the latest of each, drawn by `presenceView` while the session's map is the active tab. */
+const presence = new PresenceBook()
+let presenceView: PresenceView | null = null
+let presenceTimer: ReturnType<typeof setInterval> | null = null
+/** The key of the last presence this member sent (`presenceKey`), '' to send it again at the next tick (a member joined, the map was made again). */
+let sentPresence = ''
+/** A presence send not yet through the queue: the next waits, so a slow queue never piles them up. */
+let presenceBusy = false
+
+/**
+ * Sends this member's presence when it changed (the camera, the tool, the brush circle), or `{}` once on
+ * leaving the session's tab, and draws the others'. Runs every PRESENCE_MS, not per frame.
+ */
+function tickPresence() {
+	const e = engineRef.current
+	if (!e) return
+	const active = mapGen >= 0 && sessionActive()
+	if (!presenceBusy) {
+		const mine = active ? makePresence(e.eye(), e.controller, editor.tool, e.brushRing()) : null
+		const key = presenceKey(mine)
+		if (key !== sentPresence) {
+			sentPresence = key
+			presenceBusy = true
+			sessionSend(0, KIND_PRESENCE, tagged(mine ?? {}))
+				.catch(() => (sentPresence = ''))
+				.finally(() => (presenceBusy = false))
+		}
+	}
+	if (mapGen >= 0) presence.keepGen(mapGen)
+	if (!presenceView) {
+		presenceView = new PresenceView()
+		e.scene.add(presenceView.group)
+	}
+	const names = new Map(shared.peers.map((p) => [p.id, nameOf(p)]))
+	presenceView.update(presence, active ? (sessionDoc()?.terrain ?? null) : null, (id) => names.get(id) ?? `Member ${id}`)
+}
+
+/** Drops the others' markers and takes the view out of the scene. */
+function clearPresence() {
+	presence.clear()
+	sentPresence = ''
+	if (presenceView) {
+		presenceView.group.removeFromParent()
+		presenceView.dispose()
+		presenceView = null
+	}
+}
+
+/**
+ * Flies the camera to member `id`'s (#1004): the view it has, on the session's map, switching to its tab.
+ * Says so in the status bar when that member is not on the session's map.
+ */
+export function flyToMember(id: number) {
+	const e = engineRef.current
+	const peer = shared.peers.find((p) => p.id === id)
+	const name = peer ? nameOf(peer) : `Member ${id}`
+	const p = presence.get(id)
+	const d = sessionDoc()
+	if (!e || !p || !d) {
+		setStatus(`${name} is not on the session's map right now`, 5000)
+		return
+	}
+	if (e.activeDocumentId() !== d.id) e.switchDocument(d.id)
+	e.controller.setView(p.t[0], p.t[1], p.t[2], p.yaw, p.pitch, p.d)
+}
+
+/** Member `id`'s marker as drawn (its camera, its brush ring's centre, whether the markers show), or null for none: for the probes. */
+export function presenceMarker(id: number) {
+	return presenceView?.markerAt(id) ?? null
+}
+
 /** Sends the session map's changed heights, paint and objects; stops syncing once that map is closed. */
 function flushEdits() {
 	const doc = sessionDoc()
@@ -220,6 +311,8 @@ function subscribe() {
 	paint.wait()
 	objects.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
+	clearPresence()
+	presenceTimer = setInterval(tickPresence, PRESENCE_MS)
 	off = [EventsOn<Message>('session:message', onMessage), EventsOn<string>('session:ended', onEnded)]
 }
 
@@ -228,6 +321,9 @@ function unsubscribe() {
 	off = []
 	if (flushTimer) clearInterval(flushTimer)
 	flushTimer = null
+	if (presenceTimer) clearInterval(presenceTimer)
+	presenceTimer = null
+	clearPresence()
 	early = []
 	heights.unbind()
 	paint.unbind()
@@ -337,6 +433,9 @@ function onMessage(m: Message) {
 				left,
 			)
 			if (line) setStatus(line, 6000)
+			presence.keep(peers.map((p) => p.id))
+			// A member that joined has seen no one's presence yet.
+			if (joined.some((p) => p.id !== shared.you)) sentPresence = ''
 			if (shared.role === 'host') {
 				for (const p of left) lanes.free(p.id)
 				for (const p of joined) if (p.id !== HOST_ID) void sendMap(p)
@@ -353,6 +452,10 @@ function onMessage(m: Message) {
 		case KIND_PAINT:
 		case KIND_OBJECTS:
 			receiveEdit(m)
+			return
+		case KIND_PRESENCE:
+			// Kept whatever its map: a guest's arrive before its own map, and `tickPresence` drops the ones of another.
+			if (m.from !== shared.you) presence.receive(m.from, m.data, editGen(m.data))
 	}
 }
 
@@ -426,6 +529,7 @@ function adoptReplacement(e: Engine, d: MapDocument) {
 		return
 	}
 	mapGen++
+	sentPresence = ''
 	setSessionDoc(nd.id)
 	bindEdits(lastSeq, { lane: 0, nextId: 0, nextGroup: 0 })
 	if (!shared.peers.some((p) => p.id !== HOST_ID)) return
@@ -543,6 +647,7 @@ function openHandoff(h: MapHandoff) {
 	}
 	setSessionDoc(id)
 	mapGen = gen
+	sentPresence = ''
 	// The edits that came before the map, made against it, wait in the syncs (`wait`) for the bind below.
 	const held = early
 	early = []

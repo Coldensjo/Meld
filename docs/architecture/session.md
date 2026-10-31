@@ -14,7 +14,7 @@ server. #728 is the umbrella; its parts are separate issues:
 | Terrain heights sync | #1001 | Done (`lib/session/heights.ts`) |
 | Texture paint sync, with the palette | #1002 | Done (`lib/session/paint.ts`) |
 | Placed objects sync, with the id lanes | #1003 | Done (`lib/session/objects.ts`) |
-| Presence: the others' cameras and brushes | #1004 | Open |
+| Presence: the others' cameras and brushes | #1004 | Done (`lib/session/presence.ts`, `PresenceView.ts`) |
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
 
 ## The transport (`internal/session`)
@@ -191,7 +191,24 @@ server. #728 is the umbrella; its parts are separate issues:
     whatever their `g`. A guest without a map yet holds the edits (`early`) until its handoff says
     which generation they need, then hands those to the syncs' `wait` hold before binding. A map to
     everyone reaching a guest with none yet is skipped: its own handoff comes after it in the order.
-- The members show in the status bar (`StatusBar.svelte`, `peersLabel`/`peersTitle`), the session's tab
+- **Presence (#1004, `presence.ts`, `PresenceView.ts`).** Each member sends kind `presence`
+  (`KIND_PRESENCE`), data `{cam, dir, t, yaw, pitch, d, tool, b?}`: the 3D camera's position and the way
+  it looks (`Engine.eye()`, the perspective camera even in the top-down view), the controller's view
+  (for Fly to), the tool, and the brush circle as the last frame drew it (`Engine.brushRing()`:
+  `[x, z, radius, square]`, absent off the ground or for a tool without one). A timer every
+  `PRESENCE_MS` (150 ms) builds it rounded to a hundredth and sends it only when its key changed, one
+  send in the queue at a time; `{}` (away) once the session's map is not the active tab. It is tagged
+  with `g` like the edits. No replay and no History: each member keeps the others' latest
+  (`PresenceBook`), drops a member's when `session.peers` no longer lists it or its `g` is not the
+  map's, and sends its own again when a member joins or the map is made again (`sentPresence = ''`).
+  `PresenceView` (one group in `engine.scene`, added by the session code, not the engine) draws each
+  member as a cone at its camera, its name over it at a fixed screen size, and its brush ring draped on
+  the ground half a yard up, one marker per member updated in place from the timer, shown only while
+  the session's map is the active tab. Each member has a colour by id (`memberColor`, 16), the same on
+  every Meld; the status bar's chip names each other member in it, and a click flies the camera to
+  their view (`flyToMember`, switching to the session's tab). `presenceMarker(id)` gives the probes a
+  marker's place.
+- The members show in the status bar (`StatusBar.svelte`, `otherPeers`/`peersTitle`), the session's tab
   carries a `session` badge (`DocTabs.svelte`), and a join, a leave and the end are status lines.
 
 ## Traps

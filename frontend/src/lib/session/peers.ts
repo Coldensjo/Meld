@@ -52,12 +52,12 @@ export function peerChanges(before: readonly Peer[], after: readonly Peer[]) {
 	return { joined: after.filter((p) => !had.has(p.id)), left: before.filter((p) => !has.has(p.id)) }
 }
 
-const nameOf = (p: Peer) => p.name || `Member ${p.id}`
+/** A member's name, or "Member <id>" for one that gave none. */
+export const nameOf = (p: Peer) => p.name || `Member ${p.id}`
 
-/** The status bar's chip: the other members' names, or what the session waits for when there are none. */
-export function peersLabel(peers: readonly Peer[], you: number) {
-	const others = peers.filter((p) => p.id !== you)
-	return others.length ? `Session: ${others.map(nameOf).join(', ')}` : 'Session: waiting for others'
+/** The members the status bar's chip names (#1004: each in its colour, a click flies to them): everyone but you. */
+export function otherPeers(peers: readonly Peer[], you: number): Peer[] {
+	return peers.filter((p) => p.id !== you)
 }
 
 /** The chip's tooltip: every member on a line, the host and you marked. */

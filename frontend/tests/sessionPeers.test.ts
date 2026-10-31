@@ -3,7 +3,7 @@
 // status bar's chip, and the send queue that keeps the page's sends in order.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { PartJoiner, blockShift, changeLine, editGen, peerChanges, peersLabel, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
+import { PartJoiner, blockShift, changeLine, editGen, nameOf, otherPeers, peerChanges, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
 
 const ann = { id: 1, name: 'Ann' }
 const bob = { id: 2, name: 'Bob' }
@@ -18,10 +18,10 @@ test('the members that joined and left between two lists', () => {
 })
 
 test('the chip names the others, and its tooltip everyone', () => {
-	assert.equal(peersLabel([ann], 1), 'Session: waiting for others')
-	assert.equal(peersLabel([ann, bob, cy], 2), 'Session: Ann, Cy')
+	assert.deepEqual(otherPeers([ann], 1), [])
+	assert.deepEqual(otherPeers([ann, bob, cy], 2), [ann, cy])
 	assert.equal(peersTitle([ann, bob], 2), 'Ann (host)\nBob (you)')
-	assert.equal(peersLabel([ann, { id: 4, name: '' }], 1), 'Session: Member 4')
+	assert.equal(nameOf({ id: 4, name: '' }), 'Member 4')
 })
 
 test('the queue runs each send after the last has finished, past a failure', async () => {

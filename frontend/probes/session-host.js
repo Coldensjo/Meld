@@ -28,7 +28,7 @@ const lines = await P.bun('botDone', bot)
 await P.until(() => shared.peers.length === 1, 15_000, 'the bot leaving the members')
 const chipAfter = document.querySelector('[data-session-peers]')?.textContent.trim()
 // The chip opens the host's dialog again, with the code to give.
-document.querySelector('[data-session-peers]')?.click()
+document.querySelector('[data-session-open]')?.click()
 await P.frames(3)
 const codeShown = ui.dialog === 'hostSession' && document.querySelector('[data-session-code]')?.textContent === shared.code
 ui.dialog = null

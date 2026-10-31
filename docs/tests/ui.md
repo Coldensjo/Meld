@@ -1151,3 +1151,25 @@ confirming leaves it (#1014).
   `hostBot` as a guest: closing its session tab opens the dialog titled "Leave the session?", Cancel
   keeps it, and the button ("Leave the session and close") leaves, so the host bot's last
   `session.peers` line holds itself alone (`hostPeers` ends in 1), and closes the tab.
+
+## The others' cameras and brushes in a session (#1004, probe `session-presence`)
+
+Checks: each member sends its presence (the 3D camera's position and direction, the controller's view,
+the tool, the brush circle) as `presence` messages about 7 times a second while it changes, and `{}` once
+when it leaves the session's tab; the others draw a cone at that camera with the member's name and its
+brush ring on the ground, in the member's colour, and the status bar's chip names each member in that
+colour, a click flying the camera to their view.
+- `bun test tests/sessionPresence.test.ts`: `makePresence` rounds (a still camera sends the same key),
+  `readPresence` refuses a broken one, `PresenceBook` keeps the latest per member and drops the away,
+  the gone and another map generation's, and the 16 colours differ.
+- `bun run probe session-presence`: the page hosts a flat map, a `joinBot` sends two presences; the
+  marker (`presenceMarker(2)` in `shared.svelte.ts`: the cone's place and direction, the ring's centre)
+  must show the later one, the chip read `Session: Bot` with the name in `memberColor(2)`, a click on
+  `[data-session-peer="2"]` must set the page's controller to the bot's view, the bot must have got the
+  page's own presence, and the marker must go once the bot leaves.
+- To see it: a scratch probe that hosts a `hills` map, has a bot send a presence and `P.shot`s the view
+  (`--shot <dir>`) shows the cone, the label and the draped ring.
+- By hand: two built Melds in one session: moving one's camera moves its cone on the other, a brush
+  tool's ring follows its cursor there, and switching to another tab hides one's marker on the other.
+- Trap: with Follow the Ground off the camera is at the controller's target (first person), so the
+  cone's direction comes from the camera itself (`Engine.eye()`), never from the target.

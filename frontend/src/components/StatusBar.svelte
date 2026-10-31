@@ -6,8 +6,9 @@
 	import { EventsOn } from '../lib/wails/runtime'
 	import ToolHint from './ToolHint.svelte'
 	import { databaseLabel, refreshExternal } from '../lib/io/external'
-	import { shared } from '../lib/session/shared.svelte'
-	import { peersLabel, peersTitle } from '../lib/session/peers'
+	import { flyToMember, shared } from '../lib/session/shared.svelte'
+	import { nameOf, otherPeers, peersTitle } from '../lib/session/peers'
+	import { memberColor } from '../lib/session/presence'
 
 	const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 
@@ -53,14 +54,19 @@
 		</span>
 	{/if}
 	{#if shared.role}
-		<!-- The shared session's members (#1000); a click shows the host its code and addresses again. -->
-		<button
-			class="cell session"
-			data-session-peers
-			title={peersTitle(shared.peers, shared.you)}
-			onclick={() => {
-				if (shared.role === 'host') ui.dialog = 'hostSession'
-			}}>{peersLabel(shared.peers, shared.you)}</button
+		<!-- The shared session's members (#1000), each in the colour of its marker in the view (#1004): a click on a name flies there, on "Session:" shows the host its code and addresses again. -->
+		{@const others = otherPeers(shared.peers, shared.you)}
+		<span class="cell" data-session-peers title={peersTitle(shared.peers, shared.you)}
+			><button
+				class="session"
+				data-session-open
+				onclick={() => {
+					if (shared.role === 'host') ui.dialog = 'hostSession'
+				}}>Session:</button
+			>{' '}{#each others as p, i (p.id)}<button class="session peer" data-session-peer={p.id} style:color={memberColor(p.id)} title="Fly to {nameOf(p)}'s camera" onclick={() => flyToMember(p.id)}>{nameOf(p)}</button>{i <
+				others.length - 1
+					? ', '
+					: ''}{:else}waiting for others{/each}</span
 		>
 	{/if}
 	{#if waiting > 0}
