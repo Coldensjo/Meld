@@ -141,8 +141,15 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     ray walked every triangle, over a second for Blackrock Depths (#286, probe `brd-fly`). A material
     with nothing in that half gets a group count of -1 in `before`, since three's `renderBufferDirect`
     returns before the draw call only for a negative count and issues an empty one for 0 (#934; the
-    bench scene's scene pass drew 811 calls before, 301 after). Three still sets up the material's
-    program first. `meshCalls` reads the twin's `userData.drawnCalls` to count only the drawn ones.
+    bench scene's scene pass drew 811 calls before, 301 after). That -1 still cost three the
+    material's program setup, so during the scene pass's `renderer.render` (`useViewGroups` in
+    `Engine.draw`) the twin's `groups` list holds only the materials with something in view (`compact`
+    fills it), and three leaves the rest out of its render list (#935: Render (CPU) on the bench scene
+    from 10 to 5 ms in SwiftShader, 5.9 to 3.0 ms on the GPU). The list keeps the same group objects,
+    so `before`/`after` find them; three draws the shadow maps after building the render list, and
+    `useShadowGroups` saves and restores whichever list stands. Picking, the outline's mask pass and
+    any other camera see every group, so the swap must stay around that one call. `meshCalls` reads the
+    twin's `userData.drawnCalls` to count only the drawn ones.
   - A model's opaque materials draw as one call into each shadow map (#926, `world/shadowRun.ts`).
     three draws a mesh into a shadow map a call per material group, though every group without an
     alpha test gets three's same depth material (both faces, from our `shadowSide`). `loadAsset` lays

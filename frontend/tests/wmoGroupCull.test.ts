@@ -2,7 +2,7 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { WmoGroupCull } from '../src/lib/world/wmoGroupCull.ts'
+import { WmoGroupCull, useViewGroups } from '../src/lib/world/wmoGroupCull.ts'
 import { buildBoundsTree } from '../src/lib/world/bvh.ts'
 
 /**
@@ -122,6 +122,22 @@ test('a material with nothing in view gets a negative count, so three skips its 
 	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1), 'put back after')
 	c.update(null, f, identity)
 	assert.equal(c.geometry.userData.drawnCalls, 2, 'every material again with the cull stopped')
+})
+
+test('during the scene draw the twin lists only its materials in view, and all of them after (#935)', () => {
+	const c = WmoGroupCull.of(model(), 0, 2)!
+	const { cam, f } = view(90, 110)
+	c.update(cam, f, identity)
+	const all = c.geometry.groups.slice()
+	useViewGroups(true)
+	assert.deepEqual(c.geometry.groups, [all[0]], 'the second material, with nothing in view, is left out')
+	assert.equal(c.geometry.groups[0], all[0], 'the same group object, so before and after find it')
+	useViewGroups(false)
+	assert.deepEqual(c.geometry.groups, all)
+	c.update(null, f, identity)
+	useViewGroups(true)
+	assert.deepEqual(c.geometry.groups, all, 'a stopped cull keeps every group')
+	useViewGroups(false)
 })
 
 test('a draw group the twin does not hold is left alone (#521)', () => {

@@ -34,6 +34,7 @@ import {
 } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { mergeShadowDraws } from '../world/shadowRun'
+import { useViewGroups } from '../world/wmoGroupCull'
 import { resetLiquidFrames, setLiquidFailHandler, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import type { ClientLights } from '../wow/clientLight'
 import { lightingSunDir } from '../wow/dayNight'
@@ -1786,7 +1787,13 @@ export class Engine {
 		// The far WMOs' texture layers that came in since the last frame (#691).
 		drawFarLayers()
 		if (m.on) this.gpu.begin(1)
-		this.renderer.render(this.scene, this.camera)
+		// A culled WMO lists only its materials in view for this pass (#935).
+		useViewGroups(true)
+		try {
+			this.renderer.render(this.scene, this.camera)
+		} finally {
+			useViewGroups(false)
+		}
 		// The new models' shaders, compiled before the camera turns to them (#903).
 		precompileFresh(this.renderer, this.scene, this.camera)
 		m.mark(SECTION['Render (CPU)'])

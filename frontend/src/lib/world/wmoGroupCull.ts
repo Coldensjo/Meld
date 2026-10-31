@@ -17,7 +17,10 @@ import { addShadowGroups, shadowRunOf, type ShadowRun } from './shadowRun'
 // instance is culled, as one index can't suit two placements; the model's own geometry, its bounds
 // tree and the picking it serves are left alone. The materials whose shadow draws merge into one
 // (world/shadowRun.ts, #926) lead the model's index, and the view half keeps their runs one after
-// another too, so both halves draw them as one call in a shadow pass (`shadowBefore`).
+// another too, so both halves draw them as one call in a shadow pass (`shadowBefore`). During the
+// scene's draw (`useViewGroups`, around the scene pass's `renderer.render`) the twin's group list holds
+// only the materials with something in view, so three leaves the others out of its render list and
+// spares their per-group work (hooks, program and material setup), not only their draw call (#935).
 
 /** Smaller models aren't worth a second index: their groups are few or they draw little. */
 export const MIN_TRIANGLES = 20000
@@ -130,6 +133,8 @@ export class WmoGroupCull {
 	 * group), so it is only looked up here and the typed twin is what gets moved (#521).
 	 */
 	private readonly twins: THREE.GeometryGroup[] = []
+	/** The twins with something in the view half: the twin's group list during the scene draw (`useViewGroups`). */
+	private readonly inView: THREE.GeometryGroup[] = []
 	private readonly groupIndex = new Map<object, number>()
 	private readonly visible: Uint8Array
 	private readonly half: number
@@ -224,7 +229,11 @@ export class WmoGroupCull {
 		culls.set(source, cull)
 		// The twin's index goes with the model it was made of (assets.ts releaseAssets, #505).
 		const twin = cull?.geometry
-		if (twin) source.addEventListener('dispose', () => twin.dispose())
+		if (twin)
+			source.addEventListener('dispose', () => {
+				if (cull) active.delete(cull)
+				twin.dispose()
+			})
 		return cull
 	}
 
@@ -237,6 +246,8 @@ export class WmoGroupCull {
 	update(camera: THREE.Camera | null, frustum: THREE.Frustum, matrix: ArrayLike<number>, shadowCamera: THREE.Camera | null = null, shadowFrustum: THREE.Frustum | null = null) {
 		this.camera = camera
 		this.shadowCamera = camera && shadowFrustum ? shadowCamera : null
+		if (camera) active.add(this)
+		else active.delete(this)
 		if (!camera) {
 			this.geometry.userData.drawnIndexCount = this.half
 			this.geometry.userData.drawnCalls = this.twins.length
@@ -292,6 +303,7 @@ export class WmoGroupCull {
 		// come in index order, `orderForShadows`), so they stay within the view half's mirror of that run
 		// and a shadow pass draws them as one range.
 		let next = this.mergedView.start
+		this.inView.length = 0
 		for (let k = 0; k < this.runs.length; k++) {
 			const view = this.view[k]
 			if (this.merged[k]) view.start = next
@@ -307,6 +319,7 @@ export class WmoGroupCull {
 			total += view.count
 			if (view.count) {
 				index.addUpdateRange(view.start, view.count)
+				this.inView.push(this.twins[k])
 				calls++
 			}
 		}
@@ -370,6 +383,16 @@ export class WmoGroupCull {
 		group.count = this.saved.count
 	}
 
+	/**
+	 * Swaps the twin's groups for the materials in view (on) or puts them all back (off), while the
+	 * view half stands for the culled camera; `useViewGroups` calls it for every cull.
+	 */
+	viewGroups(on: boolean) {
+		const g = this.geometry
+		if (!on) g.groups = this.twins
+		else if (this.drawn >= 0 && this.camera !== null) g.groups = this.inView
+	}
+
 	/** The twin's index for the full model, as the first half holds it (for tests). */
 	fullRange(k: number) {
 		return this.full[k]
@@ -385,3 +408,19 @@ export class WmoGroupCull {
 }
 
 const culls = new WeakMap<THREE.BufferGeometry, WmoGroupCull | null>()
+/** The culls with a camera: the ones whose groups `useViewGroups` swaps. */
+const active = new Set<WmoGroupCull>()
+let viewSwapped = false
+
+/**
+ * Swaps every culled twin's groups for its materials in view (on) or back (off): call around the
+ * scene pass's `renderer.render` only, with the camera the cull ran for. three reads the groups while
+ * it builds the render list, before it draws the shadow maps (whose `useShadowGroups` saves and puts
+ * back whatever list stands), and the list holds the same group objects, so `before`/`after` still
+ * find them. Picking, the outline's mask pass and the other cameras see every group.
+ */
+export function useViewGroups(on: boolean) {
+	if (on === viewSwapped) return
+	viewSwapped = on
+	for (const c of active) c.viewGroups(on)
+}
