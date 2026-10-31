@@ -154,8 +154,15 @@ function bindEdits(afterSeq: number, ids: IdLane) {
 
 /** Sends a message into the session (to 0 is everyone), after every send before it. */
 export function sessionSend(to: number, kind: string, data: unknown) {
-	return queue(() => SessionSend(to, kind, data === undefined ? '' : JSON.stringify(data)))
+	return queue(() => {
+		const json = data === undefined ? '' : JSON.stringify(data)
+		// Wails refuses a binding call whose body is over 64 MB ("assembled body too large"): a map of about 6x6 tiles. Say so plainly (#1006).
+		if (json.length > MAX_SEND_BYTES) throw new Error(`the message is ${Math.round(json.length / 1e6)} MB, over the ${Math.round(MAX_SEND_BYTES / 1e6)} MB a binding call takes`)
+		return SessionSend(to, kind, json)
+	})
 }
+
+const MAX_SEND_BYTES = 60_000_000
 
 function subscribe() {
 	unsubscribe()
