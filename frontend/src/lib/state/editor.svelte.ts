@@ -547,6 +547,10 @@ export const ui = $state({
 	flightPaths: false,
 	/** A route's fly-along preview is moving the camera (Engine.flyTaxi); Esc or Stop ends it. */
 	taxiFlying: false,
+	/** World › Transports: the window that lists the boats and zeppelins whose routes touch the open map (#954). */
+	transports: false,
+	/** The transport (entry) whose preview is sailing (Engine.sailTransport), null for none; Esc or Stop ends it. */
+	transportSailing: null as number | null,
 	/** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
 	weaponPick: null as { key: string; slot: number } | null,
 	/** The yes/no prompt open over everything else (`lib/state/confirm.ts` askConfirm, #581); null when none. */

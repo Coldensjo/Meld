@@ -300,6 +300,7 @@ export const StartingSpells: NonNullCall<AppApi['StartingSpells']> = (...a) => a
 export const StopServer: Call<AppApi['StopServer']> = (...a) => api().StopServer(...a) as never
 export const TaxiNetwork: Call<AppApi['TaxiNetwork']> = (...a) => api().TaxiNetwork(...a) as never
 export const TemplateNames: NonNullCall<AppApi['TemplateNames']> = (...a) => api().TemplateNames(...a) as never
+export const Transports: NonNullCall<AppApi['Transports']> = (...a) => api().Transports(...a) as never
 export const UpdateRegionServer: Call<AppApi['UpdateRegionServer']> = (...a) => api().UpdateRegionServer(...a) as never
 export const VmangosPath: Call<AppApi['VmangosPath']> = (...a) => api().VmangosPath(...a) as never
 export const WMODoodadSets: NonNullCall<AppApi['WMODoodadSets']> = (...a) => api().WMODoodadSets(...a) as never

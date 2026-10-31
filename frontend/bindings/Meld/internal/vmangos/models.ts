@@ -2516,6 +2516,49 @@ export interface TileSpec {
 }
 
 /**
+ * Transport is a boat or zeppelin: its game object, the taxi path it sails, its speed and the legs of
+ * its route.
+ */
+export interface Transport {
+    "entry": number;
+
+    /**
+     * Name is the `transports` row's ("Menethil Harbor and Theramore Isle"), Object the template's
+     * ("Proudmore's Treasure").
+     */
+    "name": string;
+    "object": string;
+
+    /**
+     * Period is the `transports` row's round trip in milliseconds, 0 when it has none (the server then
+     * keeps the one it works out).
+     */
+    "period": number;
+    "pathId": number;
+    "speed": number;
+    "accel": number;
+    "displayId": number;
+
+    /**
+     * Model is the display's model path (GameObjectDisplayInfo.dbc), "" when the client has none.
+     */
+    "model": string;
+    "size": number;
+    "legs": TransportLeg[] | null;
+}
+
+/**
+ * TransportLeg is a stretch of a transport's route on one map, the points it sails through in order
+ * as the server keys them (GenerateWaypoints): a point with flags 2 is a dock, waited at for its delay
+ * in seconds. After a leg's last point the transport jumps to the next leg's first, on another map
+ * (or, after the last leg, back to the first).
+ */
+export interface TransportLeg {
+    "mapId": number;
+    "points": TaxiPoint[] | null;
+}
+
+/**
  * TriggerTeleport is an areatrigger_teleport row: the target map, position and facing, the level a
  * player needs, and the message one below it gets.
  */

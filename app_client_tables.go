@@ -495,6 +495,21 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 	return vmangos.ReadTaxiNetwork(tt, mapID, top)
 }
 
+// Transports lists the boats and zeppelins whose route has a leg on map mapID (#954): the world
+// database's type 15 game objects and `transports` rows, with the legs of their taxi paths from the
+// client's tables and their models, for World › Transports and Show › Transports. Read only.
+func (a *App) Transports(mapID uint32) ([]vmangos.Transport, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	tt, err := vmangos.LoadTaxiTables(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadTransports(server, dataDir, tt, mapID)
+}
+
 // SaveTaxi writes the Flight Paths window's changed and removed stops and routes into the client's
 // three taxi tables (Meld's patch) and, with a server folder set, the stops into the world database's
 // taxi_nodes and the route tables into the server's data, which it reads at start. Nothing is closed

@@ -518,6 +518,27 @@ patch, the server's `data/5875/dbc` and `taxi_nodes`.
   start; Save says to restart it when it runs (#661: Meld restarts nothing).
 - Trap: a live Save writes Meld's patch-3.MPQ (or queues it while the game runs) and the server's
   taxi tables (keeping `.before-meld` copies); don't run it in a check unless the owner wants that. The Go tests cover the write.
+
+## Boats and zeppelins (#954)
+
+Probe: `transports`.
+
+Checks: World › Transports and Show › Transports list and draw the transports (type 15 game objects)
+whose route has a leg on the open map, their docks and names, and Sail plays a model along the route.
+Read only.
+- Unit: `internal/vmangos/transports_test.go` (a path split into legs as the server keys them, the
+  end points and the point after a map change dropped, flag 1; the rows read, a transport without a
+  path or a leg on the map left out, the query's patch and build); `tests/transportRoute.test.ts` (the
+  speed-up, cruise and slow-down between docks, the waits, the jump between legs, the stretches on a
+  map and the preview's play of them).
+- Live: probe `transports` (Azeroth 33_39, Menethil Harbor: Eastern Kingdoms has 7 transports, 8
+  docks; Proudmore's Treasure is 176231 on path 292, docking at server (-3905, -586) for 60 s). At 16×
+  the ship reaches the pier in about 3 s. A screenshot of it docked (`--shot`) shows it alongside the
+  pier, bow north, the way it came in.
+- Trap: the preview's mesh is replaced when its model loads (`GhostPool.show`): read
+  `engine.transports.model` afresh rather than keeping it. The speed select is a Svelte `onchange`,
+  delegated: a probe's synthetic `change` event must bubble.
+- Needs the server's world database (the rows) and the client (the paths and the model).
 - Trap: the client's own data has odd stops: Northshire Abbey (1) and Programmer Isle (3) carry a
   Riding Horse (308) in the Horde slot, so they draw red; that's the table, not a bug.
 

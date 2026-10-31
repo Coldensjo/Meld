@@ -2205,6 +2205,15 @@ export function TemplateNames(kind: string, ids: number[] | null): $CancellableP
 }
 
 /**
+ * Transports lists the boats and zeppelins whose route has a leg on map mapID (#954): the world
+ * database's type 15 game objects and `transports` rows, with the legs of their taxi paths from the
+ * client's tables and their models, for World › Transports and Show › Transports. Read only.
+ */
+export function Transports(mapID: number): $CancellablePromise<vmangos$0.Transport[] | null> {
+    return $Call.ByID(388490939, mapID);
+}
+
+/**
  * UpdateRegionServer rebuilds the server's map data for a continent after SaveRegion wrote tiles of it:
  * only those tiles (RegionResult.ChangedTiles) when the server's data matched the patch before, else the
  * whole map (#211). Nothing is stopped or started (#661): the rebuild waits until the game is closed

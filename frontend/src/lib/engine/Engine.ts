@@ -169,6 +169,8 @@ import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/region'
 import { SpawnActions } from './SpawnActions'
 import { TaxiEditing } from './TaxiEditing'
+import { TransportView, type SailOptions, type TransportHooks } from './TransportView'
+import type { TransportShape } from '../world/TransportLayer'
 import { GizmoDrag } from './GizmoDrag'
 import { DocOverlay } from './docOverlay'
 import { SpawnPaths } from '../world/SpawnPaths'
@@ -847,6 +849,32 @@ export class Engine {
 			sceneView: () => self.sceneView(),
 			setSceneView: (v) => self.setSceneView(v),
 		})
+		this.transports = new TransportView({
+			get doc() {
+				return self.doc
+			},
+			get camera() {
+				return self.camera
+			},
+			get persp() {
+				return self.persp
+			},
+			get raycaster() {
+				return self.raycaster
+			},
+			get ndc() {
+				return self.ndc
+			},
+			get controller() {
+				return self.controller
+			},
+			get timer() {
+				return self.timer
+			},
+			openMapId: () => self.openMapId(),
+			sceneView: () => self.sceneView(),
+			setSceneView: (v) => self.setSceneView(v),
+		})
 		this.reference = new ReferencePlacement({
 			get doc() {
 				return self.doc
@@ -917,7 +945,7 @@ export class Engine {
 			selectedObject: () => self.selectedObject(),
 			selectionPivot: (targets) => self.selectionPivot(targets),
 		})
-		this.scene.add(this.taxi.layer.group)
+		this.scene.add(this.taxi.layer.group, ...this.transports.groups)
 		this.ctx = {
 			get terrain() {
 				return self.terrain
@@ -1138,6 +1166,7 @@ export class Engine {
 		for (const d of this.documents) d.dispose()
 		this.triggerLayer.dispose()
 		this.taxi.dispose()
+		this.transports.dispose()
 		this.nav.dispose()
 		this.gizmo.dispose()
 		for (const t of Object.values(this.tools)) t.dispose?.()
@@ -1393,6 +1422,8 @@ export class Engine {
 				}
 				// The Flight Paths window takes a click on a stop or a route point, or one that draws a point.
 				if (this.taxi.press(e)) return
+				// World › Transports takes a click on a transport's route or dock (#954).
+				if (this.transports.press()) return
 				// While the reference image is being placed, the top-down view's presses drag it (#184).
 				if (this.reference.press(e)) return
 				if (this.startGizmoDrag()) return
@@ -1617,6 +1648,7 @@ export class Engine {
 		this.updateWorld()
 		this.updateSurround()
 		this.taxi.updateFlight()
+		this.transports.updateSail()
 		this.updateTopDown()
 		this.fillFrameView(dt, time)
 		this.updateEnvironment(dt, time)
@@ -1714,6 +1746,7 @@ export class Engine {
 		this.boxes.update(this.objects, this.prefs.showBoxes, this.terrain.heightUploadVersion)
 		this.updateTriggers()
 		this.taxi.update(this.prefs.showFlightPaths, this.topDown)
+		this.transports.update(this.prefs.showTransports, this.topDown)
 		this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightUploadVersion, ui.historyVersion)
 		m.mark(SECTION.Objects)
 		// Lights first: culling keeps what can throw the shadowed lights' shadows.
@@ -2148,6 +2181,40 @@ export class Engine {
 	/** Ends a fly-along preview and puts the camera back where it was. */
 	stopTaxiFlight() {
 		this.taxi.stopFlight()
+	}
+
+	// ---------------------------------------------------------------- boats and zeppelins (#954)
+
+	/** Show › Transports and World › Transports' picks and preview in the viewport (TransportView.ts). */
+	readonly transports: TransportView
+	/** The transports' routes drawn over the map (the probes read it). */
+	get transportLayer() {
+		return this.transports.layer
+	}
+
+	/** Draws World › Transports' list (server coordinates), `picked` highlighted, and lets `hooks` take the viewport's clicks on them until endTransportsEdit. */
+	showTransports(list: TransportShape[], picked: number | null, hooks: TransportHooks) {
+		this.transports.show(list, picked, hooks)
+	}
+
+	/** World › Transports closed: Show › Transports reads the map's again, and a preview stops. */
+	endTransportsEdit() {
+		this.transports.endEdit()
+	}
+
+	/** Sails a transport's model along its route on the open map (World › Transports' Sail); false when the route has no stretch here. */
+	sailTransport(t: vmangos.Transport, o: SailOptions): boolean {
+		return this.transports.startSail(t, o)
+	}
+
+	/** Changes a sailing preview's playback speed. */
+	setSailRate(rate: number) {
+		this.transports.setRate(rate)
+	}
+
+	/** Ends a transport's preview. */
+	stopTransportSail() {
+		this.transports.stopSail()
 	}
 
 	// ---------------------------------------------------------------- walkable ground (#175)

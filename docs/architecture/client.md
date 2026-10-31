@@ -599,6 +599,26 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   32 yd/s segment by segment); the layer colours it red where it runs under the ground, and
   `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). Make flight master sets
   npc_flags 8 on the selected creature's template through `SaveCreature`.
+- **Boats and zeppelins** (#954, read only; making and editing them is #955): VMaNGOS makes every
+  `gameobject_template` of type 15 a transport (`TransportMgr::LoadTransportTemplates`); its data0 is
+  the taxi path it sails, data1 its speed (yd/s) and data2 its acceleration (yd/s²), and the
+  `transports` row (highest build up to 5875) only overrides the period. `internal/vmangos/transports.go`
+  `ReadTransports` (`App.Transports(mapID)`) reads those rows in one query and the path's points through
+  the flight paths' tables, split by `TransportLegs` into legs as `GenerateWaypoints` keys them: the
+  path's first and last points only shape the curve and are dropped, a point flagged 1 or followed by a
+  point on another map ends a leg and the point after it is dropped too, a point flagged 2 is a dock
+  waited at for its delay. A transport is listed when one of its legs is on the map. The 1.12 paths
+  run from and to TaxiNodes "Transport, ..." stops, so the Flight Paths window lists them as routes
+  too. `world/transportRoute.ts` `TransportMotion` times the round trip as the server does: each leg
+  the Catmull-Rom curve of `taxiRoute.ts`, from dock to dock speeding up, cruising and slowing down (or
+  turning half way when the docks are close), a jump between legs covering no distance; `windows(map)`
+  are the stretches on one map and `previewTime` plays only those. `world/TransportLayer.ts` draws the
+  legs on the open map, the docks as posts and a name sprite over the first dock (Show › Transports,
+  `prefs.showTransports`, through `DocOverlay` as the flight paths are), and `engine/TransportView.ts`
+  takes World › Transports' clicks (`components/TransportsWindow.svelte`, `ui.transports`, which hands
+  its list to `Engine.showTransports`) and sails the model (`Engine.sailTransport`, a `GhostPool`
+  mesh; `ui.transportSailing`, Esc stops), turned to face along the way it runs (the server's
+  `InitialOrientation` adds π: the models face -X), optionally with the camera chasing it.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor,
   or by Tools › Game Objects… (`entry: 0`, no spawn), which opens on Find object (#351): the same

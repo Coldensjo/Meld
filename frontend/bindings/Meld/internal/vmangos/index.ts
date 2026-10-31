@@ -160,6 +160,8 @@ export type {
     TerrainType,
     TextureUse,
     TileSpec,
+    Transport,
+    TransportLeg,
     TriggerTeleport,
     Vendor,
     VendorItem,

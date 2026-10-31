@@ -914,6 +914,7 @@ the same scene, the report before and after.
 - Creature editor: Spells tab (creature_spells, #243)
 - Portals and area triggers (#141, #18; Teleport to destination #306, spawn teleports #308, probe `teleport-trigger`; layout #718, probe `portals-fit`)
 - Flight paths (#180, probe `flight-paths`)
+- Boats and zeppelins (#954, probe `transports`)
 - Creatures workspace and the new-creature guide (#132)
 - The database editors' shared frame (#576, unit `templateEditor.test.ts`)
 - Quest editor (#259)

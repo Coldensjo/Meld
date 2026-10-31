@@ -385,6 +385,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'World Map…', disabled: !backend, run: () => (ui.dialog = 'worldMap') },
 				{ kind: 'action', label: 'Portals and Area Triggers…', disabled: !backend, run: () => (ui.dialog = 'portals') },
 				{ kind: 'action', label: 'Flight Paths…', disabled: !backend, run: () => (ui.flightPaths = true) },
+				{ kind: 'action', label: 'Transports (Boats and Zeppelins)…', disabled: !backend, run: () => (ui.transports = true) },
 				{ kind: 'action', label: 'Lights…', disabled: !backend, run: () => (ui.dialog = 'lights') },
 			],
 		},
@@ -497,6 +498,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },
 				{ kind: 'check', label: 'Flight paths (stops and routes)', checked: prefs.showFlightPaths, toggle: () => (prefs.showFlightPaths = !prefs.showFlightPaths) },
+				{ kind: 'check', label: 'Transports (boats and zeppelins)', checked: prefs.showTransports, toggle: () => (prefs.showTransports = !prefs.showTransports) },
 				{ kind: 'check', label: "Walkable ground (the server's navmesh)", checked: prefs.navView, toggle: () => (prefs.navView = !prefs.navView) },
 				{
 					kind: 'check',

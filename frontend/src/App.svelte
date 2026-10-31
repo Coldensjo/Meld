@@ -39,6 +39,7 @@
 	import HistoryWindow from './components/HistoryWindow.svelte'
 	import ScriptWindow from './components/ScriptWindow.svelte'
 	import FlightPathsWindow from './components/FlightPathsWindow.svelte'
+	import TransportsWindow from './components/TransportsWindow.svelte'
 	import CheckMapWindow from './components/CheckMapWindow.svelte'
 	import TexturePaletteWindow from './components/TexturePaletteWindow.svelte'
 	import MinimapWindow from './components/MinimapWindow.svelte'
@@ -276,6 +277,7 @@
 <HistoryWindow />
 <ScriptWindow />
 {#if ui.flightPaths}<FlightPathsWindow />{/if}
+{#if ui.transports}<TransportsWindow />{/if}
 <CheckMapWindow />
 <TexturePaletteWindow />
 <MinimapWindow />

@@ -43,6 +43,8 @@ export function defaultPrefs() {
 		showAreaTriggers: false,
 		/** Show › Flight paths: draw the map's flight stops and the routes from them (TaxiNodes.dbc and TaxiPath.dbc, #180). */
 		showFlightPaths: false,
+		/** Show › Transports: draw the routes and docks of the boats and zeppelins that sail on the open map (#954). */
+		showTransports: false,
 		/** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's View › Climb). */
 		climbView: false,
 		/**

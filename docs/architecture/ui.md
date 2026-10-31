@@ -287,7 +287,7 @@ The window layout, the asset browser and the dock panels and floating windows.
 
   | Token | Value | What |
   |---|---|---|
-  | `--z-window` | 40 | the floating windows (Inspector, History, Minimap, Reference, Scripts, Check Map, Flight Paths, Texture Palette) |
+  | `--z-window` | 40 | the floating windows (Inspector, History, Minimap, Reference, Scripts, Check Map, Flight Paths, Transports, Texture Palette) |
   | `--z-options`, `-more`, `-panel` | 45, 46, 47 | the options bar while open, its overflow, its settings panel |
   | `--z-bar` | 50 | the menu bar and its menus |
   | `--z-workspace` | 140 | the Creatures workspace |
