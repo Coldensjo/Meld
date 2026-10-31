@@ -119,7 +119,9 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   `mergeLights`): onto the map it came from it replaces by ID, onto another it takes new light and params
   IDs (they are the client's, shared by every map) and keeps the positions, and its global light becomes
   the map's own. A map without a global light borrows Azeroth's (`MapLight.borrowed`), so an imported
-  global light takes a new ID there rather than moving Azeroth's row.
+  global light takes a new ID there rather than moving Azeroth's row. Editing the borrowed light in the
+  dialog forks it the same way first (#946, `forkBorrowed`): a new light ID and copies of its params
+  under new IDs, so Save adds the map's own global light and leaves Azeroth's sky alone.
 - **Weather preview** (Lighting › Weather Preview, #185; `ui.weather` and `ui.weatherGrade`, not saved):
   the client's rain, snow or sandstorm at a light, medium or heavy grade (the middles of VMaNGOS's
   bands, `wow/weather.ts`). Two halves, both from Benilla's port of the client's weather: the storm

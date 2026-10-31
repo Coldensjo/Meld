@@ -572,6 +572,13 @@ unsaved and Save is enabled; `SaveLights` is stubbed, so nothing is written. Tra
 dialog, so the real bindings answer "" or null there; only the stand-ins exercise the dialog. To see the
 sky change, import and Save in the desktop app with Lighting › Client Lighting on.
 
+Editing a borrowed global light (#946, probe `lights-borrowed`): `bun run probe lights-borrowed` (a few
+seconds) stubs `MapLights` to answer Azeroth's global light marked `borrowed` (as for a new map with no
+global light), changes its fog distance, Saves through a stand-in `SaveLights`, and checks the edit names
+a new light ID and new params IDs, never Light 1 or params 12. `bun test tests/lightsFile.test.ts` tests
+`forkBorrowed`. Trap: the dev page's map may have a global light of its own, which is why the probe
+stubs `MapLights` instead of picking a map.
+
 ## Weather preview and zone weather (#185); splashes, wind and doorways (#244); roofs (#315)
 
 Checks: Lighting › Weather Preview (`world/WeatherLayer.ts`, `wow/weather.ts`, the storm blend in

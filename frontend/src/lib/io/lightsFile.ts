@@ -73,3 +73,35 @@ export function mergeLights(mapId: number, lights: Light[], params: Record<numbe
 	}
 	return { lights: out, params: outParams, dirtyLights, dirtyParams, added, replaced }
 }
+
+export interface LightsFork {
+	lights: Light[]
+	params: Record<number, Params>
+	/** The forked light's new ID, and the new params IDs (for the dialog's unsaved marks). */
+	light: number
+	dirtyParams: number[]
+}
+
+/**
+ * Gives a map that borrows Azeroth's global light one of its own (#946): the borrowed light becomes a
+ * new light (an ID from `next` on, past the unsaved ones) whose params rows the dialog holds are copied
+ * under new IDs, so Save adds a global light row for this map and leaves Azeroth's light and params as
+ * they are. A slot whose params the dialog did not read keeps its ID. Null when `id` is not a borrowed
+ * light.
+ */
+export function forkBorrowed(lights: Light[], params: Record<number, Params>, id: number, next: { light: number; params: number }): LightsFork | null {
+	const src = lights.find((l) => l.id === id)
+	if (!src?.borrowed) return null
+	const light = Math.max(next.light, ...lights.map((l) => l.id + 1))
+	let nextParams = Math.max(next.params, ...Object.keys(params).map((k) => Number(k) + 1))
+	const outParams = { ...params }
+	const pid = new Map<number, number>()
+	for (const p of src.params) {
+		if (!p || !params[p] || pid.has(p)) continue
+		const nid = nextParams++
+		pid.set(p, nid)
+		outParams[nid] = { ...(JSON.parse(JSON.stringify(params[p])) as Params), id: nid }
+	}
+	const forked = { ...src, id: light, params: src.params.map((p) => pid.get(p) ?? p) as Light['params'], borrowed: undefined } as Light
+	return { lights: lights.map((l) => (l === src ? forked : l)), params: outParams, light, dirtyParams: [...pid.values()] }
+}

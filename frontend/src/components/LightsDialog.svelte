@@ -3,7 +3,7 @@
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
 	import { ExportLights, ImportLights, MapLights, NewLightIDs, SaveLights } from '../lib/wails/App'
-	import { lightsToExport, mergeLights } from '../lib/io/lightsFile'
+	import { forkBorrowed, lightsToExport, mergeLights } from '../lib/io/lightsFile'
 	import { goIntMap } from '../lib/wails/maps'
 	import { vmangos } from '../lib/wails/models'
 	import { prefs, setStatus } from '../lib/state/editor.svelte'
@@ -38,6 +38,9 @@
 	let error = $state('')
 	let saving = $state(false)
 	let cam = $state({ x: 0, y: 0, z: 0 })
+	// The next free light and params IDs, read when the map borrows Azeroth's global light, so its first
+	// edit can fork it at once (#946).
+	let nextIds: { light: number; params: number } | null = null
 
 	const BANDS = [
 		'Sun light',
@@ -78,6 +81,7 @@
 			const set = await MapLights(mapId)
 			lights = set.lights ?? []
 			params = goIntMap(set.params ?? {})
+			if (lights.some((l) => l.borrowed)) nextIds = await NewLightIDs()
 			// The light the camera is in (the nearest one reaching it), else the global light.
 			const inside = lights.filter((l) => !l.global && lightWeight(l, dist(l)) > 0).sort((a, b) => dist(a) - dist(b))[0]
 			picked = (inside ?? lights.find((l) => l.global) ?? lights[0])?.id ?? null
@@ -94,7 +98,28 @@
 		if (!dirtyParams.includes(id)) dirtyParams = [...dirtyParams, id]
 	}
 
+	/**
+	 * Before the first edit of a borrowed global light (Azeroth's, read for a map without one), gives the
+	 * map a copy of its own under new IDs, so Save adds this map's global light instead of rewriting
+	 * Azeroth's light and params (#946). False when the IDs are not known, and the edit must not go on.
+	 */
+	function ownPicked(): boolean {
+		const l = lights.find((x) => x.id === picked)
+		if (!l?.borrowed) return true
+		if (!nextIds) return false
+		const got = forkBorrowed(lights, params, l.id, nextIds)
+		if (!got) return false
+		lights = got.lights
+		params = got.params
+		picked = got.light
+		touchLight(got.light)
+		got.dirtyParams.forEach(touchParams)
+		setStatus("This map borrowed Azeroth's global light: the edit goes to a copy of its own, which Save adds.", 5000)
+		return true
+	}
+
 	function editLight(patch: Partial<Light>) {
+		if (!ownPicked()) return
 		const l = lights.find((x) => x.id === picked)
 		if (!l) return
 		Object.assign(l, patch)
@@ -102,6 +127,7 @@
 	}
 
 	function editParams(fn: (p: Params) => void) {
+		if (!ownPicked()) return
 		const p = light ? params[light.params[0]] : undefined
 		if (!p) return
 		fn(p)

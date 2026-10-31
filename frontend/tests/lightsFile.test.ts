@@ -1,7 +1,7 @@
 // Run with: bun test tests/lightsFile.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { lightsToExport, mergeLights } from '../src/lib/io/lightsFile.ts'
+import { forkBorrowed, lightsToExport, mergeLights } from '../src/lib/io/lightsFile.ts'
 import type { vmangos } from '../src/lib/wails/models.ts'
 
 const bands = (n: number, v: number) => Array.from({ length: n }, () => [{ t: 0, v }])
@@ -76,4 +76,23 @@ test("onto the same map that borrows Azeroth's global light, the global's params
 	assert.equal(got.lights.find((l) => l.global)?.params[0], 200)
 	assert.equal(got.params[61].colors[0][0].v, 0xcc)
 	assert.equal(got.lights.length, 2)
+})
+
+test("editing a borrowed global light forks it: new light and params IDs, Azeroth's rows untouched (#946)", () => {
+	const az = params(12, 1)
+	const lights = [light(1, 12, true, { borrowed: true, params: [12, 13, 14, 0, 0] }), light(150, 300)]
+	const got = forkBorrowed(lights, { 12: az, 14: params(14, 2), 300: params(300, 3) }, 1, { light: 100, params: 200 })!
+	assert.ok(got)
+	assert.equal(got.light, 151, 'past the unsaved light IDs')
+	const g = got.lights.find((l) => l.global)!
+	assert.equal(g.id, 151)
+	assert.equal(g.borrowed, undefined)
+	assert.deepEqual(g.params, [301, 13, 302, 0, 0], 'a slot the dialog did not read keeps its ID')
+	assert.deepEqual(got.dirtyParams, [301, 302])
+	assert.equal(got.params[301].id, 301)
+	got.params[301].colors[0][0].v = 0xff
+	assert.equal(az.colors[0][0].v, 1, "Azeroth's params are copied, not shared")
+	assert.equal(got.lights.length, 2)
+	assert.equal(lights[0].id, 1, 'the input is not changed')
+	assert.equal(forkBorrowed(got.lights, got.params, 151, { light: 100, params: 200 }), null, 'an own light is not forked')
 })
