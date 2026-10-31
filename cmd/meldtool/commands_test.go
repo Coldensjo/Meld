@@ -267,6 +267,20 @@ func TestHeightmapExportImport(t *testing.T) {
 	if mid := h[8*side+8]; math.Abs(float64(mid-50)) > 0.01 {
 		t.Fatalf("the middle of the ramp is %v, want 50", mid)
 	}
+	// The modes put the ramp (0 to 100, 50 in the middle) onto the map's own heights, (i%17)*8 - 40.
+	for mode, want := range map[string]float64{"add": 8*8 - 40 + 50, "subtract": 8*8 - 40 - 50, "multiply": (8*8 - 40) * 50} {
+		if code, _, errOut := call(t, "heightmap", "import", "--mode", mode, "--min", "0", "--max", "100", "-o", back, src, small); code != 0 {
+			t.Fatalf("import %s: exit %d: %s", mode, code, errOut)
+		}
+		m2, _ = mapfile.Load(back)
+		h, side, _ = mapHeights(m2)
+		if got := float64(h[8*side+8]); math.Abs(got-want) > 0.01 {
+			t.Fatalf("%s: the middle is %v, want %v", mode, got, want)
+		}
+	}
+	if code, _, _ := call(t, "heightmap", "import", "--mode", "mix", "-o", back, src, small); code != 2 {
+		t.Fatalf("import with a bad mode: exit %d", code)
+	}
 	if code, _, _ := call(t, "heightmap", "import", src, small); code != 2 {
 		t.Fatalf("import without -o: exit %d", code)
 	}

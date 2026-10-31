@@ -93,7 +93,7 @@ func heightmapExport(args []string, out io.Writer) error {
 }
 
 // heightmapImport sets a .wmap's heights from a grey image, as the app's Import Heightmap does in its
-// Set mode over the whole map (io/heightmapImport.ts): each pixel's grey, black to white, becomes a
+// Set mode over the whole map, or its Add, Subtract and Multiply with --mode (io/heightmapImport.ts): each pixel's grey, black to white, becomes a
 // height from --min to --max, and an image of another size is stretched bilinearly over the map. It
 // writes a new file (-o), never the one it read unless -o names it.
 func heightmapImport(args []string, out io.Writer) error {
@@ -101,12 +101,18 @@ func heightmapImport(args []string, out io.Writer) error {
 	dest := fs.String("o", "", "the .wmap to write")
 	lo := fs.Float64("min", heightmap.Min, "the height black stands for, in yards")
 	hi := fs.Float64("max", heightmap.Max, "the height white stands for, in yards")
+	mode := fs.String("mode", "set", "set, add, subtract or multiply: how the image's heights meet the map's")
 	pos, err := parseFlags(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(pos) != 2 || *dest == "" {
 		return fmt.Errorf("%w: heightmap import takes a .wmap, an image and -o out.wmap", errUsage)
+	}
+	switch *mode {
+	case "set", "add", "subtract", "multiply":
+	default:
+		return fmt.Errorf("%w: --mode is set, add, subtract or multiply", errUsage)
 	}
 	if !strings.EqualFold(filepath.Ext(*dest), ".wmap") {
 		return fmt.Errorf("%w: -o names a .wmap", errUsage)
@@ -115,7 +121,7 @@ func heightmapImport(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, side, err := mapHeights(m)
+	cur, side, err := mapHeights(m)
 	if err != nil {
 		return err
 	}
@@ -127,7 +133,7 @@ func heightmapImport(args []string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", pos[1], err)
 	}
-	h := importedHeights(img, n, side, *lo, *hi)
+	h := importedHeights(img, n, side, *lo, *hi, *mode, cur)
 	raw := make([]byte, len(h)*4)
 	for i, v := range h {
 		binary.LittleEndian.PutUint32(raw[i*4:], math.Float32bits(v))
@@ -143,8 +149,9 @@ func heightmapImport(args []string, out io.Writer) error {
 
 // importedHeights resamples an n-a-side image's decoded heights to side and maps their greys (0 to 1
 // over the image's -1024 to 1024) onto lo to hi: imageRatios and importHeights' Set mode in
-// frontend/src/lib/io/heightmapImport.ts, which this must match.
-func importedHeights(img []float32, n, side int, lo, hi float64) []float32 {
+// frontend/src/lib/io/heightmapImport.ts, which this must match. mode puts each height onto cur, the
+// map's own, as importHeights does: "set" replaces it, "add" and "subtract" shift it, "multiply" scales it.
+func importedHeights(img []float32, n, side int, lo, hi float64, mode string, cur []float32) []float32 {
 	ratio := func(i int) float64 { return (float64(img[i]) - heightmap.Min) / (heightmap.Max - heightmap.Min) }
 	out := make([]float32, side*side)
 	for z := 0; z < side; z++ {
@@ -160,7 +167,17 @@ func importedHeights(img []float32, n, side int, lo, hi float64) []float32 {
 			top := ratio(z0*n+x0)*(1-fx) + ratio(z0*n+x1)*fx
 			bottom := ratio(z1*n+x0)*(1-fx) + ratio(z1*n+x1)*fx
 			r := float64(float32(top*(1-fz) + bottom*fz)) // a Float32Array there
-			out[z*side+x] = float32(lo + r*(hi-lo))
+			h := lo + r*(hi-lo)
+			c := float64(cur[z*side+x])
+			switch mode {
+			case "add":
+				h = c + h
+			case "subtract":
+				h = c - h
+			case "multiply":
+				h = c * h
+			}
+			out[z*side+x] = float32(h)
 		}
 	}
 	return out

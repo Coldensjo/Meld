@@ -230,12 +230,13 @@ server and client (`testclient`, skipped without them), so `make test-full` cove
   models, and each group (name, flags, interior) with its vertices, triangles less the collision-only
   ones, doodad references and liquid, read from the group file beside the root (on disk or in the
   client); `missing` says why a group file could not be read.
-- `heightmap export -o out.png <file.wmap>` and `heightmap import [--min -1024] [--max 1024] -o
+- `heightmap export -o out.png <file.wmap>` and `heightmap import [--min -1024] [--max 1024] [--mode set] -o
   out.wmap <file.wmap> <image>`: the map's heights as the app's Export Heightmap writes them (16-bit
   grey, black -1024 yards, white 1024; `clamped` counts heights outside), and an image's greys set as
   the heights from `--min` to `--max`, stretched bilinearly when its size differs: the app's Import
-  Heightmap in its Set mode over the whole map (`io/heightmapImport.ts`, which `importedHeights` must
-  match). Import writes `-o` as a new file. `shadowsStale` says the map has baked shadows to bake again.
+  Heightmap over the whole map (`io/heightmapImport.ts`, which `importedHeights` must match), with
+  `--mode set` (the default), `add`, `subtract` or `multiply` onto the map's own heights. There is no
+  per-tile scope; a palettized `blp encode` is not written either (#907: no workflow needs them yet). Import writes `-o` as a new file. `shadowsStale` says the map has baked shadows to bake again.
   An export and import round trip moves a height by up to 0.03 yards (the 16-bit step).
 - `creature|object|item get <entry>` and `spell get <entry>`: the template's newest patch row (the
   spell's `spell_template` row for the server's build) with its columns, as the editors read it.
