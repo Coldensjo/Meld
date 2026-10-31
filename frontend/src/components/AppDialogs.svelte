@@ -54,6 +54,7 @@
 		void navigator.clipboard?.writeText(text)
 	}
 	import { quitNow } from '../lib/io/session'
+	import { endSessionAndClose, shared } from '../lib/session/shared.svelte'
 	import { answerConfirm } from '../lib/state/confirm'
 	import { APP_VERSION } from '../lib/version'
 	import { keysOf, shortcutSections } from '../lib/ui/commands'
@@ -213,6 +214,29 @@
 					engineRef.current?.closeDocument(ui.closeDocId)
 					close()
 				}}>Close without saving</button
+			>
+		{/snippet}
+	</Modal>
+{:else if ui.dialog === 'closeSession'}
+	{@const tab = docs.tabs.find((t) => t.id === ui.closeDocId)}
+	{@const others = shared.peers.length - 1}
+	{@const dirty = engineRef.current?.isDirty(ui.closeDocId) ?? false}
+	<Modal title="End the session?" width={400} onclose={close}>
+		<p>
+			“{tab?.name ?? 'This map'}” is the map you share in the session. Closing it ends the session{others > 0 ? ` for the ${others === 1 ? 'member' : `${others} members`} in it` : ''}{dirty
+				? ', and its unsaved changes are lost'
+				: ''}.
+		</p>
+		{#snippet actions()}
+			<button onclick={close}>Cancel</button>
+			<button
+				class="danger"
+				data-end-session
+				onclick={() => {
+					const id = ui.closeDocId
+					close()
+					endSessionAndClose(id).catch((err) => setStatus(`Ending the session failed: ${err}`, 8000))
+				}}>End the session and close</button
 			>
 		{/snippet}
 	</Modal>

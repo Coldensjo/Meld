@@ -1137,3 +1137,13 @@ through `replaceSessionMap`, which rebinds the sync and sends the new map to eve
 - Trap: a bot sends its whole `send` list at once on joining, so a probe can't put a pause between the
   guest's first map and the map sent to everyone (the guest working in another tab then stays there:
   untested).
+
+## Closing the session's map ends the session (#1013, probe `session-close`)
+
+Checks: on the host, closing the tab it shares (File › Close, the tab's close button) asks "End the
+session?" (`ui.dialog === 'closeSession'`), since the sync stops with the tab; confirming ends the
+session for the guests and closes the tab.
+- `bun run probe session-close`: the page hosts a new map with a `joinBot` in; closing another tab asks
+  nothing, `runCommand('closeMap')` on the session's tab opens the dialog, which names the member and
+  leaves tab and session as they were when dismissed; clicking `[data-end-session]` ends the session
+  (the bot prints `ended: "the host ended the session"`) and closes the tab.

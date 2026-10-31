@@ -207,7 +207,11 @@ server. #728 is the umbrella; its parts are separate issues:
   `MapDocument.shared` itself. A way that opens the new map in a new tab and closes the session's
   after it, as File › Add the tiles to the north (`extendRegion`) does, goes through
   `moveSessionMap(docId, open)` instead (#1012), which moves the sync and sends the map the same way;
-  the guest's camera follows the block's corner (`blockShift` in `peers.ts`). A larger heights message (a whole-map import) is a
+  the guest's camera follows the block's corner (`blockShift` in `peers.ts`). Closing the tab ends
+  the sync too, so on the host closing the session's tab (the tab's close button, File › Close,
+  `requestClose` in `DocTabs.svelte`) asks "End the session?" and ends it before closing
+  (`endSessionAndClose`, #1013): the guests get "the host ended the session" rather than editing on
+  alone. A guest closing its own session tab stops only its own sync. A larger heights message (a whole-map import) is a
   few MB of JSON through the bridge twice.
 - **The firewall.** On Windows, the first `HostSession` makes the firewall ask whether Meld may listen.
   The Go tests bind loopback (`sessionBind` in `app_session.go`) so the test binary doesn't ask.

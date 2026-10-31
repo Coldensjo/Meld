@@ -472,6 +472,7 @@ export type DialogId =
 	| 'hotkeys'
 	| 'quit'
 	| 'closeDoc'
+	| 'closeSession'
 	| 'revert'
 	| 'publish'
 	| 'textures'
