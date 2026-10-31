@@ -1025,7 +1025,11 @@ export class Engine {
 		this.spawnLabels.blocked = (to) => this.sightBlocked(to)
 		// The names take their colour from the faction's reaction (#134), once the client's tables are read.
 		Factions()
-			.then((list) => this.spawnLabels.setReactions(new Map((list ?? []).map((f) => [f.id, f]))))
+			.then((list) => {
+				this.spawnLabels.setReactions(new Map((list ?? []).map((f) => [f.id, f])))
+				// Show › Spawn colours by reaction (#949) reads the same table.
+				this.applyLayerVisibility(this.prefs)
+			})
 			.catch((err) => console.warn('faction reactions not read', err))
 		this.resize()
 		this.newDocument(256, 'ocean', 0)
@@ -2732,6 +2736,7 @@ export class Engine {
 		d.spawnLayer.setEvents(p.shownEvents)
 		this.spawnLabels.enabled = p.spawnNames
 		this.spawnLabels.setSide(p.namesSide)
+		d.spawnLayer.setColoring(p.spawnColors, p.namesSide, this.spawnLabels.factionReactions)
 		// What a layer toggle hides can't stay selected, since it can't be clicked either (#135).
 		if (!p.showObjects && editor.selectedIds.length) selectObjects(d.objects, [])
 		else if (editor.selectedIds.some((id) => d.objects.isHidden(id)))

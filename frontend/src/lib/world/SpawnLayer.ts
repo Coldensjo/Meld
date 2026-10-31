@@ -10,6 +10,7 @@ import { meshCalls, meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { spawnQuaternion } from './spawnTilt'
 import { spawnKey } from './spawnKey'
 import { SpawnChanges } from './spawnChanges'
+import { KIND_COLORS, levelRange, spawnColor, type FactionReaction, type Side, type SpawnColorMode } from './spawnColors'
 
 /** The spawns of one kind and model, and what's needed to draw the ones in view. */
 interface SpawnBatch {
@@ -24,16 +25,17 @@ interface SpawnBatch {
 	/** The spawn type every spawn of the batch has, or 'cone' and 'invisible' for the markers. */
 	type: string
 	ready: boolean
+	/** Drawn with its model's own materials (not a marker): its colour is a tint (#949). */
+	model: boolean
 }
 
 export type SpawnKind = 'monster' | 'npc' | 'object'
 
 /** Marker colours, by kind: red monsters, green NPCs, yellow objects. */
-export const SPAWN_COLORS: Record<SpawnKind, number> = {
-	monster: 0xe0533d,
-	npc: 0x4cc56b,
-	object: 0xe8c547,
-}
+export const SPAWN_COLORS: Record<SpawnKind, number> = KIND_COLORS
+
+/** How much of a spawn model's own colour a tint keeps (Show › Spawn colours other than Kind): its texture stays readable. */
+const MODEL_TINT_KEEP = 0.15
 
 const KINDS: SpawnKind[] = ['monster', 'npc', 'object']
 
@@ -58,6 +60,7 @@ export function spawnOrientation(rotY: number): number {
 	return o < 0 ? o + 2 * Math.PI : o
 }
 
+const WHITE = new THREE.Color(0xffffff)
 const tmpQ = new THREE.Quaternion()
 const tmpScale = new THREE.Vector3()
 const tmpPos = new THREE.Vector3()
@@ -94,9 +97,19 @@ export class SpawnLayer {
 	private where = new Map<vmangos.WorldSpawn, { batch: SpawnBatch; i: number; type: string }>()
 	private keys = new Map<string, vmangos.WorldSpawn>()
 	private readonly cone = new THREE.ConeGeometry(1.2, 4, 6).translate(0, 2, 0)
-	private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k] })]))
+	// White: a marker takes its colour from its instance's (`paint`), by kind or by the Show › Spawn colours mode.
+	private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: 0xffffff })]))
 	private readonly invisible = new THREE.OctahedronGeometry(0.8).translate(0, 1, 0)
-	private readonly invisibleMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k], wireframe: true })]))
+	private readonly invisibleMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })]))
+	/** Show › Spawn colours (#949): the mode, the side a reaction is seen from, and the faction reactions. */
+	private colorMode: SpawnColorMode = 'kind'
+	private colorSide: Side = 'alliance'
+	private reactions: ReadonlyMap<number, FactionReaction> | null = null
+	/** The open map's creature levels, the level ramp's ends, found at each rebuild. */
+	private levels: [number, number] = [0, 0]
+	/** Each spawn's colour in the mode, filled as the spawns are packed; cleared when the mode, side or reactions change. */
+	private colors = new Map<vmangos.WorldSpawn, number>()
+	private readonly tint = new THREE.Color()
 	// A model that loads is noted, and the next cull redraws only the batches it changes (`regroup`):
 	// a map's models load in bursts, and each used to rebuild every batch (#329).
 	private readonly unsubscribe = onAssetLoaded((type) => {
@@ -225,6 +238,74 @@ export class SpawnLayer {
 		this.applyKinds()
 	}
 
+	/**
+	 * Colours the spawns by kind, level, reaction (to `side`, by `reactions`) or rank (#949). The markers
+	 * take the colour; a spawn model is tinted with it in any mode but kind. Redraws only when it changed.
+	 */
+	setColoring(mode: SpawnColorMode, side: Side, reactions: ReadonlyMap<number, FactionReaction> | null) {
+		const sideMatters = mode === 'reaction'
+		if (mode === this.colorMode && (!sideMatters || (side === this.colorSide && reactions === this.reactions))) {
+			this.colorSide = side
+			this.reactions = reactions
+			return
+		}
+		const modelsChange = (mode === 'kind') !== (this.colorMode === 'kind')
+		this.colorMode = mode
+		this.colorSide = side
+		this.reactions = reactions
+		this.colors.clear()
+		// Turning model tints on or off makes or drops their instance colours: the batches are made again.
+		if (modelsChange) this.rebuild()
+		else for (const b of this.batches) b.rows.repack = true
+	}
+
+	/** The colour mode the spawns are drawn in. */
+	get coloring(): SpawnColorMode {
+		return this.colorMode
+	}
+
+	/** The level ramp's ends: the lowest and highest creature level drawn. */
+	get levelSpread(): readonly [number, number] {
+		return this.levels
+	}
+
+	/** A spawn's colour in the current mode, kept until the mode or the spawn changes. */
+	private colorOf(s: vmangos.WorldSpawn): number {
+		let c = this.colors.get(s)
+		if (c === undefined) {
+			c = spawnColor(s, this.colorMode, { reactions: this.reactions, side: this.colorSide, levels: this.levels })
+			this.colors.set(s, c)
+		}
+		return c
+	}
+
+	/**
+	 * The colour a spawn is drawn with (`out`): its own on a marker, lifted a little towards white on a
+	 * model. A game object's model keeps its own colours outside kind mode, where only creatures have one.
+	 */
+	spawnTint(s: vmangos.WorldSpawn, model: boolean, out: THREE.Color): THREE.Color {
+		if (model && s.kind === 'object') return out.copy(WHITE)
+		out.setHex(this.colorOf(s))
+		if (model) out.lerp(WHITE, MODEL_TINT_KEEP)
+		return out
+	}
+
+	/** Writes the colours of the spawns packed into a batch (after `pack`); a model batch in kind mode has none. */
+	private paint(b: SpawnBatch) {
+		const attr = b.mesh.instanceColor
+		if (!attr) return
+		const arr = attr.array as Float32Array
+		const c = this.tint
+		for (let k = 0; k < b.ids.length; k++) {
+			this.spawnTint(b.ids[k], b.model, c)
+			arr[k * 3] = c.r
+			arr[k * 3 + 1] = c.g
+			arr[k * 3 + 2] = c.b
+		}
+		attr.clearUpdateRanges()
+		attr.needsUpdate = true
+	}
+
 	/** Shows the spawns of the world events `ids` (and hides the ones they take away); the rest are left out. */
 	setEvents(ids: readonly number[]) {
 		if (ids.length === this.events.size && ids.every((id) => this.events.has(id))) return
@@ -280,6 +361,7 @@ export class SpawnLayer {
 		for (const b of this.batches) {
 			if (b.rows.cull(view)) {
 				b.rows.pack(b.mesh, b.ids)
+				this.paint(b)
 				b.mesh.visible = this.shown[b.kind] && packedCount(b.mesh) > 0
 			} else if (b.moved.length) b.rows.patch(b.mesh, b.moved)
 			b.moved.length = 0
@@ -342,6 +424,12 @@ export class SpawnLayer {
 		if (!at || at.type !== spawnType(s)) {
 			this.redraw()
 			return
+		}
+		// A changed level, faction or rank changes its colour: the batch is packed (and painted) again.
+		const was = this.colors.get(s)
+		if (was !== undefined) {
+			this.colors.delete(s)
+			if (this.colorOf(s) !== was) at.batch.rows.repack = true
 		}
 		at.batch.rows.setRow(at.i, spawnMatrix(s, at.batch.ready, refreshM), at.batch.mesh.geometry)
 		// The next cull writes the row in place, or packs it with the rest if the spawns in view changed.
@@ -451,6 +539,8 @@ export class SpawnLayer {
 		this.version++
 		this.clearMeshes()
 		this.loaded.clear()
+		this.colors.clear()
+		this.levels = levelRange(this.spawns)
 		this.build(this.spawns)
 		this.applyKinds()
 	}
@@ -518,12 +608,17 @@ export class SpawnLayer {
 			// Nothing is drawn until the first cull packs the spawns in view.
 			const ids: vmangos.WorldSpawn[] = []
 			const mesh = instancedMesh(geometry, material, b.items.length, ready ? asset.skeleton : null, ids)
+			// A marker always takes its instance's colour; a model only when tinted, as three then compiles it with instance colours.
+			if (!ready || marker || this.colorMode !== 'kind') {
+				mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1, b.items.length) * 3), 3)
+				mesh.instanceColor.setUsage(THREE.DynamicDrawUsage)
+			}
 			mesh.castShadow = ready && !marker
 			mesh.receiveShadow = ready && !marker
 			const rows = new InstanceBatch<vmangos.WorldSpawn>()
 			rows.items = b.items
 			rows.reserve(b.items.length)
-			const batch: SpawnBatch = { rows, mesh, ids, moved: [], kind: b.kind, type: b.type, ready }
+			const batch: SpawnBatch = { rows, mesh, ids, moved: [], kind: b.kind, type: b.type, ready, model: ready && !marker }
 			b.items.forEach((s, i) => {
 				rows.setRow(i, spawnMatrix(s, ready, m), geometry)
 				this.where.set(s, { batch, i, type: b.types[i] })

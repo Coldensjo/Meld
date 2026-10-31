@@ -684,6 +684,22 @@ Live on Northshire (Azeroth 32_48), `__engine.debug.spawnLabels.nameColor(spawn)
 in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
 Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
 
+## Spawn colours by level, reaction or rank (#949, probe `spawn-colors`)
+
+Unit: `tests/spawnColors.test.ts` (each mode's colour, the level range's percentiles, the legend, and the
+layer painting its markers and repainting a creature whose level changed). Probe `spawn-colors` loads
+the spawns of Azeroth 31_48 (size 2: Northshire, Goldshire and part of Stormwind) into a flat map and
+checks that each mode paints only the colours it gives a spawn (`layer.spawnTint`), that the level
+range is the monsters' (1 to 8.5 there; the city's level 55 to 62 NPCs left out), and that the legend
+shows and goes. By eye: `P.BENCH` with its target moved onto the nearest monster (the Rabbit at 214,
+81, 357), distance 22, pitch 1.2 and Show › Objects off: the rabbit is white by kind and blue by level.
+
+Traps: a probe that loads spawns into a flat map (`newDocument` + `LoadSpawns`) has them at the
+client's heights, above or below its flat ground, so the camera rarely sees one (`mesh.count`, the
+ones in view, stays 0); count the packed instances (`mesh.userData.ids.length`, which the shadow
+passes draw) instead, or load the client's region with `P.scene`. From afar a tinted model is a few
+pixels: the colours read best on the markers, or close up.
+
 ## Creature editor: Spells tab (creature_spells, #243)
 
 Probes: `creature-spells` and `creature-spell-fields`.

@@ -6,6 +6,7 @@
 	import PathEditBar from './PathEditBar.svelte'
 	import SpawnPickBar from './SpawnPickBar.svelte'
 	import PoolLegend from './PoolLegend.svelte'
+	import SpawnColorLegend from './SpawnColorLegend.svelte'
 	import PerfOverlay from './PerfOverlay.svelte'
 	import LoadingBar from './LoadingBar.svelte'
 	import { editor, prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
@@ -52,6 +53,7 @@
 		<PathEditBar />
 		<SpawnPickBar />
 		<PoolLegend />
+		<SpawnColorLegend />
 		<LoadingBar />
 		{#if prefs.perfOverlay}<PerfOverlay />{/if}
 		{#if ui.viewportHint}{#key ui.viewportHintSeq}<div class="hint">{ui.viewportHint}</div>{/key}{/if}

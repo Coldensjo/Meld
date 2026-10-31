@@ -494,6 +494,14 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 					() => prefs.namesSide,
 					(v) => (prefs.namesSide = v),
 				),
+				// The spawns coloured by level, reaction or rank (#949): one line, here by the names' colours, as the View
+				// menu is at its 720 px; the legend it shows picks the mode.
+				{
+					kind: 'check',
+					label: 'Spawn colours (by level, reaction or rank)',
+					checked: prefs.spawnColors !== 'kind',
+					toggle: () => (prefs.spawnColors = prefs.spawnColors === 'kind' ? 'level' : 'kind'),
+				},
 				{ kind: 'check', label: 'Creatures and objects through walls', checked: prefs.spawnsThroughWalls, toggle: () => (prefs.spawnsThroughWalls = !prefs.spawnsThroughWalls) },
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },

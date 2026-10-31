@@ -293,6 +293,18 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `SpawnLayer.version` changes only with the spawns, their models and the kinds shown; a spawn changed
   in place (`refresh`: a drag, a nudge) goes to the `moveSeq` log instead (`movedSince`, `changeStamp`
   for those that need either), so the labels, particles, paths and links update only what moved.
+- **Spawn colours** (#949, `world/spawnColors.ts`, Show › Spawn colours, `prefs.spawnColors`): the
+  markers (cones and diamonds, white materials) always take their instance's colour; in Level, Reaction
+  (to `prefs.namesSide`, the faction table `SpawnLabels` reads, `reactionOf`, shared with the names) or
+  Rank mode a creature model's batch gets an `instanceColor` too, a tint of the colour lifted 15% towards
+  white, and a game object's model stays untinted. `SpawnLayer.setColoring` rebuilds the batches when
+  model tints turn on or off, else repacks them; `paint` writes the colours after each `pack`, never per
+  frame, from a cache per spawn that `refresh` checks (a level edit repaints its batch). The level ramp
+  runs over the region's monsters' levels from the 5th to the 95th percentile (`levelRange`: a block
+  with a city holds level 55 to 62 guards), past which a level takes the end's colour.
+  The menu has one check line (the View menu is at its 720 px, probe `preferences`); turned on it is
+  Level, and `SpawnColorLegend.svelte` picks the mode and lists the colours (DOM, so out of canvas
+  screenshots).
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
   by the right-click menu's Edit creature, the Inspector's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
   any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, also shown in

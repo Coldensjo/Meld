@@ -8,6 +8,7 @@ import type { BrushStack } from '../tools/brushStack'
 import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
 import type { BrowserView } from '../wow/browserViews'
 import type { ModelSet } from '../wow/modelSets'
+import type { SpawnColorMode } from '../world/spawnColors'
 
 /** Camera speed steps: the preference is kept between a quarter and four times its normal speed. */
 export function stepCameraSpeed(faster: boolean) {
@@ -109,6 +110,8 @@ export function defaultPrefs() {
 		spawnNames: true,
 		/** Show › Names seen as Alliance or Horde (#134): a creature's name is red, yellow or green by how its faction treats that side. */
 		namesSide: 'alliance' as 'alliance' | 'horde',
+		/** Show › Spawn colours (#949): the spawn markers (and models, tinted) by kind, level, reaction to `namesSide`, or rank. */
+		spawnColors: 'kind' as SpawnColorMode,
 		/**
 		 * Creatures and game objects stay drawn with the camera in a building, where the rest of the world
 		 * shows only through its doorways (#150).

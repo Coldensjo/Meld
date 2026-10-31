@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { vmangos } from '../wails/models'
 import { levelText, rankName } from './spawnInfo'
 import { SPAWN_COLORS, type SpawnKind, type SpawnLayer } from './SpawnLayer'
+import { reactionOf, type FactionReaction } from './spawnColors'
 import type { FrameView } from './frameView'
 
 // Names over the spawns, as the game draws them over heads (#125): the name in the kind's colour,
@@ -59,11 +60,7 @@ function levelLine(s: vmangos.WorldSpawn): string {
 	return [lv && `Level ${lv}`, rank].filter(Boolean).join(' ')
 }
 
-/** How a faction template treats each side's player (vmangos.FactionInfo). */
-export interface FactionReaction {
-	alliance: string
-	horde: string
-}
+export type { FactionReaction }
 
 export class SpawnLabels {
 	enabled = true
@@ -79,14 +76,18 @@ export class SpawnLabels {
 		this.reactions = r
 	}
 
+	/** The reactions read from the client, or null before they are (Show › Spawn colours shares them, #949). */
+	get factionReactions(): ReadonlyMap<number, FactionReaction> | null {
+		return this.reactions
+	}
+
 	setSide(side: 'alliance' | 'horde') {
 		this.side = side
 	}
 
 	/** A spawn's name colour: by its faction's reaction to the side for a creature, else by its kind. */
 	private nameColor(s: vmangos.WorldSpawn): string {
-		const r = s.kind === 'object' ? undefined : this.reactions?.get(s.faction)
-		const how = r ? r[this.side] : ''
+		const how = reactionOf(s, this.reactions, this.side)
 		const kind: SpawnKind = how === 'hostile' ? 'monster' : how === 'friendly' ? 'npc' : how === 'neutral' ? 'object' : (s.kind as SpawnKind)
 		return css(SPAWN_COLORS[kind] ?? 0xffffff)
 	}
