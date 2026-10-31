@@ -416,6 +416,61 @@ export interface ColumnError {
 }
 
 /**
+ * CreatureImport is what an SQL script of creatures would write: its creature rows, the lists it
+ * replaces, and what of it is left out.
+ */
+export interface CreatureImport {
+    "creatures": CreatureImportRow[] | null;
+    "lists": CreatureListImport[] | null;
+
+    /**
+     * Skipped is how many statements are neither creature_template rows nor the lists' rows and
+     * DELETEs, which importing leaves out.
+     */
+    "skipped": number;
+
+    /**
+     * Others counts the list rows and DELETEs of creatures the script has no template row of, left out.
+     */
+    "others": number;
+
+    /**
+     * Unknown are columns the script names that this server's tables lack, left out.
+     */
+    "unknown": string[] | null;
+
+    /**
+     * MissingItems and MissingQuests are the items the shops sell and the quests the creatures start
+     * or end that the world database lacks: importing writes their rows, which the server leaves out.
+     */
+    "missingItems": number[] | null;
+    "missingQuests": number[] | null;
+}
+
+/**
+ * CreatureImportRow is one creature row of a script: its entry, patch and name, and whether the
+ * world database has that row already, which importing replaces.
+ */
+export interface CreatureImportRow {
+    "entry": number;
+    "patch": number;
+    "name": string;
+    "exists": boolean;
+}
+
+/**
+ * CreatureListImport is a creature's list the import replaces: the table, what its rows are, how
+ * many rows the script gives and how many the world database has now, which go.
+ */
+export interface CreatureListImport {
+    "entry": number;
+    "table": string;
+    "what": string;
+    "rows": number;
+    "had": number;
+}
+
+/**
  * CreatureSpell is one slot of a creature's spell list (creature_spells): the spell, its chance to be
  * cast when its timer is up (1-100), whom it is cast at (a ScriptTarget: 0 the creature itself, 1 its
  * current target, ...) with that target's two parameters, the cast flags (CastFlags), the seconds

@@ -5,10 +5,11 @@
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { SlotTarget } from '../lib/toolwin/editors'
 	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
-	import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../lib/wails/App'
+	import { CreateCreature, ExportCreatures, ImportCreatures, ModelAnimations, OpenCreaturesDialog, PlanCreatureImport, ReadCreature, SaveCreature, SpawnLook } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { focusField } from '../lib/ui/focusField'
+	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
 	import { fieldGroups, withBit } from '../lib/world/creatureFields'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
@@ -280,6 +281,51 @@
 	function setField(col: string, v: string) {
 		values[col] = v
 	}
+
+	// Export and import (#938): SQL scripts of creature_template rows with each creature's shop and the
+	// quests it starts and ends (internal/vmangos/creaturescripts.go).
+	function exportCreature() {
+		if (record) void exportRow(ed, { kind: 'creature', entry: record.entry, name: saved.name ?? '', unsaved, write: ExportCreatures })
+	}
+
+	/** An import being confirmed: the script's path and what it writes. */
+	let plan = $state<{ path: string; plan: vmangos.CreatureImport } | null>(null)
+	let importing = $state(false)
+
+	function askImport() {
+		copying = false
+		planImport(ed, { pick: OpenCreaturesDialog, plan: PlanCreatureImport, set: (p) => (plan = p) })
+	}
+
+	function confirmImport() {
+		if (!plan) return
+		const { path } = plan
+		void runImport(ed, {
+			run: () => ImportCreatures(path),
+			clear: () => (plan = null),
+			forget: () => forgetDisplays(),
+			open: target?.entry,
+			openEntry: (entry) => {
+				// The open creature's tabs read their rows again: the import replaced its lists and the
+				// template's spell list and gossip menu.
+				if (entry === target?.entry) {
+					spellsTab?.revert()
+					shopTab?.revert()
+					questsTab?.revert()
+					messagesTab?.revert()
+				}
+				ui.creatureEditor = { key: entry === target?.entry ? target.key : null, entry }
+			},
+			note: (entries) => `Imported ${entries.length} ${entries.length === 1 ? 'creature' : 'creatures'} into the world database. ${SERVER_RELOADS} Spawns on the map show the change once the region is read again.`,
+			status: 10000,
+			busy: (b) => (importing = b),
+		})
+	}
+
+	/** A list the import replaces, as the plan bar says it. */
+	function listText(l: vmangos.CreatureListImport): string {
+		return `${l.what} of ${l.entry} (${l.rows}${l.had ? `, replacing ${l.had}` : ''})`
+	}
 </script>
 
 {#if target}
@@ -296,7 +342,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
+			<button onclick={askImport} title="Read creatures, with their shops and quests, from an SQL script into the world database">Import…</button>
 			{#if record}
+				<button onclick={exportCreature} title="Write this creature, with its shop and quests, to an SQL script">Export…</button>
 				<button disabled={!record || ed.saving} onclick={place} title="Place this creature in the region">Place in world</button>
 				<button disabled={!record || ed.saving || copying} onclick={startCopy} title="Make a new creature with this one's looks, stats, loot and AI">Copy this creature</button>
 				<button disabled={changeCount === 0 || ed.saving} onclick={() => ed.revert()}>Revert</button>
@@ -311,6 +359,33 @@
 					<input type="text" maxlength="100" placeholder="Name of the copy" bind:value={copyName} onkeydown={(e) => e.key === 'Enter' && copyCreature()} />
 					<button class="active" disabled={!copyName.trim() || creating} onclick={copyCreature}>{creating ? 'Copying…' : 'Make copy'}</button>
 					<button onclick={() => (copying = false)}>Cancel</button>
+				</div>
+			{/if}
+			{#if plan}
+				{@const rows = plan.plan.creatures}
+				<div class="bar warn plan">
+					<div class="what">
+						<strong>Import {rows.length} creature {rows.length === 1 ? 'row' : 'rows'} into the world database?</strong>
+						<span>
+							{rows
+								.slice(0, 12)
+								.map((c) => `${c.name || 'creature'} (${c.entry}${c.patch ? `, patch ${c.patch}` : ''}${c.exists ? ', replaces it' : ', new'})`)
+								.join('; ')}{rows.length > 12 ? `; and ${rows.length - 12} more` : ''}.
+						</span>
+						{#if plan.plan.lists?.length}
+							<span>Replaces the lists: {plan.plan.lists.slice(0, 12).map(listText).join('; ')}{plan.plan.lists.length > 12 ? `; and ${plan.plan.lists.length - 12} more` : ''}.</span>
+						{:else}
+							<span>The script carries no shop or quest lists: the creatures keep theirs.</span>
+						{/if}
+						{#if plan.plan.missingItems?.length}<span>Items this world database lacks, which the shops then list but the server leaves out: {plan.plan.missingItems.join(', ')}. Import them first (Tools › Items).</span>{/if}
+						{#if plan.plan.missingQuests?.length}<span>Quests this world database lacks, which the server leaves out: {plan.plan.missingQuests.join(', ')}.</span>{/if}
+						{#if plan.plan.others}<span>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of creatures the script has no template of, and left out.</span>{/if}
+						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only creature_template rows, shops and quest lists are imported.</span>{/if}
+						{#if plan.plan.unknown?.length}<span>Columns this server's tables lack are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
+						<span>A replaced creature or list can't be brought back, unless you exported it first.</span>
+					</div>
+					<button onclick={() => (plan = null)}>Cancel</button>
+					<button class="active" disabled={importing} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
 				</div>
 			{/if}
 		{/snippet}
@@ -410,6 +485,12 @@
 {/if}
 
 <style>
+	.bar.plan .what {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
 	.left {
 		flex: 1;
 		min-width: 0;

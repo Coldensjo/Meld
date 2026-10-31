@@ -92,26 +92,29 @@ func templateScript(t scriptTable, cols []TemplateColumn, rows []batchRow, extra
 		vals := make([]string, len(cols))
 		name := ""
 		for i, c := range cols {
-			v := f[i]
 			if c.Name == "name" {
-				name = v
+				name = f[i]
 			}
-			if v == "NULL" && c.Nullable {
-				vals[i] = "NULL"
-				continue
-			}
-			if c.Kind == "text" {
-				vals[i] = sqlQuote(v)
-			} else if s, err := sqlValue(c, v); err == nil {
-				vals[i] = s
-			} else {
-				vals[i] = sqlQuote(v)
-			}
+			vals[i] = scriptValue(c, f[i])
 		}
 		fmt.Fprintf(&b, "\n-- %s (entry %s, %s %s)\nREPLACE INTO `%s` (%s) VALUES\n(%s);\n",
 			commentSafe(name), f[0], t.key, f[1], t.name, strings.Join(names, ", "), strings.Join(vals, ", "))
 	}
 	return b.String()
+}
+
+// scriptValue is a value read from the database (batchRows' unescaped field) as an SQL literal of
+// column c: NULL as NULL where the column takes it, text quoted, a number as it is.
+func scriptValue(c TemplateColumn, v string) string {
+	if v == "NULL" && c.Nullable {
+		return "NULL"
+	}
+	if c.Kind != "text" {
+		if s, err := sqlValue(c, v); err == nil {
+			return s
+		}
+	}
+	return sqlQuote(v)
 }
 
 // commentSafe is text for a "--" comment line: one line.
@@ -158,7 +161,12 @@ func (p scriptPlan) entries() []int {
 
 // tableOrder is the world database's columns of the table, in its order.
 func tableOrder(db worldDB, t scriptTable) ([]string, error) {
-	raw, err := runSQL(db, "SHOW COLUMNS FROM `"+t.name+"`")
+	return columnOrder(db, t.name)
+}
+
+// columnOrder is the world database's columns of table, in its order.
+func columnOrder(db worldDB, table string) ([]string, error) {
+	raw, err := runSQL(db, "SHOW COLUMNS FROM `"+table+"`")
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +175,7 @@ func tableOrder(db worldDB, t scriptTable) ([]string, error) {
 		order = append(order, f[0])
 	}
 	if len(order) == 0 {
-		return nil, errors.New("the world database has no " + t.name)
+		return nil, errors.New("the world database has no " + table)
 	}
 	return order, nil
 }
@@ -298,23 +306,9 @@ func importSQL(t scriptTable, cols []TemplateColumn, rows []sqlRow) (string, err
 			if !ok || c.Name == "entry" || c.Name == t.key {
 				continue
 			}
-			var s string
-			switch {
-			case r.null[c.Name] && c.Nullable:
-				s = "NULL"
-			case r.null[c.Name]:
-				return "", fmt.Errorf("%s %s: %s can't be NULL", t.thing, entry, c.Name)
-			case c.Kind == "text":
-				// Kept as written, spaces and all; only the length is checked.
-				if c.MaxLen > 0 && len(v) > c.MaxLen {
-					return "", fmt.Errorf("%s %s: %s is longer than %d characters", t.thing, entry, c.Name, c.MaxLen)
-				}
-				s = sqlQuote(v)
-			default:
-				var err error
-				if s, err = sqlValue(c, v); err != nil {
-					return "", fmt.Errorf("%s %s: %w", t.thing, entry, err)
-				}
+			s, err := importValue(c, v, r.null[c.Name])
+			if err != nil {
+				return "", fmt.Errorf("%s %s: %w", t.thing, entry, err)
 			}
 			names = append(names, "`"+c.Name+"`")
 			vals = append(vals, s)
@@ -322,4 +316,22 @@ func importSQL(t scriptTable, cols []TemplateColumn, rows []sqlRow) (string, err
 		fmt.Fprintf(&b, "REPLACE INTO `%s` (%s) VALUES (%s);\n", t.name, strings.Join(names, ", "), strings.Join(vals, ", "))
 	}
 	return b.String(), nil
+}
+
+// importValue is an imported value of column c (null when the script gave NULL) as SQL, checked
+// against the column.
+func importValue(c TemplateColumn, v string, null bool) (string, error) {
+	switch {
+	case null && c.Nullable:
+		return "NULL", nil
+	case null:
+		return "", fmt.Errorf("%s can't be NULL", c.Name)
+	case c.Kind == "text":
+		// Kept as written, spaces and all; only the length is checked.
+		if c.MaxLen > 0 && len(v) > c.MaxLen {
+			return "", fmt.Errorf("%s is longer than %d characters", c.Name, c.MaxLen)
+		}
+		return sqlQuote(v), nil
+	}
+	return sqlValue(c, v)
 }

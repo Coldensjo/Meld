@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
@@ -180,6 +181,64 @@ func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, 
 		a.reloadWorld("SaveCreature", entry)
 	}
 	return sql, err
+}
+
+// ExportCreatures asks where to save an SQL script of creatures and writes their creature_template
+// rows and lists there (#938). Returns the path, or "" if cancelled.
+func (a *App) ExportCreatures(entries []int, suggested string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	script, err := vmangos.ExportCreatures(server, entries)
+	if err != nil {
+		return "", err
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Creatures", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenCreaturesDialog asks for an SQL script of creatures to import. Returns "" if cancelled.
+func (a *App) OpenCreaturesDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Creatures", Filters: sqlFilters})
+}
+
+// PlanCreatureImport says what importing the creatures of the SQL script at path would write.
+func (a *App) PlanCreatureImport(path string) (vmangos.CreatureImport, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CreatureImport{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.CreatureImport{}, err
+	}
+	return vmangos.PlanCreatureImport(server, string(b))
+}
+
+// ImportCreatures writes the creatures of the SQL script at path, with their lists, into the world
+// database and returns their entries.
+func (a *App) ImportCreatures(path string) ([]int, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := vmangos.ImportCreatures(server, string(b))
+	if err == nil {
+		for _, e := range entries {
+			a.stale.AddCreature(uint32(e))
+		}
+		a.forgetStale()
+		a.reloadWorld("ImportCreatures", entries...)
+	}
+	return entries, err
 }
 
 // forgetStale takes the saved templates out of the game's caches now when the game is closed, so a

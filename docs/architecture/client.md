@@ -321,7 +321,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   using it, shown as asset-browser thumbnails in a virtualised grid with type chips, a model filter
   and search; hovering previews). New creature (this tab; Tools › Creatures… opens the same guide) opens
   the guide of `CreaturesWorkspace` (#260); Copy this creature in the header asks for a name and
-  makes a copy (`CreateCreature`: the first free entry). Template edits are a form
+  makes a copy (`CreateCreature`: the first free entry). Export… and Import… (#938,
+  `internal/vmangos/creaturescripts.go`) write and read an SQL script as the item editor's do
+  (`sqlscript.go`), with each creature's lists keyed by its entry after its `creature_template`
+  rows: the shop (`npc_vendor`) and the quests it starts and ends (`creature_questrelation`,
+  `creature_involvedrelation`), each a `DELETE` of the creature's rows and then its rows, so the
+  script run on a server replaces the lists. The import does the same for a list the script clears
+  (`parseDeletes`) or gives rows of, and leaves a list the script doesn't name alone; the plan names
+  the lists, the items and quests the server lacks, and list rows of creatures without a template
+  row (left out). What the template names by ID (spell list, equipment, loot, gossip menu, shared
+  vendor list) is not in the script. Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
   `SpawnActions.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by

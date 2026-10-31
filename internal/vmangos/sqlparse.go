@@ -3,6 +3,7 @@ package vmangos
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -59,6 +60,66 @@ func parseInserts(script, table string) ([]sqlInsert, int, error) {
 		}
 		skipped++
 	}
+}
+
+// parseDeletes reads a script's DELETE FROM table WHERE key = n statements, the form an export
+// writes to clear a list before its rows (#938), and returns their n in the script's order. Every
+// other statement, a DELETE of another form too, is left for the other readers to count.
+func parseDeletes(script, table, key string) ([]int, error) {
+	p := &sqlScanner{s: script}
+	var out []int
+	for {
+		p.space()
+		if p.done() {
+			return out, nil
+		}
+		if p.peek() == ';' {
+			p.i++
+			continue
+		}
+		start := p.i
+		if n, ok := p.deleteOf(table, key); ok {
+			out = append(out, n)
+			continue
+		}
+		p.i = start
+		if err := p.skipStatement(); err != nil {
+			return nil, err
+		}
+	}
+}
+
+// deleteOf reads a DELETE FROM table WHERE key = n statement up to its end, and says n; ok is false
+// for any other statement.
+func (p *sqlScanner) deleteOf(table, key string) (int, bool) {
+	if p.keyword("DELETE") == "" || p.keyword("FROM") == "" {
+		return 0, false
+	}
+	name := p.word()
+	if p.expect('.') {
+		name = p.word()
+	}
+	if !strings.EqualFold(name, table) || p.keyword("WHERE") == "" || !strings.EqualFold(p.word(), key) || !p.expect('=') {
+		return 0, false
+	}
+	p.space()
+	quote := p.peek() == '\''
+	if quote {
+		p.i++
+	}
+	start := p.i
+	for !p.done() && p.peek() >= '0' && p.peek() <= '9' {
+		p.i++
+	}
+	n, err := strconv.Atoi(p.s[start:p.i])
+	if err != nil || (quote && !p.expect('\'')) {
+		return 0, false
+	}
+	p.space()
+	if !p.done() && p.peek() != ';' {
+		return 0, false
+	}
+	return n, true
 }
 
 type sqlScanner struct {

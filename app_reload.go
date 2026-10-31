@@ -18,6 +18,8 @@ func worldReloads(save string, entries ...int) (cmds []string, restart string) {
 	switch save {
 	case "SaveCreature", "CreateCreature":
 		return []string{creature}, ""
+	case "ImportCreatures":
+		return []string{creature, "npc_vendor", "creature_questrelation", "creature_involvedrelation"}, ""
 	case "SaveObject", "CreateObject":
 		return []string{templateReload("gameobject_template", entries)}, ""
 	case "SaveObjectLoot":

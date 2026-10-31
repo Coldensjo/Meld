@@ -433,6 +433,33 @@ Discard, reopened unchanged; nothing written). The tabs' shared dirty logic is u
   can still change its `slot` values. Test saves on a creature with no shop.
 - Trap: the tab keeps its list while other tabs are shown (it stays mounted, hidden); its unsaved
   edits count in the editor's "unsaved changes" bar.
+
+## Creature editor: Export and Import (#938)
+
+Probe: `creature-scripts` (about 5 s; nothing written: the dialogs and the writes are stand-ins).
+
+Checks: Export… writes the creature's `creature_template` rows and its shop and quest lists to an
+SQL script; Import… plans a script and writes it on confirmation, replacing those lists.
+- Unit: `TestCreatureScriptRoundTrip` (a list's `DELETE` and rows, read back; an emptied list
+  clears the creature's rows; a script without lists replaces none; list rows of a creature without
+  a template row left out; a row without its key or with a value out of range refused) and
+  `TestParseDeletes`. With `VMANGOS_DIR`, `TestCreaturesLive` exports Pratt McGrubben (7852: 19
+  shop items, 9 quests he starts and 9 he ends) and plans it back (both patch rows exist, each list's
+  rows as many as it has, nothing skipped or unknown); it writes nothing.
+- The probe, on 7852: Export… hands the binding `[7852]` and the name and notes the path; Import…'s
+  bar from a stand-in plan names the rows, the lists, a missing item, a skipped statement and an
+  unknown column; Cancel drops it; a confirmed import notes the creatures written and reads the
+  open creature's tabs again.
+- A write, by a scratch Go test (not kept; done on 2026-10-31): `CreateCreature(dir, 7852, ...)`,
+  `SaveVendor` two items and `SaveCreatureQuests` one quest, `ExportCreatures`, rename the creature
+  in the script, empty the shop and add a second quest, `PlanCreatureImport` (shop 2 rows for its 0,
+  quests 1 for its 2) and `ImportCreatures`: the name, both shop items (with the stock) and the one
+  quest came back. Clean up with `DELETE FROM creature_template WHERE entry > <the max before>` and
+  the same on `npc_vendor` (`entry`) and both relation tables (`id`).
+- Trap: the dev page has no native dialogs, so a real Export or Import in the page needs the
+  desktop app; the probe stands in `ExportCreatures`, `OpenCreaturesDialog`, `PlanCreatureImport`
+  and `ImportCreatures` on `window.go.main.App` and puts them back.
+
 ## Creature editor: Quests and Messages tabs (#158)
 
 Hand check: against the world database (no probe writes it); the probe `messages-conditions` reads

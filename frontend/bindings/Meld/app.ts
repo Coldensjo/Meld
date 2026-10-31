@@ -414,6 +414,14 @@ export function EquipmentItems(id: number): $CancellablePromise<number[]> {
 }
 
 /**
+ * ExportCreatures asks where to save an SQL script of creatures and writes their creature_template
+ * rows and lists there (#938). Returns the path, or "" if cancelled.
+ */
+export function ExportCreatures(entries: number[] | null, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(3703273787, entries, suggested);
+}
+
+/**
  * ExportIcons saves the icons named names (under Interface\Icons) as PNG files in dir, <name>.png.
  */
 export function ExportIcons(names: string[] | null, dir: string): $CancellablePromise<$models.IconsExported> {
@@ -541,6 +549,14 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
  */
 export function IconState(name: string): $CancellablePromise<vmangos$0.IconState> {
     return $Call.ByID(197901069, name);
+}
+
+/**
+ * ImportCreatures writes the creatures of the SQL script at path, with their lists, into the world
+ * database and returns their entries.
+ */
+export function ImportCreatures(path: string): $CancellablePromise<number[] | null> {
+    return $Call.ByID(153488614, path);
 }
 
 /**
@@ -1005,6 +1021,13 @@ export function OpenBrushDialog(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * OpenCreaturesDialog asks for an SQL script of creatures to import. Returns "" if cancelled.
+ */
+export function OpenCreaturesDialog(): $CancellablePromise<string> {
+    return $Call.ByID(2960504185);
+}
+
+/**
  * OpenHeightmapDialog asks for a heightmap image to import. Returns "" if cancelled.
  */
 export function OpenHeightmapDialog(): $CancellablePromise<string> {
@@ -1119,6 +1142,13 @@ export function OtherClientStatus(): $CancellablePromise<wow$0.Status> {
  */
 export function OwnObjectDisplay(display: number): $CancellablePromise<$models.OwnDisplay> {
     return $Call.ByID(720377594, display);
+}
+
+/**
+ * PlanCreatureImport says what importing the creatures of the SQL script at path would write.
+ */
+export function PlanCreatureImport(path: string): $CancellablePromise<vmangos$0.CreatureImport> {
+    return $Call.ByID(1797241322, path);
 }
 
 /**

@@ -145,15 +145,23 @@ Missing or broken metadata can preserve numeric IDs; that fallback does not prov
 on the destination. Nested effect/sound IDs assume compatible stock client data. Plan asset
 transfer separately rather than treating the SQL script as a portable client patch.
 
-## Import and export item or spell SQL safely
+## Import and export creature, item or spell SQL safely
 
-These editors exchange their target item/spell tables, not arbitrary database migration scripts.
+These editors exchange their target creature/item/spell tables, not arbitrary database migration
+scripts. The creature editor's script also carries each creature's shop (`npc_vendor`) and the
+quests it starts and ends (`creature_questrelation`, `creature_involvedrelation`): each list is
+cleared and written again, so importing **replaces** those lists rather than merging them, and a
+script without a creature's list leaves its list alone. Its spell list, equipment, loot, gossip
+menu and shared vendor list are named by ID only and are not exported; on another server the same
+IDs may hold other rows. The preview names items and quests the destination lacks: import those
+first (Tools › Items), or the server leaves them out.
 
 1. Save any edits you want to export. Export reads saved database rows, **not unsaved form values**.
    An entry export includes its patch/build variants; it is not restricted to the row on screen.
    Item SQL does not bundle item-display or icon assets.
 2. Back up the destination database and inspect the script. Import accepts INSERT and REPLACE
-   statements for the editor's target table. Other tables and DELETE/UPDATE statements are skipped;
+   statements for the editor's target table (and, for creatures, the lists above, with their
+   `DELETE ... WHERE entry = n` lines). Other tables and DELETE/UPDATE statements are skipped;
    a full dump will not be replayed as a general SQL script.
 3. Prefer explicit column names. Without them, values are interpreted in the **destination's**
    schema order, not necessarily the exporter's order. Unknown columns are dropped and reported;
