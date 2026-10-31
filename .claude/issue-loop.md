@@ -62,8 +62,10 @@ While working:
 - `make test`, whole: the Bun suite takes seconds and the Go suite well under a minute, so a subset
   saves nothing and misses a break in another package (#442).
 - only the probes that touch the change, since a probe costs minutes: `cd frontend && bun run probe
-  --touching HEAD` (the uncommitted change; `HEAD~1` once it is committed), or `bun run probe --list`
-  and then `bun run probe <name...>` (against the coordinator's `make dev-page`)
+  --touching HEAD` (the uncommitted change; `HEAD~1` once it is committed; add `--list` to see which),
+  plus any other probe you know drives the change (`bun run probe <name...>`), and fix that probe's
+  `touches` line in the same commit (against the coordinator's `make dev-page`). Do not pick by hand
+  from `bun run probe --list`.
 - when `--touching HEAD --list` names more than about 30 probes (the change touched `probes/lib.js` or a
   hot file such as `Engine.ts`, `menus.ts` or `prefs.svelte.ts`, which about 150 probes name), run only
   the probes whose subject the change is (named in the item's notes, or picked by you), plus
@@ -74,7 +76,7 @@ Before commit (all of them):
 - `make test`
 - `make check`
 - `make build-windows` (on Linux, `make build-linux`)
-- the probes that touch the change, again (the same subject probes when `--touching` names more than about 30)
+- the probes that touch the change, again (`bun run probe --touching HEAD` against the uncommitted change, plus the ones you added; the same subject probes when `--touching` names more than about 30)
 - for a rendering item (`area:view`, `area:water`, or a change to a shader or to what the 3D view draws), the probes
   that touch it again with `PROBE_GPU=1` (the machine's GPU instead of SwiftShader, docs/TESTS.md, "On the
   real GPU"): SwiftShader hid the cause of #747. Only pass/fail counts there; timings and the bench baseline
