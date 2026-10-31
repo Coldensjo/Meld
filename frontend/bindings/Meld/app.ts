@@ -1374,6 +1374,14 @@ export function ReadQuest(entry: number): $CancellablePromise<vmangos$0.Template
 }
 
 /**
+ * ReadQuestChain reads quest entry and every quest linked to it, with their givers and enders, for
+ * the quest editor's Chain view (#948), in one call.
+ */
+export function ReadQuestChain(entry: number): $CancellablePromise<vmangos$0.QuestChain> {
+    return $Call.ByID(1048222214, entry);
+}
+
+/**
  * ReadQuestGivers reads the creatures and game objects that start and end a quest.
  */
 export function ReadQuestGivers(entry: number): $CancellablePromise<vmangos$0.QuestGivers> {

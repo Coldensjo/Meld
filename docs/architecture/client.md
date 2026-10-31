@@ -703,7 +703,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   is refused, in the tab and in Go (`checkGiverObjects`), unless the quest already had it, and Meld
   never changes an object's type for the author (#293's decision). The one Save writes the row
   first, then the givers; `ui.questsVersion` then makes the creature and object editors' Quests tabs
-  read their lists again.
+  read their lists again. The Chain tab (#948, `components/QuestChainView.svelte`) draws the quest's
+  chain as saved: `ReadQuestChain` (`internal/vmangos/questchain.go`) reads every quest's links in
+  one query, walks them both ways and through shared exclusive groups in memory (capped at 80
+  quests), then reads the chain's rows, givers and enders and their names, four queries in all;
+  `lib/world/questGraph.ts` makes the arrows (solid for the steps of `world/questChain.ts`'s
+  `chainSteps`, dashed for negative links and breadcrumbs) and the problems with the same rules as
+  Check Map's quest checks (#952), and lays it out with `lib/ui/layered.ts` (longest-path layers,
+  loops set aside); `components/LayeredGraph.svelte` draws any such graph (boxes as a snippet, SVG
+  arrows), for the node editor (#30) too.
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
   (`SearchItemsSorted`, ordered in SQL before its limit of 100 by name, entry, quality, item level

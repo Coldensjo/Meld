@@ -653,6 +653,22 @@ writes `quest_template` and the four relation tables only on Save, after Go's ch
 - Trap: quests are keyed by (entry, patch); the editor writes the newest patch row it read, and a
   new quest is patch 0, which every server patch loads.
 
+
+## Quest chain graph (#948)
+
+Checks: the quest editor's Chain tab draws the open quest and every quest linked to it (the four link
+columns, either sign, and a shared ExclusiveGroup), first to last, with each quest's level, minimum
+level, zone, giver and ender, and lists the problems: a link to a quest with no row (a dashed red
+box), no giver or no ender, a step more than `LEVEL_JUMP` levels up (a yellow arrow), a loop of steps
+(a red arrow); exclusive group members are tagged.
+- Probe: `quest-chain` (about 5 s; nothing written): The Defias Brotherhood (166) draws 65, 132, 135,
+  141, 142, 155 and 166 left to right, 65 given by Gryan Stoutmantle in Westfall, no problem listed;
+  clicking 65's box opens quest 65.
+- Unit: `tests/questGraph.test.ts` (the layering of `lib/ui/layered.ts`, the arrows and every problem
+  rule of `lib/world/questGraph.ts`), `questchain_test.go` (the walk both ways and through groups, the
+  cap, the four queries on stand-in rows; with the server, `TestReadQuestChainLive` walks 166 back to 65).
+- Trap: the graph shows the quests as saved, not the open quest's unsaved link edits; it reads again
+  after a save (`ui.questsVersion`).
 ## Game object quests (#293)
 
 Checks: the game object editor's Quests tab reads and edits `gameobject_questrelation` and

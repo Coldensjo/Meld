@@ -281,6 +281,16 @@ func (a *App) ReadQuest(entry int) (vmangos.TemplateRecord, error) {
 	return vmangos.ReadQuest(server, entry)
 }
 
+// ReadQuestChain reads quest entry and every quest linked to it, with their givers and enders, for
+// the quest editor's Chain view (#948), in one call.
+func (a *App) ReadQuestChain(entry int) (vmangos.QuestChain, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.QuestChain{}, err
+	}
+	return vmangos.ReadQuestChain(server, entry)
+}
+
 // TemplateSaved is what a template's Save did: the SQL it ran, or the value it refused (Refused, with
 // a nil error), whose column the editor opens the tab of (#597).
 type TemplateSaved struct {

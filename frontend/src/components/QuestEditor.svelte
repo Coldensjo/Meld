@@ -10,6 +10,7 @@
 	import { forgetName } from '../lib/wow/refNames'
 	import EditorFrame from './EditorFrame.svelte'
 	import QuestGiversTab from './QuestGiversTab.svelte'
+	import QuestChainView from './QuestChainView.svelte'
 	import TemplateFields from './TemplateFields.svelte'
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { QuestGiverRef } from '../lib/toolwin/editors'
@@ -19,6 +20,7 @@
 	// quest_template row on tabs, and say who starts and ends it. Save writes the row (Go checks it
 	// against the server's rules first) and then the givers; nothing is written before. The server
 	// reads quests when it starts, and Go has a running one reload them after each save (#961, app_reload.go).
+	// The Chain tab (#948, QuestChainView) draws the quest's chain as saved, and opens a quest of it here.
 
 	// In the desktop app it opens as its own OS window (#914, components/toolwin/EditorToolWindow.svelte),
 	// beside the creature or object editor whose Quests tab opened it, which runs it whole on that page's
@@ -299,8 +301,9 @@
 							<button class:on={tab === t.id} onclick={() => (tab = t.id)}>{t.title}{tabChanges.get(t.id) ? ` (${tabChanges.get(t.id)})` : ''}</button>
 						{/each}
 						{#if record}<button class:on={tab === 'givers'} onclick={() => (tab = 'givers')}>Givers{giversDirty ? ' (1)' : ''}</button>{/if}
+						{#if record}<button class:on={tab === 'chain'} onclick={() => (tab = 'chain')} title="The quests linked to this one, as a graph">Chain</button>{/if}
 					</nav>
-					<div class="scroll">
+					<div class="scroll" class:wide={tab === 'chain'}>
 						{#if !record}
 							<p class="dim">{ed.loading ? 'Loading the quest…' : ''}</p>
 						{:else}
@@ -316,6 +319,9 @@
 							<div hidden={tab !== 'givers'}>
 								<QuestGiversTab bind:this={giversTab} bind:dirty={giversDirty} entry={record.entry} />
 							</div>
+							{#if tab === 'chain'}
+								<QuestChainView entry={record.entry} onopen={open} />
+							{/if}
 						{/if}
 					</div>
 				{/if}
@@ -384,6 +390,9 @@
 		flex-direction: column;
 		gap: 8px;
 		max-width: 880px;
+	}
+	.scroll.wide {
+		max-width: none;
 	}
 	h3 {
 		margin: 8px 0 0;

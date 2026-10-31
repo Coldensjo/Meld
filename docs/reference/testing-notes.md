@@ -921,6 +921,7 @@ the same scene, the report before and after.
 - Creatures workspace and the new-creature guide (#132)
 - The database editors' shared frame (#576, unit `templateEditor.test.ts`)
 - Quest editor (#259)
+- Quest chain graph (#948)
 - Game object quests (#293)
 - Name colours by reaction (#134)
 - Spawn colours by level, reaction or rank (#949, probe `spawn-colors`)

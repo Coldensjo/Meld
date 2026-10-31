@@ -195,6 +195,7 @@ export const ReadObjectLoot: Call<AppApi['ReadObjectLoot']> = (...a) => api().Re
 export const ReadObjectPages: Call<AppApi['ReadObjectPages']> = (...a) => api().ReadObjectPages(...a) as never
 export const ReadObjectQuests: Call<AppApi['ReadObjectQuests']> = (...a) => api().ReadObjectQuests(...a) as never
 export const ReadQuest: Call<AppApi['ReadQuest']> = (...a) => api().ReadQuest(...a) as never
+export const ReadQuestChain: Call<AppApi['ReadQuestChain']> = (...a) => api().ReadQuestChain(...a) as never
 export const ReadQuestGivers: Call<AppApi['ReadQuestGivers']> = (...a) => api().ReadQuestGivers(...a) as never
 export const ReadReferenceImage: Call<AppApi['ReadReferenceImage']> = (...a) => api().ReadReferenceImage(...a) as never
 export const ReadScriptFile: Call<AppApi['ReadScriptFile']> = (...a) => api().ReadScriptFile(...a) as never

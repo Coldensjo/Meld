@@ -145,6 +145,33 @@ export interface AreaTrigger {
 }
 
 /**
+ * ChainHolder is a creature, game object or item ("item": an item that starts the quest) that starts
+ * or ends a quest of a chain, with its name ("" when its template has no row).
+ */
+export interface ChainHolder {
+    "kind": string;
+    "id": number;
+    "name": string;
+}
+
+/**
+ * ChainQuest is one quest of a chain, from its newest row: title, level, minimum level, zone or sort
+ * (ZoneOrSort, as stored), exclusive group, set links (by column, signed as stored), and who starts
+ * and ends it.
+ */
+export interface ChainQuest {
+    "entry": number;
+    "title": string;
+    "level": number;
+    "minLevel": number;
+    "zone": number;
+    "group": number;
+    "links": { [_ in string]?: number } | null;
+    "givers": ChainHolder[] | null;
+    "enders": ChainHolder[] | null;
+}
+
+/**
  * CharLooks are the skins, faces and hair a race and gender may have, as the character creation
  * screen offers them: each face goes with a skin colour, each hair style with its colours, and
  * (where CheckFacial) each facial hair with a hair colour.
@@ -1590,6 +1617,17 @@ export interface QuestBrief {
     "entry": number;
     "title": string;
     "level": number;
+}
+
+/**
+ * QuestChain is the chain around quest Root: its quests (in entry order), the entries its links name
+ * that have no quest_template row, and whether the walk stopped at maxChainQuests.
+ */
+export interface QuestChain {
+    "root": number;
+    "quests": ChainQuest[] | null;
+    "missing": number[] | null;
+    "capped": boolean;
 }
 
 /**

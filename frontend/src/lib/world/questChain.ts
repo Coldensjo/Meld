@@ -1,6 +1,6 @@
 // The rules of a quest chain, as VMaNGOS reads them (ObjectMgr::LoadQuests): which quest comes before
 // which, and when a step climbs too steeply. File › Check Map's quest checks (#952, lib/check/quests.ts)
-// use them over the map's quests, and the quest editor's chain graph (#948) is to draw with them.
+// use them over the map's quests, and the quest editor's chain graph (#948, lib/world/questGraph.ts) draws with them.
 //
 // - PrevQuestId p: the quest needs p done first (p > 0), or p taken and not yet done (p < 0).
 // - NextQuestId n: the quest is a prerequisite of n, done (n > 0) or taken (n < 0); the server adds
