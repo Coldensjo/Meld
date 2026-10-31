@@ -54,6 +54,22 @@ Wails v3 builds Linux on GTK4 and WebKitGTK 6.0 unless built with `-tags gtk3`, 
 WebKitGTK 4.1 stack above; the Make targets add it (`LINUX_TAGS`). Wails v3.1 drops `gtk3`: on a
 system with `webkitgtk-6.0`, run the targets with `LINUX_TAGS=`.
 
+### Cloud and CI containers
+
+`scripts/setup-linux.sh` sets up a fresh Debian or Ubuntu container: Go (go.mod's version, when
+missing) and Bun, the GTK 3 and WebKitGTK 4.1 headers, Google Chrome (Chromium on arm64) for the
+probes, `wails3` at go.mod's Wails version, golangci-lint and the frontend's packages. It skips what is
+already there, so it can run at every session start; `--no-chrome` and `--no-lint` leave those out.
+The CI's `build-linux` job runs it before `make build-linux`, which is its test.
+
+For a Claude Code cloud session, run it from a SessionStart hook in `.claude/settings.json`; the
+script's header holds the hook, which runs only when `CLAUDE_CODE_REMOTE` is `true`, and the PATH
+additions reach the session through `CLAUDE_ENV_FILE`.
+
+Such a container has no WoW client: the client-dependent Go tests skip, `make test-full` cannot run,
+and only the probes on flat maps can pass (none that loads client assets or the benchmark scene). The
+desktop window (`make dev`) also needs a display; `make dev-page` and the probes do not.
+
 ## Get the source
 
 In a terminal, choose a parent folder for the checkout, then run these commands (PowerShell or a

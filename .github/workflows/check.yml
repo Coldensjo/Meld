@@ -67,10 +67,12 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: oven-sh/setup-bun@v2
-      # Wails v3 on its gtk3 tag (LINUX_TAGS in the Makefile): GTK3 and WebKitGTK 4.1. The build is a
-      # plain go build, so it needs no Wails CLI (#854).
-      - name: Install GTK and WebKitGTK 4.1
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-      - run: bun install --frozen-lockfile
-        working-directory: frontend
+      # The setup script cloud sessions run (#617): GTK3 and WebKitGTK 4.1 for Wails v3's gtk3 tag
+      # (LINUX_TAGS in the Makefile), Chrome, wails3 and the frontend's packages. The build itself is a
+      # plain go build and needs no Wails CLI (#854); running the whole script here is its test.
+      - run: scripts/setup-linux.sh --no-lint
+      - name: Check what the setup script installed
+        run: |
+          wails3 version
+          /usr/bin/google-chrome --version
       - run: make build-linux

@@ -23,6 +23,10 @@ a passing unit test does not prove a shader renders or a compiled map works in t
   backslashes (client paths, JS strings, regexes) with the Write tool, and multi-line source too.
 - Check the exit status and skip messages. A test that skipped because the client was absent did not
   verify compatibility with that client.
+- In a fresh Linux container (a cloud session, CI), run `scripts/setup-linux.sh` first: it installs
+  `wails3`, Chrome, the GTK3 and WebKitGTK 4.1 headers and the frontend's packages, without which only
+  `go test`, `bun test` and `bun run check` run (docs/development.md, "Cloud and CI containers"). Without
+  the WoW client, the client tests skip and only the probes on flat maps can pass.
 
 ## Unit tests and static checks
 

@@ -124,6 +124,11 @@ cd frontend && bun run build   # frontend only
 make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vitepress/dist; `cd frontend && bun run docs:dev` serves it live
 ```
 
+- A fresh Linux container (a cloud session, CI) first runs `scripts/setup-linux.sh` (wails3, Chrome,
+  GTK3 and WebKitGTK 4.1, `bun install`; docs/development.md). Without the WoW client such a session can
+  verify `make test`, `make check`, `make build-linux` and the probes on flat maps only, and its closing
+  comment must say it did not run the client tests (`make test-full`), the probes that load client
+  assets, the benchmark or the Windows build.
 - Linux builds with `-tags gtk3` (the Makefile's `LINUX_TAGS`): Wails v3 defaults to GTK4 and WebKitGTK 6.0,
   and the owner's Linux machine has only webkit2gtk-4.1. Wails v3.1 drops gtk3.
 - Bun runs the frontend tooling (install, scripts, tests; Vite, svelte-check and tsc run with `bun --bun`, which
