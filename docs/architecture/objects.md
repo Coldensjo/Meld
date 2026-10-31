@@ -138,7 +138,11 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     changes, and the point lights' cubes keep the whole model. The near cascade lies mostly in view, so
     the two share one half instead of a third (16 MB for Stormwind). The twin shares the model's bounds
     tree, as the LOD does, since picking and the names' sight lines raycast the batch mesh: without it a
-    ray walked every triangle, over a second for Blackrock Depths (#286, probe `brd-fly`).
+    ray walked every triangle, over a second for Blackrock Depths (#286, probe `brd-fly`). A material
+    with nothing in that half gets a group count of -1 in `before`, since three's `renderBufferDirect`
+    returns before the draw call only for a negative count and issues an empty one for 0 (#934; the
+    bench scene's scene pass drew 811 calls before, 301 after). Three still sets up the material's
+    program first. `meshCalls` reads the twin's `userData.drawnCalls` to count only the drawn ones.
   - A model's opaque materials draw as one call into each shadow map (#926, `world/shadowRun.ts`).
     three draws a mesh into a shadow map a call per material group, though every group without an
     alpha test gets three's same depth material (both faces, from our `shadowSide`). `loadAsset` lays

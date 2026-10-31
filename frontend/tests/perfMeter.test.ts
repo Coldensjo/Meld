@@ -70,6 +70,7 @@ test('the models making the most draw calls count a call a geometry group drawn 
 	assert.equal(meshCalls({ visible: true, count: 1, geometry: { ...geometry, groups: [] } }), 1, 'one with no groups')
 	assert.equal(meshCalls({ visible: true, count: 0, geometry }), 0, 'none with no instance packed')
 	assert.equal(meshCalls({ visible: false, count: 4, geometry }), 0, 'none when hidden')
+	assert.equal(meshCalls({ visible: true, count: 1, geometry: { ...geometry, userData: { drawnCalls: 2 } } }), 2, 'a culled WMO, only its materials in view (#934)')
 	const top = topCalls(
 		[
 			{ type: 'wmo', triangles: 9000, instances: 1, calls: 12 },

@@ -108,6 +108,22 @@ test('only the culled camera draws the view half, and the group is put back afte
 	assert.equal(c.geometry.userData.drawnIndexCount, 18)
 })
 
+test('a material with nothing in view gets a negative count, so three skips its draw call (#934)', () => {
+	const c = WmoGroupCull.of(model(), 0, 2)!
+	const { cam, f } = view(90, 110)
+	c.update(cam, f, identity)
+	assert.deepEqual(groupsIn(c, c.viewRange(0)), [0, 2], 'group 2 (x 100) and the loose triangle')
+	assert.equal(c.viewRange(1).count, 0, 'none of the second material in view')
+	assert.equal(c.geometry.userData.drawnCalls, 1, 'the performance overlay counts one call')
+	const grp = c.geometry.groups[1]
+	c.before(cam, grp)
+	assert.equal(grp.count, -1)
+	c.after(cam, grp)
+	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1), 'put back after')
+	c.update(null, f, identity)
+	assert.equal(c.geometry.userData.drawnCalls, 2, 'every material again with the cull stopped')
+})
+
 test('a draw group the twin does not hold is left alone (#521)', () => {
 	const c = WmoGroupCull.of(model(), 0, 2)!
 	const { cam, f } = view(-10, 50)

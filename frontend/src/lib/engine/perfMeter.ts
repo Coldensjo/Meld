@@ -135,9 +135,12 @@ interface DrawnMesh {
 	}
 }
 
-/** The draw calls an instanced mesh makes in a pass that draws it: one a geometry group (one with none), none when hidden or empty. */
+/** The draw calls an instanced mesh makes in a pass that draws it: one a geometry group (one with none, only the ones with something in view for a culled WMO), none when hidden or empty. */
 export function meshCalls(m: DrawnMesh): number {
 	if (!m.visible || m.count <= 0) return 0
+	// A WMO culled by group (world/wmoGroupCull.ts) skips the materials with nothing in view (#934).
+	const culled = m.geometry.userData?.drawnCalls as number | undefined
+	if (culled !== undefined) return culled
 	return Math.max(1, m.geometry.groups?.length ?? 0)
 }
 

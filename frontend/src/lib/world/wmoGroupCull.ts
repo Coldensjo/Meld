@@ -239,6 +239,7 @@ export class WmoGroupCull {
 		this.shadowCamera = camera && shadowFrustum ? shadowCamera : null
 		if (!camera) {
 			this.geometry.userData.drawnIndexCount = this.half
+			this.geometry.userData.drawnCalls = this.twins.length
 			return
 		}
 		this.matrix.fromArray(matrix as number[])
@@ -257,7 +258,10 @@ export class WmoGroupCull {
 			}
 		}
 		if (changed || this.drawn < 0) this.compact()
-		else this.geometry.userData.drawnIndexCount = this.drawn
+		else {
+			this.geometry.userData.drawnIndexCount = this.drawn
+			this.geometry.userData.drawnCalls = this.drawnCalls
+		}
 	}
 
 	/**
@@ -274,6 +278,8 @@ export class WmoGroupCull {
 
 	/** Indices the scene pass (and the near cascade) draws, for the performance overlay; -1 before the first cull. */
 	drawn = -1
+	/** The materials with something in the view half: the scene pass's draw calls (`before` skips the rest, #934). */
+	private drawnCalls = 0
 
 	private compact() {
 		const index = this.geometry.index!
@@ -281,6 +287,7 @@ export class WmoGroupCull {
 		const vis = this.visible
 		index.clearUpdateRanges()
 		let total = 0
+		let calls = 0
 		// The merged materials' view runs follow one another from the start of their run (their groups
 		// come in index order, `orderForShadows`), so they stay within the view half's mirror of that run
 		// and a shadow pass draws them as one range.
@@ -298,12 +305,17 @@ export class WmoGroupCull {
 			view.count = o - view.start
 			if (this.merged[k]) next = o
 			total += view.count
-			if (view.count) index.addUpdateRange(view.start, view.count)
+			if (view.count) {
+				index.addUpdateRange(view.start, view.count)
+				calls++
+			}
 		}
 		this.mergedView.count = next - this.mergedView.start
 		index.needsUpdate = true
 		this.drawn = total
 		this.geometry.userData.drawnIndexCount = total
+		this.drawnCalls = calls
+		this.geometry.userData.drawnCalls = calls
 	}
 
 	/** Whether `camera` (the scene pass's, or a shadow pass's own) draws the view half. */
@@ -314,6 +326,8 @@ export class WmoGroupCull {
 	/**
 	 * Points a material's draw at the view half, for the culled camera's scene pass and the near
 	 * cascade's shadow pass only (pass the shadow camera from `onBeforeShadow`, not the view camera).
+	 * A material with nothing in view gets a count of -1, which makes three's `renderBufferDirect`
+	 * return before its draw call: a count of 0 would still issue an empty one (#934).
 	 */
 	before(camera: THREE.Camera, drawn: object | null) {
 		if (!drawn || !this.draws(camera)) return
@@ -323,7 +337,7 @@ export class WmoGroupCull {
 		this.saved.start = group.start
 		this.saved.count = group.count
 		group.start = this.view[k].start
-		group.count = this.view[k].count
+		group.count = this.view[k].count || -1
 	}
 
 	/**
