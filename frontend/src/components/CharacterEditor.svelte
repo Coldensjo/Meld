@@ -467,165 +467,169 @@
 						<button class="active" disabled={!newName.trim() || !newPassword || creating} onclick={create}>{creating ? 'Making…' : 'Make account'}</button>
 					</div>
 				{:else if target.guid > 0}
-					<div class="scroll">
+					<div class="scroll page">
 						{#if !record}
 							<p class="dim">{ed.loading ? 'Reading the character…' : ''}</p>
 						{:else}
-							<button class="back" onclick={() => openAccount(record.account)}>‹ {account?.name ?? 'The account'}</button>
 							<nav class="tabs">
+								<button class="back" onclick={() => openAccount(record.account)} title="Back to the account's characters">‹ {account?.name ?? 'The account'}</button>
 								<button class:on={tab === 'character'} onclick={() => show('character')}>Character{changeCount ? ` (${changeCount})` : ''}</button>
 								{#each LIST_TABS as t (t)}
 									<button class:on={tab === t} onclick={() => show(t)}>{TAB_NAMES[t]}{tabDirty[t] ? ' •' : ''}</button>
 								{/each}
 							</nav>
 							<!-- The list tabs stay mounted once shown, so their unsaved edits survive a switch to another tab. -->
-							<div class:hidden={tab !== 'items'}>
+							<div class="pane" class:hidden={tab !== 'items'}>
 								<CharacterInventory bind:this={tabs.items} bind:dirty={tabDirty.items} bind:worn look={appearance} guid={record.guid} race={Number(saved.race)} cls={Number(saved.class)} level={Number(saved.level)} />
 							</div>
 							{#if visited.skills}
-								<div class:hidden={tab !== 'skills'}><CharacterSkills bind:this={tabs.skills} bind:dirty={tabDirty.skills} guid={record.guid} /></div>
+								<div class="pane" class:hidden={tab !== 'skills'}><CharacterSkills bind:this={tabs.skills} bind:dirty={tabDirty.skills} guid={record.guid} /></div>
 							{/if}
 							{#if visited.spells}
-								<div class:hidden={tab !== 'spells'}>
+								<div class="pane" class:hidden={tab !== 'spells'}>
 									<CharacterSpells bind:this={tabs.spells} bind:dirty={tabDirty.spells} guid={record.guid} race={Number(saved.race)} cls={Number(saved.class)} />
 								</div>
 							{/if}
 							{#if visited.reputation}
-								<div class:hidden={tab !== 'reputation'}><CharacterReputation bind:this={tabs.reputation} bind:dirty={tabDirty.reputation} guid={record.guid} /></div>
+								<div class="pane" class:hidden={tab !== 'reputation'}><CharacterReputation bind:this={tabs.reputation} bind:dirty={tabDirty.reputation} guid={record.guid} /></div>
 							{/if}
 							{#if visited.quests}
-								<div class:hidden={tab !== 'quests'}><CharacterQuests bind:this={tabs.quests} bind:dirty={tabDirty.quests} guid={record.guid} /></div>
+								<div class="pane" class:hidden={tab !== 'quests'}><CharacterQuests bind:this={tabs.quests} bind:dirty={tabDirty.quests} guid={record.guid} /></div>
 							{/if}
 							{#if visited.explored}
-								<div class:hidden={tab !== 'explored'}><CharacterExploration bind:this={tabs.explored} bind:dirty={tabDirty.explored} guid={record.guid} /></div>
+								<div class="pane" class:hidden={tab !== 'explored'}><CharacterExploration bind:this={tabs.explored} bind:dirty={tabDirty.explored} guid={record.guid} /></div>
 							{/if}
 							{#if visited.taxi}
-								<div class:hidden={tab !== 'taxi'}><CharacterTaxi bind:this={tabs.taxi} bind:dirty={tabDirty.taxi} guid={record.guid} race={Number(saved.race)} /></div>
+								<div class="pane" class:hidden={tab !== 'taxi'}><CharacterTaxi bind:this={tabs.taxi} bind:dirty={tabDirty.taxi} guid={record.guid} race={Number(saved.race)} /></div>
 							{/if}
 							{#if tab === 'character'}
-								<h3>Character</h3>
-								<div class="grid">
-									<label class:changed={changes.name !== undefined} class:refused={focusCol === 'name'}
-										>Name <input type="text" maxlength="12" value={values.name} oninput={(e) => set('name', e.currentTarget.value)} /></label
-									>
-									<label class:changed={changes.level !== undefined} class:refused={focusCol === 'level'}
-										>Level <input type="number" min="1" max="255" value={values.level} oninput={(e) => set('level', e.currentTarget.value)} /></label
-									>
-									<label class:changed={changes.race !== undefined} class:refused={focusCol === 'race'}
-										>Race
-										<select value={values.race} onchange={(e) => setBody('race', e.currentTarget.value)}>
-											{#each RACES as [r, n] (r)}<option value={String(r)}>{n}</option>{/each}
-										</select>
-									</label>
-									<label class:changed={changes.class !== undefined} class:refused={focusCol === 'class'}
-										>Class
-										<select value={values.class} onchange={(e) => set('class', e.currentTarget.value)}>
-											{#each CLASSES as [c, n] (c)}<option value={String(c)}>{n}</option>{/each}
-										</select>
-									</label>
-									<label class:changed={changes.gender !== undefined}
-										>Gender
-										<select value={values.gender} onchange={(e) => setBody('gender', e.currentTarget.value)}>
-											<option value="0">Male</option>
-											<option value="1">Female</option>
-										</select>
-									</label>
-									<div class="field" class:changed={changes.money !== undefined} class:refused={focusCol === 'money'}>
-										<span>Money</span>
-										<MoneyField value={Number(values.money ?? 0)} onset={(c) => set('money', c)} />
-									</div>
-								</div>
-								<p class="dim">
-									A new level starts with no experience, and a new race or gender the first skin, face and hair. A new race or class keeps the spells and skills the old one had: fix them in the Skills and Spells tabs (Add
-									starting spells gives the new pair's).
-								</p>
-								<h3>Look</h3>
-								<div class="looks">
-									<div class="figure"><CharacterModelView look={appearance} items={worn} /></div>
-									<div class="grid">
-										{#each LOOK_PARTS as [col, label] (col)}
-											{@const opts = lookOpts?.[col] ?? []}
-											<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
-												>{label}
-												<select value={Number(values[col] ?? 0)} onchange={(e) => setLook(col, e.currentTarget.value)}>
-													{#if !opts.includes(Number(values[col] ?? 0))}<option value={Number(values[col] ?? 0)}>{values[col]} (not offered)</option>{/if}
-													{#each opts as n (n)}<option value={n}>{n}</option>{/each}
+								<div class="sheet">
+									<div class="half">
+										<h3>Character</h3>
+										<div class="grid">
+											<label class:changed={changes.name !== undefined} class:refused={focusCol === 'name'}
+												>Name <input type="text" maxlength="12" value={values.name} oninput={(e) => set('name', e.currentTarget.value)} /></label
+											>
+											<label class:changed={changes.level !== undefined} class:refused={focusCol === 'level'}
+												>Level <input type="number" min="1" max="255" value={values.level} oninput={(e) => set('level', e.currentTarget.value)} /></label
+											>
+											<label class:changed={changes.race !== undefined} class:refused={focusCol === 'race'}
+												>Race
+												<select value={values.race} onchange={(e) => setBody('race', e.currentTarget.value)}>
+													{#each RACES as [r, n] (r)}<option value={String(r)}>{n}</option>{/each}
 												</select>
 											</label>
-										{/each}
+											<label class:changed={changes.class !== undefined} class:refused={focusCol === 'class'}
+												>Class
+												<select value={values.class} onchange={(e) => set('class', e.currentTarget.value)}>
+													{#each CLASSES as [c, n] (c)}<option value={String(c)}>{n}</option>{/each}
+												</select>
+											</label>
+											<label class:changed={changes.gender !== undefined}
+												>Gender
+												<select value={values.gender} onchange={(e) => setBody('gender', e.currentTarget.value)}>
+													<option value="0">Male</option>
+													<option value="1">Female</option>
+												</select>
+											</label>
+											<div class="field" class:changed={changes.money !== undefined} class:refused={focusCol === 'money'}>
+												<span>Money</span>
+												<MoneyField value={Number(values.money ?? 0)} onset={(c) => set('money', c)} />
+											</div>
+										</div>
+										<p class="dim">
+											A new level starts with no experience, and a new race or gender the first skin, face and hair. A new race or class keeps the spells and skills the old one had: fix them in the Skills and Spells
+											tabs (Add starting spells gives the new pair's).
+										</p>
+										<h3 title="The choices of the game's character creation for this race and gender (CharSections). The picture wears the equipment of the Equipment and bags tab, unsaved changes too.">Look</h3>
+										<div class="looks">
+											<div class="figure"><CharacterModelView look={appearance} items={worn} /></div>
+											<div class="grid">
+												{#each LOOK_PARTS as [col, label] (col)}
+													{@const opts = lookOpts?.[col] ?? []}
+													<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
+														>{label}
+														<select value={Number(values[col] ?? 0)} onchange={(e) => setLook(col, e.currentTarget.value)}>
+															{#if !opts.includes(Number(values[col] ?? 0))}<option value={Number(values[col] ?? 0)}>{values[col]} (not offered)</option>{/if}
+															{#each opts as n (n)}<option value={n}>{n}</option>{/each}
+														</select>
+													</label>
+												{/each}
+											</div>
+										</div>
+									</div>
+									<div class="half">
+										<h3 title="The rank follows the rank points; the kills are the lifetime ones before this week's. The server's weekly honor update recounts the standing and points from them.">Honor</h3>
+										<div class="grid">
+											<label class:changed={changes.honor_rank_points !== undefined} class:refused={focusCol === 'honor_rank_points'}
+												>Rank points <input type="number" step="any" value={values.honor_rank_points} oninput={(e) => set('honor_rank_points', e.currentTarget.value)} /></label
+											>
+											<div class="field">
+												<span>Rank</span>
+												<span class="dim">{rankNames.find(([n]) => n === honorRank)?.[1] ?? honorRank}</span>
+											</div>
+											<label class:changed={changes.honor_highest_rank !== undefined} class:refused={focusCol === 'honor_highest_rank'}
+												>Highest rank
+												<select value={Number(values.honor_highest_rank ?? 0)} onchange={(e) => set('honor_highest_rank', e.currentTarget.value)}>
+													{#each rankNames as [n, l] (n)}<option value={n}>{l}</option>{/each}
+												</select>
+											</label>
+											<label class:changed={changes.honor_stored_hk !== undefined} class:refused={focusCol === 'honor_stored_hk'}
+												>Honorable kills <input type="number" min="0" value={values.honor_stored_hk} oninput={(e) => set('honor_stored_hk', e.currentTarget.value)} /></label
+											>
+											<label class:changed={changes.honor_stored_dk !== undefined} class:refused={focusCol === 'honor_stored_dk'}
+												>Dishonorable kills <input type="number" min="0" value={values.honor_stored_dk} oninput={(e) => set('honor_stored_dk', e.currentTarget.value)} /></label
+											>
+										</div>
+										<h3>Where it stands</h3>
+										<div class="grid coords">
+											<label class="wide" class:changed={changes.map !== undefined}
+												>Map
+												<select value={values.map} onchange={(e) => set('map', e.currentTarget.value)}>
+													{#if !mapKnown}<option value={values.map}>Map {values.map}</option>{/if}
+													{#each maps as m (m.ID)}<option value={String(m.ID)}>{m.ID} · {m.Name || m.Dir}</option>{/each}
+												</select>
+											</label>
+											{#each [['position_x', 'X'], ['position_y', 'Y'], ['position_z', 'Z'], ['orientation', 'Facing']] as [col, label] (col)}
+												<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
+													>{label} <input type="number" step="any" value={values[col]} oninput={(e) => set(col, e.currentTarget.value)} /></label
+												>
+											{/each}
+										</div>
+										<div class="row">
+											<button onclick={toCamera} title="Where the editor's camera is, on the ground or model below it, as Launch puts the Game Login's character">Put at the camera</button>
+											<span class="dim">The server's coordinates. Moving it takes it off any boat, flight or instance.</span>
+										</div>
+										<h3>Home</h3>
+										<div class="grid coords">
+											<label class="wide" class:changed={changes.home_map !== undefined} class:refused={focusCol === 'home_map'}
+												>Map
+												<select value={values.home_map} onchange={(e) => set('home_map', e.currentTarget.value)}>
+													{#if values.home_map === ''}<option value="">None yet (the race's start)</option>{/if}
+													{#if values.home_map !== '' && !maps.some((m) => String(m.ID) === values.home_map)}<option value={values.home_map}>Map {values.home_map}</option>{/if}
+													{#each maps as m (m.ID)}<option value={String(m.ID)}>{m.ID} · {m.Name || m.Dir}</option>{/each}
+												</select>
+											</label>
+											<label class:changed={changes.home_zone !== undefined} class:refused={focusCol === 'home_zone'} title={homeZone}
+												>Zone <input type="number" min="0" value={values.home_zone} oninput={(e) => set('home_zone', e.currentTarget.value)} /></label
+											>
+											{#each [['home_x', 'X'], ['home_y', 'Y'], ['home_z', 'Z']] as [col, label] (col)}
+												<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
+													>{label} <input type="number" step="any" value={values[col]} oninput={(e) => set(col, e.currentTarget.value)} /></label
+												>
+											{/each}
+										</div>
+										<div class="row">
+											<button onclick={homeAtCamera} title="Where the editor's camera is, on the ground or model below it, with the zone under it">Put home at the camera</button>
+											<span class="dim">{homeZone ? `${homeZone}. ` : ''}Where the hearthstone takes it. Not in an instance: the server moves such a home back to the race's start.</span>
+										</div>
+										<h3>Read only</h3>
+										<p class="dim">
+											{raceName(Number(saved.race))}
+											{className(Number(saved.class))} · {record.xp} experience · zone {record.zone} · played {played(record.playedTime)}{record.online ? ' · in the world' : ''}
+										</p>
 									</div>
 								</div>
-								<p class="dim">The choices of the game's character creation for this race and gender (CharSections). The picture wears the equipment of the Equipment and bags tab, unsaved changes too.</p>
-								<h3>Honor</h3>
-								<div class="grid">
-									<label class:changed={changes.honor_rank_points !== undefined} class:refused={focusCol === 'honor_rank_points'}
-										>Rank points <input type="number" step="any" value={values.honor_rank_points} oninput={(e) => set('honor_rank_points', e.currentTarget.value)} /></label
-									>
-									<div class="field">
-										<span>Rank</span>
-										<span class="dim">{rankNames.find(([n]) => n === honorRank)?.[1] ?? honorRank}</span>
-									</div>
-									<label class:changed={changes.honor_highest_rank !== undefined} class:refused={focusCol === 'honor_highest_rank'}
-										>Highest rank
-										<select value={Number(values.honor_highest_rank ?? 0)} onchange={(e) => set('honor_highest_rank', e.currentTarget.value)}>
-											{#each rankNames as [n, l] (n)}<option value={n}>{l}</option>{/each}
-										</select>
-									</label>
-									<label class:changed={changes.honor_stored_hk !== undefined} class:refused={focusCol === 'honor_stored_hk'}
-										>Honorable kills <input type="number" min="0" value={values.honor_stored_hk} oninput={(e) => set('honor_stored_hk', e.currentTarget.value)} /></label
-									>
-									<label class:changed={changes.honor_stored_dk !== undefined} class:refused={focusCol === 'honor_stored_dk'}
-										>Dishonorable kills <input type="number" min="0" value={values.honor_stored_dk} oninput={(e) => set('honor_stored_dk', e.currentTarget.value)} /></label
-									>
-								</div>
-								<p class="dim">The rank follows the rank points; the kills are the lifetime ones before this week's. The server's weekly honor update recounts the standing and points from them.</p>
-								<h3>Where it stands</h3>
-								<div class="grid">
-									<label class="wide" class:changed={changes.map !== undefined}
-										>Map
-										<select value={values.map} onchange={(e) => set('map', e.currentTarget.value)}>
-											{#if !mapKnown}<option value={values.map}>Map {values.map}</option>{/if}
-											{#each maps as m (m.ID)}<option value={String(m.ID)}>{m.ID} · {m.Name || m.Dir}</option>{/each}
-										</select>
-									</label>
-									{#each [['position_x', 'X'], ['position_y', 'Y'], ['position_z', 'Z'], ['orientation', 'Facing']] as [col, label] (col)}
-										<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
-											>{label} <input type="number" step="any" value={values[col]} oninput={(e) => set(col, e.currentTarget.value)} /></label
-										>
-									{/each}
-								</div>
-								<div class="row">
-									<button onclick={toCamera} title="Where the editor's camera is, on the ground or model below it, as Launch puts the Game Login's character">Put at the camera</button>
-									<span class="dim">The server's coordinates. Moving it takes it off any boat, flight or instance.</span>
-								</div>
-								<h3>Home</h3>
-								<div class="grid">
-									<label class="wide" class:changed={changes.home_map !== undefined} class:refused={focusCol === 'home_map'}
-										>Map
-										<select value={values.home_map} onchange={(e) => set('home_map', e.currentTarget.value)}>
-											{#if values.home_map === ''}<option value="">None yet (the race's start)</option>{/if}
-											{#if values.home_map !== '' && !maps.some((m) => String(m.ID) === values.home_map)}<option value={values.home_map}>Map {values.home_map}</option>{/if}
-											{#each maps as m (m.ID)}<option value={String(m.ID)}>{m.ID} · {m.Name || m.Dir}</option>{/each}
-										</select>
-									</label>
-									<label class:changed={changes.home_zone !== undefined} class:refused={focusCol === 'home_zone'} title={homeZone}
-										>Zone <input type="number" min="0" value={values.home_zone} oninput={(e) => set('home_zone', e.currentTarget.value)} /></label
-									>
-									{#each [['home_x', 'X'], ['home_y', 'Y'], ['home_z', 'Z']] as [col, label] (col)}
-										<label class:changed={changes[col] !== undefined} class:refused={focusCol === col}
-											>{label} <input type="number" step="any" value={values[col]} oninput={(e) => set(col, e.currentTarget.value)} /></label
-										>
-									{/each}
-								</div>
-								<div class="row">
-									<button onclick={homeAtCamera} title="Where the editor's camera is, on the ground or model below it, with the zone under it">Put home at the camera</button>
-									<span class="dim">{homeZone ? `${homeZone}. ` : ''}Where the hearthstone takes it. Not in an instance: the server moves such a home back to the race's start.</span>
-								</div>
-								<h3>Read only</h3>
-								<p class="dim">
-									{raceName(Number(saved.race))}
-									{className(Number(saved.class))} · {record.xp} experience · zone {record.zone} · played {played(record.playedTime)}{record.online ? ' · in the world' : ''}
-								</p>
 							{/if}
 						{/if}
 					</div>
@@ -753,8 +757,42 @@
 		gap: 8px;
 		max-width: 760px;
 	}
+	/* A character's page (#931): its tabs fit the window without a scroll bar, by using the width (the
+	   Character tab in two columns) and letting each list tab's long lists scroll in place; .scroll's
+	   own scroll bar is left only for a window too small for that. */
+	.scroll.page {
+		max-width: none;
+	}
+	.pane {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
 	.back {
-		align-self: flex-start;
+		margin-right: 8px;
+	}
+	.sheet {
+		display: flex;
+		gap: 24px;
+		align-items: flex-start;
+	}
+	.half {
+		flex: 1;
+		min-width: 0;
+		max-width: 640px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.half .grid {
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	}
+	.half .grid.coords {
+		grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+	}
+	.half p {
+		margin: 0;
 	}
 	.hidden {
 		display: none;

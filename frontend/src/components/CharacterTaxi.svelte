@@ -95,47 +95,72 @@
 	{#if rows.loading && !stops.length}
 		<p class="dim">Reading the flight paths…</p>
 	{:else}
-		{#each maps as [id, list] (id)}
-			<div class="map">
-				<h4>{MAP_NAMES[id] ?? `Map ${id}`}</h4>
-				<span class="dim">{list.filter((s) => known.has(s.id)).length} of {list.length}</span>
-				<button
-					onclick={() =>
-						setKnown(
-							list.filter((s) => s.routes).map((s) => s.id),
-							true,
-						)}>All</button
-				>
-				<button
-					onclick={() =>
-						setKnown(
-							list.map((s) => s.id),
-							false,
-						)}>None</button
-				>
-			</div>
-			<ul class="list" aria-label={MAP_NAMES[id] ?? `Map ${id}`}>
-				{#each list as s (s.id)}
-					<li class:refused={refused === String(s.id)} class:dead={!s.routes} data-stop={s.id}>
-						<label title="Stop {s.id}{s.routes ? '' : ': no flight leaves it, so the server forgets it at login'}"
-							><input type="checkbox" checked={known.has(s.id)} onchange={(e) => setKnown([s.id], e.currentTarget.checked)} /> {s.name || `Stop ${s.id}`}</label
+		<div class="maps">
+			{#each maps as [id, list] (id)}
+				<section class="mapcol">
+					<div class="map">
+						<h4>{MAP_NAMES[id] ?? `Map ${id}`}</h4>
+						<span class="dim">{list.filter((s) => known.has(s.id)).length} of {list.length}</span>
+						<button
+							onclick={() =>
+								setKnown(
+									list.filter((s) => s.routes).map((s) => s.id),
+									true,
+								)}>All</button
 						>
-						<span class="dim">{sides(s)}</span>
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="dim">{filter.trim() ? 'No stop matches.' : 'No stops.'}</p>
-		{/each}
+						<button
+							onclick={() =>
+								setKnown(
+									list.map((s) => s.id),
+									false,
+								)}>None</button
+						>
+					</div>
+					<ul class="list" aria-label={MAP_NAMES[id] ?? `Map ${id}`}>
+						{#each list as s (s.id)}
+							<li class:refused={refused === String(s.id)} class:dead={!s.routes} data-stop={s.id}>
+								<label title="Stop {s.id}{s.routes ? '' : ': no flight leaves it, so the server forgets it at login'}"
+									><input type="checkbox" checked={known.has(s.id)} onchange={(e) => setKnown([s.id], e.currentTarget.checked)} /> {s.name || `Stop ${s.id}`}</label
+								>
+								<span class="dim">{sides(s)}</span>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{:else}
+				<p class="dim">{filter.trim() ? 'No stop matches.' : 'No stops.'}</p>
+			{/each}
+		</div>
 	{/if}
 </div>
 
 <style>
+	/* The sheet fills the character page's height; its long lists scroll in place (#931). */
 	.sheet {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		font-size: 12px;
+	}
+	.maps {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	/* A map's list runs in columns, so the continents' long ones take a few rows of the page. */
+	.mapcol > .list {
+		display: block;
+		columns: 300px;
+		column-gap: 24px;
+	}
+	.mapcol > .list > li {
+		break-inside: avoid;
+		margin-bottom: 2px;
 	}
 	h3 {
 		margin: 0;

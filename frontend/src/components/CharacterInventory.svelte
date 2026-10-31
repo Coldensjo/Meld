@@ -49,6 +49,9 @@
 
 	type Item = vmangos.InventoryItem
 	const QUALITY = QUALITY_VARS
+	/** When a saved change reaches the game, shown while no square is picked and on the heading. */
+	const RULES =
+		"Saved items are what the character has at its next login. Adding items needs the world server stopped (it numbers new items from the highest number it read at start); moving, changing and taking out need only the character out of the world. An added item rolls its random property as the server's .additem does."
 
 	let elsewhere = $state(0)
 	// How many of the bank's bag slots the character has bought (characters.bank_bag_slots, #886), saved
@@ -240,7 +243,8 @@
 <div class="inv">
 	{#if rows.error}<p class="error">{rows.error}</p>{/if}
 	<div class="head">
-		<h3>Equipment and bags</h3>
+		<h3 title={RULES}>Equipment and bags</h3>
+		{#if elsewhere}<span class="dim">{elsewhere} more {elsewhere === 1 ? 'item is' : 'items are'} in its buyback slots, which this leaves as they are.</span>{/if}
 		<button disabled={!changed || rows.saving} onclick={revert}>Revert</button>
 		<button class="active" disabled={!changed || rows.saving} onclick={save}>{rows.saving ? 'Saving…' : changed ? 'Save equipment' : 'Saved'}</button>
 	</div>
@@ -280,7 +284,7 @@
 					{#each range(KEY_START, keyEnd) as s (s)}{@render square({ container: 0, slot: s }, 'Key')}{/each}
 				</div>
 			</div>
-			<div class="bags">
+			<div class="bags bank">
 				<div class="label dim">Bank</div>
 				<div class="grid wide" aria-label="Bank">
 					{#each range(BANK_START, BANK_END) as s (s)}{@render square({ container: 0, slot: s }, '')}{/each}
@@ -314,80 +318,87 @@
 			</div>
 		</div>
 
-		<div class="details" aria-label="Selected item">
-			{#if !selected}
-				<p class="dim">Pick a square to change its item, or drag an item to move it. Items you find below go into the picked square, or the first free place that takes them.</p>
-			{:else if !sel}
-				<p class="dim">{placeName(selected)} is empty. Find an item below to put it here.</p>
-			{:else}
-				{@const t = sel.template}
-				{@const worn = selected.container === 0 && selected.slot < BAG_SLOTS[0] ? wearProblem(t, race, cls, level) : ''}
-				<div class="title" use:idMenu={{ ids: [idOf('item', sel.entry)], name: t.name }} {...hoverItem(sel.entry, t.displayId)}>
-					<ItemIcon displayId={t.displayId} size={28} />
-					<strong style:color={QUALITY[t.quality] ?? QUALITY[1]}>{t.name || '(unknown item)'}{sel.randomProperty ? ` ${sel.randomName}` : ''}</strong>
-					<span class="dim">{sel.entry} · {placeName(selected)}{sel.guid ? ` · item ${sel.guid}` : ' · new'}</span>
-				</div>
-				{#if worn}<p class="warnText">The character can't wear it ({worn}): the server sends it by mail at login.</p>{/if}
-				<div class="fields">
-					<label>Count <input type="number" min="1" max={Math.max(1, t.stackable)} disabled={t.stackable <= 1} value={sel.count} oninput={(e) => change('count', Number(e.currentTarget.value), Math.max(1, t.stackable))} /></label>
-					<label
-						>Durability {#if t.maxDurability}<span class="dim">of {t.maxDurability}</span>{/if}
-						<input type="number" min="0" max={t.maxDurability} disabled={!t.maxDurability} value={sel.durability} oninput={(e) => change('durability', Number(e.currentTarget.value), t.maxDurability)} /></label
-					>
-					<div class="ench">
-						<RefField f={ENCHANT} value={String(sel.enchant)} changed={false} onset={(v) => change('enchant', Number(v), 0xffff)} />
+		<div class="lower">
+			<div class="details" aria-label="Selected item">
+				{#if !selected}
+					<p class="dim">Pick a square to change its item, or drag an item to move it. Items you find on the right go into the picked square, or the first free place that takes them.</p>
+					<p class="dim">{RULES}</p>
+				{:else if !sel}
+					<p class="dim">{placeName(selected)} is empty. Find an item below to put it here.</p>
+				{:else}
+					{@const t = sel.template}
+					{@const worn = selected.container === 0 && selected.slot < BAG_SLOTS[0] ? wearProblem(t, race, cls, level) : ''}
+					<div class="title" use:idMenu={{ ids: [idOf('item', sel.entry)], name: t.name }} {...hoverItem(sel.entry, t.displayId)}>
+						<ItemIcon displayId={t.displayId} size={28} />
+						<strong style:color={QUALITY[t.quality] ?? QUALITY[1]}>{t.name || '(unknown item)'}{sel.randomProperty ? ` ${sel.randomName}` : ''}</strong>
+						<span class="dim">{sel.entry} · {placeName(selected)}{sel.guid ? ` · item ${sel.guid}` : ' · new'}</span>
 					</div>
-					{#if t.randomProperty > 0 || sel.randomProperty}
-						{@const choices = t.randomChoices ?? []}
-						<label class="random"
-							>Random property
-							<select
-								value={sel.randomProperty}
-								onchange={(e) => {
-									const id = Number(e.currentTarget.value)
-									setRandom(id, choices.find((c) => c.id === id)?.name ?? sel?.randomName ?? '')
-								}}
-							>
-								<option value={0}>None</option>
-								{#if sel.randomProperty && !choices.some((c) => c.id === sel.randomProperty)}<option value={sel.randomProperty}>{sel.randomName || `property ${sel.randomProperty}`}</option>{/if}
-								{#each choices as c (c.id)}<option value={c.id}>{c.name} ({c.chance}%)</option>{/each}
-							</select></label
+					{#if worn}<p class="warnText">The character can't wear it ({worn}): the server sends it by mail at login.</p>{/if}
+					<div class="fields">
+						<label
+							>Count <input type="number" min="1" max={Math.max(1, t.stackable)} disabled={t.stackable <= 1} value={sel.count} oninput={(e) => change('count', Number(e.currentTarget.value), Math.max(1, t.stackable))} /></label
 						>
-					{/if}
-				</div>
-				<div class="row">
-					<button disabled={!t.maxDurability || sel.durability === t.maxDurability} onclick={() => change('durability', t.maxDurability, t.maxDurability)}>Repair</button>
-					<button class="danger" onclick={() => selected && takeOut(selected)}>Take out</button>
-				</div>
-			{/if}
-		</div>
-		<p class="dim">
-			Saved items are what the character has at its next login. Adding items needs the world server stopped (it numbers new items from the highest number it read at start); moving, changing and taking out need only the character out
-			of the world. An added item rolls its random property as the server's .additem does.{elsewhere ? ` ${elsewhere} more ${elsewhere === 1 ? 'item is' : 'items are'} in its buyback slots, which this leaves as they are.` : ''}
-		</p>
+						<label
+							>Durability {#if t.maxDurability}<span class="dim">of {t.maxDurability}</span>{/if}
+							<input type="number" min="0" max={t.maxDurability} disabled={!t.maxDurability} value={sel.durability} oninput={(e) => change('durability', Number(e.currentTarget.value), t.maxDurability)} /></label
+						>
+						<div class="ench">
+							<RefField f={ENCHANT} value={String(sel.enchant)} changed={false} onset={(v) => change('enchant', Number(v), 0xffff)} />
+						</div>
+						{#if t.randomProperty > 0 || sel.randomProperty}
+							{@const choices = t.randomChoices ?? []}
+							<label class="random"
+								>Random property
+								<select
+									value={sel.randomProperty}
+									onchange={(e) => {
+										const id = Number(e.currentTarget.value)
+										setRandom(id, choices.find((c) => c.id === id)?.name ?? sel?.randomName ?? '')
+									}}
+								>
+									<option value={0}>None</option>
+									{#if sel.randomProperty && !choices.some((c) => c.id === sel.randomProperty)}<option value={sel.randomProperty}>{sel.randomName || `property ${sel.randomProperty}`}</option>{/if}
+									{#each choices as c (c.id)}<option value={c.id}>{c.name} ({c.chance}%)</option>{/each}
+								</select></label
+							>
+						{/if}
+					</div>
+					<div class="row">
+						<button disabled={!t.maxDurability || sel.durability === t.maxDurability} onclick={() => change('durability', t.maxDurability, t.maxDurability)}>Repair</button>
+						<button class="danger" onclick={() => selected && takeOut(selected)}>Take out</button>
+					</div>
+				{/if}
+			</div>
 
-		<h3>Add items</h3>
-		<input class="search" type="search" placeholder="Item name or entry" bind:value={query} />
-		{#if searching && !results.length}<p class="dim">Searching…</p>{/if}
-		{#if results.length}
-			<ul class="results">
-				{#each results as r (r.entry)}
-					<li>
-						<button onclick={() => add(r)} use:idMenu={{ ids: [idOf('item', r.entry)], name: r.name }} {...hoverItem(r.entry, r.displayId)}>
-							<ItemIcon displayId={r.displayId} /> <span style:color={QUALITY[r.quality] ?? QUALITY[1]}>{r.name}</span> <span class="dim">{r.entry}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{:else if query.trim() && !searching}
-			<p class="dim">No item matches.</p>
-		{/if}
+			<div class="add">
+				<h3>Add items</h3>
+				<input class="search" type="search" placeholder="Item name or entry" bind:value={query} />
+				{#if searching && !results.length}<p class="dim">Searching…</p>{/if}
+				{#if results.length}
+					<ul class="results">
+						{#each results as r (r.entry)}
+							<li>
+								<button onclick={() => add(r)} use:idMenu={{ ids: [idOf('item', r.entry)], name: r.name }} {...hoverItem(r.entry, r.displayId)}>
+									<ItemIcon displayId={r.displayId} /> <span style:color={QUALITY[r.quality] ?? QUALITY[1]}>{r.name}</span> <span class="dim">{r.entry}</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{:else if query.trim() && !searching}
+					<p class="dim">No item matches.</p>
+				{/if}
+			</div>
+		</div>
 	{/if}
 	{#if hover}<ItemTooltip entry={hover.entry} displayId={hover.displayId} x={hover.x} y={hover.y} />{/if}
 </div>
 
 <style>
+	/* The tab fills the character page's height (#931): the bags and the bank scroll beside the
+	   equipment when they are taller than it, and the found items in their column below. */
 	.inv {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -411,10 +422,9 @@
 		margin: 0;
 	}
 	.cols {
+		flex: none;
 		display: flex;
 		gap: 24px;
-		flex-wrap: wrap;
-		align-items: flex-start;
 	}
 	.doll {
 		display: grid;
@@ -441,10 +451,34 @@
 		justify-content: center;
 		gap: 4px;
 	}
+	/* Sized by the equipment beside them, never by their own squares. */
 	.bags {
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
+		width: 196px;
+		contain: size;
+		overflow-y: auto;
+	}
+	.bags.bank {
+		width: 290px;
+	}
+	.lower {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		gap: 24px;
+	}
+	.add {
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.add h3 {
+		margin: 0;
 	}
 	.bags .row {
 		display: flex;
@@ -471,8 +505,9 @@
 		opacity: 0.45;
 		border-style: dashed;
 	}
+	.fields .ench,
 	.fields .random {
-		grid-column: 1 / span 2;
+		grid-column: span 2;
 	}
 	.sq {
 		position: relative;
@@ -514,6 +549,11 @@
 		pointer-events: none;
 	}
 	.details {
+		flex: 1;
+		min-width: 0;
+		align-self: flex-start;
+		max-height: 100%;
+		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
@@ -532,7 +572,7 @@
 	}
 	.fields {
 		display: grid;
-		grid-template-columns: 120px 140px 1fr;
+		grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
 		gap: 8px 12px;
 		align-items: start;
 	}
@@ -560,7 +600,8 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		max-height: 260px;
+		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 	}
 	.results button {

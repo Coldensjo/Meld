@@ -89,43 +89,69 @@
 	{#if rows.loading && !rows.rows.length}
 		<p class="dim">Reading the reputation…</p>
 	{:else}
-		{#each groups as [g, list] (g)}
-			<h4>{g}</h4>
-			<ul class="list" aria-label={g}>
-				{#each list as r (r.faction)}
-					{@const rank = repRank(r.standing)}
-					{@const [into, size] = repProgress(r.standing)}
-					<li class:refused={refused === String(r.faction)} class:changed={r.standing !== r.base} data-faction={r.faction}>
-						<span class="name" title="Faction {r.faction}; the race and class start at {r.base}">{r.name || `Faction ${r.faction}`}</span>
-						<select value={rank} aria-label="Rank" onchange={(e) => setStanding(r.faction, REP_RANKS[Number(e.currentTarget.value)][1])}>
-							{#each REP_RANKS as [n], i (n)}<option value={i}>{n}</option>{/each}
-						</select>
-						<input type="number" min={REP_MIN} max={REP_MAX} value={r.standing} aria-label="Standing" onchange={(e) => setStanding(r.faction, Number(e.currentTarget.value))} />
-						<span class="bar" title="{into} of {size} into {REP_RANKS[rank][0]}"><span style:width="{(100 * into) / size}%"></span></span>
-						<label title={hidden(r) ? 'The game never lists this faction' : 'Listed in the reputation frame'}
-							><input type="checkbox" disabled={hidden(r)} checked={(r.flags & FACTION_VISIBLE) !== 0} onchange={(e) => setFlag(r.faction, FACTION_VISIBLE, e.currentTarget.checked)} /> Listed</label
-						>
-						<label title={r.defaultFlags & FACTION_PEACE_FORCED ? 'Always at peace: its own side' : 'At war: its members can be attacked'}
-							><input type="checkbox" disabled={(r.defaultFlags & FACTION_PEACE_FORCED) !== 0} checked={(r.flags & FACTION_AT_WAR) !== 0} onchange={(e) => setFlag(r.faction, FACTION_AT_WAR, e.currentTarget.checked)} /> War</label
-						>
-						<label title="Moved to the frame's Inactive heading"
-							><input type="checkbox" checked={(r.flags & FACTION_INACTIVE) !== 0} onchange={(e) => setFlag(r.faction, FACTION_INACTIVE, e.currentTarget.checked)} /> Inactive</label
-						>
-					</li>
+		<div class="groups">
+			<div class="flow">
+				{#each groups as [g, list] (g)}
+					<section class="group">
+						<h4>{g}</h4>
+						<ul class="list" aria-label={g}>
+							{#each list as r (r.faction)}
+								{@const rank = repRank(r.standing)}
+								{@const [into, size] = repProgress(r.standing)}
+								<li class:refused={refused === String(r.faction)} class:changed={r.standing !== r.base} data-faction={r.faction}>
+									<span class="name" title="Faction {r.faction}; the race and class start at {r.base}">{r.name || `Faction ${r.faction}`}</span>
+									<select value={rank} aria-label="Rank" onchange={(e) => setStanding(r.faction, REP_RANKS[Number(e.currentTarget.value)][1])}>
+										{#each REP_RANKS as [n], i (n)}<option value={i}>{n}</option>{/each}
+									</select>
+									<input type="number" min={REP_MIN} max={REP_MAX} value={r.standing} aria-label="Standing" onchange={(e) => setStanding(r.faction, Number(e.currentTarget.value))} />
+									<span class="bar" title="{into} of {size} into {REP_RANKS[rank][0]}"><span style:width="{(100 * into) / size}%"></span></span>
+									<label title={hidden(r) ? 'The game never lists this faction' : 'Listed in the reputation frame'}
+										><input type="checkbox" disabled={hidden(r)} checked={(r.flags & FACTION_VISIBLE) !== 0} onchange={(e) => setFlag(r.faction, FACTION_VISIBLE, e.currentTarget.checked)} /> Listed</label
+									>
+									<label title={r.defaultFlags & FACTION_PEACE_FORCED ? 'Always at peace: its own side' : 'At war: its members can be attacked'}
+										><input
+											type="checkbox"
+											disabled={(r.defaultFlags & FACTION_PEACE_FORCED) !== 0}
+											checked={(r.flags & FACTION_AT_WAR) !== 0}
+											onchange={(e) => setFlag(r.faction, FACTION_AT_WAR, e.currentTarget.checked)}
+										/> War</label
+									>
+									<label title="Moved to the frame's Inactive heading"
+										><input type="checkbox" checked={(r.flags & FACTION_INACTIVE) !== 0} onchange={(e) => setFlag(r.faction, FACTION_INACTIVE, e.currentTarget.checked)} /> Inactive</label
+									>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{:else}
+					<p class="dim">{filter.trim() ? 'No faction matches.' : 'No factions.'}</p>
 				{/each}
-			</ul>
-		{:else}
-			<p class="dim">{filter.trim() ? 'No faction matches.' : 'No factions.'}</p>
-		{/each}
+			</div>
+		</div>
 	{/if}
 </div>
 
 <style>
+	/* The sheet fills the character page's height; its long lists scroll in place (#931). */
 	.sheet {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		font-size: 12px;
+	}
+	.groups {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+	.flow {
+		columns: 560px;
+		column-gap: 24px;
+	}
+	.group {
+		break-inside: avoid;
 	}
 	h3 {
 		margin: 0;

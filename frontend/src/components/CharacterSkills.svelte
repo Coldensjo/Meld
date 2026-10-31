@@ -97,34 +97,40 @@
 	{#if rows.loading && !rows.rows.length}
 		<p class="dim">Reading the skills…</p>
 	{:else}
-		{#each groups as g (g.cat)}
-			<h4>{g.cat === -1 ? 'Not for this race and class' : skillCategoryName(g.cat)}</h4>
-			<ul class="list" aria-label={g.cat === -1 ? 'Other skills' : skillCategoryName(g.cat)}>
-				{#each g.skills as s (s.skill)}
-					{@const c = byId.get(s.skill)}
-					<li class:refused={refused === String(s.skill)} data-skill={s.skill}>
-						<span class="name" title="Skill line {s.skill}">{c?.name ?? `Skill ${s.skill}`}</span>
-						{#if c && (c.range === 'language' || c.range === 'mono')}
-							<span class="dim">{s.value} of {s.max}</span>
-						{:else}
-							<input type="number" min="1" max={s.max} value={s.value} aria-label="Value" onchange={(e) => change(s.skill, 'value', Number(e.currentTarget.value))} />
-							<span class="dim">of</span>
-							{#if c?.range === 'rank'}
-								<select value={s.max} aria-label="Most" onchange={(e) => change(s.skill, 'max', Number(e.currentTarget.value))}>
-									{#each [75, 150, 225, 300].filter((m) => m <= (c.top || 300)) as m (m)}<option value={m}>{m}</option>{/each}
-									{#if ![75, 150, 225, 300].includes(s.max)}<option value={s.max}>{s.max}</option>{/if}
-								</select>
-							{:else}
-								<span class="dim">{s.max}</span>
-							{/if}
-						{/if}
-						<button class="x" title="Take this skill out" onclick={() => (rows.rows = rows.rows.filter((k) => k.skill !== s.skill))}>×</button>
-					</li>
+		<div class="groups">
+			<div class="flow">
+				{#each groups as g (g.cat)}
+					<section class="group">
+						<h4>{g.cat === -1 ? 'Not for this race and class' : skillCategoryName(g.cat)}</h4>
+						<ul class="list" aria-label={g.cat === -1 ? 'Other skills' : skillCategoryName(g.cat)}>
+							{#each g.skills as s (s.skill)}
+								{@const c = byId.get(s.skill)}
+								<li class:refused={refused === String(s.skill)} data-skill={s.skill}>
+									<span class="name" title="Skill line {s.skill}">{c?.name ?? `Skill ${s.skill}`}</span>
+									{#if c && (c.range === 'language' || c.range === 'mono')}
+										<span class="dim">{s.value} of {s.max}</span>
+									{:else}
+										<input type="number" min="1" max={s.max} value={s.value} aria-label="Value" onchange={(e) => change(s.skill, 'value', Number(e.currentTarget.value))} />
+										<span class="dim">of</span>
+										{#if c?.range === 'rank'}
+											<select value={s.max} aria-label="Most" onchange={(e) => change(s.skill, 'max', Number(e.currentTarget.value))}>
+												{#each [75, 150, 225, 300].filter((m) => m <= (c.top || 300)) as m (m)}<option value={m}>{m}</option>{/each}
+												{#if ![75, 150, 225, 300].includes(s.max)}<option value={s.max}>{s.max}</option>{/if}
+											</select>
+										{:else}
+											<span class="dim">{s.max}</span>
+										{/if}
+									{/if}
+									<button class="x" title="Take this skill out" onclick={() => (rows.rows = rows.rows.filter((k) => k.skill !== s.skill))}>×</button>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{:else}
+					<p class="dim">No skills.</p>
 				{/each}
-			</ul>
-		{:else}
-			<p class="dim">No skills.</p>
-		{/each}
+			</div>
+		</div>
 		<div class="row">
 			<select bind:value={pick} aria-label="Skill to add">
 				<option value="">Add a skill…</option>
@@ -140,11 +146,26 @@
 </div>
 
 <style>
+	/* The sheet fills the character page's height; its long lists scroll in place (#931). */
 	.sheet {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		font-size: 12px;
+	}
+	.groups {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+	.flow {
+		columns: 300px;
+		column-gap: 24px;
+	}
+	.group {
+		break-inside: avoid;
 	}
 	h3 {
 		margin: 0;
@@ -173,7 +194,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		max-width: 520px;
 	}
 	.list li {
 		display: flex;

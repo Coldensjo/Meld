@@ -132,13 +132,16 @@
 			{/if}
 		</div>
 		<div class="pick">
-			<SpellPicker memoryKey="character" start="all" onpick={add} label="Find a spell to teach" listLabel="Spells to teach" height={360} />
+			<SpellPicker memoryKey="character" start="all" onpick={add} label="Find a spell to teach" listLabel="Spells to teach" height={0} />
 		</div>
 	</div>
 </div>
 
 <style>
+	/* The sheet fills the character page's height; its long lists scroll in place (#931). */
 	.sheet {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -163,14 +166,15 @@
 		flex: 1;
 	}
 	.cols {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		gap: 16px;
-		flex-wrap: wrap;
-		align-items: flex-start;
 	}
 	.known {
 		flex: 1;
 		min-width: 300px;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
@@ -178,6 +182,9 @@
 	.pick {
 		flex: 1;
 		min-width: 280px;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 	}
 	.list {
 		list-style: none;
@@ -186,7 +193,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		max-height: 420px;
+		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 	}
 	.list li {

@@ -935,6 +935,10 @@ account, Delete account, Save character and Delete character.
   only against the server's test vector here), and enter the world with an edited character.
 - Trap: the probe's page runs without the client sandbox, so writes from a scratch probe go to the
   real databases; `serverSession` refuses them only while a probe has the sandbox on.
+- One page (#931): the probe clicks through every tab of the character's page and fails when the
+  page (`.scroll.page`) scrolls either way at the runner's window (1400x900, 1384x805 inside); a
+  list scrolling in place is fine. To look at a tab, a scratch probe that opens the character and
+  clicks the tab, run with `--shot <dir>`.
 - Equipment and bags (#874): the probe also opens the character's Equipment and bags tab, checks
   that it shows as many items as `ReadInventory` reads, drags an item to an empty backpack square
   (synthetic `DragEvent`s with a `new DataTransfer()` work in the headless page; the squares carry

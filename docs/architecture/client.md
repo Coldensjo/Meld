@@ -412,6 +412,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   A change carries along: a new level sets `xp = 0`, a new race or gender resets skin, face and hair
   to 0 (every race and gender has a 0), and a new spot clears the instance, transport and flight as
   `placeSQL` does. Put at the camera fills the spot from `Engine.playerSpot`, as Launch does.
+  A character's page fits the window without a scroll bar (#931, after #933's rule): the back button
+  sits in the tab bar, the Character tab runs in two columns with its longer notes in the headings'
+  titles, and each other tab fills the page's height (`.pane`, the tab's `.sheet` with `flex: 1;
+  min-height: 0`), so a long list (bags and bank, found items, spells, quests, the grouped skills and
+  factions, the explored zones and flight stops in columns) scrolls in place. The page's own scroll
+  bar is left for a window too small for that.
   The character's **Equipment and bags** tab (#874, `components/CharacterInventory.svelte`, a
   `RowList` with its own Save, kept mounted across the tab switch; `internal/vmangos/inventory.go`)
   edits `character_inventory` and `item_instance`. A place is a container and a slot: container 0

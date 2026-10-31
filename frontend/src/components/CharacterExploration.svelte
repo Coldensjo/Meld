@@ -82,50 +82,75 @@
 	{#if rows.loading && !zones.length}
 		<p class="dim">Reading the explored areas…</p>
 	{:else}
-		{#each maps as [id, m] (id)}
-			{@const all = m.zones.flatMap(bitsOf)}
-			<div class="map">
-				<h4>{m.name}</h4>
-				<span class="dim">{all.filter((b) => explored.has(b)).length} of {all.length}</span>
-				<button onclick={() => setBits(all, true)}>All</button>
-				<button onclick={() => setBits(all, false)}>None</button>
-			</div>
-			<ul class="list" aria-label={m.name}>
-				{#each m.zones as z (z.id)}
-					{@const n = count(z)}
-					{@const total = 1 + (z.subzones?.length ?? 0)}
-					<li data-zone={z.id}>
-						<div class="zone">
-							<input type="checkbox" checked={n === total} indeterminate={n > 0 && n < total} aria-label="Explored" onchange={(e) => setBits(bitsOf(z), e.currentTarget.checked)} />
-							<button class="name link" disabled={total === 1} title={total > 1 ? 'Show its subzones' : `Area ${z.id}`} onclick={() => (open.has(z.id) ? open.delete(z.id) : open.add(z.id))}
-								>{total > 1 ? (open.has(z.id) ? '▾ ' : '▸ ') : ''}{z.name || `Area ${z.id}`}</button
-							>
-							<span class="dim">{n} of {total}</span>
-						</div>
-						{#if open.has(z.id)}
-							<ul class="subs">
-								{#each z.subzones ?? [] as s (s.id)}
-									<li>
-										<label title="Area {s.id}, bit {s.bit}"><input type="checkbox" checked={explored.has(s.bit)} onchange={(e) => setBits([s.bit], e.currentTarget.checked)} /> {s.name || `Area ${s.id}`}</label>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="dim">{filter.trim() ? 'No zone matches.' : 'No zones.'}</p>
-		{/each}
+		<div class="maps">
+			{#each maps as [id, m] (id)}
+				{@const all = m.zones.flatMap(bitsOf)}
+				<section class="mapcol">
+					<div class="map">
+						<h4>{m.name}</h4>
+						<span class="dim">{all.filter((b) => explored.has(b)).length} of {all.length}</span>
+						<button onclick={() => setBits(all, true)}>All</button>
+						<button onclick={() => setBits(all, false)}>None</button>
+					</div>
+					<ul class="list" aria-label={m.name}>
+						{#each m.zones as z (z.id)}
+							{@const n = count(z)}
+							{@const total = 1 + (z.subzones?.length ?? 0)}
+							<li data-zone={z.id}>
+								<div class="zone">
+									<input type="checkbox" checked={n === total} indeterminate={n > 0 && n < total} aria-label="Explored" onchange={(e) => setBits(bitsOf(z), e.currentTarget.checked)} />
+									<button class="name link" disabled={total === 1} title={total > 1 ? 'Show its subzones' : `Area ${z.id}`} onclick={() => (open.has(z.id) ? open.delete(z.id) : open.add(z.id))}
+										>{total > 1 ? (open.has(z.id) ? '▾ ' : '▸ ') : ''}{z.name || `Area ${z.id}`}</button
+									>
+									<span class="dim">{n} of {total}</span>
+								</div>
+								{#if open.has(z.id)}
+									<ul class="subs">
+										{#each z.subzones ?? [] as s (s.id)}
+											<li>
+												<label title="Area {s.id}, bit {s.bit}"><input type="checkbox" checked={explored.has(s.bit)} onchange={(e) => setBits([s.bit], e.currentTarget.checked)} /> {s.name || `Area ${s.id}`}</label>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{:else}
+				<p class="dim">{filter.trim() ? 'No zone matches.' : 'No zones.'}</p>
+			{/each}
+		</div>
 	{/if}
 </div>
 
 <style>
+	/* The sheet fills the character page's height; its long lists scroll in place (#931). */
 	.sheet {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		font-size: 12px;
+	}
+	.maps {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	/* A map's list runs in columns, so the continents' long ones take a few rows of the page. */
+	.mapcol > .list {
+		display: block;
+		columns: 260px;
+		column-gap: 24px;
+	}
+	.mapcol > .list > li {
+		break-inside: avoid;
+		margin-bottom: 2px;
 	}
 	h3 {
 		margin: 0;

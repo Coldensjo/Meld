@@ -98,25 +98,29 @@
 			{#if rows.loading && !rows.rows.length}
 				<p class="dim">Reading the quests…</p>
 			{:else}
-				{#each groups as g (g.name)}
-					<h4>{g.name}</h4>
-					<ul class="list" aria-label={g.name}>
-						{#each g.list as q (q.quest)}
-							<li class:refused={refused === String(q.quest)} class:unknown={!q.known} data-quest={q.quest}>
-								<span class="lvl">[{q.level}]</span>
-								<span class="name" title="Quest {q.quest}{q.repeatable ? ', repeatable' : ''}{q.timeLimit ? `, timed (${Math.round(q.timeLimit / 60)} min)` : ''}{q.known ? '' : ': the server has no such quest and skips it'}"
-									>{q.title || `Quest ${q.quest}`}</span
-								>
-								<select value={questState(q)} aria-label="State" onchange={(e) => setState(q.quest, e.currentTarget.value as QuestState)}>
-									{#each QUEST_STATES as [s, n, hint] (s)}<option value={s} title={hint}>{n}</option>{/each}
-								</select>
-								<button class="x" title="Forget this quest: the character can take it again" onclick={() => (rows.rows = rows.rows.filter((k) => k.quest !== q.quest))}>×</button>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="dim">{filter.trim() ? 'No quest matches.' : 'No quests.'}</p>
-				{/each}
+				<div class="groups">
+					{#each groups as g (g.name)}
+						<h4>{g.name}</h4>
+						<ul class="list" aria-label={g.name}>
+							{#each g.list as q (q.quest)}
+								<li class:refused={refused === String(q.quest)} class:unknown={!q.known} data-quest={q.quest}>
+									<span class="lvl">[{q.level}]</span>
+									<span
+										class="name"
+										title="Quest {q.quest}{q.repeatable ? ', repeatable' : ''}{q.timeLimit ? `, timed (${Math.round(q.timeLimit / 60)} min)` : ''}{q.known ? '' : ': the server has no such quest and skips it'}"
+										>{q.title || `Quest ${q.quest}`}</span
+									>
+									<select value={questState(q)} aria-label="State" onchange={(e) => setState(q.quest, e.currentTarget.value as QuestState)}>
+										{#each QUEST_STATES as [s, n, hint] (s)}<option value={s} title={hint}>{n}</option>{/each}
+									</select>
+									<button class="x" title="Forget this quest: the character can take it again" onclick={() => (rows.rows = rows.rows.filter((k) => k.quest !== q.quest))}>×</button>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="dim">{filter.trim() ? 'No quest matches.' : 'No quests.'}</p>
+					{/each}
+				</div>
 			{/if}
 		</div>
 		<div class="pick">
@@ -141,7 +145,10 @@
 </div>
 
 <style>
+	/* The sheet fills the character page's height; its long lists scroll in place (#931). */
 	.sheet {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -167,15 +174,16 @@
 		gap: 8px;
 	}
 	.cols {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		gap: 16px;
-		flex-wrap: wrap;
-		align-items: flex-start;
 	}
 	.known,
 	.pick {
 		flex: 1;
 		min-width: 300px;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
@@ -188,8 +196,10 @@
 		flex-direction: column;
 		gap: 2px;
 	}
+	.groups,
 	.results {
-		max-height: 360px;
+		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 	}
 	.list li {
