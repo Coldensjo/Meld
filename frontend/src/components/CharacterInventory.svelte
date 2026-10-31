@@ -139,7 +139,16 @@
 	}
 
 	// Moving: drag a square onto another.
-	let dragFrom = $state<Place | null>(null)
+	// Not reactive: a re-render inside dragstart or dragover makes WebView2 end the drag or show the
+	// not-allowed cursor (#930).
+	let dragFrom: Place | null = null
+	const DRAG_TYPE = 'application/x-meld-place'
+	const accepts = (e: DragEvent) => !!e.dataTransfer?.types.includes(DRAG_TYPE)
+	function allow(e: DragEvent) {
+		if (!accepts(e)) return
+		e.preventDefault()
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+	}
 	function drop(to: Place) {
 		const from = dragFrom
 		dragFrom = null
@@ -219,11 +228,16 @@
 		draggable={!!it}
 		ondragstart={(e) => {
 			dragFrom = p
-			hover = null
-			e.dataTransfer?.setData('text/plain', placeKey(p))
+			setTimeout(() => (hover = null), 0)
+			if (e.dataTransfer) {
+				e.dataTransfer.effectAllowed = 'move'
+				e.dataTransfer.setData(DRAG_TYPE, placeKey(p))
+				e.dataTransfer.setData('text/plain', placeKey(p))
+			}
 		}}
 		ondragend={() => (dragFrom = null)}
-		ondragover={(e) => dragFrom && e.preventDefault()}
+		ondragenter={allow}
+		ondragover={allow}
 		ondrop={(e) => {
 			e.preventDefault()
 			drop(p)

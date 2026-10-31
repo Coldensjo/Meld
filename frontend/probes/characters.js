@@ -70,7 +70,9 @@ const items = { shown: shownItems, read: inv.items.length, elsewhere: inv.elsewh
 const drag = (from, to) => {
 	const dt = new DataTransfer()
 	from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }))
-	to.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }))
+	const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt })
+	to.dispatchEvent(over)
+	items.overAllowed = over.defaultPrevented
 	to.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
 	from.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }))
 }
@@ -425,7 +427,7 @@ const itemsOk =
 	items.figure.canvas &&
 	items.figure.steady &&
 	/^Character\\/i.test(items.figure.model) &&
-	(!from || !to || (items.moved && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
+	(!from || !to || (items.moved && items.overAllowed && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
 	items.bank &&
 	items.keyring &&
 	items.locked &&
