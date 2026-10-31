@@ -113,7 +113,9 @@ export function checkFlights(spawns: readonly LinkSpawn[], creatures: readonly v
  * is more than BELOW yards under the ground with no model floor at it (an error) or more than ABOVE yards
  * over the surface under it (a warning). A target on the open map is measured against its terrain and
  * models (and left out off its terrain); one on another map against the client's ground there, and left
- * out inside a building, whose floor isn't read. One finding a target, naming the first teleport there.
+ * out inside a building, whose floor isn't read. On a map of one building (a dungeon or raid, no tiles)
+ * a target more than a few yards outside the building's bounds is a warning, since the player lands in
+ * the void. One finding a target, naming the first teleport there.
  */
 export function checkPortals(spawns: readonly WorldSpawn[], creatures: readonly vmangos.WorldTemplate[], objects: readonly vmangos.WorldTemplate[], report: LinkReport, map: LinkMap, from: { x: number; z: number } | null): Finding[] {
 	const nearest = nearestSpawns(spawns, from)
@@ -169,6 +171,10 @@ export function checkPortals(spawns: readonly WorldSpawn[], creatures: readonly 
 			const under = Math.max(floor, g <= d.z + BELOW ? g : -Infinity)
 			if (under === -Infinity) add(l, 'warning', `lands over a hole with nothing under it${where}.`, at)
 			else if (d.z - under > ABOVE) add(l, 'warning', `lands ${yd(d.z - under)} above the ${under === floor ? 'floor' : 'ground'}${where}, so the player falls.`, at)
+			continue
+		}
+		if (l.outsideBuilding) {
+			add(l, 'warning', `lands outside the building${where}, in the void.`)
 			continue
 		}
 		if (l.inBuilding || l.ground === null) continue

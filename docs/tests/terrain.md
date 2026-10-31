@@ -382,8 +382,12 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   out are not all spells' flights); the editor doesn't read the master's faction, so a side whose stop
   is within 100 yd is taken for its side. Teleports on the open map are measured against `Terrain`
   and the first model surface below (`floorBelow` in `run.ts`); on another map against the client's
-  tile (`tileGround.groundAt`, the cell's four triangles) and skipped inside a WMO's MODF bounds or on a
-  map of one building (no tiles). `bun run probe check-map-links` stands a flat map in for Kalimdor
+  tile (`tileGround.groundAt`, the cell's four triangles) and skipped inside a WMO's MODF bounds; on a
+  map of one building (a dungeon's WDT, no tiles) only a target more than 3 yd outside the WDT's MODF
+  bounds is flagged (#979, `groundReader.global`). Trap: those bounds are in the WDT's frame, the file
+  frame less ZeroPoint (`globalToFile`, wmoonly.go); Onyxia's Lair's entrance target is the stock one
+  that tells the two frames apart. `TestCheckLinksLive` checks the Stockade entrance (the Deadmines has tiles, despite the issue)
+  lands inside, and all 34 stock `areatrigger_teleport` rows into such maps do. `bun run probe check-map-links` stands a flat map in for Kalimdor
   (`meta.vmangos = { dir: 'Kalimdor', mapId: 1 }`, tiles 0,0), plants Vesprystus (3838) on the
   Rut'theran stop (no finding) and Dungar Longdrink (352) at the far corner (one finding a side), and
   wraps `CheckWorldData` to add a target 50 yd over the flat ground (a warning) and one on a map the

@@ -65,9 +65,12 @@ type PortalLink struct {
 	MapName  string `json:"mapName"`
 	// Ground is the client's ground under the target on another map (nil when it can't be read:
 	// no tile there, a map of one building, a hole), and InBuilding whether the target lies inside a
-	// building the tile places, where its floor is unread.
-	Ground     *float32 `json:"ground"`
-	InBuilding bool     `json:"inBuilding"`
+	// building the tile places, where its floor is unread. OutsideBuilding says the target map is one
+	// building (a dungeon or raid, whose WDT places a single WMO and has no tiles) and the target lies
+	// more than a few yards outside its bounds, in the void.
+	Ground          *float32 `json:"ground"`
+	InBuilding      bool     `json:"inBuilding"`
+	OutsideBuilding bool     `json:"outsideBuilding"`
 }
 
 // LinkReport is what a LinkQuery found; Error says why a part is missing (the rest stands).
@@ -237,16 +240,22 @@ func (g *tileGround) groundAt(lx, lz float64) (float32, bool) {
 	return float32(w1*p1.h + w2*p2.h + (1-w1-w2)*mid.h), true
 }
 
+// buildingMargin is how far (yards) outside a building's bounds a target may lie and still count as
+// inside it.
+const buildingMargin = 3
+
+// inExtents says whether the placement-space point (x, y, z) lies inside the bounds lo..hi, with
+// buildingMargin.
+func inExtents(lo, hi [3]float32, x, y, z float32) bool {
+	const m = buildingMargin
+	return x >= lo[0]-m && x <= hi[0]+m && y >= lo[1]-m && y <= hi[1]+m && z >= lo[2]-m && z <= hi[2]+m
+}
+
 // inBuilding says whether the placement-space point (x, y, z) lies inside a WMO the tile places,
 // with a margin of a few yards.
 func (g *tileGround) inBuilding(x, y, z float32) bool {
-	const margin = 3
 	for _, p := range g.places {
-		if p.Kind != adt.WMO {
-			continue
-		}
-		lo, hi := p.Extents[0], p.Extents[1]
-		if x >= lo[0]-margin && x <= hi[0]+margin && y >= lo[1]-margin && y <= hi[1]+margin && z >= lo[2]-margin && z <= hi[2]+margin {
+		if p.Kind == adt.WMO && inExtents(p.Extents[0], p.Extents[1], x, y, z) {
 			return true
 		}
 	}
@@ -260,16 +269,49 @@ func destTile(sx, sy float64) (tx, ty int, lx, lz float64) {
 	return tx, ty, ex - float64(tx)*adt.TileSize, ez - float64(ty)*adt.TileSize
 }
 
-// groundReader reads the client's tiles on demand, each once.
+// groundReader reads the client's tiles, and each map's WDT for a map of one building, on demand,
+// each once.
 type groundReader struct {
 	read  func(name string) ([]byte, error)
 	tiles map[string]*tileGround
+	// globals is each map folder's one building (nil when the map has tiles or no WDT).
+	globals map[string]*GlobalWMO
 }
 
-// at fills in a link's ground and building from its target map's tile (dir its folder).
+// global is the one building of the map in folder dir, or nil when the map isn't one building.
+func (g *groundReader) global(dir string) *GlobalWMO {
+	key := strings.ToLower(dir)
+	if w, ok := g.globals[key]; ok {
+		return w
+	}
+	var w *GlobalWMO
+	if raw, err := g.read(fmt.Sprintf(`World\Maps\%s\%s.wdt`, dir, dir)); err == nil {
+		if gw, ok := ParseGlobalWMO(raw); ok {
+			w = &gw
+		}
+	}
+	g.globals[key] = w
+	return w
+}
+
+// at fills in a link's ground and building from its target map's tile (dir its folder), or, on a
+// map of one building, whether the target lies outside that building's bounds.
 func (g *groundReader) at(l *PortalLink, dir string) {
+	if dir == "" {
+		return
+	}
+	px, py, pz := float32(adt.ZeroPoint)-l.Dest.Y, l.Dest.Z, float32(adt.ZeroPoint)-l.Dest.X
+	if w := g.global(dir); w != nil {
+		// Inside the bounds the floor can't be told without the building's groups, so only a
+		// target outside them is flagged. The WDT's bounds are the file frame less ZeroPoint
+		// (wmoonly.go); a WDT with no bounds (all zero) says nothing.
+		if w.Min != w.Max {
+			l.OutsideBuilding = !inExtents(globalToFile(w.Min), globalToFile(w.Max), px, py, pz)
+		}
+		return
+	}
 	tx, ty, lx, lz := destTile(float64(l.Dest.X), float64(l.Dest.Y))
-	if tx < 0 || ty < 0 || tx >= 64 || ty >= 64 || dir == "" {
+	if tx < 0 || ty < 0 || tx >= 64 || ty >= 64 {
 		return
 	}
 	name := adt.TilePath(dir, tx, ty, "")
@@ -286,7 +328,7 @@ func (g *groundReader) at(l *PortalLink, dir string) {
 	if t == nil {
 		return
 	}
-	l.InBuilding = t.inBuilding(float32(adt.ZeroPoint)-l.Dest.Y, l.Dest.Z, float32(adt.ZeroPoint)-l.Dest.X)
+	l.InBuilding = t.inBuilding(px, py, pz)
 	if h, ok := t.groundAt(lx, lz); ok {
 		l.Ground = &h
 	}
@@ -410,7 +452,7 @@ func checkLinks(db worldDB, dataDir string, q LinkQuery) LinkReport {
 	}
 
 	// Each target's map, and the ground under those on another map.
-	g := &groundReader{read: set.ReadFile, tiles: map[string]*tileGround{}}
+	g := &groundReader{read: set.ReadFile, tiles: map[string]*tileGround{}, globals: map[string]*GlobalWMO{}}
 	for i := range r.Portals {
 		l := &r.Portals[i]
 		m, ok := maps[l.Dest.Map]

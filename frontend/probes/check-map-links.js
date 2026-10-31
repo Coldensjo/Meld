@@ -31,7 +31,7 @@ let asked = null
 App.CheckWorldData = async (q) => {
 	asked = q
 	const r = await real(q)
-	const link = (over) => ({ kind: 'into', label: 'Probe portal', trigger: 0, entry: 0, guid: 0, at: [0, 0, 0], mapKnown: true, mapName: 'Kalimdor', ground: null, inBuilding: false, ...over })
+	const link = (over) => ({ kind: 'into', label: 'Probe portal', trigger: 0, entry: 0, guid: 0, at: [0, 0, 0], mapKnown: true, mapName: 'Kalimdor', ground: null, inBuilding: false, outsideBuilding: false, ...over })
 	r.links.portals.push(
 		link({ dest: { map: 1, x: air.x, y: air.y, z: 50, o: 0, level: 0, message: '' } }),
 		link({ label: 'Probe lost portal', mapKnown: false, mapName: '', dest: { map: 4242, x: 0, y: 0, z: 0, o: 0, level: 0, message: '' } }),

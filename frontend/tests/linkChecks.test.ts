@@ -98,6 +98,7 @@ const portal = (dest: { map?: number; x: number; z: number; y: number }, over: P
 		mapName: 'Eastern Kingdoms',
 		ground: null,
 		inBuilding: false,
+		outsideBuilding: false,
 		...over,
 	}
 }
@@ -139,6 +140,9 @@ test('portals to another map: an unknown map, the client ground there, and a bui
 	assert.deepEqual(run(portal(other, { ground: 99 })), [])
 	assert.deepEqual(run(portal(other, { ground: 20, inBuilding: true })), [], 'a building’s floor is not read')
 	assert.deepEqual(run(portal(other)), [], 'no tile there')
+	const dungeon = run(portal(other, { mapName: 'The Deadmines', outsideBuilding: true }))
+	assert.equal(dungeon[0].severity, 'warning')
+	assert.match(dungeon[0].message, /lands outside the building on The Deadmines \(.*\), in the void\.$/)
 	// An area trigger on the open map goes to the trigger.
 	const s = toServer(300, 400, FRAME.tileX, FRAME.tileY)
 	const trig = run(portal(other, { kind: 'trigger', trigger: 7, label: 'Area trigger 7', at: [s.x, s.y, 0], ground: 0 }))

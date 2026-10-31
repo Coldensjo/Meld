@@ -53,7 +53,7 @@ func TestCheckLinksLive(t *testing.T) {
 		t.Errorf("only %d of %d stops have a route from them", routed, len(r.Nodes))
 	}
 	kinds := map[string]int{}
-	grounded := 0
+	grounded, instance := 0, 0
 	for _, l := range r.Portals {
 		kinds[l.Kind]++
 		if !l.MapKnown {
@@ -62,6 +62,17 @@ func TestCheckLinksLive(t *testing.T) {
 		if l.Ground != nil {
 			grounded++
 		}
+		// The stock Stockade entrance lands inside its building (#979); the Deadmines has tiles, so it is
+		// measured against them instead.
+		if l.Dest.Map == 34 || l.Dest.Map == 36 {
+			instance++
+			if l.OutsideBuilding {
+				t.Errorf("a stock teleport into %s lands outside its building: %+v", l.MapName, l)
+			}
+		}
+	}
+	if instance == 0 {
+		t.Error("expected the Deadmines and Stockade entrances among Elwynn's triggers")
 	}
 	t.Logf("by kind %v, %d with the ground read", kinds, grounded)
 	if kinds["trigger"] == 0 || kinds["into"] == 0 {

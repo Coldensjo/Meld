@@ -1564,10 +1564,13 @@ export interface PortalLink {
     /**
      * Ground is the client's ground under the target on another map (nil when it can't be read:
      * no tile there, a map of one building, a hole), and InBuilding whether the target lies inside a
-     * building the tile places, where its floor is unread.
+     * building the tile places, where its floor is unread. OutsideBuilding says the target map is one
+     * building (a dungeon or raid, whose WDT places a single WMO and has no tiles) and the target lies
+     * more than a few yards outside its bounds, in the void.
      */
     "ground": number | null;
     "inBuilding": boolean;
+    "outsideBuilding": boolean;
 }
 
 /**
