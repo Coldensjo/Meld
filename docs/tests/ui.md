@@ -1041,3 +1041,23 @@ host's map as a new unsaved tab; leaving or ending clears the chip and the badge
   its place (as Open does), so `session-join` puts a helper on its own tab to see a new one open.
 
 - `bun run probe session-guest-export` (#1005): sets `shared.role = 'guest'` and `shared.docId` by hand (no transport), then checks the File and Game menu items that write into the client or server are disabled with the reason as their tooltip in the session's tab only, `compileRegion`, `playHere` and `publishVmangosMap` refuse with the status line, and a host keeps them.
+
+## Terrain heights in a session (#1001, probes `session-heights` and `session-heights-guest`)
+
+Checks: a height edit on the session's map goes to the others as `heights` messages during the stroke
+(not only at its end), the others' are applied in the host's order, and one's own unacknowledged edits
+stay over a remote one.
+- `bun test tests/sessionHeights.test.ts`: two `HeightSync` members through a scripted host that delivers
+  when the test says; both must end with the host order's heights (the replay rule, an unsent edit when
+  a remote one arrives, no echo, the rect shrinking to the changed vertices, a guest holding messages
+  before its map).
+- `bun run probe session-heights`: the page hosts, the bot sends a `heights` edit the page must show,
+  then a Raise stroke and its undo in the page; the bot's messages applied in `seq` order over the start
+  must equal the page's heights. It wraps `window.go.main.App.SessionSend` to count the sends during the
+  stroke.
+- `bun run probe session-heights-guest`: the page joins a `hostBot` that sends an edit before the map
+  (held, then applied) and one after; a write in the page reaches the bot from member 2.
+- By hand: two built Melds (see Host and Join above), sculpt in both over the same spot at once, save
+  both and compare `meldtool wmap info` (or the heights) of the saves.
+- Trap: `P` has no `wait`; a probe sleeps with `setTimeout`. A flush needs up to `HEIGHTS_FLUSH_MS`
+  after an edit before the message leaves.

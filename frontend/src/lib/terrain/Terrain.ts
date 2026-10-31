@@ -351,10 +351,35 @@ export class Terrain {
 		return any
 	}
 
+	/**
+	 * The vertex rect (inclusive) marked changed (`markDirty`) since a shared session last took it
+	 * (`takeSessionChange`, lib/session/heights.ts, #1001): kept apart from `groundChange`, which the
+	 * walkable-ground view takes on its own schedule. Empty when x0 > x1.
+	 */
+	private sessionChange = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+
+	/** Copies into `out` the vertex rect marked changed since the last call and starts a new one; false when nothing was. */
+	takeSessionChange(out: { x0: number; z0: number; x1: number; z1: number }): boolean {
+		const g = this.sessionChange
+		const any = g.x0 <= g.x1 && g.z0 <= g.z1
+		out.x0 = g.x0
+		out.z0 = g.z0
+		out.x1 = g.x1
+		out.z1 = g.z1
+		g.x0 = g.z0 = Infinity
+		g.x1 = g.z1 = -Infinity
+		return any
+	}
+
 	/** Mark a vertex-space rect (inclusive) as changed. */
 	markDirty(x0: number, z0: number, x1: number, z1: number) {
 		this.heightEditVersion++
 		this.growGroundChange(x0, z0, x1, z1)
+		const s = this.sessionChange
+		s.x0 = Math.min(s.x0, x0)
+		s.z0 = Math.min(s.z0, z0)
+		s.x1 = Math.max(s.x1, x1)
+		s.z1 = Math.max(s.z1, z1)
 		const d = this.dirty
 		d.x0 = Math.min(d.x0, x0 - 1)
 		d.z0 = Math.min(d.z0, z0 - 1)

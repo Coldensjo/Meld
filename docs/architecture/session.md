@@ -11,7 +11,7 @@ server. #728 is the umbrella; its parts are separate issues:
 | The transport: host, join, the host's order | #998 | Done (`internal/session`, `app_session.go`) |
 | A scripted guest for the probes (`meldtool session join`) | #999 | Done (`cmd/meldtool/session.go`, `probes/session-bot.mjs`) |
 | File > Host and Join Session, the members, the map a guest starts from | #1000 | Done (`lib/session/`) |
-| Terrain heights sync | #1001 | Open |
+| Terrain heights sync | #1001 | Done (`lib/session/heights.ts`) |
 | Texture paint sync, with the palette | #1002 | Open |
 | Placed objects sync | #1003 | Open |
 | Presence: the others' cameras and brushes | #1004 | Open |
@@ -57,7 +57,7 @@ server. #728 is the umbrella; its parts are separate issues:
   and `docId`, the session map's tab), subscribes to the two events while in a session, and sends every
   page message through one serial queue (`sessionSend`, `serialQueue` in `peers.ts`). `shared` is
   reactive since it changes only when someone joins or leaves; the last `seq` seen (`lastSeq`) is a
-  plain variable, as the edits of #1001 will move it with every message.
+  plain variable, as the edits (#1001) move it with every message.
 - **File › Host Session…** (`HostSessionDialog.svelte`) takes the name and the port (prefs `shareName`,
   `sharePort`) and then shows the code, the addresses and the members; the tab active then becomes the
   session's map (`docId`). A world view can't be hosted. While hosting, the File item is Session Code
@@ -72,6 +72,28 @@ server. #728 is the umbrella; its parts are separate issues:
   (the binding, then the WebSocket) as JSON; a Go-side path (`internal/mapfile` and `internal/handoff`)
   is the fallback if a large map turns out too slow.
 - **The host exports.** While this Meld is a guest and the active tab is the session's map (`isGuestMap`), Compile to Client, Server and All, Save Spawns, Export Spawn SQL, Launch and Play Here are off in the menus with the reason (`GUEST_EXPORT_REASON`) as the tooltip, and the actions (`compileRegion`, `saveSpawns`, `exportSpawnSql`, `publishVmangosMap`, `saveOrPublish`, `launchGame`, `playHere`) refuse through `refuseGuestExport`. A guest's other tabs keep them. A new write into the client or server needs the same two guards.
+- **Heights (#1001, `heights.ts`, `HeightSync`).** Every height change to the session's map (a stroke,
+  Flatten, a script, an import, an undo) goes out as state, kind `heights` (`KIND_HEIGHTS`), data
+  `{id, rect: {x0, z0, x1, z1}, h}`: an inclusive vertex rect and its heights now, base64 float32s row by
+  row, and `id` the sender's own count. `Terrain.markDirty`, which every height write already calls,
+  also grows a rect of its own for the session (`takeSessionChange`, apart from the walkable-ground
+  view's `takeGroundChange`); a timer every `HEIGHTS_FLUSH_MS` (100 ms, about 10 Hz) takes it, compares it
+  against `mirror` (the heights as this member last sent or received them) and sends the bounding rect
+  of the vertices that differ, so a stroke shows live and a mark that changed nothing (holes, a reload's
+  `markAllDirty`) sends nothing. A timer and not `Engine.frame`, so the session code stays out of the
+  engine; edits only happen while the window draws anyway.
+  - **The order.** Every member applies the others' `heights` in `seq` order; its own come back as the
+    acknowledgement (matched by `id`) and are not applied again. A remote one that arrives while some of
+    mine are unacknowledged comes before them in the host's order, so `applyData` first flushes my
+    unsent edits, writes the remote heights, then writes my unacknowledged values back over them where
+    they overlap: every member shows what the host's order ends with (`tests/sessionHeights.test.ts`
+    runs two members through a scripted host).
+  - **Echo.** Applying calls `markDirty` (for the GPU, the ground effects, the walkable view) and then
+    takes the session rect at once, so the apply is not sent back; the mirror would catch it anyway.
+    The objects on the ground follow (`markRegionDirty`) and the map is marked unsaved.
+  - **The map.** Only the session's map syncs (`shared.docId`): the host binds it on Host, a guest on
+    opening the handoff. A guest holds the `heights` that arrive before its map (`HeightSync.wait`) and
+    applies those after the handoff's `seq` once it opens. Closing the session's map stops the sync.
 - The members show in the status bar (`StatusBar.svelte`, `peersLabel`/`peersTitle`), the session's tab
   carries a `session` badge (`DocTabs.svelte`), and a join, a leave and the end are status lines.
 
@@ -82,8 +104,12 @@ server. #728 is the umbrella; its parts are separate issues:
   through one serial queue.
 - **History's commands are closures**, so edits sync as state (the changed heights, paint chunks or
   objects), not as commands; each member's History holds only their own steps, which is what makes
-  undo touch only one's own edits. An undo then writes old values back even where another member
-  changed the map since (#1001 notes this).
+  undo touch only one's own edits. An undo writes its before-values back even where another member
+  changed the ground since, and that syncs like any edit: accepted for now (#1001); a step that crosses
+  others' later edits could warn.
+- **The heights sync lives as long as the session map's tab.** A Grow Region or a reopen replaces the document
+  (a new id), so the sync stops there; a larger heights message (a whole-map import) is a few MB of
+  JSON through the bridge twice.
 - **The firewall.** On Windows, the first `HostSession` makes the firewall ask whether Meld may listen.
   The Go tests bind loopback (`sessionBind` in `app_session.go`) so the test binary doesn't ask.
 - **The same client.** A map refers to the client's assets by path, so every member needs the same

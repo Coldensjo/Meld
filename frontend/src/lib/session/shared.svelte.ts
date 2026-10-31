@@ -9,9 +9,10 @@ import { HostSession, JoinSession, LeaveSession, SessionSend } from '../wails/Ap
 import type { main, mapfile } from '../wails/models'
 import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
-import { setStatus } from '../state/editor.svelte'
+import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
 import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, changeLine, peerChanges, serialQueue, type Message, type Peer } from './peers'
+import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -41,6 +42,40 @@ let lastSeq = 0
 let off: Array<() => void> = []
 const queue = serialQueue()
 
+/** The session map's document, or undefined while it is not open. */
+function sessionDoc() {
+	return shared.docId ? engineRef.current?.documents.find((d) => d.id === shared.docId) : undefined
+}
+
+/** The session map's heights (#1001): sent every HEIGHTS_FLUSH_MS while they change, the others' applied in the host's order. */
+const heights = new HeightSync({
+	send: (data) => sessionSend(0, KIND_HEIGHTS, data),
+	applied: (r: VertexRect) => {
+		const d = sessionDoc()
+		if (!d) return
+		// The objects standing on the ground follow it, as after a stroke of one's own.
+		const cs = d.terrain.cellSize
+		d.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+		// Another member's edit is an unsaved change of the map here too (set once, not per message).
+		if (engineRef.current?.activeDocumentId() === d.id) {
+			if (!editor.dirty) editor.dirty = true
+		} else d.meta.dirty = true
+	},
+	failed: (err) => setStatus(`A height edit did not reach the session: ${err}`, 8000),
+})
+let flushTimer: ReturnType<typeof setInterval> | null = null
+
+/** Sends the session map's changed heights; stops syncing once that map is closed. */
+function flushHeights() {
+	const g = heights.bound
+	if (!g) return
+	if (sessionDoc()?.terrain !== g) {
+		heights.unbind()
+		return
+	}
+	heights.flush()
+}
+
 /** Sends a message into the session (to 0 is everyone), after every send before it. */
 export function sessionSend(to: number, kind: string, data: unknown) {
 	return queue(() => SessionSend(to, kind, data === undefined ? '' : JSON.stringify(data)))
@@ -49,12 +84,17 @@ export function sessionSend(to: number, kind: string, data: unknown) {
 function subscribe() {
 	unsubscribe()
 	lastSeq = 0
+	heights.wait()
+	flushTimer = setInterval(flushHeights, HEIGHTS_FLUSH_MS)
 	off = [EventsOn<Message>('session:message', onMessage), EventsOn<string>('session:ended', onEnded)]
 }
 
 function unsubscribe() {
 	for (const f of off) f()
 	off = []
+	if (flushTimer) clearInterval(flushTimer)
+	flushTimer = null
+	heights.unbind()
 }
 
 function apply(info: main.SessionInfo) {
@@ -91,6 +131,8 @@ export async function hostSession(port: number, name: string) {
 		throw err
 	}
 	shared.docId = e.activeDocumentId()
+	const d = sessionDoc()
+	if (d) heights.bind(d.terrain, 0)
 }
 
 /** Joins the session hosted at `addr`; the host's map opens as a new tab once it arrives. */
@@ -148,6 +190,9 @@ function onMessage(m: Message) {
 		case KIND_MAP:
 			if (m.to === shared.you && shared.role !== 'host') openHandoff(data as MapHandoff)
 			return
+		case KIND_HEIGHTS:
+			heights.receive(m.seq, m.from, data, shared.you)
+			return
 	}
 }
 
@@ -178,6 +223,9 @@ function openHandoff(h: MapHandoff) {
 		return
 	}
 	shared.docId = e.activeDocumentId()
+	// The edits held since joining that the map doesn't hold yet go in now.
+	const d = sessionDoc()
+	if (d) heights.bind(d.terrain, h.seq)
 	const host = shared.peers.find((p) => p.id === HOST_ID)
 	setStatus(`Opened ${host?.name || 'the host'}'s map ${h.map.name}`, 6000)
 }
