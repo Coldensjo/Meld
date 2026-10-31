@@ -59,6 +59,7 @@
 		</button>
 	{/if}
 	<span class="cell">{stats.objects} objects</span>
+	<span class="cell" title="Monster and NPC spawns the open region holds, not game objects">{stats.creatures} {stats.creatures === 1 ? 'creature' : 'creatures'}</span>
 	<span class="cell">{stats.drawCalls} draws · {fmt(stats.triangles)} tris</span>
 	<span class="cell fps" class:low={stats.fps < 30}>{stats.fps} FPS</span>
 </footer>

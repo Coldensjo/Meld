@@ -133,6 +133,21 @@ export class SpawnLayer {
 	get moveSeq(): number {
 		return this.moveBase + this.moveLog.length
 	}
+	/** The creatures (monster and NPC spawns) the layer holds, counted again only when `changeStamp` moved (#967). */
+	get creatureCount(): number {
+		const stamp = this.changeStamp
+		if (stamp !== this.creatureStamp || this.spawns !== this.creatureOf) {
+			let n = 0
+			for (const s of this.spawns) if (s.kind !== 'object') n++
+			this.creatures = n
+			this.creatureStamp = stamp
+			this.creatureOf = this.spawns
+		}
+		return this.creatures
+	}
+	private creatures = 0
+	private creatureStamp = -1
+	private creatureOf: vmangos.WorldSpawn[] | null = null
 	/** Whether the membership, the models or anything in place changed: `version` plus the moves. */
 	get changeStamp(): number {
 		return this.version + this.moveSeq

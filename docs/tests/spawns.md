@@ -716,6 +716,12 @@ ones in view, stays 0); count the packed instances (`mesh.userData.ids.length`, 
 passes draw) instead, or load the client's region with `P.scene`. From afar a tinted model is a few
 pixels: the colours read best on the markers, or close up.
 
+## Status bar creature count (#967, probe `status-creatures`)
+
+The status bar's "N creatures" cell counts the open region's monster and NPC spawns (not game objects),
+from `SpawnLayer.creatureCount` (recounted only when `changeStamp` moves), set at 2 Hz in `Engine.frame`.
+Probe `status-creatures` loads Azeroth 31_48 into a flat map and reads the cell: 0 before, 839 after.
+
 ## Ground overlay by creature level and density (#950, probe `ground-overlay`)
 
 Unit: `tests/spawnGround.test.ts` (the cells within 40 yd of a creature, the monsters' average and the

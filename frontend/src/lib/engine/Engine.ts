@@ -1617,6 +1617,7 @@ export class Engine {
 			stats.drawCalls = calls
 			stats.triangles = triangles
 			stats.objects = this.objects.objects.size
+			stats.creatures = this.doc.spawnLayer.creatureCount
 			// A world view's pick aims at its hidden stand-in, so its streamed ground under the cursor is found here.
 			const world = this.doc.world
 			const at = world ? this.worldCursor() : this.hit

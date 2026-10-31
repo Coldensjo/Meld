@@ -407,6 +407,8 @@ export const stats = $state({
 	drawCalls: 0,
 	triangles: 0,
 	objects: 0,
+	/** The monster and NPC spawns the open region holds (not game objects), set with `objects` at 2 Hz (#967). */
+	creatures: 0,
 	cursor: null as { x: number; y: number; z: number } | null,
 	/** The ground under the cursor, while View › Detail info is on (refreshed at 2 Hz like the rest). */
 	detail: null as DetailInfo | null,
