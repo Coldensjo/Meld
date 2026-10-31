@@ -21,7 +21,9 @@ export type SpawnFields = Partial<
 		| 'movementType'
 		| 'wanderDistance'
 		| 'display'
+		| 'ownDisplay'
 		| 'equipment'
+		| 'ownEquipment'
 		| 'equipItems'
 		| 'standState'
 		| 'emoteState'
@@ -60,7 +62,9 @@ export const SHEATH_STATES = ['Weapons away', 'Melee weapons out', 'Ranged weapo
 
 /**
  * The fields of `vals` plus what follows from them: when a creature's display, equipment or pose
- * changes, its model, look, animation and scale as the Go side dresses it.
+ * changes, its model, look, animation and scale as the Go side dresses it. A display or equipment
+ * chosen becomes the creature's own (`ownDisplay`, `ownEquipment`), so a copy pasted before the save
+ * keeps it (#985); display 0 is its template's again.
  */
 export async function withLook(s: vmangos.WorldSpawn, vals: SpawnFields): Promise<SpawnFields> {
 	if (s.kind === 'object' || !LOOK_FIELDS.some((f) => vals[f] !== undefined && vals[f] !== s[f])) return vals
@@ -68,7 +72,10 @@ export async function withLook(s: vmangos.WorldSpawn, vals: SpawnFields): Promis
 	const l = await SpawnLook(n.display, n.equipment, n.standState, n.emoteState, n.sheathState)
 	// The spawn's size is the template's scale times the display's; keep the template's part.
 	const templateScale = s.displayScale > 0 ? s.scale / s.displayScale : s.scale
-	return { ...vals, model: l.model, look: l.look, anim: l.anim, displayScale: l.displayScale, scale: templateScale * (l.displayScale || 1) }
+	const own: SpawnFields = {}
+	if (vals.display !== undefined && vals.display !== s.display) own.ownDisplay = vals.display !== 0
+	if (vals.equipment !== undefined && vals.equipment !== s.equipment) own.ownEquipment = true
+	return { ...vals, ...own, model: l.model, look: l.look, anim: l.anim, displayScale: l.displayScale, scale: templateScale * (l.displayScale || 1) }
 }
 
 /** Writes field values into the spawn with `key`, redraws it and updates the Inspector. */

@@ -12,7 +12,7 @@ import { mirrorClip, rotateClip } from '../src/lib/world/clipRotate.ts'
 import { slotPosition } from '../src/lib/world/formations.ts'
 
 const { SpawnLayer } = await import('../src/lib/world/SpawnLayer.ts')
-const { spawnsAdd } = await import('../src/lib/world/spawnEdits.ts')
+const { spawnChange, spawnsAdd, withLook } = await import('../src/lib/world/spawnEdits.ts')
 
 const spawn = (o: Partial<vmangos.WorldSpawn>): vmangos.WorldSpawn =>
 	({
@@ -266,4 +266,32 @@ test("a pasted creature saves the display and equipment it had of its own, and l
 	layer.rebase(s, { name: 'Defias Bandit', display: 99, equipment: 7 })
 	const e = layer.edits().find((x) => x.spawn.guid === 9000)!
 	assert.deepEqual([e.original!.name, e.original!.display, e.original!.equipment, e.spawn.display], ['Defias Bandit', 0, -1, 99])
+})
+
+test("a display or equipment chosen in the Inspector is the creature's own, so a copy pasted before the save keeps it (#985)", async () => {
+	const g = globalThis as Record<string, unknown>
+	const was = g.go
+	g.go = { main: { App: { SpawnLook: async () => ({ model: 'm.mdx', look: '', anim: 0, displayScale: 1 }) } } }
+	try {
+		const layer = new SpawnLayer()
+		const s = spawn({ guid: 10, display: 880, equipment: 3, ownDisplay: false, ownEquipment: false })
+		layer.set([s])
+		const key = 'monster/10'
+		const cmd = spawnChange(layer, key, await withLook(s, { display: 99 }), 'Display')!
+		const gear = spawnChange(layer, key, await withLook(layer.get(key)!, { equipment: 7, equipItems: [5, 0, 0] }), 'Main hand')!
+		const o = pastedOriginal(layer.get(key)!)
+		assert.deepEqual([o.display, o.equipment], [0, -1])
+		// Undo gives the template's back; display 0 is the template's again.
+		gear.undo()
+		cmd.undo()
+		assert.deepEqual([layer.get(key)!.ownDisplay, layer.get(key)!.ownEquipment], [false, false])
+		cmd.redo()
+		spawnChange(layer, key, await withLook(layer.get(key)!, { display: 0 }), 'Display')
+		assert.equal(layer.get(key)!.ownDisplay, false)
+		// A pose alone leaves them as they were.
+		const pose = await withLook(s, { standState: 1 })
+		assert.deepEqual([pose.ownDisplay, pose.ownEquipment], [undefined, undefined])
+	} finally {
+		g.go = was
+	}
 })

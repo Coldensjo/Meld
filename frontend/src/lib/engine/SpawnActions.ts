@@ -408,9 +408,10 @@ export class SpawnActions {
 			for (const s of layer.spawns.slice()) {
 				if (s.kind === 'object' || s.entry !== entry) continue
 				const vals: Partial<vmangos.WorldSpawn> = { ...info }
-				const ownDisplay = s.display !== old.display
+				// A display or equipment of the spawn's own (creature_addon's, or chosen in the Inspector, #985) stays.
+				const ownDisplay = s.ownDisplay
 				const display = ownDisplay ? s.display : t.display
-				const equipment = s.equipment === old.equipment ? t.equipment : s.equipment
+				const equipment = s.ownEquipment ? s.equipment : t.equipment
 				if (display !== s.display || equipment !== s.equipment || (!ownDisplay && t.scale !== old.scale)) {
 					const key = [display, equipment, s.standState, s.emoteState, s.sheathState].join('|')
 					let p = looks.get(key)

@@ -365,7 +365,7 @@ at once, with their bounds tree), stacked, past the edge and buried under the gr
 
 `frontend/tests/clipSpawns.test.ts` checks the rules without a client: which formations and pools come
 along, the new guids, leaders and pool entries, heights on the new ground, a turned and a mirrored paste
-(a follower still in its leader's slot), and the one undo step with each new spawn saved against
+(a follower still in its leader's slot), a display or equipment chosen in the Inspector before the copy saved as the spawn's own (#985, with a stand-in `SpawnLook`), and the one undo step with each new spawn saved against
 `pastedOriginal`. The probe `spawn-paste` builds a camp on a flat map (a formation with a path, a pool
 of two veins), copies it, pastes it turned and into a second tab, and reads `App.SpawnEditSQL`: two
 `creature` inserts, the path's `creature_movement` rows, two `creature_groups` rows and the new pool,
