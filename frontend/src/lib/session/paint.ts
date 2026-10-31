@@ -33,10 +33,11 @@ export interface PaintChunk {
 	w: string
 }
 
-/** A `paint` message's data: the sender's own count `id` and the chunks it changed. */
+/** A `paint` message's data: the sender's own count `id`, the chunks it changed, and the palette textures it added that no chunk of the session carried (`add`, #1015). */
 export interface PaintData {
 	id: number
 	chunks: PaintChunk[]
+	add?: string[]
 }
 
 /** What the sync needs of a `Terrain`. */
@@ -89,6 +90,8 @@ export class PaintSync {
 	private known: readonly string[] = []
 	/** The session's order of the palette: the map's palette at the bind, then each texture as the host's order first carried it. */
 	private canon: string[] = []
+	/** The textures this member has put in its messages' `add` and not yet seen in the order (#1015). */
+	private announced = new Set<string>()
 	private pending: Pending[] = []
 	private held: Held[] = []
 	private holding = false
@@ -131,6 +134,7 @@ export class PaintSync {
 		this.mirrorS = ground.chunkSlots.slice()
 		this.known = this.hooks.palette()
 		this.canon = this.known.slice(0, ordered === undefined ? undefined : Math.max(0, ordered))
+		this.announced.clear()
 		this.pending = []
 		this.held = []
 		this.holding = false
@@ -146,6 +150,7 @@ export class PaintSync {
 		this.mirrorS = null
 		this.known = []
 		this.canon = []
+		this.announced.clear()
 		this.pending = []
 		this.held = []
 		this.holding = false
@@ -186,18 +191,22 @@ export class PaintSync {
 		this.checkPalette()
 		const r = this.scratch
 		const marked = g.takeSessionPaint(r)
-		if (marked === false) return
+		// A texture added to the palette and never painted with is in no chunk: it goes out by itself (#1015).
+		const palette = this.hooks.palette()
+		const add: string[] = []
+		for (const path of palette) if (path && paletteIndex(this.canon, path) < 0 && !this.announced.has(path) && !add.includes(path)) add.push(path)
+		if (marked === false && !add.length) return
 		const side = g.paintChunksPerSide
 		const res = g.splatRes
 		const per = res / side
+		const none = marked === false
 		const cx0 = marked ? Math.max(0, Math.floor(r.x0 / per)) : 0
 		const cz0 = marked ? Math.max(0, Math.floor(r.z0 / per)) : 0
 		const cx1 = marked ? Math.min(side - 1, Math.floor(r.x1 / per)) : side - 1
 		const cz1 = marked ? Math.min(side - 1, Math.floor(r.z1 / per)) : side - 1
-		const palette = this.hooks.palette()
 		const chunks: PaintChunk[] = []
 		const mine: PendingChunk[] = []
-		for (let cz = cz0; cz <= cz1; cz++) {
+		for (let cz = cz0; !none && cz <= cz1; cz++) {
 			for (let cx = cx0; cx <= cx1; cx++) {
 				const c = cz * side + cx
 				if (!chunkDiffers(g, mw, ms, c)) continue
@@ -209,10 +218,15 @@ export class PaintSync {
 				chunks.push({ c, slots: Array.from(slots, (s) => (s === NO_TEXTURE ? '' : (palette[s] ?? ''))), w: bytesToBase64(w) })
 			}
 		}
-		if (!chunks.length) return
+		if (!chunks.length && !add.length) return
 		const id = this.nextId++
 		this.pending.push({ id, chunks: mine })
-		this.hooks.send({ id, chunks }).catch((err) => {
+		const data: PaintData = { id, chunks }
+		if (add.length) {
+			data.add = add
+			for (const path of add) this.announced.add(path)
+		}
+		this.hooks.send(data).catch((err) => {
 			this.pending = this.pending.filter((p) => p.id !== id)
 			this.hooks.failed?.(err)
 		})
@@ -226,7 +240,7 @@ export class PaintSync {
 			if (i >= 0) {
 				// Its place in the host's order is now known (an echo of a message sent before the bind is not this map's).
 				this.pending.splice(i, 1)
-				this.learn((data as PaintData).chunks)
+				this.learn((data as PaintData).chunks, (data as PaintData).add)
 			}
 			return
 		}
@@ -239,12 +253,14 @@ export class PaintSync {
 	}
 
 	/** Adds the textures of a message's chunks that the session's order lacks to its end, as the host's order carried them. */
-	private learn(chunks: readonly PaintChunk[] | undefined) {
-		if (!Array.isArray(chunks)) return
-		for (const ch of chunks) {
-			if (!ch || !Array.isArray(ch.slots)) continue
-			for (const path of ch.slots) if (typeof path === 'string' && path && paletteIndex(this.canon, path) < 0) this.canon.push(path)
+	private learn(chunks: readonly PaintChunk[] | undefined, add?: readonly string[]) {
+		if (Array.isArray(chunks)) {
+			for (const ch of chunks) {
+				if (!ch || !Array.isArray(ch.slots)) continue
+				for (const path of ch.slots) if (typeof path === 'string' && path && paletteIndex(this.canon, path) < 0) this.canon.push(path)
+			}
 		}
+		if (Array.isArray(add)) for (const path of add) if (typeof path === 'string' && path && paletteIndex(this.canon, path) < 0) this.canon.push(path)
 	}
 
 	/** Writes another member's chunks in, then mine still unacknowledged over them. False for a message that doesn't fit the map. */
@@ -252,6 +268,7 @@ export class PaintSync {
 		const g = this.ground
 		const d = data as PaintData | null
 		if (!g || !d || !Array.isArray(d.chunks)) return false
+		const add = Array.isArray(d.add) ? d.add.filter((x): x is string => typeof x === 'string' && x !== '') : []
 		const side = g.paintChunksPerSide
 		const res = g.splatRes
 		const per = res / side
@@ -271,12 +288,18 @@ export class PaintSync {
 			if (w.length !== size) return false
 			chunks.push({ c: ch.c, paths: ch.slots, w })
 		}
-		if (!chunks.length) return false
-		this.learn(d.chunks)
+		if (!chunks.length && !add.length) return false
+		this.learn(d.chunks, add)
 		// My edits not sent yet are pending from here on, so they are written back over this one too.
 		this.flush()
 		const before = this.hooks.palette()
 		const palette = [...before]
+		let dropped = 0
+		for (const path of add) {
+			if (paletteIndex(palette, path) >= 0) continue
+			if (palette.length >= MAX_PALETTE) dropped++
+			else palette.push(path)
+		}
 		const slots = new Uint8Array(SLOTS)
 		const rect: DirtyRect = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
 		let full = 0
@@ -324,8 +347,13 @@ export class PaintSync {
 			this.hooks.setPalette(palette)
 			this.known = palette
 		}
+		if (dropped) this.hooks.failed?.(new Error(`this map's texture palette is full (${MAX_PALETTE} textures): ${dropped} textures another member added were left out`))
 		if (full) this.hooks.failed?.(new Error(`this map's texture palette is full (${MAX_PALETTE} textures): ${full} of another member's paint chunks were left out`))
-		if (rect.x0 > rect.x1) return false
+		if (rect.x0 > rect.x1) {
+			if (palette.length === before.length) return false
+			this.hooks.applied?.()
+			return true
+		}
 		g.markSplatDirty(rect)
 		// Not an edit of mine: the flush above took every earlier mark, so this one is the apply's alone.
 		g.takeSessionPaint(this.scratch)

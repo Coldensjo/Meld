@@ -128,9 +128,10 @@ server. #728 is the umbrella; its parts are separate issues:
     the order's textures, then this member's others, with the chunk slots, the roles and the path
     applies' slots renumbered in the written copy only, so History's indices stay right. The host sends
     a joining guest its map the same way, with `ordered` (the order's length) in the handoff, which the
-    guest's bind takes as the start of its order. So the saves hold the same palette and slots, except
-    for a texture a member added and never painted with: that goes nowhere and is written after the
-    order in that member's save alone.
+    guest's bind takes as the start of its order. A texture a member added and never painted with is in
+    no chunk, so `flush` sends it alone: a `paint` message with no chunks and `add` (the paths the
+    order lacks, sent once), which the receivers append to their palettes and take into the order like
+    a chunk's paths (#1015). So the saves hold the same palette and slots.
   - **The palette only grows** while in the session: an undo of Add Texture sets the palette back to
     its earlier, shorter list, which would drop a texture another member painted with since; the sync
     puts the list back when a chunk still uses an index past its end (`checkPalette`). A shrink nothing
