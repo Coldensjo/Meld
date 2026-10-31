@@ -178,15 +178,40 @@ func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) 
 
 // RegionPending builds an edited block as SaveRegion would and says what differs from the client's
 // patch (RegionResult.Files, Changed), without writing anything or closing the game: Launch asks it
-// whether the open region has edits the client lacks (#214), and Compile to Server whether the patch
-// it builds from is current.
+// whether the open region has edits the client lacks (#214), Compile to Server whether the patch
+// it builds from is current, and the Changes window which files a compile writes and why
+// (RegionResult.List, #959).
 func (a *App) RegionPending(edit vmangos.RegionEdit) (vmangos.RegionResult, error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return vmangos.RegionResult{}, err
 	}
-	_, res, err := vmangos.RegionChanges(dataDir, edit)
-	return res, err
+	files, res, err := vmangos.RegionChanges(dataDir, edit)
+	if err != nil {
+		return res, err
+	}
+	res.List = vmangos.DescribeFiles(dataDir, files, vmangos.RegionFileReason(edit))
+	return res, nil
+}
+
+// PublishPending is what Publish would write for map m, without writing anything (#959): the client
+// files that differ from the patch's copies, and the world database's rows.
+func (a *App) PublishPending(m vmangos.MapSpec) (vmangos.PublishPreview, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.PublishPreview{}, err
+	}
+	return vmangos.PreviewPublish(dataDir, dataDir, m)
+}
+
+// WaitingClientFiles lists the client files already written that wait for the game to close (#661),
+// for the Changes window (#959).
+func (a *App) WaitingClientFiles() ([]vmangos.FileChange, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.WaitingFiles(dataDir)
 }
 
 // RegionMapID is the map ID the client's Map.dbc gives a region's folder, or -1 for a folder it lacks:

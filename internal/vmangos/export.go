@@ -141,47 +141,88 @@ type ExportResult struct {
 // map extractor (update-maps.bat) reads the map from.
 func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, error) {
 	var res ExportResult
+	files, dbc, _, err := buildMap(readDir, m)
+	if err != nil {
+		return res, err
+	}
+	res.Tiles = len(m.Tiles)
+	if files, err = ChangedFiles(patchDir, files); err != nil {
+		return res, err
+	}
+	res.Changed = countTiles(files)
+	res.ChangedTiles, res.Layout = changedTiles(m, files)
+	// The client files waiting for the game to close go along (#657): Publish closes the game around
+	// this write, so the watcher would otherwise write them at the same time. Patch stays "" when the
+	// map itself is unchanged, so Publish still leaves an up-to-date server alone.
+	patch, err := InstallWithPending(patchDir, files)
+	if err != nil {
+		return res, err
+	}
+	if len(files) > 0 {
+		res.Patch = patch
+	}
+	if serverDir != "" {
+		res.Server, err = installServerMapTable(serverDir, dbc)
+		if err != nil {
+			return res, err
+		}
+	}
+	return res, nil
+}
+
+// buildMap builds a map's files as ExportMap writes them (its tiles, WDT, WDL and Map.dbc), reading
+// the template files from the client's Data folder readDir, and returns its Map.dbc; newRow says the
+// client's table had no row for the map, so the build adds one.
+func buildMap(readDir string, m MapSpec) (files []mpq.File, dbc []byte, newRow bool, err error) {
 	if m.Dir == "" || strings.ContainsAny(m.Dir, `\/`) {
-		return res, fmt.Errorf("map folder %q must be a single name", m.Dir)
+		return nil, nil, false, fmt.Errorf("map folder %q must be a single name", m.Dir)
 	}
 	if m.MapID == 0 || m.MapID > MaxGameMap {
-		return res, fmt.Errorf("map id %d is not one the editor can use", m.MapID)
+		return nil, nil, false, fmt.Errorf("map id %d is not one the editor can use", m.MapID)
 	}
 	if len(m.Tiles) == 0 && m.Global == nil {
-		return res, errors.New("the map has no tiles")
+		return nil, nil, false, errors.New("the map has no tiles")
 	}
 	set, err := mpq.OpenDataDir(readDir)
 	if err != nil {
-		return res, err
+		return nil, nil, false, err
 	}
+	// The read archives hold the patch open, so they close before anything is written.
+	defer set.Close()
 
-	dbc, err := set.ReadFile(`DBFilesClient\Map.dbc`)
+	dbc, err = set.ReadFile(`DBFilesClient\Map.dbc`)
 	if err != nil {
-		return res, err
+		return nil, nil, false, err
 	}
 	switch existing := MapRowDir(dbc, m.MapID); {
 	case existing == "":
+		newRow = true
 		if dbc, err = AddMapRow(dbc, m.MapID, m.Dir); err != nil {
-			return res, err
+			return nil, nil, false, err
 		}
 	case !strings.EqualFold(existing, m.Dir):
-		return res, fmt.Errorf("map id %d is %q in the client; pick another id", m.MapID, existing)
+		return nil, nil, false, fmt.Errorf("map id %d is %q in the client; pick another id", m.MapID, existing)
 	}
 	if m.Info != nil {
 		if dbc, err = SetMapRowInfo(dbc, m.MapID, *m.Info); err != nil {
-			return res, err
+			return nil, nil, false, err
 		}
 	}
+	files, err = buildMapFiles(set, m, dbc)
+	return files, dbc, newRow, err
+}
 
+// buildMapFiles builds the map's tiles, WDT and WDL from the archives of set, with dbc as its Map.dbc.
+func buildMapFiles(set *mpq.Set, m MapSpec, dbc []byte) ([]mpq.File, error) {
 	var files []mpq.File
 	present := map[[2]int]bool{}
 	horizon := map[int]*WDLTile{}
 	for _, t := range m.Tiles {
 		if t.X < 0 || t.X > 63 || t.Y < 0 || t.Y > 63 {
-			return res, fmt.Errorf("tile %d,%d is outside the 64x64 map", t.X, t.Y)
+			return nil, fmt.Errorf("tile %d,%d is outside the 64x64 map", t.X, t.Y)
 		}
 		if present[[2]int{t.X, t.Y}] {
-			return res, fmt.Errorf("tile %d,%d is listed twice", t.X, t.Y)
+			return nil, fmt.Errorf("tile %d,%d is listed twice", t.X, t.Y)
 		}
 		present[[2]int{t.X, t.Y}] = true
 	}
@@ -189,7 +230,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	// doesn't rewrite (a new map has none), so no two share one (#491).
 	nextUID, err := mapUIDMax(set, m.Dir, func(x, y int) bool { return present[[2]int{x, y}] })
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 	nextUID++
 	// Each model takes its ID here and goes into every tile of the map its bounds reach, under that one
@@ -206,7 +247,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		for _, o := range t.Objects {
 			obj, err := objectIn(t.X, t.Y, o)
 			if err != nil {
-				return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
+				return nil, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 			}
 			rc.bound(&obj)
 			obj.UID = nextUID
@@ -235,7 +276,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		}
 		data, err := buildTile(t, tileRing(m.Tiles, index, t), adds[i], water)
 		if err != nil {
-			return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
+			return nil, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
 		files = append(files, mpq.File{Name: adt.TilePath(m.Dir, t.X, t.Y, ""), Data: data})
 		if len(t.Outer) == LatticeSize*LatticeSize {
@@ -245,16 +286,16 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 
 	wdtTemplate, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 	if m.Global != nil {
 		// A WMO-only map: one building in the WDT, no tiles and no horizon.
 		obj, err := objectIn(0, 0, *m.Global)
 		if err != nil {
-			return res, err
+			return nil, err
 		}
 		if obj.Kind != adt.WMO {
-			return res, errors.New("a WMO-only map's building must be a WMO")
+			return nil, errors.New("a WMO-only map's building must be a WMO")
 		}
 		// At the world's middle, as every client dungeon has it (wmoonly.go): X and Z 0 in the WDT's
 		// frame, with the bounds round it in the same frame. Its height and turn are kept.
@@ -262,7 +303,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		rc.bound(&obj)
 		wdt, err := BuildWMOOnlyWDT(wdtTemplate, GlobalWMO{Name: obj.Name, Position: obj.Position, Rotation: obj.Rotation, Min: obj.Min, Max: obj.Max, DoodadSet: obj.DoodadSet})
 		if err != nil {
-			return res, err
+			return nil, err
 		}
 		files = append(files,
 			mpq.File{Name: fmt.Sprintf(`World\Maps\%s\%s.wdt`, m.Dir, m.Dir), Data: wdt},
@@ -271,7 +312,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	} else {
 		wdt, err := BuildWDT(wdtTemplate, func(x, y int) bool { return present[[2]int{x, y}] })
 		if err != nil {
-			return res, err
+			return nil, err
 		}
 		files = append(files,
 			mpq.File{Name: fmt.Sprintf(`World\Maps\%s\%s.wdt`, m.Dir, m.Dir), Data: wdt},
@@ -280,31 +321,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		)
 	}
 
-	// The read archives hold the patch open, so they close before anything is written.
-	set.Close()
-	res.Tiles = len(m.Tiles)
-	if files, err = ChangedFiles(patchDir, files); err != nil {
-		return res, err
-	}
-	res.Changed = countTiles(files)
-	res.ChangedTiles, res.Layout = changedTiles(m, files)
-	// The client files waiting for the game to close go along (#657): Publish closes the game around
-	// this write, so the watcher would otherwise write them at the same time. Patch stays "" when the
-	// map itself is unchanged, so Publish still leaves an up-to-date server alone.
-	patch, err := InstallWithPending(patchDir, files)
-	if err != nil {
-		return res, err
-	}
-	if len(files) > 0 {
-		res.Patch = patch
-	}
-	if serverDir != "" {
-		res.Server, err = installServerMapTable(serverDir, dbc)
-		if err != nil {
-			return res, err
-		}
-	}
-	return res, nil
+	return files, nil
 }
 
 // changedTiles names the map's tiles among the files as "x_y", and says whether its WDT is among them.

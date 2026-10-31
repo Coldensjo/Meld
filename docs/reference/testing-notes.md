@@ -959,6 +959,7 @@ the same scene, the report before and after.
 - The format constants and the axis swap on both sides (#538, the format fixture)
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
 - A WMO-only map's frame and Launch spot (#272, probe `wmo-only-frame`)
+- Review Changes before Compile, Save Spawns and Publish (#959, probe `changes-window`)
 
 ### Scripting (`docs/tests/scripting.md`)
 

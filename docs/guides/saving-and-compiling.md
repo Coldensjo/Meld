@@ -30,6 +30,14 @@ database only, so a new spawn's guid is one the VMaNGOS database had free; if yo
 already uses it, the import stops on that row instead of replacing the other spawn. The client
 patch is the same for every core.
 
+**File › Review Changes…** lists what these writes would change before you run one, and writes
+nothing itself: for an open region, the client files Compile puts into the patch (each tile, with
+whether the region's edits changed it or it sits beside the region for a model by its edge, and the
+far horizon) and each spawn Save Spawns adds, changes (with the fields) or deletes, with **Go there**
+and its SQL; for a new client world, the files and the `map_template` row Publish writes. Files an
+earlier write left waiting for the game to close are listed apart. The Publish and Save Spawns
+confirmations open the same list with **Review changes…**.
+
 **Compile acts on the open region**, not every edited tab. Switch to each region you intend to
 compile. A whole-continent world view is for browsing: use **Edit Here** to open an editable block.
 

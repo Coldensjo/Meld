@@ -982,6 +982,8 @@ type RegionResult struct {
 	// Waiting says the written files wait for the game to close, which holds the patch open on
 	// Windows: Meld never closes it (#661).
 	Waiting bool `json:"waiting"`
+	// List names the files that differ, each with its reason (RegionPending only, #959).
+	List []FileChange `json:"list"`
 }
 
 // ClientMapID is the ID of the map the client's Map.dbc gives the folder name (case-insensitive); ok is

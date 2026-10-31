@@ -1159,6 +1159,14 @@ export function Projects(): $CancellablePromise<$models.ProjectList> {
 }
 
 /**
+ * PublishPending is what Publish would write for map m, without writing anything (#959): the client
+ * files that differ from the patch's copies, and the world database's rows.
+ */
+export function PublishPending(m: vmangos$0.MapSpec): $CancellablePromise<vmangos$0.PublishPreview> {
+    return $Call.ByID(2669731803, m);
+}
+
+/**
  * PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to
  * the server's tables, and the server's map data is extracted again. It runs in the background. Progress
  * arrives as "publish:log" events, and "publish:done" carries an error message, or nothing when the
@@ -1443,8 +1451,9 @@ export function RegionMapID(mapName: string): $CancellablePromise<number> {
 /**
  * RegionPending builds an edited block as SaveRegion would and says what differs from the client's
  * patch (RegionResult.Files, Changed), without writing anything or closing the game: Launch asks it
- * whether the open region has edits the client lacks (#214), and Compile to Server whether the patch
- * it builds from is current.
+ * whether the open region has edits the client lacks (#214), Compile to Server whether the patch
+ * it builds from is current, and the Changes window which files a compile writes and why
+ * (RegionResult.List, #959).
  */
 export function RegionPending(edit: vmangos$0.RegionEdit): $CancellablePromise<vmangos$0.RegionResult> {
     return $Call.ByID(3802741644, edit);
@@ -2196,6 +2205,14 @@ export function VmangosPath(): $CancellablePromise<string> {
  */
 export function WMODoodadSets(path: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(1344426060, path);
+}
+
+/**
+ * WaitingClientFiles lists the client files already written that wait for the game to close (#661),
+ * for the Changes window (#959).
+ */
+export function WaitingClientFiles(): $CancellablePromise<vmangos$0.FileChange[] | null> {
+    return $Call.ByID(660971046);
 }
 
 /**

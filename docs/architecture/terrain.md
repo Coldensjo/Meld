@@ -563,6 +563,20 @@ mask/liquid, image codec or native/game rendering contracts.
   (`MapDocument.pending`, `cachedPending` in `io/regionKey.ts`) with the fingerprint and change count it
   was taken at, and reused until the history reaches a state with another fingerprint, so repeated
   Launch, Play Here and grow checks don't rebuild the block (#531; 2.2 s a check for a 3×3 block).
+- **Review Changes** (#959, File › Review Changes…, and Review changes… in the Publish and Save Spawns
+  dialogs, whose Back returns to them through `ui.changesBack`): `components/ChangesDialog.svelte` over
+  `io/changes.ts` lists what the write would change, read only. A region's client files come from
+  `RegionPending`'s `RegionResult.List` (`vmangos.DescribeFiles` with `RegionFileReason`: a tile edited
+  in the region, a tile beside it for a model by its edge, the WDL), its spawns from `SpawnEditSQL` for
+  VMaNGOS (`Result.Spawns`: each spawn's action, the fields `spawnFields` finds changed and its own
+  statements, cut from the script `ExportSQLFor` builds, so the list is the SQL Save Spawns runs). A
+  client map's come from `PublishPending` (`vmangos.PreviewPublish`: `ExportMap`'s build, `buildMap`,
+  against the patch, plus the `map_template` row), built from the same spec Publish sends
+  (`publishInput`, `io/publish.ts`). The files waiting for the game to close are listed apart
+  (`WaitingClientFiles`). Only names and reasons cross the bridge, never a file. A tile beside an
+  edited one in a published map is listed too: its edge's normals take the neighbour's heights (#492).
+  The zone, trigger and flight path tables are not in the list: their editors write them on their own
+  Save.
   `RegionEdit.Heights` crosses the bridge as base64 of the float32s, as `MapData.Heights` does
   (`vmangos.EncodeHeights`, `DecodeHeights`); so do `RegionView.Heights` (LoadRegion) and Publish's
   `TileSpec.Outer`, typed `vmangos.HeightGrid`, a float slice in Go whose JSON is that string

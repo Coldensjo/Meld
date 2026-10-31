@@ -478,6 +478,7 @@ export type DialogId =
 	| 'watermap'
 	| 'gameLogin'
 	| 'saveSpawns'
+	| 'changes'
 	| 'mapProps'
 	| 'weapon'
 	| 'recovery'
@@ -518,6 +519,8 @@ export const ui = $state({
 	maskActive: false,
 	pasting: false,
 	dialog: null as DialogId | null,
+	/** The dialog the Changes window (#959) goes back to when it closes: the write's own (Publish, Save Spawns), or null. */
+	changesBack: null as DialogId | null,
 	/** The page the Preferences dialog (Edit › Preferences…, #752) shows; kept between openings. */
 	prefsPage: 'general' as PrefsPage,
 	/** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */

@@ -586,6 +586,39 @@ export interface FactionInfo {
 }
 
 /**
+ * FileChange is a client file a write will put into Meld's patch. Only the name goes across the
+ * bridge, never the file (#636: a region can be hundreds of tiles).
+ */
+export interface FileChange {
+    "name": string;
+
+    /**
+     * Group is what the file is: "tile", "wdt", "wdl", "dbc", "minimap" or "other".
+     */
+    "group": string;
+
+    /**
+     * Tile names a map tile as "x_y"; "" for another file.
+     */
+    "tile": string;
+
+    /**
+     * Reason says, in a few words, why the file is written.
+     */
+    "reason": string;
+
+    /**
+     * New says the patch has no copy of the file yet; else the write replaces the patch's copy.
+     */
+    "new": boolean;
+
+    /**
+     * Waiting says the file is already written and waits for the game to close (#661).
+     */
+    "waiting": boolean;
+}
+
+/**
  * GUIDRow is a spawn row the database has under one of the asked guids.
  */
 export interface GUIDRow {
@@ -1423,6 +1456,16 @@ export interface PaintSpec {
 }
 
 /**
+ * PublishPreview is what Publish will write: the client files that differ from the patch's copies,
+ * the map's tile count, and the world database's rows.
+ */
+export interface PublishPreview {
+    "files": FileChange[] | null;
+    "tiles": number;
+    "rows": RowChange[] | null;
+}
+
+/**
  * QuestDeleteCount is how many rows of a table deleting a quest removes.
  */
 export interface QuestDeleteCount {
@@ -1677,6 +1720,11 @@ export interface RegionResult {
      * Windows: Meld never closes it (#661).
      */
     "waiting": boolean;
+
+    /**
+     * List names the files that differ, each with its reason (RegionPending only, #959).
+     */
+    "list": FileChange[] | null;
 }
 
 /**
@@ -1749,6 +1797,35 @@ export interface Result {
      * Skipped says, one line each, what wasn't exported and why.
      */
     "skipped": string[] | null;
+
+    /**
+     * Spawns lists each spawn the SQL adds, changes or deletes, with its own statements, for the
+     * Changes window (#959). The pools' own rows, written after the spawns, are in SQL only.
+     */
+    "spawns": SpawnChange[] | null;
+}
+
+/**
+ * RowChange is a database row (or a set of rows of one key) a write will add, change or delete.
+ */
+export interface RowChange {
+    "table": string;
+
+    /**
+     * Key names the row: "entry 800".
+     */
+    "key": string;
+
+    /**
+     * Action is "add", "change", "delete" or "add or change".
+     */
+    "action": string;
+    "reason": string;
+
+    /**
+     * SQL is the statements that make the change, shown on demand.
+     */
+    "sql": string;
 }
 
 /**
@@ -1839,6 +1916,27 @@ export interface SoundOption {
     "id": number;
     "name": string;
     "file": string;
+}
+
+/**
+ * SpawnChange is one spawn a spawn save will add, change or delete, with its SQL.
+ */
+export interface SpawnChange {
+    "guid": number;
+    "entry": number;
+    "name": string;
+    "object": boolean;
+
+    /**
+     * Action is "add", "change" or "delete".
+     */
+    "action": string;
+
+    /**
+     * Fields names what changed on a changed spawn ("position", "facing", "path", ...).
+     */
+    "fields": string[] | null;
+    "sql": string;
 }
 
 /**

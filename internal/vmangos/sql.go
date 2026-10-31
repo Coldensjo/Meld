@@ -103,6 +103,9 @@ type Result struct {
 	Deleted int    `json:"deleted"`
 	// Skipped says, one line each, what wasn't exported and why.
 	Skipped []string `json:"skipped"`
+	// Spawns lists each spawn the SQL adds, changes or deletes, with its own statements, for the
+	// Changes window (#959). The pools' own rows, written after the spawns, are in SQL only.
+	Spawns []SpawnChange `json:"spawns"`
 }
 
 // Rows elsewhere that name a spawn by its guid, removed with it.
@@ -224,7 +227,22 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 	// The pools whose mother pool changed, and the mother pools whose limit did.
 	motherRows, motherLimits := map[int]Spawn{}, map[int]int{}
 	var motherOrder, limitOrder []int
+	// The spawn whose statements are being written, from out[from:] on.
+	var cur *SpawnChange
+	from := 0
+	flush := func() {
+		if cur != nil {
+			cur.SQL = strings.Join(out[from:], "\n")
+			res.Spawns = append(res.Spawns, *cur)
+			cur = nil
+		}
+	}
+	begin := func(s Spawn, action string, fields []string) {
+		cur = &SpawnChange{GUID: s.GUID, Entry: s.Entry, Name: s.Name, Object: s.Kind == GameObject, Action: action, Fields: fields}
+		from = len(out)
+	}
 	for _, e := range sorted {
+		flush()
 		s := e.Spawn
 		name := label(s)
 		if s.Map > MaxGameMap || s.GUID <= 0 {
@@ -241,6 +259,7 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 			if e.Created {
 				continue
 			}
+			begin(s, "delete", nil)
 			out = append(out, "-- Delete "+name)
 			if cm {
 				out = append(out, cmangosDeleteSQL(s)...)
@@ -270,6 +289,7 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 		q := quaternion(s)
 		lo, hi := respawn(s)
 		if e.Created {
+			begin(s, "add", nil)
 			out = append(out, "-- Add "+name)
 			// Only a row of this entry goes, the spawn's own earlier export: a guid the database gave
 			// another spawn since makes the INSERT fail on the key instead of deleting that spawn (#199).
@@ -294,6 +314,7 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 			}
 			res.Added++
 		} else {
+			begin(s, "change", spawnFields(s, e.Original))
 			out = append(out, "-- Change "+name)
 			if cm && s.Kind == Creature {
 				out = append(out, cmangosCreatureUpdateSQL(s, lo, hi))
@@ -382,6 +403,8 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 			motherLimits[s.MotherPool] = s.MotherLimit
 		}
 	}
+
+	flush()
 
 	// The pools made or changed: a new one gets its pool_template row, and every one its limit and
 	// description (on each patch row it has).

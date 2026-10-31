@@ -103,8 +103,8 @@ export type CompileTarget = 'client' | 'server' | 'all'
 /** A region as the compile names and builds it. */
 type RegionBlock = { mapName: string; x: number; y: number; size: number }
 
-/** The active region's edit as the region save takes it. */
-function regionEdit(engine: Engine, region: RegionBlock) {
+/** The active region's edit as the region save takes it (and the Changes window, #959). */
+export function regionEdit(engine: Engine, region: RegionBlock) {
 	const water = engine.regionLiquids()
 	const { paint, headers } = regionPaint(engine, region.size)
 	const heights = engine.outerHeights()

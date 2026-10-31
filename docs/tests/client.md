@@ -292,6 +292,21 @@ open region has edits the client lacks, and only then.
   to why the region save doesn't send it (`size`, `cellSize`, `waterEnabled`, `waterLevel`). The map is
   typed over `keyof ExportInput`, so a new export key fails `make check` until it is listed.
 
+## Review Changes before Compile, Save Spawns and Publish (#959, probe `changes-window`)
+Checks: File › Review Changes… (and Review changes… in the Publish and Save Spawns dialogs) lists the
+client files and world database rows the write would make, without writing.
+- Probe: `bun run probe changes-window` (about 12 s): Azeroth 31_50 with one raised vertex and a stand-in
+  moved spawn lists the tile (changed in the region) and the spawn's position change with its UPDATE;
+  Go there closes the window; Save Spawns' dialog opens it and Back returns there; a New World map
+  lists Publish's tiles, WDT, Map.dbc row and `map_template` row. RegionPending, SpawnEditSQL and
+  PublishPending only build, so nothing reaches the patch or the database.
+- Unit tests: `go test -run "TestDescribeFiles|TestWaitingFiles|TestExportListsEachSpawn|TestPreviewPublish" ./internal/vmangos/`
+  (`TestPreviewPublish` needs the client) and `bun test tests/changeList.test.ts` (the groups and lines).
+- Trap: the window's heading names the write once it is listed ("Changes: Compile Azeroth 31_50"), so
+  `P.dialog`'s exact match can't find it; the probe matches a heading that starts with "Changes".
+- Trap: in a published map, changing one tile also lists its neighbours, since their edge normals take
+  its heights (#492); that is what Publish writes, not a fault of the list.
+
 ## Compile keeps the client's alpha where nothing was painted (#526)
 Checks: a region's compile writes the client's own 64x64 alpha maps back on every chunk and texel the
 editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.

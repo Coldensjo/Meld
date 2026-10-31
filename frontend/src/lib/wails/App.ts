@@ -166,6 +166,7 @@ export const PlanSpellImport: Call<AppApi['PlanSpellImport']> = (...a) => api().
 export const PlayHere: Call<AppApi['PlayHere']> = (...a) => api().PlayHere(...a) as never
 export const ProjectInFolder: Call<AppApi['ProjectInFolder']> = (...a) => api().ProjectInFolder(...a) as never
 export const Projects: Call<AppApi['Projects']> = (...a) => api().Projects(...a) as never
+export const PublishPending: Call<AppApi['PublishPending']> = (...a) => api().PublishPending(...a) as never
 export const PublishVmangosMap: Call<AppApi['PublishVmangosMap']> = (...a) => api().PublishVmangosMap(...a) as never
 export const QuestTables: Call<AppApi['QuestTables']> = (...a) => api().QuestTables(...a) as never
 export const Quit: Call<AppApi['Quit']> = (...a) => api().Quit(...a) as never
@@ -299,6 +300,7 @@ export const TemplateNames: NonNullCall<AppApi['TemplateNames']> = (...a) => api
 export const UpdateRegionServer: Call<AppApi['UpdateRegionServer']> = (...a) => api().UpdateRegionServer(...a) as never
 export const VmangosPath: Call<AppApi['VmangosPath']> = (...a) => api().VmangosPath(...a) as never
 export const WMODoodadSets: NonNullCall<AppApi['WMODoodadSets']> = (...a) => api().WMODoodadSets(...a) as never
+export const WaitingClientFiles: NonNullCall<AppApi['WaitingClientFiles']> = (...a) => api().WaitingClientFiles(...a) as never
 export const WorldHorizon: NonNullCall<AppApi['WorldHorizon']> = (...a) => api().WorldHorizon(...a) as never
 export const WorldRefNames: NonNullCall<AppApi['WorldRefNames']> = (...a) => api().WorldRefNames(...a) as never
 export const WowStatus: Call<AppApi['WowStatus']> = (...a) => api().WowStatus(...a) as never

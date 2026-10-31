@@ -27,6 +27,7 @@
 	import HotkeyManager from './HotkeyManager.svelte'
 	import PreferencesDialog from './PreferencesDialog.svelte'
 	import OtherClientDialog from './OtherClientDialog.svelte'
+	import ChangesDialog from './ChangesDialog.svelte'
 	import WeaponPicker, { equipChange, SLOTS } from './WeaponPicker.svelte'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
@@ -57,6 +58,15 @@
 	import { texName as textureName } from '../lib/wow/texName'
 
 	const close = () => (ui.dialog = null)
+	/** Opens the Changes window (#959) from a write's dialog, which it goes back to when closed. */
+	const reviewChanges = () => {
+		ui.changesBack = ui.dialog
+		ui.dialog = 'changes'
+	}
+	const closeChanges = () => {
+		ui.dialog = ui.changesBack
+		ui.changesBack = null
+	}
 
 	/** The spawn the weapon dialog is for, in the active map. */
 	const weaponSpawn = $derived.by(() => {
@@ -227,6 +237,7 @@
 		</p>
 		<p class="dim">The world database keeps no undo. The SQL that is run is kept in the user cache folder (Meld/spawn-sql). Restart the world server to see the changes in the game.</p>
 		{#snippet actions()}
+			<button title="List each spawn the save adds, changes or deletes, with its SQL" onclick={reviewChanges}>Review changes…</button>
 			<button onclick={close}>Cancel</button>
 			<button
 				class="active"
@@ -238,6 +249,8 @@
 			>
 		{/snippet}
 	</Modal>
+{:else if ui.dialog === 'changes'}
+	<ChangesDialog onclose={closeChanges} closeLabel={ui.changesBack ? 'Back' : 'Close'} />
 {:else if ui.dialog === 'compileBeforeLaunch'}
 	<Modal title="Edits not in the game yet" width={420} onclose={close}>
 		<p>{ui.uncompiledRegion} has edits to its ground, textures, models or water that the client doesn't have yet, so the game would show it as it was.</p>
@@ -319,6 +332,7 @@
 		<p>Publishing rebuilds this map for the server and the client. It writes the map into your WoW client's patch, then extracts this map again for the server (well under a minute).</p>
 		<p class="warn">Meld closes and starts nothing: close World of Warcraft and stop the world server, and the publish goes on once they have stopped. Start them again afterwards.</p>
 		{#snippet actions()}
+			<button title="List the client files and database rows the publish writes" onclick={reviewChanges}>Review changes…</button>
 			<button onclick={close}>Cancel</button>
 			<button
 				class="active"

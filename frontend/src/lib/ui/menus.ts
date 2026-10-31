@@ -195,6 +195,16 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 					{ kind: 'action', label: 'Compile to Client', disabled: !backend || ui.busy, run: withEngine((e) => io.compileRegion(e, 'client')) },
 					{ kind: 'action', label: 'Compile to Server', disabled: !backend || ui.busy, run: withEngine((e) => io.compileRegion(e, 'server')) },
 					{ kind: 'action', label: 'Compile All', disabled: !backend || ui.busy, run: withEngine((e) => io.compileRegion(e, 'all')) },
+					// What Compile, Save Spawns or Publish would write, listed before it is written (#959).
+					{
+						kind: 'action',
+						label: 'Review Changes…',
+						disabled: !backend || ui.busy,
+						run: () => {
+							ui.changesBack = null
+							ui.dialog = 'changes'
+						},
+					},
 				]),
 				...(editor.regionBlock
 					? [

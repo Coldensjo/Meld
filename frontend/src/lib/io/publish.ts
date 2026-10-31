@@ -34,62 +34,75 @@ function listenToPublish() {
 	})
 }
 
+/** What Publish sends for the active map: its spec, the notes on what it leaves out, and the `.go` line to its start. */
+export type PublishInput = { spec: vmangos.MapSpec; dir: string; notes: string[]; go: string }
+
+/**
+ * Builds the spec Publish sends for the active map made for the client, or says (as a status line) why it
+ * can't: the map isn't one, or a WMO-only map lacks its building. The Changes window (#959) builds the same.
+ */
+export function publishInput(engine: Engine): PublishInput | string {
+	const ref = engine.activeVmangos()
+	if (!ref) return 'Only a map made for the client publishes this way. Make one with File › New World…'
+	const input = engine.exportInput()
+	// The map's place on the client's grid and the tiles of its square it leaves out (#46).
+	const n = input.size / TILE_CELLS
+	const present = maskBytes(ref.tiles, n)
+	const tx0 = ref.tileX ?? 0
+	const ty0 = ref.tileY ?? 0
+	const out = mapToTiles(input, { x: tx0, y: ty0, present })
+	const notes: string[] = []
+	if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out`)
+	if (out.outside) notes.push(`${out.outside} models outside the map were left out`)
+	// A WMO-only map is its first building: the WDT places it, and the map has no tiles.
+	let global: ExportObject | undefined
+	if (ref.info?.wmoOnly) {
+		global = input.objects.find((o) => o.type.startsWith('wmo:'))
+		if (!global) return 'A WMO-only map needs a building (a WMO) on it: place one first, or untick WMO-only in Map Properties.'
+		out.tiles = []
+	}
+	// A WMO-only map's building goes to the world's middle (#272), so the line points there, a little
+	// over its origin; another map's points at the middle of its first tile, over the ground or the sea.
+	let go: string
+	const at = global && wmoOnlyTiles(global)
+	if (global && at) go = teleportCommand({ x: global.x, y: global.y + 2, z: global.z }, ref.mapId, at.x, at.y)
+	else {
+		const first = present ? Math.max(0, present.indexOf(1)) : 0
+		const x = ((first % n) + 0.5) * TILE_SIZE
+		const z = (Math.floor(first / n) + 0.5) * TILE_SIZE
+		const y = Math.max(engine.terrain.heightAt(x, z), input.waterEnabled ? input.waterLevel : -Infinity) + 10
+		go = teleportCommand({ x, y, z }, ref.mapId, tx0, ty0)
+	}
+	const spec = {
+		Dir: ref.dir,
+		MapID: ref.mapId,
+		Tiles: out.tiles,
+		Water: input.waterEnabled,
+		WaterLevel: input.waterLevel,
+		Info: ref.info,
+		Global: global ? { Type: global.type, X: global.x, Y: global.y, Z: global.z, RotY: global.rotY, TiltX: global.tiltX ?? 0, TiltZ: global.tiltZ ?? 0, Scale: global.scale } : undefined,
+	} as vmangos.MapSpec
+	return { spec, dir: ref.dir, notes, go }
+}
+
 /**
  * Publishes a map made for the client: it's written into the client's patch, added to the server, and the
  * server's map data is extracted again before the world server restarts. Runs in the background.
  */
 export function publishVmangosMap(engine: Engine) {
 	return guarded('Publish', async () => {
-		const ref = engine.activeVmangos()
-		if (!ref) {
-			setStatus('Only a map made for the client publishes this way. Make one with File › New World…')
+		const p = publishInput(engine)
+		if (typeof p === 'string') {
+			setStatus(p, 6000)
 			return
 		}
 		listenToPublish()
-		const input = engine.exportInput()
-		// The map's place on the client's grid and the tiles of its square it leaves out (#46).
-		const n = input.size / TILE_CELLS
-		const present = maskBytes(ref.tiles, n)
-		const tx0 = ref.tileX ?? 0
-		const ty0 = ref.tileY ?? 0
-		const out = mapToTiles(input, { x: tx0, y: ty0, present })
-		const notes: string[] = []
-		if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out`)
-		if (out.outside) notes.push(`${out.outside} models outside the map were left out`)
-		// A WMO-only map is its first building: the WDT places it, and the map has no tiles.
-		let global: ExportObject | undefined
-		if (ref.info?.wmoOnly) {
-			global = input.objects.find((o) => o.type.startsWith('wmo:'))
-			if (!global) {
-				setStatus('A WMO-only map needs a building (a WMO) on it: place one first, or untick WMO-only in Map Properties.', 6000)
-				return
-			}
-			out.tiles = []
-		}
-		// A WMO-only map's building goes to the world's middle (#272), so the line points there, a little
-		// over its origin; another map's points at the middle of its first tile, over the ground or the sea.
-		const at = global && wmoOnlyTiles(global)
-		if (global && at) lastGo = teleportCommand({ x: global.x, y: global.y + 2, z: global.z }, ref.mapId, at.x, at.y)
-		else {
-			const first = present ? Math.max(0, present.indexOf(1)) : 0
-			const x = ((first % n) + 0.5) * TILE_SIZE
-			const z = (Math.floor(first / n) + 0.5) * TILE_SIZE
-			const y = Math.max(engine.terrain.heightAt(x, z), input.waterEnabled ? input.waterLevel : -Infinity) + 10
-			lastGo = teleportCommand({ x, y, z }, ref.mapId, tx0, ty0)
-		}
+		lastGo = p.go
 		ui.busy = true
-		endPublish = startSaving(`Publishing ${ref.dir}`)
-		setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)
+		endPublish = startSaving(`Publishing ${p.dir}`)
+		setStatus(`Publishing ${p.dir}…${p.notes.length ? ' ' + p.notes.join('. ') + '.' : ''}`, 0)
 		try {
-			await PublishVmangosMap({
-				Dir: ref.dir,
-				MapID: ref.mapId,
-				Tiles: out.tiles,
-				Water: input.waterEnabled,
-				WaterLevel: input.waterLevel,
-				Info: ref.info,
-				Global: global ? { Type: global.type, X: global.x, Y: global.y, Z: global.z, RotY: global.rotY, TiltX: global.tiltX ?? 0, TiltZ: global.tiltZ ?? 0, Scale: global.scale } : undefined,
-			} as vmangos.MapSpec)
+			await PublishVmangosMap(p.spec)
 		} catch (e) {
 			ui.busy = false
 			endPublish()
