@@ -17,7 +17,8 @@
 	import { base64ToBytes, wailsBytes } from '../lib/io/base64'
 	import { fetchImage } from '../lib/wow/api'
 	import { texName as textureName } from '../lib/wow/texName'
-	import { SESSION_MAP_REASON } from '../lib/session/peers'
+	import { GUEST_REPLACE_REASON } from '../lib/session/peers'
+	import { isGuestMap, replaceSessionMap } from '../lib/session/shared.svelte'
 
 	// The map's facts and its world settings (File > Map Properties). The sea is one level for the
 	// whole map, so it is set here and nowhere else; a part of Azeroth keeps the client's ocean.
@@ -132,9 +133,9 @@
 			e.setWorldTiles(maskOf(worldSquare, next))
 			return
 		}
-		// Growing makes the map again in its tab, which a shared session's map can't be (#1007).
-		if (e.activeDocument().shared) {
-			setStatus(`The map could not grow: ${SESSION_MAP_REASON}. End or leave the session first.`, 8000)
+		// Growing makes the map again in its tab: the host's session map then goes to every guest again (#1008), a guest's can't grow.
+		if (isGuestMap(e.activeDocumentId())) {
+			setStatus(`The map could not grow: ${GUEST_REPLACE_REASON}.`, 8000)
 			return
 		}
 		const yes = await askConfirm(
@@ -144,7 +145,7 @@
 		if (!yes) return
 		growing = true
 		try {
-			e.growWorld(sq, maskOf(sq, next))
+			replaceSessionMap(e.activeDocumentId(), () => e.growWorld(sq, maskOf(sq, next)))
 			setStatus(`The map is now ${sq.size}×${sq.size} tiles from tile ${sq.x}, ${sq.y}.`)
 		} catch (err) {
 			setStatus(`The map could not grow: ${err instanceof Error ? err.message : err}`, 8000)

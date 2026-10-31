@@ -160,8 +160,24 @@ server. #728 is the umbrella; its parts are separate issues:
   `SESSION_MAP_REASON` (`peers.ts`), File › Revert to Saved is off with it as the tooltip
   (`isSessionMap`), Map Properties refuses a grow before asking, a recovered copy opens in a new tab
   rather than over it (`recover`), and a shared map is never `pristine`, so a map opened while hosting
-  an untouched new map takes a new tab. Ending or leaving the session clears the mark. Rebinding the
-  sync to the new document and sending it to everyone again instead is #1008.
+  an untouched new map takes a new tab. Ending or leaving the session clears the mark.
+- **The host makes the map again (#1008).** The host's Revert to Saved (`revertMap`) and Grow Region
+  (Map Properties) go through `replaceSessionMap(docId, replace)`: it sends the host's unsent edits,
+  lifts the `shared` mark for the one replacement, then marks the new document, binds the syncs to it
+  and sends its whole map to everyone (kind `map` or `map.part` with no `to`, `MapHandoff.gen`, and
+  `ids` with the host layer's counts but no lane: each guest keeps the lane its own handoff gave it,
+  `myLane`). A guest opens it over its session tab (`openHandoff`: `openDocument(snap, path, docId)`):
+  its unsent edits and History are dropped, a tab it saved keeps its file (unsaved), a grown map's
+  camera and bookmarks move with the ground (`squareShift`), and a member working in another tab stays
+  there. A guest's replacement throws `GUEST_REPLACE_REASON`, and its Revert and Grow are off with it.
+  - **The map generation.** `mapGen` counts the host's replacements; every edit message carries the
+    one it was made against as `g` (`tagged`; left out at 0) and a member drops the others' with
+    another (`receiveEdit`, `editGen` in `peers.ts`). The `seq` alone can't tell: a guest's edit sent
+    before the new map reached it can reach the host after the map's `seq`, and on a grown map its
+    vertex rect or chunk index would land on shifted ground. One's own come back as acknowledgements
+    whatever their `g`. A guest without a map yet holds the edits (`early`) until its handoff says
+    which generation they need, then hands those to the syncs' `wait` hold before binding. A map to
+    everyone reaching a guest with none yet is skipped: its own handoff comes after it in the order.
 - The members show in the status bar (`StatusBar.svelte`, `peersLabel`/`peersTitle`), the session's tab
   carries a `session` badge (`DocTabs.svelte`), and a join, a leave and the end are status lines.
 
@@ -181,10 +197,12 @@ server. #728 is the umbrella; its parts are separate issues:
   A delete of one's own re-places the attachments first (`deleteSelected`), so only the race does this.
 - **A new way to make an object id** must go through `ObjectLayer.add` without an id (or `newGroup` for
   a group), which counts in the member's lane; an id worked out by hand (the largest plus one) collides.
-- **The sync lives as long as the session map's document.** A Grow Region or a reopen would replace the
-  document (a new id) and stop the sync on that member alone, so they are refused while in a session
-  (above); a new way to make a map again in its tab must go through `Engine.openDocument` with
-  `replaceId`, or check `MapDocument.shared` itself. A larger heights message (a whole-map import) is a
+- **The sync lives as long as the session map's document.** A Grow Region or a reopen replaces the
+  document (a new id) and would stop the sync on that member alone, so the engine refuses it while in a
+  session (above) unless it goes through `replaceSessionMap`; a new way to make a map again in its tab
+  must go through `Engine.openDocument` with `replaceId` inside `replaceSessionMap`, or check
+  `MapDocument.shared` itself. File › Add the tiles to the north (`extendRegion`) opens a new tab and
+  closes the session's, which stops the sync (#1012). A larger heights message (a whole-map import) is a
   few MB of JSON through the bridge twice.
 - **The firewall.** On Windows, the first `HostSession` makes the firewall ask whether Meld may listen.
   The Go tests bind loopback (`sessionBind` in `app_session.go`) so the test binary doesn't ask.

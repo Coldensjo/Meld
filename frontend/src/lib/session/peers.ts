@@ -8,6 +8,9 @@ export const GUEST_EXPORT_REASON = "The host exports the session's map"
 /** Why the session's map can't be made again in its tab (#1007: Grow Region, Revert, a recovered copy, a file opened over an untouched map): the others would keep editing the old one. */
 export const SESSION_MAP_REASON = "The session's map can't be replaced while it is shared"
 
+/** Why a guest can't revert or grow the session's map (#1008): the host makes it again and sends it to everyone. */
+export const GUEST_REPLACE_REASON = "The host owns the session's map: only the host can revert or grow it"
+
 /** A member of the session, as `session.Peer` gives it. */
 export interface Peer {
 	id: number
@@ -27,8 +30,18 @@ export interface Message {
 /** The host's member id (`session.HostID`). */
 export const HOST_ID = 1
 
-/** The kind of the message that carries the host's map to a guest that joined (data: `MapHandoff`). */
+/** The kind of the message that carries the host's map to a guest that joined, or to everyone when the host made it again (data: `MapHandoff`). */
 export const KIND_MAP = 'map'
+
+/**
+ * The map an edit message was made against (#1008): `g` in its data, the number of times the host had
+ * made the session's map again (Revert, Grow Region) when it was sent; 0 when absent. A member drops the
+ * others' edits made against another map than the one it has, since a grown map's grid is shifted.
+ */
+export function editGen(data: unknown): number {
+	const g = (data as { g?: unknown } | null)?.g
+	return typeof g === 'number' && Number.isInteger(g) && g > 0 ? g : 0
+}
 
 /** The members that are in `after` but not `before`, and the ones that went. */
 export function peerChanges(before: readonly Peer[], after: readonly Peer[]) {

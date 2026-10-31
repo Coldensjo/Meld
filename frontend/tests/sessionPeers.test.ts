@@ -3,7 +3,7 @@
 // status bar's chip, and the send queue that keeps the page's sends in order.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { PartJoiner, changeLine, peerChanges, peersLabel, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
+import { PartJoiner, changeLine, editGen, peerChanges, peersLabel, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
 
 const ann = { id: 1, name: 'Ann' }
 const bob = { id: 2, name: 'Bob' }
@@ -60,4 +60,13 @@ test('a map too large for one message is cut into parts and joined again (#1010)
 	assert.equal(j.add({ part: 0, parts: 2, text: 'ab' }), null)
 	assert.equal(j.add({ part: 1, parts: 2, text: 'cd' }), 'abcd')
 	assert.throws(() => j.add({ part: 2, parts: 2, text: '' }))
+})
+
+test('the map an edit message was made against: its g, 0 when absent or not a count (#1008)', () => {
+	assert.equal(editGen({ id: 1, g: 2 }), 2)
+	assert.equal(editGen({ id: 1 }), 0)
+	assert.equal(editGen(null), 0)
+	assert.equal(editGen({ g: '2' }), 0)
+	assert.equal(editGen({ g: 1.5 }), 0)
+	assert.equal(editGen({ g: -1 }), 0)
 })

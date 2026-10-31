@@ -5,6 +5,7 @@ import { fromMapData, toMapData } from './mapData'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { withSaving } from '../state/saving'
+import { replaceSessionMap } from '../session/shared.svelte'
 
 export function saveMap(engine: Engine, saveAs = false) {
 	return guarded('Save', async () => {
@@ -44,7 +45,7 @@ export function openMap(engine: Engine) {
 
 /**
  * Re-reads the active map from its file in the same tab, dropping its unsaved changes and undo history.
- * The UI asks first when there are unsaved changes.
+ * The UI asks first when there are unsaved changes. The host's session map goes to every guest again (#1008).
  */
 export function revertMap(engine: Engine) {
 	return guarded('Revert', async () => {
@@ -53,7 +54,7 @@ export function revertMap(engine: Engine) {
 		const id = engine.activeDocumentId()
 		const t0 = performance.now()
 		const data = await LoadMap(path)
-		engine.openDocument(fromMapData(data), path, id)
+		replaceSessionMap(id, () => engine.openDocument(fromMapData(data), path, id))
 		setStatus(`Reverted to ${path} (${Math.round(performance.now() - t0)} ms)`)
 	})
 }

@@ -11,11 +11,13 @@ import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
 import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
-import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
+import { GUEST_EXPORT_REASON, GUEST_REPLACE_REASON, HOST_ID, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, editGen, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 import { KIND_PAINT, PaintSync } from './paint'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
+import { TILE_YARDS } from '../wow/format'
+import type { VmangosRef } from '../engine/MapDocument'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -38,12 +40,27 @@ export const shared = $state({
 export interface MapHandoff {
 	seq: number
 	map: mapfile.MapData
-	/** The guest's lane for new object ids and the counts to start it from (#1003). */
-	ids?: IdLane
+	/**
+	 * The guest's lane for new object ids and the counts to start it from (#1003). A map the host made
+	 * again, sent to everyone (#1008), has the counts alone: each guest keeps its lane.
+	 */
+	ids?: IdLane | Omit<IdLane, 'lane'>
+	/** How many times the host has made the session's map again (#1008, `mapGen`); absent for 0. */
+	gen?: number
 }
 
 /** The `seq` of the last message this page has seen. */
 let lastSeq = 0
+/**
+ * How many times the host has made the session's map again in its tab (Revert, Grow Region, #1008): every
+ * edit message carries the one it was made against (`g`, `editGen`) and the others' made against another
+ * are dropped. -1 for a guest whose map has not come yet.
+ */
+let mapGen = 0
+/** The edit messages a guest gets before its map, held until the map tells which `mapGen` they must have. */
+let early: Message[] = []
+/** A guest's id lane, from its own handoff; a map sent to everyone keeps it. */
+let myLane = 0
 let off: Array<() => void> = []
 const queue = serialQueue()
 /** A guest's map arriving in parts (#1010). */
@@ -65,7 +82,7 @@ function setSessionDoc(id: number) {
 
 /** The session map's heights (#1001): sent every HEIGHTS_FLUSH_MS while they change, the others' applied in the host's order. */
 const heights = new HeightSync({
-	send: (data) => sessionSend(0, KIND_HEIGHTS, data),
+	send: (data) => sessionSend(0, KIND_HEIGHTS, tagged(data)),
 	applied: (r: VertexRect) => {
 		const d = sessionDoc()
 		if (!d) return
@@ -94,7 +111,7 @@ function markUnsaved() {
 
 /** The session map's texture paint (#1002): whole chunks with their slots as paths, sent and applied as the heights are. */
 const paint = new PaintSync({
-	send: (data) => sessionSend(0, KIND_PAINT, data),
+	send: (data) => sessionSend(0, KIND_PAINT, tagged(data)),
 	palette: () => (sessionActive() ? editor.palette : (sessionDoc()?.meta.palette ?? [])),
 	setPalette: (p) => {
 		if (sessionActive()) editor.palette = p
@@ -108,7 +125,7 @@ const paint = new PaintSync({
 })
 /** The session map's placed objects (#1003): the changed objects whole, sent and applied as the heights are. */
 const objects = new ObjectSync({
-	send: (data) => sessionSend(0, KIND_OBJECTS, data),
+	send: (data) => sessionSend(0, KIND_OBJECTS, tagged(data)),
 	applied: (ids) => {
 		markUnsaved()
 		// The selection and the Inspector's copy follow: a removed object leaves the selection.
@@ -154,6 +171,11 @@ function bindEdits(afterSeq: number, ids: IdLane) {
 	objects.bind(d.objects, afterSeq, ids)
 }
 
+/** An edit message's data with the map it was made against (`g`, #1008), left out while the map was never made again. */
+function tagged<T extends object>(data: T): T | (T & { g: number }) {
+	return mapGen > 0 ? { ...data, g: mapGen } : data
+}
+
 /** Sends a message into the session (to 0 is everyone), after every send before it. */
 export function sessionSend(to: number, kind: string, data: unknown) {
 	return queue(() => sendJson(to, kind, data === undefined ? '' : JSON.stringify(data)))
@@ -183,6 +205,9 @@ const MAX_SEND_BYTES = 60_000_000
 function subscribe() {
 	unsubscribe()
 	lastSeq = 0
+	mapGen = -1
+	early = []
+	myLane = 0
 	lanes = new Lanes()
 	mapParts.reset()
 	heights.wait()
@@ -197,6 +222,7 @@ function unsubscribe() {
 	off = []
 	if (flushTimer) clearInterval(flushTimer)
 	flushTimer = null
+	early = []
 	heights.unbind()
 	paint.unbind()
 	objects.unbind()
@@ -229,6 +255,7 @@ export async function hostSession(port: number, name: string) {
 	if (!e) throw new Error('the editor has not started')
 	if (e.activeWorld()) throw new Error('a world view cannot be shared: File › Edit Here opens the block around the camera, which can')
 	subscribe()
+	mapGen = 0
 	try {
 		apply(await HostSession(port, name))
 	} catch (err) {
@@ -300,21 +327,71 @@ function onMessage(m: Message) {
 			return
 		}
 		case KIND_MAP:
-			if (m.to === shared.you && shared.role !== 'host') openHandoff(data as MapHandoff)
+			if (mapForMe(m)) openHandoff(data as MapHandoff)
 			return
 		case KIND_MAP_PART:
-			if (m.to === shared.you && shared.role !== 'host') receivePart(data as MapPart)
+			if (mapForMe(m)) receivePart(data as MapPart)
 			return
 		case KIND_HEIGHTS:
-			heights.receive(m.seq, m.from, data, shared.you)
-			return
 		case KIND_PAINT:
-			paint.receive(m.seq, m.from, data, shared.you)
-			return
 		case KIND_OBJECTS:
-			objects.receive(m.seq, m.from, data, shared.you)
-			return
+			receiveEdit(m)
 	}
+}
+
+/**
+ * Whether a guest opens map message `m`: one addressed to it, or one to everyone (the host made the map
+ * again, #1008) once it has the map. A guest without it yet gets its own handoff after that one.
+ */
+function mapForMe(m: Message): boolean {
+	if (shared.role === 'host') return false
+	return m.to ? m.to === shared.you : mapGen >= 0
+}
+
+/** An edit message: held while a guest has no map yet, dropped when another member made it against another map than this one (#1008). */
+function receiveEdit(m: Message) {
+	if (mapGen < 0) {
+		early.push(m)
+		return
+	}
+	// One's own come back as the acknowledgement, which the sync matches by its own count.
+	if (m.from !== shared.you && editGen(m.data) !== mapGen) return
+	const sync = m.kind === KIND_HEIGHTS ? heights : m.kind === KIND_PAINT ? paint : objects
+	sync.receive(m.seq, m.from, m.data, shared.you)
+}
+
+/**
+ * Runs `replace`, which makes tab `docId`'s map again in its tab (Revert to Saved, Grow Region). Outside a
+ * session, or for another tab, it just runs. For the host's session map (#1008), its edits not sent yet go
+ * out first, then the sync is bound to the new document and the map is sent to everyone, each guest
+ * opening it over its session tab (`openHandoff`); the edits made against the old map are dropped from
+ * then on (`mapGen`). A guest's is refused: the host owns the map.
+ */
+export function replaceSessionMap(docId: number, replace: () => void) {
+	const e = engineRef.current
+	const d = sessionDoc()
+	if (!e || !d || !isSessionMap(docId)) return replace()
+	if (shared.role !== 'host') throw new Error(GUEST_REPLACE_REASON)
+	flushEdits()
+	d.shared = false
+	try {
+		replace()
+	} catch (err) {
+		if (e.documents.includes(d)) d.shared = true
+		throw err
+	}
+	// The new map took the tab's place and is active; a replace that did nothing (a grow of a map not from the client) leaves the old one.
+	const nd = e.activeDocument()
+	if (nd === d || e.documents.includes(d)) {
+		d.shared = true
+		return
+	}
+	mapGen++
+	setSessionDoc(nd.id)
+	bindEdits(lastSeq, { lane: 0, nextId: 0, nextGroup: 0 })
+	if (!shared.peers.some((p) => p.id !== HOST_ID)) return
+	const handoff: MapHandoff = { seq: lastSeq, gen: mapGen, map: toMapData(e.snapshotOf(nd)), ids: nd.objects.counts }
+	sendHandoff(0, handoff).catch((err) => setStatus(`Sending the map to the session failed: ${err}`, 8000))
 }
 
 /** The host sends the session's map to a member that joined, as it is now. */
@@ -333,6 +410,7 @@ async function sendMap(p: Peer) {
 	// The guest counts from above every id and group this map's layer has held, the removed ones too (an undo brings those back).
 	const { nextId, nextGroup } = d.objects.counts
 	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(e.snapshotOf(d)), ids: { lane, nextId, nextGroup } }
+	if (mapGen > 0) handoff.gen = mapGen
 	try {
 		await sendHandoff(p.id, handoff)
 	} catch (err) {
@@ -359,22 +437,70 @@ function receivePart(p: MapPart) {
 	openHandoff(h)
 }
 
-/** A guest opens the host's map as a new tab, unsaved (Save is Save As there). */
+/**
+ * A guest opens the host's map: as a new tab the first time, unsaved (Save is Save As there), and over its
+ * session tab when the host made the map again (#1008), which drops that tab's unsent edits and history.
+ */
 function openHandoff(h: MapHandoff) {
 	const e = engineRef.current
 	if (!e) return
+	const gen = h.gen ?? 0
+	const first = mapGen < 0
+	const old = sessionDoc()
+	// An older map than the one open, or one made again after this member closed the session's tab.
+	if (!first && (gen <= mapGen || !old)) return
+	let snap: ReturnType<typeof fromMapData>
 	try {
-		e.openDocument(fromMapData(h.map), '')
+		snap = fromMapData(h.map)
 	} catch (err) {
+		setStatus(`The session's map could not be read: ${err}`, 10000)
+		return
+	}
+	const was = e.activeDocumentId()
+	// A session tab this member saved keeps its file (with the host's map in it, unsaved).
+	const path = !old ? '' : was === old.id ? editor.filePath : old.meta.filePath
+	if (old) old.shared = false
+	try {
+		e.openDocument(snap, path, old?.id)
+	} catch (err) {
+		if (old && e.documents.includes(old)) old.shared = true
 		setStatus(`The session's map could not be opened: ${err}`, 10000)
 		return
 	}
-	setSessionDoc(e.activeDocumentId())
-	// The edits held since joining that the map doesn't hold yet go in now. A host that sent no lane (an
-	// older Meld, a scripted one) gets this member's id as one, which holds while the members stay below LANES.
-	bindEdits(h.seq, h.ids ?? { lane: shared.you % LANES, nextId: 0, nextGroup: 0 })
-	const host = shared.peers.find((p) => p.id === HOST_ID)
-	setStatus(`Opened ${host?.name || 'the host'}'s map ${h.map.name}`, 6000)
+	const id = e.activeDocumentId()
+	if (old) {
+		// A grown map's ground moved in its square: the camera and the bookmarks move with it, as on the host (Engine.growWorld).
+		const shift = squareShift(old.meta.vmangos, snap.vmangos)
+		if (shift) {
+			const c = e.controller
+			c.setView(c.target.x + shift.x, c.target.y, c.target.z + shift.z, c.yaw, c.pitch, c.distance)
+			editor.bookmarks = editor.bookmarks.map((b) => ({ ...b, x: b.x + shift.x, z: b.z + shift.z }))
+		}
+		if (path) editor.dirty = true
+		// Opening activates the tab; a member working in another stays there.
+		if (was !== old.id && e.documents.some((d) => d.id === was)) e.switchDocument(was)
+	}
+	setSessionDoc(id)
+	mapGen = gen
+	// The edits that came before the map, made against it, wait in the syncs (`wait`) for the bind below.
+	const held = early
+	early = []
+	for (const m of held) receiveEdit(m)
+	// The held edits the map doesn't hold yet go in now. A host that sent no lane (an older Meld, a scripted
+	// one) gets this member's id as one, which holds while the members stay below LANES.
+	if (first) myLane = h.ids && 'lane' in h.ids ? h.ids.lane : shared.you % LANES
+	bindEdits(h.seq, { lane: myLane, nextId: h.ids?.nextId ?? 0, nextGroup: h.ids?.nextGroup ?? 0 })
+	const host = shared.peers.find((p) => p.id === HOST_ID)?.name || 'the host'
+	if (first) setStatus(`Opened ${host}'s map ${h.map.name}`, 6000)
+	else setStatus(`${host} made the session's map again (a revert or a grow): its tab here holds theirs now, and your edits not yet sent are gone`, 10000)
+}
+
+/** How far a map made again from `was` to `now` moved its ground, in yards: a grown client map's square starts at another tile. */
+function squareShift(was: VmangosRef | null | undefined, now: VmangosRef | null | undefined): { x: number; z: number } | null {
+	if (!was || !now || was.dir !== now.dir) return null
+	const x = ((was.tileX ?? 0) - (now.tileX ?? 0)) * TILE_YARDS
+	const z = ((was.tileY ?? 0) - (now.tileY ?? 0)) * TILE_YARDS
+	return x || z ? { x, z } : null
 }
 
 function onEnded(reason: string) {
