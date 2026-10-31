@@ -14,7 +14,7 @@
 	import { openProject } from '../lib/io/project'
 	import type { ProjectInfo } from '../lib/state/editor.svelte'
 	import { copyPerfReport, copyScene, pasteScene } from '../lib/io/scene'
-	import { isGuestMap, leaveSession, shared } from '../lib/session/shared.svelte'
+	import { isGuestMap, isSessionMap, leaveSession, shared } from '../lib/session/shared.svelte'
 	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
 	import { GameEvents } from '../lib/wails/App'
 	import { quitNow } from '../lib/io/session'
@@ -110,6 +110,7 @@
 			events: regionEvents(editor.spawns, eventNames),
 			sessionRole: shared.role,
 			sessionGuestMap: isGuestMap(docs.active),
+			sessionMap: isSessionMap(docs.active),
 			cameraView: cameraView(),
 			cameraViews: CAMERA_VIEWS,
 			benchMaps: BENCH_MAPS,

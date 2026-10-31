@@ -160,6 +160,11 @@ export class MapDocument {
 	 * chunk headers alone. Kept across saves as `liquidsKnown` is (`chunkDataUnknown`).
 	 */
 	chunkDataKnown = true
+	/**
+	 * The tab is a shared session's map (#1007, set by lib/session/shared.svelte.ts): it is never replaced
+	 * by another document (`Engine.openDocument` refuses), since the session's sync is bound to this one.
+	 */
+	shared = false
 	readonly history = new History()
 	/**
 	 * What the client was last known to hold of this region (#214): the compile fingerprint
@@ -240,7 +245,7 @@ export class MapDocument {
 
 	/** Untitled, unsaved and untouched: safe to replace when opening a file. */
 	get pristine() {
-		return !this.world && !this.meta.dirty && !this.meta.filePath && this.objects.objects.size === 0 && !this.history.peek()
+		return !this.shared && !this.world && !this.meta.dirty && !this.meta.filePath && this.objects.objects.size === 0 && !this.history.peek()
 	}
 
 	/** Adds every model type the map holds or draws to `into`: its objects, spawns and tufts (#505). */

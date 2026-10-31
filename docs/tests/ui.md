@@ -1061,3 +1061,15 @@ stay over a remote one.
   both and compare `meldtool wmap info` (or the heights) of the saves.
 - Trap: `P` has no `wait`; a probe sleeps with `setTimeout`. A flush needs up to `HEIGHTS_FLUSH_MS`
   after an edit before the message leaves.
+
+## The session's map keeps its tab (#1007, probe `session-replace`)
+
+Checks: while in a session, nothing makes the session's map again in its tab, since its sync is bound
+to that document (`MapDocument.shared`).
+- `bun run probe session-replace`: the page hosts an untouched new map (no bot needed); a map opened
+  then takes a new tab instead of the untouched one's place, `openDocument(snap, '', id)` (Revert's and
+  a recovered copy's way) and `growWorld` throw `SESSION_MAP_REASON`, and after the session ends the map
+  is untouched (`pristine`) again.
+- `bun test tests/menus.test.ts`: Revert to Saved is off with the reason in the session's map.
+- By hand: host a map from the client, open Map Properties and tick a tile outside the square: the
+  status line refuses before the Grow confirm.

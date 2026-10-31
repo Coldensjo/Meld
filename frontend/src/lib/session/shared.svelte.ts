@@ -47,6 +47,15 @@ function sessionDoc() {
 	return shared.docId ? engineRef.current?.documents.find((d) => d.id === shared.docId) : undefined
 }
 
+/** Makes tab `id` the session's map (0 for none). The map's document is marked `shared`, so it is never replaced in its tab while the sync is bound to it (#1007). */
+function setSessionDoc(id: number) {
+	const old = sessionDoc()
+	if (old) old.shared = false
+	shared.docId = id
+	const d = sessionDoc()
+	if (d) d.shared = true
+}
+
 /** The session map's heights (#1001): sent every HEIGHTS_FLUSH_MS while they change, the others' applied in the host's order. */
 const heights = new HeightSync({
 	send: (data) => sessionSend(0, KIND_HEIGHTS, data),
@@ -115,7 +124,7 @@ function reset() {
 	shared.port = 0
 	shared.addrs = []
 	shared.peers = []
-	shared.docId = 0
+	setSessionDoc(0)
 }
 
 /** Starts hosting a session with the active map as its map. Throws what Go refuses with. */
@@ -130,7 +139,7 @@ export async function hostSession(port: number, name: string) {
 		reset()
 		throw err
 	}
-	shared.docId = e.activeDocumentId()
+	setSessionDoc(e.activeDocumentId())
 	const d = sessionDoc()
 	if (d) heights.bind(d.terrain, 0)
 }
@@ -150,6 +159,11 @@ export async function joinSession(addr: string, code: string, name: string) {
 /** True when the map in the active tab (`docId`) is the session's and this Meld is a guest in it: the host alone compiles, publishes and launches it. */
 export function isGuestMap(docId: number): boolean {
 	return shared.role === 'guest' && shared.docId !== 0 && shared.docId === docId
+}
+
+/** True when tab `docId` is the session's map, for host and guest alike: it can't be made again in its tab (#1007). */
+export function isSessionMap(docId: number): boolean {
+	return shared.role !== '' && shared.docId !== 0 && shared.docId === docId
 }
 
 /** Refuses a write into the client or server from the active tab when it is a guest's session map; says why in the status bar. */
@@ -222,7 +236,7 @@ function openHandoff(h: MapHandoff) {
 		setStatus(`The session's map could not be opened: ${err}`, 10000)
 		return
 	}
-	shared.docId = e.activeDocumentId()
+	setSessionDoc(e.activeDocumentId())
 	// The edits held since joining that the map doesn't hold yet go in now.
 	const d = sessionDoc()
 	if (d) heights.bind(d.terrain, h.seq)

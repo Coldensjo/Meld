@@ -188,6 +188,7 @@ import { copyItems, copyValue } from '../ui/copyId'
 import { firstKeyOf, isKeyOf, keysOf, pressed } from '../ui/commands'
 import { yieldToFrame } from './yieldToFrame'
 import { texName } from '../wow/texName'
+import { SESSION_MAP_REASON } from '../session/peers'
 
 /** A world view's side (#15): the whole map, 64 tiles. */
 const WORLD_SIDE = MAP_TILES * TILE_YARDS
@@ -3379,6 +3380,7 @@ export class Engine {
 	 */
 	growWorld(square: TileSquare, tiles: string) {
 		const d = this.doc
+		if (d.shared) throw new Error(SESSION_MAP_REASON)
 		const ref = d.meta.vmangos
 		if (!ref) return
 		const n0 = d.terrain.size / TILE_CELLS
@@ -3908,10 +3910,12 @@ export class Engine {
 	/**
 	 * Open a loaded map in a new tab (replacing an untouched empty tab). With `replaceId`, the map takes
 	 * that tab's place instead and keeps its camera and bookmarks, which is how Revert drops a map's
-	 * unsaved changes and undo history.
+	 * unsaved changes and undo history. A shared session's map is never replaced (#1007): its sync is
+	 * bound to that document, so the others would keep editing a map this Meld no longer has.
 	 */
 	openDocument(m: MapSnapshot, filePath: string, replaceId?: number) {
 		const replace = replaceId === undefined ? undefined : this.documents.find((x) => x.id === replaceId)
+		if (replace?.shared) throw new Error(SESSION_MAP_REASON)
 		if (replace === this.doc) this.stashActive()
 		const verts = (m.size + 1) * (m.size + 1)
 		if (m.heights.byteLength !== verts * 4) throw new Error('height data size mismatch')

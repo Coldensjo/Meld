@@ -7,7 +7,7 @@ import type { Engine } from '../engine/Engine'
 import type { ProjectInfo, editor as editorState, prefs as prefsState, ui as uiState } from '../state/editor.svelte'
 import type { CameraView } from './cameraView'
 import type { BenchKind } from '../bench/benchMaps'
-import { GUEST_EXPORT_REASON } from '../session/peers'
+import { GUEST_EXPORT_REASON, SESSION_MAP_REASON } from '../session/peers'
 import type * as compileIo from '../io/compile'
 import type * as gameIo from '../io/game'
 import type * as externalIo from '../io/external'
@@ -104,6 +104,8 @@ export interface MenuContext {
 	sessionRole: '' | 'host' | 'guest'
 	/** The active tab is the session's map and this Meld a guest: the writes into the client and server are the host's (#1005). */
 	sessionGuestMap: boolean
+	/** The active tab is the session's map, host or guest: it can't be made again in its tab (Revert, #1007). */
+	sessionMap: boolean
 	cameraView: CameraView
 	cameraViews: ReadonlyArray<{ id: CameraView; label: string }>
 	benchMaps: ReadonlyArray<{ kind: BenchKind; label: string }>
@@ -217,7 +219,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				...editing([
 					{ kind: 'action', label: 'Save', disabled: ui.busy, ...cmd('save') },
 					{ kind: 'action', label: 'Save As…', disabled: ui.busy, ...cmd('saveAs') },
-					{ kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(io.requestRevert) },
+					{ kind: 'action', label: 'Revert to Saved', ...(ctx.sessionMap ? { disabled: true, title: SESSION_MAP_REASON } : { disabled: !editor.filePath || ui.busy }), run: withEngine(io.requestRevert) },
 					{ kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
 					{ kind: 'sep' },
 					{ kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },

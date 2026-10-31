@@ -158,11 +158,12 @@ const sameRegion = (a: RegionRef | null, b: { mapName: string; x: number; y: num
 
 /**
  * Opens a copy as a map with unsaved changes. It takes the place of the tab of the same map (its file,
- * or the same region) when that tab has no changes of its own, as the session restore reopens it.
+ * or the same region) when that tab has no changes of its own, as the session restore reopens it; a
+ * shared session's map keeps its tab (#1007), and the copy opens in a new one.
  */
 export async function recover(engine: Engine, info: recovery.Info) {
 	const snap = fromMapData(await LoadRecovery(info.id))
-	const same = engine.documents.find((d) => !engine.isDirty(d.id) && (info.file ? samePath(pathOf(engine, d), info.file) : !pathOf(engine, d) && sameRegion(d.meta.region, snap.region)))
+	const same = engine.documents.find((d) => !d.shared && !engine.isDirty(d.id) && (info.file ? samePath(pathOf(engine, d), info.file) : !pathOf(engine, d) && sameRegion(d.meta.region, snap.region)))
 	engine.openDocument(snap, info.file, same?.id)
 	editor.dirty = true
 	engine.refreshTabs()

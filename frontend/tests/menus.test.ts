@@ -5,12 +5,13 @@ import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { buildMenus, regionEvents, type Menu, type MenuActions, type MenuContext, type MenuIo, type MenuItem } from '../src/lib/ui/menus.ts'
 import type { CommandId } from '../src/lib/ui/commands.ts'
+import { SESSION_MAP_REASON } from '../src/lib/session/peers.ts'
 import type { CameraView } from '../src/lib/ui/cameraView.ts'
 
 type Bag = Record<string, unknown>
 
 /** A context over plain objects; `command` toggles the values the bound commands toggle in the app. */
-function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean; events?: MenuContext['events']; sessionRole?: MenuContext['sessionRole'] } = {}) {
+function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean; events?: MenuContext['events']; sessionRole?: MenuContext['sessionRole']; sessionMap?: boolean } = {}) {
 	const ui: Bag = { recentProjects: [], serverStatus: null, serverAction: '', externalDb: null, project: null, ...over.ui }
 	const editor: Bag = { bookmarks: [], maskSelect: { step: 4 }, smoothArea: { mode: 'smooth', shape: 'raise' }, selectedIds: [], selection: null, regionBlock: null, worldMap: null, ...over.editor }
 	const prefs: Bag = { shownEvents: [], biomes: [], ...over.prefs }
@@ -50,6 +51,7 @@ function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean;
 			events: over.events ?? [],
 			sessionRole: over.sessionRole ?? '',
 			sessionGuestMap: false,
+			sessionMap: over.sessionMap ?? false,
 			cameraView: state.cameraView,
 			cameraViews: [
 				{ id: 'orbit', label: 'Orbit' },
@@ -263,4 +265,12 @@ test('File offers host and join outside a session, the code and End to the host,
 	assert.equal(ctx.ui.dialog, 'hostSession')
 	assert.equal(disabled(makeCtx({ editor: { worldMap: 'Azeroth' } }).build(), 'File', 'Host Session…'), true, 'a world view has no map to share')
 	assert.equal(disabled(makeCtx({ backend: false }).build(), 'File', 'Join Session…'), true)
+})
+
+test("Revert to Saved is off in the session's map, with the reason (#1007)", () => {
+	const saved = { editor: { filePath: 'C:/maps/a.wmap' } }
+	assert.equal(disabled(makeCtx(saved).build(), 'File', 'Revert to Saved'), false)
+	const revert = item(makeCtx({ ...saved, sessionRole: 'host', sessionMap: true }).build(), 'File', 'Revert to Saved')
+	assert.ok(revert.kind === 'action' && revert.disabled)
+	assert.equal(revert.title, SESSION_MAP_REASON)
 })

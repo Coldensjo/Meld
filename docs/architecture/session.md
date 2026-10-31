@@ -94,6 +94,14 @@ server. #728 is the umbrella; its parts are separate issues:
   - **The map.** Only the session's map syncs (`shared.docId`): the host binds it on Host, a guest on
     opening the handoff. A guest holds the `heights` that arrive before its map (`HeightSync.wait`) and
     applies those after the handoff's `seq` once it opens. Closing the session's map stops the sync.
+- **The session's map keeps its document (#1007).** The sync is bound to the session map's document,
+  so `setSessionDoc` marks it `shared` (`MapDocument.shared`) and nothing replaces it in its tab while
+  in the session: `Engine.openDocument` with that tab as `replaceId` and `Engine.growWorld` throw
+  `SESSION_MAP_REASON` (`peers.ts`), File › Revert to Saved is off with it as the tooltip
+  (`isSessionMap`), Map Properties refuses a grow before asking, a recovered copy opens in a new tab
+  rather than over it (`recover`), and a shared map is never `pristine`, so a map opened while hosting
+  an untouched new map takes a new tab. Ending or leaving the session clears the mark. Rebinding the
+  sync to the new document and sending it to everyone again instead is #1008.
 - The members show in the status bar (`StatusBar.svelte`, `peersLabel`/`peersTitle`), the session's tab
   carries a `session` badge (`DocTabs.svelte`), and a join, a leave and the end are status lines.
 
@@ -107,9 +115,11 @@ server. #728 is the umbrella; its parts are separate issues:
   undo touch only one's own edits. An undo writes its before-values back even where another member
   changed the ground since, and that syncs like any edit: accepted for now (#1001); a step that crosses
   others' later edits could warn.
-- **The heights sync lives as long as the session map's tab.** A Grow Region or a reopen replaces the document
-  (a new id), so the sync stops there; a larger heights message (a whole-map import) is a few MB of
-  JSON through the bridge twice.
+- **The sync lives as long as the session map's document.** A Grow Region or a reopen would replace the
+  document (a new id) and stop the sync on that member alone, so they are refused while in a session
+  (above); a new way to make a map again in its tab must go through `Engine.openDocument` with
+  `replaceId`, or check `MapDocument.shared` itself. A larger heights message (a whole-map import) is a
+  few MB of JSON through the bridge twice.
 - **The firewall.** On Windows, the first `HostSession` makes the firewall ask whether Meld may listen.
   The Go tests bind loopback (`sessionBind` in `app_session.go`) so the test binary doesn't ask.
 - **The same client.** A map refers to the client's assets by path, so every member needs the same

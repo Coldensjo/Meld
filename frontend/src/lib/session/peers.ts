@@ -5,6 +5,9 @@
 /** Why a guest cannot write the session's map into the client or server (#1005), shown as the menu items' tooltip and the status line. */
 export const GUEST_EXPORT_REASON = "The host exports the session's map"
 
+/** Why the session's map can't be made again in its tab (#1007: Grow Region, Revert, a recovered copy, a file opened over an untouched map): the others would keep editing the old one. */
+export const SESSION_MAP_REASON = "The session's map can't be replaced while it is shared"
+
 /** A member of the session, as `session.Peer` gives it. */
 export interface Peer {
 	id: number
