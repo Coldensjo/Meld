@@ -30,6 +30,8 @@ export const VIEW_PREFS = [
 	'showNpcs',
 	'showGameObjects',
 	'spawnColors',
+	'groundOverlay',
+	'groundStray',
 	'renderScale',
 	'viewDistance',
 	'fog',

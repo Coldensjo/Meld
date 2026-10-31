@@ -2,6 +2,18 @@ import * as THREE from 'three'
 import { CASCADE_SHADOW_GLSL } from '../engine/shadowCascades'
 import { BAKED_SHADOW_LIGHT } from './bakedShadows'
 import { LIGHT_POOL } from '../world/PropEffects'
+import { LEVEL_RAMP } from '../world/spawnColors'
+import { COUNT_MAX, DENSITY_RAMP, GROUND_CROWD, LEVEL_SCALE, STRAY_BIT } from '../world/spawnGround'
+
+/** A ramp of sRGB hex colours as a GLSL vec3 array in the shader's linear space, so a cell matches a marker of the colour. */
+function glslRamp(name: string, ramp: readonly number[]): string {
+	const c = new THREE.Color()
+	const v = ramp.map((h) => {
+		c.setHex(h)
+		return `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`
+	})
+	return `const vec3 ${name}[${ramp.length}] = vec3[${ramp.length}](${v.join(', ')});`
+}
 
 const vertex = /* glsl */ `
 #include <common>
@@ -166,6 +178,23 @@ uniform vec2 refCentre;
 uniform vec2 refHalf;
 uniform vec2 refRot;
 uniform float refEdit;
+// View › Ground overlay (#950, world/spawnGround.ts): 0 off, 1 the monsters' level around each cell (in
+// cellTex's blue, on the spawn colours' ramp from spawnLevels.x to .y, the cells straying from their zone's
+// level hatched), 2 the creatures' density (cellTex's alpha below the stray bit).
+uniform float spawnMode;
+uniform vec2 spawnLevels;
+${glslRamp('LEVEL_RAMP', LEVEL_RAMP)}
+${glslRamp('DENSITY_RAMP', DENSITY_RAMP)}
+vec3 levelOf(float t) {
+  float x = clamp(t, 0.0, 1.0) * ${(LEVEL_RAMP.length - 1).toFixed(1)};
+  int i = min(int(floor(x)), ${LEVEL_RAMP.length - 2});
+  return mix(LEVEL_RAMP[i], LEVEL_RAMP[i + 1], x - float(i));
+}
+vec3 densityOf(float t) {
+  float x = clamp(t, 0.0, 1.0) * ${(DENSITY_RAMP.length - 1).toFixed(1)};
+  int i = min(int(floor(x)), ${DENSITY_RAMP.length - 2});
+  return mix(DENSITY_RAMP[i], DENSITY_RAMP[i + 1], x - float(i));
+}
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 
@@ -398,6 +427,27 @@ void main() {
     }
   }
 
+  if (spawnMode > 0.5) {
+    float cells = worldSize / cellSize;
+    vec2 sc = clamp(floor(vWorldPos.xz / cellSize), 0.0, cells - 1.0);
+    vec4 sd = floor(texture2D(cellTex, (sc + 0.5) / cells) * 255.0 + 0.5);
+    float stray = step(${STRAY_BIT.toFixed(1)}, sd.a);
+    float count = sd.a - stray * ${STRAY_BIT.toFixed(1)};
+    if (spawnMode < 1.5) {
+      if (sd.b > 0.5) {
+        float lv = sd.b / ${LEVEL_SCALE.toFixed(1)};
+        float t = spawnLevels.y > spawnLevels.x ? (lv - spawnLevels.x) / (spawnLevels.y - spawnLevels.x) : 0.5;
+        lit = mix(lit, levelOf(t), 0.5);
+        // A pocket whose level doesn't fit its zone: dark diagonal hatching, a few yards a stripe.
+        float hatch = step(0.6, fract((vWorldPos.x - vWorldPos.z) / (cellSize * 1.5)));
+        lit = mix(lit, vec3(0.02), stray * hatch * 0.75);
+      }
+    } else if (count > 0.5) {
+      float t = (min(count, ${COUNT_MAX.toFixed(1)}) - 1.0) / ${(GROUND_CROWD - 1).toFixed(1)};
+      lit = mix(lit, densityOf(t), 0.3 + 0.3 * clamp(t, 0.0, 1.0));
+    }
+  }
+
   if (refOpacity > 0.0 || refEdit > 0.0) {
     // The image's own frame (refUV): x along its width, y down its height, row 0 at the top. Flat,
     // over the lit ground, so its colours read as drawn.
@@ -531,6 +581,8 @@ export function createTerrainMaterial(palette: THREE.Texture, slots: THREE.Textu
 		refHalf: { value: new THREE.Vector2(1, 1) },
 		refRot: { value: new THREE.Vector2(1, 0) },
 		refEdit: { value: 0 },
+		spawnMode: { value: 0 },
+		spawnLevels: { value: new THREE.Vector2() },
 	}
 	return new THREE.ShaderMaterial({
 		// Double-sided, so going under the surface shows a ceiling rather than the world from below.

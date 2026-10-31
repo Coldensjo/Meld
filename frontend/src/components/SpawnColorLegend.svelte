@@ -53,9 +53,6 @@
 
 <style>
 	.legend {
-		position: absolute;
-		right: 10px;
-		bottom: 34px;
 		width: 250px;
 		padding: 6px 8px;
 		background: var(--panel);
@@ -63,7 +60,7 @@
 		border-radius: 8px;
 		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 		font-size: 12px;
-		z-index: 4;
+		pointer-events: auto;
 	}
 	.head {
 		display: flex;

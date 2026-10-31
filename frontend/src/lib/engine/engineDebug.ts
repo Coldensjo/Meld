@@ -4,6 +4,6 @@
  * every `.debug.<name>` in frontend/probes is one of them, and that no probe reaches one of them on the
  * engine directly.
  */
-export const DEBUG_MEMBERS = ['ctx', 'tools', 'rooms', 'env', 'doc', 'persp', 'ndc', 'particles', 'weather', 'spawnLabels', 'clientLights', 'hour', 'setHour', 'menuSeq', 'frame', 'wrapFrame', 'openContextMenu'] as const
+export const DEBUG_MEMBERS = ['ctx', 'tools', 'rooms', 'env', 'doc', 'persp', 'ndc', 'particles', 'weather', 'spawnLabels', 'groundOverlay', 'clientLights', 'hour', 'setHour', 'menuSeq', 'frame', 'wrapFrame', 'openContextMenu'] as const
 
 export type DebugMember = (typeof DEBUG_MEMBERS)[number]

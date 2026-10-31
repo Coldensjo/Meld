@@ -305,6 +305,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   The menu has one check line (the View menu is at its 720 px, probe `preferences`); turned on it is
   Level, and `SpawnColorLegend.svelte` picks the mode and lists the colours (DOM, so out of canvas
   screenshots).
+- **Ground overlay** (#950, View › Ground by creature level or density): the ground shaded by the monsters' average level or
+  the creatures' density within 40 yd, on the same ramp; see terrain.md, "Ground overlay".
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
   by the right-click menu's Edit creature, the Inspector's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
   any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, also shown in

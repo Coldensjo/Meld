@@ -20,6 +20,7 @@ export const OVERLAYS_OFF = {
 	mapDataMode: 0,
 	refOpacity: 0,
 	refEdit: 0,
+	spawnMode: 0,
 } as const satisfies Record<string, number>
 
 export type OverlayName = keyof typeof OVERLAYS_OFF
@@ -27,7 +28,8 @@ export type OverlayName = keyof typeof OVERLAYS_OFF
 /**
  * The overlays `frame` sets from the editor's state each frame, through `updateTerrainOverlays`. The
  * others have their own setters: chunkHover (`updateHoverChunk`), tileWorld (`Terrain.setTileBorders`),
- * selMode (`updateSelectionUniforms`), mapDataMode (`Terrain.setMapDataOverlay`) and the reference's.
+ * selMode (`updateSelectionUniforms`), mapDataMode (`Terrain.setMapDataOverlay`), spawnMode
+ * (`Terrain.setSpawnOverlay`) and the reference's.
  */
 export const FRAME_OVERLAYS = ['brushVisible', 'gridVisible', 'unpaintable', 'climbCos', 'contourStep', 'chunkLineWorld', 'maskVisible'] as const satisfies readonly OverlayName[]
 

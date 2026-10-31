@@ -700,6 +700,24 @@ ones in view, stays 0); count the packed instances (`mesh.userData.ids.length`, 
 passes draw) instead, or load the client's region with `P.scene`. From afar a tinted model is a few
 pixels: the colours read best on the markers, or close up.
 
+## Ground overlay by creature level and density (#950, probe `ground-overlay`)
+
+Unit: `tests/spawnGround.test.ts` (the cells within 40 yd of a creature, the monsters' average and the
+density, a move, a level edit and a delete changing only what the spawn added, the bytes packed for the
+shader with the stray bit, a subzone's level falling back to its zone's, and the legend). Probe
+`ground-overlay` loads `P.BENCH` (Azeroth 32_48: Northshire and the north of Elwynn), turns on Level,
+compares the sums at a dozen monsters with a count by hand over the spawns, shoots the block from above
+with the overlay off, in Level and in Density (each must change the ground), moves a spawn 120 yd and
+back, and hatches the straying cells. By eye: the same view (`ui.topDown`, target the block's centre,
+distance 0.8 of its width, Show › Objects off): Level is blue over Northshire's level 1 to 3 wolves and
+kobolds with orange where the level 5 ones stand, Density is palest over the abbey's grounds and the
+vineyards.
+
+Traps: Northshire's zone and subzones have no exploration level in 1.12's AreaTable (most zones have 0;
+their subzones carry one), so nothing there strays; the probe names the block's chunks Goldshire (87,
+level 5) for the compare and puts them back. The dark square north-west of the abbey in a shot with
+Objects off is the abbey's hole in the ground, not the overlay.
+
 ## Creature editor: Spells tab (creature_spells, #243)
 
 Probes: `creature-spells` and `creature-spell-fields`.

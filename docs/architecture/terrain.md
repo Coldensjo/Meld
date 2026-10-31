@@ -136,7 +136,8 @@ mask/liquid, image codec or native/game rendering contracts.
   Area mode tints each zone in its colour with the chunk edges drawn, and stripes the chunks of the zone being painted (`Terrain.setMapDataZone`, uniform `mapDataZone`, #714); the status line names the zone and the chunks reached.
   The tool draws its overlay through `Terrain.setMapDataOverlay`: a texel per chunk (`chunkDataTex`)
   and the no-tufts cells in the red of `Terrain.cellTex`, a texel per cell whose green is the selected
-  area's shape (`Terrain.setAreaShape`), shared so the shader spends one sampler on both (#394).
+  area's shape (`Terrain.setAreaShape`), shared so the shader spends one sampler on both (#394); its
+  blue and alpha are the ground overlay's (#950, below). It is RGBA, four bytes a cell.
   A dab marks only what it reached (`touchChunkData(rect, cells)`, a rect of paint chunks or of cells),
   and `Terrain.update` rewrites and uploads just those texels (#530); an undo or a paste marks all of it. The export sends every chunk's
   `HeaderSpec` (`TileSpec.Headers`, `RegionEdit.Headers`) and Go sets the area ID and the 0x2 flag
@@ -146,6 +147,26 @@ mask/liquid, image codec or native/game rendering contracts.
   shadows (#644). A map saved before version 3 (`MapDocument.holesKnown` false, kept by
   `holesUnknown`) sends holes only for the chunks that have one, with `holesAdd`, which Go ORs into
   the chunk's own bitmap (`adt.ChunkHeader.HolesAdd`), so the client's holes are never filled (#663).
+
+- **Ground overlay** (#950, View › Ground by creature level or density, `prefs.groundOverlay`): each cell shaded by the
+  creatures within `GROUND_RADIUS` (40 yd) of its centre, in Level mode by the average level of the
+  monsters (NPCs and game objects left out) on the spawn colours' ramp (#949, `SpawnLayer.levelSpread`),
+  in Density mode by how many creatures (monsters and NPCs) on `DENSITY_RAMP`, `GROUND_CROWD` (16) its
+  top. `world/spawnGround.ts` (`SpawnGround`) keeps the sums per cell and changes only the cells of the
+  spawns that were added, moved, re-levelled or deleted; `world/groundOverlay.ts` (`GroundOverlayView`,
+  `Engine.groundOverlay`) brings it up to the spawn layer each frame (all spawns when `version` moved,
+  only the move log's otherwise; a creature counts while the world events shown show it) and writes the
+  changed cells into the blue (the level at a quarter level) and alpha (the count, below `STRAY_BIT`) of
+  `Terrain.cellTex` (`spawnCellBytes`, `touchSpawnCells`): no new sampler, since the shader has one unit
+  left with five shadow maps (probe `terrain-cell-tex`). Uniform `spawnMode` is in `OVERLAYS_OFF`, so the
+  minimap tiles and the world map never draw it. Level mode hatches a cell whose average is more than
+  `prefs.groundStray` levels off its chunk's zone level: AreaTable's exploration level of the chunk's
+  area, a subzone without one taking its zone's (`chunkZoneLevels`, through `AreaRows`, read again each
+  time the overlay is turned on). In 1.12 most zones themselves have level 0 (Elwynn, Westfall,
+  Redridge) and their subzones carry one (Goldshire 5, Westfall Lighthouse 17); Northshire's areas have
+  none, and an area of level 0 is never compared. The menu has one check line, with no note in brackets (a
+  menu item draws one as a second line), as the View menu is at 716 of its 720 px (probe `preferences`); `GroundOverlayLegend.svelte`, stacked with the spawn colours' legend in `Viewport`, picks
+  the mode and sets the stray.
 
 - **Walkable ground** (#175): View › Climb (`prefs.climbView`, Shift+F2) tints each triangle
   steeper than `prefs.climbAngle` in the terrain shader (`climbCos`). Show › Walkable ground

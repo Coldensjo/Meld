@@ -327,7 +327,7 @@ The window layout, the asset browser and the dock panels and floating windows.
   choice), each under about 720 px tall so it fits a 768 px window (probe `preferences` measures
   them): File, Edit, Models, Terrain (shaping, baked shadows, the tile clean-up), Paint (textures,
   the paint mask, the doodad-brush fills), Tools, World, Import/Export, View (the editor's aids:
-  grid, overlays, panels, climb and contours), Show (what of the world is drawn: the layers, the
+  grid, overlays, panels, climb, contours and the ground overlay), Show (what of the world is drawn: the layers, the
   spawns, triggers, flight paths and the navmesh), Graphics, Lighting, Camera, Bookmarks, Game
   (launch, teleport commands, login) and Help (with the performance overlay beside its report).
   The settings set once live in the Preferences dialog (`components/PreferencesDialog.svelte`,

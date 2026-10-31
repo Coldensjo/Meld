@@ -134,6 +134,7 @@ const shapes: Record<string, Check> = {
 	browserViews: (v) => isObj(v) && Object.values(v).every(obj({ query: str, category: str, zone: str, scroll: num })),
 	pinnedMaps: arr(num),
 	spawnColors: oneOf('kind', 'level', 'reaction', 'rank'),
+	groundOverlay: oneOf('off', 'level', 'density'),
 	shownEvents: arr(num),
 	collapsedPanels: arr(str),
 	recentAssets: arr(str),

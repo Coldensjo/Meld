@@ -163,6 +163,7 @@ import { TransformGizmo, type GizmoFit } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { newFrameView, type FrameView } from '../world/frameView'
 import { spawnKey, spawnMatrix } from '../world/SpawnLayer'
+import { GroundOverlayView } from '../world/groundOverlay'
 import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
@@ -396,6 +397,8 @@ export interface EngineDebug {
 	readonly particles: ParticleLayer
 	readonly weather: WeatherLayer
 	readonly spawnLabels: SpawnLabels
+	/** View › Ground overlay's sums per terrain (#950). */
+	readonly groundOverlay: GroundOverlayView
 	readonly clientLights: ClientLights | null
 	/** The time of day the sky shows (0 to 24), and its setter. */
 	readonly hour: number
@@ -639,6 +642,8 @@ export class Engine {
 	/** The Path tool (#167), which the options bar reaches through `path`. */
 	private pathTool = new PathTool()
 	private spawnLabels: SpawnLabels
+	/** View › Ground overlay (#950): each terrain's sums of the creatures around its cells. */
+	private groundOverlay = new GroundOverlayView()
 	private gizmo = new TransformGizmo()
 	/** The drag of the selection's handles (GizmoDrag.ts). */
 	private gizmoDrag: GizmoDrag
@@ -1083,6 +1088,9 @@ export class Engine {
 			},
 			get spawnLabels() {
 				return self.spawnLabels
+			},
+			get groundOverlay() {
+				return self.groundOverlay
 			},
 			get clientLights() {
 				return self.lighting.lights
@@ -1704,6 +1712,8 @@ export class Engine {
 		const md = editor.mapDataMode
 		this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : md === 'area' ? 1 : md === 'impassable' ? 2 : md === 'noTufts' ? 3 : 4)
 		this.terrain.setMapDataZone(editor.mapDataClear ? 0 : editor.mapDataArea)
+		// View › Ground overlay (#950): the ground by the creatures around it; a world view's streamed tiles have none.
+		this.groundOverlay.update(this.doc.world ? 'off' : this.prefs.groundOverlay, this.prefs.groundStray, this.terrain, this.doc.spawnLayer, this.maps.idOf(this.doc))
 		// Strong red while editing the mask; faint while painting so results stay visible.
 		const painting = editor.tool === 'paint' || editor.tool === 'road'
 		ov.maskVisible = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0

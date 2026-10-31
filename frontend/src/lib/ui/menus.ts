@@ -467,6 +467,14 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 						prefs.showContours = true
 					},
 				),
+				// The ground by the creatures around it (#950): one line, without a note in brackets (a second line), as
+				// the View menu is near its 720 px (probe `preferences`); turned on it is Level, and the legend it shows picks Density and the level compare.
+				{
+					kind: 'check',
+					label: 'Ground by creature level or density',
+					checked: prefs.groundOverlay !== 'off',
+					toggle: () => (prefs.groundOverlay = prefs.groundOverlay === 'off' ? 'level' : 'off'),
+				},
 			],
 		},
 		{

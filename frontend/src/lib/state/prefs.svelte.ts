@@ -9,6 +9,7 @@ import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
 import type { BrowserView } from '../wow/browserViews'
 import type { ModelSet } from '../wow/modelSets'
 import type { SpawnColorMode } from '../world/spawnColors'
+import type { GroundOverlay } from '../world/spawnGround'
 
 /** Camera speed steps: the preference is kept between a quarter and four times its normal speed. */
 export function stepCameraSpeed(faster: boolean) {
@@ -67,6 +68,10 @@ export function defaultPrefs() {
 		contourStep: 4,
 		/** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */
 		climbAngle: 49,
+		/** View › Ground overlay (#950): each cell of the ground shaded by the monsters' level or the creatures' density around it. */
+		groundOverlay: 'off' as GroundOverlay,
+		/** The Level overlay hatches a cell whose level is more than this many levels off its zone's exploration level; 0 for never. */
+		groundStray: 5,
 		/** Show each kind of layer; hiding one doesn't change the map. */
 		showTerrain: true,
 		showWater: true,

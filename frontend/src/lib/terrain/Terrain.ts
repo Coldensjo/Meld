@@ -77,11 +77,14 @@ export class Terrain {
 	private chunkDataTex: THREE.DataTexture | null = null
 	private chunkDataSrc: THREE.DataTexture | null = null
 	/**
-	 * A texel per cell, made on first use, shared so the shader spends one sampler on both (#394): red
-	 * is `noEffect` for the Map data overlay, green the selected area's shape (`setAreaShape`).
+	 * A texel per cell, made on first use, shared so the shader spends one sampler on all (#394): red
+	 * is `noEffect` for the Map data overlay, green the selected area's shape (`setAreaShape`), blue and
+	 * alpha the ground overlay's level and density bytes (`spawnCellBytes`, #950).
 	 */
 	private cellTex: THREE.DataTexture | null = null
 	private cellSrc: THREE.DataTexture | null = null
+	/** The cells of the ground overlay (#950) changed since its last upload. */
+	private spawnCellDirty = new DirtyRegion()
 	/** The shape last written into `cellTex`'s green, so an unchanged one isn't copied again. */
 	private areaCells: Uint8Array | null = null
 	/** What changed in the chunk data since the overlay's last upload: chunks, and cells. */
@@ -460,9 +463,13 @@ export class Terrain {
 			const z0 = r ? Math.max(0, r.z0) : 0
 			const x1 = r ? Math.min(n - 1, r.x1) : n - 1
 			const z1 = r ? Math.min(n - 1, r.z1) : n - 1
-			for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) cells[(z * n + x) * 2] = ne[z * n + x]
-			this.uploadRegion(renderer, this.cellDataDirty, this.cellSrc!, tex, n)
+			for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) cells[(z * n + x) * 4] = ne[z * n + x]
+			this.spawnCellDirty.mark(r)
 			this.cellDataDirty.clear()
+		}
+		if (this.spawnCellDirty.dirty) {
+			this.uploadRegion(renderer, this.spawnCellDirty, this.cellSrc!, this.cellTexture(), this.size)
+			this.spawnCellDirty.clear()
 		}
 		if (this.splatDirty.dirty) {
 			this.uploadRegion(renderer, this.splatDirty, this.weightSrc, this.weightTex)
@@ -520,12 +527,12 @@ export class Terrain {
 	/** `cellTex`, made the first time the overlay or a shaped area needs it. */
 	private cellTexture(): THREE.DataTexture {
 		if (!this.cellTex) {
-			const t = new THREE.DataTexture(new Uint8Array(this.size * this.size * 2), this.size, this.size, THREE.RGFormat, THREE.UnsignedByteType)
+			const t = new THREE.DataTexture(new Uint8Array(this.size * this.size * 4), this.size, this.size, THREE.RGBAFormat, THREE.UnsignedByteType)
 			t.magFilter = t.minFilter = THREE.NearestFilter
 			t.generateMipmaps = false
 			t.needsUpdate = true
 			this.cellTex = t
-			this.cellSrc = new THREE.DataTexture(t.image.data, this.size, this.size, THREE.RGFormat, THREE.UnsignedByteType)
+			this.cellSrc = new THREE.DataTexture(t.image.data, this.size, this.size, THREE.RGBAFormat, THREE.UnsignedByteType)
 			this.material.uniforms.cellTex.value = t
 		}
 		return this.cellTex
@@ -541,8 +548,32 @@ export class Terrain {
 		this.areaCells = cells
 		const tex = this.cellTexture()
 		const px = tex.image.data as Uint8Array
-		for (let i = 0; i < cells.length; i++) px[i * 2 + 1] = cells[i]
+		for (let i = 0; i < cells.length; i++) px[i * 4 + 1] = cells[i]
 		tex.needsUpdate = true
+	}
+
+	/**
+	 * The cell texture's bytes, four a cell, for the ground overlay (#950) to write its blue (the level)
+	 * and alpha (the density) into; `touchSpawnCells` then uploads the cells it wrote.
+	 */
+	spawnCellBytes(): Uint8Array {
+		return this.cellTexture().image.data as Uint8Array
+	}
+
+	/** Uploads the cells of `rect` (inclusive, in cells; all of them without one) at the next `update`. */
+	touchSpawnCells(rect?: DirtyRect | null) {
+		this.cellTexture()
+		this.spawnCellDirty.mark(rect)
+	}
+
+	/**
+	 * Shows the ground overlay (#950): 0 off, 1 the monsters' level (on the ramp from `lo` to `hi`, the
+	 * straying cells hatched), 2 the creatures' density. Cheap to call every frame.
+	 */
+	setSpawnOverlay(mode: number, lo: number, hi: number) {
+		const u = this.material.uniforms
+		u.spawnMode.value = mode
+		;(u.spawnLevels.value as THREE.Vector2).set(lo, hi)
 	}
 
 	/** The heights as a float texture, one texel a vertex, kept up to date by `update`. */
