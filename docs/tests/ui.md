@@ -1020,3 +1020,22 @@ import script imports it and saves the `.blend`.
   a second call opens that `.blend` instead. Close the Blender window afterwards.
 - Trap: a heredoc in the agents' Git Bash halves the backslashes of a client path in a scratch probe
   (`mpq: file not found`); write it with the Write tool.
+
+## Host and Join Session (#1000, probes `session-host` and `session-join`)
+
+Checks: File › Host Session shares the active map; a guest that joins is named in the status bar's
+chip (`[data-session-peers]`) and gets the host's map addressed to it alone (kind `map`, data
+`{seq, map}`); the shared map's tab carries the `session` badge (`[data-session-tab]`); a guest opens the
+host's map as a new unsaved tab; leaving or ending clears the chip and the badge.
+- `bun run probe session-host`: the page hosts, `P.bun('joinBot', ...)` joins with `meldtool session
+  join`, and the bot's lines must hold the map with `to` its id. The chip's click reopens the host's
+  dialog with the code.
+- `bun run probe session-join`: `P.bun('hostBot', {send, onJoin: true})` hosts with `meldtool session
+  host --on-join`, which sends the page (member 2) a map once it is in.
+- Unit tests: `bun test tests/sessionPeers.test.ts` (who joined and left, the chip, the send queue) and
+  the session items in `tests/menus.test.ts`.
+- By hand with two Melds: build `make build-windows`, run it twice, Host in one (port 34180) and Join
+  `127.0.0.1:34180` with the code in the other. Windows asks about the firewall the first time.
+- Traps: a session left over from an earlier page (the dev page's Go side outlives a reload) refuses
+  the next Host, so a probe calls `LeaveSession()` first. A map opened into an untouched empty tab takes
+  its place (as Open does), so `session-join` puts a helper on its own tab to see a new one open.

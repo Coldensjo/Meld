@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	import { docs, editor, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
+	import { shared } from '../lib/session/shared.svelte'
 
 	/** Close a map tab, asking first if it has unsaved changes. */
 	export function requestClose(id: number) {
@@ -33,6 +34,10 @@
 		>
 			<!-- A world view (#15) has no size of its own: the 0 a tab gets for one. -->
 			<span>{name}{t.size ? ` @ ${t.size}²` : ''}{dirty ? ' *' : ''}</span>
+			{#if shared.role && t.id === shared.docId}
+				<!-- The shared session's map (#1000). -->
+				<span class="shared" data-session-tab title={shared.role === 'host' ? 'The map you share in the session' : "The session's map, from the host"}>session</span>
+			{/if}
 			<button
 				class="close"
 				aria-label="Close {name}"
@@ -74,6 +79,13 @@
 		background: var(--panel);
 		color: var(--text);
 		box-shadow: inset 0 2px 0 var(--accent);
+	}
+	.shared {
+		font-size: 10px;
+		padding: 0 4px;
+		border-radius: 3px;
+		background: var(--accent);
+		color: var(--text);
 	}
 	.close {
 		border: none;

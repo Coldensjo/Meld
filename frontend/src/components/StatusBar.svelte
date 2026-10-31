@@ -6,6 +6,8 @@
 	import { EventsOn } from '../lib/wails/runtime'
 	import ToolHint from './ToolHint.svelte'
 	import { databaseLabel, refreshExternal } from '../lib/io/external'
+	import { shared } from '../lib/session/shared.svelte'
+	import { peersLabel, peersTitle } from '../lib/session/peers'
 
 	const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 
@@ -50,6 +52,17 @@
 			External database: {databaseLabel(ui.externalDb.world) || ui.externalDb.conf}
 		</span>
 	{/if}
+	{#if shared.role}
+		<!-- The shared session's members (#1000); a click shows the host its code and addresses again. -->
+		<button
+			class="cell session"
+			data-session-peers
+			title={peersTitle(shared.peers, shared.you)}
+			onclick={() => {
+				if (shared.role === 'host') ui.dialog = 'hostSession'
+			}}>{peersLabel(shared.peers, shared.you)}</button
+		>
+	{/if}
 	{#if waiting > 0}
 		<span class="cell waiting" title="Meld's patch holds them once the game is closed; the game reads them when it starts again.">Close the game to apply {waiting} client {waiting === 1 ? 'file' : 'files'}</span>
 	{/if}
@@ -72,7 +85,8 @@
 		color: var(--danger-text);
 		font-weight: 600;
 	}
-	.changes {
+	.changes,
+	.session {
 		border: none;
 		background: transparent;
 		color: var(--accent-text);

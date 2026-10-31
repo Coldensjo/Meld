@@ -14,6 +14,7 @@
 	import { openProject } from '../lib/io/project'
 	import type { ProjectInfo } from '../lib/state/editor.svelte'
 	import { copyPerfReport, copyScene, pasteScene } from '../lib/io/scene'
+	import { leaveSession, shared } from '../lib/session/shared.svelte'
 	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
 	import { GameEvents } from '../lib/wails/App'
 	import { quitNow } from '../lib/io/session'
@@ -93,6 +94,7 @@
 			pasteScene,
 			openBenchMap,
 			activeDoodadBrush,
+			leaveSession,
 		},
 	}
 
@@ -106,6 +108,7 @@
 			backend: hasBackend(),
 			wowLoaded: wow.loaded,
 			events: regionEvents(editor.spawns, eventNames),
+			sessionRole: shared.role,
 			cameraView: cameraView(),
 			cameraViews: CAMERA_VIEWS,
 			benchMaps: BENCH_MAPS,

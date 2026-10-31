@@ -58,14 +58,15 @@ client or the server. The output is JSON, or a table with --table where a comman
   meldtool spell search [--client DIR] [--limit 100] [--table] <name or id>
 
   meldtool session join [--name N] [--send file.jsonl] [--for seconds] <addr> <code>
-  meldtool session host [--name N] [--send file.jsonl] [--for seconds] [--code C] [--bind ADDR] [port]
+  meldtool session host [--name N] [--send file.jsonl] [--on-join] [--for seconds] [--code C] [--bind ADDR] [port]
 
   meldtool mcp   an MCP server on stdin and stdout, giving an AI agent these commands as tools
 
 A session command is a scripted member of a shared session (#728): it prints every message it
 receives as a JSON line (seq, from, to, kind, data; the welcome first, as seq 0), sends the lines
 of --send ({"to":0,"kind":"...","data":{...}}) once it is in, and leaves after --for seconds or when
-the session ends. host listens on 127.0.0.1 and prints {"hosting":true,"port","code","addr"} first.
+the session ends. host listens on 127.0.0.1 and prints {"hosting":true,"port","code","addr"} first;
+with --on-join it sends --send once the first guest is in.
 
 A tile, texture or model is a file on disk, or an archive path (World\Maps\<map>\<map>_<x>_<y>.adt)
 read from the client: --client (the client folder, its Data folder or one .MPQ), else config.json's

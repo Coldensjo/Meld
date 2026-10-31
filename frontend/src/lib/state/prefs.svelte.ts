@@ -231,6 +231,10 @@ export function defaultPrefs() {
 		/** The Item Editor's search order (#677): a key of `vmangos.itemSorts` (name, entry, quality, itemLevel, requiredLevel), and whether it runs high to low. */
 		itemSort: 'name',
 		itemSortDesc: false,
+		/** File › Host Session and Join Session (#1000): the name shown to the others, the port hosted on and the last host joined. */
+		shareName: '',
+		sharePort: 34180,
+		shareAddr: '',
 		/** The tabs open at the last close, reopened at the next start (io/session.ts). */
 		session: { tabs: [] as SessionTab[], active: 0 },
 	}

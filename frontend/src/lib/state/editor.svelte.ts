@@ -500,6 +500,8 @@ export type DialogId =
 	| 'folderSetup'
 	| 'preferences'
 	| 'otherClient'
+	| 'hostSession'
+	| 'joinSession'
 
 /** The Preferences dialog's pages (components/PreferencesDialog.svelte, #752). */
 export type PrefsPage = 'general' | 'folders' | 'camera' | 'graphics' | 'compile' | 'game'

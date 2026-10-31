@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -97,6 +99,55 @@ func TestSessionJoinWrongCode(t *testing.T) {
 	var out bytes.Buffer
 	if err := sessionRun(context.Background(), "join", []string{addr(h), "ZZZZZZ"}, &out); err != session.ErrCode {
 		t.Fatalf("got %v, want ErrCode", err)
+	}
+}
+
+// TestSessionHostOnJoin has the scripted host hold its --send messages until a guest is in, so a page
+// that joins it receives them (#1000's guest-side probe sends the map that way).
+func TestSessionHostOnJoin(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "send.jsonl")
+	if err := os.WriteFile(file, []byte("{\"to\":2,\"kind\":\"map\",\"data\":{\"seq\":0}}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, w := io.Pipe()
+	done := make(chan error, 1)
+	go func() {
+		done <- sessionRun(context.Background(), "host", []string{"--name", "Bot", "--send", file, "--on-join", "--for", "3", "--code", "ABC234", "0"}, w)
+		w.Close()
+	}()
+	sc := bufio.NewScanner(r)
+	if !sc.Scan() {
+		t.Fatal("the host printed nothing")
+	}
+	var first struct {
+		Addr string `json:"addr"`
+	}
+	if err := json.Unmarshal(sc.Bytes(), &first); err != nil || first.Addr == "" {
+		t.Fatalf("first line %q", sc.Text())
+	}
+	go func() {
+		for sc.Scan() {
+		}
+	}()
+	got := make(chan session.Message, 8)
+	g, err := session.Join(context.Background(), first.Addr, "ABC234", "Page", func(m session.Message) { got <- m }, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Leave()
+	timeout := time.After(3 * time.Second)
+	for {
+		select {
+		case m := <-got:
+			if m.Kind == "map" {
+				if m.To != g.You() {
+					t.Errorf("map to %d, want %d", m.To, g.You())
+				}
+				return
+			}
+		case <-timeout:
+			t.Fatal("the map never came")
+		}
 	}
 }
 

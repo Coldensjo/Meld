@@ -5,6 +5,10 @@
 //   const info = await window.go.main.App.HostSession(0, 'Probe')            // in the page
 //   const bot = await joinBot(`127.0.0.1:${info.port}`, info.code, { send: [{ kind: 'edit', data: {} }], seconds: 3 })
 //   const lines = await bot.done()                                            // every message the bot saw
+//
+// Or the bot hosts and the page joins (#1000): `const bot = await hostBot({ send, onJoin: true })` gives its
+// `port` and `code`, and with `onJoin` it sends `send` once the page is in (the page is member 2).
+// A probe reaches these through `P.bun('joinBot' | 'hostBot' | 'botDone', ...)` (run.mjs).
 import { spawn } from 'node:child_process'
 import { mkdtempSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -50,6 +54,51 @@ export async function joinBot(addr, code, { name = 'Bot', send = [], seconds = 3
 		async done() {
 			const code = await exited
 			if (code !== 0) throw new Error(`meldtool session join exited ${code}: ${err.trim()}`)
+			return out
+				.split('\n')
+				.filter(Boolean)
+				.map((l) => JSON.parse(l))
+		},
+	}
+}
+
+/**
+ * Starts the bot as the host, on a free loopback port. `send` goes out at once, or once the first guest
+ * is in with `onJoin`. Returns `{ port, code, addr, done() }` once it listens; `done` as for `joinBot`
+ * (the first line is the `hosting` one).
+ */
+export async function hostBot({ name = 'Bot', send = [], onJoin = false, seconds = 5, code = '' } = {}) {
+	const exe = await meldtool()
+	const args = ['session', 'host', '--name', name, '--for', String(seconds)]
+	if (code) args.push('--code', code)
+	if (send.length) {
+		const file = join(mkdtempSync(join(tmpdir(), 'session-bot-')), 'send.jsonl')
+		writeFileSync(file, send.map((m) => JSON.stringify(m)).join('\n') + '\n')
+		args.push('--send', file)
+		if (onJoin) args.push('--on-join')
+	}
+	args.push('0')
+	const p = spawn(exe, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+	let out = ''
+	let err = ''
+	const exited = new Promise((ok) => p.on('exit', ok))
+	const first = new Promise((ok, fail) => {
+		p.stdout.on('data', (d) => {
+			out += d
+			const nl = out.indexOf('\n')
+			if (nl >= 0) ok(JSON.parse(out.slice(0, nl)))
+		})
+		void exited.then((c) => fail(new Error(`meldtool session host exited ${c} before it listened: ${err.trim()}`)))
+	})
+	p.stderr.on('data', (d) => (err += d))
+	const info = await first
+	return {
+		port: info.port,
+		code: info.code,
+		addr: info.addr,
+		async done() {
+			const c = await exited
+			if (c !== 0) throw new Error(`meldtool session host exited ${c}: ${err.trim()}`)
 			return out
 				.split('\n')
 				.filter(Boolean)

@@ -9,8 +9,8 @@ server. #728 is the umbrella; its parts are separate issues:
 | Part | Issue | State |
 | --- | --- | --- |
 | The transport: host, join, the host's order | #998 | Done (`internal/session`, `app_session.go`) |
-| A scripted guest for the probes (`meldtool session join`) | #999 | Open |
-| File > Host and Join Session, the members, the map a guest starts from | #1000 | Open |
+| A scripted guest for the probes (`meldtool session join`) | #999 | Done (`cmd/meldtool/session.go`, `probes/session-bot.mjs`) |
+| File > Host and Join Session, the members, the map a guest starts from | #1000 | Done (`lib/session/`) |
 | Terrain heights sync | #1001 | Open |
 | Texture paint sync, with the palette | #1002 | Open |
 | Placed objects sync | #1003 | Open |
@@ -50,6 +50,29 @@ server. #728 is the umbrella; its parts are separate issues:
   broadcasts too), and the end of this Meld's part as `session:ended` with the reason ("" when this
   Meld left or ended it). Shutting Meld down leaves the session.
 - What a message says (the edit wire format) is the page's; Go only carries and orders it.
+
+## The page side (`lib/session/`)
+
+- `shared.svelte.ts` holds this Meld's part (`shared`: `role`, `you`, `code`, `port`, `addrs`, `peers`,
+  and `docId`, the session map's tab), subscribes to the two events while in a session, and sends every
+  page message through one serial queue (`sessionSend`, `serialQueue` in `peers.ts`). `shared` is
+  reactive since it changes only when someone joins or leaves; the last `seq` seen (`lastSeq`) is a
+  plain variable, as the edits of #1001 will move it with every message.
+- **File › Host Session…** (`HostSessionDialog.svelte`) takes the name and the port (prefs `shareName`,
+  `sharePort`) and then shows the code, the addresses and the members; the tab active then becomes the
+  session's map (`docId`). A world view can't be hosted. While hosting, the File item is Session Code
+  and Addresses…, and the status bar's chip opens the same dialog. **End Session** ends it for everyone.
+- **File › Join Session…** (`JoinSessionDialog.svelte`) takes the address, the code and the name (prefs
+  `shareAddr`, `shareName`); **Leave Session** leaves.
+- **The map handoff.** When a `session.peers` message shows a new member, the host page sends it the
+  session map with `to` set to its id: kind `map` (`KIND_MAP`), data `{seq, map}` (`MapHandoff`), the
+  map as `toMapData(engine.snapshotOf(doc))` gives it and `seq` the last message the host page had seen
+  then. The guest opens it with `engine.openDocument(fromMapData(map), '')`: a new tab with no path (Save
+  is Save As), which takes an untouched empty tab's place as Open does. It goes through the page twice
+  (the binding, then the WebSocket) as JSON; a Go-side path (`internal/mapfile` and `internal/handoff`)
+  is the fallback if a large map turns out too slow.
+- The members show in the status bar (`StatusBar.svelte`, `peersLabel`/`peersTitle`), the session's tab
+  carries a `session` badge (`DocTabs.svelte`), and a join, a leave and the end are status lines.
 
 ## Traps
 

@@ -10,7 +10,7 @@ import type { CameraView } from '../src/lib/ui/cameraView.ts'
 type Bag = Record<string, unknown>
 
 /** A context over plain objects; `command` toggles the values the bound commands toggle in the app. */
-function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean; events?: MenuContext['events'] } = {}) {
+function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean; events?: MenuContext['events']; sessionRole?: MenuContext['sessionRole'] } = {}) {
 	const ui: Bag = { recentProjects: [], serverStatus: null, serverAction: '', externalDb: null, project: null, ...over.ui }
 	const editor: Bag = { bookmarks: [], maskSelect: { step: 4 }, smoothArea: { mode: 'smooth', shape: 'raise' }, selectedIds: [], selection: null, regionBlock: null, worldMap: null, ...over.editor }
 	const prefs: Bag = { shownEvents: [], biomes: [], ...over.prefs }
@@ -48,6 +48,7 @@ function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean;
 			backend: over.backend ?? true,
 			wowLoaded: true,
 			events: over.events ?? [],
+			sessionRole: over.sessionRole ?? '',
 			cameraView: state.cameraView,
 			cameraViews: [
 				{ id: 'orbit', label: 'Orbit' },
@@ -243,4 +244,22 @@ test('the region events are counted, named and sorted, and each shows or hides i
 			.items.some((i) => i.kind === 'header' && i.label.startsWith('World events')),
 		false,
 	)
+})
+
+test('File offers host and join outside a session, the code and End to the host, Leave to a guest', () => {
+	const labels = (role: MenuContext['sessionRole']) =>
+		makeCtx({ sessionRole: role })
+			.build()
+			.find((m) => m.name === 'File')!
+			.items.flatMap((i) => (i.kind === 'action' && /Session/.test(i.label) ? [i.label] : []))
+	assert.deepEqual(labels(''), ['Host Session…', 'Join Session…'])
+	assert.deepEqual(labels('host'), ['Session Code and Addresses…', 'End Session'])
+	assert.deepEqual(labels('guest'), ['Leave Session'])
+	const ctx = makeCtx()
+	const host = item(ctx.build(), 'File', 'Host Session…')
+	assert.ok(host.kind === 'action')
+	host.run()
+	assert.equal(ctx.ui.dialog, 'hostSession')
+	assert.equal(disabled(makeCtx({ editor: { worldMap: 'Azeroth' } }).build(), 'File', 'Host Session…'), true, 'a world view has no map to share')
+	assert.equal(disabled(makeCtx({ backend: false }).build(), 'File', 'Join Session…'), true)
 })

@@ -921,6 +921,27 @@ ${fs.slice(0, end)}
 		}
 	},
 
+	/**
+	 * Runs one of the runner's operations outside the page (run.mjs `bunOps`, #1000), for what the page can't
+	 * do itself, such as starting a second member of a shared session: `const bot = await P.bun('joinBot',
+	 * addr, code, { name, send, seconds })`, then `await P.bun('botDone', bot)` gives the lines the bot saw.
+	 */
+	bun(op, ...args) {
+		const w = window
+		if (typeof w.__probeBun !== 'function') throw new Error('P.bun: the runner did not add its binding (run the probe with bun run probe)')
+		w.__probeBunWait ??= new Map()
+		w.__probeBunReply ??= (id, r) => {
+			const f = w.__probeBunWait.get(id)
+			w.__probeBunWait.delete(id)
+			if (f) r.error ? f.reject(new Error(r.error)) : f.resolve(r.value)
+		}
+		const id = (w.__probeBunSeq = (w.__probeBunSeq ?? 0) + 1)
+		return new Promise((resolve, reject) => {
+			w.__probeBunWait.set(id, { resolve, reject })
+			w.__probeBun(JSON.stringify({ id, op, args }))
+		})
+	},
+
 	/** The editor state module (`editor`, `prefs`, `ui`), the app's own instance. */
 	async state() {
 		return P.app('/src/lib/state/editor.svelte.ts')

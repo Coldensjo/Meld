@@ -27,6 +27,8 @@
 	import HotkeyManager from './HotkeyManager.svelte'
 	import PreferencesDialog from './PreferencesDialog.svelte'
 	import OtherClientDialog from './OtherClientDialog.svelte'
+	import HostSessionDialog from './HostSessionDialog.svelte'
+	import JoinSessionDialog from './JoinSessionDialog.svelte'
 	import ChangesDialog from './ChangesDialog.svelte'
 	import WeaponPicker, { equipChange, SLOTS } from './WeaponPicker.svelte'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -434,6 +436,10 @@
 	<PreferencesDialog onclose={close} />
 {:else if ui.dialog === 'otherClient'}
 	<OtherClientDialog onclose={close} />
+{:else if ui.dialog === 'hostSession'}
+	<HostSessionDialog onclose={close} />
+{:else if ui.dialog === 'joinSession'}
+	<JoinSessionDialog onclose={close} />
 {/if}
 
 <!-- Over every other dialog and editor, so it can ask for the one that is open (#581). -->

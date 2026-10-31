@@ -75,6 +75,7 @@ func sessionRun(ctx context.Context, sub string, args []string, out io.Writer) e
 	forSecs := fs.Float64("for", 0, "leave after this many seconds (0: until the session ends)")
 	code := fs.String("code", "", "host only: the session code (default: a new one)")
 	bind := fs.String("bind", "127.0.0.1", "host only: the address to listen on")
+	onJoin := fs.Bool("on-join", false, "host only: send the --send messages once the first guest has joined, not at once")
 	pos, err := parseFlags(fs, args)
 	if err != nil {
 		return err
@@ -123,12 +124,28 @@ func sessionRun(ctx context.Context, sub string, args []string, out io.Writer) e
 		if c == "" {
 			c = session.NewCode()
 		}
-		h, err := session.Listen(net.JoinHostPort(*bind, strconv.Itoa(port)), c, *name, func(m session.Message) { w.print(m) })
+		// joined closes when the first guest is in, for --on-join; deliver must not call back into the Host.
+		joined := make(chan struct{})
+		var once sync.Once
+		h, err := session.Listen(net.JoinHostPort(*bind, strconv.Itoa(port)), c, *name, func(m session.Message) {
+			w.print(m)
+			var peers []session.Peer
+			if m.Kind == session.KindPeers && json.Unmarshal(m.Data, &peers) == nil && len(peers) > 1 {
+				once.Do(func() { close(joined) })
+			}
+		})
 		if err != nil {
 			return err
 		}
 		defer h.Close()
 		w.print(map[string]any{"hosting": true, "port": h.Port(), "code": h.Code(), "addr": net.JoinHostPort(*bind, strconv.Itoa(h.Port()))})
+		if *onJoin {
+			select {
+			case <-joined:
+			case <-ctx.Done():
+				return nil
+			}
+		}
 		for _, m := range msgs {
 			if err := h.Send(m.To, m.Kind, m.Data); err != nil {
 				return err

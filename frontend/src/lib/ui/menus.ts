@@ -16,6 +16,7 @@ import type * as mapIo from '../io/mapio'
 import type * as regionIo from '../io/region'
 import type * as prefabIo from '../io/prefabFiles'
 import type * as sceneIo from '../io/scene'
+import type * as sessionIo from '../session/shared.svelte'
 import type * as benchIo from '../bench/benchMaps'
 import type * as doodadBrushIo from '../tools/DoodadBrushTool'
 import { serverControls, serverHeader } from '../io/serverMenu'
@@ -64,6 +65,7 @@ export interface MenuIo {
 	copyScene: typeof sceneIo.copyScene
 	pasteScene: typeof sceneIo.pasteScene
 	openBenchMap: typeof benchIo.openBenchMap
+	leaveSession: typeof sessionIo.leaveSession
 	activeDoodadBrush: typeof doodadBrushIo.activeDoodadBrush
 }
 
@@ -97,6 +99,8 @@ export interface MenuContext {
 	/** Whether the client is open (`wow.loaded`). */
 	wowLoaded: boolean
 	events: RegionEvent[]
+	/** This Meld's part in a shared session (#1000): 'host', 'guest' or ''. */
+	sessionRole: '' | 'host' | 'guest'
 	cameraView: CameraView
 	cameraViews: ReadonlyArray<{ id: CameraView; label: string }>
 	benchMaps: ReadonlyArray<{ kind: BenchKind; label: string }>
@@ -126,6 +130,21 @@ const CLIMB_ANGLES = [40, 45, 49, 55, 60]
 const VIEW_COMMAND: Record<CameraView, CommandId> = { orbit: 'orbitView', flying: 'flyingView', walking: 'walkingView', topDown: 'topDown' }
 
 const radios = <T>(options: ReadonlyArray<readonly [string, T]>, get: () => T, set: (v: T) => void): MenuItem[] => options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
+
+/** File's session items: host or join outside a session, the code and End for the host, Leave for a guest. */
+function sessionItems(role: MenuContext['sessionRole'], backend: boolean, looking: boolean, ui: MenuContext['ui'], leave: () => void): MenuItem[] {
+	if (role === 'host')
+		return [
+			{ kind: 'action', label: 'Session Code and Addresses…', run: () => (ui.dialog = 'hostSession') },
+			{ kind: 'action', label: 'End Session', run: leave },
+		]
+	if (role === 'guest') return [{ kind: 'action', label: 'Leave Session', run: leave }]
+	return [
+		// A world view has no map of its own to share.
+		{ kind: 'action', label: 'Host Session…', disabled: !backend || looking, run: () => (ui.dialog = 'hostSession') },
+		{ kind: 'action', label: 'Join Session…', disabled: !backend, run: () => (ui.dialog = 'joinSession') },
+	]
+}
 
 /**
  * The menus. Each is kept short enough to fit the screen (#122): the actions on the selected models,
@@ -183,6 +202,9 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 					.filter((p) => p.path !== ui.project?.path)
 					.slice(0, 4)
 					.map((p) => ({ kind: 'action' as const, label: `Open Project ${p.name}`, disabled: !backend || ui.busy, run: () => act.switchProject(p) })),
+				{ kind: 'sep' },
+				// A shared editing session (#728, #1000): one Meld hosts its map, the others join it.
+				...sessionItems(ctx.sessionRole, backend, looking, ui, () => void io.leaveSession()),
 				{ kind: 'sep' },
 				...editing([
 					{ kind: 'action', label: 'Save', disabled: ui.busy, ...cmd('save') },

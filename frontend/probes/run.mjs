@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url'
 import { startAt } from './at.mjs'
 import { firstAttempt, noRetryReason } from './retry.mjs'
 import { globRe, parseHeader } from './touches.mjs'
+import { hostBot, joinBot } from './session-bot.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 // `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250); `defaults`: every preference at its default, not the owner's (#253).
@@ -478,6 +479,46 @@ async function main() {
 		return r.result.value
 	}
 
+	/** What a probe can ask of the runner through `P.bun(op, ...args)` (lib.js, #1000). */
+	const bots = new Map()
+	let botSeq = 0
+	const bunOps = {
+		/** Starts a scripted member of a shared session (session-bot.mjs) and returns its handle. */
+		async joinBot(addr, code, opts) {
+			const id = ++botSeq
+			bots.set(id, await joinBot(addr, code, opts))
+			return id
+		},
+		/** Starts the bot as the host instead (the page joins it); returns `{ bot, port, code, addr }`. */
+		async hostBot(opts) {
+			const id = ++botSeq
+			const b = await hostBot(opts)
+			bots.set(id, b)
+			return { bot: id, port: b.port, code: b.code, addr: b.addr }
+		},
+		/** Waits for that bot to leave and gives the messages it saw, as parsed lines. */
+		async botDone(id) {
+			const b = bots.get(id)
+			bots.delete(id)
+			if (!b) throw new Error(`no bot ${id}`)
+			return b.done()
+		},
+	}
+	const runBunOp = async (payload) => {
+		let id = 0
+		let reply
+		try {
+			const call = JSON.parse(payload)
+			id = call.id
+			const fn = bunOps[call.op]
+			if (!fn) throw new Error(`P.bun: no operation ${call.op}`)
+			reply = { value: (await fn(...(call.args ?? []))) ?? null }
+		} catch (e) {
+			reply = { error: e?.message ?? String(e) }
+		}
+		await send('Runtime.evaluate', { expression: `window.__probeBunReply?.(${JSON.stringify(id)}, ${JSON.stringify(reply)})` }).catch(() => {})
+	}
+
 	/** Starts a headless Chrome with a fresh profile and connects to its page. Used at the start and again after a probe leaves the page unusable (#388). */
 	const launch = async () => {
 		chrome = spawn(
@@ -527,6 +568,8 @@ async function main() {
 				traceEvents?.push(...msg.params.value)
 			} else if (msg.method === 'Tracing.tracingComplete') {
 				traceDone?.()
+			} else if (msg.method === 'Runtime.bindingCalled' && msg.params.name === '__probeBun') {
+				void runBunOp(msg.params.payload)
 			} else if (msg.method === 'Runtime.consoleAPICalled') {
 				note(`console.${msg.params.type}: ${msg.params.args.map((a) => a.value ?? a.description ?? a.type).join(' ')}`)
 			} else if (msg.method === 'Network.loadingFailed') {
@@ -546,6 +589,8 @@ async function main() {
 			}
 		}
 		await send('Runtime.enable')
+		// P.bun (lib.js, #1000): the page asks the runner for what it can't do itself (bunOps).
+		await send('Runtime.addBinding', { name: '__probeBun' })
 		await send('Network.enable')
 		// The page keeps only 250 resource entries by default, which the app's modules fill, and P.app (lib.js)
 		// reads the module URLs from them; raise the limit before the page's scripts run.
