@@ -46,18 +46,18 @@ test('Tanaris paints its main sand as the ground, another sand for the lush patc
 	assert.equal(p[0], 'TanarisSandStones.blp')
 	assert.equal(p[1], 'TanarisSandBase01.blp', 'no grass: the lush patches are more sand')
 	assert.equal(p[3], 'TanarisRockBaseBurn.blp')
-	assert.equal(p[4], 'SilithisSandDetail.blp')
+	assert.equal(p[4], p[0], 'sand fifth or lower is cut: the shore takes the ground')
 	assert.equal(p[5], p[3], 'no snow: the peaks take the rock')
-	assert.equal(p[2], 'FeralasDirt.blp')
+	assert.equal(p[2], p[0], 'the dirt is not among the four most used: it takes the ground')
 	assert.ok(!p.some((x) => x.includes('PurpleBug03')), 'a detail under 1% is never a role')
 })
 
-test('Duskwood keeps its dirt as the ground, its grass as the lush patches and its cobblestones', () => {
+test('Duskwood keeps its dirt as the ground, its grass as the lush patches', () => {
 	const p = packPalette(DUSKWOOD)!.map(file)
 	assert.equal(p[0], 'DuskwoodDirt.blp')
 	assert.equal(p[1], 'DuskwoodGrassBase.blp')
 	assert.equal(p[3], 'DuskwoodRock.blp')
-	assert.equal(p[6], 'DuskwoodCobblestone.blp')
+	assert.equal(p[6], p[2], 'the cobblestones are not among the four most used: the road takes the dirt')
 	assert.equal(p[4], p[2], 'no sand: the shore takes the dirt')
 	assert.equal(p[5], p[3], 'no snow: the peaks take the rock')
 })
@@ -65,4 +65,24 @@ test('Duskwood keeps its dirt as the ground, its grass as the lush patches and i
 test('a zone of one texture paints everything with it, and none gives no pack', () => {
 	assert.deepEqual(packPalette([{ path: 'Tileset\\X\\XRock.blp', share: 1 }]), new Array(8).fill('Tileset\\X\\XRock.blp'))
 	assert.equal(packPalette([]), null)
+})
+
+test('only the four most used textures are copied (#969), every role filled', () => {
+	for (const zone of [TANARIS, DUSKWOOD]) {
+		const p = packPalette([...zone].reverse())!
+		assert.equal(p.length, 8)
+		assert.ok(p.every((x) => x))
+		const want = new Set(
+			[...zone]
+				.sort((a, b) => b.share - a.share)
+				.slice(0, 4)
+				.map((u) => u.path),
+		)
+		assert.ok(new Set(p).size <= 4)
+		assert.ok(
+			p.every((x) => want.has(x)),
+			'only the biggest four',
+		)
+	}
+	assert.ok(!packPalette(DUSKWOOD)!.some((x) => x.includes('Elwynn')))
 })

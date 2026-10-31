@@ -35,16 +35,23 @@ export function kindOf(path: string): TextureKind {
 /** A texture under this share of the zone is a detail (a decal, a patch), never a role's. */
 const MIN_SHARE = 0.01
 
+/** A chunk paints four layers at most, so only the zone's four most used textures are copied (#969). */
+const MAX_TEXTURES = 4
+
 /** Where a role with no texture of its own looks next. */
 const FALLBACK: Record<number, number> = { 1: 0, 2: 0, 3: 2, 4: 2, 5: 3, 6: 2, 7: 2 }
 
 /**
  * The palette for a zone's textures, a path per role (eight), or null when the zone has no ground.
- * Each role takes the most used texture of its kind not taken by an earlier role; the main ground is
+ * Only the four most used textures are kept (#969). Each role takes the most used texture of its kind not taken by an earlier role; the main ground is
  * the most used of any kind but rock, snow and road.
  */
 export function packPalette(uses: TextureUse[]): string[] | null {
-	const list = uses.filter((u) => u.share >= MIN_SHARE).map((u) => ({ path: u.path, kind: kindOf(u.path) }))
+	const list = uses
+		.filter((u) => u.share >= MIN_SHARE)
+		.sort((a, b) => b.share - a.share)
+		.slice(0, MAX_TEXTURES)
+		.map((u) => ({ path: u.path, kind: kindOf(u.path) }))
 	const taken = new Set<string>()
 	const pick = (ok: (k: TextureKind) => boolean): string | null => {
 		const hit = list.find((u) => !taken.has(u.path) && ok(u.kind))

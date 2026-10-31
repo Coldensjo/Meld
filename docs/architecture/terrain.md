@@ -694,7 +694,7 @@ mask/liquid, image codec or native/game rendering contracts.
   the chunks whose area is the zone or a subzone of it, each texture's visible share (a layer's alpha
   of what the layers above leave, every second texel each way), leaving out cells under a liquid
   (Tanaris's seabed is a third Wetlands dirt). `wow/texturePack.ts` `packPalette` sorts those into the
-  eight roles by file name (`kindOf`; textures under 1% are details and never a role): the main
+  eight roles by file name (`kindOf`; textures under 1% are details and never a role, and only the four most used are kept, #969, since a chunk paints four layers): the main
   ground is the most used that isn't rock, snow or road, lush is the next grass or, in a zone without
   (a desert), more of the main ground's kind, and a role with none falls back to a near one (snow to
   rock, sand to dirt). The palette is in role order, so `autoPaint`'s default `roleTex` and Map

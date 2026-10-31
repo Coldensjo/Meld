@@ -176,7 +176,7 @@ Checks: the New world page's Ground textures. `go test ./internal/vmangos -run '
 tests the shares (a layer's alpha of what the layers above leave, cells under a liquid left out) and
 the subzones; `TestRealZoneTextures` (with the client, `make test-full`) reads Tanaris and Duskwood and
 logs their shares, the list `frontend/tests/texturePack.test.ts` sorts into roles (Tanaris: sand
-ground, more sand as the lush patches, rock for the peaks; Duskwood: dirt ground, grass patches,
+ground, more sand as the lush patches, rock for the peaks; only the four most used textures are kept, #969; Duskwood: dirt ground, grass patches,
 cobblestones). In the live app, `bun run probe new-world-pack --shot <dir>` picks Tanaris, waits for
 the eight pictures (about 3 s), makes a Small Island and checks its palette and that the ground uses
 the ground and sand roles; then Default again shows no pictures. About 35 s.
