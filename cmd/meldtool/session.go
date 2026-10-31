@@ -98,13 +98,20 @@ func sessionRun(ctx context.Context, sub string, args []string, out io.Writer) e
 		if len(pos) != 2 {
 			return fmt.Errorf("%w: session join wants <addr> <code>", errUsage)
 		}
-		g, err := session.Join(ctx, pos[0], pos[1], *name, func(m session.Message) { w.print(m) }, func(e error) { ended <- e })
+		// The welcome line goes first: Join's reader starts delivering (the peer list, the map) before it
+		// returns, so the messages wait for the welcome to be printed (#1011: the probes read it as line 0).
+		welcomed := make(chan struct{})
+		g, err := session.Join(ctx, pos[0], pos[1], *name, func(m session.Message) {
+			<-welcomed
+			w.print(m)
+		}, func(e error) { ended <- e })
 		if err != nil {
 			return err
 		}
 		defer g.Leave()
 		welcome, _ := json.Marshal(session.Welcome{You: g.You(), Peers: g.Peers()})
 		w.print(session.Message{From: session.HostID, To: g.You(), Kind: session.KindWelcome, Data: welcome})
+		close(welcomed)
 		for _, m := range msgs {
 			if err := g.Send(m.To, m.Kind, m.Data); err != nil {
 				return err

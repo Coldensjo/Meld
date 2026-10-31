@@ -67,6 +67,10 @@ func TestSessionJoin(t *testing.T) {
 			t.Errorf("edit from %d, want the bot's id 2", m.From)
 		}
 	}
+	// The probes read the welcome as line 0, ahead of the peer list Join's reader may already deliver (#1011).
+	if len(kinds) == 0 || kinds[0] != session.KindWelcome {
+		t.Errorf("the first line is not the welcome: %v", kinds)
+	}
 	for _, want := range []string{session.KindWelcome, "edit", "edit"} {
 		found := false
 		for _, k := range kinds {
