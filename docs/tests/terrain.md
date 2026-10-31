@@ -323,7 +323,7 @@ the shape's rim keeps the map's heights). One undo restores every height.
 ## Check Map (#176)
 
 The map's own checks have no probe: the unit tests below, and a hand check in the dev page. The World
-data group (#951) has one, `check-map-world`.
+data group (#951) has one, `check-map-world`, and its quest checks (#952) another, `check-map-quests`.
 
 Checks: File › Check Map… (`lib/check/`: pure checks in `models.ts`, `spawns.ts`, `terrainChecks.ts`,
 unit tests in `mapCheck.test.ts`; `run.ts` gathers the map and the probes; `Engine.checkMap`,
@@ -360,6 +360,20 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   `worlddata_test.go`) cover that rule on synthetic rows. In the real database about 18 vendors and 3
   trainers have no rows and 50 goobers name an event with no script (info), so a region of Azeroth can
   show a few World data errors that are Blizzard's; they don't stop Compile to Client (`compile.ts`).
+- Quests (#952, `lib/check/quests.ts` with the chain rules in `lib/world/questChain.ts`, which the
+  quest chain graph #948 is to share; Go `checkQuests` in `internal/vmangos/questcheck.go`, run inside
+  `CheckWorldData` over the quests the templates start or end, its report under `quests`). `bun run
+  probe check-map-quests` plants Tharnariun Treetender (creature 3701) and Innkeeper Farley (295):
+  Plagued Lands (2118) asks for a Captured Rabid Thistle Bear (11836) that nothing spawns or summons
+  (a warning; the core credits it from a spell in C++, which no table shows), Farley's quests have no
+  error, only notes that their other givers and enders are elsewhere, and the bear's Edit opens the
+  quest editor on 2118. Unit tests: `questChecks.test.ts` (the rules and the chain steps) and
+  `questcheck_test.go` (the queries on stand-in rows); `VMANGOS_DIR=/c/WoW/vmangos go test
+  ./internal/vmangos/ -run TestCheckQuestsLive -v` runs the queries on the real database (quests 7
+  and 33). In the vanilla database about 40 kill objectives have no spawn and nothing in the tables
+  that summons them (C++ scripts do), 11 item objectives have no source and 88 chain steps climb more
+  than 5 levels, so a region of Azeroth shows a few such warnings that are Blizzard's. A failed quest
+  query leaves the rest of World data standing and adds one note, "The quests weren't checked: …".
 - A save of such a planted spawn is refused (#199): `VMANGOS_DIR=/c/WoW/vmangos go test
   ./internal/vmangos/ -run TestCreatedGUIDLive -v` checks the pre-check and that the SQL alone fails on
   the key, leaving guid 1 as it was. Don't test it by saving from the page: a dev window still running

@@ -8,7 +8,7 @@
 	// wrong in the game, by check. A click takes the camera there and selects the model or spawn; a
 	// finding with a safe fix has a button for it, one undo step. Check again re-runs the checks. The
 	// world database's checks (#951) come last, under World data; a template's finding has an Edit
-	// button that opens its editor on the column.
+	// button that opens its editor on the column, and a quest's (#952) one that opens the quest editor.
 
 	let findings = $state<Finding[]>([])
 	let unchecked = $state(0)
@@ -63,6 +63,17 @@
 		else ui.creatureEditor = at
 	}
 
+	/** A quest finding's Edit: selects its giver's spawn, when the map has one, and opens the quest in the quest editor. */
+	function editQuest(f: Finding) {
+		const tg = f.target
+		if (tg.kind !== 'quest') return
+		engineRef.current?.focusFinding(f)
+		ui.questEditor = { entry: tg.quest }
+	}
+
+	/** Whether a finding has nowhere to go: no place and nothing on the map to select. */
+	const nowhere = (f: Finding) => Number.isNaN(f.x) && (f.target.kind === 'none' || (f.target.kind === 'quest' && !f.target.key))
+
 	function fix(f: Finding) {
 		engineRef.current?.fixFinding(f)
 		fixed = new Set([...fixed, f])
@@ -87,7 +98,7 @@
 		<ul>
 			{#each list as f, i (i)}
 				<li class:done={fixed.has(f)}>
-					<button class="go {f.severity}" disabled={Number.isNaN(f.x) && f.target.kind === 'none'} onclick={() => engineRef.current?.focusFinding(f)} title="Go there">
+					<button class="go {f.severity}" disabled={nowhere(f)} onclick={() => engineRef.current?.focusFinding(f)} title="Go there">
 						<span class="glyph" aria-hidden="true">{GLYPH[f.severity]}</span><span class="vh">{WORD[f.severity]}: </span>{f.message}
 					</button>
 					{#if f.fix && !fixed.has(f)}
@@ -95,6 +106,9 @@
 					{/if}
 					{#if f.target.kind === 'template'}
 						<button class="fix" onclick={() => edit(f)} title="Open the {f.target.template}'s editor on this column">Edit</button>
+					{/if}
+					{#if f.target.kind === 'quest'}
+						<button class="fix" onclick={() => editQuest(f)} title="Open the quest in the quest editor">Edit</button>
 					{/if}
 				</li>
 			{/each}

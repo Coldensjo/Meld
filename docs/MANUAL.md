@@ -384,6 +384,13 @@ GPU or game round trip is certified by these source-verified instructions.
    ids (gossip menu, vendor and trainer lists, loot, equipment, spell lists, quests, locks, pages,
    texts, events) that name no row, vendors and trainers with nothing to sell or teach, and EventAI
    creatures without events. **Edit** beside such a finding opens the template's editor on the field.
+   The quests those templates start or end are checked too: a quest no spawned creature or object
+   offers (unless an item starts it) or takes back, givers and enders only in a game event or only
+   outside the open map (notes), chain links (previous, next, next in chain, breadcrumb) to a quest
+   that doesn't exist, kill objectives with no spawn that no script or spell summons, item objectives
+   nothing drops, sells or gives, missing area triggers, and a chain step more than 5 levels above the
+   one before it. A spawn on the open map counts even before it is saved. **Edit** beside a quest's
+   finding opens the quest editor, and the finding goes to the quest's giver on the map.
 3. Click a located finding to move the camera there. Model/spawn findings also select their target;
    chunk findings move the camera but do not select a terrain area. Notes without a location may
    have no Go there action.

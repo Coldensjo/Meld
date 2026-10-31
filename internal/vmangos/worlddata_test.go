@@ -64,6 +64,13 @@ func TestCheckWorldData(t *testing.T) {
 			return nil, nil
 		case strings.Contains(sql, "FROM `quest_template`"):
 			return []byte("5000\n"), nil
+		case strings.HasPrefix(sql, "SELECT t.entry, t.Title"):
+			if !strings.Contains(sql, "IN (5000)") {
+				t.Errorf("quest checks asked %q, want only the quest that exists", sql)
+			}
+			return nil, nil // the quest checks (#952): TestCheckQuests
+		case strings.HasPrefix(sql, "SELECT DISTINCT 'cs'"):
+			return nil, nil
 		}
 		t.Fatalf("unexpected query %s", sql)
 		return nil, nil
@@ -100,6 +107,9 @@ func TestCheckWorldData(t *testing.T) {
 	}
 	if !reflect.DeepEqual(r.Unchecked, []string{"lock"}) {
 		t.Errorf("unchecked %v, want the lock (no client)", r.Unchecked)
+	}
+	if r.Quests.Error != "" || r.Quests.Quests == nil {
+		t.Errorf("quests %+v", r.Quests)
 	}
 	if r.Tables["gossip"] != "gossip_menu" || r.Tables["loot"] != "gameobject_loot_template" {
 		t.Errorf("tables %v", r.Tables)

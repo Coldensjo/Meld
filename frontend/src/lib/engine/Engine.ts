@@ -6196,8 +6196,8 @@ export class Engine {
 			const ids = tg.ids.filter((id) => this.objects.objects.has(id))
 			editor.tool = 'select'
 			selectObjects(this.objects, ids)
-		} else if (tg.kind === 'spawn' || tg.kind === 'template') {
-			const s = this.doc.spawnLayer.get(tg.key)
+		} else if (tg.kind === 'spawn' || tg.kind === 'template' || (tg.kind === 'quest' && tg.key)) {
+			const s = this.doc.spawnLayer.get(tg.key!)
 			if (!s) return
 			editor.tool = 'select'
 			selectObjects(this.objects, [])

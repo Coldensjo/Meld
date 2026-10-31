@@ -62,6 +62,8 @@ type WorldDataReport struct {
 	// Unchecked lists the asked kinds that could not be checked (a lock without the client's Lock.dbc,
 	// a kind this side has no table for).
 	Unchecked []string `json:"unchecked"`
+	// Quests is the quests the templates start and end that have a row, for the quest checks (#952).
+	Quests QuestReport `json:"quests"`
 }
 
 // refTargets are the tables (as `table`.`column`) that hold each kind's ids. An event is either a
@@ -232,7 +234,7 @@ func existingSQL(kind string, ids []int) string {
 // CheckWorldData reads the query's templates and tells which of the rows their id columns name are
 // missing. dataDir is the client's Data folder, for the locks ("" leaves them unchecked).
 func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataReport, error) {
-	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}}
+	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}, Quests: emptyQuestReport()}
 	db, err := openWorld(serverRoot)
 	if err != nil {
 		return r, err
@@ -382,5 +384,23 @@ func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataRepo
 			r.Missing[k] = []int{}
 		}
 	}
+
+	// The quests' own checks (#952), over the quests that have a row. A failure there leaves the
+	// rest of the report standing and says why.
+	gone := map[int]bool{}
+	for _, q := range r.Missing["quest"] {
+		gone[q] = true
+	}
+	var quests []int
+	for _, q := range asked["quest"] {
+		if !gone[q] {
+			quests = append(quests, q)
+		}
+	}
+	qr, err := checkQuests(db, quests)
+	if err != nil {
+		qr.Error = err.Error()
+	}
+	r.Quests = qr
 	return r, nil
 }

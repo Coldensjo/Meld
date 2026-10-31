@@ -318,6 +318,27 @@ export interface CharacterTaxi {
 }
 
 /**
+ * CheckedQuest is one quest of the map as the checks need it: its newest row's title, level and
+ * special flags, its set chain links (by column, signed as stored), its kill objectives (positive a
+ * creature, negative a game object) and item objectives, the item it gives at the start, who starts
+ * and ends it, the items whose start_quest it is and the area triggers that complete it.
+ */
+export interface CheckedQuest {
+    "entry": number;
+    "title": string;
+    "level": number;
+    "specialFlags": number;
+    "links": { [_ in string]?: number } | null;
+    "kills": number[] | null;
+    "items": number[] | null;
+    "srcItem": number;
+    "givers": QuestHolder[] | null;
+    "enders": QuestHolder[] | null;
+    "itemStarts": number[] | null;
+    "triggers": number[] | null;
+}
+
+/**
  * ChunkView is one 8x8-cell chunk of a tile, for the editor.
  */
 export interface ChunkView {
@@ -1045,6 +1066,18 @@ export interface ItemTables {
 }
 
 /**
+ * ItemTally is an item objective: its name, whether its template exists, and whether anything gives
+ * it (a loot row, directly or through a reference loot group something uses; a vendor; a quest's
+ * start item or reward; a spell that creates it).
+ */
+export interface ItemTally {
+    "id": number;
+    "name": string;
+    "exists": boolean;
+    "sourced": boolean;
+}
+
+/**
  * LayerView is one texture layer of a chunk, for the editor. Every layer but a chunk's first has an
  * alpha map, kept apart in the view's Alpha (TileView, RegionView).
  */
@@ -1466,6 +1499,15 @@ export interface PublishPreview {
 }
 
 /**
+ * QuestBrief is a quest a chain link names: its entry, title and level.
+ */
+export interface QuestBrief {
+    "entry": number;
+    "title": string;
+    "level": number;
+}
+
+/**
  * QuestDeleteCount is how many rows of a table deleting a quest removes.
  */
 export interface QuestDeleteCount {
@@ -1521,6 +1563,15 @@ export interface QuestGivers {
 }
 
 /**
+ * QuestHolder is a creature or game object template (Kind "creature" or "object") that starts or
+ * ends a quest.
+ */
+export interface QuestHolder {
+    "kind": string;
+    "id": number;
+}
+
+/**
  * QuestLink is a quest that names the quest being deleted, and the columns it names it in.
  */
 export interface QuestLink {
@@ -1548,6 +1599,36 @@ export interface QuestRef {
     "level": number;
     "patchMin": number;
     "patchMax": number;
+}
+
+/**
+ * QuestReport is what the world database has of the map's quests.
+ */
+export interface QuestReport {
+    "quests": CheckedQuest[] | null;
+
+    /**
+     * Linked holds the quests the chain links name that exist, the map's own included.
+     */
+    "linked": QuestBrief[] | null;
+    "spawns": SpawnTally[] | null;
+
+    /**
+     * Summoned lists the unspawned kill objective creatures a script summons or gives kill credit
+     * for (SCRIPT_COMMAND_TEMP_SUMMON_CREATURE, SCRIPT_COMMAND_KILL_CREDIT), or a spell summons.
+     */
+    "summoned": number[] | null;
+    "items": ItemTally[] | null;
+
+    /**
+     * MissingTriggers lists the area triggers that complete a quest but have no areatrigger_template row.
+     */
+    "missingTriggers": number[] | null;
+
+    /**
+     * Error says why the quests weren't checked ("" when they were).
+     */
+    "error": string;
 }
 
 /**
@@ -2017,6 +2098,20 @@ export interface SpawnScript {
 }
 
 /**
+ * SpawnTally is a creature or game object template the quests name (a giver, an ender, a kill
+ * objective): its name, whether its template exists, how many spawns the world has of it, and how
+ * many of those spawn only during a game event.
+ */
+export interface SpawnTally {
+    "kind": string;
+    "id": number;
+    "name": string;
+    "exists": boolean;
+    "world": number;
+    "events": number;
+}
+
+/**
  * SpawnTeleport is one place a spawn sends a player (or itself): what does it, and where to.
  */
 export interface SpawnTeleport {
@@ -2476,6 +2571,11 @@ export interface WorldDataReport {
      * a kind this side has no table for).
      */
     "unchecked": string[] | null;
+
+    /**
+     * Quests is the quests the templates start and end that have a row, for the quest checks (#952).
+     */
+    "quests": QuestReport;
 }
 
 /**

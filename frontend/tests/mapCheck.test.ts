@@ -7,6 +7,9 @@ import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type IdSpa
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones } from '../src/lib/check/terrainChecks.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 import { CREATURE_REFS, OBJECT_REFS, checkWorldData, type WorldTemplate } from '../src/lib/check/worldData.ts'
+import type { QuestReport } from '../src/lib/check/quests.ts'
+
+const noQuests: QuestReport = { quests: [], linked: [], spawns: [], summoned: [], items: [], missingTriggers: [], error: '' }
 
 const model = (id: number, over: Partial<CheckModel> = {}): CheckModel => ({ id, type: 'm2:crate', name: 'Crate', x: 10, z: 10, yOff: 0, rotY: 0, scale: 1, box: null, ...over })
 const box = (x: number, y: number, z: number, w = 1, h = 1): CheckModel['box'] => ({ min: [x - w, y, z - w], max: [x + w, y + h, z + w] })
@@ -257,6 +260,7 @@ test('world data: a missing row is an error where the game needs it, and points 
 			missing: { gossip: [900], 'creature loot': [33], vendor: [30], loot: [77], quest: [5001], lock: [] },
 			tables: { gossip: 'gossip_menu', 'creature loot': 'creature_loot_template', vendor: 'npc_vendor_template', loot: 'gameobject_loot_template', quest: 'quest_template', lock: 'Lock.dbc' },
 			unchecked: [],
+			quests: noQuests,
 		},
 		{ x: 0, z: 0 },
 	)
@@ -285,7 +289,7 @@ test('world data: a missing row is an error where the game needs it, and points 
 })
 
 test('world data: a template without a spawn on the map, and an unchecked kind', () => {
-	const found = checkWorldData([], { creatures: [tmpl(1, { npcFlags: 1, values: { gossip_menu_id: 900 } })], objects: [], missing: { gossip: [900] }, tables: {}, unchecked: ['lock'] }, null)
+	const found = checkWorldData([], { creatures: [tmpl(1, { npcFlags: 1, values: { gossip_menu_id: 900 } })], objects: [], missing: { gossip: [900] }, tables: {}, unchecked: ['lock'], quests: noQuests }, null)
 	assert.equal(found.length, 1)
 	assert.equal(found[0].check, 'World data')
 	assert.match(found[0].message, /Lock\.dbc/)

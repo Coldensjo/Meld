@@ -40,6 +40,17 @@ export interface WorldSpawn {
 	z: number
 }
 
+/** Each template's spawn on the map nearest `from` (any one without it), by `creature:<entry>` or `object:<entry>`. */
+export function nearestSpawns(spawns: readonly WorldSpawn[], from: { x: number; z: number } | null): Map<string, WorldSpawn> {
+	const nearest = new Map<string, WorldSpawn>()
+	for (const s of spawns) {
+		const k = `${s.kind === 'object' ? 'object' : 'creature'}:${s.entry}`
+		const had = nearest.get(k)
+		if (!had || (from && Math.hypot(s.x - from.x, s.z - from.z) < Math.hypot(had.x - from.x, had.z - from.z))) nearest.set(k, s)
+	}
+	return nearest
+}
+
 const flag = (name: string) => NPC_FLAGS.find(([, n]) => n === name)![0]
 const GOSSIP = flag('gossip')
 const VENDOR = flag('vendor')
@@ -63,12 +74,7 @@ const EVENTAI = 'EventAI without events'
  * `from` (the camera), and opens its editor on the column.
  */
 export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataReport, from: { x: number; z: number } | null): Finding[] {
-	const nearest = new Map<string, WorldSpawn>()
-	for (const s of spawns) {
-		const k = `${s.kind === 'object' ? 'object' : 'creature'}:${s.entry}`
-		const had = nearest.get(k)
-		if (!had || (from && Math.hypot(s.x - from.x, s.z - from.z) < Math.hypot(had.x - from.x, had.z - from.z))) nearest.set(k, s)
-	}
+	const nearest = nearestSpawns(spawns, from)
 	const missing = new Map(Object.entries(goMap(report.missing)).map(([kind, ids]) => [kind, new Set(ids)]))
 	const tables = goMap(report.tables)
 	const gone = (kind: string, id: number) => missing.get(kind)?.has(id) ?? false

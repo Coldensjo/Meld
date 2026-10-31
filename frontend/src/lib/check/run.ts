@@ -16,6 +16,7 @@ import { checkDuplicateModels, checkModelHeights, type CheckModel } from './mode
 import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type CheckSpawn, type IdReport, type IdSpawn, type SpawnProbes } from './spawns'
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones, type EdgeSegment } from './terrainChecks'
 import { checkWorldData, CREATURE_REFS, OBJECT_REFS, type WorldDataReport } from './worldData'
+import { checkQuests } from './quests'
 
 export interface CheckInput {
 	terrain: Terrain
@@ -254,7 +255,7 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 	return { findings, unchecked }
 }
 
-/** The World data group (#951): asks the world database about the spawns' templates, or says why it can't. */
+/** The World data group (#951): asks the world database about the spawns' templates and their quests (#952), or says why it can't. */
 async function worldDataFindings(input: CheckInput): Promise<Finding[]> {
 	const left = (why: string): Finding[] => [{ check: 'World data', severity: 'info', group: 'world', message: why, x: NaN, z: NaN, target: { kind: 'none' } }]
 	if (typeof input.worldData === 'string') return left(input.worldData)
@@ -265,7 +266,7 @@ async function worldDataFindings(input: CheckInput): Promise<Finding[]> {
 	const plain = (refs: typeof CREATURE_REFS) => refs.map(({ type, col, kind }) => ({ type, col, kind }))
 	try {
 		const report = await input.worldData({ creatureEntries: entries(false), objectEntries: entries(true), creatureRefs: plain(CREATURE_REFS), objectRefs: plain(OBJECT_REFS) })
-		return checkWorldData(spawns, report, input.from ?? null)
+		return [...checkWorldData(spawns, report, input.from ?? null), ...checkQuests(spawns, report.quests, input.from ?? null)]
 	} catch (err) {
 		return left(`The world data wasn't checked: the world database could not be asked (${err}).`)
 	}

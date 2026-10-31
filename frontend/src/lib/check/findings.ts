@@ -8,9 +8,16 @@ export type Severity = 'error' | 'warning' | 'info'
 /**
  * What a click on a finding selects. A template's finding (the World data group, #951) selects its
  * spawn nearest the camera, and its Edit button opens the template's editor on the column (`field`).
+ * A quest's finding (#952) selects its giver's (or ender's) spawn nearest the camera, when the map has
+ * one (`key`), and its Edit button opens the quest editor.
  */
 export type FindingTarget =
-	{ kind: 'models'; ids: number[] } | { kind: 'spawn'; key: string } | { kind: 'chunk'; chunk: number } | { kind: 'template'; key: string; template: 'creature' | 'object'; entry: number; field?: string } | { kind: 'none' }
+	| { kind: 'models'; ids: number[] }
+	| { kind: 'spawn'; key: string }
+	| { kind: 'chunk'; chunk: number }
+	| { kind: 'template'; key: string; template: 'creature' | 'object'; entry: number; field?: string }
+	| { kind: 'quest'; quest: number; key?: string }
+	| { kind: 'none' }
 
 /** A safe fix the window offers: delete the models, put them on the ground, or crop the chunk's water. */
 export type FixKind = 'deleteModels' | 'groundModels' | 'cropWater'
