@@ -1062,6 +1062,27 @@ stay over a remote one.
 - Trap: `P` has no `wait`; a probe sleeps with `setTimeout`. A flush needs up to `HEIGHTS_FLUSH_MS`
   after an edit before the message leaves.
 
+## Texture paint in a session (#1002, probe `session-paint`)
+
+Checks: a paint change on the session's map goes to the others as `paint` messages (whole chunks, slots
+as texture paths) during the stroke, the others' are applied in the host's order with one's own
+unacknowledged chunks over them, a texture the receiver lacks is appended to its palette, and an undo
+of Add Texture keeps a texture the chunks still use.
+- `bun test tests/sessionPaint.test.ts`: `PaintSync` members through a scripted host; the paint is
+  compared by path (`Ground.byPath`), since the palettes may hold the same textures in another order
+  (two members adding different textures at once, painting the same chunk at once, the palette only
+  growing, a guest holding messages before its map, bad messages ignored).
+- `bun run probe session-paint`: the page hosts, the bot sends chunk 9 in a colour the palette lacks,
+  then a Paint stroke with a new colour and its undo in the page; the bot's messages replayed in `seq`
+  order (paths into a palette of its own) must equal the page's paint texel by texel, by path. The guest
+  side binds through the same `bindEdits` as the heights, which `session-heights-guest` drives.
+- By hand: two built Melds painting different new textures into one chunk at once: both end with the
+  chunk as the later stroke (in the host's order) left it, four textures at most; the saves hold the same
+  paint, though the palette's order can differ.
+- Trap: App's default-palette swap renames a new map's swatch entries to the client's tilesets a moment
+  after it opens, so the probe adds a colour of its own first (a palette that isn't all swatches is left
+  alone) and snapshots after.
+
 ## The session's map keeps its tab (#1007, probe `session-replace`)
 
 Checks: while in a session, nothing makes the session's map again in its tab, since its sync is bound

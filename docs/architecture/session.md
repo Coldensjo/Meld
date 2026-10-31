@@ -12,7 +12,7 @@ server. #728 is the umbrella; its parts are separate issues:
 | A scripted guest for the probes (`meldtool session join`) | #999 | Done (`cmd/meldtool/session.go`, `probes/session-bot.mjs`) |
 | File > Host and Join Session, the members, the map a guest starts from | #1000 | Done (`lib/session/`) |
 | Terrain heights sync | #1001 | Done (`lib/session/heights.ts`) |
-| Texture paint sync, with the palette | #1002 | Open |
+| Texture paint sync, with the palette | #1002 | Done (`lib/session/paint.ts`) |
 | Placed objects sync | #1003 | Open |
 | Presence: the others' cameras and brushes | #1004 | Open |
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
@@ -94,6 +94,29 @@ server. #728 is the umbrella; its parts are separate issues:
   - **The map.** Only the session's map syncs (`shared.docId`): the host binds it on Host, a guest on
     opening the handoff. A guest holds the `heights` that arrive before its map (`HeightSync.wait`) and
     applies those after the handoff's `seq` once it opens. Closing the session's map stops the sync.
+- **Texture paint (#1002, `paint.ts`, `PaintSync`).** Every paint change to the session's map (a stroke,
+  a fill, a script, an undo) goes out as whole paint chunks, kind `paint` (`KIND_PAINT`), data
+  `{id, chunks: [{c, slots, w}]}`: the chunk's index, its four slots as texture paths (`''` for an empty
+  slot) and every texel's four weights (base64 bytes, row by row). Whole chunks, since a texel's weights
+  mean nothing without its chunk's slots, and a stroke can reorder those anywhere in a chunk it touches
+  (`settleSlots`, `compactChunk`). `Terrain.markSplatDirty` grows a texel region for the session too
+  (`takeSessionPaint`; null for all of the map); the same timer as the heights compares the chunks it
+  covers against a mirror of the weights and slots and sends the ones that differ. The order, the
+  replay of one's own unacknowledged chunks over a remote one, the echo and the guest's held messages
+  are the heights' (above), with a chunk the unit instead of a vertex: two members painting one chunk
+  at once both end with the chunk as the later message in the host's order has it.
+  - **The palette.** Slots go out as paths, not palette indices: each member keeps its own palette, and
+    a path the receiver's lacks is appended to it there (not a History step). So two members adding
+    textures at once can't collide on an index, no index is ever renumbered (History's paint steps hold
+    raw slot indices), and the four-texture limit holds everywhere because a chunk arrives whole. The
+    cost: two textures added at once sit in the two palettes in either order, so the saves hold the
+    same paint but not always the same palette order.
+  - **The palette only grows** while in the session: an undo of Add Texture sets the palette back to
+    its earlier, shorter list, which would drop a texture another member painted with since; the sync
+    puts the list back when a chunk still uses an index past its end (`checkPalette`). A shrink nothing
+    uses stands.
+  - The paint mask is per-user selection state and stays local. A memory cost: the mirror is a second
+    copy of the weights (4 bytes a texel).
 - **The session's map keeps its document (#1007).** The sync is bound to the session map's document,
   so `setSessionDoc` marks it `shared` (`MapDocument.shared`) and nothing replaces it in its tab while
   in the session: `Engine.openDocument` with that tab as `replaceId` and `Engine.growWorld` throw

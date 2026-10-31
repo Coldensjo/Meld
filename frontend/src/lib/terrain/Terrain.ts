@@ -399,6 +399,24 @@ export class Terrain {
 	markSplatDirty(rect?: DirtyRect | null) {
 		this.paintVersion++
 		this.splatDirty.mark(rect)
+		this.sessionPaint.mark(rect)
+	}
+
+	/** The texels marked by `markSplatDirty` since a shared session last took them (`takeSessionPaint`, lib/session/paint.ts, #1002). */
+	private sessionPaint = new DirtyRegion()
+
+	/** Copies into `out` the texel rect marked since the last call and starts again: true for a rect, null for all of the map, false for nothing. */
+	takeSessionPaint(out: DirtyRect): boolean | null {
+		const r = this.sessionPaint
+		if (!r.dirty) return false
+		const rect = r.rect
+		r.clear()
+		if (!rect) return null
+		out.x0 = rect.x0
+		out.z0 = rect.z0
+		out.x1 = rect.x1
+		out.z1 = rect.z1
+		return true
 	}
 
 	/** The mask changed, in the inclusive texel `rect` or (without one) anywhere. */

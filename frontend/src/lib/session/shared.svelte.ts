@@ -13,6 +13,7 @@ import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
 import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, changeLine, peerChanges, serialQueue, type Message, type Peer } from './peers'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
+import { KIND_PAINT, PaintSync } from './paint'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -65,24 +66,61 @@ const heights = new HeightSync({
 		// The objects standing on the ground follow it, as after a stroke of one's own.
 		const cs = d.terrain.cellSize
 		d.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		// Another member's edit is an unsaved change of the map here too (set once, not per message).
-		if (engineRef.current?.activeDocumentId() === d.id) {
-			if (!editor.dirty) editor.dirty = true
-		} else d.meta.dirty = true
+		markUnsaved()
 	},
 	failed: (err) => setStatus(`A height edit did not reach the session: ${err}`, 8000),
 })
+
+/** Whether the session's map is the active tab, whose per-map fields live in `editor` rather than its `meta`. */
+function sessionActive() {
+	const d = sessionDoc()
+	return !!d && engineRef.current?.activeDocumentId() === d.id
+}
+
+/** Another member's edit is an unsaved change of the map here too (set once, not per message). */
+function markUnsaved() {
+	const d = sessionDoc()
+	if (!d) return
+	if (sessionActive()) {
+		if (!editor.dirty) editor.dirty = true
+	} else d.meta.dirty = true
+}
+
+/** The session map's texture paint (#1002): whole chunks with their slots as paths, sent and applied as the heights are. */
+const paint = new PaintSync({
+	send: (data) => sessionSend(0, KIND_PAINT, data),
+	palette: () => (sessionActive() ? editor.palette : (sessionDoc()?.meta.palette ?? [])),
+	setPalette: (p) => {
+		if (sessionActive()) editor.palette = p
+		else {
+			const d = sessionDoc()
+			if (d) d.meta.palette = p
+		}
+	},
+	applied: markUnsaved,
+	failed: (err) => setStatus(`Texture paint did not sync with the session: ${err}`, 8000),
+})
 let flushTimer: ReturnType<typeof setInterval> | null = null
 
-/** Sends the session map's changed heights; stops syncing once that map is closed. */
-function flushHeights() {
-	const g = heights.bound
-	if (!g) return
-	if (sessionDoc()?.terrain !== g) {
-		heights.unbind()
-		return
+/** Sends the session map's changed heights and paint; stops syncing once that map is closed. */
+function flushEdits() {
+	const t = sessionDoc()?.terrain
+	if (heights.bound) {
+		if (t !== heights.bound) heights.unbind()
+		else heights.flush()
 	}
-	heights.flush()
+	if (paint.bound) {
+		if (t !== paint.bound) paint.unbind()
+		else paint.flush()
+	}
+}
+
+/** Starts syncing the session map's edits: the map as it was after message `afterSeq`. */
+function bindEdits(afterSeq: number) {
+	const d = sessionDoc()
+	if (!d) return
+	heights.bind(d.terrain, afterSeq)
+	paint.bind(d.terrain, afterSeq)
 }
 
 /** Sends a message into the session (to 0 is everyone), after every send before it. */
@@ -94,7 +132,8 @@ function subscribe() {
 	unsubscribe()
 	lastSeq = 0
 	heights.wait()
-	flushTimer = setInterval(flushHeights, HEIGHTS_FLUSH_MS)
+	paint.wait()
+	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
 	off = [EventsOn<Message>('session:message', onMessage), EventsOn<string>('session:ended', onEnded)]
 }
 
@@ -104,6 +143,7 @@ function unsubscribe() {
 	if (flushTimer) clearInterval(flushTimer)
 	flushTimer = null
 	heights.unbind()
+	paint.unbind()
 }
 
 function apply(info: main.SessionInfo) {
@@ -140,8 +180,7 @@ export async function hostSession(port: number, name: string) {
 		throw err
 	}
 	setSessionDoc(e.activeDocumentId())
-	const d = sessionDoc()
-	if (d) heights.bind(d.terrain, 0)
+	bindEdits(0)
 }
 
 /** Joins the session hosted at `addr`; the host's map opens as a new tab once it arrives. */
@@ -207,6 +246,9 @@ function onMessage(m: Message) {
 		case KIND_HEIGHTS:
 			heights.receive(m.seq, m.from, data, shared.you)
 			return
+		case KIND_PAINT:
+			paint.receive(m.seq, m.from, data, shared.you)
+			return
 	}
 }
 
@@ -238,8 +280,7 @@ function openHandoff(h: MapHandoff) {
 	}
 	setSessionDoc(e.activeDocumentId())
 	// The edits held since joining that the map doesn't hold yet go in now.
-	const d = sessionDoc()
-	if (d) heights.bind(d.terrain, h.seq)
+	bindEdits(h.seq)
 	const host = shared.peers.find((p) => p.id === HOST_ID)
 	setStatus(`Opened ${host?.name || 'the host'}'s map ${h.map.name}`, 6000)
 }
