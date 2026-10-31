@@ -552,7 +552,7 @@ Checks: the Messages tab's AI lines (`SaveAILine`: a talk command's broadcast te
 
 ## Flight paths (#180)
 
-Probe: `flight-paths`.
+Probes: `flight-paths` and `flight-scripts` (#944).
 
 Checks: World › Flight Paths lists the open map's stops (TaxiNodes.dbc) and their routes (TaxiPath.dbc
 through TaxiPathNode.dbc's points), draws them, edits them on the map and saves them to the client's
@@ -573,6 +573,23 @@ patch, the server's `data/5875/dbc` and `taxi_nodes`.
   start; Save says to restart it when it runs (#661: Meld restarts nothing).
 - Trap: a live Save writes Meld's patch-3.MPQ (or queues it while the game runs) and the server's
   taxi tables (keeping `.before-meld` copies); don't run it in a check unless the owner wants that. The Go tests cover the write.
+- Export and Import (#944): Export map… and Export stop… write an SQL script of the saved stops
+  (`taxi_nodes` rows) and the routes from or to them (`-- meld route` and `-- meld point` lines), and
+  Import… plans a script and, on confirmation, writes it as Save does. Go:
+  `vmangos.TestTaxiScriptRoundTrip` (stops, routes and points back, an awkward name; a stop's script
+  names the stops its routes reach that it lacks), `TestTaxiImportPlan` (unchanged stops and routes
+  left as they are, a renamed stop of another map, a route replacing the client's same-way route, a
+  route ID flying another way, a route to a stop neither holds refused), `TestTaxiScriptReadsRows`
+  (an INSERT without columns, the highest build up to 5875, other statements and columns counted, the
+  unreadable lines refused) and `TestClientTaxiScriptRoundTrip` (needs the client: Eastern Kingdoms
+  exported and planned back writes the three tables unchanged). In the root package,
+  `TestImportTaxiWritesAsSave` imports into a made-up client without a server folder and checks a
+  refused script writes nothing. Probe `flight-scripts` (about 7 s, on the throwaway client; nothing
+  written): Lakeshire's Export stop… hands the binding map 0, [5] and its name (the file name drops
+  the comma); Import… of a script the probe writes shows the real plan (stop 5 and route 8
+  unchanged, a new stop 250 and route 9001, one statement left out); a stand-in `ImportTaxi` then
+  gets the note and the network read again. Not checked here: an import into the real client and
+  server, and flying an imported route in the game (the owner's check, after a world server restart).
 
 ## Boats and zeppelins (#954)
 

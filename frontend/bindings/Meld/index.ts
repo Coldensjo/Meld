@@ -33,6 +33,7 @@ export type {
     SoundsExported,
     SoundsSaved,
     SpellSaved,
+    TaxiImportResult,
     TemplateSaved,
     WorldMapResult,
     ZoneWeatherList

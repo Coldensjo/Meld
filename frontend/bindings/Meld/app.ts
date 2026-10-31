@@ -517,6 +517,15 @@ export function ExportSpells(entries: number[] | null, suggested: string): $Canc
 }
 
 /**
+ * ExportTaxi asks where to save an SQL script of a map's flight paths and writes it there (#944): the
+ * stops of stops (all of the map's when empty) and the routes from or to them, as the client has
+ * them. Returns the path, or "" if cancelled.
+ */
+export function ExportTaxi(mapID: number, stops: number[] | null, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(1455655031, mapID, stops, suggested);
+}
+
+/**
  * ExternalDatabaseInfo is the connected external database (Conf "" for none), for the status bar and
  * the File menu.
  */
@@ -697,6 +706,15 @@ export function ImportSound(path: string, opt: vmangos$0.SoundImport): $Cancella
  */
 export function ImportSpells(path: string): $CancellablePromise<number[] | null> {
     return $Call.ByID(3672008735, path);
+}
+
+/**
+ * ImportTaxi writes the flight paths of the SQL script at path as Save writes the window's (SaveTaxi):
+ * into the client's taxi tables, the world database's taxi_nodes and the server's route tables, which
+ * the world server reads at its start. Nothing is written while the plan refuses the script.
+ */
+export function ImportTaxi(path: string): $CancellablePromise<$models.TaxiImportResult> {
+    return $Call.ByID(4267132640, path);
 }
 
 /**
@@ -1231,6 +1249,13 @@ export function OpenSpellsDialog(): $CancellablePromise<string> {
 }
 
 /**
+ * OpenTaxiDialog asks for an SQL script of flight paths to import. Returns "" if cancelled.
+ */
+export function OpenTaxiDialog(): $CancellablePromise<string> {
+    return $Call.ByID(2480791777);
+}
+
+/**
  * OpenTextDialog asks for a text file to import. Returns "" if cancelled.
  */
 export function OpenTextDialog(): $CancellablePromise<string> {
@@ -1338,6 +1363,15 @@ export function PlanQuestImport(path: string): $CancellablePromise<vmangos$0.Que
  */
 export function PlanSpellImport(path: string): $CancellablePromise<vmangos$0.SpellImport> {
     return $Call.ByID(1028529865, path);
+}
+
+/**
+ * PlanTaxiImport says what importing the flight paths of the SQL script at path would write: which
+ * stops and routes are new, which replace one of this client's or are its already, the routes taken
+ * out for flying the same way, and the maps this client lacks.
+ */
+export function PlanTaxiImport(path: string): $CancellablePromise<vmangos$0.TaxiImport> {
+    return $Call.ByID(2893852043, path);
 }
 
 /**

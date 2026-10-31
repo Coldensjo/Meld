@@ -82,6 +82,7 @@ export const ExportQuests: Call<AppApi['ExportQuests']> = (...a) => api().Export
 export const ExportSounds: Call<AppApi['ExportSounds']> = (...a) => api().ExportSounds(...a) as never
 export const ExportSoundsDialog: Call<AppApi['ExportSoundsDialog']> = (...a) => api().ExportSoundsDialog(...a) as never
 export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().ExportSpells(...a) as never
+export const ExportTaxi: Call<AppApi['ExportTaxi']> = (...a) => api().ExportTaxi(...a) as never
 export const ExternalDatabaseInfo: Call<AppApi['ExternalDatabaseInfo']> = (...a) => api().ExternalDatabaseInfo(...a) as never
 export const Factions: NonNullCall<AppApi['Factions']> = (...a) => api().Factions(...a) as never
 export const ForgetProject: Call<AppApi['ForgetProject']> = (...a) => api().ForgetProject(...a) as never
@@ -104,6 +105,7 @@ export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => ap
 export const ImportQuests: NonNullCall<AppApi['ImportQuests']> = (...a) => api().ImportQuests(...a) as never
 export const ImportSound: Call<AppApi['ImportSound']> = (...a) => api().ImportSound(...a) as never
 export const ImportSpells: NonNullCall<AppApi['ImportSpells']> = (...a) => api().ImportSpells(...a) as never
+export const ImportTaxi: Call<AppApi['ImportTaxi']> = (...a) => api().ImportTaxi(...a) as never
 export const InstallMapPatch: Call<AppApi['InstallMapPatch']> = (...a) => api().InstallMapPatch(...a) as never
 export const InventoryItemTemplate: Call<AppApi['InventoryItemTemplate']> = (...a) => api().InventoryItemTemplate(...a) as never
 export const ItemDisplayVariant: Call<AppApi['ItemDisplayVariant']> = (...a) => api().ItemDisplayVariant(...a) as never
@@ -175,6 +177,7 @@ export const OpenQuestsDialog: Call<AppApi['OpenQuestsDialog']> = (...a) => api(
 export const OpenReferenceImageDialog: Call<AppApi['OpenReferenceImageDialog']> = (...a) => api().OpenReferenceImageDialog(...a) as never
 export const OpenSoundFileDialog: Call<AppApi['OpenSoundFileDialog']> = (...a) => api().OpenSoundFileDialog(...a) as never
 export const OpenSpellsDialog: Call<AppApi['OpenSpellsDialog']> = (...a) => api().OpenSpellsDialog(...a) as never
+export const OpenTaxiDialog: Call<AppApi['OpenTaxiDialog']> = (...a) => api().OpenTaxiDialog(...a) as never
 export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().OpenTextDialog(...a) as never
 export const OpenToolWindow: Call<AppApi['OpenToolWindow']> = (...a) => api().OpenToolWindow(...a) as never
 export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
@@ -189,6 +192,7 @@ export const PlanObjectImport: Call<AppApi['PlanObjectImport']> = (...a) => api(
 export const PlanQuestDelete: Call<AppApi['PlanQuestDelete']> = (...a) => api().PlanQuestDelete(...a) as never
 export const PlanQuestImport: Call<AppApi['PlanQuestImport']> = (...a) => api().PlanQuestImport(...a) as never
 export const PlanSpellImport: Call<AppApi['PlanSpellImport']> = (...a) => api().PlanSpellImport(...a) as never
+export const PlanTaxiImport: Call<AppApi['PlanTaxiImport']> = (...a) => api().PlanTaxiImport(...a) as never
 export const PlayHere: Call<AppApi['PlayHere']> = (...a) => api().PlayHere(...a) as never
 export const ProjectInFolder: Call<AppApi['ProjectInFolder']> = (...a) => api().ProjectInFolder(...a) as never
 export const Projects: Call<AppApi['Projects']> = (...a) => api().Projects(...a) as never

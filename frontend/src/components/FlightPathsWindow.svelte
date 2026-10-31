@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
 	import { onDestroy, tick } from 'svelte'
-	import { MapEntries, ReadCreature, SaveCreature, SaveTaxi, TaxiNetwork } from '../lib/wails/App'
+	import { ExportTaxi, ImportTaxi, MapEntries, OpenTaxiDialog, PlanTaxiImport, ReadCreature, SaveCreature, SaveTaxi, TaxiNetwork } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -21,7 +21,10 @@
 	// level (Shift: up and down), and with Draw on a click adds a point after the picked one, at its
 	// height. Fly it rides the camera along the route at a flight's speed. Save writes the three tables
 	// into Meld's patch and the server's (taxi_nodes and its copies of the route tables). A form saved
-	// with Save, as the Portals and Zones dialogs are: not undo steps (decision #83).
+	// with Save, as the Portals and Zones dialogs are: not undo steps (decision #83). Import…, Export
+	// map… and Export stop… (#944) read and write an SQL script of the stops' taxi_nodes rows with the
+	// routes and their points in "-- meld route" and "-- meld point" lines
+	// (internal/vmangos/taxiscripts.go); an import goes through Save's write after its plan.
 
 	interface Stop extends Vec3 {
 		id: number
@@ -105,13 +108,7 @@
 			const maps = (await MapEntries()) ?? []
 			const m = maps.find((x) => x.ID === id)
 			mapName = m ? m.Name || m.Dir : `Map ${id}`
-			const net = await TaxiNetwork(id)
-			stops = (net.nodes ?? []) as Stop[]
-			routes = (net.routes ?? []) as Route[]
-			nextStop = net.nextNode
-			nextRoute = net.nextRoute
-			savedStops = new Set(stops.map((s) => s.id))
-			savedRoutes = new Set(routes.map((r) => r.id))
+			await loadNetwork(id)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -119,6 +116,21 @@
 		}
 	}
 	void init()
+
+	/** Reads the map's stops and routes from the client, dropping any unsaved changes. */
+	async function loadNetwork(id: number) {
+		const net = await TaxiNetwork(id)
+		stops = (net.nodes ?? []) as Stop[]
+		routes = (net.routes ?? []) as Route[]
+		nextStop = net.nextNode
+		nextRoute = net.nextRoute
+		savedStops = new Set(stops.map((s) => s.id))
+		savedRoutes = new Set(routes.map((r) => r.id))
+		dirtyStops = []
+		dirtyRoutes = []
+		removedStops = []
+		removedRoutes = []
+	}
 
 	const hooks: TaxiHooks = {
 		drawing: () => drawing,
@@ -379,6 +391,107 @@
 		}
 	}
 
+	// Export and import (#944).
+	let note = $state('')
+	/** The stops the client's tables hold, which an export writes (as saved); read again after a save. */
+	const exportable = $derived.by(() => {
+		void dirtyStops
+		void removedStops
+		return new Set(stops.filter((s) => savedStops.has(s.id)).map((s) => s.id))
+	})
+
+	async function exportTaxi(ids: number[], what: string) {
+		if (mapId === null) return
+		error = ''
+		note = ''
+		try {
+			const file = what.replace(/[^\w\- ]+/g, '').trim() || 'flight paths'
+			const path = await ExportTaxi(mapId, ids, file)
+			if (!path) return
+			const n = stops.filter((s) => savedStops.has(s.id) && (!ids.length || ids.includes(s.id))).length
+			const r = routes.filter((x) => savedRoutes.has(x.id) && (!ids.length || ids.includes(x.from) || ids.includes(x.to))).length
+			note = `Exported ${what} (${n} ${n === 1 ? 'stop' : 'stops'}, ${r} ${r === 1 ? 'route' : 'routes'}) to ${path}${changes ? ', as saved: the unsaved changes are not in it' : ''}.`
+			setStatus(note, 8000)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	/** An import being confirmed: the script's path and what it writes. */
+	let plan = $state<{ path: string; plan: vmangos.TaxiImport } | null>(null)
+	let importing = $state(false)
+
+	async function askImport() {
+		error = ''
+		note = ''
+		if (changes && !(await askConfirm('Drop the unsaved flight path changes? The stops and routes are read again after the import.', { title: 'Unsaved changes', ok: 'Drop them' }))) return
+		try {
+			const path = await OpenTaxiDialog()
+			if (!path) return
+			plan = { path, plan: await PlanTaxiImport(path) }
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	async function confirmImport() {
+		if (!plan || mapId === null) return
+		const { path } = plan
+		importing = true
+		const end = startSaving('Importing the flight paths')
+		error = ''
+		try {
+			const res = await ImportTaxi(path)
+			plan = null
+			await loadNetwork(mapId)
+			if (!stops.some((s) => s.id === pickStop)) pickStop = null
+			if (!routes.some((r) => r.id === pickRoute)) {
+				pickRoute = null
+				pickPoint = -1
+				drawing = false
+			}
+			const where = [res.patch ? 'the client' : '', res.server ? "the server's data" : ''].filter(Boolean).join(' and ')
+			const removed = res.removed ? ` ${res.removed} of the client's routes that flew the same way ${res.removed === 1 ? 'is' : 'are'} taken out.` : ''
+			const elsewhere = (res.maps ?? []).filter((m) => m !== mapId)
+			const others = elsewhere.length ? ` Some are on ${elsewhere.length === 1 ? 'map' : 'maps'} ${elsewhere.join(', ')}, which this window doesn't show.` : ''
+			const after = res.server ? (res.restart ? '' : ' The world server reads the routes when it starts.') : ' Set the VMaNGOS server folder: without the server, nobody can fly them.'
+			note = `Imported ${res.stops} ${res.stops === 1 ? 'stop' : 'stops'} and ${res.routes} changed ${res.routes === 1 ? 'route' : 'routes'} into ${where || 'nowhere new (nothing differed)'}.${removed}${others}${after}${applyNote(res)}`
+			setStatus(note, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			importing = false
+			end()
+		}
+	}
+
+	/** A stop of the plan, as the plan bar says it. */
+	function stopText(s: vmangos.TaxiImportStop): string {
+		const parts = [String(s.id)]
+		if (s.mapId !== mapId) parts.push(`on map ${s.mapId}`)
+		if (!s.exists) parts.push('new')
+		else if (s.same) parts.push('unchanged')
+		else if (s.was) parts.push(`replaces "${s.was}"${s.wasMap !== s.mapId ? ` of map ${s.wasMap}` : ''}`)
+		else parts.push('replaces it')
+		return `${s.name} (${parts.join(', ')})`
+	}
+
+	/** A route of the plan, as the plan bar says it. */
+	function routeText(r: vmangos.TaxiImportRoute): string {
+		const parts = [String(r.id), `${r.points} points`]
+		if (!r.exists) parts.push('new')
+		else if (r.same) parts.push('unchanged')
+		else if (r.otherWay) parts.push(`replaces route ${r.id} from stop ${r.wasFrom} to ${r.wasTo}`)
+		else parts.push('replaces it')
+		if (r.replaces) parts.push(`takes out route ${r.replaces}, which flies the same way`)
+		return `${r.fromName || `stop ${r.from}`} to ${r.toName || `stop ${r.to}`} (${parts.join(', ')})`
+	}
+
+	/** The first `n` of `items` joined, with how many more. */
+	function some(items: string[], n = 8): string {
+		return items.slice(0, n).join('; ') + (items.length > n ? `; and ${items.length - n} more` : '')
+	}
+
 	async function close() {
 		if (changes && !(await askConfirm('Close without saving the flight path changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
 		ui.flightPaths = false
@@ -411,6 +524,32 @@
 	</header>
 	<div class="body" bind:this={body}>
 		{#if error}<p class="error">{error}</p>{/if}
+		{#if note && !plan}<p class="note">{note}</p>{/if}
+		{#if plan}
+			{@const p = plan.plan}
+			{@const ps = p.stops ?? []}
+			{@const pr = p.routes ?? []}
+			{@const refused = p.refused ?? []}
+			{@const same = pr.filter((r) => r.same).length}
+			<div class="plan" role="group" aria-label="Import plan">
+				<strong>Import {ps.length} {ps.length === 1 ? 'stop' : 'stops'} and {pr.length} {pr.length === 1 ? 'route' : 'routes'} into the client's taxi tables{p.server ? " and the server's taxi_nodes and route tables" : ''}?</strong>
+				{#if ps.length}<span>Stops: {some(ps.map(stopText))}.</span>{/if}
+				{#if pr.length}<span>Routes: {some(pr.map(routeText))}.</span>{/if}
+				{#if same}<span>{same} of the routes {same === 1 ? 'is' : 'are'} this client's already and left as {same === 1 ? 'it is' : 'they are'}.</span>{/if}
+				<span>The stop and route IDs are the exporting client's, kept as they are.</span>
+				{#if p.missingMaps?.length}<span>Not in this client's Map.dbc: map {p.missingMaps.join(', ')}. The stops and points are written, but no map of this client has them.</span>{/if}
+				{#if !p.server}<span>Without a VMaNGOS server folder only the client is written, and nobody can fly the routes.</span>
+				{:else}<span>The world server reads the routes when it starts: restart it after the import if it runs.</span>{/if}
+				{#if p.skipped}<span>{p.skipped} other {p.skipped === 1 ? 'statement is' : 'statements are'} left out: only the stops' taxi_nodes rows and the meld lines are imported.</span>{/if}
+				{#if p.unknown?.length}<span>Columns Meld doesn't write are left out: {p.unknown.join(', ')}.</span>{/if}
+				{#if refused.length}<span class="refused">Refused, nothing is written: {refused.join('; ')}.</span>
+				{:else}<span>A replaced stop or route can't be brought back, unless you exported it first.</span>{/if}
+				<span class="row end">
+					<button onclick={() => (plan = null)}>Cancel</button>
+					<button class="active" disabled={importing || refused.length > 0} onclick={() => void confirmImport()}>{importing ? 'Importing…' : 'Import'}</button>
+				</span>
+			</div>
+		{/if}
 		{#if loading}
 			<p class="dim">Reading the flight paths…</p>
 		{:else if mapId !== null}
@@ -418,6 +557,12 @@
 				<span class="dim grow">{stops.length} stops, {routes.length} routes</span>
 				<button onclick={() => void addStop(false)} title="A new stop on the ground under the camera">New stop here</button>
 				{#if spawn}<button onclick={() => void addStop(true)} title="A new stop where the selected creature stands, named after it">At {spawn.name}</button>{/if}
+			</div>
+			<div class="row">
+				<button onclick={() => void askImport()} disabled={importing || saving} title="Read flight stops and routes from an SQL script into the client and the server, as Save writes them">Import…</button>
+				<button onclick={() => void exportTaxi([], mapName)} disabled={!exportable.size} title="Write every saved stop of this map, and the routes from or to them, to an SQL script">Export map…</button>
+				{#if stop}<button onclick={() => stop && void exportTaxi([stop.id], stop.name)} disabled={!exportable.has(stop.id)} title="Write the picked stop, as saved, with the routes from or to it to an SQL script">Export stop…</button
+					>{/if}
 			</div>
 			<ul class="list" aria-label="Stops">
 				{#each stops as s (s.id)}
@@ -601,6 +746,28 @@
 	.dim {
 		color: var(--text-dim);
 		font-size: 11px;
+	}
+	.note {
+		color: var(--ok);
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.plan {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		padding: 8px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--panel-2);
+		overflow-wrap: anywhere;
+	}
+	.plan .refused {
+		color: var(--danger-text);
+	}
+	.row.end {
+		justify-content: flex-end;
+		margin-top: 4px;
 	}
 	.help {
 		margin: 0;

@@ -299,6 +299,22 @@ export interface SpellSaved {
 }
 
 /**
+ * TaxiImportResult is what ImportTaxi wrote: Save's result (AreaSaveResult's fields), how many stops
+ * and routes (those unchanged left out), how many of the client's routes were taken out, and on
+ * which maps.
+ */
+export interface TaxiImportResult {
+    "patch": string;
+    "server": boolean;
+    "waiting": boolean;
+    "restart": boolean;
+    "stops": number;
+    "routes": number;
+    "removed": number;
+    "maps": number[] | null;
+}
+
+/**
  * TemplateSaved is what a template's Save did: the SQL it ran, or the value it refused (Refused, with
  * a nil error), whose column the editor opens the tab of (#597).
  */

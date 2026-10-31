@@ -858,3 +858,138 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	}
 	return res, err
 }
+
+// ExportTaxi asks where to save an SQL script of a map's flight paths and writes it there (#944): the
+// stops of stops (all of the map's when empty) and the routes from or to them, as the client has
+// them. Returns the path, or "" if cancelled.
+func (a *App) ExportTaxi(mapID uint32, stops []uint32, suggested string) (string, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return "", err
+	}
+	tt, err := vmangos.LoadTaxiTables(dataDir)
+	if err != nil {
+		return "", err
+	}
+	net, err := vmangos.ReadTaxiNetwork(tt, mapID, 0)
+	if err != nil {
+		return "", err
+	}
+	nodes, routes := net.Nodes, net.Routes
+	if len(stops) > 0 {
+		want := map[uint32]bool{}
+		for _, id := range stops {
+			want[id] = true
+		}
+		nodes, routes = nil, nil
+		for _, n := range net.Nodes {
+			if want[n.ID] {
+				nodes = append(nodes, n)
+			}
+		}
+		for _, r := range net.Routes {
+			if want[r.From] || want[r.To] {
+				routes = append(routes, r)
+			}
+		}
+	}
+	mapName := ""
+	if maps, err := vmangos.LoadMapEntries(dataDir); err == nil {
+		for _, m := range maps {
+			if m.ID == mapID {
+				mapName = m.Name
+			}
+		}
+	}
+	script, err := vmangos.TaxiScript(nodes, routes, mapName, time.Now())
+	if err != nil {
+		return "", err
+	}
+	if suggested == "" {
+		suggested = "flight paths"
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Flight Paths", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenTaxiDialog asks for an SQL script of flight paths to import. Returns "" if cancelled.
+func (a *App) OpenTaxiDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Flight Paths", Filters: sqlFilters})
+}
+
+// planTaxiImport reads the flight paths script at path and plans its import into the client and,
+// when server is set, the server.
+func (a *App) planTaxiImport(server, path string) (vmangos.TaxiImport, vmangos.TaxiEdit, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.TaxiImport{}, vmangos.TaxiEdit{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.TaxiImport{}, vmangos.TaxiEdit{}, err
+	}
+	tt, err := vmangos.LoadTaxiTables(dataDir)
+	if err != nil {
+		return vmangos.TaxiImport{}, vmangos.TaxiEdit{}, err
+	}
+	var maps map[uint32]bool
+	if entries, err := vmangos.LoadMapEntries(dataDir); err == nil {
+		maps = make(map[uint32]bool, len(entries))
+		for _, m := range entries {
+			maps[m.ID] = true
+		}
+	}
+	plan, edit, err := vmangos.PlanTaxiImport(tt, string(b), maps, hasDB(server))
+	if err == nil && externalOn() && (len(edit.Routes) > 0 || len(edit.RemoveRoutes) > 0) {
+		plan.Refused = append(plan.Refused, errExternalRoutes.Error())
+	}
+	return plan, edit, err
+}
+
+// PlanTaxiImport says what importing the flight paths of the SQL script at path would write: which
+// stops and routes are new, which replace one of this client's or are its already, the routes taken
+// out for flying the same way, and the maps this client lacks.
+func (a *App) PlanTaxiImport(path string) (vmangos.TaxiImport, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	plan, _, err := a.planTaxiImport(server, path)
+	return plan, err
+}
+
+// TaxiImportResult is what ImportTaxi wrote: Save's result (AreaSaveResult's fields), how many stops
+// and routes (those unchanged left out), how many of the client's routes were taken out, and on
+// which maps.
+type TaxiImportResult struct {
+	Patch   string   `json:"patch"`
+	Server  bool     `json:"server"`
+	Waiting bool     `json:"waiting"`
+	Restart bool     `json:"restart"`
+	Stops   int      `json:"stops"`
+	Routes  int      `json:"routes"`
+	Removed int      `json:"removed"`
+	Maps    []uint32 `json:"maps"`
+}
+
+// ImportTaxi writes the flight paths of the SQL script at path as Save writes the window's (SaveTaxi):
+// into the client's taxi tables, the world database's taxi_nodes and the server's route tables, which
+// the world server reads at its start. Nothing is written while the plan refuses the script.
+func (a *App) ImportTaxi(path string) (TaxiImportResult, error) {
+	// Before anything is read: the throwaway client's server tables are the real ones (#383).
+	server, err := a.optionalServerForWrite()
+	if err != nil {
+		return TaxiImportResult{}, err
+	}
+	plan, edit, err := a.planTaxiImport(server, path)
+	if err != nil {
+		return TaxiImportResult{}, err
+	}
+	if len(plan.Refused) > 0 {
+		return TaxiImportResult{}, fmt.Errorf("the flight paths are not imported: %s", strings.Join(plan.Refused, "; "))
+	}
+	res, err := a.SaveTaxi(edit)
+	return TaxiImportResult{Patch: res.Patch, Server: res.Server, Waiting: res.Waiting, Restart: res.Restart, Stops: len(edit.Nodes), Routes: len(edit.Routes), Removed: len(edit.RemoveRoutes), Maps: plan.Maps}, err
+}

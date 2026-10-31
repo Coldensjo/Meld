@@ -2740,6 +2740,85 @@ export interface TaxiEdit {
 }
 
 /**
+ * TaxiImport is what importing a flight paths script would write.
+ */
+export interface TaxiImport {
+    "stops": TaxiImportStop[] | null;
+    "routes": TaxiImportRoute[] | null;
+
+    /**
+     * Maps are the maps the stops and the routes' points are on, each once; MissingMaps those this
+     * client's Map.dbc lacks.
+     */
+    "maps": number[] | null;
+    "missingMaps": number[] | null;
+
+    /**
+     * Server says a server folder is set, so taxi_nodes and the server's route tables are written too.
+     */
+    "server": boolean;
+    "skipped": number;
+    "unknown": string[] | null;
+
+    /**
+     * Refused are the problems that stop the import; nothing is written while there is one.
+     */
+    "refused": string[] | null;
+}
+
+/**
+ * TaxiImportRoute is a route of a script as the import plan lists it.
+ */
+export interface TaxiImportRoute {
+    "id": number;
+    "from": number;
+    "to": number;
+    "cost": number;
+    "points": number;
+
+    /**
+     * FromName and ToName are the stops' names, the script's or else the client's.
+     */
+    "fromName": string;
+    "toName": string;
+
+    /**
+     * Exists says the client has a route of this ID, which the import replaces, and Same that it is the
+     * script's already (it is left as it is); OtherWay that it flies between other stops, WasFrom to
+     * WasTo.
+     */
+    "exists": boolean;
+    "same": boolean;
+    "otherWay": boolean;
+    "wasFrom": number;
+    "wasTo": number;
+
+    /**
+     * Replaces is the client's route of another ID that flies between the same stops the same way,
+     * which the import takes out, since the server keeps one; 0 for none.
+     */
+    "replaces": number;
+}
+
+/**
+ * TaxiImportStop is a stop of a script as the import plan lists it.
+ */
+export interface TaxiImportStop {
+    "id": number;
+    "mapId": number;
+    "name": string;
+
+    /**
+     * Exists says the client has a stop of this ID, which the import replaces, and Same that it is the
+     * script's already; Was is its name and WasMap its map when another.
+     */
+    "exists": boolean;
+    "same": boolean;
+    "was": string;
+    "wasMap": number;
+}
+
+/**
  * TaxiNetwork is a map's stops, the routes that start or end at one of them, and the IDs the next
  * new stop and route take.
  */

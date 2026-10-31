@@ -663,6 +663,20 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   marker's point index is `TaxiLayer.marked`) and Fly it flies the longest run (`longestRun`), while
   the window keeps the whole route, since `SaveTaxi` rewrites its points whole (#980). Make flight master sets
   npc_flags 8 on the selected creature's template through `SaveCreature`.
+  The window's Export map…, Export stop… and Import… (#944, `vmangos/taxiscripts.go`, bindings
+  `ExportTaxi`, `PlanTaxiImport`, `ImportTaxi`) write and read an SQL script: the stops' `taxi_nodes`
+  rows (`TaxiSQL`), which hold every field of their TaxiNodes.dbc rows, so the import reads the stops
+  from them (the row of the highest build up to 5875), and the routes, which are no SQL rows (the
+  server reads its own TaxiPath.dbc and TaxiPathNode.dbc), as `-- meld route` lines each followed by
+  its `-- meld point` lines in order (`vmangos/meldlines.go`). Run on a server alone the script writes
+  only the stops. Export stop… takes the routes from or to the stop, and the header names their other
+  stops, which the importing client must have. The import writes through `SaveTaxi`, so it is Save in
+  every respect (the restart note, the external server's refusal of routes). Its plan keeps the
+  script's IDs, leaves out a route the client has already as it is (so an import of a client's own
+  export writes its tables unchanged), takes out the client's route of another ID between the same
+  stops the same way (the server keeps one), names a replaced stop of another name or map, and
+  refuses, through `SetTaxi`, a route whose stops neither the script nor the client holds. Eastern
+  Kingdoms' whole network (43 stops, 132 routes) is a 246 KB script.
 - **Boats and zeppelins** (#954, read only; making and editing them is #955): VMaNGOS makes every
   `gameobject_template` of type 15 a transport (`TransportMgr::LoadTransportTemplates`); its data0 is
   the taxi path it sails, data1 its speed (yd/s) and data2 its acceleration (yd/s²), and the
