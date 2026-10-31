@@ -79,7 +79,7 @@ that should open straight in the world is a feature on top of Benilla, not in it
   world, moves it to the same spot without closing anything. Meld writes the spot into a row of its
   own in the world database's `game_tele` (named `meld_here`), then sends `reload game_tele` and
   `tele name <character> meld_here` through the world server's SOAP console, logged in as the Game
-  Login's account, which needs GM level 3 (`internal/vmangos/soap.go`). SOAP is off by default:
+  Login's account, which needs GM level 6 in realmd's `account_access` (`internal/vmangos/soap.go`). SOAP is off by default:
   `SOAP.Enabled = 1` in `vmangos\run\mangosd.conf` and a world server restart turn it on; until then,
   and when the character isn't in the world, Play here says so and points to Launch.
 - **Game › Launch Benilla** (Launch World of Warcraft while the game client is Wow.exe) opens it on demand.

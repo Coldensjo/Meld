@@ -194,7 +194,8 @@ you intend to use.
   starting the client. Without that setup, it simply launches the client. It can offer to compile
   when the open region has changes the client does not have.
 - **Play Here** moves a character that is already in the world without closing the game. It needs
-  the running world server's SOAP console and an account with GM level 3.
+  the running world server's SOAP console and an account with GM level 6 (Administrator) in
+  realmd's `account_access`.
 
 For Play Here, set `SOAP.Enabled = 1` in the server's `mangosd.conf` and restart the world server
 after changing that configuration. If SOAP is unavailable or the character is offline, use Launch.

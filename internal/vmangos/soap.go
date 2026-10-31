@@ -82,7 +82,8 @@ type soapReply struct {
 var errSoapClosed = errors.New("the world server's SOAP console doesn't answer")
 
 // soapCommand runs one console command (without the leading dot) on the world server, through its
-// SOAP console, logged in as a game account of GM level 3 or more. It returns what the command
+// SOAP console, logged in as a game account of GM level 6 (Administrator, in realmd's account_access,
+// which the server reads; account.gmlevel is not), as the console's own security. It returns what the command
 // printed. A variable, so tests can stand in for the server.
 var soapCommand = func(c soapConsole, account, password, command string) (string, error) {
 	var body bytes.Buffer
@@ -113,7 +114,7 @@ var soapCommand = func(c soapConsole, account, password, command string) (string
 	case http.StatusUnauthorized:
 		return "", fmt.Errorf("the world server refused the account %s: check its password in Game Login", account)
 	case http.StatusForbidden:
-		return "", fmt.Errorf("the account %s needs GM level 3 (realmd's account.gmlevel) to use the server's console", account)
+		return "", fmt.Errorf("the account %s needs GM level 6 (Administrator, a row in realmd's account_access for this realm; the server reads it at start) to use the server's console", account)
 	}
 	var r soapReply
 	if err := xml.Unmarshal(raw, &r); err != nil {
@@ -191,7 +192,7 @@ func teleSQL(s CharacterSpot) string {
 // ErrSoapOff says the world server's SOAP console is off in mangosd.conf.
 var ErrSoapOff = errors.New("the world server's SOAP console is off (SOAP.Enabled in mangosd.conf)")
 
-// ShutdownWorld asks the running world server to shut down now (`.server shutdown 0`, GM level 3)
+// ShutdownWorld asks the running world server to shut down now (`.server shutdown 0`)
 // through its SOAP console, logged in as account: the server saves the characters in the world and
 // exits, which a closed console window does not wait for. It fails when SOAP is off, no account is
 // saved or the console refuses; the caller then closes the server another way.

@@ -172,7 +172,8 @@ Play Here requires all of the following:
 - A configured VMaNGOS server folder and a running world server.
 - An account and character configured in **Game › Game Login**.
 - That character already online in the world.
-- The server's SOAP console enabled and the account at GM level 3.
+- The server's SOAP console enabled and the account at GM level 6 (Administrator) in realmd's
+  `account_access`.
 
 Enable `SOAP.Enabled = 1` in `mangosd.conf` and restart the world server if needed. Use **Launch**
 instead when the character is offline or SOAP is unavailable. Launch can close the game and wait

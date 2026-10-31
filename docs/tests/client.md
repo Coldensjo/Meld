@@ -72,7 +72,8 @@ Without the game, the console can be driven alone: `curl -u <account>:<password>
 http://127.0.0.1:7878/` with the envelope in `soap.go` and the command `server info`.
 - Trap: the world server reads `game_tele` only at start, so the row is useless until `reload
   game_tele`. `tele name` matches names by substring when no name is exact, so keep `meld_here` unique.
-- Trap: the SOAP account needs GM level 3 (`realmd.account.gmlevel`); a lower one gets HTTP 403.
+- Trap: the SOAP account needs GM level 6 (Administrator) in realmd's `account_access`, which the
+  server reads at start (`account.gmlevel` is not read); a lower one gets HTTP 403 (#941).
 - Trap: the key is `SOAP.Enabled`, though mangosd.conf's comment block calls it `SOAP.Enable`.
 
 ## Benilla launcher: nothing on screen until the world (benilla-launcher)
