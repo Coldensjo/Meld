@@ -1081,7 +1081,8 @@ account, Delete account, Save character and Delete character.
   server's databases can't be read or no account has a character.
 - Unit: `accounts_test.go`: the SRP6 verifier against the server's own self-test vector
   (`InitializeCrypto.cpp`, VMANGOS / 4EVER), `CreateAccount`'s SQL (upper case, no password stored,
-  the `realmcharacters` row), Delete's refusal of an account with characters, `characterSet`'s
+  the `realmcharacters` row and the `account_access` row), `TestGMLevelInAccountAccess` (the list's
+  level from `account_access`, Save account's rows, #995), Delete's refusal of an account with characters, `characterSet`'s
   rules and carry-alongs, and `SaveCharacter`'s refusals (in the world while mangosd runs, a rename
   while it runs).
 - A write, by hand in the dev page (a scratch probe, `bun run probe probes/scratch/<name>.js`):
@@ -1093,6 +1094,11 @@ account, Delete account, Save character and Delete character.
   race: '1', class: '11' })` is refused (no Human Druid). Clean up: `DELETE FROM characters WHERE
   guid = 9001`, then `DeleteAccount(id)` (refused while the character is there). Done on 2026-10-29
   with the world server stopped.
+- The GM level's rows, by hand (#995, a throwaway Go test in `internal/vmangos` run with
+  `MELD_TEST_DATABASE=1`, which the test guard asks for): `CreateAccount('MELDGM995', ..., 6)` gives one
+  `account_access` row (id, 6, 1) and the list says 6; with an extra (id, 4, -1) row the list still says
+  6; `SetAccount(id, 2, "")` leaves only (id, 2, 1); `SetAccount(id, 0, ...)` leaves none;
+  `DeleteAccount` leaves none. Done on 2026-10-31.
 - Character delete (#876): `chardelete_test.go`. `TestDeleteCharacterSQLLive` (needs the server's
   database; about 2 s) copies the character tables' structure into a scratch `test_meld_chardelete`
   database (the server's mariadb lets any user make `test_` databases), sets up a guild, a group with

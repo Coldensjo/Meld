@@ -106,7 +106,7 @@ func ListAccounts(serverRoot string) ([]Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw, err := runSQL(login, "SELECT id, username, gmlevel, online, locked, joindate, last_login FROM account ORDER BY username")
+	raw, err := runSQL(login, listAccountsSQL(realmID(serverRoot)))
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +124,28 @@ func ListAccounts(serverRoot string) ([]Account, error) {
 		out = append(out, Account{ID: id, Name: f[1], GMLevel: f.num(2), Online: f[3] != "0", Locked: f[4] != "0", JoinDate: f[5], LastLogin: f[6], Characters: counts[id]})
 	}
 	return out, nil
+}
+
+// listAccountsSQL selects every account with its GM level on realm: the highest of its account_access
+// rows for all realms (-1) and for this one, as the world server's AccountMgr::LoadAccountData reads
+// it. The server never reads the account table's own gmlevel column (#995).
+func listAccountsSQL(realm int) string {
+	return fmt.Sprintf("SELECT a.id, a.username, COALESCE((SELECT MAX(aa.gmlevel) FROM account_access aa WHERE aa.id = a.id AND aa.RealmID IN (-1, %d)), 0), "+
+		"a.online, a.locked, a.joindate, a.last_login FROM account a ORDER BY a.username", realm)
+}
+
+// gmLevelSQL gives account (an id, or a variable such as @id) GM level gm on realm in account_access,
+// where the world and login servers read it (AccountMgr::LoadAccountData, AuthSocket's
+// LoadAccountSecurityLevels). The account's rows for all realms (-1) and for this one go first, since
+// the server takes the higher of the two, and a level above 0 gets this realm's row, as `.account set
+// gmlevel` writes it (AccountMgr::SetSecurity). account.gmlevel is kept in step for other tools.
+func gmLevelSQL(account string, gm, realm int) string {
+	sql := fmt.Sprintf("UPDATE account SET gmlevel = %d WHERE id = %s;\n"+
+		"DELETE FROM account_access WHERE id = %s AND RealmID IN (-1, %d);", gm, account, account, realm)
+	if gm > 0 {
+		sql += fmt.Sprintf("\nINSERT INTO account_access (id, gmlevel, RealmID) VALUES (%s, %d, %d);", account, gm, realm)
+	}
+	return sql
 }
 
 // normalAccount is an account name or password as the server keeps it: trimmed and upper case
@@ -239,7 +261,7 @@ func CreateAccount(serverRoot, name, password string, gm int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	out, err = runSQL(db, createAccountSQL(name, v, s, gm))
+	out, err = runSQL(db, createAccountSQL(name, v, s, gm, realmID(serverRoot)))
 	if err != nil {
 		return 0, err
 	}
@@ -251,15 +273,18 @@ func CreateAccount(serverRoot, name, password string, gm int) (int, error) {
 }
 
 // createAccountSQL inserts an account and its realmcharacters rows (as AccountMgr::CreateAccount
-// does), and selects its id.
-func createAccountSQL(name, v, s string, gm int) string {
+// does), gives it GM level gm on realm (gmLevelSQL), and selects its id.
+func createAccountSQL(name, v, s string, gm, realm int) string {
 	return fmt.Sprintf("INSERT INTO account (username, gmlevel, v, s, joindate) VALUES (%s, %d, %s, %s, NOW());\n"+
 		"SET @id = LAST_INSERT_ID();\n"+
 		"REPLACE INTO realmcharacters (realmid, acctid, numchars) SELECT id, @id, 0 FROM realmlist;\n"+
-		"SELECT @id;", sqlQuote(name), gm, sqlQuote(v), sqlQuote(s))
+		"%s\n"+
+		"SELECT @id;", sqlQuote(name), gm, sqlQuote(v), sqlQuote(s), gmLevelSQL("@id", gm, realm))
 }
 
-// SetAccount changes account id's GM level and, when password isn't empty, its password.
+// SetAccount changes account id's GM level (in account_access, gmLevelSQL) and, when password isn't
+// empty, its password. The world server reads the levels at its start, so a running one sees a new
+// level only after a restart (or the console's .account set gmlevel).
 func SetAccount(serverRoot string, id, gm int, password string) error {
 	if gm < 0 || gm > maxGMLevel {
 		return fmt.Errorf("the GM level is 0 to %d", maxGMLevel)
@@ -276,7 +301,7 @@ func SetAccount(serverRoot string, id, gm int, password string) error {
 	if username == "" {
 		return fmt.Errorf("there is no account %d", id)
 	}
-	set := fmt.Sprintf("gmlevel = %d", gm)
+	script := gmLevelSQL(strconv.Itoa(id), gm, realmID(serverRoot))
 	if password != "" {
 		password = normalAccount(password)
 		if err := checkPassword(password); err != nil {
@@ -287,16 +312,15 @@ func SetAccount(serverRoot string, id, gm int, password string) error {
 			return err
 		}
 		// A changed password ends the session key the realm gave the old one.
-		set += fmt.Sprintf(", v = %s, s = %s, sessionkey = ''", sqlQuote(v), sqlQuote(s))
+		script += fmt.Sprintf("\nUPDATE account SET v = %s, s = %s, sessionkey = '' WHERE id = %d;", sqlQuote(v), sqlQuote(s), id)
 	}
-	_, err = runSQL(db, fmt.Sprintf("UPDATE account SET %s WHERE id = %d", set, id))
-	return err
+	return runScript(db, script)
 }
 
 // DeleteAccount removes account id, its characters (as DeleteCharacter does, #876) and its
-// realmcharacters rows, as AccountMgr::DeleteAccount does. An account with characters needs the world
-// server stopped, as a character delete does; one without is refused only while it is logged in with
-// the world server running.
+// realmcharacters and account_access rows, as AccountMgr::DeleteAccount does. An account with
+// characters needs the world server stopped, as a character delete does; one without is refused only
+// while it is logged in with the world server running.
 func DeleteAccount(serverRoot string, id int, worldRunning func() bool) error {
 	login, err := loginDatabase(serverRoot)
 	if err != nil {
@@ -336,7 +360,7 @@ func DeleteAccount(serverRoot string, id int, worldRunning func() bool) error {
 			return err
 		}
 	}
-	if err := runScript(login, fmt.Sprintf("DELETE FROM account WHERE id = %d;\nDELETE FROM realmcharacters WHERE acctid = %d;", id, id)); err != nil {
+	if err := runScript(login, fmt.Sprintf("DELETE FROM account WHERE id = %d;\nDELETE FROM realmcharacters WHERE acctid = %d;\nDELETE FROM account_access WHERE id = %d;", id, id, id)); err != nil {
 		return err
 	}
 	// The account's tutorial flags are the character database's, as the server's DeleteAccount clears them.

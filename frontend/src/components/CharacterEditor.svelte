@@ -211,7 +211,10 @@
 		try {
 			await SetAccount(account.id, gm, password)
 			const what = [gm !== account.gmLevel ? `GM level ${gmName(gm)}` : '', password ? 'a new password' : ''].filter(Boolean).join(' and ')
-			ed.note = `Gave ${account.name} ${what}.`
+			ed.note =
+				gm !== account.gmLevel
+					? `Gave ${account.name} ${what}. A running world server reads GM levels only at its start: restart it, or type .account set gmlevel ${account.name} ${gm} in its console.`
+					: `Gave ${account.name} ${what}.`
 			setStatus(ed.note, 8000)
 			await readAccounts()
 		} catch (err) {

@@ -66,13 +66,56 @@ func TestCreateAccount(t *testing.T) {
 	if id != 7 {
 		t.Errorf("id %d, want 7", id)
 	}
-	for _, want := range []string{"VALUES ('VMANGOS', 3, '46FD48476D925C4422DD1761C299C79FD6C92B5243E4F3C6C62576C0DABD8260', 'D04E", "REPLACE INTO realmcharacters", "SELECT @id"} {
+	for _, want := range []string{"VALUES ('VMANGOS', 3, '46FD48476D925C4422DD1761C299C79FD6C92B5243E4F3C6C62576C0DABD8260', 'D04E", "REPLACE INTO realmcharacters",
+		"INSERT INTO account_access (id, gmlevel, RealmID) VALUES (@id, 3, 1);", "SELECT @id"} {
 		if !strings.Contains(insert, want) {
 			t.Errorf("insert %q lacks %q", insert, want)
 		}
 	}
 	if strings.Contains(insert, "4EVER") {
 		t.Error("the password itself was stored")
+	}
+}
+
+// The GM level lives in account_access, where the servers read it (#995): the list takes the higher of
+// the all-realms and this realm's rows, and a save replaces both with this realm's row.
+func TestGMLevelInAccountAccess(t *testing.T) {
+	if got := listAccountsSQL(2); !strings.Contains(got, "MAX(aa.gmlevel) FROM account_access aa WHERE aa.id = a.id AND aa.RealmID IN (-1, 2)") {
+		t.Errorf("list: %s", got)
+	}
+	want := "UPDATE account SET gmlevel = 6 WHERE id = 7;\nDELETE FROM account_access WHERE id = 7 AND RealmID IN (-1, 1);\nINSERT INTO account_access (id, gmlevel, RealmID) VALUES (7, 6, 1);"
+	if got := gmLevelSQL("7", 6, 1); got != want {
+		t.Errorf("level 6: %q", got)
+	}
+	if got := gmLevelSQL("7", 0, 1); strings.Contains(got, "INSERT") || !strings.Contains(got, "DELETE FROM account_access WHERE id = 7") {
+		t.Errorf("level 0: %q", got)
+	}
+
+	root := characterServer(t)
+	old, oldPipe := runSQL, pipeMariadb
+	defer func() { runSQL, pipeMariadb = old, oldPipe }()
+	runSQL = func(db worldDB, sql string) ([]byte, error) {
+		switch {
+		case sql == "SELECT 1":
+			return []byte("1\n"), nil
+		case strings.HasPrefix(sql, "SELECT username"):
+			return []byte("GMADMIN\n"), nil
+		}
+		t.Fatalf("unexpected query %s", sql)
+		return nil, nil
+	}
+	var script string
+	pipeMariadb = func(args, env []string, input string) error {
+		script = input
+		return nil
+	}
+	if err := SetAccount(root, 7, 6, "secret"); err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range []string{want, "UPDATE account SET v = '", "WHERE id = 7;", "COMMIT;"} {
+		if !strings.Contains(script, w) {
+			t.Errorf("script %q lacks %q", script, w)
+		}
 	}
 }
 
@@ -179,7 +222,8 @@ func TestDeleteAccount(t *testing.T) {
 	if err := DeleteAccount(root, 5, func() bool { return false }); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(script, "DELETE FROM account WHERE id = 5;") || !strings.Contains(script, "DELETE FROM realmcharacters WHERE acctid = 5;") || tutorial == "" {
+	if !strings.Contains(script, "DELETE FROM account WHERE id = 5;") || !strings.Contains(script, "DELETE FROM realmcharacters WHERE acctid = 5;") ||
+		!strings.Contains(script, "DELETE FROM account_access WHERE id = 5;") || tutorial == "" {
 		t.Fatalf("script %q, tutorial %q", script, tutorial)
 	}
 	if err := DeleteAccount(root, 5, func() bool { return true }); err == nil || !strings.Contains(err.Error(), "logged in") {

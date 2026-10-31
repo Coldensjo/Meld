@@ -247,7 +247,10 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    the login database. Choose **New account…** to make one: a name of up to 16 letters, digits or
    `_`, a password of up to 16 characters, and a GM level. Both are kept in upper case, as the
    game's login screen sends them, and the password is stored only as the server stores it.
-2. Open an account to change its GM level or password (**Save account**), or to delete it.
+2. Open an account to change its GM level or password (**Save account**), or to delete it. The
+   GM level is the one the server reads (realmd's `account_access`, for this realm); a running world
+   server reads it only at its start, so restart it, or type `.account set gmlevel <name> <level>`
+   in its console, for a new level to count at once.
    **Delete account…** deletes its characters with it, as **Delete character…** below does, and
    then needs the world server stopped.
 3. Open a character to change its name, race, class, gender, level, money or where it stands

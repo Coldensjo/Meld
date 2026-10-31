@@ -424,7 +424,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   little-endian, SHA1(NAME:PASSWORD)) read little-endian, v = 7^x mod N, upper-case hex;
   `TestSrpVerifierMatchesTheServer` holds the server's own self-test vector) and a `realmcharacters`
   row; the password itself is never stored. Names and passwords are upper case, as the login screen
-  sends them. Delete character (#876, `chardelete.go`) does what the server's `.character erase`
+  sends them. The GM level is read and written in realmd's `account_access` (#995), which the world
+  and login servers read (`AccountMgr::LoadAccountData`, `AuthSocket`), never `account.gmlevel`:
+  `listAccountsSQL` shows the higher of the all-realms (`RealmID` -1) and mangosd.conf's `RealmID`
+  rows, as the server takes it, and `gmLevelSQL` replaces both with the realm's row (none for level
+  0, as `.account set gmlevel` writes it), keeping `account.gmlevel` in step. The world server reads
+  the levels at its start, so Save account's note says to restart it or use the console's `.account
+  set gmlevel`. Delete account removes the `account_access` rows too. Delete character (#876, `chardelete.go`) does what the server's `.character erase`
   does (`Player::DeleteFromDB` with `deleteFinally`, whatever `CharDelete.Method` says), in one
   script (`deleteCharacterSQL`): the guild passes to the member of the best rank or is disbanded with
   its last member, the group passes to its lowest guid with the instance binds or is disbanded under
