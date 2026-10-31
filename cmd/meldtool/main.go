@@ -19,6 +19,8 @@
 //	go run ./cmd/meldtool creature|object|item|spell get|search ...
 //	go run ./cmd/meldtool mcp
 //
+//	go run ./cmd/meldtool session join|host ...
+//
 // A tile, texture or model is a file on disk or, when no such file exists, an archive path
 // (World\Maps\...) read from the client. The client is --client (the client folder, its Data folder,
 // or one .MPQ file), else the wowPath in Meld's config.json; the server is --server, else vmangosPath.
@@ -55,7 +57,15 @@ client or the server. The output is JSON, or a table with --table where a comman
   meldtool spell get [--server DIR] [--client DIR] [--table] <entry>
   meldtool spell search [--client DIR] [--limit 100] [--table] <name or id>
 
+  meldtool session join [--name N] [--send file.jsonl] [--for seconds] <addr> <code>
+  meldtool session host [--name N] [--send file.jsonl] [--for seconds] [--code C] [--bind ADDR] [port]
+
   meldtool mcp   an MCP server on stdin and stdout, giving an AI agent these commands as tools
+
+A session command is a scripted member of a shared session (#728): it prints every message it
+receives as a JSON line (seq, from, to, kind, data; the welcome first, as seq 0), sends the lines
+of --send ({"to":0,"kind":"...","data":{...}}) once it is in, and leaves after --for seconds or when
+the session ends. host listens on 127.0.0.1 and prints {"hosting":true,"port","code","addr"} first.
 
 A tile, texture or model is a file on disk, or an archive path (World\Maps\<map>\<map>_<x>_<y>.adt)
 read from the client: --client (the client folder, its Data folder or one .MPQ), else config.json's
@@ -133,6 +143,8 @@ func dispatch(args []string, out io.Writer) error {
 		return heightmapImport(args[2:], out)
 	case recordKinds[args[0]].get != nil && (sub == "get" || sub == "search"):
 		return record(args[0], sub, args[2:], out)
+	case args[0] == "session" && (sub == "join" || sub == "host"):
+		return sessionCmd(sub, args[2:], out)
 	case args[0] == "mcp":
 		return mcpServe(args[1:], out)
 	case args[0] == "bindings":

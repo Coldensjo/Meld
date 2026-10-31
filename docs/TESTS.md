@@ -118,6 +118,8 @@ the dev server and may start or restart it when no explicit `MELD_URL` is set. D
 someone else relies on the shared development backend. With an explicit `MELD_URL`, the runner
 uses that server rather than managing one itself. Under Git Bash's `timeout` the process chain to the loop breaks (MSYS leaves `timeout.exe` an orphaned parent pid), so `loop-lock.mjs check` counts a chain that ends at an orphaned `timeout`/`bash`/`sh` as the loop's own (#900) and the runner restarts a stale page as usual.
 
+A shared session (#728) needs a second Meld: `probes/session-bot.mjs` exports `joinBot(addr, code, {name, send, seconds})`, which runs `meldtool session join` (built once into the temp folder) from the runner. The probe has the page host (`HostSession(0, 'Probe')` through `lib/wails/App`; it binds all addresses, so join at `127.0.0.1:<port>`), starts the bot with the info's port and code, and `await bot.done()` gives the lines the bot saw (the welcome first), so the edits it sent and received can be checked. Run it in the probe's Bun side, not in `page.evaluate`.
+
 To ask whether a probe already failed at an older commit (a full-run check's failure, say), run it with
 `--at <commit>` (#873): `bun run probe weather-wind --at 03c23de4`. The runner checks that commit out into a
 temporary git worktree in the user cache (`Meld/probe-at`), runs `bun install` there and serves its frontend
