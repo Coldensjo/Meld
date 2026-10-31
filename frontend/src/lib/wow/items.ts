@@ -44,7 +44,7 @@ export function iconImage(name: string, px = 36): Promise<string | null> {
 	const key = `${name.toLowerCase()}|${px}`
 	let p = named.get(key)
 	if (!p) {
-		p = texturePreview(`Interface\\Icons\\${name}.blp`, px).catch(() => null)
+		p = texturePreview(`Interface\\Icons\\${name}.blp`, px, px > 40).catch(() => null)
 		named.set(key, p)
 	}
 	return p

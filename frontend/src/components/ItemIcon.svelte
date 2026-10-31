@@ -26,7 +26,7 @@
 		const name = icon
 		url = null
 		if (lazy && !seen) return
-		// The client's icons are 64 px: a small square takes them at 36, a large one whole.
+		// The client's icons are 64 px: a small square takes them at 36, a large one whole, as a lossless PNG shown with hard pixels (#988).
 		const px = size > 40 ? 64 : 36
 		if (name) void iconImage(name, px).then((u) => name === icon && (url = u))
 		else if (id > 0) void itemIcon(id, px).then((u) => id === displayId && !icon && (url = u))
@@ -34,7 +34,7 @@
 </script>
 
 <span class="icon" bind:this={el} style:width="{size}px" style:height="{size}px">
-	{#if url}<img src={url} alt="" width={size} height={size} />{/if}
+	{#if url}<img class:big={size > 40} src={url} alt="" width={size} height={size} />{/if}
 </span>
 
 <style>
@@ -48,5 +48,8 @@
 	}
 	img {
 		display: block;
+	}
+	img.big {
+		image-rendering: pixelated;
 	}
 </style>

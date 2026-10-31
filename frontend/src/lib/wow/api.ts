@@ -462,7 +462,7 @@ export function isCachedTexture(t: THREE.Texture): boolean {
  * headless probe page (SwiftShader) took about 1 s an icon behind the viewport's frames, and only
  * 6 ms on the CPU (#233). The image is the same to within resampling (a mean of 2 levels in 255).
  */
-export async function texturePreview(path: string, size = 64): Promise<string> {
+export async function texturePreview(path: string, size = 64, lossless = false): Promise<string> {
 	const img = await fetchImage(path)
 	const src = document.createElement('canvas')
 	src.width = img.width
@@ -470,13 +470,13 @@ export async function texturePreview(path: string, size = 64): Promise<string> {
 	const ctx = src.getContext('2d', { willReadFrequently: true })!
 	const data = new ImageData(img.width, img.height)
 	data.data.set(img.pixels)
-	// Previews ignore alpha (tilesets often store specular there).
-	for (let i = 3; i < data.data.length; i += 4) data.data[i] = 255
+	// Previews ignore alpha (tilesets often store specular there), except a lossless one: an icon keeps its transparent corners.
+	if (!lossless) for (let i = 3; i < data.data.length; i += 4) data.data[i] = 255
 	ctx.putImageData(data, 0, 0)
 	const out = document.createElement('canvas')
 	out.width = out.height = size
 	out.getContext('2d', { willReadFrequently: true })!.drawImage(src, 0, 0, size, size)
-	return out.toDataURL('image/jpeg', 0.85)
+	return lossless ? out.toDataURL('image/png') : out.toDataURL('image/jpeg', 0.85)
 }
 
 export async function fetchMesh(path: string): Promise<WowMesh> {
