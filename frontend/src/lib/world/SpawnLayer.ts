@@ -269,9 +269,18 @@ export class SpawnLayer {
 		this.colorSide = side
 		this.reactions = reactions
 		this.colors.clear()
+		this.colorSeq++
 		// Turning model tints on or off makes or drops their instance colours: the batches are made again.
 		if (modelsChange) this.rebuild()
 		else for (const b of this.batches) b.rows.repack = true
+	}
+
+	/** Bumped whenever `setColoring` changes the spawns' colours (the mode, or the side or reactions in Reaction mode). */
+	colorSeq = 0
+
+	/** Whether the spawns of `kind` are shown (`setKinds`). */
+	kindShown(kind: string): boolean {
+		return this.shown[kind as SpawnKind] ?? false
 	}
 
 	/** The colour mode the spawns are drawn in. */

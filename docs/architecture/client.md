@@ -302,6 +302,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   frame, from a cache per spawn that `refresh` checks (a level edit repaints its batch). The level ramp
   runs over the region's monsters' levels from the 5th to the 95th percentile (`levelRange`: a block
   with a city holds level 55 to 62 guards), past which a level takes the end's colour.
+  In a colour mode a flat disc in the spawn's colour lies under every creature shown (#982,
+  `SpawnLinks.updateDiscs`, one instanced mesh, unfogged), so the spread reads from high above where a
+  tinted model is a few pixels; it is redrawn when `version` or `SpawnLayer.colorSeq` (bumped by
+  `setColoring`) moves, and only the moved spawns' discs after a move.
   The menu has one check line (the View menu is at its 720 px, probe `preferences`); turned on it is
   Level, and `SpawnColorLegend.svelte` picks the mode and lists the colours (DOM, so out of canvas
   screenshots).

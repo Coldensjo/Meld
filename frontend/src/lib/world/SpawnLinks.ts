@@ -12,6 +12,9 @@ const APART = 0.5
 const RING_SEGMENTS = 20
 /** How tall the post over a pooled spawn's ring stands, so the pool's spots read from far off too. */
 const POST = 6
+/** A spawn-colour disc's radius under a creature of scale 1, and the most it grows to with the scale. */
+const DISC = 2
+const DISC_MAX = 5
 
 /**
  * Draws the spawns' formations and pools (#172): for a selected creature in a formation, a line from
@@ -19,7 +22,9 @@ const POST = 6
  * the slot and a faint line on to where the follower stands when that is elsewhere (for a group that
  * doesn't walk together, a line to each follower); and with View ›
  * Spawn pools, a ring and a post round every pooled spawn in its pool's colour (its mother pool's
- * when it has one), so the spots that take turns read at a glance.
+ * when it has one), so the spots that take turns read at a glance. While Show › Spawn colours is in
+ * a colour mode, a disc in its colour lies under every creature shown (#982), so a zone's spread of
+ * levels, reactions or ranks reads from high above, where a tinted model is a few pixels.
  */
 export class SpawnLinks {
 	readonly group = new THREE.Group()
@@ -38,6 +43,14 @@ export class SpawnLinks {
 	private tmpM = new THREE.Matrix4()
 	private tmpP = { x: 0, z: 0 }
 	private color = new THREE.Color()
+	private discs: THREE.InstancedMesh
+	private readonly discGeo = new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2)
+	/** Each creature's disc instance, so a move redraws only the discs of the spawns that moved. */
+	private discOf = new Map<vmangos.WorldSpawn, number>()
+	private discFor: SpawnLayer | null = null
+	private discVersion = -1
+	private discColors = -1
+	private discMoves = 0
 
 	constructor() {
 		this.lines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: FORMATION_COLOR, depthTest: false, transparent: true }))
@@ -48,8 +61,18 @@ export class SpawnLinks {
 		this.slots = new THREE.InstancedMesh(this.slotGeo, new THREE.MeshBasicMaterial({ color: FORMATION_COLOR, depthTest: false, transparent: true }), 16)
 		this.slots.renderOrder = 11
 		this.slots.count = 0
+		this.discs = this.makeDiscs(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 64)
 		for (const o of [this.lines, this.apart, this.rings, this.slots]) o.frustumCulled = false
-		this.group.add(this.lines, this.apart, this.rings, this.slots)
+		this.group.add(this.lines, this.apart, this.rings, this.slots, this.discs)
+	}
+
+	private makeDiscs(material: THREE.Material, capacity: number): THREE.InstancedMesh {
+		const m = new THREE.InstancedMesh(this.discGeo, material, capacity)
+		m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3)
+		m.count = 0
+		m.frustumCulled = false
+		m.renderOrder = 1
+		return m
 	}
 
 	/**
@@ -58,6 +81,7 @@ export class SpawnLinks {
 	 * nothing did; call once per frame.
 	 */
 	update(layer: SpawnLayer, selected: vmangos.WorldSpawn | null, showPools: boolean) {
+		this.updateDiscs(layer)
 		if (layer === this.builtFor && layer.version === this.builtVersion && selected === this.builtSel && showPools === this.builtPools) {
 			if (layer.moveSeq === this.builtMoves) return
 			// Spawns moved in place: redraw only when one of them is in a drawn formation or pool.
@@ -140,6 +164,64 @@ export class SpawnLinks {
 		this.rings.geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
 	}
 
+	/**
+	 * Lays a disc in the spawn colour under every creature shown while a colour mode is on (#982):
+	 * all of them again when the spawns or the colours changed, only the moved ones' after a move.
+	 */
+	private updateDiscs(layer: SpawnLayer) {
+		const on = layer.coloring !== 'kind'
+		this.discs.visible = on
+		if (!on) {
+			this.discFor = null
+			return
+		}
+		if (layer === this.discFor && layer.version === this.discVersion && layer.colorSeq === this.discColors) {
+			if (layer.moveSeq === this.discMoves) return
+			const moved = layer.movedSince(this.discMoves)
+			this.discMoves = layer.moveSeq
+			if (moved) {
+				for (const s of moved) {
+					const i = this.discOf.get(s)
+					if (i !== undefined) this.placeDisc(layer, s, i)
+				}
+				this.discs.instanceMatrix.needsUpdate = true
+				this.discs.instanceColor!.needsUpdate = true
+				return
+			}
+		}
+		this.discFor = layer
+		this.discVersion = layer.version
+		this.discColors = layer.colorSeq
+		this.discMoves = layer.moveSeq
+		this.discOf.clear()
+		let n = 0
+		for (const s of layer.spawns) if (s.kind !== 'object' && layer.kindShown(s.kind) && layer.eventShown(s)) n++
+		if (n > this.discs.instanceMatrix.count) {
+			const cap = Math.max(n, this.discs.instanceMatrix.count * 2)
+			const mat = this.discs.material as THREE.Material
+			this.group.remove(this.discs)
+			this.discs.dispose()
+			this.discs = this.makeDiscs(mat, cap)
+			this.group.add(this.discs)
+		}
+		let i = 0
+		for (const s of layer.spawns) {
+			if (s.kind === 'object' || !layer.kindShown(s.kind) || !layer.eventShown(s)) continue
+			this.discOf.set(s, i)
+			this.placeDisc(layer, s, i++)
+		}
+		this.discs.count = i
+		this.discs.instanceMatrix.needsUpdate = true
+		this.discs.instanceColor!.needsUpdate = true
+	}
+
+	private placeDisc(layer: SpawnLayer, s: vmangos.WorldSpawn, i: number) {
+		const r = Math.min(DISC_MAX, DISC * Math.max(1, s.scale || 1))
+		this.tmpM.makeScale(r, 1, r).setPosition(s.x, s.y + LIFT, s.z)
+		this.discs.setMatrixAt(i, this.tmpM)
+		this.discs.setColorAt(i, layer.spawnTint(s, false, this.color))
+	}
+
 	dispose() {
 		for (const l of [this.lines, this.apart, this.rings]) {
 			l.geometry.dispose()
@@ -148,6 +230,9 @@ export class SpawnLinks {
 		;(this.slots.material as THREE.Material).dispose()
 		this.slots.dispose()
 		this.slotGeo.dispose()
+		;(this.discs.material as THREE.Material).dispose()
+		this.discs.dispose()
+		this.discGeo.dispose()
 	}
 }
 

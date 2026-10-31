@@ -1,5 +1,5 @@
-// Show › Spawn colours (#949): Level mode paints the Northshire and Goldshire spawns' instances along the level ramp over the block's creature levels, Rank (picked in the legend) and Reaction give their colours, the legend shows, and Kind puts the kind colours back; needs the world database.
-// touches: frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/world/spawnColors.ts, frontend/src/components/SpawnColorLegend.svelte, frontend/src/lib/engine/Engine.ts
+// Show › Spawn colours (#949): Level mode paints the Northshire and Goldshire spawns' instances along the level ramp over the block's creature levels, Rank (picked in the legend) and Reaction give their colours, the legend shows, the discs under the creatures (#982) take each one's colour, and Kind puts the kind colours back and hides the discs; needs the world database.
+// touches: frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/world/spawnColors.ts, frontend/src/components/SpawnColorLegend.svelte, frontend/src/lib/engine/Engine.ts, frontend/src/lib/world/SpawnLinks.ts
 const e = P.e
 const se = await P.app('/src/lib/world/spawnEdits.ts')
 const sc = await P.app('/src/lib/world/spawnColors.ts')
@@ -53,6 +53,15 @@ try {
 		return got.every((x) => want.has(x)) ? got.length : -1
 	}
 	res.levelChecked = check()
+	// A disc under every creature shown, in its marker's colour (#982).
+	const discs = e.links.discs
+	const creatures = layer.spawns.filter((s) => s.kind !== 'object' && layer.eventShown(s))
+	res.discs = discs.visible ? discs.count : -1
+	res.creatures = creatures.length
+	res.discColoured = creatures.every((s) => {
+		const i = e.links.discOf.get(s)
+		return i !== undefined && c.fromArray(discs.instanceColor.array, i * 3).getHex() === layer.spawnTint(s, false, new THREE.Color()).getHex()
+	})
 	// The legend's picker sets the mode (its change event must bubble: Svelte delegates it to the root).
 	const select = document.querySelector('[aria-label="Colour the spawns"]')
 	select.value = 'rank'
@@ -67,6 +76,7 @@ try {
 	await P.frames(4)
 	const kinds = Object.values(sc.KIND_COLORS)
 	res.kindBack = [...painted()].every((x) => kinds.includes(x))
+	res.discsGone = !e.links.discs.visible
 	res.legendGone = !document.querySelector('[aria-label="Spawn colours"]')
 } finally {
 	prefs.spawnColors = before
@@ -79,6 +89,10 @@ const ok =
 	res.high &&
 	res.levelColours >= 3 &&
 	res.levelChecked >= 3 &&
+	res.discs === res.creatures &&
+	res.creatures > 0 &&
+	res.discColoured &&
+	res.discsGone &&
 	res.legend &&
 	res.picked &&
 	res.rankColours >= 2 &&
