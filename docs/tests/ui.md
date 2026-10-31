@@ -69,7 +69,8 @@ Hand check: only the built app's native window; no probe can reach it.
 
 Checks: what only the native window does (its ✕, Alt+F4), in the built `build/bin/Meld.exe`. WebView2's
 `--remote-debugging-port` through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` does not work (Wails sets
-its own browser arguments), so drive the window from PowerShell with user32 (`SetForegroundWindow`,
+its own browser arguments; a throwaway build that sets `AdditionalBrowserArgs` in `main.go` does open it,
+docs/TESTS.md "Reproduce and inspect a failure", #930), so drive the window from PowerShell with user32 (`SetForegroundWindow`,
 `SetCursorPos`, `mouse_event`) and `SendKeys`, and look at screenshots (`Graphics.CopyFromScreen`):
 
 - Start it with `Start-Process -PassThru`, wait for `MainWindowHandle` and ~12 s for the session to
