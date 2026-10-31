@@ -428,6 +428,14 @@ export function ExportItems(entries: number[] | null, suggested: string): $Cance
 }
 
 /**
+ * ExportLights asks where to save a lights file of the light editor's lights and their params (#945) and
+ * writes it there. Returns the path, or "" if cancelled.
+ */
+export function ExportLights(edit: vmangos$0.LightsEdit, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(697092866, edit, suggested);
+}
+
+/**
  * ExportSounds saves the client's sound files at paths in dir, each under its own name, as stored.
  */
 export function ExportSounds(paths: string[] | null, dir: string): $CancellablePromise<$models.SoundsExported> {
@@ -535,6 +543,14 @@ export function ImportIconPictures(pics: $models.IconPicture[] | null, replace: 
  */
 export function ImportItems(path: string): $CancellablePromise<number[] | null> {
     return $Call.ByID(2642875024, path);
+}
+
+/**
+ * ImportLights asks for a lights file and reads it, for the light editor to load as unsaved changes;
+ * nothing is written to the client. Returns nil if cancelled.
+ */
+export function ImportLights(): $CancellablePromise<vmangos$0.LightsEdit | null> {
+    return $Call.ByID(1383770393);
 }
 
 /**

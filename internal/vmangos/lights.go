@@ -39,6 +39,9 @@ type MapLight struct {
 	Outer  float32   `json:"outer"`
 	Global bool      `json:"global"`
 	Params [5]uint32 `json:"params"`
+	// Borrowed marks Azeroth's global light, read for a map without a global light of its own: a
+	// write under this map's ID would move Azeroth's row, so an imported global light takes a new ID.
+	Borrowed bool `json:"borrowed,omitempty"`
 }
 
 // LightKey is one key of a band: the time in half-minutes and the value (an 0xRRGGBB colour for a
@@ -105,6 +108,7 @@ func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*Map
 	if !hasGlobal {
 		for r := 0; r < lt.records; r++ {
 			if l := row(r); lt.u32(r, 1) == 0 && l.Global {
+				l.Borrowed = mapID != 0
 				out.Lights = append(out.Lights, l)
 				break
 			}

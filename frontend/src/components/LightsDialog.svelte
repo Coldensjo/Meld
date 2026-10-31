@@ -2,7 +2,8 @@
 	import { numOr0 as num } from '../lib/ui/inputs'
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
-	import { MapLights, NewLightIDs, SaveLights } from '../lib/wails/App'
+	import { ExportLights, ImportLights, MapLights, NewLightIDs, SaveLights } from '../lib/wails/App'
+	import { lightsToExport, mergeLights } from '../lib/io/lightsFile'
 	import { goIntMap } from '../lib/wails/maps'
 	import { vmangos } from '../lib/wails/models'
 	import { prefs, setStatus } from '../lib/state/editor.svelte'
@@ -16,7 +17,8 @@
 	// its clear-weather params: the colour bands by time of day (the sun's light, the ambient, the sky,
 	// the fog, the water), the fog distance and the water alphas. Save writes the changed lights and params
 	// into the client's light tables (Meld's patch). A form saved with Save, like the zones: the lights are
-	// client tables, not the map.
+	// client tables, not the map. Export writes the lights (all, or the picked one) and their params to a
+	// file, and Import loads one back as unsaved changes (lib/io/lightsFile.ts, #945).
 
 	interface Props {
 		onclose: () => void
@@ -136,6 +138,35 @@
 		}
 	}
 
+	async function exportLights(only?: Light) {
+		error = ''
+		try {
+			const path = await ExportLights(lightsToExport(mapId, only ? [only] : lights, params), only ? `light-${only.id}` : `lights-map-${mapId}`)
+			if (path) setStatus(`Exported ${only ? 'the light' : `${lights.length} lights`} to ${path}.`, 4000)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	async function importLights() {
+		error = ''
+		try {
+			// The binding answers null when the dialog is cancelled.
+			const file = (await ImportLights()) as vmangos.LightsEdit | null
+			if (!file) return
+			const got = mergeLights(mapId, lights, params, file, await NewLightIDs())
+			lights = got.lights
+			params = got.params
+			got.dirtyLights.forEach(touchLight)
+			got.dirtyParams.forEach(touchParams)
+			picked = got.dirtyLights.find((id) => !lights.find((l) => l.id === id)?.global) ?? got.dirtyLights[0] ?? picked
+			const from = file.mapId === mapId ? '' : ` from map ${file.mapId}`
+			setStatus(`Imported ${got.added + got.replaced} lights${from} (${got.added} new, ${got.replaced} replaced). Save to write them.`, 6000)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
 	async function save() {
 		saving = true
 		const end = startSaving('Saving the lights')
@@ -218,6 +249,11 @@
 				{/each}
 			</ul>
 			<button onclick={() => void newLight()} disabled={!lights.length}>New light at the camera</button>
+			<span class="row">
+				<button onclick={() => void exportLights()} disabled={!lights.length} title="Save the map's lights and their colours to a file">Export…</button>
+				<button onclick={() => light && void exportLights(light)} disabled={!light} title="Save the picked light and its colours to a file">Export this</button>
+				<button onclick={() => void importLights()} disabled={!lights.length} title="Load lights from a file as unsaved changes; Save writes them">Import…</button>
+			</span>
 		</div>
 		{#if light}
 			<div class="form">

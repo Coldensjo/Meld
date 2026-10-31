@@ -204,6 +204,43 @@ func (a *App) SaveLights(edit vmangos.LightsEdit) (string, error) {
 	return a.installClientFiles(dataDir, files)
 }
 
+var lightsFilters = []fileFilter{{DisplayName: "Meld lights (*.json)", Pattern: "*.json"}}
+
+// ExportLights asks where to save a lights file of the light editor's lights and their params (#945) and
+// writes it there. Returns the path, or "" if cancelled.
+func (a *App) ExportLights(edit vmangos.LightsEdit, suggested string) (string, error) {
+	b, err := vmangos.MarshalLightsFile(edit)
+	if err != nil {
+		return "", err
+	}
+	if suggested == "" {
+		suggested = "lights"
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Lights", DefaultFilename: suggested + ".json", Filters: lightsFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, b, 0o644)
+}
+
+// ImportLights asks for a lights file and reads it, for the light editor to load as unsaved changes;
+// nothing is written to the client. Returns nil if cancelled.
+func (a *App) ImportLights() (*vmangos.LightsEdit, error) {
+	path, err := a.openFile(dialogOptions{Title: "Import Lights", Filters: lightsFilters})
+	if err != nil || path == "" {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	e, err := vmangos.ParseLightsFile(b)
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
 // LoadingScreens lists the client's loading screens, which a map made for the client may show.
 func (a *App) LoadingScreens() ([]vmangos.LoadingScreen, error) {
 	dataDir, err := a.clientDataDir()

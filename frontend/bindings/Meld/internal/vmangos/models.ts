@@ -1195,6 +1195,12 @@ export interface MapLight {
     "outer": number;
     "global": boolean;
     "params": number[];
+
+    /**
+     * Borrowed marks Azeroth's global light, read for a map without a global light of its own: a
+     * write under this map's ID would move Azeroth's row, so an imported global light takes a new ID.
+     */
+    "borrowed"?: boolean;
 }
 
 /**

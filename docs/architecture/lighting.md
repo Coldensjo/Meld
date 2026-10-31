@@ -112,6 +112,14 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   bands 10 to 12 with a glow toward the sun or moon, a quarter redrawn ten times a second) on
   `engine/CloudDome.ts`, a dome from the zenith to the eye-level rim drawn right after the sky, while
   Lighting › Clouds is on.
+- **World › Lights** (`components/LightsDialog.svelte`) edits the open map's lights and their clear
+  params and saves them with `SaveLights` (`vmangos.WriteLights`) into Meld's patch. Export and Import
+  (#945) write and read a lights file, JSON of the `LightsEdit` (`vmangos/lights_file.go`, the
+  `ExportLights`/`ImportLights` bindings); an import loads as unsaved changes (`lib/io/lightsFile.ts`
+  `mergeLights`): onto the map it came from it replaces by ID, onto another it takes new light and params
+  IDs (they are the client's, shared by every map) and keeps the positions, and its global light becomes
+  the map's own. A map without a global light borrows Azeroth's (`MapLight.borrowed`), so an imported
+  global light takes a new ID there rather than moving Azeroth's row.
 - **Weather preview** (Lighting › Weather Preview, #185; `ui.weather` and `ui.weatherGrade`, not saved):
   the client's rain, snow or sandstorm at a light, medium or heavy grade (the middles of VMaNGOS's
   bands, `wow/weather.ts`). Two halves, both from Benilla's port of the client's weather: the storm

@@ -559,6 +559,19 @@ the Engine's loop).
   particle's alpha too, which composited the spark texture's black as opaque squares there; additive
   batches now keep the target's alpha (CustomBlending, same colour factors).
 
+## Lights file: Export and Import in World › Lights (#945, probe `lights-file`)
+
+Checks: the lights file and the import's merge. `go test ./internal/vmangos/ -run LightsFile` writes the
+synthetic tables' lights as a file and reads it back equal, and refuses other files, newer versions and
+bands over 16 keys. `bun test tests/lightsFile.test.ts` checks the merge: same map replaces by ID,
+another map takes new IDs past the dialog's unsaved ones and keeps positions, the global light keeps the
+map's own ID, and a map that borrows Azeroth's global light gets a new one (Azeroth's params untouched).
+`bun run probe lights-file` (a few seconds) exports through a stand-in `ExportLights`, imports the file
+back as if from another map through a stand-in `ImportLights`, and checks the lights are listed as
+unsaved and Save is enabled; `SaveLights` is stubbed, so nothing is written. Trap: the page has no file
+dialog, so the real bindings answer "" or null there; only the stand-ins exercise the dialog. To see the
+sky change, import and Save in the desktop app with Lighting › Client Lighting on.
+
 ## Weather preview and zone weather (#185); splashes, wind and doorways (#244); roofs (#315)
 
 Checks: Lighting › Weather Preview (`world/WeatherLayer.ts`, `wow/weather.ts`, the storm blend in

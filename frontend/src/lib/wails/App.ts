@@ -71,6 +71,7 @@ export const EquipmentItems: Call<AppApi['EquipmentItems']> = (...a) => api().Eq
 export const ExportIcons: Call<AppApi['ExportIcons']> = (...a) => api().ExportIcons(...a) as never
 export const ExportIconsDialog: Call<AppApi['ExportIconsDialog']> = (...a) => api().ExportIconsDialog(...a) as never
 export const ExportItems: Call<AppApi['ExportItems']> = (...a) => api().ExportItems(...a) as never
+export const ExportLights: Call<AppApi['ExportLights']> = (...a) => api().ExportLights(...a) as never
 export const ExportSounds: Call<AppApi['ExportSounds']> = (...a) => api().ExportSounds(...a) as never
 export const ExportSoundsDialog: Call<AppApi['ExportSoundsDialog']> = (...a) => api().ExportSoundsDialog(...a) as never
 export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().ExportSpells(...a) as never
@@ -85,6 +86,7 @@ export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api
 export const IconState: Call<AppApi['IconState']> = (...a) => api().IconState(...a) as never
 export const ImportIconPictures: Call<AppApi['ImportIconPictures']> = (...a) => api().ImportIconPictures(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
+export const ImportLights: NonNullCall<AppApi['ImportLights']> = (...a) => api().ImportLights(...a) as never
 export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
 export const ImportSound: Call<AppApi['ImportSound']> = (...a) => api().ImportSound(...a) as never
 export const ImportSpells: NonNullCall<AppApi['ImportSpells']> = (...a) => api().ImportSpells(...a) as never

@@ -759,6 +759,7 @@ the same scene, the report before and after.
 - The terrain's tileset array as DXT3 (#216)
 - The tileset array's mips (#225)
 - Preview window: particles, ribbons and texture animation (#200)
+- Lights file: Export and Import in World › Lights (#945, probe `lights-file`)
 - Weather preview and zone weather (#185); splashes, wind and doorways (#244); roofs (#315)
 - The floor plane under the map is a backdrop (#289)
 - A map with no sky shows the dark earth behind it (#339, probe `sky-dungeon`)
