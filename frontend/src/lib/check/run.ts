@@ -17,6 +17,7 @@ import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type Check
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones, type EdgeSegment } from './terrainChecks'
 import { checkWorldData, CREATURE_REFS, OBJECT_REFS, type WorldDataReport } from './worldData'
 import { checkQuests } from './quests'
+import { checkFlights, checkPortals, type LinkSpawn } from './links'
 
 export interface CheckInput {
 	terrain: Terrain
@@ -41,6 +42,11 @@ export interface CheckInput {
 	 * World data group is left out (no world database in this build).
 	 */
 	worldData: ((q: WorldDataQuery) => Promise<WorldDataReport>) | string
+	/**
+	 * The open map's ID and the client tile at its north-west corner, for the flight stops and portals
+	 * (#953); null for a map the client doesn't have yet.
+	 */
+	server?: { mapId: number; tileX: number; tileY: number } | null
 	/** Where the camera is (world x, z): a template's finding points at its spawn nearest it. */
 	from?: { x: number; z: number }
 	/** Says what runs now, for the status bar. */
@@ -61,6 +67,8 @@ export interface WorldDataQuery {
 	objectEntries: number[]
 	creatureRefs: Array<{ type: number; col: string; kind: string }>
 	objectRefs: Array<{ type: number; col: string; kind: string }>
+	/** The open map's flight stops and teleports (#953): its ID and a spawn of each template (Go's `vmangos.LinkQuery`). */
+	links: { mapId: number; spawns: Array<{ kind: string; entry: number; guid: number }> } | null
 }
 
 /** The six ways the inside test looks from a creature's chest. */
@@ -228,7 +236,19 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 		}
 	}
 
-	findings.push(...(await worldDataFindings(input)))
+	// The first model surface straight below a point, for the portal check (#953).
+	const floorBelow = (x: number, y: number, z: number) => {
+		const list = near(x, z, x, z).filter((id) => {
+			const b = boxes.get(id)!
+			return b.min[0] <= x && b.max[0] >= x && b.min[2] <= z && b.max[2] >= z && b.min[1] <= y
+		})
+		if (!list.length) return -Infinity
+		ray.origin.set(x, y, z)
+		ray.direction.set(0, -1, 0)
+		const hit = objects.raycastAmong(ray, list, list.length)
+		return hit ? y - hit.distance : -Infinity
+	}
+	findings.push(...(await worldDataFindings(input, floorBelow)))
 
 	if (input.edges) {
 		progress?.('region edges')
@@ -255,18 +275,49 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 	return { findings, unchecked }
 }
 
-/** The World data group (#951): asks the world database about the spawns' templates and their quests (#952), or says why it can't. */
-async function worldDataFindings(input: CheckInput): Promise<Finding[]> {
+/**
+ * The World data group (#951): asks the world database about the spawns' templates, their quests (#952)
+ * and the map's flight stops and teleports (#953), or says why it can't. `floorBelow` is the first model
+ * surface below a point, for a teleport's target on the open map.
+ */
+async function worldDataFindings(input: CheckInput, floorBelow: (x: number, y: number, z: number) => number): Promise<Finding[]> {
 	const left = (why: string): Finding[] => [{ check: 'World data', severity: 'info', group: 'world', message: why, x: NaN, z: NaN, target: { kind: 'none' } }]
 	if (typeof input.worldData === 'string') return left(input.worldData)
-	const spawns = input.spawns.spawns.map((s) => ({ key: spawnKey(s), kind: s.kind, entry: s.entry, x: s.x, z: s.z }))
-	if (!spawns.length) return []
+	const spawns: LinkSpawn[] = input.spawns.spawns.map((s) => ({ key: spawnKey(s), kind: s.kind, entry: s.entry, x: s.x, y: s.y, z: s.z }))
+	const server = input.server ?? null
+	if (!spawns.length && !server) return []
 	input.progress?.('world data')
 	const entries = (obj: boolean) => [...new Set(spawns.filter((s) => (s.kind === 'object') === obj && s.entry > 0).map((s) => s.entry))]
 	const plain = (refs: typeof CREATURE_REFS) => refs.map(({ type, col, kind }) => ({ type, col, kind }))
+	// A spawn of each template for its teleports: the scripts an object runs on use are keyed by its guid.
+	const one = new Map<string, { kind: string; entry: number; guid: number }>()
+	for (const s of input.spawns.spawns) {
+		const kind = s.kind === 'object' ? 'object' : 'creature'
+		if (s.entry > 0 && !one.has(`${kind}:${s.entry}`)) one.set(`${kind}:${s.entry}`, { kind, entry: s.entry, guid: s.guid })
+	}
 	try {
-		const report = await input.worldData({ creatureEntries: entries(false), objectEntries: entries(true), creatureRefs: plain(CREATURE_REFS), objectRefs: plain(OBJECT_REFS) })
-		return [...checkWorldData(spawns, report, input.from ?? null), ...checkQuests(spawns, report.quests, input.from ?? null)]
+		const report = await input.worldData({
+			creatureEntries: entries(false),
+			objectEntries: entries(true),
+			creatureRefs: plain(CREATURE_REFS),
+			objectRefs: plain(OBJECT_REFS),
+			links: server ? { mapId: server.mapId, spawns: [...one.values()] } : null,
+		})
+		const out = [...checkWorldData(spawns, report, input.from ?? null), ...checkQuests(spawns, report.quests, input.from ?? null)]
+		if (!server) out.push(...left("The flight stops and portals weren't checked: the client has no map for this one yet."))
+		else if (!report.links.checked) out.push(...left(`The flight stops and portals weren't checked: ${report.links.error}.`))
+		else {
+			const t = input.terrain
+			const map = {
+				...server,
+				contains: (x: number, z: number) => t.contains(x, z),
+				ground: (x: number, z: number) => (t.isHole(x, z) ? -Infinity : t.heightAt(x, z)),
+				floorBelow,
+			}
+			out.push(...checkFlights(spawns, report.creatures, report.links, map), ...checkPortals(spawns, report.creatures, report.objects, report.links, map, input.from ?? null))
+			if (report.links.error) out.push(...left(`Part of the flight stops and portals wasn't checked: ${report.links.error}.`))
+		}
+		return out
 	} catch (err) {
 		return left(`The world data wasn't checked: the world database could not be asked (${err}).`)
 	}

@@ -6167,6 +6167,11 @@ export class Engine {
 		const region = editor.regionBlock && editor.regionMap ? { map: editor.regionMap, ...editor.regionBlock } : null
 		let edges: EdgeSegment[] | null = null
 		if ('go' in window && region) edges = await RegionEdges(region.map, region.x, region.y, region.size).catch(() => null)
+		// The map's ID and frame for its flight stops and portals (#953): none for a map the client doesn't have.
+		const m = this.doc.meta
+		const mapId = 'go' in window && (m.vmangos || m.region) ? await this.maps.resolve(this.doc).catch(() => null) : null
+		const tiles = this.serverTiles(this.doc)
+		const server = mapId === null ? null : { mapId, tileX: tiles.x, tileY: tiles.y }
 		const r = await runMapChecks({
 			terrain: this.terrain,
 			objects: this.objects,
@@ -6180,6 +6185,7 @@ export class Engine {
 			edges,
 			spawnIds: 'go' in window && region ? (q) => CheckSpawnIDs(q as vmangos.SpawnIDQuery) : null,
 			worldData: 'go' in window ? (q) => CheckWorldData(q) : "The world data wasn't checked: this page has no world database.",
+			server,
 			from: { x: this.controller.target.x, z: this.controller.target.z },
 			progress: (what) => setStatus(`Checking the map: ${what}…`, 0),
 		})

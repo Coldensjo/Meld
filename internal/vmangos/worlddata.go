@@ -29,6 +29,8 @@ type WorldDataQuery struct {
 	ObjectEntries   []int       `json:"objectEntries"`
 	CreatureRefs    []RefColumn `json:"creatureRefs"`
 	ObjectRefs      []RefColumn `json:"objectRefs"`
+	// Links asks for the open map's flight stops and teleports too (#953); nil leaves them out.
+	Links *LinkQuery `json:"links"`
 }
 
 // WorldTemplate is a checked template's newest row as the check needs it.
@@ -64,6 +66,8 @@ type WorldDataReport struct {
 	Unchecked []string `json:"unchecked"`
 	// Quests is the quests the templates start and end that have a row, for the quest checks (#952).
 	Quests QuestReport `json:"quests"`
+	// Links is the open map's flight stops and teleports (#953), when asked.
+	Links LinkReport `json:"links"`
 }
 
 // refTargets are the tables (as `table`.`column`) that hold each kind's ids. An event is either a
@@ -234,7 +238,7 @@ func existingSQL(kind string, ids []int) string {
 // CheckWorldData reads the query's templates and tells which of the rows their id columns name are
 // missing. dataDir is the client's Data folder, for the locks ("" leaves them unchecked).
 func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataReport, error) {
-	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}, Quests: emptyQuestReport()}
+	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}, Quests: emptyQuestReport(), Links: emptyLinkReport()}
 	db, err := openWorld(serverRoot)
 	if err != nil {
 		return r, err
@@ -402,5 +406,8 @@ func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataRepo
 		qr.Error = err.Error()
 	}
 	r.Quests = qr
+	if q.Links != nil {
+		r.Links = checkLinks(db, dataDir, *q.Links)
+	}
 	return r, nil
 }

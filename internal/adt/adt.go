@@ -124,6 +124,9 @@ type Placement struct {
 	// DoodadSet and NameSet select the WMO's doodad and name sets (WMOs only).
 	DoodadSet uint16
 	NameSet   uint16
+	// Extents is a WMO's bounds as the tile stores them (MODF): its lower and upper corners, in the
+	// same space as Position. Zero for an M2.
+	Extents [2][3]float32
 }
 
 // TilePath is the archive path of a tile's file, for example
@@ -467,6 +470,7 @@ func ParsePlacements(obj []byte) ([]Placement, error) {
 				Scale:     1,
 				DoodadSet: binary.LittleEndian.Uint16(obj[o+58:]),
 				NameSet:   binary.LittleEndian.Uint16(obj[o+60:]),
+				Extents:   [2][3]float32{{f32(obj, o+32), f32(obj, o+36), f32(obj, o+40)}, {f32(obj, o+44), f32(obj, o+48), f32(obj, o+52)}},
 			})
 		}
 	}

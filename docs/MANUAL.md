@@ -391,6 +391,14 @@ GPU or game round trip is certified by these source-verified instructions.
    nothing drops, sells or gives, missing area triggers, and a chain step more than 5 levels above the
    one before it. A spawn on the open map counts even before it is saved. **Edit** beside a quest's
    finding opens the quest editor, and the finding goes to the quest's giver on the map.
+   For a map the client has, the world links are checked as well: a flight master for whom no stop
+   on the map has a mount, whose side's nearest stop has no route out, or whose nearest stop is more
+   than 100 yards away (a note: it offers that stop's flights); a flight stop no route starts or ends
+   at; and a teleport (an area trigger on the map, a spawn's gossip, spell or script, or a teleport
+   from anywhere that lands on the map) whose target map the client lacks, or whose target is more
+   than 2 yards under the ground or 5 yards above the ground or floor under it. A target on the open
+   map is measured against its own terrain and models, edits included; one on another map against the
+   client's ground there, and not inside a building there.
 3. Click a located finding to move the camera there. Model/spawn findings also select their target;
    chunk findings move the camera but do not select a terrain area. Notes without a location may
    have no Go there action.

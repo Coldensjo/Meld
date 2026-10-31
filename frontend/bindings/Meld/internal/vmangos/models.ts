@@ -1126,6 +1126,58 @@ export interface LightsEdit {
 }
 
 /**
+ * LinkNode is a flight stop on the open map and how many routes start and end at it. Network says
+ * whether the server counts it among the stops a flight master can stand at: not when every route
+ * from it is a spell's own flight (ObjectMgr's taxi mask, DBCStores.cpp).
+ */
+export interface LinkNode {
+    "id": number;
+    "mapId": number;
+    "x": number;
+    "y": number;
+    "z": number;
+    "name": string;
+
+    /**
+     * HordeMount and AllianceMount are the creature templates the flight is ridden on (0: that side
+     * can't fly from here): 2224 Wind Rider, 3574 Riding Bat; 541 Riding Gryphon, 3837 Riding Hippogryph.
+     */
+    "hordeMount": number;
+    "allianceMount": number;
+    "from": number;
+    "to": number;
+    "network": boolean;
+}
+
+/**
+ * LinkQuery is the open map's ID and the templates its spawns use.
+ */
+export interface LinkQuery {
+    "mapId": number;
+    "spawns": LinkSpawn[] | null;
+}
+
+/**
+ * LinkReport is what a LinkQuery found; Error says why a part is missing (the rest stands).
+ */
+export interface LinkReport {
+    "checked": boolean;
+    "nodes": LinkNode[] | null;
+    "portals": PortalLink[] | null;
+    "error": string;
+}
+
+/**
+ * LinkSpawn is a template the map spawns, with one spawn's guid (the scripts a game object runs on
+ * use are keyed by it).
+ */
+export interface LinkSpawn {
+    "kind": string;
+    "entry": number;
+    "guid": number;
+}
+
+/**
  * LiquidTypeEntry is a row of the client's LiquidType.dbc: every liquid the client knows, including
  * the ones only a dungeon's building uses (Naxxramas's slime). Kind is the row's type column: 0 magma,
  * 2 slime, 3 water (ocean is the water row with ID 2); Spell is the aura the liquid gives a swimmer.
@@ -1486,6 +1538,36 @@ export interface PaintSpec {
      * (under a building); optional. The bits are added to the tile's own.
      */
     "NoEffect": number[] | null;
+}
+
+/**
+ * PortalLink is a teleport and where it lands. Kind is "trigger" for an area trigger on the open map
+ * (At its position), "creature" or "object" for a spawned template's teleport (Entry, Guid), and
+ * "into" for a teleport from elsewhere that lands on the open map.
+ */
+export interface PortalLink {
+    "kind": string;
+    "label": string;
+    "trigger": number;
+    "entry": number;
+    "guid": number;
+    "at": number[];
+    "dest": TriggerTeleport;
+
+    /**
+     * MapKnown says whether the client's Map.dbc has the target map (the open map always counts),
+     * MapName names it.
+     */
+    "mapKnown": boolean;
+    "mapName": string;
+
+    /**
+     * Ground is the client's ground under the target on another map (nil when it can't be read:
+     * no tile there, a map of one building, a hole), and InBuilding whether the target lies inside a
+     * building the tile places, where its floor is unread.
+     */
+    "ground": number | null;
+    "inBuilding": boolean;
 }
 
 /**
@@ -2547,6 +2629,11 @@ export interface WorldDataQuery {
     "objectEntries": number[] | null;
     "creatureRefs": RefColumn[] | null;
     "objectRefs": RefColumn[] | null;
+
+    /**
+     * Links asks for the open map's flight stops and teleports too (#953); nil leaves them out.
+     */
+    "links": LinkQuery | null;
 }
 
 /**
@@ -2576,6 +2663,11 @@ export interface WorldDataReport {
      * Quests is the quests the templates start and end that have a row, for the quest checks (#952).
      */
     "quests": QuestReport;
+
+    /**
+     * Links is the open map's flight stops and teleports (#953), when asked.
+     */
+    "links": LinkReport;
 }
 
 /**

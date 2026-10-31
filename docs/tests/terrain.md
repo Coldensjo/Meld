@@ -323,7 +323,8 @@ the shape's rim keeps the map's heights). One undo restores every height.
 ## Check Map (#176)
 
 The map's own checks have no probe: the unit tests below, and a hand check in the dev page. The World
-data group (#951) has one, `check-map-world`, and its quest checks (#952) another, `check-map-quests`.
+data group (#951) has one, `check-map-world`, its quest checks (#952) another, `check-map-quests`, and
+its world links (#953) a third, `check-map-links`.
 
 Checks: File › Check Map… (`lib/check/`: pure checks in `models.ts`, `spawns.ts`, `terrainChecks.ts`,
 unit tests in `mapCheck.test.ts`; `run.ts` gathers the map and the probes; `Engine.checkMap`,
@@ -374,6 +375,24 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   that summons them (C++ scripts do), 11 item objectives have no source and 88 chain steps climb more
   than 5 levels, so a region of Azeroth shows a few such warnings that are Blizzard's. A failed quest
   query leaves the rest of World data standing and adds one note, "The quests weren't checked: …".
+- World links (#953, `lib/check/links.ts`; Go `checkLinks` in `internal/vmangos/linkcheck.go`, run
+  inside `CheckWorldData` when the query has `links`: the map's ID, which `Engine.checkMap` resolves,
+  and a spawn of each template). Flight masters are matched to their stop by the server's rule
+  (`ObjectMgr::GetNearestTaxiNode`: same map, a mount for the side, a stop in the taxi mask, whose routes
+  out are not all spells' flights); the editor doesn't read the master's faction, so a side whose stop
+  is within 100 yd is taken for its side. Teleports on the open map are measured against `Terrain`
+  and the first model surface below (`floorBelow` in `run.ts`); on another map against the client's
+  tile (`tileGround.groundAt`, the cell's four triangles) and skipped inside a WMO's MODF bounds or on a
+  map of one building (no tiles). `bun run probe check-map-links` stands a flat map in for Kalimdor
+  (`meta.vmangos = { dir: 'Kalimdor', mapId: 1 }`, tiles 0,0), plants Vesprystus (3838) on the
+  Rut'theran stop (no finding) and Dungar Longdrink (352) at the far corner (one finding a side), and
+  wraps `CheckWorldData` to add a target 50 yd over the flat ground (a warning) and one on a map the
+  client lacks (an error). Unit tests: `linkChecks.test.ts` and `linkcheck_test.go`; `go test
+  ./internal/vmangos/ -run TestCheckLinksLive -v` (not with `-short`) reads Elwynn's links from the
+  real client and database (475 templates' teleports in one mariadb script on stdin, about 2 s). Stock
+  data shows a few findings that are Blizzard's: Fishing Village, Teldrassil (stop 57) has no route,
+  and a master far from every stop of a side gets a note. The graveyard check the issue also asks for
+  waits for #947 (graveyards read from `WorldSafeLocs.dbc` and `game_graveyard_zone`).
 - A save of such a planted spawn is refused (#199): `VMANGOS_DIR=/c/WoW/vmangos go test
   ./internal/vmangos/ -run TestCreatedGUIDLive -v` checks the pre-check and that the SQL alone fails on
   the key, leaving guid 1 as it was. Don't test it by saving from the page: a dev window still running

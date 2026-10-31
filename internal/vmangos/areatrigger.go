@@ -253,6 +253,11 @@ func TriggerExtras(serverRoot string, triggers []AreaTrigger) (uint32, error) {
 	if err := ensureDatabase(db, serverRoot); err != nil {
 		return 0, err
 	}
+	return triggerExtras(db, triggers)
+}
+
+// triggerExtras is TriggerExtras on an open world database.
+func triggerExtras(db worldDB, triggers []AreaTrigger) (uint32, error) {
 	raw, err := runSQL(db, "SELECT COALESCE(MAX(`id`), 0) FROM `areatrigger_template`")
 	if err != nil {
 		return 0, err
