@@ -262,9 +262,15 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 			out.setTexture(wow.TexFur, fur)
 		}
 	}
-	if row, ok := m.section(uint32(race), sex, 3, hairStyle, hairColor); ok {
-		if hair := m.sections.str(row, 6); hair != "" {
-			out.setTexture(wow.TexHair, hair)
+	// The hair texture also dresses the scalp (hair submesh 1) and the beards of the races whose
+	// beards are geometry, so a style without one of its own (a bald one) takes variation 1's at the
+	// same colour, as the client's binder does (Benilla's CharSections::hair_mesh_texture).
+	for _, variation := range []uint32{hairStyle, 1} {
+		if row, ok := m.section(uint32(race), sex, 3, variation, hairColor); ok {
+			if hair := m.sections.str(row, 6); hair != "" {
+				out.setTexture(wow.TexHair, hair)
+				break
+			}
 		}
 	}
 
@@ -272,13 +278,16 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 	// the model lacks (sleeves, kneepads, chest, pants, tabard) are simply absent. 1501 is "no cloak":
 	// a patch over the upper back that is part of the body without it, so leaving it out opens the
 	// shoulder blades. A 1.12 NPC's extra row has no cloak slot, so it is always 1501.
-	geo := map[int]int{geoGloves: 401, geoBoots: 501, geoEars: 702, geoRobe: 1301, geoCloak: 1501,
+	geo := map[int]int{geoHair: 1, geoGloves: 401, geoBoots: 501, geoEars: 702, geoRobe: 1301, geoCloak: 1501,
 		geoFacial1: 101, geoFacial2: 201, geoFacial3: 301}
-	// CharHairGeosets: 1 race, 2 sex, 3 variation, 4 the hair's submesh (0 for bald).
+	// CharHairGeosets: 1 race, 2 sex, 3 variation, 4 the hair's submesh (0 for bald). The client
+	// shows at least submesh 1, the scalp: for a bald style, and for a style no row names (orc
+	// females have a style more than their rows, goblin females none), so the first row of a
+	// repeated key wins (Benilla's CharacterGeosets::visible_geosets, the client's 0x478540).
 	if t := m.hairGeosets; t != nil && t.fields > 4 {
 		for r := 0; r < t.records; r++ {
 			if t.u32(r, 1) == uint32(race) && t.u32(r, 2) == sex && t.u32(r, 3) == hairStyle {
-				geo[geoHair] = int(t.u32(r, 4))
+				geo[geoHair] = max(1, int(t.u32(r, 4)))
 				break
 			}
 		}
@@ -364,10 +373,8 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 	}
 
 	out.look.Geosets = []int{0}
-	for g, id := range geo {
-		if g != geoHair || id > 0 {
-			out.look.Geosets = append(out.look.Geosets, id)
-		}
+	for _, id := range geo {
+		out.look.Geosets = append(out.look.Geosets, id)
 	}
 }
 
@@ -384,7 +391,7 @@ func trimModelExt(name string) string {
 
 // hideUnderHelm hides what a helmet covers. HelmetGeosetVisData's fields 1-5 are race masks
 // (bit 1<<race) for the hair, the three facial hair groups and the ears: a race whose bit is set
-// has that part hidden under the helmet.
+// has that part put back to its group's first variant under the helmet, the hair to the scalp (1).
 func (m *modelTables) hideUnderHelm(geo map[int]int, vis uint32, race int) {
 	if m.helmVis == nil || vis == 0 || race <= 0 || race > 31 || m.helmVis.fields < 6 {
 		return
@@ -395,12 +402,7 @@ func (m *modelTables) hideUnderHelm(geo map[int]int, vis uint32, race int) {
 	}
 	bit := uint32(1) << race
 	for i, group := range []int{geoHair, geoFacial1, geoFacial2, geoFacial3, geoEars} {
-		if m.helmVis.u32(r, 1+i)&bit == 0 {
-			continue
-		}
-		if group == geoHair {
-			geo[geoHair] = 0
-		} else {
+		if m.helmVis.u32(r, 1+i)&bit != 0 {
 			geo[group] = group*100 + 1
 		}
 	}

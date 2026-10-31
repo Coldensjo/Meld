@@ -186,12 +186,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - **Spawn looks** (`internal/vmangos/looks.go`, `internal/wow/look.go`): a creature spawn's
   display is resolved in Go into a `wow.Look`: textures per replaceable M2 texture type (bake,
   hair, fur, creature skins), the character geosets shown (hair, facial hair, gear from
-  ItemDisplayInfo, hidden under a helmet by HelmetGeosetVisData's race masks), item models at
-  attachment points (helm, shoulders, weapons by sheath state) and the pose's animation
-  (creature_addon stand state or emote, via Emotes.dbc). It travels as the model endpoint's query
+  ItemDisplayInfo, put back to their first variant under a helmet by HelmetGeosetVisData's race
+  masks), item models at attachment points (helm, shoulders, weapons by sheath state) and the
+  pose's animation (creature_addon stand state or emote, via Emotes.dbc). It travels as the model endpoint's query
   (`spawnType` in `world/spawnInfo.ts`), so each look is one cached mesh and one InstancedMesh.
   Items are welded on in Go (`Mesh.Attach`) and bound to the attachment's bone, so GPU skinning
   carries them.
+  Hair follows the client (Benilla's `geosets.rs` and `sections.rs` name its functions): the hair
+  submesh is at least 1, the scalp, which a bald style (CharHairGeosets submesh 0), a style with no
+  CharHairGeosets row (orc women's eighth, every goblin woman's) and a helmet that hides the hair
+  all show; and a style with no hair texture (a bald one) takes variation 1's at its colour, since
+  that texture also dresses the scalp and the geometry beards (#965).
 - **Where a spawn stands** (#660): a creature or game object goes on the floor under the cursor,
   `ctx.floor()` (`Engine.floorHit`): the nearer of the terrain and `ObjectLayer.raycastFloor`, with
   the terrain see-through while the camera is under it (the ray march reports a hit at the camera

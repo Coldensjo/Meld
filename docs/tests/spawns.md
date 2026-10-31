@@ -401,6 +401,21 @@ runs `gridCols` and `gridTile` (`lib/ui/virtualGrid.ts`) at every width up to 14
 picker's `TILE`, `MAX_TILE`, `GAP` and `PAD` and its `.grid-wrap` padding from `DisplayPicker.svelte`, so a
 padding that no longer matches `PAD` fails too. The editor's 560 px panel should show 4 tiles of about 126 px.
 
+## A character creature's hair (#965, probe `creature-hair`)
+
+Checks: a humanoid display is dressed with the hair the client draws (`modelTables.dress`). Go:
+`TestCreatureLookShowsTheScalp` (tables made in the test) and `TestCreatureLooksLiveShowHair`
+(the client: every CreatureDisplayInfoExtra row shows exactly one hair submesh). Probe:
+`bun run probe creature-hair --shot <dir>` dresses display 1276 (a bald human man) and 1363 (a bald
+dwarf with a beard) through `SpawnLook`, checks the scalp (1) and a hair texture are in the look,
+that the scalp adds triangles to the human (whose model has one) and none to the dwarf (whose
+model has none), and saves a close shot of each placed as the Place tool's preview.
+
+Traps: not every character model has submesh 1 (the orc, night elf and scourge men and women, the
+dwarf man, the tauren, troll and goblin women lack it), so a hair submesh in the look does not mean
+triangles; the client draws those bald too. Goblins have no hair rows in CharSections, so their
+looks have no hair texture, as in the client.
+
 ## Creature editor: Shop tab (npc_vendor, #145)
 
 Probe: `creature-shop` (#577); a save is a hand check on a creature with no shop.

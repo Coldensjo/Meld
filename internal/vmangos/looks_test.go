@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -101,8 +102,8 @@ func TestCreatureLookDressesAHumanoid(t *testing.T) {
 			t.Errorf("geosets %v lack %d", geo, want)
 		}
 	}
-	if slices.Contains(geo, 5) {
-		t.Errorf("the helmet hides human hair, but geosets %v show hair style 5", geo)
+	if slices.Contains(geo, 5) || !slices.Contains(geo, 1) {
+		t.Errorf("the helmet puts human hair back to the scalp (1), but geosets are %v", geo)
 	}
 	if slices.Contains(geo, 1301) || slices.Contains(geo, 401) {
 		t.Errorf("the robe and gloves replace the plain legs and hands: %v", geo)
@@ -129,6 +130,72 @@ func TestCreatureLookShowsHairWithoutAHelmet(t *testing.T) {
 	}
 	if d.look.Textures[wow.TexBody] != "Skin.blp" {
 		t.Fatalf("without a bake the body is the skin section's texture, got %q", d.look.Textures[wow.TexBody])
+	}
+}
+
+// hairGeosets are the geosets of a look in the hair group (1-99).
+func hairGeosets(geo []int) []int {
+	var hair []int
+	for _, id := range geo {
+		if id > 0 && id < 100 {
+			hair = append(hair, id)
+		}
+	}
+	return hair
+}
+
+// TestCreatureLookShowsTheScalp checks the hair the client draws where no row names a submesh of
+// its own: a bald style (submesh 0) and a style CharHairGeosets lacks both show the scalp (1), and a
+// style without a hair texture takes variation 1's at its colour (#965).
+func TestCreatureLookShowsTheScalp(t *testing.T) {
+	for _, style := range []int{0, 7} {
+		m := humanTables(t)
+		m.creatureExtra = testDBC(t, 19, []any{5, 1, 0, 0, 0, style, 1, 3})
+		m.hairGeosets = testDBC(t, 6, []any{1, 1, 0, 0, 0, 1}, []any{2, 1, 0, 2, 5, 0})
+		m.sections = testDBC(t, 10, []any{2, 1, 0, 3, 1, 1, "Hair01.blp", "", ""})
+		d := m.creatureLook(10, gear{})
+		if got := hairGeosets(d.look.Geosets); !slices.Equal(got, []int{1}) {
+			t.Errorf("style %d: hair geosets %v, want the scalp (1)", style, got)
+		}
+		if got := d.look.Textures[wow.TexHair]; got != "Hair01.blp" {
+			t.Errorf("style %d: hair texture %q, want variation 1's", style, got)
+		}
+	}
+}
+
+// TestCreatureLooksLiveShowHair dresses every CreatureDisplayInfoExtra row of the client and checks
+// that each shows exactly one hair submesh, and that the rows the client draws with a hair texture
+// get one: an orc woman's eighth style (CharHairGeosets lists seven) and a bald human man (#965). It
+// needs WOW_DIR.
+func TestCreatureLooksLiveShowHair(t *testing.T) {
+	dataDir, err := wow.ResolveDataDir(testclient.DataDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := loadModelTables(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.creatureExtra == nil || m.hairGeosets == nil || m.sections == nil {
+		t.Fatal("the client lacks a look table")
+	}
+	none := [wearSlots]int{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
+	for er := 0; er < m.creatureExtra.records; er++ {
+		var d creatureDisplay
+		m.dressCharacter(&d, er)
+		if hair := hairGeosets(d.look.Geosets); len(hair) != 1 {
+			t.Errorf("extra row %d (%+v): hair geosets %v, want one", m.creatureExtra.u32(er, 0), m.extraLook(er), hair)
+		}
+	}
+	for _, cl := range []charLook{{race: 2, sex: 1, hairStyle: 7}, {race: 1, sex: 0, hairStyle: 0}} {
+		var d creatureDisplay
+		m.dress(&d, cl, none, -1, "")
+		if got := hairGeosets(d.look.Geosets); !slices.Equal(got, []int{1}) {
+			t.Errorf("%+v: hair geosets %v, want the scalp (1)", cl, got)
+		}
+		if d.look.Textures[wow.TexHair] == "" {
+			t.Errorf("%+v: no hair texture", cl)
+		}
 	}
 }
 
