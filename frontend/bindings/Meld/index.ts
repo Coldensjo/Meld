@@ -11,6 +11,7 @@ export type {
     AreaTriggerList,
     AssetsImported,
     ClientSandbox,
+    GameCharacterInfo,
     GameClientInfo,
     GameLoginInfo,
     GameWindowInfo,

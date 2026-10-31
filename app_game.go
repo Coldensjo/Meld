@@ -226,6 +226,69 @@ func (a *App) PlayHere(spot vmangos.CharacterSpot) (string, error) {
 	return character, nil
 }
 
+// GameCharacterInfo is whether the Game Login's character can be given things through the world
+// server's console (#962): its name, and why not ("" when it can).
+type GameCharacterInfo struct {
+	Character string `json:"character"`
+	Reason    string `json:"reason"`
+}
+
+// consoleSession is the session the character test actions send their commands in: it fails, saying
+// why, when there is no character or server, the world server isn't running or its SOAP console is off.
+func (a *App) consoleSession() (game.Session, error) {
+	if externalOn() {
+		return game.Session{}, errExternal
+	}
+	sess, err := a.gameSession()
+	if err != nil {
+		return sess, err
+	}
+	switch {
+	case sess.Login.Character == "":
+		return sess, errors.New("Game Login has no character (Game › Game Login…)")
+	case sess.Login.Account == "":
+		return sess, errors.New("Game Login has no account to send the command with")
+	case sess.ServerRoot == "":
+		return sess, errors.New("no VMaNGOS server folder is set")
+	case vmangos.Supported(sess.Run) != nil:
+		return sess, vmangos.Supported(sess.Run)
+	case !sess.WorldRunning():
+		return sess, errors.New("the world server isn't running")
+	}
+	return sess, vmangos.ConsoleReady(sess.ServerRoot)
+}
+
+// GameCharacter says whether the test actions on the Game Login's character (SetCharacterLevel,
+// MailItem) can run now, for the menus that offer them.
+func (a *App) GameCharacter() GameCharacterInfo {
+	sess, err := a.consoleSession()
+	info := GameCharacterInfo{Character: sess.Login.Character}
+	if err != nil {
+		info.Reason = err.Error()
+	}
+	return info
+}
+
+// SetCharacterLevel sets the Game Login's character to level through the world server's SOAP console
+// (`.character level`, in the world or logged out) and returns what the server said.
+func (a *App) SetCharacterLevel(level int) (string, error) {
+	sess, err := a.consoleSession()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SetCharacterLevel(sess.ServerRoot, sess.Login.Account, sess.Login.Password, sess.Login.Character, level)
+}
+
+// MailItem mails count of item to the Game Login's character through the world server's SOAP console
+// (`.send items`) and returns what the server said.
+func (a *App) MailItem(item, count int) (string, error) {
+	sess, err := a.consoleSession()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.MailItems(sess.ServerRoot, sess.Login.Account, sess.Login.Password, sess.Login.Character, item, count)
+}
+
 // GameLoginInfo is the saved game login. The password itself never goes to the frontend.
 type GameLoginInfo struct {
 	Account     string `json:"account"`

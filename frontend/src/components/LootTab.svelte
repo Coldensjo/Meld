@@ -3,7 +3,8 @@
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { NextObjectLoot, ReadObjectLoot, SaveObjectLoot, SearchItems } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
-	import { setStatus } from '../lib/state/editor.svelte'
+	import { setStatus, type ContextItem } from '../lib/state/editor.svelte'
+	import { characterItems, mailAction } from '../lib/io/gameCharacter'
 	import { RowList } from '../lib/ui/rowList.svelte'
 	import { mapActions } from '../lib/toolwin/spawnFieldsHost.svelte'
 	import { spawnKey } from '../lib/world/SpawnLayer'
@@ -104,6 +105,11 @@
 
 	function remove(item: number) {
 		rows.rows.items = items.filter((i) => i.item !== item)
+	}
+
+	/** A loot row's right-click items (#962): mail the item to the Game Login character, one or the row's most. */
+	function mailItems(it: vmangos.LootItem): ContextItem[] {
+		return characterItems([mailAction(it.item, it.name), ...(it.maxCount > 1 ? [mailAction(it.item, it.name, it.maxCount)] : [])])
 	}
 
 	const int = (v: string, lo: number, hi: number) => {
@@ -229,7 +235,7 @@
 									>Reference list {-it.minCount} <span class="dim">×{it.maxCount}</span></td
 								>
 							{:else}
-								<td class="item" use:idMenu={{ ids: [idOf('item', it.item)], name: it.name }} {...hoverItem(it.item, it.displayId)}>
+								<td class="item" use:idMenu={{ ids: [idOf('item', it.item)], name: it.name, actions: () => mailItems(it) }} {...hoverItem(it.item, it.displayId)}>
 									<ItemIcon displayId={it.displayId} />
 									<span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span>
 									<span class="dim">{it.item}{it.chance < 0 ? ' · quest' : ''}</span>

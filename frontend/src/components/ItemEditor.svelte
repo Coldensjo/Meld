@@ -18,7 +18,8 @@
 		SearchItemsSorted,
 	} from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
-	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { prefs, setStatus, ui, type ContextItem } from '../lib/state/editor.svelte'
+	import { characterItems, mailAction } from '../lib/io/gameCharacter'
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
@@ -507,6 +508,15 @@
 		return copyGmCommand(ed, command, `paste it in the game's chat as a GM to get ${i.name || `item ${i.entry}`} (or give it to the player you have selected). A new or changed item needs the world server restarted first.`)
 	}
 
+	/**
+	 * Mail the item to the Game Login character (#962): one, and a stack when it is the open item and
+	 * stacks (its saved Stacks to, which the server knows).
+	 */
+	function mailItems(i: vmangos.ItemRef): ContextItem[] {
+		const stack = i.entry === target?.entry ? Number(saved.stackable) || 1 : 1
+		return characterItems([mailAction(i.entry, i.name), ...(stack > 1 ? [mailAction(i.entry, i.name, stack)] : [])])
+	}
+
 	/** A search result's right-click menu: open it, or copy the command that gives it in the game. */
 	function resultMenu(e: MouseEvent, i: vmangos.ItemRef) {
 		e.preventDefault()
@@ -517,6 +527,7 @@
 			items: [
 				{ label: 'Open', run: () => open(i.entry) },
 				{ label: `Copy ${addItemCommand(i.entry)} to the clipboard`, run: () => void copyItemCommand(i) },
+				...mailItems(i),
 				{ separator: true },
 				...copyItems({ ids: [{ what: 'item entry', id: i.entry }, ...(i.displayId > 0 ? [{ what: 'display id', id: i.displayId }] : [])], name: i.name }),
 			],

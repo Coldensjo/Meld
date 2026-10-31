@@ -76,12 +76,15 @@
 					role="menuitem"
 					tabindex="-1"
 					disabled={it.disabled}
+					title={it.hint}
 					onclick={() => {
 						close()
 						it.run?.()
 					}}
 				>
-					<span class="label">{it.label}</span>
+					<span class="label"
+						>{it.label}{#if it.disabled && it.hint}<span class="hint">{it.hint}</span>{/if}</span
+					>
 					{#if it.shortcut}<span class="sc">{it.shortcut}</span>{/if}
 				</button>
 			{/if}
@@ -131,6 +134,13 @@
 	}
 	.item .label {
 		flex: 1;
+	}
+	.item .hint {
+		display: block;
+		max-width: 300px;
+		font-size: 11px;
+		color: var(--text-dim);
+		white-space: normal;
 	}
 	.item .sc {
 		color: var(--text-dim);

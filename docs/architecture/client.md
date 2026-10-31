@@ -925,6 +925,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   them again, which a deleted item still carried would be left without). Spawns are not reloaded:
   `.reload creature`/`.reload gameobject` (`ObjectMgr::LoadCreatures(true)`) reread the spawn rows and
   add a new spawn to its grid, but a spawn already loaded keeps its place until the server restarts. The editors' own notes say the reload in one phrase (`SERVER_RELOADS`, `lib/io/applyNote.ts`).
+- **The Game Login character's test actions** (#962, `lib/io/gameCharacter.ts`,
+  `internal/vmangos/soapcharacter.go`): the spawn menu's Set <character>'s level and the Mail to
+  <character> items of a loot row and the item editor's list send `.character level <name> <n>` and
+  `.send items <name> "subject" "text" <item>:<count>` through the SOAP console (`SetCharacterLevel`,
+  `MailItem`). The console has no selected target, and VMaNGOS runs only the commands whose row in
+  `src/game/Chat/Chat.cpp` allows the console: `.levelup`, `.additem` and every `.quest` command are
+  refused there, so items go by mail and quests are not offered. A menu opens its items from the
+  last answer of `GameCharacter` (why the console can't reach the character, "" when it can) and
+  replaces them (`ContextItem.tag`) once Go answers again; a disabled item shows its `hint` under it.
 - **The game's template cache** (#234): the 1.12 client asks for a template once and keeps it across
   sessions in `WDB\creaturecache.wdb` / `gameobjectcache.wdb`, never asking again. `SaveCreature` and
   `SaveObject` mark the entry in `App.stale` (`game.Stale`, `internal/game/cache.go`), which takes its

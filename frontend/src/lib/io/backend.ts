@@ -2,8 +2,8 @@
 // reports its failure in the status bar. Every io module builds on these.
 import { setStatus, ui } from '../state/editor.svelte'
 
-/** True when running inside the Wails webview (Go bindings available). */
-export const hasBackend = () => typeof (window as Window & { go?: unknown }).go !== 'undefined'
+/** True when running inside the Wails webview (Go bindings available). globalThis is the window there, and is in `bun test` too. */
+export const hasBackend = () => typeof (globalThis as { go?: unknown }).go !== 'undefined'
 
 export async function guarded(label: string, fn: () => Promise<void>) {
 	if (!hasBackend()) {

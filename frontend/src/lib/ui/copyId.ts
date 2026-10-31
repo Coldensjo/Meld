@@ -16,6 +16,8 @@ export interface IdMenu {
 	ids: IdRef[]
 	name?: string
 	title?: string
+	/** The thing's own actions, above the copy items; built when the menu opens. */
+	actions?: () => ContextItem[]
 }
 
 /** Copies `text` and says what was copied in the status line. */
@@ -53,7 +55,7 @@ export function openIdMenu(e: MouseEvent, m: IdMenu, before: ContextItem[] = [])
 export function idMenu(node: HTMLElement, m: IdMenu | null) {
 	let cur = m
 	const on = (e: MouseEvent) => {
-		if (cur && (cur.ids.length || cur.name?.trim())) openIdMenu(e, cur)
+		if (cur && (cur.ids.length || cur.name?.trim())) openIdMenu(e, cur, cur.actions?.() ?? [])
 	}
 	node.addEventListener('contextmenu', on)
 	return {

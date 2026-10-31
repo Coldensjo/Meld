@@ -7,6 +7,7 @@ export type AreaSaveResult = V2<M.AreaSaveResult>
 export type AreaTriggerList = V2<M.AreaTriggerList>
 export type AssetsImported = V2<M.AssetsImported>
 export type ClientSandbox = V2<M.ClientSandbox>
+export type GameCharacterInfo = V2<M.GameCharacterInfo>
 export type GameClientInfo = V2<M.GameClientInfo>
 export type GameLoginInfo = V2<M.GameLoginInfo>
 export type GameWindowInfo = V2<M.GameWindowInfo>

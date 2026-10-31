@@ -490,6 +490,14 @@ export function ForgetProject(dir: string): $CancellablePromise<void> {
 }
 
 /**
+ * GameCharacter says whether the test actions on the Game Login's character (SetCharacterLevel,
+ * MailItem) can run now, for the menus that offer them.
+ */
+export function GameCharacter(): $CancellablePromise<$models.GameCharacterInfo> {
+    return $Call.ByID(1379271526);
+}
+
+/**
  * GameClient says which game client Meld uses.
  */
 export function GameClient(): $CancellablePromise<$models.GameClientInfo> {
@@ -852,6 +860,14 @@ export function LoadSpawns(mapName: string, x: number, y: number, size: number):
  */
 export function LoadingScreens(): $CancellablePromise<vmangos$0.LoadingScreen[] | null> {
     return $Call.ByID(1825027632);
+}
+
+/**
+ * MailItem mails count of item to the Game Login's character through the world server's SOAP console
+ * (`.send items`) and returns what the server said.
+ */
+export function MailItem(item: number, count: number): $CancellablePromise<string> {
+    return $Call.ByID(3012593637, item, count);
 }
 
 /**
@@ -1959,6 +1975,14 @@ export function SetAccount(id: number, gmLevel: number, password: string): $Canc
  */
 export function SetBenillaPath(path: string): $CancellablePromise<void> {
     return $Call.ByID(374360793, path);
+}
+
+/**
+ * SetCharacterLevel sets the Game Login's character to level through the world server's SOAP console
+ * (`.character level`, in the world or logged out) and returns what the server said.
+ */
+export function SetCharacterLevel(level: number): $CancellablePromise<string> {
+    return $Call.ByID(398005368, level);
 }
 
 /**

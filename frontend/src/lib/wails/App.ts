@@ -79,6 +79,7 @@ export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().Export
 export const ExternalDatabaseInfo: Call<AppApi['ExternalDatabaseInfo']> = (...a) => api().ExternalDatabaseInfo(...a) as never
 export const Factions: NonNullCall<AppApi['Factions']> = (...a) => api().Factions(...a) as never
 export const ForgetProject: Call<AppApi['ForgetProject']> = (...a) => api().ForgetProject(...a) as never
+export const GameCharacter: Call<AppApi['GameCharacter']> = (...a) => api().GameCharacter(...a) as never
 export const GameClient: Call<AppApi['GameClient']> = (...a) => api().GameClient(...a) as never
 export const GameEvents: NonNullCall<AppApi['GameEvents']> = (...a) => api().GameEvents(...a) as never
 export const GameLogin: Call<AppApi['GameLogin']> = (...a) => api().GameLogin(...a) as never
@@ -126,6 +127,7 @@ export const LoadRegion: NonNullCall<AppApi['LoadRegion']> = (...a) => api().Loa
 export const LoadScriptImage: Call<AppApi['LoadScriptImage']> = (...a) => api().LoadScriptImage(...a) as never
 export const LoadSpawns: NonNullCall<AppApi['LoadSpawns']> = (...a) => api().LoadSpawns(...a) as never
 export const LoadingScreens: NonNullCall<AppApi['LoadingScreens']> = (...a) => api().LoadingScreens(...a) as never
+export const MailItem: Call<AppApi['MailItem']> = (...a) => api().MailItem(...a) as never
 export const MapEntries: NonNullCall<AppApi['MapEntries']> = (...a) => api().MapEntries(...a) as never
 export const MapLights: NonNullCall<AppApi['MapLights']> = (...a) => api().MapLights(...a) as never
 export const MapZones: NonNullCall<AppApi['MapZones']> = (...a) => api().MapZones(...a) as never
@@ -269,6 +271,7 @@ export const ServerStatus: Call<AppApi['ServerStatus']> = (...a) => api().Server
 export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog(...a) as never
 export const SetAccount: Call<AppApi['SetAccount']> = (...a) => api().SetAccount(...a) as never
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
+export const SetCharacterLevel: Call<AppApi['SetCharacterLevel']> = (...a) => api().SetCharacterLevel(...a) as never
 export const SetGameClient: Call<AppApi['SetGameClient']> = (...a) => api().SetGameClient(...a) as never
 export const SetGameLogin: Call<AppApi['SetGameLogin']> = (...a) => api().SetGameLogin(...a) as never
 export const SetGameWindow: Call<AppApi['SetGameWindow']> = (...a) => api().SetGameWindow(...a) as never

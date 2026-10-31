@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { characterItems, levelAction } from '../io/gameCharacter'
 import { editor, setStatus, ui, type ContextItem } from '../state/editor.svelte'
 import type { MapDocument } from './MapDocument'
 import type { vmangos } from '../wails/models'
@@ -493,6 +494,9 @@ export class SpawnActions {
 		if (spawn.kind !== 'object') {
 			items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
 			items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
+			// Set the Game Login character's level to the creature's (#962), through the server's console.
+			const level = levelAction(spawn.levelMin, spawn.levelMax)
+			if (level) items.push(...characterItems([level]))
 		} else {
 			items.push({ label: 'Edit object…', run: () => (ui.objectEditor = { key, entry: spawn.entry }) })
 			// A readable object (#139): straight to what it says.

@@ -192,6 +192,18 @@ you intend to use.
 For Play Here, set `SOAP.Enabled = 1` in the server's `mangosd.conf` and restart the world server
 after changing that configuration. If SOAP is unavailable or the character is offline, use Launch.
 
+The same console sets up the Game Login character for a test, from the right-click menus:
+
+- **Set <character>'s level to N** on a creature spawn sets the character to the creature's level
+  (the top of its range, at most 60), in the world or logged out.
+- **Mail to <character>** on an item in the Item Editor's list or on a loot row mails the item (or
+  the row's most, or a stack of the open item) to the character's mailbox, since the console cannot
+  put an item in a bag.
+
+The entries are greyed out, with the reason under them, while the world server is not running,
+SOAP is off or Game Login has no character. Giving, completing or removing a quest is not there
+yet: VMaNGOS does not allow its `.quest` commands from the console.
+
 Explicit **Launch** is the exception to the no-automatic-close behavior of saves and compiles.
 Launching the client is not a replacement for completing a pending server rebuild.
 

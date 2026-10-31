@@ -64,6 +64,15 @@ export interface ClientSandbox {
 }
 
 /**
+ * GameCharacterInfo is whether the Game Login's character can be given things through the world
+ * server's console (#962): its name, and why not ("" when it can).
+ */
+export interface GameCharacterInfo {
+    "character": string;
+    "reason": string;
+}
+
+/**
  * GameClientInfo is which game Meld closes and opens around an export, and Benilla's folder.
  */
 export interface GameClientInfo {

@@ -446,6 +446,10 @@ export interface ContextItem {
 	danger?: boolean
 	separator?: boolean
 	run?: () => void
+	/** Why it is disabled, or what it does: the item's tooltip, and a line under a disabled item. */
+	hint?: string
+	/** Names a group of items a later answer replaces in the open menu (io/gameCharacter.ts). */
+	tag?: string
 }
 
 /** A project (#48): its name, its folder and the client folder it edits. */
