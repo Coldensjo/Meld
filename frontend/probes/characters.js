@@ -1,4 +1,4 @@
-// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag, outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked, the count bought an edit, #886) and the keyring and gives an item added to the bank a random property from its choices (#879), draws the character wearing its equipment between the equipment's columns (#880), the Character tab's look (#875) offers the client's choices and its picture redraws as the look changes and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, every tab fits the page without its scroll bar (#931), Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
+// The Characters and Accounts tool (#855): Tools › Characters and Accounts… lists the realm's accounts, an account's page lists its characters, and a character's page shows its fields; a new level is an unsaved edit (Save character (1)), Revert drops it, a value Go refuses outlines its field (SaveCharacter stood in, so nothing is written), its Equipment and bags tab (#874) shows the items ReadInventory gives, moves one by a drag (from the square, not its icon's image, and kept from the document's drag listener, #930), outlines a place Go refuses (SaveInventory stood in), adds an item found by its entry as new and reverts, shows the bank, the bank bags (those not bought marked, the count bought an edit, #886) and the keyring and gives an item added to the bank a random property from its choices (#879), draws the character wearing its equipment between the equipment's columns (#880), the Character tab's look (#875) offers the client's choices and its picture redraws as the look changes and its home shows the character_homebind row, the Skills, Spells and Reputation tabs (#875) list what ReadCharacterSkills, ReadCharacterSpells and ReadCharacterReputation give, take an edit (a skill out, the starting spells in, a new rank), outline what Go refuses (the Save bindings stood in) and revert, the Quests, Explored and Flight paths tabs (#881) list what ReadCharacterQuests, ReadCharacterExploration and ReadCharacterTaxi give, take an edit (a quest found by its entry added, a zone and a stop marked), outline what Go refuses and revert, every tab fits the page without its scroll bar (#931), Delete character… asks, and its Delete sends the guid and goes back to the account (DeleteCharacter stood in, #876), Delete account… is offered with characters, and the New account form asks for a name and password. Nothing is saved or deleted: Go's rules (the SRP6 verifier, online and rename refusals) are tests in internal/vmangos/accounts_test.go, the delete's SQL in chardelete_test.go, the inventory's in inventory_test.go and tests/inventory.test.ts, the look's, skills', spells' and reputation's in charsheet_test.go and tests/characterSheet.test.ts, and the quests', explored areas' and flight paths' in charquests_test.go.
 // touches: frontend/src/components/CharacterEditor.svelte, frontend/src/components/CharacterInventory.svelte, frontend/src/components/CharacterModelView.svelte, internal/vmangos/charmodel.go, frontend/src/components/CharacterSkills.svelte, frontend/src/components/CharacterSpells.svelte, frontend/src/components/CharacterReputation.svelte, frontend/src/components/CharacterQuests.svelte, frontend/src/components/CharacterExploration.svelte, frontend/src/components/CharacterTaxi.svelte, frontend/src/lib/wow/inventory.ts, frontend/src/lib/wow/characterSheet.ts, internal/vmangos/inventory.go, internal/vmangos/itemtables.go, internal/vmangos/accounts.go, internal/vmangos/chardelete.go, internal/vmangos/charsheet.go, internal/vmangos/charquests.go, app_characters.go, frontend/src/components/TemplateFields.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 const App = window.go.main.App
@@ -71,8 +71,14 @@ const drag = (from, to) => {
 	const dt = new DataTransfer()
 	from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }))
 	const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt })
+	// The document's own listener (the Wails runtime's, which refuses drags with files) must not see it (#930).
+	let reached = false
+	const seen = () => (reached = true)
+	document.documentElement.addEventListener('dragover', seen)
 	to.dispatchEvent(over)
+	document.documentElement.removeEventListener('dragover', seen)
 	items.overAllowed = over.defaultPrevented
+	items.overKept = !reached
 	to.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
 	from.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }))
 }
@@ -80,6 +86,8 @@ const from = [...inventory().querySelectorAll('.sq[draggable="true"]')].find((s)
 const to = [...inventory().querySelectorAll('[aria-label="Backpack"] .sq')].find((s) => s.getAttribute('draggable') !== 'true')
 if (from && to) {
 	const fromPlace = from.dataset.place
+	// The icon's image is not draggable: an image drag carries a file, which the desktop window refuses (#930).
+	items.iconFixed = [...from.querySelectorAll('img')].every((i) => !i.draggable)
 	const toPlace = to.dataset.place
 	drag(from, to)
 	await P.frames(1)
@@ -427,7 +435,7 @@ const itemsOk =
 	items.figure.canvas &&
 	items.figure.steady &&
 	/^Character\\/i.test(items.figure.model) &&
-	(!from || !to || (items.moved && items.overAllowed && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
+	(!from || !to || (items.moved && items.overAllowed && items.overKept && items.iconFixed && items.saveText === 'Save equipment' && items.tabMarked && items.sent > 0 && items.outlined && items.added && items.reverted)) &&
 	items.bank &&
 	items.keyring &&
 	items.locked &&

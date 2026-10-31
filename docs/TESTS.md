@@ -198,6 +198,15 @@ for the benchmark scene and measurement details.
   spells (`get`, `search`), all as JSON (#893); `meldtool mcp` offers the same commands to an AI
   agent as an MCP server on stdio (#777). See the
   [meldtool notes](reference/testing-notes.md#looking-into-files-without-the-app-meldtool).
+- An HTML5 drag that fails only in the desktop window needs a real mouse in a real WebView2: the
+  probes' synthetic `DragEvent`s pass anyway (#930). Build a throwaway Meld with
+  `Windows: application.WindowsOptions{AdditionalBrowserArgs: []string{"--remote-debugging-port=9333"}}`
+  in `main.go`'s options (the `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` variable is not picked up), drive
+  the page over CDP (`http://127.0.0.1:9333/json/list`, `Runtime.evaluate`) to open the view and log the
+  drag events, and move the real cursor with `SetCursorPos` and `mouse_event` from PowerShell, offset by
+  the window's `ClientToScreen`. Trap: the Wails runtime's document listener sets `dropEffect = 'none'`
+  on every drag whose types hold `Files`, and dragging an `<img>` adds `Files`, so a draggable element
+  holding an image must make the image `draggable="false"` (ItemIcon does).
 - For a client round trip, compare an edited export with an unedited export through the same save
   path. Comparing only to the original client tile can mistake normal writer changes for a regression.
 

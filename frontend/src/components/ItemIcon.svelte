@@ -34,7 +34,9 @@
 </script>
 
 <span class="icon" bind:this={el} style:width="{size}px" style:height="{size}px">
-	{#if url}<img class:big={size > 40} src={url} alt="" width={size} height={size} />{/if}
+	<!-- Not draggable itself: an image drag carries the picture as a file, and the Wails runtime refuses every
+	drag with files in it (dropEffect none), so a square dragging its item could not drop (#930). -->
+	{#if url}<img class:big={size > 40} src={url} alt="" width={size} height={size} draggable="false" />{/if}
 </span>
 
 <style>

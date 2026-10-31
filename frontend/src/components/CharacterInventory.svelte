@@ -138,15 +138,17 @@
 		return true
 	}
 
-	// Moving: drag a square onto another.
-	// Not reactive: a re-render inside dragstart or dragover makes WebView2 end the drag or show the
-	// not-allowed cursor (#930).
+	// Moving: drag a square onto another. In the desktop window the drag must not carry files: the Wails
+	// runtime's document listener sets dropEffect none on every drag that does (file drops are off), which
+	// showed the not-allowed cursor and refused the drop when the drag started on the icon's image (#930).
+	// ItemIcon's image is not draggable for that, and the squares keep their drag events from the document.
 	let dragFrom: Place | null = null
 	const DRAG_TYPE = 'application/x-meld-place'
 	const accepts = (e: DragEvent) => !!e.dataTransfer?.types.includes(DRAG_TYPE)
 	function allow(e: DragEvent) {
 		if (!accepts(e)) return
 		e.preventDefault()
+		e.stopPropagation()
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
 	}
 	function drop(to: Place) {
@@ -240,6 +242,7 @@
 		ondragover={allow}
 		ondrop={(e) => {
 			e.preventDefault()
+			e.stopPropagation()
 			drop(p)
 		}}
 		onclick={() => (selected = p)}
