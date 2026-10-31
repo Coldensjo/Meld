@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"Meld/internal/adt"
 	"Meld/internal/mpq"
 	"Meld/internal/testclient"
 	"Meld/internal/wow"
@@ -27,7 +28,7 @@ func TestDescribeFilesGroupsAndMarksNew(t *testing.T) {
 		{Name: in},
 		{Name: `DBFilesClient\Map.dbc`},
 	}
-	got := DescribeFiles(dir, files, RegionFileReason(edit))
+	got := DescribeFiles(dir, files, RegionFileReason(edit, nil))
 	var order []string
 	for _, c := range got {
 		order = append(order, c.Group+":"+c.Tile)
@@ -40,6 +41,54 @@ func TestDescribeFilesGroupsAndMarksNew(t *testing.T) {
 	}
 	if got[0].Reason != "changed in the region" || !strings.Contains(got[1].Reason, "beside the region") || !strings.Contains(got[2].Reason, "far horizon") {
 		t.Errorf("reasons = %q, %q, %q", got[0].Reason, got[1].Reason, got[2].Reason)
+	}
+}
+
+// TestRegionFileReasonTellsEdgeTiles tells a region's tile the author edited from one rewritten only for
+// its neighbour's edge, and one copied into the patch as it is, by the copy the client reads now (#976).
+func TestRegionFileReasonTellsEdgeTiles(t *testing.T) {
+	was, err := adt.BuildTile(flatTile(1), adt.Ring{}, adt.Changes{TileX: 32, TileY: 48})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := adt.ParseTerrain(was)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The east neighbour, past a flat border, rises.
+	east := flatTile(1)[:LatticeSize]
+	for i := range east {
+		east[i] = 9
+	}
+	edge, err := adt.WriteHeights(was, terrain, &adt.Edges{Now: adt.Ring{East: east}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raised, err := PatchTileHeights(was, func() []float32 { h := flatTile(1); h[LatticeSize*64+64] = 6; return h }(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit := RegionEdit{MapName: "Azeroth", X: 32, Y: 48, Size: 2}
+	in, out := `World\Maps\Azeroth\Azeroth_32_48.adt`, `World\Maps\Azeroth\Azeroth_34_48.adt`
+	before := func(string) []byte { return was }
+	reason := RegionFileReason(edit, before)
+	for _, c := range []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{in, edge, edgeReason},
+		{in, raised, "changed in the region"},
+		{in, was, copiedReason},
+		{out, edge, besideEdgeReason},
+		{out, raised, besideModelReason},
+	} {
+		if got := reason(mpq.File{Name: c.name, Data: c.data}); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+	if got := RegionFileReason(edit, nil)(mpq.File{Name: in, Data: edge}); got != "changed in the region" {
+		t.Errorf("without the client's copy: %q", got)
 	}
 }
 
@@ -149,5 +198,9 @@ func TestPreviewPublish(t *testing.T) {
 	}
 	if strings.Join(names, ",") != "tile:5_6,tile:6_6,wdl:" {
 		t.Fatalf("after the export: %v", names)
+	}
+	// The first tile reads as rewritten for its edge only, the second as a tile of the map (#976).
+	if p.Files[0].Reason != edgeReason || p.Files[1].Reason != "a tile of the map" {
+		t.Errorf("reasons = %q, %q", p.Files[0].Reason, p.Files[1].Reason)
 	}
 }

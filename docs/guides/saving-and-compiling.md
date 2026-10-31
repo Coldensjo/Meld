@@ -32,7 +32,8 @@ patch is the same for every core.
 
 **File › Review Changes…** lists what these writes would change before you run one, and writes
 nothing itself: for an open region, the client files Compile puts into the patch (each tile, with
-whether the region's edits changed it or it sits beside the region for a model by its edge, and the
+whether the region's edits changed it, it is rewritten only because a neighbour's heights move the
+normals along its edge, or it sits beside the region for a model or the normals by its edge, and the
 far horizon) and each spawn Save Spawns adds, changes (with the fields) or deletes, with **Go there**
 and its SQL; for a new client world, the files and the `map_template` row Publish writes. Files an
 earlier write left waiting for the game to close are listed apart. The Publish and Save Spawns

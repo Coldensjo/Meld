@@ -305,7 +305,25 @@ client files and world database rows the write would make, without writing.
 - Trap: the window's heading names the write once it is listed ("Changes: Compile Azeroth 31_50"), so
   `P.dialog`'s exact match can't find it; the probe matches a heading that starts with "Changes".
 - Trap: in a published map, changing one tile also lists its neighbours, since their edge normals take
-  its heights (#492); that is what Publish writes, not a fault of the list.
+  its heights (#492); that is what Publish writes, not a fault of the list. Such a tile reads "only its
+  edge's normals, which a neighbour's heights move" (#976, `TestPreviewPublish`).
+
+## Tell a tile rewritten only for its neighbour's edge in the Changes window (#976, probe `changes-edge`)
+Checks: a region's tile whose only difference from the copy the client reads now is the normals of its
+border chunks is listed as "only its edge's normals" (beside the region: "beside the region: only its
+edge's normals"), not "changed in the region".
+- Probe: `bun run probe changes-edge` (about 22 s): in the throwaway client, opens Azeroth 28_50 (2x2,
+  none of it in the owner's patch), compiles it once as it is, raises one vertex of 28_50 one in from
+  its east border and checks `RegionPending`'s list and the window: 28_50 changed, 29_50 edge only.
+- Unit tests: `go test ./internal/adt/ -run EdgeNormalsOnly` and
+  `go test ./internal/vmangos/ -run "TestRegionFileReasonTellsEdgeTiles|TestPreviewPublish"`.
+- Trap: a block's first compile rewrites every tile of it (and a neighbour) for float noise in the
+  heights at chunk edges and because the patch lacks them, so on a block not compiled before every
+  tile reads "changed in the region"; compile it once first. The owner's patch holds tiles from older
+  builds that differ from today's rebuild in more than the edge (Azeroth 31_50 to 35_51), so the probe
+  stays off them.
+- Trap: `regionEdit`'s paint and chunk headers settle some frames after `openWowRegion` resolves; an
+  edit taken before then differs from the one compiled. The probe takes edits until two in a row match.
 
 ## Leave items out of a write and copy their SQL from the Changes window (#960, probe `changes-leave-out`)
 Checks: for a region, unticking a tile or a spawn edit in the Changes window leaves it out of Compile,

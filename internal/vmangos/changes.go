@@ -1,12 +1,14 @@
 package vmangos
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"Meld/internal/adt"
 	"Meld/internal/mpq"
 )
 
@@ -84,7 +86,7 @@ func fileGroup(name string) string {
 // DescribeFiles lists files as the Changes window shows them: each with its group, the reason
 // reason gives it (nil for none) and whether the patch in dataDir has a copy yet. The list is sorted
 // by group, then name.
-func DescribeFiles(dataDir string, files []mpq.File, reason func(name string) string) []FileChange {
+func DescribeFiles(dataDir string, files []mpq.File, reason func(f mpq.File) string) []FileChange {
 	var patch *mpq.Archive
 	if a, err := mpq.Open(filepath.Join(dataDir, PatchName)); err == nil {
 		patch = a
@@ -98,7 +100,7 @@ func DescribeFiles(dataDir string, files []mpq.File, reason func(name string) st
 			c.New = !has
 		}
 		if reason != nil {
-			c.Reason = reason(f.Name)
+			c.Reason = reason(f)
 		}
 		out = append(out, c)
 	}
@@ -118,17 +120,45 @@ func sortChanges(c []FileChange) {
 	})
 }
 
-// RegionFileReason says why a region compile writes a file: a tile of the block was edited in it, a
-// tile beside it lists a model by its edge (#647), the WDL is the map's far horizon redrawn for the
-// block, and a building map's WDT places its building.
-func RegionFileReason(e RegionEdit) func(string) string {
-	return func(name string) string {
+// The reasons of a tile rewritten only because a neighbour's heights moved the normals along its edge
+// (#492, #976), told from an edited one by comparing it with the copy the client reads now
+// (adt.EdgeNormalsOnly). A tile beside the region keeps "beside" first: the window counts those apart.
+const (
+	edgeReason        = "only its edge's normals, which a neighbour's heights move"
+	besideEdgeReason  = "beside the region: only its edge's normals, which the region's heights move"
+	besideModelReason = "beside the region: it lists a model by the region's edge"
+	copiedReason      = "as the client has it, copied into Meld's patch with the region"
+)
+
+// RegionFileReason says why a region compile writes a file: a tile of the block was edited in it, or
+// only its edge's normals follow a neighbour's heights, or it is copied into the patch as it is (the
+// patch has no copy yet); a tile beside the block lists a model by its edge (#647) or has its edge's
+// normals redone (#666); the WDL is the map's far horizon redrawn for the block, and a building map's
+// WDT places its building. before reads a file as the client has it now (nil when it cannot), which
+// tells the tiles apart; a nil before gives every tile of the block "changed in the region".
+func RegionFileReason(e RegionEdit, before func(name string) []byte) func(mpq.File) string {
+	return func(f mpq.File) string {
+		name := f.Name
 		switch fileGroup(name) {
 		case "tile":
+			var was []byte
+			if before != nil {
+				was = before(name)
+			}
+			edge := was != nil && adt.EdgeNormalsOnly(was, f.Data)
 			if regionTile(name, e) {
+				switch {
+				case edge:
+					return edgeReason
+				case was != nil && bytes.Equal(was, f.Data):
+					return copiedReason
+				}
 				return "changed in the region"
 			}
-			return "beside the region: it lists a model by the region's edge"
+			if edge {
+				return besideEdgeReason
+			}
+			return besideModelReason
 		case "wdl":
 			return "the far horizon, redrawn for the region"
 		case "wdt":
@@ -136,6 +166,23 @@ func RegionFileReason(e RegionEdit) func(string) string {
 		}
 		return ""
 	}
+}
+
+// DescribeRegion lists a region compile's files (RegionChanges') as the Changes window shows them, each
+// tile's reason told from the copy the client in dataDir reads now (RegionFileReason).
+func DescribeRegion(dataDir string, e RegionEdit, files []mpq.File) []FileChange {
+	var before func(string) []byte
+	if set, err := mpq.OpenDataDir(dataDir); err == nil {
+		defer set.Close()
+		before = func(name string) []byte {
+			b, err := set.ReadFile(name)
+			if err != nil {
+				return nil
+			}
+			return b
+		}
+	}
+	return DescribeFiles(dataDir, files, RegionFileReason(e, before))
 }
 
 // PreviewPublish is what ExportMap would write for map m and Publish would run in the world database,
@@ -149,9 +196,20 @@ func PreviewPublish(readDir, patchDir string, m MapSpec) (PublishPreview, error)
 	if files, err = ChangedFiles(patchDir, files); err != nil {
 		return PublishPreview{}, err
 	}
-	reason := func(name string) string {
-		switch fileGroup(name) {
+	// A tile whose copy in the patch differs only in its edge's normals changed for a neighbour (#976).
+	var patch *mpq.Archive
+	if a, err := mpq.Open(filepath.Join(patchDir, PatchName)); err == nil {
+		patch = a
+		defer a.Close()
+	}
+	reason := func(f mpq.File) string {
+		switch fileGroup(f.Name) {
 		case "tile":
+			if patch != nil {
+				if was, err := patch.ReadFile(f.Name); err == nil && adt.EdgeNormalsOnly(was, f.Data) {
+					return edgeReason
+				}
+			}
 			return "a tile of the map"
 		case "wdt":
 			if m.Global != nil {

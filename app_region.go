@@ -190,7 +190,7 @@ func (a *App) RegionPending(edit vmangos.RegionEdit) (vmangos.RegionResult, erro
 	if err != nil {
 		return res, err
 	}
-	res.List = vmangos.DescribeFiles(dataDir, files, vmangos.RegionFileReason(edit))
+	res.List = vmangos.DescribeRegion(dataDir, edit, files)
 	return res, nil
 }
 

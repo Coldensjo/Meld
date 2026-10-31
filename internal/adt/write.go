@@ -1,6 +1,7 @@
 package adt
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -133,6 +134,51 @@ func ParseNormals(root []byte) ([][]byte, error) {
 		out[i] = append([]byte(nil), root[mcnr.start:mcnr.start+HeightCount*3]...)
 	}
 	return out, nil
+}
+
+// EdgeNormalsOnly says tile b differs from tile a only in the normals (MCNR) of chunks on the tile's
+// border, as a tile does that is rewritten only because a neighbour's heights moved the normals along its
+// edge (#492): the Changes window tells such a tile from an edited one (#976). Equal files, and files whose
+// chunks don't line up, give false.
+func EdgeNormalsOnly(a, b []byte) bool {
+	if len(a) != len(b) || bytes.Equal(a, b) {
+		return false
+	}
+	sa, err := mcnkStarts(a)
+	if err != nil {
+		return false
+	}
+	sb, err := mcnkStarts(b)
+	if err != nil || len(sa) != len(sb) {
+		return false
+	}
+	// pos is how far a and b are known to match, the border chunks' normals left out.
+	pos := 0
+	for i, h := range sa {
+		if sb[i] != h || h+mcnkHeaderSize > len(a) {
+			return false
+		}
+		na, ok := subChunk(a, h, len(a), u32(a, h+0x18), "MCNR")
+		if !ok {
+			continue
+		}
+		nb, ok := subChunk(b, h, len(b), u32(b, h+0x18), "MCNR")
+		if !ok || nb != na {
+			return false
+		}
+		if bytes.Equal(a[na.start:na.end], b[na.start:na.end]) {
+			continue
+		}
+		x, y := u32(a, h+0x04), u32(a, h+0x08)
+		if x != 0 && y != 0 && x != ChunksPerTile-1 && y != ChunksPerTile-1 {
+			return false
+		}
+		if na.start < pos || !bytes.Equal(a[pos:na.start], b[pos:na.start]) {
+			return false
+		}
+		pos = na.end
+	}
+	return bytes.Equal(a[pos:], b[pos:])
 }
 
 // mcnkStarts returns the payload offset of each top-level MCNK, in file order.

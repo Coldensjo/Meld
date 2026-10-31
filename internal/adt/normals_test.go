@@ -129,3 +129,56 @@ func TestWriteHeightsRefreshesTheBorderWhenTheRingMoves(t *testing.T) {
 		t.Fatalf("the tile's size changed: %d -> %d", len(root), len(out))
 	}
 }
+
+// A tile whose border normals moved with its neighbour's heights reads as changed for its edge only; one
+// whose own heights or an inner chunk's normals changed, or an unchanged one, does not (#976).
+func TestEdgeNormalsOnly(t *testing.T) {
+	ring := slopeRing(3, 4)
+	root, err := BuildTile(slopeTile(3, 4), ring, Changes{TileX: 3, TileY: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := ring
+	moved.East = append([]float32(nil), ring.East...)
+	for k := range moved.East {
+		moved.East[k] += 30
+	}
+	edge, err := WriteHeights(root, terrain, &Edges{Now: moved, Was: ring})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !EdgeNormalsOnly(root, edge) {
+		t.Error("a tile whose east neighbour rose is not changed for its edge only")
+	}
+	if EdgeNormalsOnly(root, root) {
+		t.Error("an unchanged tile reads as changed for its edge")
+	}
+	raised, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raised.Chunks[15].Heights[40] += 5
+	own, err := WriteHeights(root, raised, &Edges{Now: ring, Was: ring})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if EdgeNormalsOnly(root, own) {
+		t.Error("a tile whose own heights rose reads as changed for its edge only")
+	}
+	// An inner chunk's normals alone: not the edge's.
+	inner := append([]byte(nil), root...)
+	starts, err := mcnkStarts(inner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := starts[5*ChunksPerTile+5]
+	mcnr, _ := subChunk(inner, h, len(inner), u32(inner, h+0x18), "MCNR")
+	inner[mcnr.start] ^= 1
+	if EdgeNormalsOnly(root, inner) {
+		t.Error("an inner chunk's normals read as the edge's")
+	}
+}
