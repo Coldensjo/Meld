@@ -708,6 +708,34 @@ writes `quest_template` and the four relation tables only on Save, after Go's ch
 - Trap: quests are keyed by (entry, patch); the editor writes the newest patch row it read, and a
   new quest is patch 0, which every server patch loads.
 
+## Quest editor: Export and Import (#940)
+
+Probe: `quest-scripts` (about 7 s; nothing written: the dialogs and the writes are stand-ins).
+
+Checks: Export… writes the quest's `quest_template` rows and its givers (the four relation tables,
+keyed by the quest) to an SQL script, Export chain… every quest of its chain; Import… plans a script,
+lists what the quest editor's rules refuse, and writes it on confirmation, replacing the givers.
+- Unit: `TestQuestScriptRoundTrip` (rows titled from `Title`; the givers' DELETE and rows read back;
+  givers of a quest the script has no row of left out; a `PrevQuestId` naming a quest of the script
+  passes; a missing reward item, a reward with no count and an empty title refused, a line each; each
+  reference kind looked up once). With `VMANGOS_DIR` and the client, `TestQuestScriptsLive` exports
+  Northshire's 783, 7, 15 and 21 and plans them back (every row exists, nothing refused, each list's
+  rows as many as it has); it writes nothing.
+- The probe, on Kobold Camp Cleanup (7): Export… hands `[7]` and the title; Export chain… hands the
+  Chain tab's quests (18, 783 and 15 among them) as `Kobold Camp Cleanup chain`; Import…'s bar from a
+  stand-in plan names the rows, the givers it replaces (lists empty before and after left unsaid), a
+  missing creature, an unready giver, a skipped statement and an unknown column; a refused plan
+  disables Import; Cancel drops it; a confirmed import notes the quest and reads its givers again.
+- A write, by a scratch Go test (not kept; done on 2026-10-31): `CreateQuest(dir, 7, 'Probe Errand')`
+  and `CreateQuest(dir, 15, 'Probe Return')`, the second's `PrevQuestId` set to the first and the
+  first given Marshal McBride (197) as starter and ender (`SaveQuestGivers`), `ExportQuests`, the
+  first renamed in the script, its ender dropped and Deputy Willem (823) added as the second's ender,
+  `PlanQuestImport` and `ImportQuests`: the title and the givers came back so; then the same script
+  with a reward item 16000000 was refused naming it, and wrote nothing. Clean up with `DeleteQuest`
+  on both (it takes their relation rows too); check `MAX(entry)` of `quest_template` is back.
+- Trap: on the stock database 11 of 4729 quest rows break a rule (emote 9 the client lacks, Method 3),
+  so exporting one of those and importing it is refused until the script is fixed.
+
 
 ## Quest chain graph (#948)
 

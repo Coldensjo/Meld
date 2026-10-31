@@ -18,11 +18,11 @@ var objectScript = scriptTable{name: objectTable, key: "patch", entryMax: 1<<24 
 
 // objectLootList is the chests' contents, keyed by the loot list a template's data1 names.
 var objectLootList = scriptList{table: lootTable, entry: "entry", item: "item", order: "`mincountOrRef` < 0, `groupid`, `item`",
-	what: "contents", thing: "loot list", ref: "mincountOrRef"}
+	what: "contents", thing: "loot list", names: "item", ref: "mincountOrRef"}
 
 var objectLists = []scriptList{
-	{table: "gameobject_questrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it starts", thing: "object"},
-	{table: "gameobject_involvedrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it ends", thing: "object"},
+	{table: "gameobject_questrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it starts", thing: "object", names: "quest"},
+	{table: "gameobject_involvedrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it ends", thing: "object", names: "quest"},
 	objectLootList,
 }
 
@@ -207,8 +207,8 @@ func PlanObjectImport(serverRoot, script string) (ObjectImport, error) {
 	for _, k := range plan.template.keys {
 		out.Objects = append(out.Objects, ObjectImportRow{Entry: k.entry, Patch: k.key, Name: k.name, Exists: have[rowKey(k.entry, k.key)]})
 	}
-	var items, quests []int
-	if out.Lists, out.Others, items, quests, err = listsImport(db, plan.lists); err != nil {
+	var named map[string][]int
+	if out.Lists, out.Others, named, err = listsImport(db, plan.lists); err != nil {
 		return ObjectImport{}, err
 	}
 	var replaced []int
@@ -226,10 +226,10 @@ func PlanObjectImport(serverRoot, script string) (ObjectImport, error) {
 			out.Shared = append(out.Shared, LootShare{Loot: f.num(0), Entry: f.num(1), Name: f[2], Spawns: f.num(3)})
 		}
 	}
-	if out.MissingItems, err = lacking(db, itemTable, items); err != nil {
+	if out.MissingItems, err = lacking(db, itemTable, named["item"]); err != nil {
 		return ObjectImport{}, err
 	}
-	if out.MissingQuests, err = lacking(db, questTable, quests); err != nil {
+	if out.MissingQuests, err = lacking(db, questTable, named["quest"]); err != nil {
 		return ObjectImport{}, err
 	}
 	return out, nil

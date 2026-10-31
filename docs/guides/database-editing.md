@@ -145,10 +145,10 @@ Missing or broken metadata can preserve numeric IDs; that fallback does not prov
 on the destination. Nested effect/sound IDs assume compatible stock client data. Plan asset
 transfer separately rather than treating the SQL script as a portable client patch.
 
-## Import and export creature, game object, item or spell SQL safely
+## Import and export creature, game object, item, quest or spell SQL safely
 
-These editors exchange their target creature/game object/item/spell tables, not arbitrary database
-migration scripts. The creature editor's script also carries each creature's shop (`npc_vendor`) and the
+These editors exchange their target creature/game object/item/quest/spell tables, not arbitrary
+database migration scripts. The creature editor's script also carries each creature's shop (`npc_vendor`) and the
 quests it starts and ends (`creature_questrelation`, `creature_involvedrelation`): each list is
 cleared and written again, so importing **replaces** those lists rather than merging them, and a
 script without a creature's list leaves its list alone. Its spell list, equipment, loot, gossip
@@ -164,12 +164,23 @@ preview names the destination's other objects that hold it. To keep them out, gi
 loot list of its own first (Contents › its own copy) and export again. Its text (`page_text`), the
 reference loot its contents name and its display's sounds are not exported.
 
+The quest editor's script carries each quest's givers the same way: the creatures and game objects
+that start and end it (`creature_questrelation`, `gameobject_questrelation` and the two
+`*_involvedrelation` tables), keyed by the quest. Export chain… writes every quest of the open
+quest's chain (the Chain tab's) to one script. Each quest row is checked against the rules the
+quest's Save checks, and what it names (items, creatures, spells, other quests, the client's zones
+and factions) must exist on the destination or come in the same script; the preview lists every
+problem, and Import stays off until the script is fixed. Import the items and creatures a quest
+names first. The preview also names givers the destination lacks, or has without the Quest giver
+flag (a game object not of the quest giver type): the server leaves those out. Start and end
+scripts, event links and translations are not exported.
+
 1. Save any edits you want to export. Export reads saved database rows, **not unsaved form values**.
    An entry export includes its patch/build variants; it is not restricted to the row on screen.
    Item SQL does not bundle item-display or icon assets.
 2. Back up the destination database and inspect the script. Import accepts INSERT and REPLACE
-   statements for the editor's target table (and, for creatures and game objects, the lists above,
-   with their `DELETE ... WHERE entry = n` lines). Other tables and DELETE/UPDATE statements are skipped;
+   statements for the editor's target table (and, for creatures, game objects and quests, the lists
+   above, with their `DELETE ... WHERE entry = n` lines). Other tables and DELETE/UPDATE statements are skipped;
    a full dump will not be replayed as a general SQL script.
 3. Prefer explicit column names. Without them, values are interpreted in the **destination's**
    schema order, not necessarily the exporter's order. Unknown columns are dropped and reported;

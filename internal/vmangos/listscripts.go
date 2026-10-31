@@ -23,6 +23,9 @@ type scriptList struct {
 	order string
 	// what names the rows in messages; thing what the ID is ("creature", "loot list").
 	what, thing string
+	// names is what the item column names, for the plan's lookup of what the server lacks: "item",
+	// "quest", "creature" or "object".
+	names string
 	// ref, when set, is a column whose negative value makes the row a reference rather than an item
 	// (a loot row's mincountOrRef), so its item column names no item.
 	ref string
@@ -272,9 +275,10 @@ type ListImport struct {
 }
 
 // listsImport says what the plans would replace, how many of their rows and DELETEs are left out,
-// and the items and quests their rows name (a reference's item column not counted), for the import
-// plan.
-func listsImport(db worldDB, plans []listPlan) (out []ListImport, others int, items, quests []int, err error) {
+// and what their rows name, by the kind each list's item column names (a reference's item column not
+// counted), for the import plan.
+func listsImport(db worldDB, plans []listPlan) (out []ListImport, others int, named map[string][]int, err error) {
+	named = map[string][]int{}
 	for _, lp := range plans {
 		others += lp.others
 		if len(lp.replaced) == 0 {
@@ -282,7 +286,7 @@ func listsImport(db worldDB, plans []listPlan) (out []ListImport, others int, it
 		}
 		raw, err := runSQL(db, fmt.Sprintf("SELECT `%s`, COUNT(*) FROM `%s` WHERE `%s` IN (%s) GROUP BY `%s`", lp.list.entry, lp.list.table, lp.list.entry, idList(lp.replaced), lp.list.entry))
 		if err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, err
 		}
 		had := map[int]int{}
 		for _, f := range batchRows(raw, 2) {
@@ -298,17 +302,13 @@ func listsImport(db worldDB, plans []listPlan) (out []ListImport, others int, it
 				}
 			}
 			n, _ := strconv.Atoi(r.values[lp.list.item])
-			if lp.list.item == "item" {
-				items = append(items, n)
-			} else {
-				quests = append(quests, n)
-			}
+			named[lp.list.names] = append(named[lp.list.names], n)
 		}
 		for _, e := range lp.replaced {
 			out = append(out, ListImport{Entry: e, Of: lp.list.thing, Table: lp.list.table, What: lp.list.what, Rows: count[e], Had: had[e]})
 		}
 	}
-	return out, others, items, quests, nil
+	return out, others, named, nil
 }
 
 // lacking are the ids table has no row of, each once, in increasing order.

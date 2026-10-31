@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
-	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../lib/wails/App'
+	import { CreateQuest, DeleteQuest, ExportQuests, ImportQuests, OpenQuestsDialog, PlanQuestDelete, PlanQuestImport, ReadQuest, ReadQuestChain, SaveQuest, SaveQuestGivers, SearchQuests } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
+	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
 	import { questTabs, tabOfColumn } from '../lib/world/questFields'
 	import { forgetName } from '../lib/wow/refNames'
 	import EditorFrame from './EditorFrame.svelte'
@@ -21,6 +22,8 @@
 	// against the server's rules first) and then the givers; nothing is written before. The server
 	// reads quests when it starts, and Go has a running one reload them after each save (#961, app_reload.go).
 	// The Chain tab (#948, QuestChainView) draws the quest's chain as saved, and opens a quest of it here.
+	// Export…, Export chain… and Import… (#940) write and read an SQL script of quest_template rows with
+	// their givers (internal/vmangos/questscripts.go); Go holds an imported quest to Save's rules.
 
 	// In the desktop app it opens as its own OS window (#914, components/toolwin/EditorToolWindow.svelte),
 	// beside the creature or object editor whose Quests tab opened it, which runs it whole on that page's
@@ -37,6 +40,9 @@
 	/** What deleting the open quest removes, while its confirmation is up. */
 	let plan = $state<vmangos.QuestDeletePlan | null>(null)
 	let deleting = $state(false)
+	/** An import being confirmed: the script's path and what it writes. */
+	let importPlan = $state<{ path: string; plan: vmangos.QuestImport } | null>(null)
+	let importing = $state(false)
 
 	const ed = new TemplateEditor<{ entry: number }, vmangos.TemplateRecord>({
 		id: (t) => String(t.entry),
@@ -46,6 +52,7 @@
 		dirty: () => giversDirty,
 		onopen: () => {
 			plan = null
+			importPlan = null
 			giversDirty = false
 		},
 		onrevert: () => giversTab?.revert(),
@@ -153,6 +160,69 @@
 		}
 	}
 
+	// Export and import (#940): SQL scripts of quest_template rows with the creatures and game objects that
+	// start and end each quest (internal/vmangos/questscripts.go).
+	function exportQuest() {
+		if (record) void exportRow(ed, { kind: 'quest', entry: record.entry, name: saved.Title ?? '', unsaved, write: ExportQuests })
+	}
+
+	/** Writes every quest of the open quest's chain (the Chain tab's, as saved) to one script. */
+	async function exportChain() {
+		if (!record) return
+		const entry = record.entry
+		const title = saved.Title || `quest ${entry}`
+		ed.error = ''
+		try {
+			const chain = await ReadQuestChain(entry)
+			const entries = (chain.quests ?? []).map((q) => q.entry)
+			if (!entries.includes(entry)) entries.unshift(entry)
+			const file = `${title} chain`.replace(/[^\w\- ]+/g, '').trim() || `quest-${entry} chain`
+			const path = await ExportQuests(entries, file)
+			if (!path) return
+			const n = entries.length
+			ed.note = `Exported the chain of ${title} (${n} ${n === 1 ? 'quest' : 'quests'}${chain.capped ? ', the most the Chain tab reads' : ''}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
+			setStatus(ed.note, 8000)
+		} catch (err) {
+			ed.error = String(err)
+		}
+	}
+
+	/** The lists the import replaces that hold or held a giver (an empty list cleared again is left unsaid). */
+	const importLists = $derived((importPlan?.plan.lists ?? []).filter((l) => l.rows || l.had))
+
+	function askImport() {
+		planImport(ed, { pick: OpenQuestsDialog, plan: PlanQuestImport, set: (p) => (importPlan = p) })
+	}
+
+	function confirmImport() {
+		if (!importPlan) return
+		const { path } = importPlan
+		void runImport(ed, {
+			run: () => ImportQuests(path),
+			clear: () => (importPlan = null),
+			forget: (entries) => questsChanged(...entries),
+			open: target && target.entry > 0 ? target.entry : undefined,
+			openEntry: (entry) => {
+				// The open quest's givers are read again: the import replaced them.
+				if (entry === target?.entry) giversTab?.revert()
+				ui.questEditor = { entry, giver: entry === target?.entry ? target.giver : undefined }
+			},
+			note: (entries) => `Imported ${entries.length} ${entries.length === 1 ? 'quest' : 'quests'} into the world database. ${SERVER_RELOADS}`,
+			status: 10000,
+			busy: (b) => (importing = b),
+		})
+	}
+
+	/** A list the import replaces, as the plan bar says it. */
+	function listText(l: vmangos.ListImport): string {
+		return `quest ${l.entry}: ${l.what} (${l.rows}${l.had ? `, replacing ${l.had}` : ''})`
+	}
+
+	/** The first `n` of `items` joined, with how many more. */
+	function some(items: string[], n = 12): string {
+		return items.slice(0, n).join('; ') + (items.length > n ? `; and ${items.length - n} more` : '')
+	}
+
 	// Find: quests by title or entry.
 	let query = $state('')
 	const search = createSearch((q: string) => SearchQuests(q).then((r) => r ?? []), { empty: [] as vmangos.QuestRef[], onError: (err) => (ed.error = String(err)) })
@@ -226,7 +296,10 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
+			<button onclick={askImport} title="Read quests, with their givers, from an SQL script into the world database">Import…</button>
 			{#if record}
+				<button onclick={exportQuest} title="Write this quest, with its givers, to an SQL script">Export…</button>
+				<button onclick={exportChain} title="Write every quest of this quest's chain (the Chain tab's), with their givers, to one SQL script">Export chain…</button>
 				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
 				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
 					{ed.saving ? 'Saving…' : unsaved ? `Save quest (${changeCount + (giversDirty ? 1 : 0)})` : 'Saved'}
@@ -252,6 +325,39 @@
 					</div>
 					<button onclick={() => (plan = null)}>Keep it</button>
 					<button class="danger" disabled={deleting} onclick={confirmDelete}>{deleting ? 'Deleting…' : 'Delete quest'}</button>
+				</div>
+			{/if}
+			{#if importPlan}
+				{@const p = importPlan.plan}
+				{@const rows = p.quests}
+				{@const refused = p.refused ?? []}
+				<div class="bar warn plan">
+					<div class="what">
+						<strong>Import {rows.length} quest {rows.length === 1 ? 'row' : 'rows'} into the world database?</strong>
+						<span>{some(rows.map((q) => `${q.title || 'quest'} (${q.entry}${q.patch ? `, patch ${q.patch}` : ''}${q.exists ? ', replaces it' : ', new'})`))}.</span>
+						{#if importLists.length}
+							<span>Replaces the givers: {some(importLists.map(listText))}.</span>
+						{:else if p.lists?.length}
+							<span>The script gives the quests no givers: any they have here are cleared.</span>
+						{:else}
+							<span>The script carries no givers: the quests keep theirs.</span>
+						{/if}
+						{#if refused.length}<span class="refused">The server's rules refuse it, so nothing can be imported until the script is fixed: {some(refused, 8)}.</span>{/if}
+						{#if p.missingCreatures?.length}<span>Creatures this world database lacks, which the server leaves out as givers: {p.missingCreatures.join(', ')}. Import them first (the creature editor).</span>{/if}
+						{#if p.missingObjects?.length}<span>Game objects this world database lacks, which the server leaves out as givers: {p.missingObjects.join(', ')}. Import them first (the game object editor).</span>{/if}
+						{#if p.unready?.length}<span
+								>Givers here that can't give quests, which the server leaves out too (a creature needs the Quest giver flag, an object the quest giver type): {some(
+									p.unready.map((g) => `${g.name || g.kind} (${g.kind} ${g.id})`),
+									8,
+								)}.</span
+							>{/if}
+						{#if p.others}<span>{p.others} giver {p.others === 1 ? 'statement or row is' : 'statements and rows are'} of quests the script has no quest_template row of, and left out.</span>{/if}
+						{#if p.skipped}<span>{p.skipped} other {p.skipped === 1 ? 'statement is' : 'statements are'} left out: only quest_template rows and their givers are imported.</span>{/if}
+						{#if p.unknown?.length}<span>Columns this server's tables lack are left out: {p.unknown.join(', ')}.</span>{/if}
+						<span>A replaced quest or giver list can't be brought back, unless you exported it first.</span>
+					</div>
+					<button onclick={() => (importPlan = null)}>Cancel</button>
+					<button class="active" disabled={importing || refused.length > 0} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
 				</div>
 			{/if}
 		{/snippet}
@@ -331,7 +437,11 @@
 {/if}
 
 <style>
-	.bar.delete .what {
+	.bar.plan .refused {
+		color: var(--danger-text);
+	}
+	.bar.delete .what,
+	.bar.plan .what {
 		flex: 1;
 		display: flex;
 		flex-direction: column;

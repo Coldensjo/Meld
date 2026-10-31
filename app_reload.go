@@ -36,6 +36,8 @@ func worldReloads(save string, entries ...int) (cmds []string, restart string) {
 		return []string{"gameobject_questrelation", "gameobject_involvedrelation"}, ""
 	case "SaveQuest", "CreateQuest":
 		return []string{"quest_template"}, ""
+	case "ImportQuests":
+		return []string{"quest_template", "creature_questrelation", "creature_involvedrelation", "gameobject_questrelation", "gameobject_involvedrelation"}, ""
 	case "DeleteQuest":
 		// The relations go with the quest; the server marks a quest it no longer reads inactive.
 		return []string{"quest_template", "creature_questrelation", "creature_involvedrelation", "gameobject_questrelation", "gameobject_involvedrelation"}, ""

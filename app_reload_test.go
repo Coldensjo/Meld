@@ -23,6 +23,7 @@ func TestWorldReloads(t *testing.T) {
 		{"SaveObject", []int{9}, "gameobject_template 9", false},
 		{"ImportObjects", []int{9, 10}, "gameobject_template gameobject_loot_template gameobject_questrelation gameobject_involvedrelation", false},
 		{"SaveQuest", nil, "quest_template", false},
+		{"ImportQuests", []int{3, 4}, "quest_template creature_questrelation creature_involvedrelation gameobject_questrelation gameobject_involvedrelation", false},
 		{"SaveQuestGivers", nil, "creature_questrelation creature_involvedrelation gameobject_questrelation gameobject_involvedrelation", false},
 		{"SaveQuestGivers", []int{3, 4}, "creature_questrelation creature_involvedrelation gameobject_questrelation gameobject_involvedrelation creature_template", false},
 		{"SaveItem", nil, "item_template", false},

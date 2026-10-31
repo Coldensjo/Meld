@@ -732,7 +732,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `chainSteps`, dashed for negative links and breadcrumbs) and the problems with the same rules as
   Check Map's quest checks (#952), and lays it out with `lib/ui/layered.ts` (longest-path layers,
   loops set aside); `components/LayeredGraph.svelte` draws any such graph (boxes as a snippet, SVG
-  arrows), for the node editor (#30) too.
+  arrows), for the node editor (#30) too. Export…, Export chain… and Import… (#940,
+  `internal/vmangos/questscripts.go`) write and read an SQL script as the creature and object editors'
+  do (`listscripts.go`): the `quest_template` rows and the four relation tables, keyed by the quest
+  (`quest`, the giver in `id`), each a DELETE and its rows. Export chain… exports every quest
+  `ReadQuestChain` finds (so its cap too). The import holds every quest row to `SaveQuest`'s rules
+  with all its columns counted as changed (`questRefusals`: each reference kind looked up once, the
+  script's own quests counting as there) and refuses the whole script on any problem; the plan lists
+  them (`QuestImport.Refused`) and the bar disables Import. On the stock database 11 of 4729 rows
+  break a rule (emote 9, Method 3), so such a quest needs its script fixed before it moves. The plan
+  names givers the server lacks and givers that can't give quests (`Unready`); their rows are written
+  all the same. Start and end scripts, event links and translations are not in the script.
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
   (`SearchItemsSorted`, ordered in SQL before its limit of 100 by name, entry, quality, item level

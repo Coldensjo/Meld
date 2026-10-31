@@ -23,6 +23,9 @@ type scriptTable struct {
 	keyMax   int
 	// keyDefault is the key of a row the script gives none (the table's default).
 	keyDefault int
+	// title is the column that names a row, for the script's comments and the import plan ("" for
+	// "name"; quest_template's is "Title").
+	title string
 	// thing names a row's subject in messages ("item"), things in the script's header ("Items").
 	thing, things string
 	// editor is where the script loads, for its header.
@@ -34,6 +37,14 @@ var itemScript = scriptTable{name: itemTable, key: "patch", entryMax: 1<<24 - 1,
 
 var spellScript = scriptTable{name: spellTable, key: "build", entryMax: math.MaxUint16, keyMax: math.MaxUint16, keyDefault: spellBuild,
 	thing: "spell", things: "Spells", editor: "Meld's spell editor (Tools > Spells)"}
+
+// titleColumn is the column that names a row.
+func (t scriptTable) titleColumn() string {
+	if t.title == "" {
+		return "name"
+	}
+	return t.title
+}
 
 // keyColumns are the table's key columns as TemplateColumns, for writing and checking them.
 func (t scriptTable) keyColumns() []TemplateColumn {
@@ -92,7 +103,7 @@ func templateScript(t scriptTable, cols []TemplateColumn, rows []batchRow, extra
 		vals := make([]string, len(cols))
 		name := ""
 		for i, c := range cols {
-			if c.Name == "name" {
+			if c.Name == t.titleColumn() {
 				name = f[i]
 			}
 			vals[i] = scriptValue(c, f[i])
@@ -234,7 +245,7 @@ func planScript(t scriptTable, script string, order []string) (scriptPlan, error
 			}
 			r.values[t.key] = strconv.Itoa(key)
 			plan.rows = append(plan.rows, r)
-			plan.keys = append(plan.keys, scriptRow{entry: entry, key: key, name: r.values["name"]})
+			plan.keys = append(plan.keys, scriptRow{entry: entry, key: key, name: r.values[t.titleColumn()]})
 		}
 	}
 	if len(plan.rows) == 0 {

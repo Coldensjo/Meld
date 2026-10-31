@@ -460,6 +460,14 @@ export function ExportObjects(entries: number[] | null, suggested: string): $Can
 }
 
 /**
+ * ExportQuests asks where to save an SQL script of quests and writes their quest_template rows and
+ * givers there (#940). Returns the path, or "" if cancelled.
+ */
+export function ExportQuests(entries: number[] | null, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(3013053960, entries, suggested);
+}
+
+/**
  * ExportSounds saves the client's sound files at paths in dir, each under its own name, as stored.
  */
 export function ExportSounds(paths: string[] | null, dir: string): $CancellablePromise<$models.SoundsExported> {
@@ -609,6 +617,14 @@ export function ImportObjects(path: string): $CancellablePromise<number[] | null
  */
 export function ImportOtherAssets(paths: string[] | null, opts: wow$0.ImportOptions): $CancellablePromise<$models.AssetsImported> {
     return $Call.ByID(3220663819, paths, opts);
+}
+
+/**
+ * ImportQuests writes the quests of the SQL script at path, with their givers, into the world
+ * database and returns their entries.
+ */
+export function ImportQuests(path: string): $CancellablePromise<number[] | null> {
+    return $Call.ByID(1382644231, path);
 }
 
 /**
@@ -1111,6 +1127,13 @@ export function OpenProject(name: string, dir: string, client: string): $Cancell
 }
 
 /**
+ * OpenQuestsDialog asks for an SQL script of quests to import. Returns "" if cancelled.
+ */
+export function OpenQuestsDialog(): $CancellablePromise<string> {
+    return $Call.ByID(2039053870);
+}
+
+/**
  * OpenReferenceImageDialog asks for the reference image to lay over the map (View › Reference
  * Image, #184). Returns "" if cancelled.
  */
@@ -1200,6 +1223,14 @@ export function PlanObjectImport(path: string): $CancellablePromise<vmangos$0.Ob
  */
 export function PlanQuestDelete(entry: number): $CancellablePromise<vmangos$0.QuestDeletePlan> {
     return $Call.ByID(1792789599, entry);
+}
+
+/**
+ * PlanQuestImport says what importing the quests of the SQL script at path would write, and what of
+ * it the quest editor's rules refuse.
+ */
+export function PlanQuestImport(path: string): $CancellablePromise<vmangos$0.QuestImport> {
+    return $Call.ByID(2339814105, path);
 }
 
 /**

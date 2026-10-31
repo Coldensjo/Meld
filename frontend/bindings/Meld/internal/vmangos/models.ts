@@ -1818,6 +1818,61 @@ export interface QuestHolder {
 }
 
 /**
+ * QuestImport is what an SQL script of quests would write: its quest rows, the givers it replaces,
+ * and what of it is left out or refused.
+ */
+export interface QuestImport {
+    "quests": QuestImportRow[] | null;
+    "lists": ListImport[] | null;
+
+    /**
+     * Refused are the rules a quest row breaks, a line each ("quest 7 (patch 0): ..."): with any,
+     * importing writes nothing.
+     */
+    "refused": string[] | null;
+
+    /**
+     * Skipped is how many statements are neither quest_template rows nor the givers' rows and
+     * DELETEs, which importing leaves out.
+     */
+    "skipped": number;
+
+    /**
+     * Others counts the givers' rows and DELETEs of quests the script has no template row of, left out.
+     */
+    "others": number;
+
+    /**
+     * Unknown are columns the script names that this server's tables lack, left out.
+     */
+    "unknown": string[] | null;
+
+    /**
+     * MissingCreatures and MissingObjects are the givers the world database lacks: importing writes
+     * their rows, which the server leaves out.
+     */
+    "missingCreatures": number[] | null;
+    "missingObjects": number[] | null;
+
+    /**
+     * Unready are givers here that can't give quests (a creature without the Quest giver flag, a game
+     * object not of the quest giver type), which the server leaves out too.
+     */
+    "unready": UnreadyGiver[] | null;
+}
+
+/**
+ * QuestImportRow is one quest row of a script: its entry, patch and title, and whether the world
+ * database has that row already, which importing replaces.
+ */
+export interface QuestImportRow {
+    "entry": number;
+    "patch": number;
+    "title": string;
+    "exists": boolean;
+}
+
+/**
  * QuestLink is a quest that names the quest being deleted, and the columns it names it in.
  */
 export interface QuestLink {
@@ -2794,6 +2849,16 @@ export interface TriggerTeleport {
     "o": number;
     "level": number;
     "message": string;
+}
+
+/**
+ * UnreadyGiver is a creature or game object (Kind) that a script makes a quest giver but that can't
+ * give quests on this server.
+ */
+export interface UnreadyGiver {
+    "kind": string;
+    "id": number;
+    "name": string;
 }
 
 /**

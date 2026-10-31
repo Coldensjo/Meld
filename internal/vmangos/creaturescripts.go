@@ -15,9 +15,9 @@ var creatureScript = scriptTable{name: creatureTable, key: "patch", entryMax: 1<
 	thing: "creature", things: "Creatures", editor: "Meld's creature editor (Tools > Creatures)"}
 
 var creatureLists = []scriptList{
-	{table: "npc_vendor", entry: "entry", item: "item", order: "`slot`, `item`", what: "shop items", thing: "creature"},
-	{table: "creature_questrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it starts", thing: "creature"},
-	{table: "creature_involvedrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it ends", thing: "creature"},
+	{table: "npc_vendor", entry: "entry", item: "item", order: "`slot`, `item`", what: "shop items", thing: "creature", names: "item"},
+	{table: "creature_questrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it starts", thing: "creature", names: "quest"},
+	{table: "creature_involvedrelation", entry: "id", item: "quest", order: "`quest`", what: "quests it ends", thing: "creature", names: "quest"},
 }
 
 // creatureHeader is the comment the script's header gives after the template's.
@@ -125,14 +125,14 @@ func PlanCreatureImport(serverRoot, script string) (CreatureImport, error) {
 	for _, k := range plan.template.keys {
 		out.Creatures = append(out.Creatures, CreatureImportRow{Entry: k.entry, Patch: k.key, Name: k.name, Exists: have[rowKey(k.entry, k.key)]})
 	}
-	var items, quests []int
-	if out.Lists, out.Others, items, quests, err = listsImport(db, plan.lists); err != nil {
+	var named map[string][]int
+	if out.Lists, out.Others, named, err = listsImport(db, plan.lists); err != nil {
 		return CreatureImport{}, err
 	}
-	if out.MissingItems, err = lacking(db, itemTable, items); err != nil {
+	if out.MissingItems, err = lacking(db, itemTable, named["item"]); err != nil {
 		return CreatureImport{}, err
 	}
-	if out.MissingQuests, err = lacking(db, questTable, quests); err != nil {
+	if out.MissingQuests, err = lacking(db, questTable, named["quest"]); err != nil {
 		return CreatureImport{}, err
 	}
 	return out, nil

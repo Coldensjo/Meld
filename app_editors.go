@@ -481,6 +481,65 @@ func (a *App) DeleteQuest(entry int) (string, error) {
 	return sql, err
 }
 
+// ExportQuests asks where to save an SQL script of quests and writes their quest_template rows and
+// givers there (#940). Returns the path, or "" if cancelled.
+func (a *App) ExportQuests(entries []int, suggested string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	script, err := vmangos.ExportQuests(server, entries)
+	if err != nil {
+		return "", err
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Quests", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenQuestsDialog asks for an SQL script of quests to import. Returns "" if cancelled.
+func (a *App) OpenQuestsDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Quests", Filters: sqlFilters})
+}
+
+// PlanQuestImport says what importing the quests of the SQL script at path would write, and what of
+// it the quest editor's rules refuse.
+func (a *App) PlanQuestImport(path string) (vmangos.QuestImport, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return vmangos.QuestImport{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.QuestImport{}, err
+	}
+	return vmangos.PlanQuestImport(server, dataDir, string(b))
+}
+
+// ImportQuests writes the quests of the SQL script at path, with their givers, into the world
+// database and returns their entries.
+func (a *App) ImportQuests(path string) ([]int, error) {
+	server, dataDir, err := a.serverForWrite()
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := vmangos.ImportQuests(server, dataDir, string(b))
+	if err == nil {
+		for _, e := range entries {
+			a.stale.AddQuest(uint32(e))
+		}
+		a.forgetStale()
+		a.reloadWorld("ImportQuests")
+	}
+	return entries, err
+}
+
 // ReadQuestGivers reads the creatures and game objects that start and end a quest.
 func (a *App) ReadQuestGivers(entry int) (vmangos.QuestGivers, error) {
 	server, _, err := a.serverAndData()
