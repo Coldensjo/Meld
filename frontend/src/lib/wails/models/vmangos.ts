@@ -128,6 +128,7 @@ export type RegionShadows = V2<M.RegionShadows>
 export type RegionView = V2<M.RegionView>
 export type Result = V2<M.Result>
 export type RowChange = V2<M.RowChange>
+export type RowFault = V2<M.RowFault>
 export type ScriptCommand = V2<M.ScriptCommand>
 export type SkillChoice = V2<M.SkillChoice>
 export type SoundEntryInfo = V2<M.SoundEntryInfo>

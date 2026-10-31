@@ -6,7 +6,7 @@ import { checkDuplicateModels, checkModelHeights, type CheckModel } from '../src
 import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type IdSpawn, type SpawnProbes } from '../src/lib/check/spawns.ts'
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones } from '../src/lib/check/terrainChecks.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
-import { CREATURE_REFS, OBJECT_REFS, checkWorldData, type WorldTemplate } from '../src/lib/check/worldData.ts'
+import { CREATURE_REFS, OBJECT_REFS, checkWorldData, type RowFault, type WorldTemplate } from '../src/lib/check/worldData.ts'
 import type { QuestReport } from '../src/lib/check/quests.ts'
 
 const noQuests: QuestReport = { quests: [], linked: [], spawns: [], summoned: [], items: [], missingTriggers: [], error: '' }
@@ -231,6 +231,63 @@ test('world data: the id columns come from the field lists of the editors', () =
 	assert.equal(obj(0, 'data1'), 'lock')
 	assert.equal(obj(10, 'data12'), 'object')
 	assert.equal(obj(0, 'data2'), undefined)
+	// A goober's gossip menu is data19 (#975), and any object's faction is a faction template.
+	assert.equal(obj(10, 'data19'), 'gossip')
+	assert.equal(obj(-1, 'faction'), 'faction template')
+	assert.equal(kinds.get('faction'), 'faction template')
+})
+
+test('world data: the rows behind a menu or loot list, and a faction template the server lacks (#975)', () => {
+	const spawns = [
+		{ key: 'c:1', kind: 'creature', entry: 1, x: 10, z: 0 },
+		{ key: 'c:2', kind: 'creature', entry: 2, x: 20, z: 0 },
+		{ key: 'o:9', kind: 'object', entry: 9, x: 30, z: 0 },
+	]
+	const fault = (kind: string, root: number, what: string, over: Partial<RowFault> = {}): RowFault => ({ kind, root, what, in: root, option: -1, text: 0, id: 0, ...over })
+	const found = checkWorldData(
+		spawns,
+		{
+			creatures: [
+				tmpl(1, { name: 'Innkeeper', npcFlags: 1, values: { gossip_menu_id: 900, loot_id: 33, faction: 9999 } }),
+				// The same menu without the gossip flag: a dropped row is only a warning.
+				tmpl(2, { values: { gossip_menu_id: 900 } }),
+			],
+			// A goober's menu (data19) and a door's faction, any type's.
+			objects: [tmpl(9, { name: 'Shrine', type: 10, values: { data19: 950, faction: 35 } })],
+			missing: { gossip: [], 'creature loot': [], 'faction template': [9999] },
+			tables: { 'faction template': 'faction_template' },
+			unchecked: [],
+			quests: noQuests,
+			links: noLinks,
+			faults: [
+				fault('gossip', 900, 'text', { id: 5000 }),
+				fault('gossip', 900, 'broadcast', { in: 901, text: 5002, id: 9 }),
+				fault('gossip', 900, 'option menu', { option: 1, id: 300 }),
+				fault('gossip', 900, 'option script', { option: 2, id: 88 }),
+				fault('creature loot', 33, 'reference', { in: 22, id: 24 }),
+				fault('gossip', 950, 'menu script', { text: 5003, id: 77 }),
+			],
+		},
+		null,
+	)
+	const of = (msg: string) => found.filter((f) => f.message.includes(msg))
+	const text = of('Innkeeper (creature 1): Gossip menu 900 shows npc_text 5000')
+	assert.equal(text.length, 1)
+	assert.equal(text[0].severity, 'error')
+	assert.equal(text[0].check, 'Rows behind the ids')
+	assert.deepEqual(text[0].target, { kind: 'template', key: 'c:1', template: 'creature', entry: 1, field: 'gossip_menu_id' })
+	assert.equal(of("Gossip menu 900's menu 901 shows npc_text 5002, whose broadcast text 9")[0]?.severity, 'warning')
+	assert.equal(of('option 1 of Gossip menu 900 opens menu 300')[0]?.severity, 'warning')
+	assert.equal(of('Innkeeper (creature 1): option 2 of Gossip menu 900 runs gossip script 88')[0]?.severity, 'error')
+	assert.equal(of('T2 (creature 2): Gossip menu 900 shows npc_text 5000')[0]?.severity, 'warning')
+	assert.equal(of("Loot 33's reference list 22 refers to reference loot 24")[0]?.severity, 'warning')
+	assert.equal(of('Shrine (object 9): Gossip menu 950 runs gossip script 77')[0]?.severity, 'error')
+	const faction = of('Innkeeper (creature 1): Faction 9999 has no faction_template row')
+	assert.equal(faction[0]?.severity, 'error')
+	assert.equal(of('Shrine (object 9): Faction').length, 0)
+	// Creature 1's menu (4) and loot list (1), creature 2's menu (4) and the shrine's menu (1), then creature 1's faction.
+	assert.equal(found.filter((f) => f.check === 'Rows behind the ids').length, 5 + 4 + 1)
+	assert.equal(found.length, 11)
 })
 
 test('world data: a missing row is an error where the game needs it, and points at the nearest spawn', () => {
@@ -263,6 +320,7 @@ test('world data: a missing row is an error where the game needs it, and points 
 			unchecked: [],
 			quests: noQuests,
 			links: noLinks,
+			faults: [],
 		},
 		{ x: 0, z: 0 },
 	)
@@ -291,7 +349,7 @@ test('world data: a missing row is an error where the game needs it, and points 
 })
 
 test('world data: a template without a spawn on the map, and an unchecked kind', () => {
-	const found = checkWorldData([], { creatures: [tmpl(1, { npcFlags: 1, values: { gossip_menu_id: 900 } })], objects: [], missing: { gossip: [900] }, tables: {}, unchecked: ['lock'], quests: noQuests, links: noLinks }, null)
+	const found = checkWorldData([], { creatures: [tmpl(1, { npcFlags: 1, values: { gossip_menu_id: 900 } })], objects: [], missing: { gossip: [900] }, tables: {}, unchecked: ['lock'], quests: noQuests, links: noLinks, faults: [] }, null)
 	assert.equal(found.length, 1)
 	assert.equal(found[0].check, 'World data')
 	assert.match(found[0].message, /Lock\.dbc/)

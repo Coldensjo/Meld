@@ -68,6 +68,8 @@ type WorldDataReport struct {
 	Quests QuestReport `json:"quests"`
 	// Links is the open map's flight stops and teleports (#953), when asked.
 	Links LinkReport `json:"links"`
+	// Faults is the broken links behind the set gossip menus and loot lists (#975).
+	Faults []RowFault `json:"faults"`
 }
 
 // refTargets are the tables (as `table`.`column`) that hold each kind's ids. An event is either a
@@ -90,6 +92,9 @@ var refTargets = map[string][]string{
 	"object":          {"gameobject_template.entry"},
 	"quest":           {"quest_template.entry"},
 	"spell":           {"spell_template.entry"},
+	// A faction template is the server's faction_template, which it reads instead of the client's
+	// FactionTemplate.dbc (ObjectMgr::LoadFactions) (#975).
+	"faction template": {"faction_template.id"},
 }
 
 // lockKind is the kind checked against the client's Lock.dbc rather than a table.
@@ -163,7 +168,7 @@ func objectRowsSQL(entries []int, cols []string) string {
 }
 
 // setIDs is the set id columns of a row (fields from `from` on, in cols' order) that refs name for
-// an object of type typ (any type when typ < 0).
+// an object of type typ (any type when typ < 0; a ref of type < 0 is any object's, such as faction).
 func setIDs(f batchRow, from int, cols []string, refs []RefColumn, typ int) map[string]int {
 	at := map[string]int{}
 	for i, c := range cols {
@@ -171,7 +176,7 @@ func setIDs(f batchRow, from int, cols []string, refs []RefColumn, typ int) map[
 	}
 	out := map[string]int{}
 	for _, r := range refs {
-		if typ >= 0 && r.Type != typ {
+		if typ >= 0 && r.Type >= 0 && r.Type != typ {
 			continue
 		}
 		if v := f.num(at[r.Col]); v > 0 {
@@ -238,7 +243,7 @@ func existingSQL(kind string, ids []int) string {
 // CheckWorldData reads the query's templates and tells which of the rows their id columns name are
 // missing. dataDir is the client's Data folder, for the locks ("" leaves them unchecked).
 func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataReport, error) {
-	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}, Quests: emptyQuestReport(), Links: emptyLinkReport()}
+	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}, Quests: emptyQuestReport(), Links: emptyLinkReport(), Faults: []RowFault{}}
 	db, err := openWorld(serverRoot)
 	if err != nil {
 		return r, err
@@ -333,7 +338,7 @@ func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataRepo
 	}{{r.Creatures, cRefs}, {r.Objects, oRefs}} {
 		for _, t := range set.list {
 			for _, ref := range set.refs {
-				if v, ok := t.Values[ref.Col]; ok && (t.Type < 0 || ref.Type == t.Type) {
+				if v, ok := t.Values[ref.Col]; ok && (t.Type < 0 || ref.Type < 0 || ref.Type == t.Type) {
 					note(ref.Kind, v)
 				}
 			}
@@ -387,6 +392,9 @@ func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataRepo
 		if v == nil {
 			r.Missing[k] = []int{}
 		}
+	}
+	if r.Faults, err = rowFaults(read, asked); err != nil {
+		return r, err
 	}
 
 	// The quests' own checks (#952), over the quests that have a row. A failure there leaves the

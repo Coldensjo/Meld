@@ -55,6 +55,8 @@ const DATA_NAMES: Record<number, string[]> = {
 		'Close text',
 		'?Needs line of sight',
 		'?Usable mounted',
+		'?Floating tooltip',
+		'Gossip menu',
 	],
 	11: ['Pause ms', '?Starts open', 'Closes again after ms'],
 	12: ['Lock', 'Radius', 'Least damage', 'Most damage', 'Damage school', 'Closes again after ms', 'Open text', 'Close text'],

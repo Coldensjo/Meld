@@ -353,10 +353,21 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
 - World data (#951, `lib/check/worldData.ts`, Go `internal/vmangos/worlddata.go` behind the
   `CheckWorldData` binding): the id columns of the templates the map's spawns use, taken from the
   editors' field lists (every field with a picker `ref`; Go checks the kinds it has a table for, in
-  `refTargets`, and the locks against the client's Lock.dbc). `bun run probe check-map-world` plants
+  `refTargets`, and the locks against the client's Lock.dbc; a faction template against the world
+  database's `faction_template`, which the server reads instead of FactionTemplate.dbc). The rows
+  behind the ids (#975, Go `internal/vmangos/worlddatarows.go`, the report's `faults`, findings by
+  `faultFinding`): the gossip menus' text rows, npc_texts, broadcast texts and options (one recursive
+  query over every menu the templates' menus lead to through their gossip options, `option_id` 1) and
+  the loot lists' references (followed through reference lists). The vanilla database has none of
+  these faults, so the unit tests cover them on synthetic rows; to try the SQL on a real server
+  without touching its tables, shadow them in one mariadb session: `CREATE TEMPORARY TABLE z LIKE
+  mangos.gossip_menu; ALTER TABLE z RENAME TO gossip_menu;` (a temporary table can't be made `LIKE`
+  its own name), insert the broken rows, then run `gossipFaultsSQL`'s query. The world tables are
+  MyISAM, so a transaction would not roll back. `bun run probe check-map-world` plants
   the Pissed Vendor (1857, a vendor with no rows: Roles without rows), a Food Crate (3701, loot 2597
-  gone: an error) and Innkeeper Farley (295, clean), and clicks the vendor's Edit, which opens the
-  creature editor on its Vendor list field (`data-col` in `TemplateFields`, `lib/ui/focusField.ts`).
+  gone: an error) and Innkeeper Farley (295, clean; a fault the probe puts behind his gossip menu
+  into the real report, whose `faults` it checks are empty, is an error under Rows behind the ids),
+  and clicks the vendor's Edit, which opens the creature editor on its Vendor list field (`data-col` in `TemplateFields`, `lib/ui/focusField.ts`).
   The vanilla database has no creature whose gossip menu is gone; the unit tests (`mapCheck.test.ts`,
   `worlddata_test.go`) cover that rule on synthetic rows. In the real database about 18 vendors and 3
   trainers have no rows and 50 goobers name an event with no script (info), so a region of Azeroth can

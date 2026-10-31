@@ -1995,6 +1995,50 @@ export interface RowChange {
 }
 
 /**
+ * RowFault is a row reached through a template's gossip menu or loot list that names a row that is gone.
+ */
+export interface RowFault {
+    /**
+     * Kind is the template column's kind: "gossip", or a loot kind ("creature loot", "loot"…).
+     */
+    "kind": string;
+
+    /**
+     * Root is the id the template names: its gossip menu or loot list.
+     */
+    "root": number;
+
+    /**
+     * What is the broken link: "text" (a gossip_menu row's text_id with no npc_text), "menu script"
+     * (its script_id with no gossip_scripts), "broadcast" (a BroadcastTextID of its npc_text with no
+     * broadcast_text), "option menu" (a gossip option's action_menu_id with no gossip_menu), "option
+     * script" (its action_script_id with no gossip_scripts) or "reference" (a loot row's reference
+     * with no reference_loot_template rows).
+     */
+    "what": string;
+
+    /**
+     * In is the menu or loot list holding the row: Root, a menu an option opens, or a reference list.
+     */
+    "in": number;
+
+    /**
+     * Option is the gossip option's id, for "option menu" and "option script".
+     */
+    "option": number;
+
+    /**
+     * Text is the npc_text, for "broadcast", or the text row's text_id, for "menu script".
+     */
+    "text": number;
+
+    /**
+     * ID is the id that has no row.
+     */
+    "id": number;
+}
+
+/**
  * ScriptCommand is one row of a script table: what the script does, after how long.
  */
 export interface ScriptCommand {
@@ -2714,6 +2758,11 @@ export interface WorldDataReport {
      * Links is the open map's flight stops and teleports (#953), when asked.
      */
     "links": LinkReport;
+
+    /**
+     * Faults is the broken links behind the set gossip menus and loot lists (#975).
+     */
+    "faults": RowFault[] | null;
 }
 
 /**

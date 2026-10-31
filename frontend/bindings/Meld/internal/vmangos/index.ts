@@ -127,6 +127,7 @@ export type {
     RegionView,
     Result,
     RowChange,
+    RowFault,
     ScriptCommand,
     SkillChoice,
     SoundEntryInfo,

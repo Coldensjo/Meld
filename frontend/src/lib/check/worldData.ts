@@ -24,12 +24,14 @@ export const CREATURE_REFS: readonly RefColumn[] = CREATURE_FIELD_GROUPS.flatMap
 	.filter((f) => f.ref)
 	.map((f) => ({ type: -1, col: f.col, kind: f.ref!, label: f.label }))
 
-/** gameobject_template's data columns that name a row, by object type. */
-export const OBJECT_REFS: readonly RefColumn[] = objectDataRefs().map((r) => ({ type: r.type, col: r.col, kind: r.ref, label: r.label }))
+/** gameobject_template's columns that name a row: its data columns by object type, and its faction (type -1, any object's). */
+export const OBJECT_REFS: readonly RefColumn[] = [...objectDataRefs().map((r) => ({ type: r.type, col: r.col, kind: r.ref, label: r.label })), { type: -1, col: 'faction', kind: 'faction template', label: 'Faction' }]
 
 /** A template as Go's report has it, and the report (`vmangos.WorldTemplate`, `vmangos.WorldDataReport`). */
 export type WorldTemplate = vmangos.WorldTemplate
 export type WorldDataReport = vmangos.WorldDataReport
+/** A broken link behind a template's gossip menu or loot list (#975): Go's `vmangos.RowFault`. */
+export type RowFault = vmangos.RowFault
 
 /** A spawn on the map, for finding a template's nearest. */
 export interface WorldSpawn {
@@ -62,14 +64,41 @@ const NEEDED_OBJECT_COLS: Record<number, string> = { 3: 'data1', 25: 'data1', 9:
 const OBJECT_BREAKS: Record<number, string> = { 3: 'it opens empty', 25: 'fishing it gives nothing', 9: 'reading it shows nothing' }
 
 const IDS = 'Ids without a row'
+const BEHIND = 'Rows behind the ids'
 const ROLES = 'Roles without rows'
 const EVENTAI = 'EventAI without events'
 
 /**
+ * A broken link behind a template's gossip menu or loot list as a finding's severity and message, after
+ * the template's name. `named` is the column's label and id ("Gossip menu 900"); `shown` says whether
+ * the game shows the menu (a creature flagged as gossip, or a game object): a row the server drops is
+ * an error then, a warning otherwise.
+ */
+export function faultFinding(f: RowFault, named: string, shown: boolean): [Finding['severity'], string] {
+	const where = f.in === f.root ? named : `${named}'s ${f.kind === 'gossip' ? 'menu' : 'reference list'} ${f.in}`
+	const dropped = shown ? 'error' : 'warning'
+	const menuGone = 'so the server drops that text (and the menu with its options, if it has no other text)'
+	switch (f.what) {
+		case 'text':
+			return [dropped, `${where} shows npc_text ${f.id}, which has no row, ${menuGone}.`]
+		case 'menu script':
+			return [dropped, `${where} runs gossip script ${f.id} with npc_text ${f.text}, which has no gossip_scripts rows, ${menuGone}.`]
+		case 'broadcast':
+			return ['warning', `${where} shows npc_text ${f.text}, whose broadcast text ${f.id} has no row, so that text shows empty.`]
+		case 'option menu':
+			return ['warning', `option ${f.option} of ${where} opens menu ${f.id}, which has no gossip_menu row, so picking it opens an empty menu.`]
+		case 'option script':
+			return [dropped, `option ${f.option} of ${where} runs gossip script ${f.id}, which has no gossip_scripts rows, so the server drops the option.`]
+	}
+	return ['warning', `${where} refers to reference loot ${f.id}, which has no reference_loot_template rows, so nothing drops from it.`]
+}
+
+/**
  * The findings of a World data report: a set id column whose row is missing (an error where the game
  * needs it: a gossip menu of an NPC flagged as gossip, a vendor or trainer list of a vendor or trainer
- * with no rows of its own, a chest's loot, a book's page; info for an event, which the core may run
- * itself; a warning otherwise), a quest relation naming no quest, a vendor or trainer with nothing to
+ * with no rows of its own, a chest's loot, a book's page, a faction template; info for an event, which
+ * the core may run itself; a warning otherwise), a broken row behind a gossip menu or loot list (Rows
+ * behind the ids, faultFinding), a quest relation naming no quest, a vendor or trainer with nothing to
  * sell or teach, and an EventAI creature without events. Each points at the template's spawn nearest
  * `from` (the camera), and opens its editor on the column.
  */
@@ -80,7 +109,13 @@ export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataR
 	const gone = (kind: string, id: number) => missing.get(kind)?.has(id) ?? false
 	const table = (kind: string) => tables[kind] ?? kind
 	const ids: Finding[] = []
+	const behind: Finding[] = []
 	const roles: Finding[] = []
+	const faults = new Map<string, RowFault[]>()
+	for (const f of report.faults) {
+		const k = `${f.kind}:${f.root}`
+		faults.set(k, [...(faults.get(k) ?? []), f])
+	}
 	const ai: Finding[] = []
 
 	const visit = (template: 'creature' | 'object', t: WorldTemplate, refs: readonly RefColumn[]) => {
@@ -90,9 +125,14 @@ export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataR
 		const who = `${t.name || `#${t.entry}`} (${template} ${t.entry})`
 		const at = (field?: string) => ({ x: s.x, z: s.z, group: 'world' as const, target: { kind: 'template' as const, key: s.key, template, entry: t.entry, ...(field ? { field } : {}) } })
 		for (const r of refs) {
-			if (template === 'object' && r.type !== t.type) continue
+			if (template === 'object' && r.type >= 0 && r.type !== t.type) continue
 			const id = values[r.col]
-			if (!id || !gone(r.kind, id)) continue
+			if (!id) continue
+			for (const f of faults.get(`${r.kind}:${id}`) ?? []) {
+				const [severity, message] = faultFinding(f, `${r.label} ${id}`, template === 'object' || (t.npcFlags & GOSSIP) !== 0)
+				behind.push({ check: BEHIND, severity, message: `${who}: ${message}`, ...at(r.col) })
+			}
+			if (!gone(r.kind, id)) continue
 			const base = `${who}: ${r.label} ${id} has no ${table(r.kind)} row`
 			let severity: Finding['severity'] = 'warning'
 			let why = ''
@@ -100,7 +140,9 @@ export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataR
 				if (r.col === 'gossip_menu_id' && t.npcFlags & GOSSIP) [severity, why] = ['error', ', so talking to it opens no menu']
 				else if (r.col === 'vendor_id' && t.npcFlags & VENDOR && !t.ownVendor) [severity, why] = ['error', ', so it sells nothing']
 				else if (r.col === 'trainer_id' && t.npcFlags & TRAINER && !t.ownTrainer) [severity, why] = ['error', ', so it teaches nothing']
-			} else if (NEEDED_OBJECT_COLS[t.type] === r.col) [severity, why] = ['error', `, so ${OBJECT_BREAKS[t.type]}`]
+			}
+			if (r.kind === 'faction template') [severity, why] = ['error', ', so the server knows no faction for it: whom it fights and who may use it']
+			else if (template === 'object' && NEEDED_OBJECT_COLS[t.type] === r.col) [severity, why] = ['error', `, so ${OBJECT_BREAKS[t.type]}`]
 			else if (r.kind === 'event') [severity, why] = ['info', ' (fine if the core runs the event itself)']
 			ids.push({ check: IDS, severity, message: `${base}${why}.`, ...at(r.col) })
 		}
@@ -121,7 +163,8 @@ export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataR
 
 	const rank = { error: 0, warning: 1, info: 2 }
 	ids.sort((a, b) => rank[a.severity] - rank[b.severity])
-	const out = [...capped(IDS, ids), ...capped(ROLES, roles), ...capped(EVENTAI, ai)]
+	behind.sort((a, b) => rank[a.severity] - rank[b.severity])
+	const out = [...capped(IDS, ids), ...capped(BEHIND, behind), ...capped(ROLES, roles), ...capped(EVENTAI, ai)]
 	for (const kind of report.unchecked) {
 		out.push({
 			check: 'World data',
