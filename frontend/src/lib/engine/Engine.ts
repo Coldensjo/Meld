@@ -99,7 +99,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
-import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tuftReach, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
+import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tileKey, tuftReach, withTileEffect, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
 
 /** A plain copy of the zone and tile effect choices (they may be Svelte proxies). */
 const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
@@ -4281,8 +4281,17 @@ export class Engine {
 			const roleTex = textures.map((p) => paletteIndex(editor.palette, p))
 			const seed = [...b.name].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) | 0, 7)
 			painted = ops.paintBiomeOver(t, h, mask, { roleTex, rules: b.rules, waterLevel: editor.waterLevel, waterEnabled: editor.waterEnabled, seed })
-			const effects = Object.entries(b.effects).filter(([p, id]) => textures.includes(p) && editor.textureEffects[p] !== id)
-			if (effects.length) {
+			const effects = Object.entries(b.effects).filter(([p, id]) => textures.includes(p) && (b.tileEffects || editor.textureEffects[p] !== id))
+			if (effects.length && b.tileEffects) {
+				// Only for the tiles the area touches (a tile's choice comes before the map's).
+				const tileCells = CHUNK_CELLS * 16
+				const before = structuredClone(plainScoped(editor.scopedEffects))
+				let next = structuredClone(before)
+				for (let tz = Math.floor(area0.z0 / tileCells); tz <= Math.floor((area0.z1 - 1) / tileCells); tz++)
+					for (let tx = Math.floor(area0.x0 / tileCells); tx <= Math.floor((area0.x1 - 1) / tileCells); tx++) for (const [p, id] of effects) next = withTileEffect(next, tileKey(tx, tz), p, id)
+				editor.scopedEffects = structuredClone(next)
+				h.push({ label: 'Set ground effects of the tiles', undo: () => (editor.scopedEffects = structuredClone(before)), redo: () => (editor.scopedEffects = structuredClone(next)) })
+			} else if (effects.length) {
 				const before = { ...editor.textureEffects }
 				editor.textureEffects = { ...before, ...Object.fromEntries(effects) }
 				const after = { ...editor.textureEffects }

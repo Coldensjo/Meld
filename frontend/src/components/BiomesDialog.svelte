@@ -10,7 +10,8 @@
 	import { activeBiome } from '../lib/terrain/activeBiome'
 	import { biomeFromZone } from '../lib/wow/zoneBiome'
 	import { groundEffectTables } from '../lib/wow/groundEffectTables'
-	import { effectFor } from '../lib/world/groundEffects'
+	import { effectFor, knownEffects, type GroundEffectTables } from '../lib/world/groundEffects'
+	import { displayName } from '../lib/models/assets'
 	import { texName as shortName } from '../lib/wow/texName'
 	import { MapEntries, MapZones, ZoneDoodads, ZoneTextures } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
@@ -80,6 +81,26 @@
 			if (v.trim() === '') delete b.effects[path]
 			else b.effects[path] = Math.max(0, Math.round(+v || 0))
 		})
+	}
+
+	/** What an effect grows, for a label: its models' names and density. */
+	function describe(t: GroundEffectTables, id: number): string {
+		const e = t.effects[id]
+		if (!e) return `effect ${id}`
+		return `${[...new Set(e.doodads.map((d) => displayName('m2:' + d)))].join(', ')} · ${e.density}`
+	}
+
+	/** The effects to pick for a texture: none, the client's own for it, then every effect the client has (and the biome's own if the client lacks it). */
+	function effectChoices(path: string): Array<{ id: number; label: string }> {
+		const t = groundEffectTables()
+		const out = [{ id: 0, label: 'none' }]
+		if (!t) return out
+		const learned = t.textures[path.toLowerCase()] ?? 0
+		if (learned) out.push({ id: learned, label: `${describe(t, learned)} (the client's)` })
+		for (const k of knownEffects(t)) if (k.id !== learned) out.push({ id: k.id, label: describe(t, k.id) })
+		const own = biome?.effects[path]
+		if (own && !out.some((c) => c.id === own)) out.push({ id: own, label: describe(t, own) })
+		return out
 	}
 
 	// --- Make from a zone ---------------------------------------------------------------------------
@@ -167,7 +188,7 @@
 	{#if biome}
 		<h4>Textures</h4>
 		<div class="tex">
-			<span class="h">Role</span><span class="h">Texture</span><span class="h"></span><span class="h" title="The GroundEffectTexture ID it grows; empty for the client's">Ground effect</span>
+			<span class="h">Role</span><span class="h">Texture</span><span class="h"></span><span class="h" title="The ground effect it grows: the client's own for the texture unless you pick another">Ground effect</span>
 			{#each BIOME_ROLES as role, r (role)}
 				<span>{role}</span>
 				<span class="path" title={biome.textures[r]}
@@ -177,17 +198,19 @@
 					<button onclick={() => setTexture(r, paintTexture)} disabled={!paintTexture} title="Use the texture picked to paint with ({texName(paintTexture)})">Use paint texture</button>
 					<button onclick={() => setTexture(r, '')} disabled={!biome.textures[r]} title="No texture of its own" aria-label="Clear">✕</button>
 				</span>
-				<input
-					type="number"
-					min="0"
-					step="1"
+				<select
 					value={biome.textures[r] ? effectOf(biome, biome.textures[r]) : ''}
 					disabled={!biome.textures[r] || biome.textures[r].startsWith('#')}
 					onchange={(e) => setEffect(biome.textures[r], e.currentTarget.value)}
 					aria-label="Ground effect"
-				/>
+				>
+					{#if biome.textures[r]}{#each effectChoices(biome.textures[r]) as c (c.id)}<option value={String(c.id)}>{c.label}</option>{/each}{/if}
+				</select>
 			{/each}
 		</div>
+		<label class="scope" title="Write the ground effects for the tiles the area touches only, leaving the texture's effect elsewhere on the map as it is">
+			<input type="checkbox" checked={!!biome.tileEffects} onchange={(e) => change((b) => (b.tileEffects = e.currentTarget.checked))} /> Ground effects for the area's tiles only
+		</label>
 		<h4>Rules</h4>
 		<div class="rules">
 			<label>Rock from <input type="number" min="0" max="89" step="1" value={biome.rules.rock[0]} onchange={(e) => setRule('rock', [num(e), biome.rules.rock[1]])} />°</label>
@@ -256,7 +279,7 @@
 		align-items: center;
 	}
 	.tex {
-		grid-template-columns: auto minmax(200px, 1fr) auto 90px;
+		grid-template-columns: auto minmax(160px, 1fr) auto minmax(180px, 1fr);
 	}
 	.scatter {
 		grid-template-columns: minmax(240px, 1fr) 80px auto auto;

@@ -997,6 +997,8 @@ Checks: a biome's textures join the palette and paint only in the chunks of the 
 all the biome's textures, rock on the steep ground), its ground effect becomes the map's own, its doodad
 brush scatters only inside the area, and one undo step takes back the paint, the palette, the effect and
 the models; redo brings them back. The Biomes dialog opens from `ui.dialog = 'biomes'`.
+- The tile scope (#971): a biome with `tileEffects` writes its effects into `editor.scopedEffects.tiles` for the tiles
+  the area touches and leaves `textureEffects` alone, in the same undo step; `biome-apply` checks it.
 - Unit tests: `bun test tests/biome.test.ts` (the paint on a synthetic flat and ramp, the four-texture
   limit on a chunk that already holds four, the selection's inside fade, the role fallbacks,
   `History.batch`, a biome made from a zone and its prefs check).

@@ -68,6 +68,7 @@ const biome = obj({
 	textures: arr(str),
 	rules: obj({ rock: pair, dirt: pair, lush: num, variation: num, sand: num, snow: orNull(num) }),
 	effects: (v) => isObj(v) && Object.values(v).every(num),
+	tileEffects: opt(bool),
 	scatter: arr(obj({ brush: doodadBrush, density: num, clumps: bool })),
 })
 // Fields added after the first release are optional here: an older saved value must still load.

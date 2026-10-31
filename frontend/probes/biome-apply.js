@@ -74,6 +74,21 @@ e.history.redo()
 await P.frames(1)
 const redo = { palette: editor.palette.includes('#a03030'), objects: e.objects.objects.size === objectsBefore + placed.length }
 
+// The tile scope: the effect goes to the tiles the area touches (tile 0,0 of this 128-cell map), not the map's own, in one undo step.
+const tileBiome = { ...biome, name: 'Probe tile biome', tileEffects: true, effects: { '#a03030': 7 }, scatter: [] }
+const tileSteps = e.history.position
+await e.applyBiome(tileBiome, false)
+await P.frames(1)
+const tileScope = { step: e.history.position === tileSteps + 1, tile: editor.scopedEffects.tiles['0,0']?.['#a03030'], map: editor.textureEffects['#a03030'] }
+e.history.undo()
+await P.frames(1)
+tileScope.undone = editor.scopedEffects.tiles['0,0'] === undefined
+e.history.redo()
+await P.frames(1)
+tileScope.redone = editor.scopedEffects.tiles['0,0']?.['#a03030'] === 7
+e.history.undo()
+await P.frames(1)
+
 // The dialog opens from the menu and lists the biome.
 const wasBiomes = prefs.biomes
 prefs.biomes = [biome]
@@ -102,6 +117,11 @@ return {
 		undo.effect === undefined &&
 		redo.palette &&
 		redo.objects &&
+		tileScope.step &&
+		tileScope.tile === 7 &&
+		tileScope.map === 0 &&
+		tileScope.undone &&
+		tileScope.redone &&
 		dialog,
 	status,
 	label,
@@ -114,5 +134,6 @@ return {
 	effect,
 	undo,
 	redo,
+	tileScope,
 	dialog,
 }

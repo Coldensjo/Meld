@@ -50,6 +50,8 @@ export interface Biome {
 	rules: BiomeRules
 	/** The ground effect (a GroundEffectTexture ID, 0 for none) per texture path the biome sets as the map's own. */
 	effects: Record<string, number>
+	/** Write the effects for the tiles the area touches only (the map's scopedEffects), not for the texture over the whole map. */
+	tileEffects?: boolean
 	scatter: BiomeScatter[]
 }
 
