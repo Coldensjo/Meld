@@ -57,3 +57,8 @@ test('the preprocessor wraps the result as Svelte expects', () => {
 	assert.deepEqual(tagRoots().markup({ content: '<div></div>', filename: 'X.svelte' }), { code: '<div data-ui="X"></div>' })
 	assert.equal(tagRoots().markup({ content: '<div></div>' }), undefined)
 })
+
+test('a root that already has a data-ui keeps it and gets no second one', () => {
+	assert.equal(tag('<div data-ui="Mine" class="a"></div>'), undefined)
+	assert.equal(tag('<div data-ui="Mine"></div><p></p>'), '<div data-ui="Mine"></div><p data-ui="Foo"></p>')
+})

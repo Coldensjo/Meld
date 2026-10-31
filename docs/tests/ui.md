@@ -840,6 +840,8 @@ branches, nested elements untouched, a parse failure warned with the file's name
 - A component the Svelte parser rejects gets no labels (F8 then names its parent); the build prints
   `tagRoots: could not parse <file>`. A new block type in Svelte's AST needs a line in `visit`, and a
   fixture: `{#key}` keeps its children in `fragment`, not `body`, and went untagged until #591.
+- An element that already has a hand-written `data-ui` keeps it and is not tagged again (#984): a second one
+  fails to compile in Vite, while `make check` passes, since svelte-check skips the preprocessor.
 
 ## Dialog focus and Esc (#369, #573, probe `dialog-focus`)
 

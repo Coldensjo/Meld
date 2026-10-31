@@ -42,6 +42,9 @@ export function tagMarkup(content, filename, warn = console.warn) {
 	const visit = (/** @type {Node | null | undefined} */ node) => {
 		if (!node) return
 		if (node.type === 'RegularElement') {
+			// A hand-written data-ui stays as it is: a second one fails to compile in Vite (svelte-check does not run this preprocessor).
+			const attrs = /** @type {{ type: string, name?: string }[]} */ (/** @type {{ attributes?: unknown }} */ (node).attributes ?? [])
+			if (attrs.some((x) => x.type === 'Attribute' && x.name === 'data-ui')) return
 			// Right after the tag name: "<div" + 4 = the spot before its attributes.
 			inserts.push(node.start + 1 + (node.name ?? '').length)
 			return
