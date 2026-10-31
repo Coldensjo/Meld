@@ -94,6 +94,7 @@ export const GameEvents: NonNullCall<AppApi['GameEvents']> = (...a) => api().Gam
 export const GameLogin: Call<AppApi['GameLogin']> = (...a) => api().GameLogin(...a) as never
 export const GameWindow: Call<AppApi['GameWindow']> = (...a) => api().GameWindow(...a) as never
 export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api().GroundEffects(...a) as never
+export const HostSession: Call<AppApi['HostSession']> = (...a) => api().HostSession(...a) as never
 export const IconState: Call<AppApi['IconState']> = (...a) => api().IconState(...a) as never
 export const ImportAreaTriggers: Call<AppApi['ImportAreaTriggers']> = (...a) => api().ImportAreaTriggers(...a) as never
 export const ImportAreas: Call<AppApi['ImportAreas']> = (...a) => api().ImportAreas(...a) as never
@@ -115,8 +116,10 @@ export const ItemIcons: NonNullCall<AppApi['ItemIcons']> = (...a) => api().ItemI
 export const ItemModelLook: Call<AppApi['ItemModelLook']> = (...a) => api().ItemModelLook(...a) as never
 export const ItemSets: NonNullCall<AppApi['ItemSets']> = (...a) => api().ItemSets(...a) as never
 export const ItemTables: Call<AppApi['ItemTables']> = (...a) => api().ItemTables(...a) as never
+export const JoinSession: Call<AppApi['JoinSession']> = (...a) => api().JoinSession(...a) as never
 export const LaunchGame: Call<AppApi['LaunchGame']> = (...a) => api().LaunchGame(...a) as never
 export const LaunchGameAt: Call<AppApi['LaunchGameAt']> = (...a) => api().LaunchGameAt(...a) as never
+export const LeaveSession: Call<AppApi['LeaveSession']> = (...a) => api().LeaveSession(...a) as never
 export const LiquidTypes: NonNullCall<AppApi['LiquidTypes']> = (...a) => api().LiquidTypes(...a) as never
 export const ListAccounts: NonNullCall<AppApi['ListAccounts']> = (...a) => api().ListAccounts(...a) as never
 export const ListBrushImages: NonNullCall<AppApi['ListBrushImages']> = (...a) => api().ListBrushImages(...a) as never
@@ -301,6 +304,8 @@ export const SearchSpells: NonNullCall<AppApi['SearchSpells']> = (...a) => api()
 export const SearchWorldRefs: NonNullCall<AppApi['SearchWorldRefs']> = (...a) => api().SearchWorldRefs(...a) as never
 export const ServerStatus: Call<AppApi['ServerStatus']> = (...a) => api().ServerStatus(...a) as never
 export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog(...a) as never
+export const SessionSend: Call<AppApi['SessionSend']> = (...a) => api().SessionSend(...a) as never
+export const SessionState: Call<AppApi['SessionState']> = (...a) => api().SessionState(...a) as never
 export const SetAccount: Call<AppApi['SetAccount']> = (...a) => api().SetAccount(...a) as never
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
 export const SetBlenderPath: Call<AppApi['SetBlenderPath']> = (...a) => api().SetBlenderPath(...a) as never

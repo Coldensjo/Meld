@@ -55,7 +55,8 @@ function detect(text) {
 	if (/Redistribution and use in source and binary forms/i.test(text)) {
 		return /Neither the name/i.test(text) ? 'BSD-3-Clause' : 'BSD-2-Clause'
 	}
-	if (/Permission to use, copy, modify, and\/or distribute/i.test(text)) return 'ISC'
+	// ISC's older wording (github.com/coder/websocket's) has "and distribute", without "/or".
+	if (/Permission to use, copy, modify, and(\/or)? distribute/i.test(text)) return 'ISC'
 	if (/altered source versions must be plainly marked/i.test(text)) return 'Zlib'
 	return 'UNKNOWN'
 }

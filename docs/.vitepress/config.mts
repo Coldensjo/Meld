@@ -74,6 +74,7 @@ const config: UserConfig<DefaultTheme.Config> = {
 					{ text: 'UI', link: '/architecture/ui' },
 					{ text: 'The client and spawns', link: '/architecture/client' },
 					{ text: 'Scripting', link: '/architecture/scripting' },
+					{ text: 'Shared sessions', link: '/architecture/session' },
 				],
 			},
 			{

@@ -610,6 +610,13 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
 }
 
 /**
+ * HostSession starts hosting a session on port (0 for session.DefaultPort) under the given name.
+ */
+export function HostSession(port: number, name: string): $CancellablePromise<$models.SessionInfo> {
+    return $Call.ByID(1064432641, port, name);
+}
+
+/**
  * IconState says whether the icon named name is in Meld's patch (or waits for it) and in the client's
  * own archives, for the Icons tool's Delete (#717).
  */
@@ -786,6 +793,14 @@ export function ItemTables(): $CancellablePromise<vmangos$0.ItemTables> {
 }
 
 /**
+ * JoinSession joins the session hosted at addr ("host:port", or "host" for session.DefaultPort) with
+ * its code, under the given name.
+ */
+export function JoinSession(addr: string, code: string, name: string): $CancellablePromise<$models.SessionInfo> {
+    return $Call.ByID(2273149443, addr, code, name);
+}
+
+/**
  * LaunchGame opens the chosen game client now (Wow.exe or Benilla), logged in when a login is saved.
  */
 export function LaunchGame(): $CancellablePromise<void> {
@@ -800,6 +815,13 @@ export function LaunchGame(): $CancellablePromise<void> {
  */
 export function LaunchGameAt(spot: vmangos$0.CharacterSpot): $CancellablePromise<string> {
     return $Call.ByID(3358877537, spot);
+}
+
+/**
+ * LeaveSession ends this Meld's part in the session: a host ends it for everyone.
+ */
+export function LeaveSession(): $CancellablePromise<void> {
+    return $Call.ByID(776199668);
 }
 
 /**
@@ -2216,6 +2238,22 @@ export function ServerStatus(): $CancellablePromise<$models.ServerStatusInfo> {
  */
 export function SessionLog(): $CancellablePromise<string> {
     return $Call.ByID(3700704495);
+}
+
+/**
+ * SessionSend sends a message of the page's into the session: data is JSON text, to 0 sends it to
+ * everyone (this Meld too), otherwise to that member alone. Two calls the page does not await one after
+ * the other can reach the session in either order.
+ */
+export function SessionSend(to: number, kind: string, data: string): $CancellablePromise<void> {
+    return $Call.ByID(2695214457, to, kind, data);
+}
+
+/**
+ * SessionState is this Meld's part in a session now.
+ */
+export function SessionState(): $CancellablePromise<$models.SessionInfo> {
+    return $Call.ByID(2975660528);
 }
 
 /**

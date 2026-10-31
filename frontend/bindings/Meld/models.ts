@@ -9,6 +9,9 @@ import * as config$0 from "./internal/config/models.js";
 import * as sandbox$0 from "./internal/sandbox/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as session$0 from "./internal/session/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as vmangos$0 from "./internal/vmangos/models.js";
 
 /**
@@ -301,6 +304,41 @@ export interface ServerStatusInfo {
      * Busy says a Start, Stop or Restart is running.
      */
     "busy": boolean;
+}
+
+/**
+ * SessionInfo is this Meld's part in a session.
+ */
+export interface SessionInfo {
+    /**
+     * Role is "host", "guest", or "" outside a session.
+     */
+    "role": string;
+
+    /**
+     * You is this Meld's member id (session.HostID for the host).
+     */
+    "you": number;
+
+    /**
+     * Code is the session code guests give (the host's only).
+     */
+    "code": string;
+
+    /**
+     * Port is the port the host listens on (the host's only).
+     */
+    "port": number;
+
+    /**
+     * Addrs are the host's addresses on its networks, with the port, for the guests to join at.
+     */
+    "addrs": string[] | null;
+
+    /**
+     * Peers are the members, the host first.
+     */
+    "peers": session$0.Peer[] | null;
 }
 
 /**

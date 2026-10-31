@@ -17,6 +17,7 @@ import (
 	"Meld/internal/handoff"
 	"Meld/internal/recovery"
 	"Meld/internal/sandbox"
+	"Meld/internal/session"
 	"Meld/internal/sessionlog"
 	"Meld/internal/vmangos"
 	"Meld/internal/wow"
@@ -79,6 +80,13 @@ type App struct {
 	sandboxTimer *time.Timer
 	sandboxReal  string
 	sandboxStamp sandbox.Stamp
+
+	// The shared editing session this Meld hosts or has joined (app_session.go, #728), under sessMu:
+	// sessHost or sessGuest, and sessDone, which closes once the guest's session ends.
+	sessMu    sync.Mutex
+	sessHost  *session.Host
+	sessGuest *session.Guest
+	sessDone  chan struct{}
 }
 
 func NewApp() *App {
@@ -263,6 +271,7 @@ func (a *App) Quit() {
 // shutdown ends the session; its copies stay unless the editor quit through Quit, which drops them
 // first (EndRecovery), so closing the window on unsaved maps still leaves them to recover.
 func (a *App) shutdown() {
+	a.LeaveSession()
 	if a.rec != nil {
 		_ = a.rec.End()
 	}

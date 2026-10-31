@@ -933,3 +933,19 @@ one `Map info` undo step, and Publish's `map_template` row (the Changes window's
   `Rate.InstanceResetTime`, and binds players only to a dungeon or raid with a delay above 0.
 - In the game (not run by the probe): after Publish and a server restart, enter the instance and check
   that `.instance listbinds` shows its reset time.
+
+## The shared session's transport (#998, `go test ./internal/session/`, `TestSessionBindings`)
+
+Checks: a guest needs the host's code; the welcome gives each guest its id and the members, and the
+peer list follows joins and leaves; with the host and two guests sending at once, every member
+receives the same messages in the same order, and each sender's messages keep the order it sent them
+in; a message to one member reaches only that member but takes its place in the order; the
+transport's own kinds can't be sent; the host ending the session ends it for its guests with a
+reason, and a guest's own Leave ends it without one.
+
+- Unit tests: `go test -race ./internal/session/` (three members on loopback), and
+  `go test -run TestSessionBindings .` for the bound methods (host, join, send, the host leaving).
+- Trap: bind loopback in a test (`session.Listen("127.0.0.1:0", ...)`, `sessionBind` for the bound
+  methods): listening on every address makes Windows' firewall ask about the test binary.
+- Not covered yet: two Melds in a session by hand, and the page side (#999 adds a scripted guest for
+  the probes, #1000 the menus).

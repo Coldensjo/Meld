@@ -174,7 +174,8 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
   - `mapfile` reads and writes `.wmap` files; `config` keeps the user's settings; `heightmap` reads
     and writes heightmap PNGs; `recovery` autosaves maps with unsaved changes for after a crash;
     `sessionlog` keeps each session's status lines in a file; `handoff` passes a bound method's large
-    binary reply to the page as one GET; `scripts` keeps the user's Lua scripts folder.
+    binary reply to the page as one GET; `scripts` keeps the user's Lua scripts folder; `session` carries a
+    shared editing session's messages between the host and its guests, in the host's order.
   - For tests: `sandbox` copies the client's Data folder for the probes, `testclient` finds the
     client and server the client-dependent Go tests read, and `cmd/meldtool` inspects `.wmap` files,
     tiles, MPQs and the bound methods (docs/TESTS.md).
@@ -236,6 +237,7 @@ The test docs are kept to the same rule (see "Testing notes"): a check worth rep
 | `docs/architecture/lighting.md` | Shaders, the sky and time of day, shadow cascades, client lighting and clouds |
 | `docs/architecture/ui.md` | The window layout, the asset browser (search, tabs, sets, prefabs, thumbnails), the dock, the Inspector, History and Map Properties |
 | `docs/architecture/client.md` | The `/wow/*` endpoints, coordinates, the asset registry, WMO doodad sets, and spawns: looks, editing, waypoints, names and the creature editor |
+| `docs/architecture/session.md` | Shared editing sessions: the host-and-join transport (`internal/session`), the host's order of messages, the bindings and the parts still to build |
 | `docs/architecture/scripting.md` | The Lua engine (wasmoon), Noggit Red's script API, the script host and its undo step, the scripts folder and the Scripts window, script brushes (the Script Brush tool), noise maps and images |
 
 ## Rules that cut across the code

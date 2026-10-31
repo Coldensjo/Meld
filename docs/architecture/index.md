@@ -58,6 +58,7 @@ that the actual 1.12 client or server accepts an export.
 | [UI](ui.md) | Layout, asset browser, docking, inspectors and document panels |
 | [Client and server integration](client.md) | Asset endpoints, coordinates, spawns, database editors and client compatibility |
 | [Scripting](scripting.md) | Lua runtime, supported API, script brushes, noise and images |
+| [Shared sessions](session.md) | Hosting and joining a session, the host's order of messages, and the parts still to build |
 
 These are detailed implementation references, not release notes. Issue numbers identify the history
 of a decision or regression; check the current implementation before treating a dated observation
