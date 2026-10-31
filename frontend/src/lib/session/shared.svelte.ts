@@ -11,7 +11,7 @@ import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
 import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
-import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, changeLine, peerChanges, serialQueue, type Message, type Peer } from './peers'
+import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 import { KIND_PAINT, PaintSync } from './paint'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
@@ -46,6 +46,8 @@ export interface MapHandoff {
 let lastSeq = 0
 let off: Array<() => void> = []
 const queue = serialQueue()
+/** A guest's map arriving in parts (#1010). */
+const mapParts = new PartJoiner()
 
 /** The session map's document, or undefined while it is not open. */
 function sessionDoc() {
@@ -154,11 +156,25 @@ function bindEdits(afterSeq: number, ids: IdLane) {
 
 /** Sends a message into the session (to 0 is everyone), after every send before it. */
 export function sessionSend(to: number, kind: string, data: unknown) {
-	return queue(() => {
-		const json = data === undefined ? '' : JSON.stringify(data)
-		// Wails refuses a binding call whose body is over 64 MB ("assembled body too large"): a map of about 6x6 tiles. Say so plainly (#1006).
-		if (json.length > MAX_SEND_BYTES) throw new Error(`the message is ${Math.round(json.length / 1e6)} MB, over the ${Math.round(MAX_SEND_BYTES / 1e6)} MB a binding call takes`)
-		return SessionSend(to, kind, json)
+	return queue(() => sendJson(to, kind, data === undefined ? '' : JSON.stringify(data)))
+}
+
+function sendJson(to: number, kind: string, json: string) {
+	// Wails refuses a binding call whose body is over 64 MB ("assembled body too large"). Say so plainly (#1006); the map goes in parts (#1010).
+	if (json.length > MAX_SEND_BYTES) throw new Error(`the message is ${Math.round(json.length / 1e6)} MB, over the ${Math.round(MAX_SEND_BYTES / 1e6)} MB a binding call takes`)
+	return SessionSend(to, kind, json)
+}
+
+/** Sends the map handoff to member `to`: as one message when its JSON fits in MAP_PART_CHARS, else in parts (kind `map.part`) one after the other in the queue (#1010). */
+function sendHandoff(to: number, h: MapHandoff) {
+	return queue(async () => {
+		const json = JSON.stringify(h)
+		if (json.length <= MAP_PART_CHARS) return sendJson(to, KIND_MAP, json)
+		const texts = splitText(json, MAP_PART_CHARS)
+		for (let i = 0; i < texts.length; i++) {
+			const part: MapPart = { part: i, parts: texts.length, text: texts[i] }
+			await sendJson(to, KIND_MAP_PART, JSON.stringify(part))
+		}
 	})
 }
 
@@ -168,6 +184,7 @@ function subscribe() {
 	unsubscribe()
 	lastSeq = 0
 	lanes = new Lanes()
+	mapParts.reset()
 	heights.wait()
 	paint.wait()
 	objects.wait()
@@ -285,6 +302,9 @@ function onMessage(m: Message) {
 		case KIND_MAP:
 			if (m.to === shared.you && shared.role !== 'host') openHandoff(data as MapHandoff)
 			return
+		case KIND_MAP_PART:
+			if (m.to === shared.you && shared.role !== 'host') receivePart(data as MapPart)
+			return
 		case KIND_HEIGHTS:
 			heights.receive(m.seq, m.from, data, shared.you)
 			return
@@ -314,10 +334,29 @@ async function sendMap(p: Peer) {
 	const { nextId, nextGroup } = d.objects.counts
 	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(e.snapshotOf(d)), ids: { lane, nextId, nextGroup } }
 	try {
-		await sessionSend(p.id, KIND_MAP, handoff)
+		await sendHandoff(p.id, handoff)
 	} catch (err) {
 		setStatus(`Sending the map to ${p.name} failed: ${err}`, 8000)
 	}
+}
+
+/** A guest gathers a map sent in parts and opens it once the last is in. */
+function receivePart(p: MapPart) {
+	let text: string | null
+	let h: MapHandoff
+	try {
+		text = mapParts.add(p)
+		if (text === null) {
+			setStatus(`Receiving the session's map: part ${p.part + 1} of ${p.parts}`, 8000)
+			return
+		}
+		h = JSON.parse(text) as MapHandoff
+	} catch (err) {
+		mapParts.reset()
+		setStatus(`The session's map could not be read: ${err}`, 10000)
+		return
+	}
+	openHandoff(h)
 }
 
 /** A guest opens the host's map as a new tab, unsaved (Save is Save As there). */

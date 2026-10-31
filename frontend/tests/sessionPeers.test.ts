@@ -3,7 +3,7 @@
 // status bar's chip, and the send queue that keeps the page's sends in order.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { changeLine, peerChanges, peersLabel, peersTitle, serialQueue } from '../src/lib/session/peers.ts'
+import { PartJoiner, changeLine, peerChanges, peersLabel, peersTitle, serialQueue, splitText } from '../src/lib/session/peers.ts'
 
 const ann = { id: 1, name: 'Ann' }
 const bob = { id: 2, name: 'Bob' }
@@ -44,4 +44,20 @@ test('the queue runs each send after the last has finished, past a failure', asy
 	await assert.rejects(b)
 	assert.equal(await c, 'c')
 	assert.deepEqual(order, ['a', 'b', 'c'])
+})
+
+test('a map too large for one message is cut into parts and joined again (#1010)', () => {
+	assert.deepEqual(splitText('abcdefg', 3), ['abc', 'def', 'g'])
+	assert.deepEqual(splitText('abc', 3), ['abc'])
+	assert.deepEqual(splitText('', 3), [''])
+	const j = new PartJoiner()
+	const parts = splitText('{"seq":4,"map":{}}', 5)
+	const got = parts.map((text, part) => j.add({ part, parts: parts.length, text }))
+	assert.deepEqual(got.slice(0, -1), new Array(parts.length - 1).fill(null))
+	assert.equal(got.at(-1), '{"seq":4,"map":{}}')
+	// A new map's first part drops one half received.
+	assert.equal(j.add({ part: 0, parts: 2, text: 'xx' }), null)
+	assert.equal(j.add({ part: 0, parts: 2, text: 'ab' }), null)
+	assert.equal(j.add({ part: 1, parts: 2, text: 'cd' }), 'abcd')
+	assert.throws(() => j.add({ part: 2, parts: 2, text: '' }))
 })

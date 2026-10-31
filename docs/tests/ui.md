@@ -1021,7 +1021,7 @@ import script imports it and saves the `.blend`.
 - Trap: a heredoc in the agents' Git Bash halves the backslashes of a client path in a scratch probe
   (`mpq: file not found`); write it with the Write tool.
 
-## Host and Join Session (#1000, probes `session-host` and `session-join`)
+## Host and Join Session (#1000, probes `session-host`, `session-join` and `session-map-parts`)
 
 Checks: File › Host Session shares the active map; a guest that joins is named in the status bar's
 chip (`[data-session-peers]`) and gets the host's map addressed to it alone (kind `map`, data
@@ -1040,6 +1040,12 @@ host's map as a new unsaved tab; leaving or ending clears the chip and the badge
   the next Host, so a probe calls `LeaveSession()` first. A map opened into an untouched empty tab takes
   its place (as Open does), so `session-join` puts a helper on its own tab to see a new one open.
 
+- `bun run probe session-map-parts` (#1010): the page hosts a 512-cell hills map (about 24 MB of JSON, over
+  `MAP_PART_CHARS`), the bot must get it as `map.part` messages to it alone (no `map`) that join to the
+  handoff; then a `hostBot` sends those parts to the page as a guest, which must open the map once the
+  last is in. About 40 seconds. The parts' text passes through `P.bun` twice; a 1024-cell map (98 MB,
+  over the 64 MB a binding call takes) works the same way but is too slow to keep in the probe.
+  `tests/sessionPeers.test.ts` checks `splitText` and `PartJoiner`.
 - `bun run probe session-guest-export` (#1005): sets `shared.role = 'guest'` and `shared.docId` by hand (no transport), then checks the File and Game menu items that write into the client or server are disabled with the reason as their tooltip in the session's tab only, `compileRegion`, `playHere` and `publishVmangosMap` refuse with the status line, and a host keeps them.
 
 ## Terrain heights in a session (#1001, probes `session-heights` and `session-heights-guest`)

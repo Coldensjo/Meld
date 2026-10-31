@@ -69,12 +69,19 @@ server. #728 is the umbrella; its parts are separate issues:
   map as `toMapData(engine.snapshotOf(doc))` gives it and `seq` the last message the host page had seen
   then. The guest opens it with `engine.openDocument(fromMapData(map), '')`: a new tab with no path (Save
   is Save As), which takes an untouched empty tab's place as Open does. It goes through the page twice
-  (the binding, then the WebSocket) as JSON; a Go-side path (`internal/mapfile` and `internal/handoff`)
-  is the fallback if a large map turns out too slow. Timed (#1006, hills terrain and 20000 objects, the
+  (the binding, then the WebSocket) as JSON. Timed (#1006, hills terrain and 20000 objects, the
   SwiftShader page): 4x4 tiles (512 cells) is 26 MB of JSON, `toMapData` 3 ms, `JSON.stringify` 11 ms,
   the guest's parse and `fromMapData` 25 ms, the longest page gap 70 ms and the bot got it: no stall.
-  8x8 tiles is 100 MB and Wails refuses the binding call over 64 MB (about 6x6 tiles), so `sessionSend`
-  throws earlier with the size (`MAX_SEND_BYTES`); the Go-side path is what a larger map needs, not speed.
+  - **In parts (#1010).** Wails refuses a binding call over 64 MB ("assembled body too large"; 8x8 tiles
+    of hills alone is 98 MB), so a handoff whose JSON is over `MAP_PART_CHARS` (8M characters, `peers.ts`)
+    goes as kind `map.part` messages instead (`KIND_MAP_PART`, data `{part, parts, text}`: slices of the
+    handoff's JSON, `sendHandoff`), one after the other in the send queue so nothing comes between them
+    from this page. The guest joins them (`PartJoiner`; a part 0 starts over) and opens the map once the
+    last is in, with a status line for each part. The parts stay well below the 26 MB the event to the
+    guest's page was timed at. A smaller map is still one `map` message. `sessionSend` still throws
+    with the size over `MAX_SEND_BYTES` (60 MB) for any other message. The `session-map-parts` probe
+    checks both sides. Timed once (a scratch copy of that probe, the SwiftShader page): 1024 cells of
+    hills (98 MB, 13 parts) opened on the guest page about 6 s after it joined.
 - **The host exports.** While this Meld is a guest and the active tab is the session's map (`isGuestMap`), Compile to Client, Server and All, Save Spawns, Export Spawn SQL, Launch and Play Here are off in the menus with the reason (`GUEST_EXPORT_REASON`) as the tooltip, and the actions (`compileRegion`, `saveSpawns`, `exportSpawnSql`, `publishVmangosMap`, `saveOrPublish`, `launchGame`, `playHere`) refuse through `refuseGuestExport`. A guest's other tabs keep them. A new write into the client or server needs the same two guards.
 - **Heights (#1001, `heights.ts`, `HeightSync`).** Every height change to the session's map (a stroke,
   Flatten, a script, an import, an undo) goes out as state, kind `heights` (`KIND_HEIGHTS`), data

@@ -71,3 +71,56 @@ export function serialQueue() {
 		return run
 	}
 }
+
+/** The kind of the messages that carry a map too large for one message, in parts (data: `MapPart`, #1010). Joined, the parts' text is the `MapHandoff`'s JSON. */
+export const KIND_MAP_PART = 'map.part'
+
+/**
+ * The most characters of a map's JSON one message carries. Wails refuses a binding call over 64 MB, and
+ * the event that brings it to the guest's page was timed only up to 26 MB (#1006), so a larger map goes
+ * in parts well below both: the JSON string escaping of a part's quotes adds at most as much again.
+ */
+export const MAP_PART_CHARS = 8_000_000
+
+/** One part of a map sent in parts: part `part` (from 0) of `parts`, a slice of the handoff's JSON. */
+export interface MapPart {
+	part: number
+	parts: number
+	text: string
+}
+
+/** Cuts `text` into slices of at most `size` characters (one empty slice for an empty text). */
+export function splitText(text: string, size: number): string[] {
+	if (size <= 0) throw new Error('the part size must be positive')
+	const out: string[] = []
+	for (let i = 0; i < text.length; i += size) out.push(text.slice(i, i + size))
+	return out.length ? out : ['']
+}
+
+/** Puts a map's parts back together: `add` gives the whole text once the last part is in, else null. A part 0 starts a new map, dropping one half received. */
+export class PartJoiner {
+	private parts: string[] = []
+	private count = 0
+	private have = 0
+
+	add(p: MapPart): string | null {
+		if (!(p.parts >= 1) || !(p.part >= 0 && p.part < p.parts) || typeof p.text !== 'string') throw new Error(`a broken map part (${p.part} of ${p.parts})`)
+		if (p.part === 0 || p.parts !== this.count) {
+			this.parts = new Array<string>(p.parts)
+			this.count = p.parts
+			this.have = 0
+		}
+		if (this.parts[p.part] === undefined) this.have++
+		this.parts[p.part] = p.text
+		if (this.have < this.count) return null
+		const text = this.parts.join('')
+		this.reset()
+		return text
+	}
+
+	reset() {
+		this.parts = []
+		this.count = 0
+		this.have = 0
+	}
+}
