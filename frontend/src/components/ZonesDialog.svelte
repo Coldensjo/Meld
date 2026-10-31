@@ -2,7 +2,7 @@
 	import { numOr0 as num } from '../lib/ui/inputs'
 	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
-	import { AreaRows, LiquidTypes, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../lib/wails/App'
+	import { AreaRows, ExportAreas, ImportAreas, LiquidTypes, MapEntries, MapLights, NewAreaRow, OpenAreasDialog, PlanAreaImport, SaveAreas, ZoneSounds, ZoneWeather } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -16,6 +16,9 @@
 	// the client's AreaTable.dbc. Pick one to edit its row, or add a zone or a subzone; Save writes the
 	// changed and new rows into the client's patch and the server's area_template. A form saved with
 	// Save, like the creature editor's templates: not undo steps, since the rows aren't part of a map.
+	// Export map…, Export zone… and Import… (#942) write and read an SQL script of the areas'
+	// area_template rows and weather, with their AreaTable rows in "-- meld area" lines
+	// (internal/vmangos/areascripts.go); an import goes through Save's write after its plan.
 
 	interface Props {
 		onclose: () => void
@@ -73,12 +76,16 @@
 	let weatherServer = $state(false)
 	/** The zones whose weather changed since the last load, which Save writes. */
 	let weatherDirty = $state<number[]>([])
-	ZoneWeather()
-		.then((w) => {
-			weatherServer = w.server
-			weather = Object.fromEntries((w.zones ?? []).map((z) => [z.zone, z]))
-		})
-		.catch((err) => (error = `The server's weather could not be read: ${err}`))
+	function loadWeather() {
+		return ZoneWeather()
+			.then((w) => {
+				weatherServer = w.server
+				weather = Object.fromEntries((w.zones ?? []).map((z) => [z.zone, z]))
+				weatherDirty = []
+			})
+			.catch((err) => (error = `The server's weather could not be read: ${err}`))
+	}
+	void loadWeather()
 	const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter']
 	type WeatherKind = 'rain' | 'snow' | 'storm'
 	const KINDS: Array<[WeatherKind, string]> = [
@@ -184,6 +191,90 @@
 		}
 	}
 
+	// Export and import (#942).
+	const mapEntry = $derived(maps.find((m) => m.ID === mapId))
+	const mapName = $derived(mapEntry?.Name || mapEntry?.Dir || `map ${mapId}`)
+	/** The areas Export zone… writes: the picked area and, for a zone, its subzones. */
+	const zoneAreas = $derived(row ? [row, ...(row.parent ? [] : subzones(row.id))] : [])
+	let note = $state('')
+
+	async function exportAreas(ids: number[], what: string) {
+		if (mapId === null) return
+		error = ''
+		note = ''
+		try {
+			const file = what.replace(/[^\w\- ]+/g, '').trim() || 'zones'
+			const path = await ExportAreas(mapId, ids, file)
+			if (!path) return
+			const n = ids.length || rows.length
+			note = `Exported ${what} (${n} ${n === 1 ? 'area' : 'areas'}${weatherServer ? ' with the weather' : ', without the weather: no server folder is set'}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
+			setStatus(note, 8000)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	/** An import being confirmed: the script's path and what it writes. */
+	let plan = $state<{ path: string; plan: vmangos.AreaImport } | null>(null)
+	let importing = $state(false)
+
+	async function askImport() {
+		error = ''
+		note = ''
+		if (unsaved && !(await askConfirm('Drop the unsaved zone changes? The zones are read again after the import.', { title: 'Unsaved changes', ok: 'Drop them' }))) return
+		try {
+			const path = await OpenAreasDialog()
+			if (!path) return
+			plan = { path, plan: await PlanAreaImport(path) }
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	async function confirmImport() {
+		if (!plan) return
+		const { path } = plan
+		importing = true
+		const end = startSaving('Importing the zones')
+		error = ''
+		try {
+			const res = await ImportAreas(path)
+			plan = null
+			await reloadAreas()
+			// The dialog shows the script's map when it is on one map only, else the one it had.
+			const onMaps = res.maps ?? []
+			if (onMaps.length === 1) mapId = onMaps[0]
+			await load()
+			await loadWeather()
+			const where = [res.patch ? 'the client' : '', res.server ? `the server's area_template${res.weather ? ' and game_weather' : ''}` : ''].filter(Boolean).join(' and ')
+			const weathers = res.weather ? `, with the weather of ${res.weather} zone${res.weather === 1 ? '' : 's'},` : ''
+			const after = !res.server ? ' Set the VMaNGOS server folder for the server to know them.' : res.weather ? ' The world server reloads the weather if it runs with its SOAP console on, or reads it when it starts.' : ''
+			note = `Imported ${res.areas} ${res.areas === 1 ? 'area' : 'areas'}${weathers} into ${where || 'nowhere new (nothing differed)'}.${after}${applyNote(res)}`
+			setStatus(note, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			importing = false
+			end()
+		}
+	}
+
+	/** An area of the plan, as the plan bar says it. */
+	function areaText(a: vmangos.AreaImportRow): string {
+		const parts = [String(a.id)]
+		if (a.parent) parts.push(`in ${a.parent}`)
+		if (!a.exists) parts.push('new')
+		else if (a.was || a.wasMap !== a.mapId) parts.push(`replaces ${a.was || 'the area'}${a.wasMap !== a.mapId ? ` of map ${a.wasMap}` : ''}`)
+		else parts.push('replaces it')
+		if (a.fromBit) parts.push(`exploration bit ${a.bit}, as ${a.fromBit} is another area's`)
+		return `${a.name} (${parts.join(', ')})`
+	}
+
+	/** The first `n` of `items` joined, with how many more. */
+	function some(items: string[], n = 12): string {
+		return items.slice(0, n).join('; ') + (items.length > n ? `; and ${items.length - n} more` : '')
+	}
+
 	async function close() {
 		stopSound()
 		if (unsaved && !(await askConfirm('Close without saving the zone changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
@@ -219,6 +310,33 @@
 
 <Modal title="Zones" width={720} onclose={close}>
 	{#if error}<p class="error">{error}</p>{/if}
+	{#if note && !plan}<p class="note">{note}</p>{/if}
+	{#if plan}
+		{@const p = plan.plan}
+		{@const areas = p.areas ?? []}
+		{@const onMaps = p.maps ?? []}
+		{@const refused = p.refused ?? []}
+		<div class="plan" role="group" aria-label="Import plan">
+			<div class="what">
+				<strong>Import {areas.length} {areas.length === 1 ? 'area' : 'areas'} into the client's AreaTable.dbc{p.server ? " and the server's area_template" : ''}?</strong>
+				<span>{some(areas.map(areaText))}.</span>
+				{#if onMaps.some((m) => m !== mapId)}<span>On {onMaps.length === 1 ? 'map' : 'maps'} {onMaps.join(', ')}: the area and map IDs are the exporting client's, kept as they are.</span>{/if}
+				{#if p.missingMaps?.length}<span>Not in this client's Map.dbc: map {p.missingMaps.join(', ')}. The areas are written, but no map of this client shows them.</span>{/if}
+				{#if p.missingZones?.length}<span>Subzones of zones neither the script nor this client has: {p.missingZones.join(', ')}.</span>{/if}
+				{#if p.missing?.length}<span>IDs this client's tables lack, kept as they are: {some(p.missing)}.</span>{/if}
+				{#if !p.server && (p.weather || p.clearWeather)}<span>The weather is left out: set the VMaNGOS server folder to import it.</span>
+				{:else if p.weather || p.clearWeather}<span>Weather: sets {p.weather} {p.weather === 1 ? "zone's" : "zones'"}{p.clearWeather ? `, clears ${p.clearWeather} ${p.clearWeather === 1 ? "zone's" : "zones'"}` : ''}.</span>
+				{:else if p.server}<span>The script carries no weather: the zones keep theirs.</span>{/if}
+				{#if p.others}<span>{p.others} weather {p.others === 1 ? 'row is' : 'rows are'} of zones the script has no zone row of, and left out.</span>{/if}
+				{#if p.skipped}<span>{p.skipped} other {p.skipped === 1 ? 'statement is' : 'statements are'} left out: only the areas and their weather are imported.</span>{/if}
+				{#if p.unknown?.length}<span>game_weather columns Meld doesn't know are left out: {p.unknown.join(', ')}.</span>{/if}
+				{#if refused.length}<span class="refused">Refused, nothing is written: {refused.join('; ')}.</span>
+				{:else}<span>A replaced area can't be brought back, unless you exported it first.</span>{/if}
+			</div>
+			<button onclick={() => (plan = null)}>Cancel</button>
+			<button class="active" disabled={importing || refused.length > 0} onclick={() => void confirmImport()}>{importing ? 'Importing…' : 'Import'}</button>
+		</div>
+	{/if}
 	<div class="top">
 		<label class="k" for="zone-map">Map</label>
 		<select
@@ -312,6 +430,18 @@
 	</div>
 	<p class="dim">Save writes the changed zones into the client's AreaTable.dbc (Meld's patch, which the game reads when it starts) and the server's area_template. Paint a zone onto the ground with the Map data tool.</p>
 	{#snippet actions()}
+		<button onclick={() => void askImport()} disabled={importing || saving} title="Read zones from an SQL script into the client and the server, as Save writes them">Import…</button>
+		<button onclick={() => void exportAreas([], mapName)} disabled={!rows.length} title="Write every zone and subzone of this map, with their weather, to an SQL script">Export map…</button>
+		<button
+			onclick={() =>
+				row &&
+				void exportAreas(
+					zoneAreas.map((a) => a.id),
+					row.name,
+				)}
+			disabled={!row}
+			title="Write the picked zone with its subzones (or the picked subzone) to an SQL script">Export zone…</button
+		>
 		<button onclick={close}>Close</button>
 		<button class="active" onclick={() => void save()} disabled={!unsaved || saving}>{saving ? 'Saving…' : `Save${unsaved ? ` (${unsaved})` : ''}`}</button>
 	{/snippet}
@@ -386,6 +516,34 @@
 	.error {
 		color: var(--danger-text);
 		margin: 0 0 8px;
+	}
+	.note {
+		color: var(--ok);
+		margin: 0 0 8px;
+		font-size: 12px;
+		overflow-wrap: anywhere;
+	}
+	.plan {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		margin: 0 0 8px;
+		padding: 8px;
+		font-size: 12px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--panel-2);
+	}
+	.plan .what {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		overflow-wrap: anywhere;
+	}
+	.plan .refused {
+		color: var(--danger-text);
 	}
 	.dim {
 		color: var(--text-dim);

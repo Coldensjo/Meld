@@ -7,6 +7,7 @@ export {
 };
 
 export type {
+    AreaImportResult,
     AreaSaveResult,
     AreaTriggerList,
     AssetsImported,

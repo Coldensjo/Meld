@@ -414,6 +414,15 @@ export function EquipmentItems(id: number): $CancellablePromise<number[]> {
 }
 
 /**
+ * ExportAreas asks where to save an SQL script of a map's zones and writes it there (#942): the areas
+ * of ids (all of the map's when empty) as the client has them, and with a server folder set their
+ * zones' weather. Returns the path, or "" if cancelled.
+ */
+export function ExportAreas(mapID: number, ids: number[] | null, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(4227440399, mapID, ids, suggested);
+}
+
+/**
  * ExportCharacter has the world server write a character, out of the world, to a dump (#941, its
  * `.pdump write` through the SOAP console, logged in with Game Login's account), then asks where to
  * save it. Returns the path, or "" if cancelled.
@@ -574,6 +583,15 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
  */
 export function IconState(name: string): $CancellablePromise<vmangos$0.IconState> {
     return $Call.ByID(197901069, name);
+}
+
+/**
+ * ImportAreas writes the zones of the SQL script at path as Save writes the dialog's (SaveAreas): the
+ * areas into the client's AreaTable.dbc and the server's area_template, and their zones' weather into
+ * game_weather. Nothing is written while the plan refuses the script.
+ */
+export function ImportAreas(path: string): $CancellablePromise<$models.AreaImportResult> {
+    return $Call.ByID(198487242, path);
 }
 
 /**
@@ -1063,6 +1081,13 @@ export function ObjectTables(): $CancellablePromise<vmangos$0.ObjectTables> {
 }
 
 /**
+ * OpenAreasDialog asks for an SQL script of zones to import. Returns "" if cancelled.
+ */
+export function OpenAreasDialog(): $CancellablePromise<string> {
+    return $Call.ByID(311981669);
+}
+
+/**
  * OpenBrushDialog asks for doodad brush files to import. Returns none if cancelled.
  */
 export function OpenBrushDialog(): $CancellablePromise<string[] | null> {
@@ -1212,6 +1237,15 @@ export function OtherClientStatus(): $CancellablePromise<wow$0.Status> {
  */
 export function OwnObjectDisplay(display: number): $CancellablePromise<$models.OwnDisplay> {
     return $Call.ByID(720377594, display);
+}
+
+/**
+ * PlanAreaImport says what importing the zones of the SQL script at path would write: which areas
+ * are new and which replace one of this client's, the exploration bits that move, the weather, and
+ * the maps, zones, sounds and lights this client lacks.
+ */
+export function PlanAreaImport(path: string): $CancellablePromise<vmangos$0.AreaImport> {
+    return $Call.ByID(3018252750, path);
 }
 
 /**

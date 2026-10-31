@@ -3,6 +3,7 @@
 import type * as M from '../../../../bindings/Meld/models'
 import type { V2 } from '../v2'
 
+export type AreaImportResult = V2<M.AreaImportResult>
 export type AreaSaveResult = V2<M.AreaSaveResult>
 export type AreaTriggerList = V2<M.AreaTriggerList>
 export type AssetsImported = V2<M.AssetsImported>

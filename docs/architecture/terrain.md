@@ -822,7 +822,20 @@ mask/liquid, image codec or native/game rendering contracts.
   in each season as sliders, a subzone showing its zone's; Save sends the changed zones' weather with
   the rows (`SaveAreas`' second argument), and a zone with no chance left loses its row. The server
   reads the table at start, and a running one is told `.reload game_weather` after the save (#961,
-  `reloadWorld` in `app_reload.go`).
+  `reloadWorld` in `app_reload.go`). Export map…, Export zone… and Import… (#942,
+  `vmangos/areascripts.go`, bindings `ExportAreas`, `PlanAreaImport`, `ImportAreas`) write and read an
+  SQL script: each area's `area_template` row (`AreaSQL`) and each zone's `game_weather` row, or a
+  `DELETE` of it for a zone without weather, so the script alone replaces a server's weather; the
+  AreaTable.dbc rows travel as `-- meld area` comment lines (`vmangos/meldlines.go`, the shared
+  writer and reader of client rows in a script, which the portal and flight path scripts are to use
+  too, #943, #944). The export reads the saved client rows, not the dialog's unsaved ones. The
+  import takes the areas from the meld lines alone (a script without them is refused) and the
+  weather from the `game_weather` statements, and writes them through `SaveAreas`, so it is Save in
+  every respect (patch, `area_template`, weather reload, the restart note). Its plan keeps the
+  script's area and map IDs, saying which replace one of this client's (and whose name or map that
+  was), and gives a row whose exploration bit another area holds the next free bit, saying so; it
+  lists maps, zones, sounds, liquids and lights this client lacks (the stock client itself names
+  intro music 67, which it lacks), and refuses what `SetAreaRows` would.
 - **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
   zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
   minimap's shot, any size; it runs `Engine.simulate` for the shot's ortho camera and draws only the

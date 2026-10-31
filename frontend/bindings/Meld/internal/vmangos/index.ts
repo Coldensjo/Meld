@@ -8,6 +8,8 @@ export type {
     AccountCharacter,
     AnimInfo,
     Area,
+    AreaImport,
+    AreaImportRow,
     AreaRow,
     AreaTrigger,
     ChainHolder,

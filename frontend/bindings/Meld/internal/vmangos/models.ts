@@ -85,6 +85,74 @@ export interface Area {
 }
 
 /**
+ * AreaImport is what importing a zones script would write.
+ */
+export interface AreaImport {
+    "areas": AreaImportRow[] | null;
+
+    /**
+     * Maps are the maps the areas are on, each once; MissingMaps those this client's Map.dbc lacks.
+     */
+    "maps": number[] | null;
+    "missingMaps": number[] | null;
+
+    /**
+     * MissingZones are the zones subzones of the script name that neither the script nor the client has.
+     */
+    "missingZones": number[] | null;
+
+    /**
+     * Missing names the sounds, music, liquids and lights the areas name that this client lacks, kept as they are.
+     */
+    "missing": string[] | null;
+
+    /**
+     * Weather and ClearWeather count the zones whose weather the import sets and clears.
+     */
+    "weather": number;
+    "clearWeather": number;
+
+    /**
+     * Server says a server folder is set, so area_template and the weather are written too; without
+     * one, the script's weather is left out.
+     */
+    "server": boolean;
+    "others": number;
+    "skipped": number;
+    "unknown": string[] | null;
+
+    /**
+     * Refused are the problems that stop the import; nothing is written while there is one.
+     */
+    "refused": string[] | null;
+}
+
+/**
+ * AreaImportRow is an area of a script as the import plan lists it.
+ */
+export interface AreaImportRow {
+    "id": number;
+    "mapId": number;
+    "parent": number;
+    "name": string;
+
+    /**
+     * Exists says the client has an area of this ID, which the import replaces; Was is that area's
+     * name and WasMap its map, for a plan that says when the ID is another area's on this client.
+     */
+    "exists": boolean;
+    "was": string;
+    "wasMap": number;
+
+    /**
+     * Bit is the exploration bit the area gets; FromBit, when not 0, the script's, which another
+     * area of this client holds, so the import takes the next free one.
+     */
+    "bit": number;
+    "fromBit": number;
+}
+
+/**
  * AreaRow is a whole row of AreaTable.dbc as the zone editor edits it: a zone (Parent 0) or a
  * subzone of one. AreaBit is the area's exploration bit, unique across the table.
  */

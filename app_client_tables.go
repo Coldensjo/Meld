@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"Meld/internal/mpq"
 	"Meld/internal/vmangos"
@@ -392,6 +394,132 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 		}
 	}
 	return res, nil
+}
+
+// ExportAreas asks where to save an SQL script of a map's zones and writes it there (#942): the areas
+// of ids (all of the map's when empty) as the client has them, and with a server folder set their
+// zones' weather. Returns the path, or "" if cancelled.
+func (a *App) ExportAreas(mapID uint32, ids []uint32, suggested string) (string, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return "", err
+	}
+	dbc, err := vmangos.LoadAreaTable(dataDir)
+	if err != nil {
+		return "", err
+	}
+	all, err := vmangos.ReadAreaRows(dbc, mapID)
+	if err != nil {
+		return "", err
+	}
+	rows := all
+	if len(ids) > 0 {
+		want := map[uint32]bool{}
+		for _, id := range ids {
+			want[id] = true
+		}
+		rows = nil
+		for _, r := range all {
+			if want[r.ID] {
+				rows = append(rows, r)
+			}
+		}
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	var weather []vmangos.ZoneWeather
+	if hasDB(server) {
+		if weather, err = vmangos.ReadWeather(server); err != nil {
+			return "", fmt.Errorf("the server's weather: %w", err)
+		}
+	}
+	mapName := ""
+	if maps, err := vmangos.LoadMapEntries(dataDir); err == nil {
+		for _, m := range maps {
+			if m.ID == mapID {
+				mapName = m.Name
+			}
+		}
+	}
+	script, err := vmangos.AreaScript(rows, weather, hasDB(server), mapName, time.Now())
+	if err != nil {
+		return "", err
+	}
+	if suggested == "" {
+		suggested = "zones"
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Zones", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenAreasDialog asks for an SQL script of zones to import. Returns "" if cancelled.
+func (a *App) OpenAreasDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Zones", Filters: sqlFilters})
+}
+
+// planAreaImport reads the zones script at path and plans its import into the client and, when
+// server has a database, the server.
+func (a *App) planAreaImport(server, path string) (vmangos.AreaImport, []vmangos.AreaRow, []vmangos.ZoneWeather, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.AreaImport{}, nil, nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.AreaImport{}, nil, nil, err
+	}
+	dbc, err := vmangos.LoadAreaTable(dataDir)
+	if err != nil {
+		return vmangos.AreaImport{}, nil, nil, err
+	}
+	return vmangos.PlanAreaImport(dbc, string(b), vmangos.LoadAreaRefs(dataDir), hasDB(server))
+}
+
+// PlanAreaImport says what importing the zones of the SQL script at path would write: which areas
+// are new and which replace one of this client's, the exploration bits that move, the weather, and
+// the maps, zones, sounds and lights this client lacks.
+func (a *App) PlanAreaImport(path string) (vmangos.AreaImport, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	plan, _, _, err := a.planAreaImport(server, path)
+	return plan, err
+}
+
+// AreaImportResult is what ImportAreas wrote: Save's result (AreaSaveResult's fields), and how many
+// areas on which maps.
+type AreaImportResult struct {
+	Patch   string   `json:"patch"`
+	Server  bool     `json:"server"`
+	Waiting bool     `json:"waiting"`
+	Restart bool     `json:"restart"`
+	Areas   int      `json:"areas"`
+	Maps    []uint32 `json:"maps"`
+	Weather int      `json:"weather"`
+}
+
+// ImportAreas writes the zones of the SQL script at path as Save writes the dialog's (SaveAreas): the
+// areas into the client's AreaTable.dbc and the server's area_template, and their zones' weather into
+// game_weather. Nothing is written while the plan refuses the script.
+func (a *App) ImportAreas(path string) (AreaImportResult, error) {
+	// Before anything is read: the throwaway client's server tables are the real ones (#383).
+	server, err := a.optionalServerForWrite()
+	if err != nil {
+		return AreaImportResult{}, err
+	}
+	plan, rows, weather, err := a.planAreaImport(server, path)
+	if err != nil {
+		return AreaImportResult{}, err
+	}
+	if len(plan.Refused) > 0 {
+		return AreaImportResult{}, fmt.Errorf("the zones are not imported: %s", strings.Join(plan.Refused, "; "))
+	}
+	res, err := a.SaveAreas(rows, weather)
+	return AreaImportResult{Patch: res.Patch, Server: res.Server, Waiting: res.Waiting, Restart: res.Restart, Areas: len(rows), Maps: plan.Maps, Weather: len(weather)}, err
 }
 
 // AreaTriggerList is a map's area triggers with the server's names and teleports, and the ID a new

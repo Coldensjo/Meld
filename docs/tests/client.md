@@ -508,6 +508,31 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent
   (WorldMapContinent.dbc lists only Kalimdor and Azeroth) is for the owner to check.
 
+## Zones: Export and Import (#942, probe `zone-scripts`)
+Checks: World › Zones' Export zone… and Export map… write an SQL script of the areas (their
+`area_template` rows, the zones' weather, the AreaTable rows in `-- meld area` lines), and Import…
+plans a script and, on confirmation, writes it as Save does.
+- Go: `vmangos.TestAreaScriptRoundTrip` (every field and an awkward name back through the meld
+  lines, a `DELETE` for a zone without weather, no subzone weather; without a server the weather is
+  left out), `TestAreaImportPlan` (an ID of another area named, a taken exploration bit moved to the
+  next free one, a missing zone, map and music listed, other zones' weather and other statements
+  counted), `TestAreaScriptRefusesWhatItCantRead`, `TestMeldLineFields`, and
+  `TestClientAreaScriptRoundTrip` (needs the client; with the server, its weather too): Azeroth's
+  areas exported and planned back replace themselves and write AreaTable.dbc unchanged. In the
+  root package, `TestImportAreasWritesAsSave` imports into a made-up client (the patch, the SQL
+  through `App.runSQL`, the moved bit) and checks a refused script writes nothing.
+- Probe: `zone-scripts` (about 7 s, on the throwaway client; nothing written): Elwynn Forest's
+  Export zone… hands the binding map 0, 12 and its subzones and its name; Export map… no IDs; Import…
+  of a script the probe writes (Elwynn's own row, a new zone on Elwynn's bit with weather, an
+  `UPDATE`) shows the real plan: Elwynn replaces itself, the new zone moves to a free bit, the
+  weather is set, one statement left out; Cancel drops the bar; a stand-in `ImportAreas` then gets
+  the note and the zones read again.
+- Trap: the throwaway client refuses the server's tables while a server folder is set
+  (`optionalServerForWrite`), so the probe stands in `ImportAreas`; the dev page has no native
+  dialogs, so `ExportAreas` and `OpenAreasDialog` are stand-ins too.
+- Not checked here: an import into the real client and server, and the game showing an imported
+  zone (the owner's check).
+
 ## The Sound tool (#684, probe `sounds-tool`)
 Checks: Tools › Sounds… lists, plays, exports, imports and replaces the client's sounds.
 - Go: `vmangos.TestSoundFormat` (PCM WAVs and MP3s taken; ADPCM, 24-bit, no data chunk and a PNG

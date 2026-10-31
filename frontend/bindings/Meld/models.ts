@@ -12,6 +12,20 @@ import * as sandbox$0 from "./internal/sandbox/models.js";
 import * as vmangos$0 from "./internal/vmangos/models.js";
 
 /**
+ * AreaImportResult is what ImportAreas wrote: Save's result (AreaSaveResult's fields), and how many
+ * areas on which maps.
+ */
+export interface AreaImportResult {
+    "patch": string;
+    "server": boolean;
+    "waiting": boolean;
+    "restart": boolean;
+    "areas": number;
+    "maps": number[] | null;
+    "weather": number;
+}
+
+/**
  * AreaSaveResult says where the zone editor's rows went: the client's patch, and whether the
  * server's world database (area_template) took them too. Waiting says the patch's files wait for the
  * game to close, and Restart that the world server runs and reads them only at its start, so the
