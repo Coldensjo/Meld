@@ -138,17 +138,20 @@ func MapRowDir(dbc []byte, mapID uint32) string {
 // MapInfo is what a map made for the client says about itself besides its folder and ID: the client's
 // Map.dbc row (instance type, display name, zone, loading screen; fields checked against the 1.12 table:
 // 2 the type, 3 the PvP flag, 4 the English name, 19 the AreaTable ID, 38 the LoadingScreens ID) and the
-// server's map_template (type, zone, player limit and where a ghost goes back to its corpse).
+// server's map_template (type, zone, player limit, reset delay and where a ghost goes back to its corpse).
 type MapInfo struct {
 	// Type is 0 a world map, 1 a dungeon, 2 a raid, 3 a battleground (the same in both tables).
-	Type          uint32  `json:"type"`
-	Name          string  `json:"name,omitempty"`
-	AreaID        uint32  `json:"areaId"`
-	LoadingScreen uint32  `json:"loadingScreen"`
-	MaxPlayers    uint32  `json:"maxPlayers"`
-	GhostMap      int32   `json:"ghostMap"`
-	GhostX        float32 `json:"ghostX"`
-	GhostY        float32 `json:"ghostY"`
+	Type          uint32 `json:"type"`
+	Name          string `json:"name,omitempty"`
+	AreaID        uint32 `json:"areaId"`
+	LoadingScreen uint32 `json:"loadingScreen"`
+	MaxPlayers    uint32 `json:"maxPlayers"`
+	// ResetDelay is the days before a dungeon or raid's saved instances reset (map_template.reset_delay,
+	// VMaNGOS's MapEntry::resetDelay, scaled by Rate.InstanceResetTime); 0 binds no one to it.
+	ResetDelay uint32  `json:"resetDelay"`
+	GhostMap   int32   `json:"ghostMap"`
+	GhostX     float32 `json:"ghostX"`
+	GhostY     float32 `json:"ghostY"`
 }
 
 // SetMapRowInfo returns Map.dbc with the row for mapID given the info's type, PvP flag (a

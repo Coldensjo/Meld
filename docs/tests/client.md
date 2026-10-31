@@ -856,3 +856,18 @@ says so (or says what to do when SOAP is off or the console refuses).
   VMaNGOS can't reload: those saves say to restart the server, by design.
 - Trap: the probes run against the dev page with no world server, so `reloadWorld` returns at once
   there and no probe sees the message.
+
+## A dungeon or raid's reset delay (#963, probe `map-reset-delay`, `TestTemplateSQLWithInfo`)
+
+Checks: Map Properties shows Reset after (days) for a dungeon or raid made for the client (not for a
+world map or a battleground), with a line pointing at the portal's Required level; a typed value is
+one `Map info` undo step, and Publish's `map_template` row (the Changes window's SQL) writes it as
+`reset_delay`, in the insert and in `ON DUPLICATE KEY UPDATE`.
+
+- Probe: `cd frontend && bun run probe map-reset-delay` (a raid set to 7 days, then a world map).
+- Unit tests: `go test -run TestTemplateSQLWithInfo ./internal/vmangos/`; `bun test tests/mapData.test.ts`
+  (a map saved before the field reads it as 0, no `.wmap` version bump: `MapInfo` is opaque JSON there).
+- VMaNGOS reads it as days (`MapEntry::resetDelay * DAY`, `MapPersistentStateMgr.cpp`), scaled by
+  `Rate.InstanceResetTime`, and binds players only to a dungeon or raid with a delay above 0.
+- In the game (not run by the probe): after Publish and a server restart, enter the instance and check
+  that `.instance listbinds` shows its reset time.

@@ -6,6 +6,8 @@ export interface MapInfo {
 	areaId: number
 	loadingScreen: number
 	maxPlayers: number
+	/** Days before a dungeon or raid's saved instances reset (map_template.reset_delay); 0 binds no one. */
+	resetDelay: number
 	ghostMap: number
 	ghostX: number
 	ghostY: number
@@ -13,4 +15,4 @@ export interface MapInfo {
 	wmoOnly?: boolean
 }
 
-export const defaultMapInfo = (): MapInfo => ({ type: 0, name: '', areaId: 0, loadingScreen: 0, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 })
+export const defaultMapInfo = (): MapInfo => ({ type: 0, name: '', areaId: 0, loadingScreen: 0, maxPlayers: 0, resetDelay: 0, ghostMap: -1, ghostX: 0, ghostY: 0 })

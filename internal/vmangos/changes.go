@@ -173,7 +173,7 @@ func PreviewPublish(readDir, patchDir string, m MapSpec) (PublishPreview, error)
 	if m.Info == nil {
 		row.Action, row.Reason = "add", "the map's row for the world server, when it has none yet"
 	} else {
-		row.Action, row.Reason = "add or change", "the map's row for the world server, with its type, zone, player limit and ghost entrance"
+		row.Action, row.Reason = "add or change", "the map's row for the world server, with its type, zone, player limit, reset delay and ghost entrance"
 	}
 	p.Rows = append(p.Rows, row)
 	return p, nil

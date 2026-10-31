@@ -454,7 +454,7 @@ func moveFiles(src, dst string) error {
 
 // templateSQL adds the map to the world database's map templates, which the world server looks
 // maps up in. Without the map's info an existing row is left as it is; with it, the row takes the
-// info's type, zone, player limit and ghost entrance.
+// info's type, zone, player limit, reset delay and ghost entrance.
 func templateSQL(m MapSpec) string {
 	if m.Info == nil {
 		return fmt.Sprintf("INSERT IGNORE INTO map_template (entry, patch, parent, map_type, linked_zone, player_limit, reset_delay, "+
@@ -468,10 +468,10 @@ func templateSQL(m MapSpec) string {
 	}
 	return fmt.Sprintf("INSERT INTO map_template (entry, patch, parent, map_type, linked_zone, player_limit, reset_delay, "+
 		"ghost_entrance_map, ghost_entrance_x, ghost_entrance_y, map_name, script_name) "+
-		"VALUES (%d, 0, 0, %d, %d, %d, 0, %d, %s, %s, %s, '') "+
-		"ON DUPLICATE KEY UPDATE map_type = VALUES(map_type), linked_zone = VALUES(linked_zone), player_limit = VALUES(player_limit), "+
+		"VALUES (%d, 0, 0, %d, %d, %d, %d, %d, %s, %s, %s, '') "+
+		"ON DUPLICATE KEY UPDATE map_type = VALUES(map_type), linked_zone = VALUES(linked_zone), player_limit = VALUES(player_limit), reset_delay = VALUES(reset_delay), "+
 		"ghost_entrance_map = VALUES(ghost_entrance_map), ghost_entrance_x = VALUES(ghost_entrance_x), ghost_entrance_y = VALUES(ghost_entrance_y), map_name = VALUES(map_name);",
-		m.MapID, i.Type, i.AreaID, i.MaxPlayers, i.GhostMap, num(float64(i.GhostX)), num(float64(i.GhostY)), sqlQuote(name))
+		m.MapID, i.Type, i.AreaID, i.MaxPlayers, i.ResetDelay, i.GhostMap, num(float64(i.GhostX)), num(float64(i.GhostY)), sqlQuote(name))
 }
 
 // worldDB is the world database's connection, from the world server's configuration.

@@ -223,6 +223,20 @@
 			{#if screenError}<span class="k"></span><span class="error">{screenError}</span>{/if}
 			<label class="k" for="mi-players">Player limit</label>
 			<input id="mi-players" type="number" min="0" value={info.maxPlayers} onchange={(e) => setInfo({ maxPlayers: Math.max(0, num(e)) })} title="0 for no limit" />
+			{#if info.type === 1 || info.type === 2}
+				<label class="k" for="mi-reset">Reset after (days)</label>
+				<input
+					id="mi-reset"
+					type="number"
+					min="0"
+					step="1"
+					value={info.resetDelay}
+					onchange={(e) => setInfo({ resetDelay: Math.max(0, Math.round(num(e))) })}
+					title="Days before a saved instance resets (the server's Rate.InstanceResetTime scales it); 0 for no lockout"
+				/>
+				<span class="k"></span>
+				<span class="dim">0 saves no one to the instance. The level a player needs to enter is the portal's Required level (World › Portals).</span>
+			{/if}
 			<span class="k">WMO-only</span>
 			<label class="check" title="The map is its first building (a WMO), with no ground, as the client's Blackfathom Deeps; publish writes no tiles"
 				><input type="checkbox" checked={!!info.wmoOnly} onchange={(e) => setInfo({ wmoOnly: (e.target as HTMLInputElement).checked })} /> The map is its first building</label
@@ -241,7 +255,8 @@
 			</span>
 		</div>
 		<p class="dim">
-			Written on publish: the kind, name, zone and loading screen into the client's Map.dbc (Picture… writes its own loading screen at once), and the kind, zone, player limit and ghost entrance into the server's map_template.
+			Written on publish: the kind, name, zone and loading screen into the client's Map.dbc (Picture… writes its own loading screen at once), and the kind, zone, player limit, reset delay and ghost entrance into the server's
+			map_template.
 		</p>
 		{#if !info.wmoOnly}
 			<div class="section">Tiles on the client's map</div>

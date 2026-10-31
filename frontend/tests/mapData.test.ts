@@ -164,7 +164,7 @@ function fullSnapshot(): MapSnapshot {
 		vmangos: {
 			dir: 'C:\\WoW\\vmangos\\data',
 			mapId: 800,
-			info: { type: 1, name: 'Test Dungeon', areaId: 12, loadingScreen: 3, maxPlayers: 5, ghostMap: 0, ghostX: 1.5, ghostY: -2.5, wmoOnly: true },
+			info: { type: 1, name: 'Test Dungeon', areaId: 12, loadingScreen: 3, maxPlayers: 5, resetDelay: 7, ghostMap: 0, ghostX: 1.5, ghostY: -2.5, wmoOnly: true },
 			tileX: 30,
 			tileY: 61,
 			tiles: '1101',
@@ -287,7 +287,7 @@ describe('the .wmap snapshot round trip (#431, where #120 and #161 were)', () =>
 
 	test('a server folder with partial map facts fills the rest from the defaults', () => {
 		const m = fromMapData({ ...reread(snapshot(true), 6), vmangos: { dir: 'd', mapId: 5, info: { name: 'Old' } } } as unknown as mapfile.MapData)
-		expect(m.vmangos).toEqual({ dir: 'd', mapId: 5, info: { type: 0, name: 'Old', areaId: 0, loadingScreen: 0, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 } })
+		expect(m.vmangos).toEqual({ dir: 'd', mapId: 5, info: { type: 0, name: 'Old', areaId: 0, loadingScreen: 0, maxPlayers: 0, resetDelay: 0, ghostMap: -1, ghostX: 0, ghostY: 0 } })
 		const none = fromMapData({ ...reread(snapshot(true), 6), vmangos: { dir: 'd', mapId: 5 } } as unknown as mapfile.MapData)
 		expect(none.vmangos).toEqual({ dir: 'd', mapId: 5, info: undefined })
 	})

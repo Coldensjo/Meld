@@ -1310,7 +1310,7 @@ export interface MapEntry {
  * MapInfo is what a map made for the client says about itself besides its folder and ID: the client's
  * Map.dbc row (instance type, display name, zone, loading screen; fields checked against the 1.12 table:
  * 2 the type, 3 the PvP flag, 4 the English name, 19 the AreaTable ID, 38 the LoadingScreens ID) and the
- * server's map_template (type, zone, player limit and where a ghost goes back to its corpse).
+ * server's map_template (type, zone, player limit, reset delay and where a ghost goes back to its corpse).
  */
 export interface MapInfo {
     /**
@@ -1321,6 +1321,12 @@ export interface MapInfo {
     "areaId": number;
     "loadingScreen": number;
     "maxPlayers": number;
+
+    /**
+     * ResetDelay is the days before a dungeon or raid's saved instances reset (map_template.reset_delay,
+     * VMaNGOS's MapEntry::resetDelay, scaled by Rate.InstanceResetTime); 0 binds no one to it.
+     */
+    "resetDelay": number;
     "ghostMap": number;
     "ghostX": number;
     "ghostY": number;
