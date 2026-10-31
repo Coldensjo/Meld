@@ -229,6 +229,34 @@ refusals, the users) and `TestForgetPrunesTheClientCaches` (`pagetextcache.wdb`)
   `WDB\pagetextcache.wdb`; Meld prunes the rewritten ones when the game is closed, so a poster read
   before the edit with the game open still shows the old text until the game restarts.
 
+## Game object editor: Export and Import (#939)
+
+Probe: `object-scripts` (about 6 s; nothing written: the dialogs and the writes are stand-ins).
+
+Checks: Export… writes the object's `gameobject_template` rows, its quest lists and a chest's
+contents (the loot list its `data1` names) to an SQL script; Import… plans a script and writes it on
+confirmation, replacing those lists.
+- Unit: `TestObjectScriptRoundTrip` (the contents keyed by the loot list, reference rows kept; quest
+  lists and contents of objects or loot lists the template rows don't name left out; a loot row out
+  of range refused, naming its list) and `TestObjectLoot`. With `VMANGOS_DIR`, `TestObjectsLive`
+  exports the Battered Chest (2843: two patch rows, loot list 2265 of 28 rows, which the Barrel,
+  Cauldron, Clam and Large Crate hold too) and the Old Lion Statue (31: two quests it starts, one it
+  ends) and plans them back (every row exists, each list's rows as many as it has, the four sharers
+  named in `Shared`); it writes nothing.
+- The probe, on 2843: Export… hands the binding `[2843]` and the name; Import…'s bar from a stand-in
+  plan names the rows, the lists (`contents of loot list 2265`), an object sharing the loot list, a
+  missing item, a skipped statement and an unknown column; Cancel drops it; a confirmed import notes
+  the object written and reads its contents again.
+- A write, by a scratch Go test (not kept; done on 2026-10-31): `CreateObject(dir, 2843, ...)` and
+  `CreateObject(dir, 31, ...)`, the chest given its own loot list (`NextObjectLoot`, `SaveObject`
+  data1, `SaveObjectLoot` two items) and the statue a quest (`SaveObjectQuests`), `ExportObjects`,
+  the chest renamed in the script, a loot row dropped and an ended quest added, `PlanObjectImport`
+  (contents 1 row for its 2, quests it ends 1 for its 0) and `ImportObjects`: the name, the one loot
+  row and both quests came back. Clean up with `DELETE FROM gameobject_template WHERE entry > <the
+  max before>`, the loot list on `gameobject_loot_template` (`entry`) and both relation tables (`id`).
+- Trap: a copied chest (`CreateObject` with a base) shares the base's loot list, so a write test that
+  saves its contents changes the base's too: give it its own list first.
+
 ## Tilted game objects (#229)
 
 No probe: the unit tests below (the probe `object-tilt` was dropped for them, #424).

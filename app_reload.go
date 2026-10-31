@@ -22,6 +22,8 @@ func worldReloads(save string, entries ...int) (cmds []string, restart string) {
 		return []string{creature, "npc_vendor", "creature_questrelation", "creature_involvedrelation"}, ""
 	case "SaveObject", "CreateObject":
 		return []string{templateReload("gameobject_template", entries)}, ""
+	case "ImportObjects":
+		return []string{templateReload("gameobject_template", entries), "gameobject_loot_template", "gameobject_questrelation", "gameobject_involvedrelation"}, ""
 	case "SaveObjectLoot":
 		return []string{"gameobject_loot_template"}, ""
 	case "SavePages":

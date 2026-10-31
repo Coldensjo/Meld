@@ -655,7 +655,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   or by Tools › Game Objects… (`entry: 0`, no spawn), which opens on Find object (#351): the same
   template list and search as This spawn, shown whenever no spawn is selected, whose click opens that
   object (`{ key: null, entry }`) on its Object tab. New object on `entry: 0` sets `wantNew`, so the
-  editor opens on its form instead. Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
+  editor opens on its form instead. Export… and Import… (#939, `internal/vmangos/objectscripts.go`)
+  write and read an SQL script as the creature editor's do, the shared list code in
+  `listscripts.go`: the `gameobject_template` rows, the quests each object starts and ends
+  (`gameobject_questrelation`, `gameobject_involvedrelation`, keyed by its entry) and a chest's or
+  fishing hole's contents, the `gameobject_loot_template` list its `data1` names (keyed by that loot
+  id, not the entry; reference rows are carried as rows, the reference lists they name are not).
+  A loot list can be shared, so the plan names the objects on the server, other than the script's,
+  that hold a list the import replaces (`ObjectImport.Shared`), as the Contents tab does. The text
+  (`page_text`) and the display's sounds (the client's) are not in the script. Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
   category such as Ore, whose click turns the spawn into that object as an undo step, then
   `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,
   `ReadObject`/`SaveObject`; `objectFields.ts` names data0 to data23 by the object's type, after

@@ -323,7 +323,7 @@
 	}
 
 	/** A list the import replaces, as the plan bar says it. */
-	function listText(l: vmangos.CreatureListImport): string {
+	function listText(l: vmangos.ListImport): string {
 		return `${l.what} of ${l.entry} (${l.rows}${l.had ? `, replacing ${l.had}` : ''})`
 	}
 </script>

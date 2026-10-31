@@ -21,6 +21,7 @@ func TestWorldReloads(t *testing.T) {
 		{"SaveCreature", []int{7}, "creature_template 7", false},
 		{"ImportCreatures", []int{7, 8}, "creature_template npc_vendor creature_questrelation creature_involvedrelation", false},
 		{"SaveObject", []int{9}, "gameobject_template 9", false},
+		{"ImportObjects", []int{9, 10}, "gameobject_template gameobject_loot_template gameobject_questrelation gameobject_involvedrelation", false},
 		{"SaveQuest", nil, "quest_template", false},
 		{"SaveQuestGivers", nil, "creature_questrelation creature_involvedrelation gameobject_questrelation gameobject_involvedrelation", false},
 		{"SaveQuestGivers", []int{3, 4}, "creature_questrelation creature_involvedrelation gameobject_questrelation gameobject_involvedrelation creature_template", false},

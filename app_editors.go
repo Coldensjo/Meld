@@ -108,6 +108,64 @@ func (a *App) NextObjectLoot() (int, error) {
 	return vmangos.NextObjectLoot(server)
 }
 
+// ExportObjects asks where to save an SQL script of game objects and writes their
+// gameobject_template rows, quests and contents there (#939). Returns the path, or "" if cancelled.
+func (a *App) ExportObjects(entries []int, suggested string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	script, err := vmangos.ExportObjects(server, entries)
+	if err != nil {
+		return "", err
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Game Objects", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenObjectsDialog asks for an SQL script of game objects to import. Returns "" if cancelled.
+func (a *App) OpenObjectsDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Game Objects", Filters: sqlFilters})
+}
+
+// PlanObjectImport says what importing the game objects of the SQL script at path would write.
+func (a *App) PlanObjectImport(path string) (vmangos.ObjectImport, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.ObjectImport{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.ObjectImport{}, err
+	}
+	return vmangos.PlanObjectImport(server, string(b))
+}
+
+// ImportObjects writes the game objects of the SQL script at path, with their lists, into the world
+// database and returns their entries.
+func (a *App) ImportObjects(path string) ([]int, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := vmangos.ImportObjects(server, string(b))
+	if err == nil {
+		for _, e := range entries {
+			a.stale.AddObject(uint32(e))
+		}
+		a.forgetStale()
+		a.reloadWorld("ImportObjects", entries...)
+	}
+	return entries, err
+}
+
 // ReadObjectPages reads what game object template entry says when its first page is first: the
 // pages, what else reads them and the object's spawn count, for the Text tab (#139).
 func (a *App) ReadObjectPages(entry, first int) (vmangos.ObjectPages, error) {

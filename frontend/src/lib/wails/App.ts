@@ -74,6 +74,7 @@ export const ExportIcons: Call<AppApi['ExportIcons']> = (...a) => api().ExportIc
 export const ExportIconsDialog: Call<AppApi['ExportIconsDialog']> = (...a) => api().ExportIconsDialog(...a) as never
 export const ExportItems: Call<AppApi['ExportItems']> = (...a) => api().ExportItems(...a) as never
 export const ExportLights: Call<AppApi['ExportLights']> = (...a) => api().ExportLights(...a) as never
+export const ExportObjects: Call<AppApi['ExportObjects']> = (...a) => api().ExportObjects(...a) as never
 export const ExportSounds: Call<AppApi['ExportSounds']> = (...a) => api().ExportSounds(...a) as never
 export const ExportSoundsDialog: Call<AppApi['ExportSoundsDialog']> = (...a) => api().ExportSoundsDialog(...a) as never
 export const ExportSpells: Call<AppApi['ExportSpells']> = (...a) => api().ExportSpells(...a) as never
@@ -91,6 +92,7 @@ export const ImportCreatures: NonNullCall<AppApi['ImportCreatures']> = (...a) =>
 export const ImportIconPictures: Call<AppApi['ImportIconPictures']> = (...a) => api().ImportIconPictures(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
 export const ImportLights: NonNullCall<AppApi['ImportLights']> = (...a) => api().ImportLights(...a) as never
+export const ImportObjects: NonNullCall<AppApi['ImportObjects']> = (...a) => api().ImportObjects(...a) as never
 export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
 export const ImportSound: Call<AppApi['ImportSound']> = (...a) => api().ImportSound(...a) as never
 export const ImportSpells: NonNullCall<AppApi['ImportSpells']> = (...a) => api().ImportSpells(...a) as never
@@ -155,6 +157,7 @@ export const OpenImageDialog: Call<AppApi['OpenImageDialog']> = (...a) => api().
 export const OpenItemsDialog: Call<AppApi['OpenItemsDialog']> = (...a) => api().OpenItemsDialog(...a) as never
 export const OpenMapDialog: Call<AppApi['OpenMapDialog']> = (...a) => api().OpenMapDialog(...a) as never
 export const OpenModelSetDialog: NonNullCall<AppApi['OpenModelSetDialog']> = (...a) => api().OpenModelSetDialog(...a) as never
+export const OpenObjectsDialog: Call<AppApi['OpenObjectsDialog']> = (...a) => api().OpenObjectsDialog(...a) as never
 export const OpenOtherClient: Call<AppApi['OpenOtherClient']> = (...a) => api().OpenOtherClient(...a) as never
 export const OpenProject: Call<AppApi['OpenProject']> = (...a) => api().OpenProject(...a) as never
 export const OpenReferenceImageDialog: Call<AppApi['OpenReferenceImageDialog']> = (...a) => api().OpenReferenceImageDialog(...a) as never
@@ -167,6 +170,7 @@ export const OwnObjectDisplay: Call<AppApi['OwnObjectDisplay']> = (...a) => api(
 export const PlanCreatureImport: Call<AppApi['PlanCreatureImport']> = (...a) => api().PlanCreatureImport(...a) as never
 export const PlanItemDelete: Call<AppApi['PlanItemDelete']> = (...a) => api().PlanItemDelete(...a) as never
 export const PlanItemImport: Call<AppApi['PlanItemImport']> = (...a) => api().PlanItemImport(...a) as never
+export const PlanObjectImport: Call<AppApi['PlanObjectImport']> = (...a) => api().PlanObjectImport(...a) as never
 export const PlanQuestDelete: Call<AppApi['PlanQuestDelete']> = (...a) => api().PlanQuestDelete(...a) as never
 export const PlanSpellImport: Call<AppApi['PlanSpellImport']> = (...a) => api().PlanSpellImport(...a) as never
 export const PlayHere: Call<AppApi['PlayHere']> = (...a) => api().PlayHere(...a) as never

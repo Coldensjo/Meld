@@ -6,10 +6,11 @@
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { SlotTarget } from '../lib/toolwin/editors'
 	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
-	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../lib/wails/App'
+	import { CreateObject, ExportObjects, ImportObjects, NextObjectLoot, ObjectModel, OpenObjectsDialog, PlanObjectImport, ReadObject, SaveObject } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { focusField } from '../lib/ui/focusField'
+	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
 	import { fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups, pageColumn } from '../lib/world/objectFields'
 	import { objectEntryFields } from '../lib/world/spawnEdits'
@@ -41,6 +42,8 @@
 	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save; a display other objects share
 	// can be copied to one of the object's own there first (#723). Text (#139) edits what a
 	// readable object (a tombstone, a plaque, a note) says, its page_text pages, saved with the same Save.
+	// Export… and Import… (#939) write and read an SQL script of the object's template rows with its
+	// quests and contents (internal/vmangos/objectscripts.go).
 
 	// In the desktop app it opens as its own OS window (#916, components/toolwin/EditorToolWindow.svelte), as
 	// the creature editor does: it runs whole on that page's own `ui.objectEditor` and tells the window when it
@@ -395,6 +398,56 @@
 			creating = false
 		}
 	}
+
+	// Export and import (#939): SQL scripts of gameobject_template rows with the quests each object starts
+	// and ends and a chest's contents (internal/vmangos/objectscripts.go).
+	function exportObject() {
+		if (record) void exportRow(ed, { kind: 'object', entry: record.entry, name: saved.name ?? '', unsaved, write: ExportObjects })
+	}
+
+	/** An import being confirmed: the script's path and what it writes. */
+	let plan = $state<{ path: string; plan: vmangos.ObjectImport } | null>(null)
+	let importing = $state(false)
+
+	function askImport() {
+		planImport(ed, { pick: OpenObjectsDialog, plan: PlanObjectImport, set: (p) => (plan = p) })
+	}
+
+	function confirmImport() {
+		if (!plan) return
+		const { path } = plan
+		void runImport(ed, {
+			run: () => ImportObjects(path),
+			clear: () => (plan = null),
+			forget: () => {
+				forgetObjects()
+				templates = []
+			},
+			open: target?.entry,
+			openEntry: (entry) => {
+				// The open object's tabs read their rows again: the import replaced its quests and contents.
+				if (entry === target?.entry) {
+					lootTab?.revert()
+					questsTab?.revert()
+				}
+				ui.objectEditor = { key: entry === target?.entry ? target.key : null, entry }
+			},
+			note: (entries) => `Imported ${entries.length} game ${entries.length === 1 ? 'object' : 'objects'} into the world database. ${SERVER_RELOADS} Restart the game to see it there.`,
+			status: 10000,
+			busy: (b) => (importing = b),
+		})
+	}
+
+	/** A list the import replaces, as the plan bar says it. */
+	function listText(l: vmangos.ListImport): string {
+		return `${l.what} of ${l.of} ${l.entry} (${l.rows}${l.had ? `, replacing ${l.had}` : ''})`
+	}
+
+	/** The objects that hold a loot list the import replaces, as the plan bar says them. */
+	function sharedText(shared: vmangos.LootShare[]): string {
+		const list = shared.slice(0, 8).map((s) => `${s.name || 'object'} (${s.entry}, loot list ${s.loot}${s.spawns ? `, ${s.spawns} ${s.spawns === 1 ? 'spawn' : 'spawns'}` : ''})`)
+		return list.join('; ') + (shared.length > 8 ? `; and ${shared.length - 8} more` : '')
+	}
 </script>
 
 {#if target}
@@ -413,12 +466,44 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
+			<button onclick={askImport} title="Read game objects, with their quests and contents, from an SQL script into the world database">Import…</button>
 			{#if record}
+				<button onclick={exportObject} title="Write this object, with its quests and contents, to an SQL script">Export…</button>
 				<button disabled={ed.saving} onclick={place} title="Place this object in the region">Place in world</button>
 				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
 				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
 					{ed.saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0) + (pagesDirty ? 1 : 0) + (soundsDirty ? 1 : 0)})` : 'Saved'}
 				</button>
+			{/if}
+		{/snippet}
+		{#snippet bars()}
+			{#if plan}
+				{@const rows = plan.plan.objects}
+				<div class="bar warn plan">
+					<div class="what">
+						<strong>Import {rows.length} game object {rows.length === 1 ? 'row' : 'rows'} into the world database?</strong>
+						<span>
+							{rows
+								.slice(0, 12)
+								.map((o) => `${o.name || 'object'} (${o.entry}${o.patch ? `, patch ${o.patch}` : ''}${o.exists ? ', replaces it' : ', new'})`)
+								.join('; ')}{rows.length > 12 ? `; and ${rows.length - 12} more` : ''}.
+						</span>
+						{#if plan.plan.lists?.length}
+							<span>Replaces the lists: {plan.plan.lists.slice(0, 12).map(listText).join('; ')}{plan.plan.lists.length > 12 ? `; and ${plan.plan.lists.length - 12} more` : ''}.</span>
+						{:else}
+							<span>The script carries no quest lists or contents: the objects keep theirs.</span>
+						{/if}
+						{#if plan.plan.shared?.length}<span>Other objects here hold a loot list it replaces, and get the new contents too: {sharedText(plan.plan.shared)}.</span>{/if}
+						{#if plan.plan.missingItems?.length}<span>Items this world database lacks, which the contents then list but the server leaves out: {plan.plan.missingItems.join(', ')}. Import them first (Tools › Items).</span>{/if}
+						{#if plan.plan.missingQuests?.length}<span>Quests this world database lacks, which the server leaves out: {plan.plan.missingQuests.join(', ')}.</span>{/if}
+						{#if plan.plan.others}<span>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of objects or loot lists the script's templates don't name, and left out.</span>{/if}
+						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only gameobject_template rows, quest lists and contents are imported.</span>{/if}
+						{#if plan.plan.unknown?.length}<span>Columns this server's tables lack are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
+						<span>A replaced object or list can't be brought back, unless you exported it first.</span>
+					</div>
+					<button onclick={() => (plan = null)}>Cancel</button>
+					<button class="active" disabled={importing} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
+				</div>
 			{/if}
 		{/snippet}
 
@@ -602,6 +687,12 @@
 {/if}
 
 <style>
+	.bar.plan .what {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
 	.error {
 		color: var(--danger-text);
 		overflow-wrap: anywhere;

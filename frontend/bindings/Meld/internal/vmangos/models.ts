@@ -421,7 +421,7 @@ export interface ColumnError {
  */
 export interface CreatureImport {
     "creatures": CreatureImportRow[] | null;
-    "lists": CreatureListImport[] | null;
+    "lists": ListImport[] | null;
 
     /**
      * Skipped is how many statements are neither creature_template rows nor the lists' rows and
@@ -456,18 +456,6 @@ export interface CreatureImportRow {
     "patch": number;
     "name": string;
     "exists": boolean;
-}
-
-/**
- * CreatureListImport is a creature's list the import replaces: the table, what its rows are, how
- * many rows the script gives and how many the world database has now, which go.
- */
-export interface CreatureListImport {
-    "entry": number;
-    "table": string;
-    "what": string;
-    "rows": number;
-    "had": number;
 }
 
 /**
@@ -1272,6 +1260,20 @@ export interface LiquidTypeEntry {
 }
 
 /**
+ * ListImport is a list the import replaces: the ID it is keyed by and what that is (a creature, an
+ * object, a loot list), the table, what its rows are, how many rows the script gives and how many the
+ * world database has now, which go.
+ */
+export interface ListImport {
+    "entry": number;
+    "of": string;
+    "table": string;
+    "what": string;
+    "rows": number;
+    "had": number;
+}
+
+/**
  * LoadingScreen is a row of LoadingScreens.dbc: its ID, name (field 1) and picture (field 2).
  */
 export interface LoadingScreen {
@@ -1339,6 +1341,16 @@ export interface LootItem {
     "condition": number;
     "patchMin": number;
     "patchMax": number;
+}
+
+/**
+ * LootShare is an object on the server that holds loot list Loot, with its spawn count.
+ */
+export interface LootShare {
+    "loot": number;
+    "entry": number;
+    "name": string;
+    "spawns": number;
 }
 
 /**
@@ -1488,6 +1500,56 @@ export interface ObjectDisplaySounds {
     "display": number;
     "model": string;
     "sounds": number[] | null;
+}
+
+/**
+ * ObjectImport is what an SQL script of game objects would write: its template rows, the lists it
+ * replaces, and what of it is left out.
+ */
+export interface ObjectImport {
+    "objects": ObjectImportRow[] | null;
+    "lists": ListImport[] | null;
+
+    /**
+     * Shared are the objects on this server, other than the script's, that hold a loot list the
+     * import replaces: their contents change too.
+     */
+    "shared": LootShare[] | null;
+
+    /**
+     * Skipped is how many statements are neither gameobject_template rows nor the lists' rows and
+     * DELETEs, which importing leaves out.
+     */
+    "skipped": number;
+
+    /**
+     * Others counts the list rows and DELETEs of objects (or loot lists) the script's template rows
+     * don't name, left out.
+     */
+    "others": number;
+
+    /**
+     * Unknown are columns the script names that this server's tables lack, left out.
+     */
+    "unknown": string[] | null;
+
+    /**
+     * MissingItems and MissingQuests are the items the contents hold and the quests the objects start
+     * or end that the world database lacks: importing writes their rows, which the server leaves out.
+     */
+    "missingItems": number[] | null;
+    "missingQuests": number[] | null;
+}
+
+/**
+ * ObjectImportRow is one game object row of a script: its entry, patch and name, and whether the
+ * world database has that row already, which importing replaces.
+ */
+export interface ObjectImportRow {
+    "entry": number;
+    "patch": number;
+    "name": string;
+    "exists": boolean;
 }
 
 /**

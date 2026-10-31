@@ -452,6 +452,14 @@ export function ExportLights(edit: vmangos$0.LightsEdit, suggested: string): $Ca
 }
 
 /**
+ * ExportObjects asks where to save an SQL script of game objects and writes their
+ * gameobject_template rows, quests and contents there (#939). Returns the path, or "" if cancelled.
+ */
+export function ExportObjects(entries: number[] | null, suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(2855097049, entries, suggested);
+}
+
+/**
  * ExportSounds saves the client's sound files at paths in dir, each under its own name, as stored.
  */
 export function ExportSounds(paths: string[] | null, dir: string): $CancellablePromise<$models.SoundsExported> {
@@ -583,6 +591,14 @@ export function ImportItems(path: string): $CancellablePromise<number[] | null> 
  */
 export function ImportLights(): $CancellablePromise<vmangos$0.LightsEdit | null> {
     return $Call.ByID(1383770393);
+}
+
+/**
+ * ImportObjects writes the game objects of the SQL script at path, with their lists, into the world
+ * database and returns their entries.
+ */
+export function ImportObjects(path: string): $CancellablePromise<number[] | null> {
+    return $Call.ByID(3140535256, path);
 }
 
 /**
@@ -1070,6 +1086,13 @@ export function OpenModelSetDialog(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * OpenObjectsDialog asks for an SQL script of game objects to import. Returns "" if cancelled.
+ */
+export function OpenObjectsDialog(): $CancellablePromise<string> {
+    return $Call.ByID(2471780675);
+}
+
+/**
  * OpenOtherClient opens the client at path read-only as the one to import from, closing the one
  * open before; "" closes it, freeing what was decoded from it. The current client can't be opened
  * as the other one.
@@ -1163,6 +1186,13 @@ export function PlanItemDelete(entry: number): $CancellablePromise<vmangos$0.Ite
  */
 export function PlanItemImport(path: string): $CancellablePromise<vmangos$0.ItemImport> {
     return $Call.ByID(931250728, path);
+}
+
+/**
+ * PlanObjectImport says what importing the game objects of the SQL script at path would write.
+ */
+export function PlanObjectImport(path: string): $CancellablePromise<vmangos$0.ObjectImport> {
+    return $Call.ByID(2949627560, path);
 }
 
 /**
