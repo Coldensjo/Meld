@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { editorPoint } from '../io/portCoords'
-import { rayNearSegment, routeLines, type Vec3 } from './taxiRoute'
+import { mapRuns, rayNearSegment, routeLines, type Vec3 } from './taxiRoute'
 
 // Flight paths (#180): the open map's flight stops (TaxiNodes.dbc) and the routes from or to them
 // (TaxiPath.dbc, through TaxiPathNode.dbc's points), drawn while Show › Flight paths is on or the
@@ -16,12 +16,17 @@ export interface TaxiStopShape extends Vec3 {
 	allianceMount: number
 }
 
+/** A route point in the server's coordinates, with the map it is on (vmangos.TaxiPoint; none counts as the open map's). */
+export interface TaxiPointShape extends Vec3 {
+	mapId?: number
+}
+
 /** A route in the server's coordinates (vmangos.TaxiRoute). */
 export interface TaxiRouteShape {
 	id: number
 	from: number
 	to: number
-	points: Vec3[]
+	points: TaxiPointShape[]
 }
 
 /** What the Flight Paths window has picked: a stop, a route and one of its points (-1 for none). */
@@ -89,6 +94,8 @@ export class TaxiLayer {
 	routes: TaxiRouteShape[] = []
 	tileX = 0
 	tileY = 0
+	/** The open map's client map ID, whose points of a route are drawn (#980); null draws them all. */
+	mapId: number | null = null
 	pick: TaxiPick = { stop: null, route: null, point: -1 }
 	private ground: GroundAt = () => NaN
 	private readonly stopGeo = new THREE.OctahedronGeometry(2.2)
@@ -100,6 +107,8 @@ export class TaxiLayer {
 	private picked: THREE.LineSegments
 	private drops: THREE.LineSegments
 	private tmpM = new THREE.Matrix4()
+	/** The picked route's point index of each point marker (only the open map's points have one). */
+	private markIndex: number[] = []
 
 	constructor() {
 		const onTop = { depthTest: false, transparent: true, fog: false }
@@ -121,12 +130,13 @@ export class TaxiLayer {
 	 * Draws `stops` and `routes` (server coordinates) in the block whose first tile is `block` (a
 	 * region's; null for a map of its own, whose first tile is 0, 0), with `pick` highlighted. Only what differs from the last call is redrawn (#588): the Flight Paths
 	 * window hands over its whole network on every pick and edit, and after a drag, which the layer
-	 * has drawn already, so a pick redraws the stops or the picked route and a release nothing.
+	 * has drawn already, so a pick redraws the stops or the picked route and a release nothing. Only a
+	 * route's points on map `mapId` are drawn, picked and flown (#980).
 	 */
-	set(stops: TaxiStopShape[], routes: TaxiRouteShape[], block: { x: number; y: number } | null, pick: TaxiPick, ground: GroundAt) {
+	set(stops: TaxiStopShape[], routes: TaxiRouteShape[], block: { x: number; y: number } | null, pick: TaxiPick, ground: GroundAt, mapId: number | null = null) {
 		const tileX = block?.x ?? 0
 		const tileY = block?.y ?? 0
-		const all = tileX !== this.tileX || tileY !== this.tileY || ground !== this.ground
+		const all = tileX !== this.tileX || tileY !== this.tileY || ground !== this.ground || mapId !== this.mapId
 		const stopsChanged = all || pick.stop !== this.pick.stop || !sameStops(stops, this.stops)
 		let routesChanged = all || pick.route !== this.pick.route || routes.length !== this.routes.length
 		let pickedChanged = routesChanged || pick.point !== this.pick.point
@@ -144,6 +154,7 @@ export class TaxiLayer {
 		this.routes = routes
 		this.tileX = tileX
 		this.tileY = tileY
+		this.mapId = mapId
 		this.pick = pick
 		this.ground = ground
 		if (stopsChanged) this.drawStops()
@@ -156,8 +167,15 @@ export class TaxiLayer {
 		return editorPoint(p, this.tileX, this.tileY)
 	}
 
-	private editorPoints(r: TaxiRouteShape): Vec3[] {
-		return r.points.map((p) => this.editor(p))
+	/** The curve pieces of a route's runs on the open map (mapRuns), editor points, into `out`. */
+	private routeLinesOf(r: TaxiRouteShape, out: number[] = []): number[] {
+		for (const run of mapRuns(r.points, this.mapId))
+			routeLines(
+				run.map((i) => this.editor(r.points[i])),
+				PIECES,
+				out,
+			)
+		return out
 	}
 
 	/** Redraws the stops (after one moved). */
@@ -177,7 +195,7 @@ export class TaxiLayer {
 	/** Redraws every route; the picked one's with its points. */
 	drawRoutes() {
 		const rest: number[] = []
-		for (const r of this.routes) if (r.id !== this.pick.route) routeLines(this.editorPoints(r), PIECES, rest)
+		for (const r of this.routes) if (r.id !== this.pick.route) this.routeLinesOf(r, rest)
 		setLines(this.all.geometry, rest, underground(rest, this.ground, ROUTE))
 		this.drawPicked()
 	}
@@ -185,19 +203,26 @@ export class TaxiLayer {
 	/** Redraws only the picked route (after one of its points moved). */
 	drawPicked() {
 		const r = this.routes.find((x) => x.id === this.pick.route)
-		const pts = r ? this.editorPoints(r) : []
-		const lines = routeLines(pts, PIECES)
+		const lines = r ? this.routeLinesOf(r) : []
 		setLines(this.picked.geometry, lines, underground(lines, this.ground, PICKED_ROUTE))
 		const drops: number[] = []
-		this.pointMarks = this.fit(this.pointMarks, pts.length)
-		pts.forEach((p, i) => {
+		const pts = r?.points ?? []
+		this.markIndex = mapRuns(pts, this.mapId).flat()
+		this.pointMarks = this.fit(this.pointMarks, this.markIndex.length)
+		this.markIndex.forEach((index, i) => {
+			const p = this.editor(pts[index])
 			this.pointMarks.setMatrixAt(i, this.tmpM.makeTranslation(p.x, p.y, p.z))
-			this.pointMarks.setColorAt(i, i === this.pick.point ? PICKED : ROUTE)
+			this.pointMarks.setColorAt(i, index === this.pick.point ? PICKED : ROUTE)
 			const g = this.ground(p.x, p.z)
 			if (Number.isFinite(g)) drops.push(p.x, p.y, p.z, p.x, g, p.z)
 		})
-		this.finish(this.pointMarks, pts.length)
+		this.finish(this.pointMarks, this.markIndex.length)
 		setLines(this.drops.geometry, drops)
+	}
+
+	/** The picked route's points on the open map, by index into its points, as drawPicked marked them. */
+	get marked(): readonly number[] {
+		return this.markIndex
 	}
 
 	/** The stop whose marker the ray hits, or null. */
@@ -211,7 +236,7 @@ export class TaxiLayer {
 	pickPoint(raycaster: THREE.Raycaster): number {
 		if (!this.pointMarks.count) return -1
 		const hit = raycaster.intersectObject(this.pointMarks, false)[0]
-		return hit?.instanceId ?? -1
+		return hit?.instanceId !== undefined ? (this.markIndex[hit.instanceId] ?? -1) : -1
 	}
 
 	/** The route whose drawn curve passes within `tolerance` (the tangent of the angle off the ray) of the ray, the nearest in angle, or null. */
@@ -224,7 +249,7 @@ export class TaxiLayer {
 		const b = { x: 0, y: 0, z: 0 }
 		for (const r of this.routes) {
 			lines.length = 0
-			routeLines(this.editorPoints(r), PIECES, lines)
+			this.routeLinesOf(r, lines)
 			for (let i = 0; i < lines.length; i += 6) {
 				a.x = lines[i]
 				a.y = lines[i + 1]
@@ -286,13 +311,13 @@ export function sameStops(a: readonly TaxiStopShape[], b: readonly TaxiStopShape
 	return true
 }
 
-/** Whether two routes draw the same: the same ID and points. */
+/** Whether two routes draw the same: the same ID and points, on the same maps. */
 export function sameRoute(a: TaxiRouteShape, b: TaxiRouteShape): boolean {
 	if (a.id !== b.id || a.points.length !== b.points.length) return false
 	for (let i = 0; i < a.points.length; i++) {
 		const p = a.points[i]
 		const q = b.points[i]
-		if (p.x !== q.x || p.y !== q.y || p.z !== q.z) return false
+		if (p.x !== q.x || p.y !== q.y || p.z !== q.z || p.mapId !== q.mapId) return false
 	}
 	return true
 }

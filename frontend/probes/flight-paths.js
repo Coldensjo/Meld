@@ -1,4 +1,4 @@
-// Flight paths (#180): World › Flight Paths in Redridge (Azeroth 36_49) reads Eastern Kingdoms' stops and routes, a click on Lakeshire's marker (stop 5) picks it and a drag moves it, a route picked from the list takes a drawn point, a click on a route's curve picks it, and Fly it moves the camera along the route and puts it back. Nothing is saved.
+// Flight paths (#180): World › Flight Paths in Redridge (Azeroth 36_49) reads Eastern Kingdoms' stops and routes, a click on Lakeshire's marker (stop 5) picks it and a drag moves it, a route picked from the list takes a drawn point, a click on a route's curve picks it, and Fly it moves the camera along the route and puts it back; a boat's path that crosses to Kalimdor is marked only on its Eastern Kingdoms points (#980). Nothing is saved.
 // touches: frontend/src/lib/world/TaxiLayer.ts, frontend/src/lib/world/taxiRoute.ts, frontend/src/components/FlightPathsWindow.svelte, internal/vmangos/taxi.go, frontend/src/lib/engine/TaxiEditing.ts, frontend/src/lib/engine/docOverlay.ts
 const { ui } = await P.state()
 try {
@@ -18,6 +18,18 @@ try {
 	ui.flightPaths = true
 	await P.until(() => L.stops.find((s) => s.id === 5) ?? null, 60_000, "Lakeshire's stop drawn")
 	const counts = { stops: L.stops.length, routes: L.routes.length, visible: L.group.visible }
+	// #980: a boat's path (Menethil to Theramore is 292) crosses to Kalimdor; only its points on this map are marked.
+	const boat = L.routes.find((r) => r.points.some((p) => p.mapId !== L.mapId))
+	let boatMarks = -1
+	if (boat) {
+		const pick = L.pick
+		L.pick = { ...pick, route: boat.id, point: -1 }
+		L.drawPicked()
+		boatMarks = L.marked.every((i) => boat.points[i].mapId === L.mapId) ? L.marked.length : -1
+		L.pick = pick
+		L.drawPicked()
+	}
+	Object.assign(counts, { mapId: L.mapId, boat: boat?.id ?? null, boatMarks })
 	const win = document.querySelector('[data-ui="FlightPathsWindow"]')
 	const button = (label) => [...win.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
 
@@ -79,6 +91,9 @@ try {
 		counts.stops >= 40 &&
 		counts.routes >= 100 &&
 		counts.visible &&
+		counts.mapId === 0 &&
+		counts.boat !== null &&
+		counts.boatMarks > 0 &&
 		picked === 5 &&
 		moved > 1 &&
 		saveLabel === 'Save (1)' &&

@@ -597,7 +597,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `TaxiLayer.set` compares it with what it drew (`sameStops`, `sameRoute`) and redraws only the
   stops, the picked route or all routes as needed: a release after a drag redraws nothing (#588). `taxiRoute.ts` is the server's curve (uniform Catmull-Rom with the ends doubled, timed at
   32 yd/s segment by segment); the layer colours it red where it runs under the ground, and
-  `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). Make flight master sets
+  `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). A route's points carry
+  their map (`TaxiPoint.mapId`), and the boats' and zeppelins' paths cross to another map, so the
+  layer draws, marks and picks only the open map's runs of points (`taxiRoute.ts` `mapRuns`; a
+  marker's point index is `TaxiLayer.marked`) and Fly it flies the longest run (`longestRun`), while
+  the window keeps the whole route, since `SaveTaxi` rewrites its points whole (#980). Make flight master sets
   npc_flags 8 on the selected creature's template through `SaveCreature`.
 - **Boats and zeppelins** (#954, read only; making and editing them is #955): VMaNGOS makes every
   `gameobject_template` of type 15 a transport (`TransportMgr::LoadTransportTemplates`); its data0 is

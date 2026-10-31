@@ -106,6 +106,32 @@ export function routeLines(pts: readonly Vec3[], perSegment: number, out: number
 	return out
 }
 
+/**
+ * The runs of a route's points on map `mapId` (#980): each the indices of consecutive points on it,
+ * cut where the route leaves the map. A boat's or zeppelin's path (a TaxiPath.dbc route between
+ * "Transport, ..." stops) crosses to another map, whose points are in that map's coordinates and must
+ * not be drawn on this one. A point without a map, or a null `mapId`, counts as on it.
+ */
+export function mapRuns(points: readonly { mapId?: number }[], mapId: number | null): number[][] {
+	const runs: number[][] = []
+	let run: number[] | null = null
+	for (let i = 0; i < points.length; i++) {
+		const m = points[i].mapId
+		if (mapId === null || m === undefined || m === mapId) {
+			if (!run) runs.push((run = []))
+			run.push(i)
+		} else run = null
+	}
+	return runs
+}
+
+/** The longest of a route's runs on map `mapId` (mapRuns), as its points; empty when none is on it. */
+export function longestRun<T extends { mapId?: number }>(points: readonly T[], mapId: number | null): T[] {
+	let best: number[] = []
+	for (const r of mapRuns(points, mapId)) if (r.length > best.length) best = r
+	return best.map((i) => points[i])
+}
+
 /** A new route's height over its stops, yards: about where the client's own routes cruise. */
 export const CRUISE_HEIGHT = 40
 

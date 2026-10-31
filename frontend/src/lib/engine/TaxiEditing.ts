@@ -4,7 +4,7 @@ import type { MapDocument } from './MapDocument'
 import type { CameraController } from './CameraController'
 import { DocOverlay } from './docOverlay'
 import { TaxiLayer, type TaxiHooks, type TaxiPick, type TaxiRouteShape, type TaxiStopShape } from '../world/TaxiLayer'
-import { airPoint, flightAt, segmentLengths, type Vec3 } from '../world/taxiRoute'
+import { airPoint, flightAt, longestRun, segmentLengths, type Vec3 } from '../world/taxiRoute'
 import { serverSpot } from '../io/portCoords'
 import type { vmangos } from '../wails/models'
 import { TaxiNetwork } from '../wails/App'
@@ -78,7 +78,7 @@ export class TaxiEditing {
 				return id === null ? null : TaxiNetwork(id)
 			},
 			apply: (doc, n) => {
-				this.layer.set(n?.nodes ?? [], n?.routes ?? [], doc.meta.region, NO_PICK, this.ground)
+				this.layer.set(n?.nodes ?? [], n?.routes ?? [], doc.meta.region, NO_PICK, this.ground, host.openMapId())
 			},
 			failed: (err) => setStatus(`Show › Flight paths: the map's flight paths could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 		})
@@ -98,7 +98,7 @@ export class TaxiEditing {
 	show(stops: TaxiStopShape[], routes: TaxiRouteShape[], pick: TaxiPick, hooks: TaxiHooks) {
 		this.hooks = hooks
 		this.overlay.edited = true
-		this.layer.set(stops, routes, this.host.doc.meta.region, pick, this.ground)
+		this.layer.set(stops, routes, this.host.doc.meta.region, pick, this.ground, this.host.openMapId())
 	}
 
 	/** The Flight Paths window closed: Show › Flight paths reads the map's stops again (they may have been saved). */
@@ -166,7 +166,7 @@ export class TaxiEditing {
 			}
 		}
 		if (!route || !hooks.drawing() || !route.points.length) return false
-		const after = L.pick.point >= 0 && L.pick.point < route.points.length ? L.pick.point : route.points.length - 1
+		const after = L.pick.point >= 0 && L.pick.point < route.points.length ? L.pick.point : (L.marked.at(-1) ?? route.points.length - 1)
 		const height = L.editor(route.points[after]).y
 		const ground = h.surfaceHit()?.point ?? null
 		h.raycaster.setFromCamera(h.ndc, h.camera)
@@ -240,10 +240,14 @@ export class TaxiEditing {
 		if (p) this.hooks.moved('point', d.route, d.index, { x: p.x, y: p.y, z: p.z })
 	}
 
-	/** Flies the camera along a route's points (server coordinates) at a flight's speed, then puts the view back; Esc or stopFlight ends it early. */
-	fly(points: readonly Vec3[]) {
+	/**
+	 * Flies the camera along a route's points (server coordinates) at a flight's speed, then puts the
+	 * view back; Esc or stopFlight ends it early. Only the longest run of points on the open map is
+	 * flown (#980): a boat's path crosses to another map.
+	 */
+	fly(points: readonly (Vec3 & { mapId?: number })[]) {
 		const h = this.host
-		const pts = points.map((p) => this.layer.editor(p))
+		const pts = longestRun(points, h.openMapId()).map((p) => this.layer.editor(p))
 		if (pts.length < 2) return
 		this.stopFlight()
 		const follow = h.controller.followGround

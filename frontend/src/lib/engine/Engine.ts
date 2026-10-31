@@ -2174,7 +2174,7 @@ export class Engine {
 	}
 
 	/** Flies the camera along a route's points (server coordinates) at a flight's speed, then puts the view back; Esc or stopTaxiFlight ends it early. */
-	flyTaxi(points: readonly Vec3[]) {
+	flyTaxi(points: readonly (Vec3 & { mapId?: number })[]) {
 		this.taxi.fly(points)
 	}
 

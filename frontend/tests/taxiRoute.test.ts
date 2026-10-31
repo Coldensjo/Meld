@@ -3,7 +3,7 @@ import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { isNear } from './support/near.ts'
 import * as THREE from 'three'
-import { airPoint, CRUISE_HEIGHT, defaultRoute, flightAt, flightSeconds, FLIGHT_SPEED, rayNearSegment, routeLines, segmentLengths, splinePoint } from '../src/lib/world/taxiRoute.ts'
+import { airPoint, CRUISE_HEIGHT, defaultRoute, flightAt, flightSeconds, FLIGHT_SPEED, longestRun, mapRuns, rayNearSegment, routeLines, segmentLengths, splinePoint } from '../src/lib/world/taxiRoute.ts'
 import { stopColor, TaxiLayer, underground } from '../src/lib/world/TaxiLayer.ts'
 
 const line = [
@@ -186,5 +186,53 @@ test('TaxiLayer.set redraws only what differs from the last call (#588)', () => 
 	drawn.length = 0
 	L.set(L.stops, L.routes, { x: 37, y: 49 }, L.pick, ground)
 	assert.ok(drawn.includes('drawStops') && drawn.includes('drawRoutes'))
+	L.dispose()
+})
+
+test("mapRuns cuts a route into its runs of points on one map, as a boat's path crosses to another (#980)", () => {
+	const pts = [{ mapId: 0 }, { mapId: 0 }, { mapId: 1 }, { mapId: 1 }, { mapId: 0 }, {}]
+	assert.deepEqual(mapRuns(pts, 0), [
+		[0, 1],
+		[4, 5],
+	])
+	assert.deepEqual(mapRuns(pts, 1), [[2, 3], [5]])
+	assert.deepEqual(mapRuns(pts, 2), [[5]])
+	assert.deepEqual(mapRuns(pts, null), [[0, 1, 2, 3, 4, 5]])
+	const named = [
+		{ mapId: 0, x: 1 },
+		{ mapId: 1, x: 2 },
+		{ mapId: 1, x: 3 },
+	]
+	assert.deepEqual(
+		longestRun(named, 1).map((p) => p.x),
+		[2, 3],
+	)
+	assert.deepEqual(longestRun(named, 5), [])
+})
+
+test("TaxiLayer draws, marks and picks only the open map's points of a route (#980)", () => {
+	const L = new TaxiLayer()
+	// Menethil to Theramore's shape: points on map 0, then on map 1 in Kalimdor's coordinates.
+	const route = {
+		id: 292,
+		from: 1,
+		to: 2,
+		points: [
+			{ mapId: 0, x: 10, y: 20, z: 40 },
+			{ mapId: 0, x: 200, y: 20, z: 40 },
+			{ mapId: 1, x: -4300, y: -5700, z: 40 },
+			{ mapId: 1, x: -4400, y: -5800, z: 40 },
+		],
+	}
+	L.set([], [route], null, { stop: null, route: 292, point: 1 }, () => 0, 0)
+	assert.deepEqual(L.marked, [0, 1])
+	const picked = (L.group.children.find((c) => c instanceof THREE.LineSegments && c.renderOrder === 10 && (c.material as THREE.LineBasicMaterial).vertexColors) as THREE.LineSegments).geometry
+	const pos = picked.getAttribute('position')
+	const home = L.editor(route.points[0])
+	for (let i = 0; i < pos.count; i++) assert.ok(Math.hypot(pos.getX(i) - home.x, pos.getZ(i) - home.z) < 300, "no piece reaches the other map's points")
+	assert.ok(pos.count > 0)
+	// On map 1 only its own two points are marked, by their index in the route.
+	L.set([], [route], null, { stop: null, route: 292, point: -1 }, () => 0, 1)
+	assert.deepEqual(L.marked, [2, 3])
 	L.dispose()
 })
