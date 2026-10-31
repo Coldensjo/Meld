@@ -222,6 +222,27 @@ export interface CharacterAppearance {
 }
 
 /**
+ * CharacterDump is what a dump holds, for the import's question: the character's name, race, class,
+ * gender and level, and how many of its things come with it; and, for the account it would go into,
+ * whether a character there is called that already and how many characters the account has.
+ */
+export interface CharacterDump {
+    "name": string;
+    "race": number;
+    "class": number;
+    "gender": number;
+    "level": number;
+    "items": number;
+    "mail": number;
+    "pets": number;
+    "spells": number;
+    "skills": number;
+    "quests": number;
+    "nameTaken": boolean;
+    "characters": number;
+}
+
+/**
  * CharacterExploration is the exploration bits a character has, with the client's zones.
  */
 export interface CharacterExploration {
@@ -901,6 +922,14 @@ export interface IconState {
     "inPatch": boolean;
     "waiting": boolean;
     "inClient": boolean;
+}
+
+/**
+ * ImportedCharacter is the character an import made: its new guid and its name.
+ */
+export interface ImportedCharacter {
+    "guid": number;
+    "name": string;
 }
 
 /**

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"os"
 
 	"Meld/internal/vmangos"
 )
@@ -68,6 +69,62 @@ func (a *App) DeleteCharacter(guid int) (string, error) {
 		return "", err
 	}
 	return vmangos.DeleteCharacter(s.ServerRoot, guid, s.WorldRunning)
+}
+
+// characterDumpFilters are the file types of a character's dump: the server's .pdump write makes INSERT
+// lines that only its .pdump load may apply, so they don't go by .sql.
+var characterDumpFilters = []fileFilter{{DisplayName: "Character dump (*.pdump)", Pattern: "*.pdump"}, {DisplayName: "All files", Pattern: "*.*"}}
+
+// ExportCharacter has the world server write a character, out of the world, to a dump (#941, its
+// `.pdump write` through the SOAP console, logged in with Game Login's account), then asks where to
+// save it. Returns the path, or "" if cancelled.
+func (a *App) ExportCharacter(guid int) (string, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return "", err
+	}
+	name, dump, err := vmangos.ExportCharacter(s.ServerRoot, s.Login.Account, s.Login.Password, guid, s.WorldRunning)
+	if err != nil {
+		return "", err
+	}
+	path, err := a.saveFile(dialogOptions{Title: "Export Character", DefaultFilename: name + ".pdump", Filters: characterDumpFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, dump, 0o644)
+}
+
+// OpenCharacterDumpDialog asks for a character's dump to import. Returns "" if cancelled.
+func (a *App) OpenCharacterDumpDialog() (string, error) {
+	return a.openFile(dialogOptions{Title: "Import Character", Filters: characterDumpFilters})
+}
+
+// PlanCharacterImport says what the dump at path holds and, for account, whether its name is taken
+// and how many characters the account has; or why the server's load would refuse or misread it.
+func (a *App) PlanCharacterImport(path string, account int) (vmangos.CharacterDump, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return vmangos.CharacterDump{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.CharacterDump{}, err
+	}
+	return vmangos.PlanCharacterImport(s.ServerRoot, b, account)
+}
+
+// ImportCharacter has the world server load the dump at path into account as a new character called
+// name (the dump's name when ""), with new guids (`.pdump load`), and returns it.
+func (a *App) ImportCharacter(path string, account int, name string) (vmangos.ImportedCharacter, error) {
+	s, err := a.serverSession()
+	if err != nil {
+		return vmangos.ImportedCharacter{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.ImportedCharacter{}, err
+	}
+	return vmangos.ImportCharacter(s.ServerRoot, s.Login.Account, s.Login.Password, b, account, name, s.WorldRunning)
 }
 
 // ListCharacters lists an account's characters.

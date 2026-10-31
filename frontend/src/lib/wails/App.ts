@@ -69,6 +69,7 @@ export const EquipBonuses: NonNullCall<AppApi['EquipBonuses']> = (...a) => api()
 export const EquipmentDisplays: NonNullCall<AppApi['EquipmentDisplays']> = (...a) => api().EquipmentDisplays(...a) as never
 export const EquipmentFor: Call<AppApi['EquipmentFor']> = (...a) => api().EquipmentFor(...a) as never
 export const EquipmentItems: Call<AppApi['EquipmentItems']> = (...a) => api().EquipmentItems(...a) as never
+export const ExportCharacter: Call<AppApi['ExportCharacter']> = (...a) => api().ExportCharacter(...a) as never
 export const ExportCreatures: Call<AppApi['ExportCreatures']> = (...a) => api().ExportCreatures(...a) as never
 export const ExportIcons: Call<AppApi['ExportIcons']> = (...a) => api().ExportIcons(...a) as never
 export const ExportIconsDialog: Call<AppApi['ExportIconsDialog']> = (...a) => api().ExportIconsDialog(...a) as never
@@ -89,6 +90,7 @@ export const GameLogin: Call<AppApi['GameLogin']> = (...a) => api().GameLogin(..
 export const GameWindow: Call<AppApi['GameWindow']> = (...a) => api().GameWindow(...a) as never
 export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api().GroundEffects(...a) as never
 export const IconState: Call<AppApi['IconState']> = (...a) => api().IconState(...a) as never
+export const ImportCharacter: Call<AppApi['ImportCharacter']> = (...a) => api().ImportCharacter(...a) as never
 export const ImportCreatures: NonNullCall<AppApi['ImportCreatures']> = (...a) => api().ImportCreatures(...a) as never
 export const ImportIconPictures: Call<AppApi['ImportIconPictures']> = (...a) => api().ImportIconPictures(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
@@ -152,6 +154,7 @@ export const ObjectDisplaySounds: Call<AppApi['ObjectDisplaySounds']> = (...a) =
 export const ObjectModel: Call<AppApi['ObjectModel']> = (...a) => api().ObjectModel(...a) as never
 export const ObjectTables: Call<AppApi['ObjectTables']> = (...a) => api().ObjectTables(...a) as never
 export const OpenBrushDialog: NonNullCall<AppApi['OpenBrushDialog']> = (...a) => api().OpenBrushDialog(...a) as never
+export const OpenCharacterDumpDialog: Call<AppApi['OpenCharacterDumpDialog']> = (...a) => api().OpenCharacterDumpDialog(...a) as never
 export const OpenCreaturesDialog: Call<AppApi['OpenCreaturesDialog']> = (...a) => api().OpenCreaturesDialog(...a) as never
 export const OpenHeightmapDialog: Call<AppApi['OpenHeightmapDialog']> = (...a) => api().OpenHeightmapDialog(...a) as never
 export const OpenIconsDialog: NonNullCall<AppApi['OpenIconsDialog']> = (...a) => api().OpenIconsDialog(...a) as never
@@ -170,6 +173,7 @@ export const OpenTextDialog: Call<AppApi['OpenTextDialog']> = (...a) => api().Op
 export const OpenToolWindow: Call<AppApi['OpenToolWindow']> = (...a) => api().OpenToolWindow(...a) as never
 export const OtherClientStatus: Call<AppApi['OtherClientStatus']> = (...a) => api().OtherClientStatus(...a) as never
 export const OwnObjectDisplay: Call<AppApi['OwnObjectDisplay']> = (...a) => api().OwnObjectDisplay(...a) as never
+export const PlanCharacterImport: Call<AppApi['PlanCharacterImport']> = (...a) => api().PlanCharacterImport(...a) as never
 export const PlanCreatureImport: Call<AppApi['PlanCreatureImport']> = (...a) => api().PlanCreatureImport(...a) as never
 export const PlanItemDelete: Call<AppApi['PlanItemDelete']> = (...a) => api().PlanItemDelete(...a) as never
 export const PlanItemImport: Call<AppApi['PlanItemImport']> = (...a) => api().PlanItemImport(...a) as never

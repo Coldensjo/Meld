@@ -526,6 +526,19 @@ func normalName(s string) string {
 	return strings.ToUpper(string(r[:1])) + strings.ToLower(string(r[1:]))
 }
 
+// nameProblem says why name can't be a character's (2 to 12 of the letters A to Z), or "".
+func nameProblem(name string) string {
+	if n := len([]rune(name)); n < 2 || n > maxPlayerName {
+		return fmt.Sprintf("A character's name has 2 to %d letters", maxPlayerName)
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
+			return "A character's name has only the letters A to Z"
+		}
+	}
+	return ""
+}
+
 // characterSet checks the changed values against the server's rules and gives the SET clauses that
 // write them, with what a change takes along: a new spot leaves any transport, flight and instance
 // (as placeSQL does), a new level starts it with no experience, and a new race or gender resets the
@@ -549,14 +562,8 @@ func characterSet(cur CharacterRecord, values map[string]string, top int) ([]str
 		}
 		switch col {
 		case "name":
-			n := len([]rune(v))
-			if n < 2 || n > maxPlayerName {
-				return nil, refuse(col, "A character's name has 2 to %d letters", maxPlayerName)
-			}
-			for _, r := range v {
-				if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
-					return nil, refuse(col, "A character's name has only the letters A to Z")
-				}
+			if p := nameProblem(v); p != "" {
+				return nil, refuse(col, "%s", p)
 			}
 			set = append(set, "name = "+sqlQuote(v))
 			continue

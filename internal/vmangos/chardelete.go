@@ -60,23 +60,32 @@ func DeleteCharacter(serverRoot string, guid int, worldRunning func() bool) (str
 	if err := runScript(db, deleteCharacterSQL(guid, account, time.Now().Unix(), mailDeliveryDelay(serverRoot))); err != nil {
 		return "", err
 	}
+	if err := recountCharacters(serverRoot, db, account); err != nil {
+		return name, fmt.Errorf("the character was deleted, but %w", err)
+	}
+	return name, nil
+}
+
+// recountCharacters writes account's count of characters into the realm list (realmcharacters, for
+// mangosd.conf's RealmID), as World::UpdateRealmCharCount does after a character is made or deleted.
+func recountCharacters(serverRoot string, db worldDB, account int) error {
 	if account == 0 {
-		return name, nil
+		return nil
 	}
 	out, err := runSQL(db, fmt.Sprintf("SELECT COUNT(*) FROM characters WHERE account = %d", account))
 	if err != nil {
-		return name, err
+		return err
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
 	if err != nil {
-		return name, fmt.Errorf("the character was deleted, but its account's characters were not counted: %q", out)
+		return fmt.Errorf("its account's characters were not counted: %q", out)
 	}
 	login, err := loginDatabase(serverRoot)
 	if err != nil {
-		return name, err
+		return err
 	}
 	_, err = runSQL(login, fmt.Sprintf("REPLACE INTO realmcharacters (numchars, acctid, realmid) VALUES (%d, %d, %d)", n, account, realmID(serverRoot)))
-	return name, err
+	return err
 }
 
 // characterTables are the tables Player::DeleteFromDB clears of a character's rows, by the column

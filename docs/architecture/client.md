@@ -434,7 +434,21 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   recounted for mangosd.conf's `RealmID`. It needs the world server stopped (it holds names, guilds
   and groups in memory). Delete account takes the account's characters along the same way (with the
   world server stopped when it has any), and refuses one without characters only while it is logged
-  in with the world server running. A character is a `TemplateEditor` row of `characterColumns` (name, race, class,
+  in with the world server running. Export and import of a character (#941, `chardump.go`) go through the world
+  server's own `.pdump write` and `.pdump load` (PlayerDump.cpp), sent through its SOAP console with
+  the Game Login account (GM level 6 in realmd's `account_access`, which is what the server reads, not
+  `account.gmlevel`): only the running server holds the next free character, item, mail and pet guids
+  a load renumbers to, and it knows every table a character spans. The server reads and writes the
+  file on its own machine, so Meld hands it one in a fresh temp folder (`stageDir`, an ASCII path in
+  quotes) and copies it from or to the user's file. The load finds values by their quotes and
+  rewrites some in place, so `checkDump` refuses a dump it would misread (a NULL or a value ending in
+  a backslash at or before a column it reads, a line past its 32000-byte buffer, an unknown table,
+  no characters row first) and `checkDumpColumns` one whose rows don't match the database's tables'
+  widths (it inserts without column names, and its transaction fails after it has said it loaded).
+  An export refuses a character in the world (the dump would miss what changed since the last save);
+  an import refuses a name in use (the server would load it under the dump's name, flagged for a
+  rename), waits for the row (the server commits the load on its database thread after it answers)
+  and recounts `realmcharacters`. A character is a `TemplateEditor` row of `characterColumns` (name, race, class,
   gender, level, money, map, position, facing); `SaveCharacter` returns a refused value as
   `refused`, as the template saves do. The rules, from the world server: a character in the world is
   never written while mangosd runs (it writes its copy over the row at logout; the `online` flag a

@@ -288,12 +288,20 @@ with your backup, and repair only the affected data rather than blindly rerunnin
 10. The **Explored** tab marks the zones and subzones the world map uncovers, and the **Flight
     paths** tab the flight masters the character knows (a stop no flight leaves is grayed: the
     server forgets it). Each has its own Save.
+11. **Export…** on a character's page saves it, as saved, to a `.pdump` file, and **Import
+    character…** on an account's page loads such a file into that account as a new character, with
+    new guids for it and its items, mail and pets. The world server does both itself (its `.pdump
+    write` and `.pdump load`), so it must be running with its SOAP console on (`SOAP.Enabled = 1` in
+    mangosd.conf), and the Game Login account must have GM level 6 (Administrator) in realmd's
+    `account_access`. A character in the world is not exported. The import needs a name no character
+    has: give it another when its own is taken. Export a character before a risky edit, or to move it
+    to another realm. Never run the file as SQL: only the server's load renumbers it.
 
 The world server writes a character that is in the world over its row when it logs out, so Meld
 refuses to change one while it is in the world and the world server runs. Renaming needs the world
 server stopped. A new level starts with no experience; a new race or gender takes the first skin,
 face and hair; a new race or class keeps the spells and skills the old one had. These writes have
-no undo: back up the character database first.
+no undo: back up the character database first, or export the character (step 11).
 
 ## Spawn routes, formations, pools and scripts
 

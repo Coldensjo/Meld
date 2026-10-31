@@ -1,5 +1,20 @@
 <script lang="ts">
-	import { CharacterLooks, CreateAccount, DeleteAccount, DeleteCharacter, ListAccounts, ListCharacters, MapEntries, ReadCharacter, SaveCharacter, SetAccount } from '../lib/wails/App'
+	import {
+		CharacterLooks,
+		CreateAccount,
+		DeleteAccount,
+		DeleteCharacter,
+		ExportCharacter,
+		ImportCharacter,
+		ListAccounts,
+		ListCharacters,
+		MapEntries,
+		OpenCharacterDumpDialog,
+		PlanCharacterImport,
+		ReadCharacter,
+		SaveCharacter,
+		SetAccount,
+	} from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -56,6 +71,7 @@
 		onopen: () => {
 			confirmDelete = false
 			confirmDeleteCharacter = false
+			importing = null
 			focusCol = ''
 			tab = 'character'
 			tabDirty = { items: false, skills: false, spells: false, reputation: false, quests: false, explored: false, taxi: false }
@@ -246,6 +262,68 @@
 		}
 	}
 
+	// Export and import (#941): the world server writes and loads the character's file itself (its
+	// .pdump write and .pdump load, through the SOAP console; internal/vmangos/chardump.go), so both
+	// need it running. An export is of the character as saved; an import makes a new character, with
+	// new guids, under a name no character has.
+	async function exportCharacter() {
+		if (!record) return
+		busy = true
+		ed.error = ''
+		try {
+			const path = await ExportCharacter(record.guid)
+			if (path) {
+				ed.note = `Exported ${saved.name} to ${path}${changeCount || Object.values(tabDirty).some(Boolean) ? ', as saved: the unsaved changes are not in it' : ''}. Tools › Characters and Accounts › an account's Import character… loads it again.`
+				setStatus(ed.note, 10000)
+			}
+		} catch (err) {
+			ed.error = String(err)
+		} finally {
+			busy = false
+		}
+	}
+
+	/** The dump being imported into the open account, what it holds, and the name it gets. */
+	let importing = $state<{ path: string; dump: vmangos.CharacterDump; account: number; name: string } | null>(null)
+	async function askImport() {
+		if (!account) return
+		const id = account.id
+		ed.error = ''
+		try {
+			const path = await OpenCharacterDumpDialog()
+			if (!path) return
+			const dump = await PlanCharacterImport(path, id)
+			if (target?.account === id) importing = { path, dump, account: id, name: dump.nameTaken ? '' : dump.name }
+		} catch (err) {
+			ed.error = String(err)
+		}
+	}
+	async function confirmImport() {
+		const imp = importing
+		if (!imp || !imp.name.trim()) return
+		busy = true
+		ed.error = ''
+		try {
+			const c = await ImportCharacter(imp.path, imp.account, imp.name)
+			importing = null
+			charactersOf = 0
+			await readAccounts()
+			ui.characterEditor = { account: imp.account, guid: c.guid }
+			ed.note = `Imported ${c.name} as character ${c.guid}${c.name !== imp.dump.name ? `, from ${imp.dump.name}'s file` : ''}.`
+			setStatus(ed.note, 10000)
+		} catch (err) {
+			ed.error = String(err)
+		} finally {
+			busy = false
+		}
+	}
+	/** What the dump brings along, as the import bar says it. */
+	function dumpText(d: vmangos.CharacterDump): string {
+		const n = (k: number, one: string, many: string) => (k ? `${k} ${k === 1 ? one : many}` : '')
+		const along = [n(d.items, 'item', 'items'), n(d.mail, 'letter', 'letters'), n(d.pets, 'pet', 'pets'), n(d.skills, 'skill', 'skills'), n(d.spells, 'spell', 'spells'), n(d.quests, 'quest', 'quests')].filter(Boolean)
+		return `${d.name}, level ${d.level} ${raceName(d.race)} ${className(d.class)}${along.length ? `, with ${along.join(', ')}` : ''}`
+	}
+
 	// The character's map, by name.
 	let maps = $state<vmangos.MapEntry[]>([])
 	$effect(() => {
@@ -401,6 +479,7 @@
 		{/snippet}
 		{#snippet actions()}
 			{#if record}
+				<button disabled={busy || ed.saving} onclick={exportCharacter} title="Save this character, as saved, to a file through the world server's .pdump write (it must be running, with its SOAP console on)">Export…</button>
 				<button class="danger" disabled={busy || ed.saving} onclick={() => (confirmDeleteCharacter = true)} title="Delete this character, with its items, mail and pets, as the server's .character erase does"
 					>Delete character…</button
 				>
@@ -425,6 +504,19 @@
 					<span>Delete {saved.name} with its items, mail and pets? It leaves its guild and group, and its cash-on-delivery mail goes back to the senders. The world server must be stopped. This cannot be undone.</span>
 					<button onclick={() => (confirmDeleteCharacter = false)}>Keep it</button>
 					<button class="danger" disabled={busy} onclick={deleteCharacter}>Delete character</button>
+				</div>
+			{/if}
+			{#if importing && account && importing.account === account.id}
+				{@const imp = importing}
+				<div class="bar warn import">
+					<span
+						>Import {dumpText(imp.dump)} into {account.name} as a new character{imp.dump.nameTaken ? `: a character is called ${imp.dump.name} already, so give it another name` : ''}{imp.dump.characters >= 10
+							? `. ${account.name} has ${imp.dump.characters} characters, the most the game allows`
+							: ''}.</span
+					>
+					<input type="text" maxlength="12" placeholder="Name" aria-label="The imported character's name" bind:value={imp.name} onkeydown={(e) => e.key === 'Enter' && confirmImport()} />
+					<button onclick={() => (importing = null)}>Cancel</button>
+					<button class="active" disabled={busy || !imp.name.trim() || imp.dump.characters >= 10} onclick={confirmImport}>{busy ? 'Importing…' : 'Import'}</button>
 				</div>
 			{/if}
 			{#if record?.online}
@@ -657,6 +749,12 @@
 								title={account.characters > 0 ? 'Remove this account and its characters, with their items, mail and pets (the world server must be stopped)' : 'Remove this account from the login database'}
 								>Delete account…</button
 							>
+							<button
+								disabled={busy}
+								onclick={askImport}
+								title="Load a character's file, made by Export… on a character's page, into this account as a new character, through the world server's .pdump load (it must be running, with its SOAP console on)"
+								>Import character…</button
+							>
 						</div>
 						<h3>Characters</h3>
 						<ul class="chars" aria-label="Characters">
@@ -684,6 +782,10 @@
 {/if}
 
 <style>
+	.import input {
+		width: 140px;
+		flex: none;
+	}
 	aside {
 		width: 280px;
 		flex: none;

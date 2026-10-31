@@ -414,6 +414,15 @@ export function EquipmentItems(id: number): $CancellablePromise<number[]> {
 }
 
 /**
+ * ExportCharacter has the world server write a character, out of the world, to a dump (#941, its
+ * `.pdump write` through the SOAP console, logged in with Game Login's account), then asks where to
+ * save it. Returns the path, or "" if cancelled.
+ */
+export function ExportCharacter(guid: number): $CancellablePromise<string> {
+    return $Call.ByID(1346830650, guid);
+}
+
+/**
  * ExportCreatures asks where to save an SQL script of creatures and writes their creature_template
  * rows and lists there (#938). Returns the path, or "" if cancelled.
  */
@@ -565,6 +574,14 @@ export function GroundEffects(): $CancellablePromise<vmangos$0.GroundEffectTable
  */
 export function IconState(name: string): $CancellablePromise<vmangos$0.IconState> {
     return $Call.ByID(197901069, name);
+}
+
+/**
+ * ImportCharacter has the world server load the dump at path into account as a new character called
+ * name (the dump's name when ""), with new guids (`.pdump load`), and returns it.
+ */
+export function ImportCharacter(path: string, account: number, name: string): $CancellablePromise<vmangos$0.ImportedCharacter> {
+    return $Call.ByID(2615635603, path, account, name);
 }
 
 /**
@@ -1053,6 +1070,13 @@ export function OpenBrushDialog(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * OpenCharacterDumpDialog asks for a character's dump to import. Returns "" if cancelled.
+ */
+export function OpenCharacterDumpDialog(): $CancellablePromise<string> {
+    return $Call.ByID(1982518594);
+}
+
+/**
  * OpenCreaturesDialog asks for an SQL script of creatures to import. Returns "" if cancelled.
  */
 export function OpenCreaturesDialog(): $CancellablePromise<string> {
@@ -1188,6 +1212,14 @@ export function OtherClientStatus(): $CancellablePromise<wow$0.Status> {
  */
 export function OwnObjectDisplay(display: number): $CancellablePromise<$models.OwnDisplay> {
     return $Call.ByID(720377594, display);
+}
+
+/**
+ * PlanCharacterImport says what the dump at path holds and, for account, whether its name is taken
+ * and how many characters the account has; or why the server's load would refuse or misread it.
+ */
+export function PlanCharacterImport(path: string, account: number): $CancellablePromise<vmangos$0.CharacterDump> {
+    return $Call.ByID(601021420, path, account);
 }
 
 /**

@@ -1195,3 +1195,28 @@ account, Delete account, Save character and Delete character.
 - In the game (the owner): log in with a quest taken, one marked done and one taken out, an area
   marked explored and a flight path added, and check the quest log (and the givers' marks), the
   world map and the flight master's map.
+- Export and import (#941, probe `character-dump`, about 8 s; nothing written): Export… on a
+  character's page sends its guid and notes the path; Import character… on an account's page shows
+  the plan's bar (the name taken, so the Name field starts empty and Import is off), Cancel drops it,
+  and a confirmed import sends the file, account and name and opens the new character. The four
+  bindings are stood in. Unit: `chardump_test.go` (`checkDump`'s refusals of what the server's load
+  would misread, `parseDumpLine`, the `.pdump write` and `.pdump load` commands sent to a fake SOAP
+  console that writes the file as the server does, the refusals of a character in the world, a
+  stopped world server, SOAP off, a taken or bad name, a dump of another table width, and the wait
+  for the row).
+- The round trip, by hand on 2026-10-31 (a throwaway Go test in `internal/vmangos` run in phases):
+  `CreateAccount('MELDPDUMP', ...)` with an `account_access` row of GM level 6 for it; a copy of
+  Kek (guid 4) at guid 9001 with its skills, reputation, home and items (item guids + 10000), made
+  with the world server stopped; then a mangosd started on a copy of mangosd.conf with only
+  `SOAP.Enabled = 1` changed (`mangosd.exe -c <copy>` from `vmangos/run`; the vmangos functions read
+  the copy's folder as the server folder, so the owner's conf stays as it is). `ExportCharacter(9001)`
+  wrote 8 kB (characters, 11 items, 13 skills, 54 reputations, the home); `ImportCharacter` as
+  Meldcopy made guid 9002 with new item guids; then the world server shut down through SOAP,
+  `DeleteCharacter(9001)`, started again, and the import under the old name made 9003; the two
+  copies read back the same (`ReadCharacter`, `ReadInventory`, the skills). Clean up with
+  `DeleteCharacter` of each, `DeleteAccount` and the `account_access` row.
+- Trap: the SOAP console and the world server's GM checks read the GM level from realmd's
+  `account_access` (per realm), not `account.gmlevel`, and the console needs level 6
+  (SEC_ADMINISTRATOR), not 3: an account at 3 gets HTTP 403. The server caches the levels at start,
+  so a new row needs a restart. Start the scratch mangosd with PowerShell's `Start-Process` (it gets
+  its own console window); `cmd //c start` from the agents' Git Bash did not start it.
