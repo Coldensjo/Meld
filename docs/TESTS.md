@@ -164,6 +164,9 @@ Every probe has an entry under its feature in the pages below (`Probe: bun run p
 `probe-helpers`, which checks the probe helpers themselves (#348, `P.time`, `P.stroke`, `P.turn`; #317,
 `P.texture`). Run it after changing `frontend/probes/lib.js`.
 
+To see a spawn by eye or in a probe, `await P.viewSpawn('Young Wolf')` (or a spawn object; `{ distance, pitch, hideObjects }`) frames it
+from a scene line with Show > Objects off, loading `P.BENCH`'s region when no spawn by that name is loaded (#983, probe `view-spawn`).
+
 For the helper API, profiling options and unusual browser failures, use the
 [testing notebook](reference/testing-notes.md#probes-bun-run-probe-checks-in-the-live-app-you-can-rerun).
 

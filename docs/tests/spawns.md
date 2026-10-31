@@ -838,6 +838,13 @@ ones in view, stays 0); count the packed instances (`mesh.userData.ids.length`, 
 passes draw) instead, or load the client's region with `P.scene`. From afar a tinted model is a few
 pixels: from afar the colours read on the discs (#982) and the markers.
 
+## Framing a spawn: P.viewSpawn (#983, probe `view-spawn`)
+
+`P.viewSpawn(nameOrSpawn, { distance = 22, pitch = 1.2, hideObjects = true })` targets a spawn of the loaded region through a scene
+line (Follow the Ground applies) with Show > Objects off, and loads `P.BENCH`'s region first when no spawn matches.
+Probe `view-spawn` frames a Young Wolf from a flat map and checks its batch has instances in view. Not for a flat map
+with spawns loaded by `LoadSpawns`: they sit at the client's heights, out of the camera's view.
+
 ## Status bar creature count (#967, probe `status-creatures`)
 
 The status bar's "N creatures" cell counts the open region's monster and NPC spawns (not game objects),

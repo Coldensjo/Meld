@@ -110,6 +110,41 @@ const P = {
 	},
 
 	/**
+	 * Frames a spawn of the loaded region in view (#983): `which` is a spawn of `doc.spawnLayer.spawns` or a
+	 * name searched there (first match, a monster before an object; a case-insensitive substring). With no
+	 * spawns loaded (or none by that name) it loads `P.BENCH`'s region (Northshire) first. The camera is set
+	 * through a scene line, so Follow the Ground applies (the target is on the spawn; `distance` and `pitch`
+	 * are the scene's), and `hideObjects` (default on) turns Show > Objects off so no tree or building
+	 * stands between the camera and the creature. Returns the spawn. A spawn loaded into a flat map
+	 * (`newDocument` + `LoadSpawns`) sits at the client's heights and is not seen there: load the region.
+	 */
+	async viewSpawn(which, { distance = 22, pitch = 1.2, hideObjects = true } = {}) {
+		const find = () => {
+			const list = window.__engine.activeDocument().spawnLayer.spawns
+			if (typeof which !== 'string') return which
+			const w = which.toLowerCase()
+			const hits = list.filter((s) => s.name?.toLowerCase().includes(w))
+			return hits.find((s) => s.kind !== 'object') ?? hits[0]
+		}
+		let s = find()
+		if (!s) {
+			await P.scene(P.BENCH)
+			await P.until(() => window.__engine.activeDocument().spawnLayer.spawns.length > 0, 60_000, 'the region spawns to load')
+			s = find()
+		}
+		if (!s) throw new Error(`P.viewSpawn: no spawn ${typeof which === 'string' ? `named "${which}"` : 'given'} in the loaded region`)
+		const scene = JSON.parse((await window.__sceneText()).replace(/^Meld scene /, ''))
+		scene.view.target = [s.x, s.y, s.z]
+		scene.view.distance = distance
+		scene.view.pitch = pitch
+		scene.prefs.cameraFollowGround = true
+		if (hideObjects) scene.prefs.showObjects = false
+		await P.scene(scene)
+		await P.frames(3)
+		return s
+	},
+
+	/**
 	 * Right-clicks the viewport at (`x`, `y`), shares of it with y = 0 the top (default the centre),
 	 * through `Engine.openContextMenu` (private), and returns `ui.contextMenu` (null: no menu).
 	 */
