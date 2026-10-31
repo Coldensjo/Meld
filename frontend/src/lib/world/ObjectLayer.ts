@@ -790,10 +790,10 @@ export class ObjectLayer {
 			m.onAfterRender = (_r, _s, camera, _g, _m, group) => cull.after(camera, group)
 			m.onBeforeShadow = (r, s, c, shadowCamera, g, dm, group) => {
 				before.call(m, r, s, c, shadowCamera, g, dm, group)
-				cull.before(shadowCamera, group)
+				cull.shadowBefore(shadowCamera, group)
 			}
 			m.onAfterShadow = (r, s, c, shadowCamera, g, dm, group) => {
-				cull.after(shadowCamera, group)
+				cull.shadowAfter(shadowCamera, group)
 				after.call(m, r, s, c, shadowCamera, g, dm, group)
 			}
 		}

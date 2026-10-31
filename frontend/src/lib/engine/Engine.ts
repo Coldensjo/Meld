@@ -33,6 +33,7 @@ import {
 	type LiquidClipCell,
 } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
+import { mergeShadowDraws } from '../world/shadowRun'
 import { resetLiquidFrames, setLiquidFailHandler, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import type { ClientLights } from '../wow/clientLight'
 import { lightingSunDir } from '../wow/dayNight'
@@ -711,6 +712,8 @@ export class Engine {
 		this.scene.background = new THREE.Color()
 		this.renderer.shadowMap.enabled = true
 		this.renderer.shadowMap.type = THREE.PCFShadowMap
+		// A model's opaque materials draw as one call into each shadow map (#926).
+		mergeShadowDraws(this.renderer)
 		// Far WMOs' textures are drawn into a layer array with it (#691).
 		setFarRenderer(this.renderer)
 		this.gpu = new GpuTimer(this.renderer.getContext())

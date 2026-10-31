@@ -139,6 +139,19 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     the two share one half instead of a third (16 MB for Stormwind). The twin shares the model's bounds
     tree, as the LOD does, since picking and the names' sight lines raycast the batch mesh: without it a
     ray walked every triangle, over a second for Blackrock Depths (#286, probe `brd-fly`).
+  - A model's opaque materials draw as one call into each shadow map (#926, `world/shadowRun.ts`).
+    three draws a mesh into a shadow map a call per material group, though every group without an
+    alpha test gets three's same depth material (both faces, from our `shadowSide`). `loadAsset` lays
+    a placed, unskinned model's index out with those groups first, in their order (`orderForShadows`,
+    before the workers build the bounds tree, LOD and twin from it), and notes the run on the
+    geometry (`setShadowRun`). While three draws the shadow maps (`mergeShadowDraws` wraps the
+    Engine's `renderer.shadowMap.render`), each such geometry's `groups` is a shadow list instead: one
+    group for the run, then the cut-outs (blend 1) and the groups with a colour of their own (which
+    can fade and hide) as they are. Swapping the list, rather than emptying groups in `onBeforeShadow`,
+    spares three its per-group work too. The group cull's twin gets a list of its own; its view half
+    keeps the merged materials' runs one after another, so the near cascade draws them as one call as
+    well (`WmoGroupCull.shadowBefore`). From Goldshire the far pass drew 1,991 calls before and 911
+    after, the near one 239 and 81. The scene pass keeps its groups, their order and materials.
   - The bounds tree, the LOD's index and the group cull's twin index are built in the model workers,
     off the main thread (#507): for Stormwind they took 1.2 s of one frame there. `loadAsset`
     (`models/assets.ts`) builds the asset (so its textures start loading), then `buildModel`

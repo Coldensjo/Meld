@@ -6,6 +6,7 @@ import { patchCascadeShadows } from '../engine/shadowCascades'
 import { patchRoomGate, ROOM_ATTRIBUTE } from '../world/roomGate'
 import { buildBoundsTree } from '../world/bvh'
 import { markShadowMoving } from '../world/shadowReach'
+import { orderForShadows, setShadowRun } from '../world/shadowRun'
 import { adoptModel, buildModel } from './modelBuild'
 import { farLayersDrawn, farLod, farPlan, releaseFarLayers } from './farLayers'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
@@ -157,6 +158,9 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 					buildBoundsTree(asset.geometry)
 					return asset
 				}
+				// Its opaque materials' triangles first, so a shadow pass draws them as one call (#926); before
+				// the bounds tree, LOD and group cull are built from the index.
+				if (!asset.skeleton) orderShadows(asset.geometry, m.groups)
 				building.add(asset)
 				try {
 					// The bounds tree, the LOD and the WMO group cull, off the main thread (#507); a WMO's LOD
@@ -196,6 +200,17 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 		pending.set(type, p)
 	}
 	return p
+}
+
+/** Lays out a placed model's index for one shadow draw of its opaque materials (world/shadowRun.ts). */
+function orderShadows(geometry: THREE.BufferGeometry, groups: readonly MeshGroup[]) {
+	const index = geometry.index
+	if (!index || geometry.groups.length !== groups.length) return
+	const starts: number[] = []
+	const run = orderForShadows(index.array as Uint16Array | Uint32Array, groups, starts)
+	if (!run) return
+	geometry.groups.forEach((g, i) => (g.start = starts[i]))
+	setShadowRun(geometry, run)
 }
 
 const materialCache = new Map<string, THREE.Material>()

@@ -450,6 +450,27 @@ full model does.
 - Unit: `frontend/tests/farLayers.test.ts` (the plan's classes and tints, the merge's groups, runs and
   copied vertices).
 
+## One shadow draw for a model's opaque materials (#926, probe `shadow-merge`)
+Checks: in a shadow pass a model's groups without an alpha test or a colour of their own draw as one
+call (`world/shadowRun.ts`), and no shadow changes.
+- Probe: `bun run probe shadow-merge` (about 75 s). In Elwynn's world view over Goldshire at 17.6 h
+  (the clock frozen), counts a far-only and a near-only redraw with `shadowMerge.enabled` on and off
+  (2026-10-31: far 891 against 1,951, near 205 against 762), then shoots the view with both maps
+  redrawn on, off and on again, there and over Stormwind (the WMO with the most groups): the shots
+  are pixel for pixel the same (a third shot gives the noise, 0 here). Negative control: turning
+  `castShadow` off on Stormwind, Northshire Abbey and Goldshire's WMOs differs on 1.1 % of the
+  Stormwind view and 0.13 % of Goldshire's, so the 0.02 % margin catches a lost shadow.
+- Measured with a scratch probe (far-only and near-only redraws forced through a wrapper around
+  `renderer.shadowMap.render`, which sets `env.far.shadow.needsUpdate` and `env.key.shadow.needsUpdate`
+  before calling it, then `gl.finish()`): far 1,991 calls to 911, 5.6 ms to 4.6 (min of five, on the
+  GPU; SwiftShader 5.7 to 4.4), near 239 to 81.
+- Trap: emptying the other groups' draws from `onBeforeShadow` (a count of -1, which makes
+  `renderBufferDirect` return; a count of 0 still issues a call) halved the calls but saved no time:
+  three still picks a depth material and sets the program per group. Hence the swapped group list.
+- Trap: `shadowMap.render` is wrapped once by the Engine (`mergeShadowDraws`); a probe that wraps it
+  again must call the method it found there, not the prototype's.
+- Unit: `frontend/tests/shadowRun.test.ts` (the index order, the swapped list, the twin's view run).
+
 ## Compressed client textures (DXT, #178)
 
 No probe: the Go tests below (with the client); the probe `terrain-dxt` covers the terrain's array (#216).

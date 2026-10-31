@@ -753,6 +753,7 @@ the same scene, the report before and after.
 - WMO culling by group (#198, #215)
 - A model's bounds tree, LOD and group cull built in the model workers (#507)
 - Far WMOs' LODs merged by class, textures in a layer array (#691)
+- One shadow draw for a model's opaque materials (#926, probe `shadow-merge`)
 - Compressed client textures (DXT, #178)
 - The terrain's tileset array as DXT3 (#216)
 - The tileset array's mips (#225)

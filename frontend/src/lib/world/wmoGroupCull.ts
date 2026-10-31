@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ROOM_ATTRIBUTE } from './roomGate'
+import { addShadowGroups, shadowRunOf, type ShadowRun } from './shadowRun'
 
 // Culling a placed WMO by group (#198), for the scene pass. A WMO's mesh is all its groups merged into
 // one geometry (a group per material), so once any part of it meets the view all of it was drawn: from
@@ -14,7 +15,9 @@ import { ROOM_ATTRIBUTE } from './roomGate'
 // fit changes (#215). The cascade sits mostly in the view, so sharing the view half costs the scene
 // pass little and needs no third half (16 MB for Stormwind). Only a batch with a single drawn
 // instance is culled, as one index can't suit two placements; the model's own geometry, its bounds
-// tree and the picking it serves are left alone.
+// tree and the picking it serves are left alone. The materials whose shadow draws merge into one
+// (world/shadowRun.ts, #926) lead the model's index, and the view half keeps their runs one after
+// another too, so both halves draw them as one call in a shadow pass (`shadowBefore`).
 
 /** Smaller models aren't worth a second index: their groups are few or they draw little. */
 export const MIN_TRIANGLES = 20000
@@ -134,6 +137,12 @@ export class WmoGroupCull {
 	private camera: THREE.Camera | null = null
 	private shadowCamera: THREE.Camera | null = null
 	private saved = { start: 0, count: 0 }
+	/** The materials whose shadow draws merge (world/shadowRun.ts), or null; and their run in the view half. */
+	private readonly merge: ShadowRun | null
+	private readonly merged: Uint8Array
+	private readonly mergedView = { start: 0, count: 0 }
+	/** The twin's shadow-list group for the merged run (`addShadowGroups`), or null. */
+	private readonly shadowLead: THREE.GeometryGroup | null
 	private readonly frustum = new THREE.Frustum()
 	private readonly shadowFrustum = new THREE.Frustum()
 	private readonly inverse = new THREE.Matrix4()
@@ -181,6 +190,12 @@ export class WmoGroupCull {
 			this.boxes.push(box)
 		}
 		this.visible = new Uint8Array(this.boxes.length)
+		const run = shadowRunOf(source)
+		this.merge = run && run.groups.every((k) => k < this.twins.length) ? run : null
+		this.merged = new Uint8Array(this.twins.length)
+		if (this.merge) for (const k of this.merge.groups) this.merged[k] = 1
+		this.mergedView.start = half + (this.merge?.start ?? 0)
+		this.shadowLead = this.merge ? addShadowGroups(g, this.merge) : null
 	}
 
 	/**
@@ -266,8 +281,13 @@ export class WmoGroupCull {
 		const vis = this.visible
 		index.clearUpdateRanges()
 		let total = 0
+		// The merged materials' view runs follow one another from the start of their run (their groups
+		// come in index order, `orderForShadows`), so they stay within the view half's mirror of that run
+		// and a shadow pass draws them as one range.
+		let next = this.mergedView.start
 		for (let k = 0; k < this.runs.length; k++) {
 			const view = this.view[k]
+			if (this.merged[k]) view.start = next
 			let o = view.start
 			for (const r of this.runs[k]) {
 				const seen = (!r.a && !r.b) || (r.a > 0 && vis[r.a - 1]) || (r.b > 0 && vis[r.b - 1])
@@ -276,9 +296,11 @@ export class WmoGroupCull {
 				o += r.count
 			}
 			view.count = o - view.start
+			if (this.merged[k]) next = o
 			total += view.count
 			if (view.count) index.addUpdateRange(view.start, view.count)
 		}
+		this.mergedView.count = next - this.mergedView.start
 		index.needsUpdate = true
 		this.drawn = total
 		this.geometry.userData.drawnIndexCount = total
@@ -302,6 +324,27 @@ export class WmoGroupCull {
 		this.saved.count = group.count
 		group.start = this.view[k].start
 		group.count = this.view[k].count
+	}
+
+	/**
+	 * `before` for a shadow pass: the shadow list's group for the merged materials draws their run in
+	 * the view half for the near cascade, and in the full half (as it stands) for the far one and the
+	 * point lights; any other material as `before` points it.
+	 */
+	shadowBefore(camera: THREE.Camera, drawn: object | null) {
+		const lead = this.shadowLead
+		if (!lead || drawn !== lead) return this.before(camera, drawn)
+		if (!this.draws(camera)) return
+		lead.start = this.mergedView.start
+		// A negative count makes three's `renderBufferDirect` return before its draw call, which a count of 0 would still issue.
+		lead.count = this.mergedView.count || -1
+	}
+
+	shadowAfter(camera: THREE.Camera, drawn: object | null) {
+		const lead = this.shadowLead
+		if (!lead || drawn !== lead) return this.after(camera, drawn)
+		lead.start = this.merge!.start
+		lead.count = this.merge!.count
 	}
 
 	after(camera: THREE.Camera, drawn: object | null) {
