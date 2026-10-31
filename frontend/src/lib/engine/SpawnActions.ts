@@ -5,6 +5,7 @@ import type { vmangos } from '../wails/models'
 import { NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, SpawnLook, SpawnTeleports } from '../wails/App'
 import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import type { TriggerDestination } from '../world/areaTriggers'
+import type { SpawnIds } from '../world/clipSpawns'
 import { spawnType } from '../world/spawnInfo'
 import { pageColumn } from '../world/objectFields'
 import { copyItems } from '../ui/copyId'
@@ -87,6 +88,31 @@ export class SpawnActions {
 	private dbGuid(kind: SpawnKind): Promise<number> {
 		if (this.next[kind]) return Promise.resolve(0)
 		return kind === 'object' ? NextObjectGUID() : NextCreatureGUID()
+	}
+
+	/** The pool entry the next pool an area paste makes gets; 0 until the world database has been asked. */
+	private nextPool = 0
+
+	/**
+	 * The ids an area paste of spawns takes (#964), once the world database's next guids (and pool
+	 * entry, with `pools`) are known: guids as placed spawns get them, above every one of the database
+	 * and the open tabs, so a paste never shares a guid with the spawns it was copied from; pool entries
+	 * the same way, 0 once they run past 65535.
+	 */
+	async pasteIds(needs: { creatures: number; objects: number; pools: boolean }): Promise<SpawnIds> {
+		const [creature, object, pool] = await Promise.all([needs.creatures ? this.dbGuid('creature') : 0, needs.objects ? this.dbGuid('object') : 0, needs.pools && !this.nextPool ? NextPoolEntry() : 0])
+		this.next.creature = Math.max(this.next.creature, creature)
+		this.next.object = Math.max(this.next.object, object)
+		this.nextPool = Math.max(this.nextPool, pool)
+		return {
+			guid: (kind) => this.takeGuid(kind, 0),
+			pool: () => {
+				const entry = nextFreePoolEntry(this.host.documents, this.nextPool)
+				if (entry > 65535) return 0
+				this.nextPool = entry + 1
+				return entry
+			},
+		}
 	}
 
 	/** Moves the camera to a spawn, in the active region's coordinates. */

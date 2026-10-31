@@ -361,6 +361,23 @@ The rule itself (`world/pasteLanding.ts` `pasteLandings`) is unit-tested without
 `frontend/tests/pasteLanding.test.ts` (#522): `helper:cube:4` models over a stub ground (helpers load
 at once, with their bounds tree), stacked, past the edge and buried under the ground.
 
+## Area paste carries the spawns (#964, probe `spawn-paste`)
+
+`frontend/tests/clipSpawns.test.ts` checks the rules without a client: which formations and pools come
+along, the new guids, leaders and pool entries, heights on the new ground, a turned and a mirrored paste
+(a follower still in its leader's slot), and the one undo step with each new spawn saved against
+`pastedOriginal`. The probe `spawn-paste` builds a camp on a flat map (a formation with a path, a pool
+of two veins), copies it, pastes it turned and into a second tab, and reads `App.SpawnEditSQL`: two
+`creature` inserts, the path's `creature_movement` rows, two `creature_groups` rows and the new pool.
+
+By hand on the client: open Azeroth 32_48 (Northshire, `regionIo.openWowRegion(P.e, 'Azeroth', 32, 48, 1)`,
+a 128-cell region), set `editor.selection` round the vineyard's Defias (cells about 61..112 by 78..128),
+`e.copySelection()`: 93 spawns, 3 of them leaving a pool that reaches outside. `e.startPaste()`,
+`e.selectTool.pasteAt = { x, z }`, `e.commitPaste()`, and wait for `ui.pasting` to go false (the first
+paste of a session reads the next guids from the database): 93 new spawns, 5 with paths, standing within
+half a yard of the ground. The trap: the region is 128 cells, not 256, so a paste at (size - w) overlaps
+the source rect and a count of spawns in the rect afterwards counts pasted ones too.
+
 ## Rotate around pivot point (group spins)
 
 No probe: the unit tests below, and a hand check in the dev page.

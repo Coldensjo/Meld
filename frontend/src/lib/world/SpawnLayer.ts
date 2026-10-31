@@ -376,10 +376,10 @@ export class SpawnLayer {
 	}
 
 	/**
-	 * Adds a spawn made in the editor. `original` is what it was when placed, which the world
-	 * database is told of with it.
+	 * Adds a spawn made in the editor. `original` is what it was when placed (the spawn itself unless
+	 * given), which the world database is told of with it: the save writes what differs from it.
 	 */
-	add(s: vmangos.WorldSpawn) {
+	add(s: vmangos.WorldSpawn, original: vmangos.WorldSpawn = s) {
 		const key = spawnKey(s)
 		this.spawns.push(s)
 		this.keys.set(key, s)
@@ -389,7 +389,7 @@ export class SpawnLayer {
 			this.changes.mark(key)
 		} else if (!this.originals.has(key)) {
 			this.created.add(key)
-			this.originals.set(key, cloneSpawn(s))
+			this.originals.set(key, cloneSpawn(original))
 		}
 		this.changes.mark(key)
 		this.redraw()

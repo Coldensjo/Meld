@@ -13,6 +13,8 @@ import { pastedHeight, type PasteHeightMode } from './pasteHeight'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import { insideDistance } from '../terrain/areaShape'
 import { pasteLandings, type Landing } from './pasteLanding'
+import { copySpawns, type ClipSpawn, type ClipSpawnDrops } from './clipSpawns'
+import type { vmangos } from '../wails/models'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, acquireSlot, chunkOf, normalizeTexel, paletteIndex } from '../terrain/chunkPaint'
 
 /** A rectangular piece of a map, copied for pasting into any open map. */
@@ -52,12 +54,19 @@ export interface MapClip {
 	 * the corners of their ground) and fades from the shape's edge; absent, the whole rect.
 	 */
 	cells?: Uint8Array
+	/**
+	 * The creature and game object spawns of the area (#964, world/clipSpawns.ts), relative to the
+	 * corner; absent when the map had none there, or in a clip made before they were copied.
+	 */
+	spawns?: ClipSpawn[]
 }
 
 export interface PasteOptions {
 	terrain: boolean
 	textures: boolean
 	objects: boolean
+	/** Paste the copied spawns as new spawns (#964); absent counts as on. */
+	spawns?: boolean
 	/** Cells over which the pasted edge fades into the existing map (0 = hard). */
 	blend: number
 	heightOffset: number
@@ -182,10 +191,11 @@ const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
 /**
  * Copy the cell rect (inclusive vertex corners x0..x1, z0..z1), with its painted liquid when `liquids` is
- * given. With `inside` (the rect's cells, 1 in), the clip is that shape: only the models and liquid on its
- * cells come along, and a paste lays only them.
+ * given, and the spawns of `spawns` (the map's) in it. With `inside` (the rect's cells, 1 in), the clip is
+ * that shape: only the models, spawns and liquid on its cells come along, and a paste lays only them.
+ * `drops` gets what the copied spawns left of their formations and pools.
  */
-export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[], liquids?: LiquidMap, inside?: Uint8Array): MapClip {
+export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[], liquids?: LiquidMap, inside?: Uint8Array, spawns?: readonly vmangos.WorldSpawn[], drops?: ClipSpawnDrops): MapClip {
 	const w = r.x1 - r.x0
 	const h = r.z1 - r.z0
 	const V = terrain.verts
@@ -236,16 +246,24 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
 	const ox = r.x0 * cs
 	const oz = r.z0 * cs
 	const tmp = new THREE.Vector3()
+	const inArea = (x: number, z: number) => {
+		if (!(x >= ox && x <= r.x1 * cs && z >= oz && z <= r.z1 * cs)) return false
+		if (!inside) return true
+		const cx = Math.min(w - 1, Math.floor((x - ox) / cs))
+		const cz = Math.min(h - 1, Math.floor((z - oz) / cs))
+		return !!inside[cz * w + cx]
+	}
 	const picked = objects.list().filter((o) => {
 		const p = objects.worldPosition(o, tmp)
-		if (!(p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs)) return false
-		if (!inside) return true
-		const cx = Math.min(w - 1, Math.floor((p.x - ox) / cs))
-		const cz = Math.min(h - 1, Math.floor((p.z - oz) / cs))
-		return !!inside[cz * w + cx]
+		return inArea(p.x, p.z)
 	})
 	const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: encodeObjects(terrain, objects, picked, ox, oz), chunkData: copyChunkData(terrain, r) }
 	if (inside) clip.cells = inside
+	if (spawns?.length) {
+		const copied = copySpawns(spawns, inArea, terrain, ox, oz)
+		if (copied.spawns.length) clip.spawns = copied.spawns
+		if (drops) Object.assign(drops, copied.drops)
+	}
 	if (liquids) {
 		clip.liquids = copyLiquidCells(liquids, r)
 		if (inside) clip.liquids.cells = clip.liquids.cells.filter((c) => inside[c.z * w + c.x])
@@ -279,6 +297,11 @@ export function pasteRegion(
 	onHeights: (r: Rect) => void,
 	/** The map's liquids: the clip's painted liquid lands in them with the ground. */
 	liquids?: LiquidMap,
+	/**
+	 * Adds the clip's spawns once the ground is laid (`opts.spawns`), with the clip's corner at world
+	 * (x, z), as a command that joins the paste's undo step; null when none landed.
+	 */
+	addSpawns?: (x: number, z: number) => Command | null,
 ): Command | null {
 	const stroke = new TerrainStroke(terrain, 'Paste', { heights: opts.terrain, splat: opts.textures, holes: opts.terrain }, onHeights)
 	let liquidCmd: Command | null = null
@@ -467,8 +490,10 @@ export function pasteRegion(
 	const cs = terrain.cellSize
 	const added = opts.objects ? decodeObjects(terrain, objects, clip.objects, px * cs, pz * cs) : []
 
+	const spawnsCmd = opts.spawns !== false && addSpawns && clip.spawns?.length ? addSpawns(px * cs, pz * cs) : null
+
 	const terrainCmd = stroke.finish()
-	if (!terrainCmd && !liquidCmd && !chunkCmd && !shadowCmd && !added.length && !paletteChanged) return null
+	if (!terrainCmd && !liquidCmd && !chunkCmd && !shadowCmd && !added.length && !paletteChanged && !spawnsCmd) return null
 	const objectsCmd = added.length ? addedCommand(objects, added, 'Paste') : null
 	return {
 		label: 'Paste',
@@ -479,6 +504,7 @@ export function pasteRegion(
 			chunkCmd?.undo()
 			shadowCmd?.undo()
 			objectsCmd?.undo()
+			spawnsCmd?.undo()
 			if (paletteChanged) setPalette(paletteBefore)
 		},
 		redo: () => {
@@ -487,6 +513,7 @@ export function pasteRegion(
 			chunkCmd?.redo()
 			shadowCmd?.redo()
 			objectsCmd?.redo()
+			spawnsCmd?.redo()
 			if (paletteChanged) setPalette(palette)
 		},
 	}

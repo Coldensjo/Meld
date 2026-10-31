@@ -203,6 +203,18 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
   are any, else the area, and Paste places whichever was copied last (the Select tool draws
   ghost meshes for a model paste). `Engine.duplicateSelected` is copy + paste in place.
   - The clip lives on the Engine, not on a document, so it can be pasted into other tabs.
+  - Spawns (#964, `world/clipSpawns.ts`): `copyRegion` takes the map's spawns on the area's cells
+    (`MapClip.spawns`, relative to the corner, with each spawn's and path point's height above the
+    ground). A formation comes along with its leader and a pool only whole (no member outside the
+    area, none elsewhere in the database); the rest leave them, and the copy's status line says how
+    many. A pasted pool leaves its master pool, since the save makes no new master pool.
+    `rotateClip`/`mirrorClip` turn them (facings, path points, a formation's slot angle, a game
+    object's tilt). The paste (option Spawns, `editor.paste.spawns`) waits once a session for the
+    database's next guids (`SpawnActions.pasteIds`, `Engine.pasteArea`), then `pasteSpawns` makes new
+    spawns on the laid ground: guids above the database's and every open tab's, new leaders and pool
+    entries, no world events, a path of their own. `spawnsAdd` adds them inside the paste's undo step,
+    each against `pastedOriginal` (no formation, pool or path, a default pose) so the save writes
+    those rows for a new spawn. The map is the tab's, so a paste into another map's tab saves there.
   - Undo closures must write per-map state through `editor` at call time, never through
     captured arrays, because tab switches replace those arrays.
 - **Selected-prop visuals**:

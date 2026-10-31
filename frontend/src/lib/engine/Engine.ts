@@ -109,7 +109,8 @@ import { blockedCells, type GroundEffectInput } from '../world/GroundEffectLayer
 import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
 import { SpawnBrushTool } from '../tools/SpawnBrushTool'
 import { spawnType } from '../world/spawnInfo'
-import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
+import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip, type PasteOptions } from '../world/clipboard'
+import { clipSpawnNeeds, pastedOriginal, pasteSpawns, spawnDropsText, type ClipSpawnDrops, type SpawnIds } from '../world/clipSpawns'
 import { turnObjectClip } from '../world/clipTurn'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
 import { ObjectLayer, type WorldObject } from '../world/ObjectLayer'
@@ -174,7 +175,7 @@ import { SpawnPaths } from '../world/SpawnPaths'
 import { SpawnLinks } from '../world/SpawnLinks'
 import type { SpawnChange } from '../world/formations'
 import { poolMates } from '../world/pools'
-import { selectSpawn, type SpawnFields } from '../world/spawnEdits'
+import { selectSpawn, spawnsAdd, type SpawnFields } from '../world/spawnEdits'
 import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../wails/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
@@ -4409,11 +4410,14 @@ export class Engine {
 			return false
 		}
 		const shape = areaShape(this.terrain, this.terrain.size)
-		this.clip = copyRegion(this.terrain, this.objects, s, editor.palette, this.doc.liquids, shape ? cellsInRect(shape, this.terrain.size, s) : undefined)
+		const drops: ClipSpawnDrops = { formation: 0, pool: 0, mother: 0 }
+		this.clip = copyRegion(this.terrain, this.objects, s, editor.palette, this.doc.liquids, shape ? cellsInRect(shape, this.terrain.size, s) : undefined, this.doc.spawnLayer.spawns, drops)
 		this.lastCopied = 'area'
 		ui.hasClip = true
 		const liquid = this.clip.liquids?.cells.length ? `, ${this.clip.liquids.cells.length} liquid cells` : ''
-		setStatus(`Copied ${this.clip.w}×${this.clip.h} cells${liquid} and ${this.clip.objects.length} objects. Paste with ${keysOf('paste')} (works in other map tabs too).`)
+		const n = this.clip.spawns?.length ?? 0
+		const spawns = n ? `, ${n} ${n === 1 ? 'spawn' : 'spawns'}` : ''
+		setStatus(`Copied ${this.clip.w}×${this.clip.h} cells${liquid}${spawns} and ${this.clip.objects.length} objects. Paste with ${keysOf('paste')} (works in other map tabs too).${spawnDropsText(drops)}`, 6000)
 		return true
 	}
 
@@ -4561,7 +4565,11 @@ export class Engine {
 		setStatus('Paste cancelled.')
 	}
 
+	/** An area paste waits for the world database's next spawn guids (#964), and takes no second click meanwhile. */
+	private pasteWaiting = false
+
 	commitPaste() {
+		if (this.pasteWaiting) return
 		if (this.lastCopied === 'objects') {
 			const at = this.selectTool.pasteWorld
 			if (!this.objectClip || !at) return
@@ -4581,32 +4589,76 @@ export class Engine {
 			return
 		}
 		const at = this.selectTool.pasteAt
-		if (!this.clip || !at) return
+		const clip = this.clip
+		if (!clip || !at) return
+		if (!editor.paste.spawns || !clip.spawns?.length) {
+			this.pasteArea(clip, at.x, at.z, null)
+			return
+		}
+		// The spawns need new guids above the database's, read once a session.
+		const d = this.doc
+		const opts = { ...editor.paste }
+		this.pasteWaiting = true
+		this.spawnActions
+			.pasteIds(clipSpawnNeeds(clip.spawns))
+			.then(
+				(ids) => ids,
+				(err) => {
+					setStatus(`The spawns were not pasted: could not read the world database's next guids (${err}).`, 8000)
+					return null
+				},
+			)
+			.then((ids) => {
+				this.pasteWaiting = false
+				if (d !== this.doc || !ui.pasting) return
+				this.pasteArea(clip, at.x, at.z, ids, opts)
+			})
+	}
+
+	/**
+	 * Pastes the area `clip` with its corner at cell (px, pz) of the active map as one undo step, its
+	 * spawns as new ones with `ids` (none without), and selects the pasted area.
+	 */
+	private pasteArea(clip: MapClip, px: number, pz: number, ids: SpawnIds | null, opts: PasteOptions = { ...editor.paste }) {
+		const layer = this.doc.spawnLayer
+		const terrain = this.terrain
+		let pastedSpawns = 0
+		const addSpawns = ids
+			? (x: number, z: number) => {
+					const list = pasteSpawns(clip.spawns ?? [], x, z, terrain, ids)
+					pastedSpawns = list.length
+					return list.length ? spawnsAdd(layer, list, 'Paste', pastedOriginal) : null
+				}
+			: undefined
 		const cmd = pasteRegion(
 			this.terrain,
 			this.objects,
 			editor.palette,
 			(t) => (editor.palette = t),
-			this.clip,
-			at.x,
-			at.z,
-			{ ...editor.paste },
+			clip,
+			px,
+			pz,
+			{ ...opts, spawns: !!ids && opts.spawns },
 			(r) => {
 				const cs = this.terrain.cellSize
 				this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
 			},
 			this.doc.liquids,
+			addSpawns,
 		)
 		if (cmd) this.history.push(cmd)
 		const n = this.terrain.size
 		editor.selection = {
-			x0: Math.max(0, at.x),
-			z0: Math.max(0, at.z),
-			x1: Math.min(n, at.x + this.clip.w),
-			z1: Math.min(n, at.z + this.clip.h),
+			x0: Math.max(0, px),
+			z0: Math.max(0, pz),
+			x1: Math.min(n, px + clip.w),
+			z1: Math.min(n, pz + clip.h),
 		}
 		ui.pasting = false
-		setStatus(`Pasted. ${keysOf('undo')} to undo.`)
+		const copied = ids ? (clip.spawns?.length ?? 0) : 0
+		const off = copied - pastedSpawns
+		const spawns = pastedSpawns ? ` with ${pastedSpawns} new ${pastedSpawns === 1 ? 'spawn' : 'spawns'}${off ? ` (${off} off the map left out)` : ''}, saved with the map's spawns` : ''
+		if (ids || !opts.spawns || !clip.spawns?.length) setStatus(`Pasted${spawns}. ${keysOf('undo')} to undo.`)
 	}
 
 	// ---------------------------------------------------------------- editing API

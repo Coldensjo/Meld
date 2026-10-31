@@ -5,11 +5,12 @@ import { SLOTS, SPLAT_PER_CELL } from '../terrain/chunkPaint'
 import { mirrorLiquidClip, rotateLiquidClip } from '../water/liquids'
 import { mirrorShadows, rotateShadows } from './clipShadows'
 import { mirrorCells, rotateCells } from '../terrain/areaShape'
+import { mirrorClipSpawns, rotateClipSpawns } from './clipSpawns'
 
 /**
  * The clip turned a quarter turn clockwise seen from above (the turn a model's yaw makes for +90°):
  * what was at (x, z) lands at (z, w - x), so a w by h clip becomes h by w. Heights, holes, texels,
- * liquids, chunk data, baked shadows and models turn together; a model's own yaw turns too (the
+ * liquids, chunk data, baked shadows, models and spawns turn together; a model's own yaw turns too (the
  * shadows turn with the ground, not with the sun, so a turned paste may want Bake Shadows again). A hole of one triangle
  * keeps its value, so it may land on the other triangle of its cell. noggit's chunk mover has the
  * same turn.
@@ -52,12 +53,13 @@ export function rotateClip(clip: MapClip, cellSize: number): MapClip {
 	}
 	if (clip.shadows) out.shadows = rotateShadows(clip.shadows, w, h)
 	if (clip.cells) out.cells = rotateCells(clip.cells, w, h)
+	if (clip.spawns) out.spawns = rotateClipSpawns(clip.spawns, W)
 	return out
 }
 
 /**
  * The clip mirrored across its middle: `x` flips it east to west, `z` north to south. Heights, holes,
- * texels, liquids, chunk data, baked shadows and models flip together. A model can't be mirrored itself, so it keeps
+ * texels, liquids, chunk data, baked shadows, models and spawns (clipSpawns.ts) flip together. A model can't be mirrored itself, so it keeps
  * its shape and turns to face the mirrored way: WoW models face +x and are mostly left-right
  * symmetric, so across x its yaw becomes pi - yaw, across z -yaw, and its forward tilt flips either
  * way. An attached model flips about its parent's own middle.
@@ -105,5 +107,6 @@ export function mirrorClip(clip: MapClip, axis: 'x' | 'z', cellSize: number): Ma
 	}
 	if (clip.shadows) out.shadows = mirrorShadows(clip.shadows, w, h, axis)
 	if (clip.cells) out.cells = mirrorCells(clip.cells, w, h, axis)
+	if (clip.spawns) out.spawns = mirrorClipSpawns(clip.spawns, axis, W, H)
 	return out
 }

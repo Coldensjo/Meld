@@ -153,8 +153,8 @@ export function spawnChange(layer: SpawnLayer, key: string, vals: SpawnFields, l
 	return { label, undo: () => applySpawn(layer, key, before), redo: () => applySpawn(layer, key, vals) }
 }
 
-function addTo(layer: SpawnLayer, s: vmangos.WorldSpawn) {
-	layer.add(s)
+function addTo(layer: SpawnLayer, s: vmangos.WorldSpawn, original?: vmangos.WorldSpawn) {
+	layer.add(s, original)
 	if (!layer.batching) syncSpawnUi(layer, true)
 }
 
@@ -322,6 +322,23 @@ export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: numbe
 export function spawnAdd(layer: SpawnLayer, s: vmangos.WorldSpawn, label: string): Command {
 	addTo(layer, s)
 	return { label, undo: () => removeFrom(layer, s), redo: () => addTo(layer, s) }
+}
+
+/**
+ * Adds several spawns now (an area paste's, #964), as one undoable command that redraws the layer once.
+ * With `placed`, each is saved as an edit of what `placed` gives for it (see `SpawnLayer.add`).
+ */
+export function spawnsAdd(layer: SpawnLayer, list: readonly vmangos.WorldSpawn[], label: string, placed?: (s: vmangos.WorldSpawn) => vmangos.WorldSpawn): Command {
+	const add = () => spawnsBatch(layer, () => list.forEach((s) => addTo(layer, s, placed?.(s))))
+	add()
+	return {
+		label,
+		undo: () =>
+			spawnsBatch(layer, () => {
+				for (let i = list.length - 1; i >= 0; i--) removeFrom(layer, list[i])
+			}),
+		redo: add,
+	}
 }
 
 /**

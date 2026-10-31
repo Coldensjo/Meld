@@ -150,9 +150,11 @@ To select an area, drag on the ground. **L** switches between rectangle, lasso a
 **Shift+drag** adds to the area; **Ctrl+drag** subtracts. Use **Cut hole** for a cave or cellar
 opening and **Fill hole** to restore the ground.
 
-**Ctrl+C** copies selected models, or an area's terrain, holes, textures and objects.
+**Ctrl+C** copies selected models, or an area's terrain, holes, textures, objects and spawns.
 **Ctrl+V** shows a preview, including in another open map. Click or press **Enter** to place it;
-**Esc** cancels. For an area paste, **PgUp/PgDn** adjusts the height first.
+**Esc** cancels. For an area paste, **PgUp/PgDn** adjusts the height first. Pasted spawns are new
+spawns of the map pasted into, with their paths, and with their formations and pools when those lie
+wholly inside the area; untick **Spawns** in the options bar to leave them out.
 
 ### Sculpt terrain
 
