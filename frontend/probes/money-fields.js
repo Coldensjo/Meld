@@ -5,7 +5,7 @@ P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
-const label = (root, text) => [...(root?.querySelectorAll('.grid > label') ?? [])].find((l) => l.firstChild?.textContent.trim() === text)
+const label = (root, text) => [...(root?.querySelectorAll('.grid > .cell > label, .grid > label') ?? [])].find((l) => l.firstChild?.textContent.trim() === text)
 const amounts = (l) => [...l.querySelectorAll('.money input[type=number]')].map((i) => i.value)
 const loaded = (el) => {
 	const imgs = [...(el?.querySelectorAll('img') ?? [])]

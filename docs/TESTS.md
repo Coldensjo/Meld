@@ -154,6 +154,7 @@ When adding a probe:
    The editors share `EditorFrame`, so each root carries `data-editor="creature|object|item|quest|spell|character"`; the other
    windows are found by their component's `data-ui` (`FlightPathsWindow`, `MinimapWindow`, `IconsWindow`, `SoundsWindow`, `ModelPreviewWindow`),
    and the docked minimap by `[data-panel="minimap"]`. Inner lists and fields keep their `aria-label` (#870).
+5b. Find a template editor's field by `[data-col="<column>"]` (`TemplateFields.svelte` puts it on each field's cell) rather than by the grid's structure (`.grid > label`), which broke seven probes when #951 added the cell wrapper (#977). A probe that finds fields through `TemplateFields.svelte` names it in `touches:`.
 6. Record how to run it in the appropriate feature-check page below.
 7. When it needs data a machine may lack (the server's `data/mmaps`, say), check for it first and return
    `{ ok: true, skipped: '<reason>' }` without it (`P.noMmaps` does this for the mmaps, #427). The runner prints

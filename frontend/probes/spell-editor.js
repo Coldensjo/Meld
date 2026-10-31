@@ -1,5 +1,5 @@
 // The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, a cost past an unsigned int is an unsaved edit (Go refuses it, a Go test; Save is never pressed), Change icon… has Import PNG… and Export all as PNG… and a search narrows the export to its matches (#364), previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written. Then the icon bindings refuse a bad icon name, a picture of the wrong size and a missing folder, and Tools › Icons… (#683) shows the same grid (IconGrid) with every icon, and a picked icon's name (Copy name puts it on the clipboard), its SpellIcon.dbc ID and the spells that show it (once the probe icons).
-// touches: frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/lib/wow/spells.ts, internal/vmangos/spells.go, internal/vmangos/spelltext.go, frontend/src/components/SpellIcon.svelte, frontend/src/components/IconGrid.svelte, frontend/src/components/IconsWindow.svelte, app_icons.go, internal/vmangos/icons.go, internal/wow/icon.go
+// touches: frontend/src/components/SpellEditor.svelte, frontend/src/components/TemplateFields.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/lib/wow/spells.ts, internal/vmangos/spells.go, internal/vmangos/spelltext.go, frontend/src/components/SpellIcon.svelte, frontend/src/components/IconGrid.svelte, frontend/src/components/IconsWindow.svelte, app_icons.go, internal/vmangos/icons.go, internal/wow/icon.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -14,7 +14,8 @@ const openTab = async (name) => {
 	button(root().querySelector('nav.tabs'), name).click()
 	await P.frames(1)
 }
-const field = (label) => [...root().querySelectorAll('.grid > label')].find((l) => (l.querySelector('span')?.textContent ?? l.firstChild?.textContent ?? '').split(' · ')[0].trim() === label)?.querySelector('input, select, textarea')
+const field = (label) =>
+	[...root().querySelectorAll('.grid > .cell > label, .grid > label')].find((l) => (l.querySelector('span')?.textContent ?? l.firstChild?.textContent ?? '').split(' · ')[0].trim() === label)?.querySelector('input, select, textarea')
 const tooltip = () =>
 	[...root().querySelectorAll('.look .tip .line, .look .tip .tip-text')].map((l) => (l.querySelectorAll('span').length ? [...l.querySelectorAll('span')].map((s) => s.textContent.trim()).join(' | ') : l.textContent.trim()))
 const effects = () => [...root().querySelectorAll('.effects li')].map((l) => l.textContent.trim())

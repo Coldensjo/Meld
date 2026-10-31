@@ -12,7 +12,7 @@ const named = (label) => {
 	return t && t !== '…' ? t : null
 }
 /** A plain field's label, by its label's start. */
-const plain = (label) => [...root().querySelectorAll('.grid > label')].find((l) => (l.querySelector('span')?.textContent ?? '').trim().replace(/·.*/, '').trim() === label)
+const plain = (label) => [...root().querySelectorAll('.grid > .cell > label, .grid > label')].find((l) => (l.querySelector('span')?.textContent ?? '').trim().replace(/·.*/, '').trim() === label)
 const type = (input, value) => {
 	input.value = value
 	input.dispatchEvent(new Event('input', { bubbles: true }))

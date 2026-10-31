@@ -9,7 +9,7 @@ const tab = (name) => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].f
 const ref = (label) => [...(root()?.querySelectorAll('.ref') ?? [])].find((r) => r.querySelector('.label')?.textContent === label)
 const named = (label) => ref(label)?.querySelector('.name span:not(.dim)')
 const text = (label) => ref(label)?.querySelector('.name')?.textContent.replace(/\s+/g, ' ').trim() ?? ''
-const select = (label) => [...root().querySelectorAll('.grid > label')].find((l) => (l.firstChild?.textContent ?? '').trim() === label)?.querySelector('select')
+const select = (label) => [...root().querySelectorAll('.grid > .cell > label, .grid > label')].find((l) => (l.firstChild?.textContent ?? '').trim() === label)?.querySelector('select')
 const chosen = (label) => select(label)?.selectedOptions[0]?.textContent ?? ''
 const ticks = (legend) => {
 	const set = [...root().querySelectorAll('fieldset')].find((f) => f.querySelector('legend')?.textContent === legend)
