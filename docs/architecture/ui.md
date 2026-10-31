@@ -323,6 +323,12 @@ The window layout, the asset browser and the dock panels and floating windows.
   every other dialog, so it sits over the dialog or editor that asked; Cancel, Esc and a click
   outside answer false. A dialog whose close asks (Zones, Portals, Lights) passes its async `close`
   to `Modal onclose`, so Esc and the backdrop ask too.
+- **Scroll bars** (#933, the owner's rule): a scroll bar only where there is no other option or the
+  design is worse without one. A panel, dialog or editor fits its content by regrouping instead
+  (columns, tabs, denser rows, a section that folds), as the character editor (#931) and the New world
+  dialog (#776) do. Lists that can grow without bound (search results, the asset grids, spells,
+  history, the log) keep theirs, and `Modal.svelte`'s body keeps its `overflow-y: auto` as the
+  fallback for a small window. The sweep of the existing ones is #986.
 - **The menus and Preferences** (#122, #752): top-level menus, never flyouts (#122, the owner's
   choice), each under about 720 px tall so it fits a 768 px window (probe `preferences` measures
   them): File, Edit, Models, Terrain (shaping, baked shadows, the tile clean-up), Paint (textures,
