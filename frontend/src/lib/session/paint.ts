@@ -9,7 +9,11 @@
 // palette lacks is appended to it there. So two members adding different textures at once can't
 // collide on an index, no index is ever renumbered (History's paint steps hold raw slot indices), and
 // the four-texture limit holds on every member because a chunk arrives whole, as its sender had it.
-// The cost: two textures added at once can sit in the two palettes in either order.
+// The cost: two textures added at once can sit in the two palettes in either order, so every member
+// also keeps the session's order of the palette (`order`): the palette the map started from, then each
+// texture in the order the host's sequence first carried it. A save, and the map the host sends a guest
+// that joins, are written in that order (`reorderPalette`, #1009), so the members' saves hold the same
+// palette and slot indices; the live palette is never renumbered.
 //
 // The session map's palette only grows while in the session: an undo of Add Texture that would drop
 // a texture the chunks still use (another member painted with it since) is put back (`checkPalette`).
@@ -83,6 +87,8 @@ export class PaintSync {
 	private mirrorS: Uint8Array | null = null
 	/** The palette as the sync last saw it (`checkPalette`). */
 	private known: readonly string[] = []
+	/** The session's order of the palette: the map's palette at the bind, then each texture as the host's order first carried it. */
+	private canon: string[] = []
 	private pending: Pending[] = []
 	private held: Held[] = []
 	private holding = false
@@ -96,6 +102,11 @@ export class PaintSync {
 		return this.ground
 	}
 
+	/** The session's order of the palette (`reorderPalette` writes a save in it); empty while unbound. */
+	get order(): readonly string[] {
+		return this.canon
+	}
+
 	/** The sent messages not yet acknowledged (for the tests). */
 	get unacknowledged(): number {
 		return this.pending.length
@@ -107,13 +118,19 @@ export class PaintSync {
 		this.holding = true
 	}
 
-	/** Syncs `ground` from now on, as it stands: the map as it was after message `afterSeq`. Held messages after that are applied. */
-	bind(ground: PaintGround, afterSeq: number) {
+	/**
+	 * Syncs `ground` from now on, as it stands: the map as it was after message `afterSeq`. Held messages
+	 * after that are applied. The first `ordered` palette entries are the session's order so far (the host
+	 * sends a joining guest its map in that order, with the count); the rest, and all of it without a count,
+	 * start the order here.
+	 */
+	bind(ground: PaintGround, afterSeq: number, ordered?: number) {
 		const held = this.held
 		this.ground = ground
 		this.mirrorW = ground.weights.slice()
 		this.mirrorS = ground.chunkSlots.slice()
 		this.known = this.hooks.palette()
+		this.canon = this.known.slice(0, ordered === undefined ? undefined : Math.max(0, ordered))
 		this.pending = []
 		this.held = []
 		this.holding = false
@@ -128,6 +145,7 @@ export class PaintSync {
 		this.mirrorW = null
 		this.mirrorS = null
 		this.known = []
+		this.canon = []
 		this.pending = []
 		this.held = []
 		this.holding = false
@@ -205,7 +223,11 @@ export class PaintSync {
 		if (from === you) {
 			const id = (data as PaintData | null)?.id
 			const i = this.pending.findIndex((p) => p.id === id)
-			if (i >= 0) this.pending.splice(i, 1)
+			if (i >= 0) {
+				// Its place in the host's order is now known (an echo of a message sent before the bind is not this map's).
+				this.pending.splice(i, 1)
+				this.learn((data as PaintData).chunks)
+			}
 			return
 		}
 		if (!this.ground) {
@@ -214,6 +236,15 @@ export class PaintSync {
 		}
 		if (seq <= this.after) return
 		this.applyData(data)
+	}
+
+	/** Adds the textures of a message's chunks that the session's order lacks to its end, as the host's order carried them. */
+	private learn(chunks: readonly PaintChunk[] | undefined) {
+		if (!Array.isArray(chunks)) return
+		for (const ch of chunks) {
+			if (!ch || !Array.isArray(ch.slots)) continue
+			for (const path of ch.slots) if (typeof path === 'string' && path && paletteIndex(this.canon, path) < 0) this.canon.push(path)
+		}
 	}
 
 	/** Writes another member's chunks in, then mine still unacknowledged over them. False for a message that doesn't fit the map. */
@@ -241,6 +272,7 @@ export class PaintSync {
 			chunks.push({ c: ch.c, paths: ch.slots, w })
 		}
 		if (!chunks.length) return false
+		this.learn(d.chunks)
 		// My edits not sent yet are pending from here on, so they are written back over this one too.
 		this.flush()
 		const before = this.hooks.palette()
@@ -300,6 +332,35 @@ export class PaintSync {
 		this.hooks.applied?.()
 		return true
 	}
+}
+
+/**
+ * The palette written in the session's `order` (#1009): the order's textures, then this member's others
+ * in their own order, with `remap[i]` the written index of palette entry i. Null when that is the palette
+ * as it is, or would be over MAX_PALETTE (the palette is then written as it is).
+ */
+export function reorderPalette(order: readonly string[], palette: readonly string[]): { palette: string[]; remap: Uint8Array } | null {
+	const out = [...order]
+	const remap = new Uint8Array(palette.length)
+	let same = order.length === palette.length
+	for (let i = 0; i < palette.length; i++) {
+		let j = paletteIndex(out, palette[i])
+		if (j < 0) {
+			out.push(palette[i])
+			j = out.length - 1
+		}
+		remap[i] = j
+		if (j !== i || out[j] !== palette[i]) same = false
+	}
+	if (same || out.length > MAX_PALETTE) return null
+	return { palette: out, remap }
+}
+
+/** A copy of `slots` with every palette index i made `remap[i]` (NO_TEXTURE, and an index past the palette, kept). */
+export function remapSlots(slots: Uint8Array, remap: Uint8Array): Uint8Array {
+	const out = slots.slice()
+	for (let k = 0; k < out.length; k++) if (out[k] !== NO_TEXTURE && out[k] < remap.length) out[k] = remap[out[k]]
+	return out
 }
 
 /** Whether chunk c's slots or weights differ from the mirror's. */

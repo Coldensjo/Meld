@@ -119,9 +119,18 @@ server. #728 is the umbrella; its parts are separate issues:
   - **The palette.** Slots go out as paths, not palette indices: each member keeps its own palette, and
     a path the receiver's lacks is appended to it there (not a History step). So two members adding
     textures at once can't collide on an index, no index is ever renumbered (History's paint steps hold
-    raw slot indices), and the four-texture limit holds everywhere because a chunk arrives whole. The
-    cost: two textures added at once sit in the two palettes in either order, so the saves hold the
-    same paint but not always the same palette order.
+    raw slot indices), and the four-texture limit holds everywhere because a chunk arrives whole. Two
+    textures added at once then sit in the two palettes in either order.
+  - **The session's palette order (#1009).** Each member also keeps the order every member agrees on
+    (`PaintSync.order`): the palette at the bind, then each texture in the order the host's sequence
+    first carried it (a remote message when applied, one's own at its echo). File › Save writes the
+    session map in that order (`sessionOrdered` in `shared.svelte.ts`, `reorderPalette`, `remapSlots`):
+    the order's textures, then this member's others, with the chunk slots, the roles and the path
+    applies' slots renumbered in the written copy only, so History's indices stay right. The host sends
+    a joining guest its map the same way, with `ordered` (the order's length) in the handoff, which the
+    guest's bind takes as the start of its order. So the saves hold the same palette and slots, except
+    for a texture a member added and never painted with: that goes nowhere and is written after the
+    order in that member's save alone.
   - **The palette only grows** while in the session: an undo of Add Texture sets the palette back to
     its earlier, shorter list, which would drop a texture another member painted with since; the sync
     puts the list back when a chunk still uses an index past its end (`checkPalette`). A shrink nothing

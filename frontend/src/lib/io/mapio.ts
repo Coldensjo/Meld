@@ -5,7 +5,7 @@ import { fromMapData, toMapData } from './mapData'
 import type { Engine } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { withSaving } from '../state/saving'
-import { replaceSessionMap } from '../session/shared.svelte'
+import { replaceSessionMap, sessionOrdered } from '../session/shared.svelte'
 
 export function saveMap(engine: Engine, saveAs = false) {
 	return guarded('Save', async () => {
@@ -20,7 +20,7 @@ export function saveMap(engine: Engine, saveAs = false) {
 			if (!path) return
 		}
 		const t0 = performance.now()
-		await withSaving('Saving map', () => SaveMap(path, toMapData(engine.snapshot())))
+		await withSaving('Saving map', () => SaveMap(path, toMapData(sessionOrdered(engine.activeDocument(), engine.snapshot()))))
 		editor.filePath = path
 		editor.dirty = false
 		engine.refreshTabs()

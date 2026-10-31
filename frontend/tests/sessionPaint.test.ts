@@ -5,7 +5,7 @@
 // the paint the host's order gives, whatever index each palette gave a texture.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { KIND_PAINT, PaintSync, type PaintData, type PaintGround } from '../src/lib/session/paint.ts'
+import { KIND_PAINT, PaintSync, remapSlots, reorderPalette, type PaintData, type PaintGround } from '../src/lib/session/paint.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 import { DirtyRegion, type DirtyRect } from '../src/lib/terrain/dirtyRect.ts'
 import { bytesToBase64 } from '../src/lib/io/base64.ts'
@@ -138,6 +138,57 @@ test('two members adding different new textures at once each end with both, in t
 	assert.equal(a.ground.byPath(), b.ground.byPath())
 	assert.equal(a.ground.byPath(), hostOrder(host.log))
 	assert.deepEqual(b.ground.slotsOf(0), ['base', 'grass', '', ''])
+	// The session's order is the host's (A's message came first), and the saves written in it match byte for byte (#1009).
+	assert.deepEqual(a.sync.order, ['base', 'grass', 'rock'])
+	assert.deepEqual(b.sync.order, ['base', 'grass', 'rock'])
+	assert.deepEqual(saved(a), saved(b))
+})
+
+/** A member's palette and chunk slots as a save writes them: in the session's order (shared.svelte.ts `sessionOrdered`). */
+function saved(m: { ground: Ground; sync: PaintSync }) {
+	const r = reorderPalette(m.sync.order, m.ground.palette)
+	return r ? { palette: r.palette, slots: Array.from(remapSlots(m.ground.chunkSlots, r.remap)) } : { palette: [...m.ground.palette], slots: Array.from(m.ground.chunkSlots) }
+}
+
+test("a guest that joins gets the map in the session's order and keeps the same order as the others", () => {
+	const host = new Host()
+	const a = host.member(1, new Ground())
+	const b = host.member(2, new Ground())
+	b.ground.paint(1, 1, 'rock', 0)
+	b.sync.flush()
+	a.ground.paint(0, 1, 'grass', 0)
+	host.deliver(a, 1)
+	// A's palette is [base, grass, rock], the order [base, rock]; A's grass is not acknowledged yet.
+	assert.deepEqual(a.ground.palette, ['base', 'grass', 'rock'])
+	assert.deepEqual(a.sync.order, ['base', 'rock'])
+	// A sends a joining guest C its map as a save writes it, with the order's count.
+	const map = saved(a)
+	const c = { id: 3, ground: new Ground(), sync: null as unknown as PaintSync }
+	c.ground.palette = map.palette
+	c.ground.chunkSlots.set(map.slots)
+	c.ground.weights.set(a.ground.weights)
+	// The map is A's after message 1, the last A has seen; C gets every message from the host's log.
+	host.inbox.set(3, [...host.log])
+	c.sync = new PaintSync({ send: async () => undefined, palette: () => c.ground.palette, setPalette: (p) => (c.ground.palette = p) })
+	c.sync.bind(c.ground, 1, a.sync.order.length)
+	assert.deepEqual(c.ground.palette, ['base', 'rock', 'grass'])
+	host.deliver(a)
+	host.deliver(b)
+	host.deliver(c)
+	for (const m of [a, b, c]) assert.deepEqual(m.sync.order, ['base', 'rock', 'grass'])
+	assert.deepEqual(saved(a), saved(b))
+	assert.deepEqual(saved(a), saved(c))
+	assert.equal(a.ground.byPath(), c.ground.byPath())
+})
+
+test("reorderPalette puts the order first and this member's other textures after, or says the palette stands", () => {
+	assert.equal(reorderPalette(['a', 'b'], ['a', 'b']), null)
+	const r = reorderPalette(['a', 'c'], ['a', 'b', 'c'])!
+	assert.deepEqual(r.palette, ['a', 'c', 'b'])
+	assert.deepEqual(Array.from(r.remap), [0, 2, 1])
+	assert.deepEqual(Array.from(remapSlots(Uint8Array.from([1, 2, NO_TEXTURE, 0]), r.remap)), [2, 1, NO_TEXTURE, 0])
+	// A texture of the order this palette dropped (an undo) is still written, so the saves keep one list.
+	assert.deepEqual(reorderPalette(['a', 'x', 'b'], ['a', 'b'])!.palette, ['a', 'x', 'b'])
 })
 
 test('two members painting new textures into one chunk at once end with the later chunk on both', () => {

@@ -13,12 +13,12 @@ import { editor, setStatus } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
 import { GUEST_EXPORT_REASON, GUEST_REPLACE_REASON, HOST_ID, blockShift, KIND_MAP, KIND_MAP_PART, MAP_PART_CHARS, PartJoiner, changeLine, editGen, peerChanges, serialQueue, splitText, type MapPart, type Message, type Peer } from './peers'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
-import { KIND_PAINT, PaintSync } from './paint'
+import { KIND_PAINT, PaintSync, remapSlots, reorderPalette } from './paint'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
 import { TILE_YARDS } from '../wow/format'
 import type { MapDocument, VmangosRef } from '../engine/MapDocument'
-import type { Engine } from '../engine/Engine'
+import type { Engine, MapSnapshot } from '../engine/Engine'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -48,6 +48,11 @@ export interface MapHandoff {
 	ids?: IdLane | Omit<IdLane, 'lane'>
 	/** How many times the host has made the session's map again (#1008, `mapGen`); absent for 0. */
 	gen?: number
+	/**
+	 * How many of the map's palette entries are the session's order so far (#1009, `PaintSync.order`): the
+	 * map is sent in that order, the host's own textures not yet in it after them. Absent for all of them.
+	 */
+	ordered?: number
 }
 
 /** The `seq` of the last message this page has seen. */
@@ -164,11 +169,11 @@ function flushEdits() {
 }
 
 /** Starts syncing the session map's edits: the map as it was after message `afterSeq`, new object ids made in `ids`' lane. */
-function bindEdits(afterSeq: number, ids: IdLane) {
+function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
 	const d = sessionDoc()
 	if (!d) return
 	heights.bind(d.terrain, afterSeq)
-	paint.bind(d.terrain, afterSeq)
+	paint.bind(d.terrain, afterSeq, ordered)
 	objects.bind(d.objects, afterSeq, ids)
 }
 
@@ -428,6 +433,27 @@ function adoptReplacement(e: Engine, d: MapDocument) {
 	sendHandoff(0, handoff).catch((err) => setStatus(`Sending the map to the session failed: ${err}`, 8000))
 }
 
+/**
+ * `snap`, the map of tab `d`, with its texture palette in the session's order (#1009, `PaintSync.order`)
+ * when `d` is the session's map: the members' palettes can hold textures added at once in either order,
+ * so a save (and the map a joining guest gets) is written in the order every member keeps alike, the
+ * chunk slots and the other palette indices it holds renumbered in the copy. The map itself is left as
+ * it is, since History's steps hold its indices. Any other map comes back as it is.
+ */
+export function sessionOrdered(d: MapDocument, snap: MapSnapshot): MapSnapshot {
+	if (!shared.role || d.id !== shared.docId || paint.bound !== d.terrain) return snap
+	const r = reorderPalette(paint.order, snap.palette)
+	if (!r) return snap
+	const at = (i: number) => (i >= 0 && i < r.remap.length ? r.remap[i] : i)
+	return {
+		...snap,
+		palette: r.palette,
+		chunkSlots: remapSlots(snap.chunkSlots, r.remap),
+		roles: snap.roles ? { rock: at(snap.roles.rock), dirt: at(snap.roles.dirt) } : snap.roles,
+		pathApplies: snap.pathApplies?.map((a) => (a.record.paint ? { ...a, record: { ...a.record, paint: { ...a.record.paint, slots: remapSlots(a.record.paint.slots, r.remap) } } } : a)),
+	}
+}
+
 /** The host sends the session's map to a member that joined, as it is now. */
 async function sendMap(p: Peer) {
 	const e = engineRef.current
@@ -443,8 +469,9 @@ async function sendMap(p: Peer) {
 	}
 	// The guest counts from above every id and group this map's layer has held, the removed ones too (an undo brings those back).
 	const { nextId, nextGroup } = d.objects.counts
-	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(e.snapshotOf(d)), ids: { lane, nextId, nextGroup } }
+	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(sessionOrdered(d, e.snapshotOf(d))), ids: { lane, nextId, nextGroup } }
 	if (mapGen > 0) handoff.gen = mapGen
+	if (paint.bound === d.terrain) handoff.ordered = paint.order.length
 	try {
 		await sendHandoff(p.id, handoff)
 	} catch (err) {
@@ -523,7 +550,7 @@ function openHandoff(h: MapHandoff) {
 	// The held edits the map doesn't hold yet go in now. A host that sent no lane (an older Meld, a scripted
 	// one) gets this member's id as one, which holds while the members stay below LANES.
 	if (first) myLane = h.ids && 'lane' in h.ids ? h.ids.lane : shared.you % LANES
-	bindEdits(h.seq, { lane: myLane, nextId: h.ids?.nextId ?? 0, nextGroup: h.ids?.nextGroup ?? 0 })
+	bindEdits(h.seq, { lane: myLane, nextId: h.ids?.nextId ?? 0, nextGroup: h.ids?.nextGroup ?? 0 }, h.ordered)
 	const host = shared.peers.find((p) => p.id === HOST_ID)?.name || 'the host'
 	if (first) setStatus(`Opened ${host}'s map ${h.map.name}`, 6000)
 	else setStatus(`${host} made the session's map again (a revert or a grow): its tab here holds theirs now, and your edits not yet sent are gone`, 10000)
