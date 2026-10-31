@@ -56,6 +56,7 @@ func (a *App) SaveObject(entry, patch int, values map[string]string) (string, er
 	if err == nil {
 		a.stale.AddObject(uint32(entry))
 		a.forgetStale()
+		a.reloadWorld("SaveObject", entry)
 	}
 	return sql, err
 }
@@ -67,7 +68,11 @@ func (a *App) CreateObject(base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return vmangos.CreateObject(server, base, name)
+	res, err := vmangos.CreateObject(server, base, name)
+	if err == nil {
+		a.reloadWorld("CreateObject", res)
+	}
+	return res, err
 }
 
 // ReadObjectLoot reads what game object template entry holds when its loot list is loot: the rows,
@@ -86,7 +91,11 @@ func (a *App) SaveObjectLoot(loot int, items []vmangos.LootItem) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveObjectLoot(server, loot, items)
+	res, err := vmangos.SaveObjectLoot(server, loot, items)
+	if err == nil {
+		a.reloadWorld("SaveObjectLoot")
+	}
+	return res, err
 }
 
 // NextObjectLoot is the first loot id no game object uses yet.
@@ -124,6 +133,7 @@ func (a *App) SavePages(first int, texts []string) (string, error) {
 			a.stale.AddPage(uint32(p))
 		}
 		a.forgetStale()
+		a.reloadWorld("SavePages")
 	}
 	return saved.SQL, nil
 }
@@ -167,6 +177,7 @@ func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, 
 	if err == nil {
 		a.stale.AddCreature(uint32(entry))
 		a.forgetStale()
+		a.reloadWorld("SaveCreature", entry)
 	}
 	return sql, err
 }
@@ -199,7 +210,11 @@ func (a *App) SaveVendor(entry int, items []vmangos.VendorItem) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveVendor(server, entry, items)
+	res, err := vmangos.SaveVendor(server, entry, items)
+	if err == nil {
+		a.reloadWorld("SaveVendor")
+	}
+	return res, err
 }
 
 // ReadCreatureQuests reads the quests a creature template starts and ends, for the creature editor's Quests tab.
@@ -217,7 +232,11 @@ func (a *App) SaveCreatureQuests(entry int, quests vmangos.QuestLists) (string, 
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveCreatureQuests(server, entry, quests)
+	res, err := vmangos.SaveCreatureQuests(server, entry, quests)
+	if err == nil {
+		a.reloadWorld("SaveCreatureQuests")
+	}
+	return res, err
 }
 
 // ReadObjectQuests reads the quests a game object template starts and ends, for the game object
@@ -237,7 +256,11 @@ func (a *App) SaveObjectQuests(entry int, quests vmangos.QuestLists) (string, er
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveObjectQuests(server, entry, quests)
+	res, err := vmangos.SaveObjectQuests(server, entry, quests)
+	if err == nil {
+		a.reloadWorld("SaveObjectQuests")
+	}
+	return res, err
 }
 
 // SearchQuests lists up to 100 quests whose title has text in it (or whose entry it is).
@@ -288,6 +311,7 @@ func (a *App) SaveQuest(entry, patch int, values map[string]string) (TemplateSav
 	if err == nil {
 		a.stale.AddQuest(uint32(entry))
 		a.forgetStale()
+		a.reloadWorld("SaveQuest")
 	}
 	return templateSaved(sql, err)
 }
@@ -299,7 +323,11 @@ func (a *App) CreateQuest(base int, title string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return vmangos.CreateQuest(server, base, title)
+	res, err := vmangos.CreateQuest(server, base, title)
+	if err == nil {
+		a.reloadWorld("CreateQuest")
+	}
+	return res, err
 }
 
 // PlanQuestDelete lists what deleting quest entry removes and leaves dangling, changing nothing.
@@ -321,6 +349,7 @@ func (a *App) DeleteQuest(entry int) (string, error) {
 	if err == nil {
 		a.stale.AddQuest(uint32(entry))
 		a.forgetStale()
+		a.reloadWorld("DeleteQuest")
 	}
 	return sql, err
 }
@@ -341,7 +370,11 @@ func (a *App) SaveQuestGivers(entry int, givers vmangos.QuestGivers, flag []int)
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveQuestGivers(server, entry, givers, flag)
+	res, err := vmangos.SaveQuestGivers(server, entry, givers, flag)
+	if err == nil {
+		a.reloadWorld("SaveQuestGivers", flag...)
+	}
+	return res, err
 }
 
 // TemplateNames names item, creature, object or quest templates (kind) by entry, for the quest
@@ -442,7 +475,11 @@ func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSave
 	if err != nil {
 		return vmangos.GreetingSaved{}, err
 	}
-	return vmangos.SaveGreeting(server, entry, male, female)
+	res, err := vmangos.SaveGreeting(server, entry, male, female)
+	if err == nil {
+		a.reloadWorld("SaveGreeting")
+	}
+	return res, err
 }
 
 // SaveConditionText sets a text a creature template's gossip menu shows under a condition: the row
@@ -452,7 +489,11 @@ func (a *App) SaveConditionText(entry, textID, cond int, male, female string) (v
 	if err != nil {
 		return vmangos.GreetingSaved{}, err
 	}
-	return vmangos.SaveConditionText(server, entry, textID, cond, male, female)
+	res, err := vmangos.SaveConditionText(server, entry, textID, cond, male, female)
+	if err == nil {
+		a.reloadWorld("SaveConditionText")
+	}
+	return res, err
 }
 
 // DeleteConditionText removes the conditioned text row showing npc_text textID from a creature
@@ -462,7 +503,11 @@ func (a *App) DeleteConditionText(entry, textID int) (vmangos.GreetingSaved, err
 	if err != nil {
 		return vmangos.GreetingSaved{}, err
 	}
-	return vmangos.DeleteConditionText(server, entry, textID)
+	res, err := vmangos.DeleteConditionText(server, entry, textID)
+	if err == nil {
+		a.reloadWorld("DeleteConditionText", entry)
+	}
+	return res, err
 }
 
 // SaveAILine sets what one talk line of a creature template's AI says (the Messages tab's "What it
@@ -473,7 +518,11 @@ func (a *App) SaveAILine(entry, eventID, scriptID, textID int, text string) (vma
 	if err != nil {
 		return vmangos.AILineSaved{}, err
 	}
-	return vmangos.SaveAILine(server, entry, eventID, scriptID, textID, text)
+	res, err := vmangos.SaveAILine(server, entry, eventID, scriptID, textID, text)
+	if err == nil {
+		a.reloadWorld("SaveAILine")
+	}
+	return res, err
 }
 
 // SaveGossipOptions replaces the options (the lines a player can pick) of a creature template's
@@ -483,7 +532,11 @@ func (a *App) SaveGossipOptions(entry int, options []vmangos.GossipOption) (vman
 	if err != nil {
 		return vmangos.GreetingSaved{}, err
 	}
-	return vmangos.SaveGossipOptions(server, entry, options)
+	res, err := vmangos.SaveGossipOptions(server, entry, options)
+	if err == nil {
+		a.reloadWorld("SaveGossipOptions", entry)
+	}
+	return res, err
 }
 
 // Factions lists the client's faction templates with their names and how each treats an Alliance
@@ -630,7 +683,11 @@ func (a *App) CreateCreature(base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return vmangos.CreateCreature(server, base, name)
+	res, err := vmangos.CreateCreature(server, base, name)
+	if err == nil {
+		a.reloadWorld("CreateCreature", res)
+	}
+	return res, err
 }
 
 // ListDisplays lists every creature display, dressed, with the creatures that use it, for the

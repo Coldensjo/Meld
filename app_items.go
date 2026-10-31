@@ -73,6 +73,7 @@ func (a *App) SaveItem(entry, patch int, values map[string]string) (TemplateSave
 	if err == nil {
 		a.stale.AddItem(uint32(entry))
 		a.forgetStale()
+		a.reloadWorld("SaveItem")
 	}
 	return templateSaved(sql, err)
 }
@@ -84,7 +85,11 @@ func (a *App) CreateItem(base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return vmangos.CreateItem(server, base, name)
+	res, err := vmangos.CreateItem(server, base, name)
+	if err == nil {
+		a.reloadWorld("CreateItem")
+	}
+	return res, err
 }
 
 // PlanItemDelete lists what deleting item entry removes and leaves dangling, changing nothing.
@@ -107,6 +112,7 @@ func (a *App) DeleteItem(entry int) (string, error) {
 	if err == nil {
 		a.stale.AddItem(uint32(entry))
 		a.forgetStale()
+		a.reloadWorld("DeleteItem")
 	}
 	return sql, err
 }
@@ -128,7 +134,11 @@ func (a *App) CreateItemOfKind(class, subclass, invType int, name string) (int, 
 	if err != nil {
 		return 0, err
 	}
-	return vmangos.CreateItemOfKind(server, vmangos.ItemKind{Class: class, Subclass: subclass, InvType: invType}, name)
+	res, err := vmangos.CreateItemOfKind(server, vmangos.ItemKind{Class: class, Subclass: subclass, InvType: invType}, name)
+	if err == nil {
+		a.reloadWorld("CreateItemOfKind")
+	}
+	return res, err
 }
 
 // ItemModelLook is an item display on a character of race and sex (0 male, 1 female) as an item of
@@ -250,6 +260,7 @@ func (a *App) ImportItems(path string) ([]int, error) {
 			a.stale.AddItem(uint32(e))
 		}
 		a.forgetStale()
+		a.reloadWorld("ImportItems")
 	}
 	return entries, err
 }

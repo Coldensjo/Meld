@@ -805,3 +805,21 @@ the building and Launch's spot over it is the server's 0,0 wherever the building
 with WMO-only unticked the frame is the corner's again. Nothing written.
 - Probe: `bun run probe wmo-only-frame`. It puts the camera and its orbit target straight above the
   building, so either ground mode finds it below.
+
+## The world server's reload after an editor's save (#961, `TestWorldReloads`, `TestReloadTablesSendsEachCommand`)
+
+Checks: a save in the creature, object, quest, item, gossip, loot, shop, spell or zone weather editors
+has a running world server reload the tables it wrote through the SOAP console, and the status bar
+says so (or says what to do when SOAP is off or the console refuses).
+- Unit tests: `go test -run "TestWorldReloads|TestReloadMessage" .` (the binding-to-command table,
+  `app_reload.go`) and `go test -run TestReloadTablesSendsEachCommand ./internal/vmangos/` (the
+  commands sent to a fake SOAP console set in a test mangosd.conf).
+- In the game (the owner): with mangosd running and `SOAP.Enabled = 1`, rename a creature in the
+  creature editor and Save: the status bar says "Saved and reloaded on the server (creature_template)".
+  The client keeps the old name in `WDB\creaturecache.wdb` until it restarts from Meld (#234); after
+  that the new name shows without a server restart. With SOAP off the status bar names
+  `SOAP.Enabled` instead.
+- Trap: a gossip greeting, a conditioned text or an AI line is a new `broadcast_text` row, which
+  VMaNGOS can't reload: those saves say to restart the server, by design.
+- Trap: the probes run against the dev page with no world server, so `reloadWorld` returns at once
+  there and no probe sees the message.

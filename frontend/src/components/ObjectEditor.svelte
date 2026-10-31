@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { SlotTarget } from '../lib/toolwin/editors'
 	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
@@ -232,7 +233,7 @@
 			// The sounds last: they are the client's, and the database's share is written by then.
 			const sounds = (await soundsTab?.save()) ?? null
 			const heard = !sounds?.changed ? '' : sounds.waiting ? " Its sounds wait for the game to close, then go into the client's patch." : " Its sounds are in the client's patch."
-			const said = database ? `Saved ${values.name} (entry ${r.entry})${what} to the world database. Restart the world server and the game to see it in the game.` : `Saved the sounds of ${values.name}'s display.`
+			const said = database ? `Saved ${values.name} (entry ${r.entry})${what} to the world database. ${SERVER_RELOADS} Restart the game to see it there.` : `Saved the sounds of ${values.name}'s display.`
 			setStatus(said + heard + (sounds?.changed && !database ? ' Restart the game to hear them.' : ''), 10000)
 		})
 	}

@@ -9,6 +9,7 @@
 	import { goMap } from '../lib/wails/maps'
 	import { untrack } from 'svelte'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { askConfirm } from '../lib/state/confirm'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { CREATURE_TYPES, levelText, NPC_FLAGS, RANKS } from '../lib/world/spawnInfo'
@@ -217,7 +218,7 @@
 			await SaveCreature(entry, rec.patch, v)
 			forgetCreatureDisplays()
 			made = { entry, values: { ...goMap(rec.values), ...v } }
-			setStatus(`Made creature ${entry}, ${v.name}. Restart the world server to see it in the game.`, 10000)
+			setStatus(`Made creature ${entry}, ${v.name}. ${SERVER_RELOADS}`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -389,7 +390,7 @@
 						</table>
 					{:else}
 						{#if made}
-							<p>Made <b>{draft.name}</b>, entry {made.entry}. It is in the world database; restart the world server for the game to know it.</p>
+							<p>Made <b>{draft.name}</b>, entry {made.entry}. It is in the world database; {SERVER_RELOADS}</p>
 							<span class="row">
 								<button class="active" onclick={place}>Place in world</button>
 								<button onclick={() => made && open(made.entry)}>Open in the creature editor</button>

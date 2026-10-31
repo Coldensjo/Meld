@@ -21,9 +21,12 @@
 		const offPending = EventsOn('client:pending', (n: number) => (waiting = n))
 		// The watcher gave up writing them (#481): said once, in the status line and the Log.
 		const offFailed = EventsOn('client:pending-failed', (msg: string) => setStatus(msg, 15000))
+		// A save to the world database had the running world server reload its tables, or couldn't (#961, app_reload.go).
+		const offReloaded = EventsOn('server:reloaded', (msg: string) => setStatus(msg, 10000))
 		return () => {
 			offPending()
 			offFailed()
+			offReloaded()
 		}
 	})
 </script>

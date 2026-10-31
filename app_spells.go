@@ -96,7 +96,7 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string,
 	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
 		return SpellSaved{}, err
 	}
-	a.reloadSpells(server)
+	a.reloadWorld("SaveSpell")
 	err = a.saveClientFiles(dataDir, plan.Files)
 	vmangos.ForgetSpells()
 	if err != nil {
@@ -120,7 +120,7 @@ func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
 		return 0, err
 	}
-	a.reloadSpells(server)
+	a.reloadWorld("CreateSpell")
 	err = a.saveClientFiles(dataDir, []mpq.File{plan.File})
 	vmangos.ForgetSpells()
 	if err != nil {
@@ -182,7 +182,7 @@ func (a *App) ImportSpells(path string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.reloadSpells(server)
+	a.reloadWorld("ImportSpells")
 	files, err := vmangos.SpellClientFiles(server, dataDir, entries)
 	if err == nil {
 		err = a.saveClientFiles(dataDir, append(looks, files...))
@@ -251,5 +251,9 @@ func (a *App) SaveCreatureSpells(entry int, spells []vmangos.CreatureSpell) (vma
 	if err != nil {
 		return vmangos.CreatureSpellsSaved{}, err
 	}
-	return vmangos.SaveCreatureSpells(server, entry, spells)
+	res, err := vmangos.SaveCreatureSpells(server, entry, spells)
+	if err == nil {
+		a.reloadWorld("SaveCreatureSpells", entry)
+	}
+	return res, err
 }

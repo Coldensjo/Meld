@@ -861,7 +861,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   build, a picked icon's SpellIcon.dbc row found or added by `spellIconRow`, then the whole row as it
   will be written into Spell.dbc by `spellClientRow` over the client's record), runs the SQL, has the
   running world server `.reload spell_template` through its SOAP console when it's on
-  (`reloadSpells`, `vmangos.ReloadSpells`; else the server reads it at its next start), then writes
+  (`reloadWorld`, below; else the server reads it at its next start), then writes
   the tables without closing anything (#365, `app_pending.go` `saveClientFiles`): into Meld's patch at
   once when the game isn't running, else into the waiting files in the user's cache
   (`internal/vmangos/pending.go`), which a watcher (`watchPending`, also started at Meld's start)
@@ -911,7 +911,20 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (`ReadCreatureQuests`/`SaveCreatureQuests`, `ReadObjectQuests`/`SaveObjectQuests` in
   `internal/vmangos/questrel.go`), a form with its own Save quests apart from the template's Save. A
   creature without the Quest giver flag is warned, with a button setting the flag; an object that is
-  not a Quest giver (by its saved type) gets no new quests (`checkObjectQuests`) and says why. The server reads quests at start or on `.reload all_quest`.
+  not a Quest giver (by its saved type) gets no new quests (`checkObjectQuests`) and says why. The server reads quests at start, and is told to reload them after a save (below).
+- **Reloading the running world server** (#961, `app_reload.go`): after a save to the world database,
+  each binding calls `a.reloadWorld("<binding>", entries...)`. `worldReloads` maps the binding to the
+  `.reload` subcommands of VMaNGOS (`src/game/Chat/Chat.cpp`, GM level 5) for the tables it wrote, one
+  a table (a creature or object template by its row when one was written), and
+  `vmangos.ReloadTables` sends them through the SOAP console, beside the save's reply. The status bar
+  shows the result (`server:reloaded`): reloaded, or SOAP off (restart, or type the `.reload` as a
+  GM), or the console's error. With the world server down it says nothing: the server reads it all
+  at start. What VMaNGOS can't reload says to restart: a new gossip or AI text (`broadcast_text` has
+  no reload, and `npc_text` reloaded before it would name a text the server lacks), and a deleted
+  item (item_template is not reloaded after a delete: the server drops every prototype and reads
+  them again, which a deleted item still carried would be left without). Spawns are not reloaded:
+  `.reload creature`/`.reload gameobject` (`ObjectMgr::LoadCreatures(true)`) reread the spawn rows and
+  add a new spawn to its grid, but a spawn already loaded keeps its place until the server restarts. The editors' own notes say the reload in one phrase (`SERVER_RELOADS`, `lib/io/applyNote.ts`).
 - **The game's template cache** (#234): the 1.12 client asks for a template once and keeps it across
   sessions in `WDB\creaturecache.wdb` / `gameobjectcache.wdb`, never asking again. `SaveCreature` and
   `SaveObject` mark the entry in `App.stale` (`game.Stale`, `internal/game/cache.go`), which takes its

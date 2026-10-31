@@ -4,6 +4,7 @@
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { questTabs, tabOfColumn } from '../lib/world/questFields'
 	import { forgetName } from '../lib/wow/refNames'
@@ -17,7 +18,7 @@
 	// find a quest or make one (blank, or a copy of the open one), edit every column of its
 	// quest_template row on tabs, and say who starts and ends it. Save writes the row (Go checks it
 	// against the server's rules first) and then the givers; nothing is written before. The server
-	// reads quests when it starts or on `.reload all_quest`.
+	// reads quests when it starts, and Go has a running one reload them after each save (#961, app_reload.go).
 
 	// In the desktop app it opens as its own OS window (#914, components/toolwin/EditorToolWindow.svelte),
 	// beside the creature or object editor whose Quests tab opened it, which runs it whole on that page's
@@ -109,7 +110,7 @@
 				const g = (await giversTab?.save()) ?? ''
 				if (g) done.push(g)
 				questsChanged(...(n > 0 ? [r.entry] : []))
-				ed.note = `Saved ${done.join(' and ')} of ${values.Title || 'the quest'} (quest ${r.entry}) to the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to use it.`
+				ed.note = `Saved ${done.join(' and ')} of ${values.Title || 'the quest'} (quest ${r.entry}) to the world database. ${SERVER_RELOADS}`
 				setStatus(ed.note, 10000)
 			},
 			// A refused value: show the tab it is on.
@@ -141,7 +142,7 @@
 			questsChanged(entry)
 			plan = null
 			ui.questEditor = { entry: 0 }
-			ed.note = `Deleted quest ${entry}, ${title}, from the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to drop it.`
+			ed.note = `Deleted quest ${entry}, ${title}, from the world database. ${SERVER_RELOADS}`
 			setStatus(ed.note, 10000)
 		} catch (err) {
 			ed.error = String(err)

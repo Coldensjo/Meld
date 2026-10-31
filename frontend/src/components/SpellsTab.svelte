@@ -3,6 +3,7 @@
 	import { ReadCreatureSpells, SaveCreatureSpells } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { CAST_FLAGS, CAST_TARGETS, SELECT_FLAGS, castTarget, paramKind, spellLabel } from '../lib/wow/creatureSpellNames'
 	import { spellRef } from '../lib/wow/spells'
 	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'
@@ -64,7 +65,7 @@
 			const n = spells.length
 			await rows.load()
 			const what = n ? `${n} ${n === 1 ? 'spell' : 'spells'} in list ${r.listId}` : 'no spells'
-			setStatus(`Saved the spells of creature ${entry} (${what}). Restart the world server to see it in the game.`, 10000)
+			setStatus(`Saved the spells of creature ${entry} (${what}). ${SERVER_RELOADS}`, 10000)
 		})
 	}
 

@@ -174,7 +174,7 @@
 			const tables = [changed.length ? 'area_template' : '', weathers.length ? 'game_weather' : ''].filter(Boolean).join(' and ')
 			const where = [res.patch ? 'the client' : '', res.server ? `the server's ${tables}` : ''].filter(Boolean).join(' and ')
 			const what = [changed.length ? `${changed.length} zone${changed.length === 1 ? '' : 's'}` : '', weathers.length ? `the weather of ${weathers.length} zone${weathers.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')
-			const after = !res.server ? ' Set the VMaNGOS server folder for the server to know them.' : weathers.length ? ' The world server reads the weather when it starts, or on .reload game_weather in the game.' : ''
+			const after = !res.server ? ' Set the VMaNGOS server folder for the server to know them.' : weathers.length ? ' The world server reloads the weather if it runs with its SOAP console on, or reads it when it starts.' : ''
 			setStatus(`Saved ${what} to ${where || 'nowhere new (nothing differed)'}.${after}${applyNote(res)}`, 10000)
 		} catch (err) {
 			error = String(err)

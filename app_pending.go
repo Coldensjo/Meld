@@ -218,19 +218,3 @@ func (a *App) runPendingWatch() {
 		time.Sleep(pendingPoll)
 	}
 }
-
-// reloadSpells has the world server, when it runs, read spell_template again, so a saved spell works
-// without restarting it. It needs the SOAP console; without it the server reads the spell at its next
-// start, which is logged, not an error.
-func (a *App) reloadSpells(server string) {
-	if externalOn() {
-		return
-	}
-	sess, err := a.gameSession()
-	if err != nil || !sess.WorldRunning() {
-		return
-	}
-	if err := vmangos.ReloadSpells(server, sess.Login.Account, sess.Login.Password); err != nil {
-		a.logInfo("The world server didn't reload its spells (it reads them at its next start): " + err.Error())
-	}
-}

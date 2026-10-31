@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -153,5 +154,47 @@ func TestTeleportCharacterNeedsSoap(t *testing.T) {
 	err := TeleportCharacter(root, "gm", "pw", "Siz", CharacterSpot{})
 	if err != ErrSoapOff {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// TestReloadTablesSendsEachCommand runs ReloadTables against a fake SOAP console set in mangosd.conf:
+// one `.reload` a command, in order, stopping at the first the server refuses (#961).
+func TestReloadTablesSendsEachCommand(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		s := string(b)
+		cmd := s[strings.Index(s, "<command>")+len("<command>") : strings.Index(s, "</command>")]
+		got = append(got, cmd)
+		if strings.Contains(cmd, "bad") {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = io.WriteString(w, `<?xml version="1.0"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body><SOAP-ENV:Fault><faultstring>There is no such subcommand</faultstring></SOAP-ENV:Fault></SOAP-ENV:Body></SOAP-ENV:Envelope>`)
+			return
+		}
+		_, _ = io.WriteString(w, `<?xml version="1.0"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:MaNGOS"><SOAP-ENV:Body><ns1:executeCommandResponse><result>reloaded</result></ns1:executeCommandResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>`)
+	}))
+	defer srv.Close()
+	c := consoleAt(t, srv)
+	root := soapServer(t, "SOAP.Enabled = 1\nSOAP.IP = \""+c.host+"\"\nSOAP.Port = "+strconv.Itoa(c.port)+"\n")
+
+	if err := ReloadTables(root, "gm", "pw", []string{"creature_template 7", "npc_vendor"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, "|") != "reload creature_template 7|reload npc_vendor" {
+		t.Fatalf("sent %q", got)
+	}
+	got = nil
+	if err := ReloadTables(root, "gm", "pw", []string{"bad_table", "npc_vendor"}); err == nil || !strings.Contains(err.Error(), "no such subcommand") {
+		t.Fatalf("refused: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("went on after a refusal: %q", got)
+	}
+	got = nil
+	if err := ReloadTables(root, "gm", "pw", nil); err != nil || got != nil {
+		t.Fatalf("nothing to reload: %v, sent %q", err, got)
+	}
+	if err := ReloadTables(soapServer(t, "SOAP.Enabled = 0\n"), "gm", "pw", []string{"npc_vendor"}); !errors.Is(err, ErrSoapOff) || got != nil {
+		t.Fatalf("console off: %v, sent %q", err, got)
 	}
 }

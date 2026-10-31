@@ -379,6 +379,9 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 		}
 		res.Server = true
 		res.Restart = len(rows) > 0 && a.worldRunning()
+		if len(weather) > 0 {
+			a.reloadWorld("SaveWeather")
+		}
 	}
 	if len(rows) > 0 && !bytes.Equal(out, dbc) {
 		if res.Patch, res.Waiting, err = a.installClient(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, nil); err != nil {

@@ -19,6 +19,7 @@
 	} from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
@@ -140,7 +141,7 @@
 		shareForget({ itemIcons: icons, looks: true })
 	}
 
-	const RESTART = 'Restart the world server for the server to use it; the game asks for the item again when it starts from Meld.'
+	const RESTART = `${SERVER_RELOADS} The game asks for the item again when it starts from Meld.`
 
 	function save() {
 		const r = record

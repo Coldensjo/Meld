@@ -6,6 +6,7 @@
 	import RefField from './RefField.svelte'
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { RowList } from '../lib/ui/rowList.svelte'
 	import { ACTION_TALK, AI_EVENTS, CHAT_TYPES, GOSSIP_ACTIONS, GOSSIP_ICONS, nameOf, nextOptionId } from '../lib/wow/gossipNames'
 
@@ -100,7 +101,7 @@
 			const r = await DeleteConditionText(entry, c.textId)
 			onsaved(r.menuId)
 			await load()
-			setStatus(`Removed the text creature ${entry} showed under condition ${c.savedCondition} (gossip menu ${r.menuId}). Restart the world server to see it in the game.`, 10000)
+			setStatus(`Removed the text creature ${entry} showed under condition ${c.savedCondition} (gossip menu ${r.menuId}). ${SERVER_RELOADS}`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -195,7 +196,7 @@
 			const r = await SaveGossipOptions(entry, options)
 			onsaved(r.menuId)
 			await load()
-			setStatus(`Saved ${options.length} gossip options of creature ${entry} (gossip menu ${r.menuId}). Restart the world server to see them in the game.`, 10000)
+			setStatus(`Saved ${options.length} gossip options of creature ${entry} (gossip menu ${r.menuId}). ${SERVER_RELOADS}`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {

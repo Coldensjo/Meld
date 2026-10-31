@@ -169,7 +169,8 @@
 				page material (parchment, stone, marble…).
 			</p>
 			<p class="dim">
-				Saved to the world database with Save. Restart the world server to read it in the game; the game keeps the pages it has read in WDB\pagetextcache.wdb, and Meld takes the changed ones out of it once the game is closed.
+				Saved to the world database with Save. The world server reloads the pages if it runs with its SOAP console on, or reads them when it starts; the game keeps the pages it has read in WDB\pagetextcache.wdb, and Meld takes the
+				changed ones out of it once the game is closed.
 			</p>
 		{/if}
 	{/if}

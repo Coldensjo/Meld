@@ -214,6 +214,17 @@ func ShutdownWorld(serverRoot, account, password string) error {
 // which needs GM level 5) through its SOAP console, logged in as account, so a saved spell works
 // without restarting it.
 func ReloadSpells(serverRoot, account, password string) error {
+	return ReloadTables(serverRoot, account, password, []string{"spell_template"})
+}
+
+// ReloadTables has the running world server read world database tables again through its SOAP
+// console, logged in as account: one `.reload <command>` for each of commands, in order (a table's
+// name, as VMaNGOS's reload subcommands name them, with an entry after it for one template row). They
+// need GM level 5. It stops at the first that fails, and fails with ErrSoapOff when SOAP is off.
+func ReloadTables(serverRoot, account, password string, commands []string) error {
+	if len(commands) == 0 {
+		return nil
+	}
 	if strings.TrimSpace(account) == "" {
 		return errors.New("Game Login has no account to send the command with")
 	}
@@ -224,6 +235,13 @@ func ReloadSpells(serverRoot, account, password string) error {
 	if !soap.enabled {
 		return ErrSoapOff
 	}
-	_, err = soapCommand(soap, account, password, "reload spell_template")
-	return err
+	for _, c := range commands {
+		if _, err := soapCommand(soap, account, password, "reload "+c); err != nil {
+			if errors.Is(err, errSoapClosed) {
+				return fmt.Errorf("%w on %s:%d: is the world server restarted since SOAP.Enabled was set?", err, soap.host, soap.port)
+			}
+			return err
+		}
+	}
+	return nil
 }

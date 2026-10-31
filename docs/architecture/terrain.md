@@ -769,7 +769,8 @@ mask/liquid, image codec or native/game rendering contracts.
   `game_weather` row (`vmangos/weather.go`, `ZoneWeather` binding): the chance of rain, snow and storm
   in each season as sliders, a subzone showing its zone's; Save sends the changed zones' weather with
   the rows (`SaveAreas`' second argument), and a zone with no chance left loses its row. The server
-  reads the table at start or on `.reload game_weather`.
+  reads the table at start, and a running one is told `.reload game_weather` after the save (#961,
+  `reloadWorld` in `app_reload.go`).
 - **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
   zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
   minimap's shot, any size; it runs `Engine.simulate` for the shot's ortho camera and draws only the

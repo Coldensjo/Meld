@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { SlotTarget } from '../lib/toolwin/editors'
 	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
@@ -177,7 +178,7 @@
 			forgetDisplays()
 			ed.markSaved()
 			await map.applyCreatureTemplate(r.entry, $state.snapshot(values), before)
-			setStatus(`Saved ${values.name} (entry ${r.entry}) to the world database. Restart the world server and the game to see it in the game.`, 10000)
+			setStatus(`Saved ${values.name} (entry ${r.entry}) to the world database. ${SERVER_RELOADS} Restart the game to see it there.`, 10000)
 		})
 	}
 

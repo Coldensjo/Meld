@@ -4,6 +4,7 @@
 	import { ReadCreatureQuests, ReadObjectQuests, SaveCreatureQuests, SaveObjectQuests, SearchQuests } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { RowList, removeRow } from '../lib/ui/rowList.svelte'
 
 	// The Quests tab of the creature editor (#145) and of the game object editor (#293): the quests
@@ -64,7 +65,7 @@
 	function save() {
 		void lists.save('Saving the quest givers', async (q) => {
 			await (kind === 'object' ? SaveObjectQuests : SaveCreatureQuests)(entry, $state.snapshot(q) as vmangos.QuestLists)
-			setStatus(`Saved the quests of ${kind === 'object' ? 'game object' : 'creature'} ${entry}: starts ${q.starts.length}, ends ${q.ends.length}. Restart the world server to see them in the game.`, 10000)
+			setStatus(`Saved the quests of ${kind === 'object' ? 'game object' : 'creature'} ${entry}: starts ${q.starts.length}, ends ${q.ends.length}. ${SERVER_RELOADS}`, 10000)
 		})
 	}
 

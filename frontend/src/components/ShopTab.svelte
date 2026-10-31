@@ -4,6 +4,7 @@
 	import { ReadVendor, SaveVendor, SearchItems } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'
 	import { QUALITY_VARS } from '../lib/wow/itemTooltip'
 	import ItemIcon from './ItemIcon.svelte'
@@ -49,7 +50,7 @@
 	function save() {
 		void rows.save("Saving the creature's shop", async (items) => {
 			await SaveVendor(entry, items)
-			setStatus(`Saved the shop of creature ${entry} (${items.length} ${items.length === 1 ? 'item' : 'items'}). Restart the world server to see it in the game.`, 10000)
+			setStatus(`Saved the shop of creature ${entry} (${items.length} ${items.length === 1 ? 'item' : 'items'}). ${SERVER_RELOADS}`, 10000)
 		})
 	}
 
