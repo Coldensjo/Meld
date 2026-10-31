@@ -1083,6 +1083,28 @@ of Add Texture keeps a texture the chunks still use.
   after it opens, so the probe adds a colour of its own first (a palette that isn't all swatches is left
   alone) and snapshots after.
 
+## Placed objects in a session (#1003, probe `session-objects`)
+
+Checks: placing, moving, deleting and undoing a model on the session's map goes to the others as
+`objects` messages (the changed objects whole, in their saved form, and the removed ids), the others'
+are applied in the host's order with one's own unacknowledged objects over them, and each member makes
+new ids and selection groups in its own lane (the numbers equal to its lane modulo `LANES`).
+- `bun test tests/sessionObjects.test.ts`: `ObjectSync` members on real `ObjectLayer`s (helper cubes)
+  through a scripted host: two members placing at once (different ids, both end with both), moving one
+  model at once, a delete beside a move, an attachment and a group arriving with the parent, an undo's
+  re-add written over in place, a clear and refill sending only what changed, a guest holding messages
+  before its map and counting from the host's `IdLane`, bad messages ignored, the host's `Lanes`.
+- `bun run probe session-objects`: the page hosts, the bot (lane 1, so it sends an id `LANES * 1000 + 1`)
+  places a cube and moves it; then the page places a sphere (`addObjects`), turns it (`place`), deletes
+  the bot's cube (`deleteSelected`) and undoes that. The map the bot was handed must carry `ids.lane` 1,
+  the page's id must be in lane 0, and the bot's messages replayed in `seq` order over the start must
+  equal the page's objects.
+- By hand: two built Melds placing models at once (the Place tool, the Doodad brush) and dragging the
+  same model with the gizmo: no model vanishes or doubles, and both end with the later drag (in the
+  host's order).
+- Trap: a scripted guest can't read its lane from the handoff before it sends, so the probe relies on
+  the host giving the first guest lane 1.
+
 ## The session's map keeps its tab (#1007, probe `session-replace`)
 
 Checks: while in a session, nothing makes the session's map again in its tab, since its sync is bound

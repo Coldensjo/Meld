@@ -13,7 +13,7 @@ server. #728 is the umbrella; its parts are separate issues:
 | File > Host and Join Session, the members, the map a guest starts from | #1000 | Done (`lib/session/`) |
 | Terrain heights sync | #1001 | Done (`lib/session/heights.ts`) |
 | Texture paint sync, with the palette | #1002 | Done (`lib/session/paint.ts`) |
-| Placed objects sync | #1003 | Open |
+| Placed objects sync, with the id lanes | #1003 | Done (`lib/session/objects.ts`) |
 | Presence: the others' cameras and brushes | #1004 | Open |
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
 
@@ -117,6 +117,32 @@ server. #728 is the umbrella; its parts are separate issues:
     uses stands.
   - The paint mask is per-user selection state and stays local. A memory cost: the mirror is a second
     copy of the weights (4 bytes a texel).
+- **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
+  and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
+  undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects
+  whole in their saved form (`WireObject`, the `.wmap`'s `PlacedObject` without the client's unique ID,
+  local to the parent when attached) and the removed ids. `ObjectLayer` notes the ids that `add`,
+  `remove`, `touch`, `setType` and `setGroup` change while a session tracks them (`trackSession`,
+  `takeSessionChanges`; null after `clear`, when every id is compared); the same timer as the heights
+  compares those against a mirror of the objects as last sent or received, so a touch or a re-snap that
+  changed nothing sends nothing, and a drag goes out about ten times a second. The order, the replay of
+  one's own unacknowledged objects over a remote one and the guest's held messages are the heights'; an
+  object is the unit, so two members moving one model at once both end with the later message's object
+  whole. An existing object is written over in place (History's steps and the Inspector find it by id),
+  then touched; this copies a state, as an undo's snapshot does, rather than moving through `place`. A
+  remote delete takes the object out of the selection; a change to the selected one refreshes the
+  Inspector's copy.
+  - **Ids.** Each member makes new object ids and selection groups in a lane of its own
+    (`ObjectLayer.setLane`): the numbers equal to its lane modulo `LANES` (16: the host and
+    `session.MaxGuests` guests). The host is lane 0 and hands each guest the lowest free lane in the map
+    handoff (`MapHandoff.ids`, `Lanes`), with its layer's counts (`ObjectLayer.counts`), so the guest
+    counts from above every id the host's layer has held, the removed ones too (an undo brings those
+    back under their id), and a guest taking a lane another left can't make one it made. Ending the
+    session puts back the plain count. Ids are the editor's alone: the client export gives a new model
+    its unique ID itself, and the host keeps the unique IDs its map read from the client by id
+    (`RegionRef.uids`), so a guest's move of such a model exports under it.
+  - Spawns (the server's creatures and objects) are not in it; `MaxGuests` growing past 15 needs `LANES`
+    to grow with it.
 - **The session's map keeps its document (#1007).** The sync is bound to the session map's document,
   so `setSessionDoc` marks it `shared` (`MapDocument.shared`) and nothing replaces it in its tab while
   in the session: `Engine.openDocument` with that tab as `replaceId` and `Engine.growWorld` throw
@@ -138,6 +164,12 @@ server. #728 is the umbrella; its parts are separate issues:
   undo touch only one's own edits. An undo writes its before-values back even where another member
   changed the ground since, and that syncs like any edit: accepted for now (#1001); a step that crosses
   others' later edits could warn.
+- **An attachment to a model another member deletes at once** keeps its `parent` on every member (each
+  applies the same messages), with no parent to hang on: it is drawn at its local offsets as world
+  values until someone moves it, and `dropOrphanParents` makes it a root when the map is opened again.
+  A delete of one's own re-places the attachments first (`deleteSelected`), so only the race does this.
+- **A new way to make an object id** must go through `ObjectLayer.add` without an id (or `newGroup` for
+  a group), which counts in the member's lane; an id worked out by hand (the largest plus one) collides.
 - **The sync lives as long as the session map's document.** A Grow Region or a reopen would replace the
   document (a new id) and stop the sync on that member alone, so they are refused while in a session
   (above); a new way to make a map again in its tab must go through `Engine.openDocument` with

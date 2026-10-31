@@ -14,6 +14,8 @@ import { fromMapData, toMapData } from '../io/mapData'
 import { GUEST_EXPORT_REASON, HOST_ID, KIND_MAP, changeLine, peerChanges, serialQueue, type Message, type Peer } from './peers'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 import { KIND_PAINT, PaintSync } from './paint'
+import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
+import { selectObjects } from '../state/selection'
 
 /** This Meld's part in a session. */
 export const shared = $state({
@@ -36,6 +38,8 @@ export const shared = $state({
 export interface MapHandoff {
 	seq: number
 	map: mapfile.MapData
+	/** The guest's lane for new object ids and the counts to start it from (#1003). */
+	ids?: IdLane
 }
 
 /** The `seq` of the last message this page has seen. */
@@ -100,11 +104,31 @@ const paint = new PaintSync({
 	applied: markUnsaved,
 	failed: (err) => setStatus(`Texture paint did not sync with the session: ${err}`, 8000),
 })
+/** The session map's placed objects (#1003): the changed objects whole, sent and applied as the heights are. */
+const objects = new ObjectSync({
+	send: (data) => sessionSend(0, KIND_OBJECTS, data),
+	applied: (ids) => {
+		markUnsaved()
+		// The selection and the Inspector's copy follow: a removed object leaves the selection.
+		const d = sessionDoc()
+		if (!d || !sessionActive()) return
+		const touched = new Set(ids)
+		if (editor.selectedIds.some((id) => touched.has(id) && !d.objects.objects.has(id))) selectObjects(d.objects, editor.selectedIds, editor.selected?.id)
+		else if (editor.selected && touched.has(editor.selected.id)) {
+			const o = d.objects.objects.get(editor.selected.id)
+			if (o) editor.selected = { ...o }
+		}
+	},
+	failed: (err) => setStatus(`A model edit did not reach the session: ${err}`, 8000),
+})
+/** The host's id lanes, by member (#1003). */
+let lanes = new Lanes()
 let flushTimer: ReturnType<typeof setInterval> | null = null
 
-/** Sends the session map's changed heights and paint; stops syncing once that map is closed. */
+/** Sends the session map's changed heights, paint and objects; stops syncing once that map is closed. */
 function flushEdits() {
-	const t = sessionDoc()?.terrain
+	const doc = sessionDoc()
+	const t = doc?.terrain
 	if (heights.bound) {
 		if (t !== heights.bound) heights.unbind()
 		else heights.flush()
@@ -113,14 +137,19 @@ function flushEdits() {
 		if (t !== paint.bound) paint.unbind()
 		else paint.flush()
 	}
+	if (objects.bound) {
+		if (doc?.objects !== objects.bound) objects.unbind()
+		else objects.flush()
+	}
 }
 
-/** Starts syncing the session map's edits: the map as it was after message `afterSeq`. */
-function bindEdits(afterSeq: number) {
+/** Starts syncing the session map's edits: the map as it was after message `afterSeq`, new object ids made in `ids`' lane. */
+function bindEdits(afterSeq: number, ids: IdLane) {
 	const d = sessionDoc()
 	if (!d) return
 	heights.bind(d.terrain, afterSeq)
 	paint.bind(d.terrain, afterSeq)
+	objects.bind(d.objects, afterSeq, ids)
 }
 
 /** Sends a message into the session (to 0 is everyone), after every send before it. */
@@ -131,8 +160,10 @@ export function sessionSend(to: number, kind: string, data: unknown) {
 function subscribe() {
 	unsubscribe()
 	lastSeq = 0
+	lanes = new Lanes()
 	heights.wait()
 	paint.wait()
+	objects.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
 	off = [EventsOn<Message>('session:message', onMessage), EventsOn<string>('session:ended', onEnded)]
 }
@@ -144,6 +175,7 @@ function unsubscribe() {
 	flushTimer = null
 	heights.unbind()
 	paint.unbind()
+	objects.unbind()
 }
 
 function apply(info: main.SessionInfo) {
@@ -180,7 +212,7 @@ export async function hostSession(port: number, name: string) {
 		throw err
 	}
 	setSessionDoc(e.activeDocumentId())
-	bindEdits(0)
+	bindEdits(0, { lane: 0, nextId: 0, nextGroup: 0 })
 }
 
 /** Joins the session hosted at `addr`; the host's map opens as a new tab once it arrives. */
@@ -237,7 +269,10 @@ function onMessage(m: Message) {
 				left,
 			)
 			if (line) setStatus(line, 6000)
-			if (shared.role === 'host') for (const p of joined) if (p.id !== HOST_ID) void sendMap(p)
+			if (shared.role === 'host') {
+				for (const p of left) lanes.free(p.id)
+				for (const p of joined) if (p.id !== HOST_ID) void sendMap(p)
+			}
 			return
 		}
 		case KIND_MAP:
@@ -248,6 +283,9 @@ function onMessage(m: Message) {
 			return
 		case KIND_PAINT:
 			paint.receive(m.seq, m.from, data, shared.you)
+			return
+		case KIND_OBJECTS:
+			objects.receive(m.seq, m.from, data, shared.you)
 			return
 	}
 }
@@ -260,7 +298,14 @@ async function sendMap(p: Peer) {
 		setStatus(`${p.name} joined, but the session's map is closed: they have no map to edit`, 8000)
 		return
 	}
-	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(e.snapshotOf(d)) }
+	const lane = lanes.take(p.id)
+	if (lane === null) {
+		setStatus(`${p.name} joined, but every id lane is held: the session's map was not sent`, 8000)
+		return
+	}
+	// The guest counts from above every id and group this map's layer has held, the removed ones too (an undo brings those back).
+	const { nextId, nextGroup } = d.objects.counts
+	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(e.snapshotOf(d)), ids: { lane, nextId, nextGroup } }
 	try {
 		await sessionSend(p.id, KIND_MAP, handoff)
 	} catch (err) {
@@ -279,8 +324,9 @@ function openHandoff(h: MapHandoff) {
 		return
 	}
 	setSessionDoc(e.activeDocumentId())
-	// The edits held since joining that the map doesn't hold yet go in now.
-	bindEdits(h.seq)
+	// The edits held since joining that the map doesn't hold yet go in now. A host that sent no lane (an
+	// older Meld, a scripted one) gets this member's id as one, which holds while the members stay below LANES.
+	bindEdits(h.seq, h.ids ?? { lane: shared.you % LANES, nextId: 0, nextGroup: 0 })
 	const host = shared.peers.find((p) => p.id === HOST_ID)
 	setStatus(`Opened ${host?.name || 'the host'}'s map ${h.map.name}`, 6000)
 }

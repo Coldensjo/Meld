@@ -49,6 +49,11 @@ export interface WorldPlacement {
 }
 
 const MAX_DEPTH = 8
+
+/** The least number at or above `n` that equals `lane` modulo `lanes` (an `ObjectLayer`'s id lane, #1003). */
+export function inLane(n: number, lane: number, lanes: number): number {
+	return lanes <= 1 ? n : n + ((((lane - n) % lanes) + lanes) % lanes)
+}
 /** The most moves `ObjectLayer` logs before cutting the log (a sculpt stroke over a city re-snaps thousands a frame). */
 const MOVE_LOG = 16384
 const NO_MOVES: readonly number[] = []
@@ -182,6 +187,17 @@ export class ObjectLayer {
 	private nextId = 1
 	/** The next unused selection group number. */
 	private nextGroup = 1
+	/**
+	 * In a shared session (#1003), this member's lane: new ids and selection groups are the numbers equal
+	 * to `lane` modulo `lanes`, so two members adding at once never make the same one. 0 of 1 outside a
+	 * session, where every number fits.
+	 */
+	private lane = 0
+	private lanes = 1
+	/** The ids added, removed or changed since `takeSessionChanges`, while a session tracks them; null when none does. */
+	private sessionMarks: Set<number> | null = null
+	/** `clear` ran since `takeSessionChanges`: every id may have changed. */
+	private sessionAll = false
 	private tmpM = new THREE.Matrix4()
 	private tmpM2 = new THREE.Matrix4()
 
@@ -211,7 +227,7 @@ export class ObjectLayer {
 	}
 
 	add(o: Omit<WorldObject, 'id'> & { id?: number }): WorldObject {
-		const obj: WorldObject = { ...o, id: o.id && o.id > 0 ? o.id : this.nextId++ }
+		const obj: WorldObject = { ...o, id: o.id && o.id > 0 ? o.id : this.newId() }
 		if (!obj.parent) delete obj.parent
 		if (!obj.group) delete obj.group
 		else this.nextGroup = Math.max(this.nextGroup, obj.group + 1)
@@ -221,9 +237,60 @@ export class ObjectLayer {
 		this.objects.set(obj.id, obj)
 		this.joinBatch(obj)
 		this.file(obj)
+		this.sessionMarks?.add(obj.id)
 		this.version++
 		this.shapeVersion++
 		return obj
+	}
+
+	/** The next id in this member's lane, above every id the layer has held. */
+	private newId(): number {
+		this.nextId = inLane(this.nextId, this.lane, this.lanes)
+		return this.nextId++
+	}
+
+	/**
+	 * Makes new ids and selection groups the numbers equal to `lane` modulo `lanes` (a shared session's
+	 * member, #1003); `setLane(0, 1)` puts back the plain count.
+	 */
+	setLane(lane: number, lanes: number) {
+		this.lane = lane
+		this.lanes = Math.max(1, lanes)
+	}
+
+	/** The next id and selection group the layer would count from (a session's host hands them to a guest). */
+	get counts(): { nextId: number; nextGroup: number } {
+		return { nextId: this.nextId, nextGroup: this.nextGroup }
+	}
+
+	/** Counts new ids and groups from at least these on, so none is one another member's layer already held. */
+	raiseCounts(nextId: number, nextGroup: number) {
+		if (Number.isFinite(nextId)) this.nextId = Math.max(this.nextId, Math.floor(nextId))
+		if (Number.isFinite(nextGroup)) this.nextGroup = Math.max(this.nextGroup, Math.floor(nextGroup))
+	}
+
+	/** Starts or stops noting the ids that change, for a shared session's objects sync (#1003). */
+	trackSession(on: boolean) {
+		this.sessionMarks = on ? new Set() : null
+		this.sessionAll = false
+	}
+
+	/**
+	 * Moves the ids added, removed or changed (`add`, `remove`, `touch`, `setType`, `setGroup`) since the
+	 * last call into `out` and returns true; null when `clear` ran (any id may have changed); false for none.
+	 */
+	takeSessionChanges(out: Set<number>): boolean | null {
+		const m = this.sessionMarks
+		if (!m) return false
+		if (this.sessionAll) {
+			this.sessionAll = false
+			m.clear()
+			return null
+		}
+		if (!m.size) return false
+		for (const id of m) out.add(id)
+		m.clear()
+		return true
 	}
 
 	remove(id: number): WorldObject | undefined {
@@ -236,6 +303,7 @@ export class ObjectLayer {
 		this.unfileGroup(id)
 		this.ground.delete(id)
 		this.wide.delete(id)
+		this.sessionMarks?.add(id)
 		this.version++
 		this.shapeVersion++
 		return o
@@ -418,6 +486,7 @@ export class ObjectLayer {
 			this.nextGroup = Math.max(this.nextGroup, g + 1)
 		} else delete o.group
 		this.fileGroup(o)
+		this.sessionMarks?.add(id)
 	}
 
 	/** The ids in selection group `g`, read from `groupIds`; empty for no group. Don't change the set. */
@@ -446,6 +515,7 @@ export class ObjectLayer {
 		this.joinBatch(o)
 		this.fileGround(o)
 		this.markTree(o, 0)
+		this.sessionMarks?.add(id)
 		this.version++
 		this.shapeVersion++
 	}
@@ -462,6 +532,7 @@ export class ObjectLayer {
 				this.shapeVersion++
 			}
 			this.markTree(o, 0)
+			this.sessionMarks?.add(id)
 		}
 		this.version++
 	}
@@ -501,6 +572,7 @@ export class ObjectLayer {
 
 	/** A selection group number no object has yet. */
 	newGroup(): number {
+		this.nextGroup = inLane(this.nextGroup, this.lane, this.lanes)
 		return this.nextGroup++
 	}
 
@@ -620,6 +692,7 @@ export class ObjectLayer {
 		this.filedGroup.clear()
 		this.ground.clear()
 		this.wide.clear()
+		if (this.sessionMarks) this.sessionAll = true
 		this.markAllDirty()
 	}
 
