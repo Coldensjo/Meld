@@ -100,6 +100,14 @@ var refTargets = map[string][]string{
 // lockKind is the kind checked against the client's Lock.dbc rather than a table.
 const lockKind = "lock"
 
+// factionKind is the faction template kind, checked against the server's faction_template, and
+// clientFactionKind the report's kind for the ids faction_template has and the client's
+// FactionTemplate.dbc lacks (#981).
+const (
+	factionKind       = "faction template"
+	clientFactionKind = "client faction template"
+)
+
 // columnName is what an asked column may be: it goes into the SQL as is.
 var columnName = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 
@@ -241,7 +249,8 @@ func existingSQL(kind string, ids []int) string {
 }
 
 // CheckWorldData reads the query's templates and tells which of the rows their id columns name are
-// missing. dataDir is the client's Data folder, for the locks ("" leaves them unchecked).
+// missing. dataDir is the client's Data folder, for the locks and the client's faction templates (""
+// leaves them unchecked).
 func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataReport, error) {
 	r := WorldDataReport{Creatures: []WorldTemplate{}, Objects: []WorldTemplate{}, Missing: map[string][]int{}, Tables: map[string]string{}, Unchecked: []string{}, Quests: emptyQuestReport(), Links: emptyLinkReport(), Faults: []RowFault{}}
 	db, err := openWorld(serverRoot)
@@ -387,6 +396,34 @@ func CheckWorldData(serverRoot, dataDir string, q WorldDataQuery) (WorldDataRepo
 			return r, err
 		}
 		r.Missing[kind] = missingEntries(ids, raw)
+	}
+	// A faction template the server has but the client's FactionTemplate.dbc lacks (#981): the client
+	// then colours the name and offers the actions as for no faction it knows.
+	if ids := asked[factionKind]; len(ids) > 0 {
+		gone := map[int]bool{}
+		for _, id := range r.Missing[factionKind] {
+			gone[id] = true
+		}
+		var known []int
+		for _, id := range ids {
+			if !gone[id] {
+				known = append(known, id)
+			}
+		}
+		var have []int
+		if dataDir != "" {
+			have, err = clientFactionTemplates(dataDir)
+		}
+		if dataDir == "" || err != nil {
+			r.Unchecked = append(r.Unchecked, clientFactionKind)
+		} else {
+			list := make([]string, len(have))
+			for i, id := range have {
+				list[i] = fmt.Sprint(id)
+			}
+			r.Tables[clientFactionKind] = "FactionTemplate.dbc"
+			r.Missing[clientFactionKind] = missingEntries(known, []byte(strings.Join(list, "\n")))
+		}
 	}
 	for k, v := range r.Missing {
 		if v == nil {

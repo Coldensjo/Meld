@@ -151,3 +151,26 @@ func Factions(dataDir string) ([]FactionInfo, error) {
 	}
 	return factionInfos(templates, fdbc)
 }
+
+// clientFactionTemplates is the ids of the client's FactionTemplate.dbc, for Check Map's World data
+// (#981); a variable so the tests can stand in for the client.
+var clientFactionTemplates = func(dataDir string) ([]int, error) {
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	dbc, err := set.ReadFile(`DBFilesClient\FactionTemplate.dbc`)
+	if err != nil {
+		return nil, err
+	}
+	templates, err := readFactionTemplates(dbc)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]int, len(templates))
+	for i, t := range templates {
+		out[i] = int(t.id)
+	}
+	return out, nil
+}

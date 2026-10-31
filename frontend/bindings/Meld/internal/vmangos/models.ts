@@ -2057,7 +2057,10 @@ export interface RowFault {
      * (its script_id with no gossip_scripts), "broadcast" (a BroadcastTextID of its npc_text with no
      * broadcast_text), "option menu" (a gossip option's action_menu_id with no gossip_menu), "option
      * script" (its action_script_id with no gossip_scripts) or "reference" (a loot row's reference
-     * with no reference_loot_template rows).
+     * with no reference_loot_template rows); and the links the server zeroes (#981): "option broadcast"
+     * and "box broadcast" (a gossip option's option_broadcast_text or box_broadcast_text with no
+     * broadcast_text), "option poi" (its action_poi_id with no points_of_interest), "menu condition"
+     * (a gossip_menu row's condition_id with no conditions) and "option condition" (an option's).
      */
     "what": string;
 
@@ -2067,12 +2070,13 @@ export interface RowFault {
     "in": number;
 
     /**
-     * Option is the gossip option's id, for "option menu" and "option script".
+     * Option is the gossip option's id, for the "option …" and "box broadcast" kinds, -1 otherwise.
      */
     "option": number;
 
     /**
-     * Text is the npc_text, for "broadcast", or the text row's text_id, for "menu script".
+     * Text is the npc_text, for "broadcast", or the text row's text_id, for "menu script" and "menu
+     * condition".
      */
     "text": number;
 

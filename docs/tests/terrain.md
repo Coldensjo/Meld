@@ -358,11 +358,17 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   behind the ids (#975, Go `internal/vmangos/worlddatarows.go`, the report's `faults`, findings by
   `faultFinding`): the gossip menus' text rows, npc_texts, broadcast texts and options (one recursive
   query over every menu the templates' menus lead to through their gossip options, `option_id` 1) and
-  the loot lists' references (followed through reference lists). The vanilla database has none of
+  the loot lists' references (followed through reference lists); with #981, the options' broadcast
+  texts, points of interest and conditions and the text rows' conditions (warnings: the server zeroes
+  them), and a faction template `faction_template` has but the client's FactionTemplate.dbc lacks
+  (`clientFactionTemplates`, kind `client faction template`, unchecked without a client). The vanilla database has none of
   these faults, so the unit tests cover them on synthetic rows; to try the SQL on a real server
   without touching its tables, shadow them in one mariadb session: `CREATE TEMPORARY TABLE z LIKE
   mangos.gossip_menu; ALTER TABLE z RENAME TO gossip_menu;` (a temporary table can't be made `LIKE`
-  its own name), insert the broken rows, then run `gossipFaultsSQL`'s query. The world tables are
+  its own name), insert the broken rows, then run `gossipFaultsSQL`'s query. Copy any real rows into
+  `z` before the rename: once the shadow exists, `mangos.gossip_menu` names it too, so an `INSERT ...
+  SELECT FROM mangos.gossip_menu` after the rename copies nothing. `gossip_menu_option.menu_id` is a
+  smallint and its broadcast text columns are mediumints, so planted ids must fit (65000, 199999). The world tables are
   MyISAM, so a transaction would not roll back. `bun run probe check-map-world` plants
   the Pissed Vendor (1857, a vendor with no rows: Roles without rows), a Food Crate (3701, loot 2597
   gone: an error) and Innkeeper Farley (295, clean; a fault the probe puts behind his gossip menu

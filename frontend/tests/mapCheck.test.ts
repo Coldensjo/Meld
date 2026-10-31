@@ -290,6 +290,52 @@ test('world data: the rows behind a menu or loot list, and a faction template th
 	assert.equal(found.length, 11)
 })
 
+test('world data: the gossip options broadcast texts, points of interest and conditions, and a faction template the client lacks (#981)', () => {
+	const spawns = [
+		{ key: 'c:1', kind: 'creature', entry: 1, x: 10, z: 0 },
+		{ key: 'o:9', kind: 'object', entry: 9, x: 30, z: 0 },
+	]
+	const fault = (what: string, over: Partial<RowFault> = {}): RowFault => ({ kind: 'gossip', root: 900, what, in: 900, option: 3, text: 0, id: 0, ...over })
+	const report = {
+		creatures: [tmpl(1, { name: 'Guard', npcFlags: 1, values: { gossip_menu_id: 900, faction: 35 } })],
+		objects: [tmpl(9, { name: 'Door', type: 0, values: { faction: 9999 } })],
+		missing: { gossip: [], 'faction template': [9999], 'client faction template': [35] },
+		tables: { 'faction template': 'faction_template', 'client faction template': 'FactionTemplate.dbc' },
+		unchecked: [],
+		quests: noQuests,
+		links: noLinks,
+		faults: [fault('option broadcast', { id: 7001 }), fault('box broadcast', { id: 7002 }), fault('option poi', { id: 41 }), fault('menu condition', { option: -1, text: 5000, id: 17 }), fault('option condition', { id: 18 })],
+	}
+	const found = checkWorldData(spawns, report, null)
+	const of = (msg: string) => found.filter((f) => f.message.includes(msg))
+	// The server zeroes each of these, so they are warnings even where the game shows the menu.
+	for (const msg of [
+		'option 3 of Gossip menu 900 shows broadcast text 7001, which has no row',
+		'option 3 of Gossip menu 900 asks with broadcast text 7002',
+		'option 3 of Gossip menu 900 points to point of interest 41, which has no points_of_interest row',
+		'Gossip menu 900 shows npc_text 5000 under condition 17, which has no conditions row',
+		'option 3 of Gossip menu 900 has condition 18, which has no conditions row',
+	]) {
+		const f = of(`Guard (creature 1): ${msg}`)
+		assert.equal(f.length, 1, msg)
+		assert.equal(f[0].severity, 'warning')
+		assert.equal(f[0].check, 'Rows behind the ids')
+	}
+	const client = of("Guard (creature 1): Faction 35 is in faction_template but not the client's FactionTemplate.dbc")
+	assert.equal(client.length, 1)
+	assert.equal(client[0].severity, 'warning')
+	assert.deepEqual(client[0].target, { kind: 'template', key: 'c:1', template: 'creature', entry: 1, field: 'faction' })
+	// A template the server lacks is only its own error, not also the client's.
+	assert.equal(of('Door (object 9): Faction 9999').length, 1)
+	assert.equal(found.length, 7)
+	// A client that could not be read says so once.
+	const unread = checkWorldData(spawns, { ...report, missing: { gossip: [], 'faction template': [] }, faults: [], unchecked: ['client faction template'] }, null)
+	assert.deepEqual(
+		unread.map((f) => f.message),
+		["Faction templates weren't checked against the client: its FactionTemplate.dbc could not be read."],
+	)
+})
+
 test('world data: a missing row is an error where the game needs it, and points at the nearest spawn', () => {
 	const spawns = [
 		{ key: 'c:far', kind: 'creature', entry: 1, x: 500, z: 500 },

@@ -63,6 +63,9 @@ const NEEDED_OBJECT_COLS: Record<number, string> = { 3: 'data1', 25: 'data1', 9:
 /** What breaks then, said after the finding. */
 const OBJECT_BREAKS: Record<number, string> = { 3: 'it opens empty', 25: 'fishing it gives nothing', 9: 'reading it shows nothing' }
 
+/** The report's kind for faction templates the server has and the client's FactionTemplate.dbc lacks (#981). */
+const CLIENT_FACTION = 'client faction template'
+
 const IDS = 'Ids without a row'
 const BEHIND = 'Rows behind the ids'
 const ROLES = 'Roles without rows'
@@ -89,6 +92,16 @@ export function faultFinding(f: RowFault, named: string, shown: boolean): [Findi
 			return ['warning', `option ${f.option} of ${where} opens menu ${f.id}, which has no gossip_menu row, so picking it opens an empty menu.`]
 		case 'option script':
 			return [dropped, `option ${f.option} of ${where} runs gossip script ${f.id}, which has no gossip_scripts rows, so the server drops the option.`]
+		case 'option broadcast':
+			return ['warning', `option ${f.option} of ${where} shows broadcast text ${f.id}, which has no row, so the option shows its own option_text instead.`]
+		case 'box broadcast':
+			return ['warning', `option ${f.option} of ${where} asks with broadcast text ${f.id}, which has no row, so its box shows its own box_text instead.`]
+		case 'option poi':
+			return ['warning', `option ${f.option} of ${where} points to point of interest ${f.id}, which has no points_of_interest row, so picking it marks nothing on the map.`]
+		case 'menu condition':
+			return ['warning', `${where} shows npc_text ${f.text} under condition ${f.id}, which has no conditions row, so the server drops the condition and the text shows to everyone.`]
+		case 'option condition':
+			return ['warning', `option ${f.option} of ${where} has condition ${f.id}, which has no conditions row, so the server drops the condition and the option shows to everyone.`]
 	}
 	return ['warning', `${where} refers to reference loot ${f.id}, which has no reference_loot_template rows, so nothing drops from it.`]
 }
@@ -132,6 +145,13 @@ export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataR
 				const [severity, message] = faultFinding(f, `${r.label} ${id}`, template === 'object' || (t.npcFlags & GOSSIP) !== 0)
 				behind.push({ check: BEHIND, severity, message: `${who}: ${message}`, ...at(r.col) })
 			}
+			if (r.kind === 'faction template' && gone(CLIENT_FACTION, id) && !gone(r.kind, id))
+				behind.push({
+					check: BEHIND,
+					severity: 'warning',
+					message: `${who}: ${r.label} ${id} is in faction_template but not the client's ${table(CLIENT_FACTION)}, so the client knows no faction for it and may colour its name and reaction wrongly.`,
+					...at(r.col),
+				})
 			if (!gone(r.kind, id)) continue
 			const base = `${who}: ${r.label} ${id} has no ${table(r.kind)} row`
 			let severity: Finding['severity'] = 'warning'
@@ -170,7 +190,12 @@ export function checkWorldData(spawns: readonly WorldSpawn[], report: WorldDataR
 			check: 'World data',
 			severity: 'info',
 			group: 'world',
-			message: kind === 'lock' ? "Locks weren't checked: the client's Lock.dbc could not be read." : `${kind} ids weren't checked.`,
+			message:
+				kind === 'lock'
+					? "Locks weren't checked: the client's Lock.dbc could not be read."
+					: kind === CLIENT_FACTION
+						? "Faction templates weren't checked against the client: its FactionTemplate.dbc could not be read."
+						: `${kind} ids weren't checked.`,
 			x: NaN,
 			z: NaN,
 			target: { kind: 'none' },

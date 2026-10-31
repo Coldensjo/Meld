@@ -11,7 +11,10 @@ import (
 // whose action_script_id has no gossip_scripts (ObjectMgr::LoadGossipMenu, LoadGossipMenuItems; a menu
 // left with no text rows is gone, its options with it); it blanks an npc_text's broadcast text that is
 // gone (LoadNpcText), opens nothing of its own for an option's menu that is gone, and drops nothing
-// for a loot reference with no reference_loot_template rows (LootTemplate::Process). One query for
+// for a loot reference with no reference_loot_template rows (LootTemplate::Process). It zeroes a text
+// row's or option's condition_id with no conditions row, and an option's broadcast texts and
+// action_poi_id with no row (#981), so the option shows its own text, no map point, or shows to
+// everyone. One query for
 // every menu and one for every loot list, never one a template.
 
 // RowFault is a row reached through a template's gossip menu or loot list that names a row that is gone.
@@ -24,20 +27,24 @@ type RowFault struct {
 	// (its script_id with no gossip_scripts), "broadcast" (a BroadcastTextID of its npc_text with no
 	// broadcast_text), "option menu" (a gossip option's action_menu_id with no gossip_menu), "option
 	// script" (its action_script_id with no gossip_scripts) or "reference" (a loot row's reference
-	// with no reference_loot_template rows).
+	// with no reference_loot_template rows); and the links the server zeroes (#981): "option broadcast"
+	// and "box broadcast" (a gossip option's option_broadcast_text or box_broadcast_text with no
+	// broadcast_text), "option poi" (its action_poi_id with no points_of_interest), "menu condition"
+	// (a gossip_menu row's condition_id with no conditions) and "option condition" (an option's).
 	What string `json:"what"`
 	// In is the menu or loot list holding the row: Root, a menu an option opens, or a reference list.
 	In int `json:"in"`
-	// Option is the gossip option's id, for "option menu" and "option script".
+	// Option is the gossip option's id, for the "option …" and "box broadcast" kinds, -1 otherwise.
 	Option int `json:"option"`
-	// Text is the npc_text, for "broadcast", or the text row's text_id, for "menu script".
+	// Text is the npc_text, for "broadcast", or the text row's text_id, for "menu script" and "menu
+	// condition".
 	Text int `json:"text"`
 	// ID is the id that has no row.
 	ID int `json:"id"`
 }
 
 // gossipFaultNames are gossipFaultsSQL's codes (its second column) by number.
-var gossipFaultNames = []string{"text", "menu script", "broadcast", "option menu", "option script"}
+var gossipFaultNames = []string{"text", "menu script", "broadcast", "option menu", "option script", "option broadcast", "box broadcast", "option poi", "menu condition", "option condition"}
 
 // gossipOptionMenu is GOSSIP_OPTION_GOSSIP, the option_id whose action_menu_id is a gossip menu (a
 // vendor option's names a vendor list).
@@ -79,7 +86,19 @@ func gossipFaultsSQL(roots []int) string {
 			"AND NOT EXISTS (SELECT 1 FROM gossip_menu g WHERE g.entry = o.action_menu_id)", gossipOptionMenu) +
 		" UNION ALL SELECT m.root, 4, o.menu_id, o.id, 0, o.action_script_id FROM menus m JOIN gossip_menu_option o ON o.menu_id = m.id WHERE o.action_script_id > 0 " +
 		"AND NOT EXISTS (SELECT 1 FROM gossip_scripts s WHERE s.id = o.action_script_id)" +
+		optionFault(5, "option_broadcast_text", "broadcast_text b WHERE b.entry") +
+		optionFault(6, "box_broadcast_text", "broadcast_text b WHERE b.entry") +
+		optionFault(7, "action_poi_id", "points_of_interest p WHERE p.entry") +
+		" UNION ALL SELECT m.root, 8, g.entry, -1, g.text_id, g.condition_id " + texts + " WHERE g.condition_id > 0 AND NOT EXISTS (SELECT 1 FROM conditions c WHERE c.condition_entry = g.condition_id)" +
+		optionFault(9, "condition_id", "conditions c WHERE c.condition_entry") +
 		" ORDER BY 1, 2, 3, 4, 6"
+}
+
+// optionFault is gossipFaultsSQL's part for the options of the menus whose column col is set and names
+// no row of where (a table, its alias and the id column to compare), under code.
+func optionFault(code int, col, where string) string {
+	return fmt.Sprintf(" UNION ALL SELECT m.root, %d, o.menu_id, o.id, 0, o.%s FROM menus m JOIN gossip_menu_option o ON o.menu_id = m.id WHERE o.%s > 0 "+
+		"AND NOT EXISTS (SELECT 1 FROM %s = o.%s)", code, col, col, where, col)
 }
 
 // parseGossipFaults reads gossipFaultsSQL's output.

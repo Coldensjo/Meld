@@ -385,8 +385,10 @@ GPU or game round trip is certified by these source-verified instructions.
    texts, events, faction templates) that name no row, vendors and trainers with nothing to sell or
    teach, and EventAI creatures without events. Under **Rows behind the ids** it follows the gossip
    menus (and every menu their options open) and the loot lists: a menu text whose npc_text, script or
-   broadcast text is gone, an option whose menu or script is gone, and a loot reference with no
-   reference loot rows. **Edit** beside such a finding opens the template's editor on the field.
+   broadcast text is gone, an option whose menu, script, broadcast texts or point of interest is gone,
+   a menu text or option whose condition is gone (it then shows to everyone), a loot reference with no
+   reference loot rows, and a faction template the server has but the client's FactionTemplate.dbc
+   lacks. **Edit** beside such a finding opens the template's editor on the field.
    The quests those templates start or end are checked too: a quest no spawned creature or object
    offers (unless an item starts it) or takes back, givers and enders only in a game event or only
    outside the open map (notes), chain links (previous, next, next in chain, breadcrumb) to a quest

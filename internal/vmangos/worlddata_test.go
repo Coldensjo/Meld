@@ -1,7 +1,9 @@
 package vmangos
 
 import (
+	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -97,6 +99,9 @@ func TestCheckWorldData(t *testing.T) {
 		},
 		ObjectRefs: []RefColumn{{Type: 3, Col: "data0", Kind: "lock"}, {Type: 3, Col: "data1", Kind: "loot"}, {Type: -1, Col: "faction", Kind: "faction template"}},
 	}
+	oldFactions := clientFactionTemplates
+	defer func() { clientFactionTemplates = oldFactions }()
+	clientFactionTemplates = func(string) ([]int, error) { t.Fatal("read the client with no client folder"); return nil, nil }
 	r, err := CheckWorldData(root, "", q)
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +123,7 @@ func TestCheckWorldData(t *testing.T) {
 	if !reflect.DeepEqual(r.Missing, want) {
 		t.Errorf("missing %v, want %v", r.Missing, want)
 	}
-	if !reflect.DeepEqual(r.Unchecked, []string{"lock"}) {
+	if !reflect.DeepEqual(r.Unchecked, []string{"lock", "client faction template"}) {
 		t.Errorf("unchecked %v, want the lock (no client)", r.Unchecked)
 	}
 	if r.Quests.Error != "" || r.Quests.Quests == nil {
@@ -134,6 +139,27 @@ func TestCheckWorldData(t *testing.T) {
 	if !reflect.DeepEqual(r.Faults, wantFaults) {
 		t.Errorf("faults %+v, want %+v", r.Faults, wantFaults)
 	}
+
+	// With a client (#981): 35 is in faction_template but not FactionTemplate.dbc; 9999, in neither, is
+	// only the server's missing row. A client that can't be read leaves it unchecked.
+	clientFactionTemplates = func(dir string) ([]int, error) {
+		if dir != "nodata" {
+			return []int{1, 2}, nil
+		}
+		return nil, os.ErrNotExist
+	}
+	if r, err = CheckWorldData(root, "data", q); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Missing["client faction template"]; !reflect.DeepEqual(got, []int{35}) || r.Tables["client faction template"] != "FactionTemplate.dbc" {
+		t.Errorf("client faction templates missing %v (table %q), want 35", got, r.Tables["client faction template"])
+	}
+	if r, err = CheckWorldData(root, "nodata", q); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(r.Unchecked, "client faction template") {
+		t.Errorf("unchecked %v, want the client's faction templates", r.Unchecked)
+	}
 }
 
 // The menus a gossip menu leads to are those its gossip options open (a vendor option's
@@ -147,6 +173,11 @@ func TestRowFaultsSQL(t *testing.T) {
 		"NOT EXISTS (SELECT 1 FROM npc_text t WHERE t.ID = g.text_id)",
 		"ELT(s.n + 1, t.BroadcastTextID0,", "t.BroadcastTextID7)",
 		"NOT EXISTS (SELECT 1 FROM gossip_scripts s WHERE s.id = o.action_script_id)",
+		"SELECT m.root, 5, o.menu_id, o.id, 0, o.option_broadcast_text FROM menus m JOIN gossip_menu_option o ON o.menu_id = m.id WHERE o.option_broadcast_text > 0 AND NOT EXISTS (SELECT 1 FROM broadcast_text b WHERE b.entry = o.option_broadcast_text)",
+		"NOT EXISTS (SELECT 1 FROM broadcast_text b WHERE b.entry = o.box_broadcast_text)",
+		"NOT EXISTS (SELECT 1 FROM points_of_interest p WHERE p.entry = o.action_poi_id)",
+		"SELECT m.root, 8, g.entry, -1, g.text_id, g.condition_id FROM menus m JOIN gossip_menu g ON g.entry = m.id WHERE g.condition_id > 0 AND NOT EXISTS (SELECT 1 FROM conditions c WHERE c.condition_entry = g.condition_id)",
+		"NOT EXISTS (SELECT 1 FROM conditions c WHERE c.condition_entry = o.condition_id)",
 	} {
 		if !strings.Contains(g, want) {
 			t.Errorf("gossip faults SQL lacks %q: %s", want, g)
@@ -155,10 +186,12 @@ func TestRowFaultsSQL(t *testing.T) {
 	if gossipFaultsSQL([]int{0}) != "" || lootFaultsSQL(map[string][]int{"gossip": {5}}) != "" {
 		t.Error("no menu or loot list should ask nothing")
 	}
-	got := parseGossipFaults([]byte("900\t2\t901\t-1\t5002\t9\n900\t3\t900\t1\t0\t300\n900\t9\t900\t1\t0\t1\n"))
+	got := parseGossipFaults([]byte("900\t2\t901\t-1\t5002\t9\n900\t3\t900\t1\t0\t300\n900\t7\t900\t2\t0\t41\n900\t8\t900\t-1\t5000\t17\n900\t99\t900\t1\t0\t1\n"))
 	want := []RowFault{
 		{Kind: "gossip", Root: 900, What: "broadcast", In: 901, Option: -1, Text: 5002, ID: 9},
 		{Kind: "gossip", Root: 900, What: "option menu", In: 900, Option: 1, ID: 300},
+		{Kind: "gossip", Root: 900, What: "option poi", In: 900, Option: 2, ID: 41},
+		{Kind: "gossip", Root: 900, What: "menu condition", In: 900, Option: -1, Text: 5000, ID: 17},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("gossip faults %+v, want %+v", got, want)
