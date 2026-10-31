@@ -91,10 +91,24 @@ export function Areas(): $CancellablePromise<vmangos$0.Area[] | null> {
 }
 
 /**
+ * Blender says which Blender Open in Blender starts.
+ */
+export function Blender(): $CancellablePromise<$models.BlenderInfo> {
+    return $Call.ByID(3582698407);
+}
+
+/**
  * BrowseBenillaFolder lets the user pick the Benilla folder (its repository). Returns "" if cancelled.
  */
 export function BrowseBenillaFolder(): $CancellablePromise<string> {
     return $Call.ByID(3940445494);
+}
+
+/**
+ * BrowseBlenderFolder lets the user pick Blender's folder. Returns "" if cancelled.
+ */
+export function BrowseBlenderFolder(): $CancellablePromise<string> {
+    return $Call.ByID(1279100513);
 }
 
 /**
@@ -1173,6 +1187,15 @@ export function OpenImageDialog(title: string): $CancellablePromise<string> {
 }
 
 /**
+ * OpenInBlender opens a placed client model (its object type, "m2:<path>" or "wmo:<path>" with any look
+ * or doodad set after '?') in Blender: exported as glTF into its work folder and imported there by a
+ * script, or, once the user has saved a .blend there, that file as it is.
+ */
+export function OpenInBlender(objType: string): $CancellablePromise<$models.BlenderOpened> {
+    return $Call.ByID(685561090, objType);
+}
+
+/**
  * OpenItemsDialog asks for an SQL script of items to import. Returns "" if cancelled.
  */
 export function OpenItemsDialog(): $CancellablePromise<string> {
@@ -2208,6 +2231,14 @@ export function SetAccount(id: number, gmLevel: number, password: string): $Canc
  */
 export function SetBenillaPath(path: string): $CancellablePromise<void> {
     return $Call.ByID(374360793, path);
+}
+
+/**
+ * SetBlenderPath saves Blender's folder, which must hold its program; "" goes back to looking beside
+ * the client's folder and on the PATH.
+ */
+export function SetBlenderPath(path: string): $CancellablePromise<void> {
+    return $Call.ByID(3260295182, path);
 }
 
 /**

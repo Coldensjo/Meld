@@ -551,23 +551,33 @@ func (c *Client) Model(path string, look Look) ([]byte, error) {
 		lp = &look
 	}
 	return c.cached(key, func() ([]byte, error) {
-		var m *Mesh
-		var err error
-		if strings.HasSuffix(strings.ToLower(path), ".wmo") {
-			m, err = c.wmoMesh(path, look.Set)
-		} else {
-			m, err = c.m2Mesh(path, lp)
-			if err == nil {
-				m.Consolidate()
-			} else if errors.Is(err, ErrNothingToDraw) {
-				m, err = c.nothingToDraw(path)
-			}
+		m, err := c.mesh(path, lp)
+		if errors.Is(err, ErrNothingToDraw) {
+			m, err = c.nothingToDraw(path)
 		}
 		if err != nil {
 			return nil, err
 		}
 		return m.Encode(), nil
 	})
+}
+
+// mesh decodes an .m2 or .wmo path, an M2 dressed in look (nil for none), a WMO with doodad set
+// look.Set. An M2 the client draws nothing of returns ErrNothingToDraw.
+func (c *Client) mesh(path string, look *Look) (*Mesh, error) {
+	if strings.HasSuffix(strings.ToLower(path), ".wmo") {
+		set := 0
+		if look != nil {
+			set = look.Set
+		}
+		return c.wmoMesh(path, set)
+	}
+	m, err := c.m2Mesh(path, look)
+	if err != nil {
+		return nil, err
+	}
+	m.Consolidate()
+	return m, nil
 }
 
 // SaveThumb stores a PNG thumbnail for key in the cache dir.

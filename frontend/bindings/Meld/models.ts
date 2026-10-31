@@ -83,6 +83,41 @@ export interface AssetsImported {
 }
 
 /**
+ * BlenderInfo is the Blender Open in Blender starts.
+ */
+export interface BlenderInfo {
+    /**
+     * Path is the folder chosen in the preferences, "" for none.
+     */
+    "path": string;
+
+    /**
+     * Program is the Blender program found (in Path, beside the client's folder or on the PATH), "" for none.
+     */
+    "program": string;
+
+    /**
+     * Error says why none was found.
+     */
+    "error": string;
+}
+
+/**
+ * BlenderOpened is what Open in Blender did.
+ */
+export interface BlenderOpened {
+    /**
+     * Folder is the model's work folder, which holds its export and the .blend.
+     */
+    "folder": string;
+
+    /**
+     * Fresh says the model was exported and imported anew; false when its saved .blend was opened.
+     */
+    "fresh": boolean;
+}
+
+/**
  * ClientSandbox is the throwaway client StartClientSandbox turned on: its Data folder, and the stamp
  * of the real patch, which EndClientSandbox compares.
  */

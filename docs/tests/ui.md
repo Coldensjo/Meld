@@ -1004,3 +1004,19 @@ back. Run: `cd frontend && bun test tests/docMeta.test.ts`.
   added there; give it a value that differs with `n`, or the first test fails.
 - The test's `switchTo` copies only the meta and the history's state, not the rest of `activate` (the
   scene, camera, region labels); the `activate-same` and `tab-switch-drag` probes cover those in the app.
+
+## Open in Blender (#290, probe `open-in-blender`)
+
+Checks: a right-click on one placed client model offers Open in Blender and hands the binding the
+object's own type (a helper shape offers none); the export is a valid GLB with its textures; Blender's
+import script imports it and saves the `.blend`.
+- Probe: `bun run probe open-in-blender` (a flat map, a Westfall barrel and a helper cube). It stands a
+  stub in for `OpenInBlender`, so no Blender starts, and reads the real `Blender` binding's answer.
+- Go tests: `go test ./internal/wow -run GLB` (the encoder on a two-group mesh, and a client tree and
+  barn exported when there is a client) and `go test ./internal/blender` (`TestOpenScript` runs
+  `open.py` in a background Blender, found as the editor finds it or in `BLENDER_DIR`, and skips without one).
+- By hand: `await window.go.main.App.OpenInBlender('m2:<path>')` from the dev page opens a real Blender
+  window and leaves `<config dir>/Meld/blender/<name>-<hash>/` with the GLB, `open.py` and the `.blend`;
+  a second call opens that `.blend` instead. Close the Blender window afterwards.
+- Trap: a heredoc in the agents' Git Bash halves the backslashes of a client path in a scratch probe
+  (`mpq: file not found`); write it with the Write tool.

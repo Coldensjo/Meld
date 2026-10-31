@@ -27,7 +27,9 @@ export const ApplySpawnEdits: Call<AppApi['ApplySpawnEdits']> = (...a) => api().
 export const AreaRows: NonNullCall<AppApi['AreaRows']> = (...a) => api().AreaRows(...a) as never
 export const AreaTriggers: Call<AppApi['AreaTriggers']> = (...a) => api().AreaTriggers(...a) as never
 export const Areas: NonNullCall<AppApi['Areas']> = (...a) => api().Areas(...a) as never
+export const Blender: Call<AppApi['Blender']> = (...a) => api().Blender(...a) as never
 export const BrowseBenillaFolder: Call<AppApi['BrowseBenillaFolder']> = (...a) => api().BrowseBenillaFolder(...a) as never
+export const BrowseBlenderFolder: Call<AppApi['BrowseBlenderFolder']> = (...a) => api().BrowseBlenderFolder(...a) as never
 export const BrowseBrushImageFolder: Call<AppApi['BrowseBrushImageFolder']> = (...a) => api().BrowseBrushImageFolder(...a) as never
 export const BrowseExternalConf: Call<AppApi['BrowseExternalConf']> = (...a) => api().BrowseExternalConf(...a) as never
 export const BrowseOtherClient: Call<AppApi['BrowseOtherClient']> = (...a) => api().BrowseOtherClient(...a) as never
@@ -167,6 +169,7 @@ export const OpenCreaturesDialog: Call<AppApi['OpenCreaturesDialog']> = (...a) =
 export const OpenHeightmapDialog: Call<AppApi['OpenHeightmapDialog']> = (...a) => api().OpenHeightmapDialog(...a) as never
 export const OpenIconsDialog: NonNullCall<AppApi['OpenIconsDialog']> = (...a) => api().OpenIconsDialog(...a) as never
 export const OpenImageDialog: Call<AppApi['OpenImageDialog']> = (...a) => api().OpenImageDialog(...a) as never
+export const OpenInBlender: Call<AppApi['OpenInBlender']> = (...a) => api().OpenInBlender(...a) as never
 export const OpenItemsDialog: Call<AppApi['OpenItemsDialog']> = (...a) => api().OpenItemsDialog(...a) as never
 export const OpenMapDialog: Call<AppApi['OpenMapDialog']> = (...a) => api().OpenMapDialog(...a) as never
 export const OpenModelSetDialog: NonNullCall<AppApi['OpenModelSetDialog']> = (...a) => api().OpenModelSetDialog(...a) as never
@@ -300,6 +303,7 @@ export const ServerStatus: Call<AppApi['ServerStatus']> = (...a) => api().Server
 export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog(...a) as never
 export const SetAccount: Call<AppApi['SetAccount']> = (...a) => api().SetAccount(...a) as never
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
+export const SetBlenderPath: Call<AppApi['SetBlenderPath']> = (...a) => api().SetBlenderPath(...a) as never
 export const SetCharacterLevel: Call<AppApi['SetCharacterLevel']> = (...a) => api().SetCharacterLevel(...a) as never
 export const SetGameClient: Call<AppApi['SetGameClient']> = (...a) => api().SetGameClient(...a) as never
 export const SetGameLogin: Call<AppApi['SetGameLogin']> = (...a) => api().SetGameLogin(...a) as never

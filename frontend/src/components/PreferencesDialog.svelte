@@ -3,6 +3,7 @@
 	import { prefs, setStatus, ui, wow, type PrefsPage } from '../lib/state/editor.svelte'
 	import { hasBackend } from '../lib/io/backend'
 	import { chooseBenillaFolder, chooseVmangosFolder, setGameClient, setGameWindow } from '../lib/io/game'
+	import { blenderInfo, chooseBlenderFolder } from '../lib/io/blender'
 	import { chooseWowFolder } from '../lib/wow/api'
 	import { ClearThumbnailCache, GameClient, VmangosPath } from '../lib/wails/App'
 	import { rememberAntialias } from '../lib/engine/display'
@@ -23,7 +24,7 @@
 
 	const PAGES: Array<[PrefsPage, string, string]> = [
 		['general', 'General', 'How the editor looks, and what it keeps.'],
-		['folders', 'Folders', 'Where Meld finds the client, the server and Benilla. A project (File › Project…) names its own client folder.'],
+		['folders', 'Folders', 'Where Meld finds the client, the server, Benilla and Blender. A project (File › Project…) names its own client folder.'],
 		['camera', 'Camera and input', "The camera's feel, the keys and a tablet. Camera › Faster and Slower step the speed while flying."],
 		['graphics', 'Graphics', 'The quality, render scale, view distance and effects you change while editing stay in the Graphics and Lighting menus.'],
 		['compile', 'Compile and export', 'What File › Compile and the minimap export do besides writing the tiles.'],
@@ -36,13 +37,15 @@
 	let query = $state('')
 	let server = $state('')
 	let benilla = $state({ path: '', built: false })
+	let blender = $state({ path: '', program: '', error: '' })
 
-	/** Reads the server and Benilla folders, which only Go knows. */
+	/** Reads the server, Benilla and Blender folders, which only Go knows. */
 	async function refresh() {
 		if (!hasBackend()) return
 		server = await VmangosPath().catch(() => '')
 		const g = await GameClient().catch(() => null)
 		benilla = { path: g?.benillaPath ?? '', built: !!g?.benillaBuilt }
+		blender = await blenderInfo()
 	}
 	onMount(() => void refresh())
 
@@ -196,6 +199,20 @@
 			disabled: !hasBackend(),
 			run: async () => {
 				await chooseBenillaFolder()
+				await refresh()
+			},
+		},
+		{
+			page: 'folders',
+			id: 'blenderFolder',
+			label: 'Blender folder',
+			desc: 'The Blender a model’s right-click › Open in Blender starts. Not chosen, Meld looks for a blender folder beside the client’s, then on the PATH.',
+			kind: 'folder',
+			path: blender.path || (blender.program ? `Found: ${blender.program}` : ''),
+			note: blender.program ? '' : blender.error,
+			disabled: !hasBackend(),
+			run: async () => {
+				await chooseBlenderFolder()
 				await refresh()
 			},
 		},

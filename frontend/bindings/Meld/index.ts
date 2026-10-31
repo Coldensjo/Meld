@@ -12,6 +12,8 @@ export type {
     AreaTriggerImportResult,
     AreaTriggerList,
     AssetsImported,
+    BlenderInfo,
+    BlenderOpened,
     ClientSandbox,
     GameCharacterInfo,
     GameClientInfo,

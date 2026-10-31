@@ -168,6 +168,7 @@ import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/region'
+import { openInBlender, opensInBlender } from '../io/blender'
 import { SpawnActions } from './SpawnActions'
 import { TaxiEditing } from './TaxiEditing'
 import { TransportView, type SailOptions, type TransportHooks } from './TransportView'
@@ -3240,6 +3241,8 @@ export class Engine {
 			items.push({ label: 'Preview', run: () => (ui.modelPreview = { title: displayName(o.type), type: o.type, scale: o.scale }) })
 			items.push({ label: 'Duplicate', shortcut: 'Ctrl+Shift+D', run: () => this.duplicateSelected() })
 			items.push({ label: 'Place more of this', run: () => pickModel(o) })
+			// The model exported to glTF and opened in Blender, or its saved .blend (#290).
+			if (n === 1 && opensInBlender(o.type)) items.push({ label: 'Open in Blender', run: () => void openInBlender(o.type) })
 			// A road sign's words are in its texture (#843): swap the model for another sign instead.
 			if (isSignModel(o.type)) items.push({ label: n > 1 ? 'Swap signs…' : 'Swap sign…', run: () => (ui.signSwap = true) })
 			items.push({ label: 'Unselect', run: () => this.deselect() })

@@ -368,6 +368,17 @@ The window layout, the asset browser and the dock panels and floating windows.
   menu (`openIdMenu`) or wires a row (`use:idMenu`); a row with a menu of its own adds `copyItems`
   to it. A list or script named by a summary of what it holds gets no Copy name (RefField `NAMED`).
   `EditorFrame` leaves Esc to an open right-click menu.
+- **Open in Blender** (#290): the viewport's right-click on one placed client model (`m2:`/`wmo:`, not a
+  helper or another client's model; `io/blender.ts` `opensInBlender`) calls the `OpenInBlender` binding
+  (`app_blender.go`) with the object's type, look or doodad set included. Go exports the mesh as the
+  editor draws it to a GLB (`wow.Client.ModelGLB`, `internal/wow/gltf.go`: one primitive a material,
+  textures as PNGs inside, the still mesh only, no bones or particles) in a work folder of its own,
+  `<config dir>/Meld/blender/<name>-<hash of the type>` (`internal/blender`), and starts Blender with
+  `open.py` (embedded), which empties the startup scene, imports the GLB and saves `<name>.blend` there,
+  so Ctrl+S keeps the edits. Once that .blend exists, Open in Blender opens it as it is and exports
+  nothing. Blender is the folder `config.BlenderPath` (Preferences › Folders), else a `blender` folder
+  beside the client's, else `blender` on the PATH; on Windows `blender-launcher.exe` is started first,
+  so no console window opens. Bringing the edited model back into the map is not built yet (#290).
 - **Shortcuts in one table** (#583): `lib/ui/commands.ts` lists every shortcut (id, group, text, and
   the `chords` App binds). App.svelte `onKeyDown` asks `commandFor(e, early)` and runs the command
   through `lib/ui/runCommand.ts`: the early chords (Ctrl, the function keys, Tab) before the engine

@@ -158,7 +158,7 @@ Also included:
     and flickering light (up to 8 nearest lights).
 - **Camera**: follow the ground, collision, top-down view, minimap (in the dock above Layers, or detached into a floating window), speed, bookmarks.
 - **Game**: launch the 1.12 client or Benilla, Game Login.
-- **Preferences**: WoW client folder, VMaNGOS and Benilla folders, game client and window, thumbnail
+- **Preferences**: WoW client folder, VMaNGOS, Benilla and Blender folders, game client and window, thumbnail
   cache, camera speed, mouse sensitivity, interface size, toolbar icon size and side, invert camera Y,
   tablet support, and the **Hotkey Manager**: every command and camera movement key with its keys,
   changed with a click and a key press, cleared or reset (a key given to one command leaves any other
@@ -249,13 +249,14 @@ internal/adt/          Reads and rewrites 1.12 tiles (terrain, textures, liquids
 internal/vmangos/      Regions to and from the client, the world database, DBC tables, spawn SQL
 internal/game/         Starts Wow.exe or Benilla (Launch), and the game's template caches
 internal/heightmap/    Heightmap PNGs
-internal/config/       Per-user settings (client, server and Benilla folders, preferences)
+internal/config/       Per-user settings (client, server, Benilla and Blender folders, preferences)
 internal/recovery/     Autosaved copies of maps with unsaved changes, offered again after a crash
 internal/sessionlog/   Each session's status lines, kept in a file for bug reports
 internal/handoff/      Large binary replies of bound methods, fetched by the page in one GET
 internal/sandbox/      Throwaway copies of the client's Data folder for the probes
 internal/testclient/   Finds the client and server the client-dependent Go tests read
 internal/scripts/      The user's Lua scripts folder, and the PNG images scripts load
+internal/blender/      Open in Blender: finds Blender, keeps a work folder a model and starts it on the export
 cmd/meldtool/          Read-only inspector for .wmap files, tiles, MPQs and the bound methods
 benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)
 frontend/src/

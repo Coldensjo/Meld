@@ -11,7 +11,7 @@ Open **Edit › Preferences…** (`Ctrl+,` by default). Search there to locate a
 | Page | What to look for |
 | --- | --- |
 | General | Appearance and what the editor keeps, including autosave |
-| Folders | WoW client, VMaNGOS server and optional Benilla folders (projects select their own client), and the other clients you import models and textures from (Tools › Import from Another Client…) |
+| Folders | WoW client, VMaNGOS server and optional Benilla and Blender folders (projects select their own client), and the other clients you import models and textures from (Tools › Import from Another Client…) |
 | Camera and input | Camera behavior, tablet input and keyboard shortcuts |
 | Graphics | Quality-related preferences; current rendering controls also live in Graphics and Lighting menus |
 | Compile and export | Map checking, additional compile/export behavior, and the server core Export Spawn SQL writes for |
@@ -45,6 +45,7 @@ In PowerShell, the configuration folder is `Join-Path $env:APPDATA 'Meld'`; the 
 | --- | --- | --- |
 | Configuration: `config.json` | Client/server paths, login, preferences, window, recent projects and saved session references | Private settings, not a map backup |
 | Configuration: `scripts/` | User-authored Lua scripts | Back up scripts you want to keep |
+| Configuration: `blender/` | One folder a model opened with right-click › Open in Blender: its glTF export and the `.blend` you save there | Back up the `.blend` files you edited; they hold your work |
 | Cache: `recovery/` | Autosaved dirty-map copies and session metadata | May be the only copy of unsaved edits |
 | Cache: `pending-client/` | Client files waiting to be flushed into the patch | May contain changes not yet in the client |
 | Cache: `logs/` | Session logs retained outside the application window | Useful for diagnosis; review before sharing |
