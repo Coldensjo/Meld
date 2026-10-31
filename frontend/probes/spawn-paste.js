@@ -1,4 +1,4 @@
-// Area copy and paste carries the spawns (#964): a camp of a formation with a path and a pool of two veins, copied with the ground, pastes turned as new spawns with new guids (above the database's), a new leader and pool, its path moved and turned, one undo step; pasted into another tab too, with guids of its own; the SQL inserts the new rows.
+// Area copy and paste carries the spawns (#964): a camp of a formation with a path and a pool of two veins, copied with the ground, pastes turned as new spawns (the follower with the display of its own it had, #972) with new guids (above the database's), a new leader and pool, its path moved and turned, one undo step; pasted into another tab too, with guids of its own; the SQL inserts the new rows.
 // touches: frontend/src/lib/world/clipSpawns.ts, frontend/src/lib/world/clipboard.ts, frontend/src/lib/world/clipRotate.ts, frontend/src/components/options/SelectOptions.svelte
 const e = P.e
 const { editor, ui } = await P.state()
@@ -15,7 +15,8 @@ const vein = (guid, x) => se.newObjectSpawn({ entry: 1731, name: 'Copper Vein', 
 const leader = se.newCreatureSpawn(t(38, 'Defias Thug'), 9_000_001, 20 * cs, 0, 20 * cs, 0, look)
 Object.assign(leader, { leader: 9_000_001, groupFlags: 3, movementType: 2, waypoints: [se.newWaypoint(25 * cs, 0, 20 * cs), { ...se.newWaypoint(25 * cs, 0, 25 * cs), orientation: 1 }] })
 const follower = se.newCreatureSpawn(t(38, 'Defias Thug'), 9_000_002, 20 * cs, 0, 20 * cs + 3, 0, look)
-Object.assign(follower, { leader: 9_000_001, followDist: 3, followAngle: Math.PI, groupFlags: 3 })
+// The follower wears a display of its own (creature_addon), which the paste saves; the leader its template's, which it leaves to the template (#972).
+Object.assign(follower, { leader: 9_000_001, followDist: 3, followAngle: Math.PI, groupFlags: 3, display: 99, ownDisplay: true })
 const pool = { pool: 60_000, poolLimit: 1, poolName: 'Probe veins' }
 const veins = [Object.assign(vein(9_000_101, 22 * cs), pool), Object.assign(vein(9_000_102, 24 * cs), pool)]
 const outside = se.newCreatureSpawn(t(38, 'Defias Thug'), 9_000_003, 100 * cs, 0, 100 * cs, 0, look)
@@ -65,6 +66,7 @@ const wrote = {
 	path: !!pl && sql.includes(`(${pl.guid}, 1,`) && sql.includes(`(${pl.guid}, 2,`),
 	pool: pv[0] ? sql.includes(`SELECT ${pv[0].pool}, 1,`) && (sql.match(/INSERT INTO `pool_gameobject`/g) ?? []).length === 2 : false,
 	groups: (sql.match(/REPLACE INTO `creature_groups`/g) ?? []).length,
+	ownDisplay: !!pf && sql.includes(`UPDATE \`creature_addon\` SET \`display_id\` = 99 WHERE \`guid\` = ${pf.guid};`) && (sql.match(/`display_id`/g) ?? []).length === 1,
 }
 
 // One undo step takes the paste back, ground and spawns.
@@ -108,6 +110,7 @@ return {
 		wrote.path &&
 		wrote.pool &&
 		wrote.groups === 2 &&
+		wrote.ownDisplay &&
 		undone &&
 		redone &&
 		otherTab.count === 4 &&

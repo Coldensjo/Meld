@@ -13,7 +13,7 @@ import (
 )
 
 func TestParseSpawnRows(t *testing.T) {
-	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\t0\t7\t1\t233\t1\t1\t5.5\t420\t0\t0\t0\t0\n" +
+	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\t0\t7\t1\t233\t1\t1\t5.5\t420\t1\t0\t0\t0\n" +
 		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\t99\t0\t0\t0\t1\t2\t0\t600\t0\t0\t0\t0\r\n" +
 		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180\t0\t0\t0.5\t0.866025\n")
 	rows, err := parseSpawnRows(raw, "creature")
@@ -33,9 +33,17 @@ func TestParseSpawnRows(t *testing.T) {
 	if n := rows[1]; n.Kind != KindNPC || n.Subname != "Inn" || n.NPCFlags != 128 || n.Type != 7 || n.addonDisplay != 99 || n.MovementType != 2 {
 		t.Fatalf("innkeeper: %+v", n)
 	}
+	// The wolf wears equipment of its own and its template's display, the innkeeper the other way round (#972).
+	wolf, inn := regionSpawn(rows[0], 32, 48, nil, [3]heldItem{}), regionSpawn(rows[1], 32, 48, nil, [3]heldItem{})
+	if !wolf.OwnEquipment || wolf.OwnDisplay || inn.OwnEquipment || !inn.OwnDisplay || inn.Display != 99 {
+		t.Fatalf("own display and equipment: wolf %v %v, innkeeper %v %v", wolf.OwnDisplay, wolf.OwnEquipment, inn.OwnDisplay, inn.OwnEquipment)
+	}
 	objs, err := parseSpawnRows(raw, "object")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if objs[0].OwnEquipment {
+		t.Fatalf("an object has no equipment of its own: %+v", objs[0])
 	}
 	if objs[2].Kind != KindObject {
 		t.Fatalf("an object row must be an object, got %q", objs[2].Kind)

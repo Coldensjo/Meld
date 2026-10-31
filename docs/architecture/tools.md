@@ -214,7 +214,11 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
     spawns on the laid ground: guids above the database's and every open tab's, new leaders and pool
     entries, no world events, a path of their own. `spawnsAdd` adds them inside the paste's undo step,
     each against `pastedOriginal` (no formation, pool or path, a default pose) so the save writes
-    those rows for a new spawn. The map is the tab's, so a paste into another map's tab saves there.
+    those rows for a new spawn. Its display and equipment count as its template's unless the copied
+    spawn had its own (`WorldSpawn.ownDisplay`/`ownEquipment`, read from `creature_addon`, #972): then
+    the original has none (display 0, equipment -1) and the save writes them, while a template that
+    picks among displays keeps picking. `SpawnLayer.rebase` (a saved template) keeps an original's
+    display or equipment that already differs from the spawn's. The map is the tab's, so a paste into another map's tab saves there.
   - Undo closures must write per-map state through `editor` at call time, never through
     captured arrays, because tab switches replace those arrays.
 - **Selected-prop visuals**:

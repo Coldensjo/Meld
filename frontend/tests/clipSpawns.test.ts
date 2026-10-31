@@ -250,3 +250,20 @@ test('the pasted spawns are added as one undo step, as new spawns to save', () =
 	assert.equal(layer.spawns.length, 7)
 	assert.equal(layer.get('monster/9000')?.leader, 9000)
 })
+
+test("a pasted creature saves the display and equipment it had of its own, and leaves its template's to the template (#972)", () => {
+	const own = pastedOriginal(spawn({ display: 99, equipment: 7, ownDisplay: true, ownEquipment: true }))
+	assert.deepEqual([own.display, own.equipment], [0, -1])
+	const template = pastedOriginal(spawn({ display: 880, equipment: 3 }))
+	assert.deepEqual([template.display, template.equipment], [880, 3])
+	const obj = pastedOriginal(spawn({ kind: 'object', display: 12, ownDisplay: true }))
+	assert.equal(obj.display, 12)
+
+	// Saving the creature's template keeps the pasted display as an edit.
+	const layer = new SpawnLayer()
+	const s = spawn({ guid: 9000, display: 99, equipment: 7, ownDisplay: true, ownEquipment: true })
+	layer.add(s, pastedOriginal(s))
+	layer.rebase(s, { name: 'Defias Bandit', display: 99, equipment: 7 })
+	const e = layer.edits().find((x) => x.spawn.guid === 9000)!
+	assert.deepEqual([e.original!.name, e.original!.display, e.original!.equipment, e.spawn.display], ['Defias Bandit', 0, -1, 99])
+})

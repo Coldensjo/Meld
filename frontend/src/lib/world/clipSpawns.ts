@@ -223,12 +223,17 @@ export function pasteSpawns(list: readonly ClipSpawn[], ax: number, az: number, 
  * What a pasted spawn counts as when placed, for the save (`SpawnLayer.add`'s original), which writes
  * what differs from it: no formation, pool or path, and a creature standing, with no emote, weapons
  * out, as the spawn brush places one; so its formation, pool, path and pose are written with it. Its
- * display and equipment are taken as its template's, so they aren't (the region doesn't say whether
- * the copied spawn had its own).
+ * display and equipment count as its template's, so they are written only where the copied spawn had
+ * its own (#972): then the original has none (display 0, equipment -1, as creature_addon says "the
+ * template's"), so the save writes them, while a template that picks among displays keeps picking.
  */
 export function pastedOriginal(s: vmangos.WorldSpawn): vmangos.WorldSpawn {
 	const o: vmangos.WorldSpawn = { ...s, ...NO_FORMATION, ...NO_POOL, waypoints: [] }
-	if (!isObject(s)) Object.assign(o, { standState: 0, emoteState: 0, sheathState: 1 })
+	if (!isObject(s)) {
+		Object.assign(o, { standState: 0, emoteState: 0, sheathState: 1 })
+		if (s.ownDisplay) o.display = 0
+		if (s.ownEquipment) o.equipment = -1
+	}
 	return o
 }
 

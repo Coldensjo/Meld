@@ -368,7 +368,8 @@ along, the new guids, leaders and pool entries, heights on the new ground, a tur
 (a follower still in its leader's slot), and the one undo step with each new spawn saved against
 `pastedOriginal`. The probe `spawn-paste` builds a camp on a flat map (a formation with a path, a pool
 of two veins), copies it, pastes it turned and into a second tab, and reads `App.SpawnEditSQL`: two
-`creature` inserts, the path's `creature_movement` rows, two `creature_groups` rows and the new pool.
+`creature` inserts, the path's `creature_movement` rows, two `creature_groups` rows and the new pool,
+and the follower's display of its own (`ownDisplay`, #972) as the one `creature_addon` `display_id`.
 
 By hand on the client: open Azeroth 32_48 (Northshire, `regionIo.openWowRegion(P.e, 'Azeroth', 32, 48, 1)`,
 a 128-cell region), set `editor.selection` round the vineyard's Defias (cells about 61..112 by 78..128),

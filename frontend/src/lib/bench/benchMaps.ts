@@ -185,6 +185,8 @@ function creatures(d: MapDocument, n: number, chosen: vmangos.DisplayEntry[], ra
 			respawnSecs: 300,
 			respawnMaxSecs: 300,
 			display: s.id,
+			ownDisplay: false,
+			ownEquipment: false,
 			model: s.model,
 			look: s.look,
 			anim: 0,

@@ -56,6 +56,11 @@ type WorldSpawn struct {
 	// Display is the creature or game object display shown: the spawn's own (creature_addon) or
 	// its template's first.
 	Display int `json:"display"`
+	// OwnDisplay and OwnEquipment are whether the creature's display and equipment are its own
+	// (creature_addon's display_id and equipment_id) rather than its template's (#972), so a copy
+	// pasted as a new spawn saves them. False for an object.
+	OwnDisplay   bool `json:"ownDisplay"`
+	OwnEquipment bool `json:"ownEquipment"`
 	// Model is the client path of the model the spawn shows, such as a .mdx or .wmo name; "" when its
 	// display has none.
 	Model string `json:"model"`
@@ -192,7 +197,7 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 		WHEN t.display_id3 <> 0 THEN t.display_scale3 ELSE t.display_scale4 END,
 		COALESCE(a.display_id, 0), IF(a.equipment_id IS NULL OR a.equipment_id < 0, t.equipment_id, a.equipment_id),
 		COALESCE(a.stand_state, 0), COALESCE(a.emote_state, 0), COALESCE(a.sheath_state, 1),
-		c.movement_type, c.wander_distance, c.spawntimesecsmax, 0, 0, 0, 0
+		c.movement_type, c.wander_distance, c.spawntimesecsmax, IF(a.equipment_id IS NULL OR a.equipment_id < 0, 0, 1), 0, 0, 0
 		FROM creature c JOIN creature_template t ON t.entry = c.id
 		AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = c.id)
 		LEFT JOIN creature_addon a ON a.guid = c.guid AND a.patch = (SELECT MAX(patch) FROM creature_addon WHERE guid = c.guid)
@@ -439,6 +444,7 @@ func regionSpawn(s spawnRow, x, y int, tables *modelTables, weapons [3]heldItem)
 	}
 	if s.addonDisplay != 0 {
 		out.Display = int(s.addonDisplay)
+		out.OwnDisplay = true
 	}
 	for k, w := range weapons {
 		out.EquipItems[k] = w.entry
@@ -470,7 +476,8 @@ const spawnColumns = 29
 // name, subname, level_min, level_max, faction, npc_flags, rank, type, x, y, z, orientation,
 // respawn seconds, display ID, scale, then for a creature (zeros for an object) its own display,
 // equipment, stand state, emote state, sheath state, movement type and wander distance, then the
-// most respawn seconds, and last for an object (zeros for a creature) its rotation quaternion.
+// most respawn seconds, and last for an object its rotation quaternion (for a creature, 1 when its
+// equipment is its own then zeros).
 func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 	var out []spawnRow
 	for _, f := range batchLines(raw) {
@@ -519,6 +526,7 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 		default:
 			r.Kind = KindMonster
 		}
+		r.OwnEquipment = r.Kind != KindObject && q[0] != 0
 		out = append(out, r)
 	}
 	return out, nil

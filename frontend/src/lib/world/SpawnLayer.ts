@@ -454,12 +454,20 @@ export class SpawnLayer {
 
 	/**
 	 * Changes a spawn the way the world database already has it (its creature template was saved),
-	 * so the change is not an edit to save: its saved state changes with it.
+	 * so the change is not an edit to save: its saved state changes with it. A display or equipment that
+	 * already differs from the saved one (an edit not saved yet, or a pasted spawn's own, #972) stays an
+	 * edit.
 	 */
 	rebase(s: vmangos.WorldSpawn, vals: Partial<vmangos.WorldSpawn>) {
-		Object.assign(s, vals)
 		const o = this.originals.get(spawnKey(s))
-		if (o) Object.assign(o, vals)
+		if (o) {
+			const keep = { display: o.display, equipment: o.equipment }
+			const edited = { display: o.display !== s.display, equipment: o.equipment !== s.equipment }
+			Object.assign(o, vals)
+			if (edited.display) o.display = keep.display
+			if (edited.equipment) o.equipment = keep.equipment
+		}
+		Object.assign(s, vals)
 		this.refresh(s)
 	}
 

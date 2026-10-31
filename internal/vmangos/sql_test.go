@@ -99,6 +99,15 @@ func TestExportLeavesAnUnchangedAddonAlone(t *testing.T) {
 	if !strings.Contains(res.SQL, "VALUES (8, 1, 0, 0, 0, 0, 0, 300, 300, 0, 100, 100, 0,") {
 		t.Fatalf("an added creature without a respawn time gets the default:\n%s", res.SQL)
 	}
+	// A pasted creature with a display and equipment of its own is saved against an original that has
+	// none (clipSpawns.ts pastedOriginal, #972), so both are written.
+	pasted := Spawn{Kind: Creature, GUID: 9, Entry: 1, Map: 0, Display: 99, Equipment: 7, SheathState: 1, Scale: 1}
+	bare := pasted
+	bare.Display, bare.Equipment = 0, -1
+	res = ExportSQL([]Edit{{Spawn: pasted, Original: &bare, Created: true}}, fixedTime)
+	if !strings.Contains(res.SQL, "UPDATE `creature_addon` SET `display_id` = 99, `equipment_id` = 7 WHERE `guid` = 9;") {
+		t.Fatalf("the pasted creature's own display and equipment are not written:\n%s", res.SQL)
+	}
 }
 
 func TestExportWritesAChangedPath(t *testing.T) {

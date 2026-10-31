@@ -2924,6 +2924,14 @@ export interface WorldSpawn {
     "display": number;
 
     /**
+     * OwnDisplay and OwnEquipment are whether the creature's display and equipment are its own
+     * (creature_addon's display_id and equipment_id) rather than its template's (#972), so a copy
+     * pasted as a new spawn saves them. False for an object.
+     */
+    "ownDisplay": boolean;
+    "ownEquipment": boolean;
+
+    /**
      * Model is the client path of the model the spawn shows, such as a .mdx or .wmo name; "" when its
      * display has none.
      */
