@@ -46,6 +46,7 @@ client or the server. The output is JSON, or a table with --table where a comman
   meldtool blp encode [--format auto|dxt1|dxt3] [--mips=false] -o out.blp <in.png>
   meldtool m2 info [--client DIR] <model.m2>
   meldtool wmo info [--client DIR] <model.wmo>
+  meldtool dbc dump [--client DIR] [--where field=value ...] [--limit n] [--table] <Name.dbc>
   meldtool heightmap export -o out.png <file.wmap>
   meldtool heightmap import [--min -1024] [--max 1024] -o out.wmap <file.wmap> <image.png>
   meldtool creature|object|item get [--server DIR] [--table] <entry>
@@ -122,6 +123,8 @@ func dispatch(args []string, out io.Writer) error {
 		return blpEncode(args[2:], out)
 	case args[0] == "m2" && sub == "info":
 		return m2InfoCmd(args[2:], out)
+	case args[0] == "dbc" && sub == "dump":
+		return dbcDump(args[2:], out)
 	case args[0] == "wmo" && sub == "info":
 		return wmoInfoCmd(args[2:], out)
 	case args[0] == "heightmap" && sub == "export":

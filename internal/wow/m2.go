@@ -317,3 +317,59 @@ func validSubmeshes(r reader, ofs, n, stride, nTri int) bool {
 	}
 	return true
 }
+
+// M2Submesh is one geoset ID of an M2's view 0: the submeshes with that ID, and their triangles.
+type M2Submesh struct {
+	ID        int `json:"id"`
+	Parts     int `json:"parts"`
+	Triangles int `json:"triangles"`
+}
+
+// M2Submeshes lists view 0's submesh IDs (the geosets a character look picks: hair 1 to 99, facial
+// hair 100s, gear after) sorted, each with how many submeshes carry it and their triangles.
+func M2Submeshes(b []byte) ([]M2Submesh, error) {
+	if len(b) < m2HeaderSize || string(b[:4]) != "MD20" {
+		return nil, errors.New("m2: bad magic or truncated header")
+	}
+	r := reader{b}
+	version := r.u32(4)
+	nViews, v, err := r.arr(0x4C, 44)
+	if err != nil || nViews == 0 {
+		return nil, errors.New("m2: no views")
+	}
+	nTri, _, err := r.arr(v+8, 2)
+	if err != nil {
+		return nil, err
+	}
+	stride := 32
+	if version >= 260 {
+		stride = 48
+	}
+	nSub, ofsSub, err := r.arr(v+24, stride)
+	if err != nil || !validSubmeshes(r, ofsSub, nSub, stride, nTri) {
+		alt := 80 - stride
+		if n2, o2, err2 := r.arr(v+24, alt); err2 == nil && validSubmeshes(r, o2, n2, alt, nTri) {
+			nSub, ofsSub, stride = n2, o2, alt
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	byID := map[int]*M2Submesh{}
+	for i := 0; i < nSub; i++ {
+		so := ofsSub + i*stride
+		id := r.u16(so)
+		s := byID[id]
+		if s == nil {
+			s = &M2Submesh{ID: id}
+			byID[id] = s
+		}
+		s.Parts++
+		s.Triangles += r.u16(so+10) / 3
+	}
+	out := make([]M2Submesh, 0, len(byID))
+	for _, s := range byID {
+		out = append(out, *s)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}

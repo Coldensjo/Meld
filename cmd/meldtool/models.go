@@ -30,6 +30,8 @@ type m2Info struct {
 	Textures []m2Texture `json:"textures"`
 	// Animations are the sequences' AnimationData IDs, each once.
 	Animations []int `json:"animations"`
+	// Submeshes are view 0's submesh IDs (the geosets a character look picks), each with its parts and triangles.
+	Submeshes []wow.M2Submesh `json:"submeshes"`
 	// Draw is what the editor draws (view 0), or DrawError why it draws nothing.
 	Draw      *m2Draw `json:"draw,omitempty"`
 	DrawError string  `json:"drawError,omitempty"`
@@ -136,6 +138,12 @@ func readM2Info(b []byte, path string) (*m2Info, error) {
 	}
 	if info.Animations == nil {
 		info.Animations = []int{}
+	}
+	if subs, err := wow.M2Submeshes(b); err == nil {
+		info.Submeshes = subs
+	}
+	if info.Submeshes == nil {
+		info.Submeshes = []wow.M2Submesh{}
 	}
 	mesh, err := wow.ParseM2(b, path)
 	if err != nil {

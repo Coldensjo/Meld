@@ -148,6 +148,16 @@ var mcpTools = func() []mcpTool {
 			params: []mcpParam{fileOrArchive("model", "The .m2 model", `World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01\ElwynnPine01.m2`), clientParam},
 		},
 		{
+			name: "dbc_dump", cmd: []string{"dbc", "dump"}, readOnly: true,
+			desc: "Print the rows of a client DBC table as JSON: each record's 32-bit fields, and the text of a field that is a valid string offset. Filter with where (field=value, e.g. 1=9), cut with limit.",
+			params: []mcpParam{
+				{name: "table", kind: "string", required: true, desc: `The table: a name such as CharHairGeosets.dbc (read from DBFilesClient in the client, as the game will have it), or a .dbc file on disk.`},
+				clientParam,
+				{name: "where", kind: "string", flag: "where", desc: "Keep rows whose field (index from 0) equals the number, as field=value."},
+				limitParam,
+			},
+		},
+		{
 			name: "wmo_info", cmd: []string{"wmo", "info"}, readOnly: true,
 			desc:   "Read a WMO's facts as JSON: the root's counts, bounds, materials, doodad sets and their models, and each group's name, flags, vertices, triangles, doodads and liquid.",
 			params: []mcpParam{fileOrArchive("model", "The root .wmo", `World\wmo\Azeroth\Buildings\Stormwind\Stormwind.wmo`), clientParam},

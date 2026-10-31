@@ -226,6 +226,13 @@ server and client (`testclient`, skipped without them), so `make test-full` cove
   the arrays' counts), the texture table (a file, or the replaceable slot's type a display fills), the
   animation IDs, and what the editor draws of it (`wow.ParseM2`: vertices, triangles, batches by
   texture, lights, emitters), or `drawError` for a model that draws nothing.
+  `submeshes` lists view 0's submesh IDs (the geosets a look picks) with their parts and triangles
+  (`wow.M2Submeshes`): `OrcFemale.m2` has 0 and 2 to 8 (no 1), `HumanMale.m2` 0 to 13 (#970).
+- `dbc dump [--where field=value ...] [--limit n] [--table] <Name.dbc>`: a client table's rows as
+  uint32 fields (`DBFilesClient\` and `.dbc` added when missing; a `.dbc` file on disk works too),
+  read as the game will have it (the files waiting for the game to close first), with the text of a
+  field that is a valid string offset. `--where 1=9` keeps the rows whose field 1 is 9: on
+  `CharHairGeosets.dbc` the goblin's four rows (#970).
 - `wmo info <model.wmo>`: the root's counts, bounding box, materials, doodad sets and the doodads'
   models, and each group (name, flags, interior) with its vertices, triangles less the collision-only
   ones, doodad references and liquid, read from the group file beside the root (on disk or in the

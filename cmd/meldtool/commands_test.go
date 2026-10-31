@@ -353,6 +353,22 @@ func TestModelInfoClient(t *testing.T) {
 	if info := decodeInfo[m2Info](t, out); info.Draw == nil || info.Draw.Triangles == 0 || len(info.Textures) == 0 {
 		t.Fatalf("m2 info %+v", info)
 	}
+	code, out, errOut = call(t, "m2", "info", "--client", client, `Character\Orc\Female\OrcFemale.m2`)
+	if code != 0 {
+		t.Fatalf("m2 info orc: exit %d: %s", code, errOut)
+	}
+	for _, s := range decodeInfo[m2Info](t, out).Submeshes {
+		if s.ID == 1 {
+			t.Fatalf("OrcFemale has a submesh 1")
+		}
+	}
+	code, out, errOut = call(t, "dbc", "dump", "--client", client, "--where", "1=9", "CharHairGeosets.dbc")
+	if code != 0 {
+		t.Fatalf("dbc dump: exit %d: %s", code, errOut)
+	}
+	if d := decodeInfo[dbcOut](t, out); d.Matched != 4 {
+		t.Fatalf("dbc dump %+v", d)
+	}
 	code, out, errOut = call(t, "wmo", "info", "--client", client, `World\wmo\Azeroth\Buildings\GoldshireInn\GoldshireInn.wmo`)
 	if code != 0 {
 		t.Fatalf("wmo info: exit %d: %s", code, errOut)
@@ -373,5 +389,40 @@ func TestModelInfoClient(t *testing.T) {
 	}
 	if info := decodeInfo[blpInfo](t, out); info.Format != "dxt3" || info.W != 256 {
 		t.Fatalf("blp decode %+v", info)
+	}
+}
+
+// testDBC is a DBC table of 3 fields: ID, a key and a string offset.
+func testDBC() []byte {
+	rows := [][3]uint32{{1, 9, 1}, {2, 9, 0}, {3, 4, 1}}
+	b := make([]byte, 20)
+	copy(b, "WDBC")
+	for i, v := range []uint32{uint32(len(rows)), 3, 12, 6} {
+		binary.LittleEndian.PutUint32(b[4+i*4:], v)
+	}
+	for _, r := range rows {
+		for _, v := range r {
+			b = binary.LittleEndian.AppendUint32(b, v)
+		}
+	}
+	return append(b, "\x00Hair\x00"...)
+}
+
+func TestDBCDump(t *testing.T) {
+	p := writeFile(t, t.TempDir(), "Test.dbc", testDBC())
+	code, out, errOut := call(t, "dbc", "dump", "--where", "1=9", p)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	d := decodeInfo[dbcOut](t, out)
+	if d.Records != 3 || d.Matched != 2 || len(d.Rows) != 2 || d.Rows[0].Strings[2] != "Hair" || len(d.Rows[1].Strings) != 0 {
+		t.Fatalf("dump: %+v", d)
+	}
+	_, out, _ = call(t, "dbc", "dump", "--limit", "1", p)
+	if d := decodeInfo[dbcOut](t, out); d.Matched != 3 || len(d.Rows) != 1 {
+		t.Fatalf("limit: %+v", d)
+	}
+	if code, _, _ := call(t, "dbc", "dump", "--where", "7=1", p); code != 2 {
+		t.Fatalf("a field past the table: exit %d", code)
 	}
 }
