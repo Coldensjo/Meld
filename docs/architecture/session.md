@@ -17,12 +17,12 @@ server. #728 is the umbrella; its parts are separate issues:
 | Presence: the others' cameras and brushes | #1004 | Done (`lib/session/presence.ts`, `PresenceView.ts`) |
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
 | Holes | #1016 | Done (`lib/session/holes.ts`) |
-| Painted liquids | #1017 | Open |
+| Painted liquids | #1017 | Done (`lib/session/liquids.ts`) |
 | The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Open |
 | The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Open |
 | The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
 
-Until those are done, a session syncs only the heights, the paint, the holes and the placed objects: every other
+Until those are done, a session syncs only the heights, the paint, the holes, the painted liquids and the placed objects: every other
 edit stays on the member who made it, and the host's export carries only the host's.
 
 ## The transport (`internal/session`)
@@ -157,6 +157,20 @@ edit stays on the member who made it, and the host's export carries only the hos
   marks the map unsaved; the heights' mirror sees that mark changed nothing. `tileMask` (tiles left out,
   which `isHole` also counts) is map data, not a hole edit (#1019), and `doc.holesKnown` travels in the
   handoff alone.
+- **Painted liquids (#1017, `liquids.ts`, `LiquidSync`).** Every liquid change to the session's map (the
+  Water tool, Crop water, Import watermap, Regenerate opacity, the Clear tool's liquids, a paste, a
+  script, an undo) goes out as kind `liquids` (`KIND_LIQUIDS`), data `{id, chunks: [{c, layers}], kinds?}`:
+  each changed chunk's layers whole, as the map file's records (`writeLiquidRecord`, base64; '' for a
+  chunk gone dry). `LiquidMap.touch`, which `set` and every writer call, adds the chunk to a set for the
+  session (`takeSessionLiquids`); the heights' timer compares those chunks against a mirror of their
+  layers and sends the ones that differ. The rule is the paint's: a chunk is the unit, two members
+  changing one at once both end with the later message's, and one's own unacknowledged chunks are written
+  back over another's. Depth goes as a byte, as the file saves it, so the receivers hold the sender's
+  saved bytes (the sender keeps its float depth until it reloads). A liquid ID past the base four goes
+  with its kind (`kinds`, #540) when the sender knows it, and a receiver without that kind learns it
+  (`learnLiquidKinds`). Applying is `LiquidMap.set`, which marks the chunk for the renderer, and marks the
+  map unsaved. The sea (`meta.waterLevel`, `waterEnabled`) is a per-map setting and goes with the map's
+  settings (#1019); `doc.liquidsKnown` travels in the handoff alone.
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

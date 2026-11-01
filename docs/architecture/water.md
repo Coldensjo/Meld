@@ -8,6 +8,10 @@ Dig/Shore instead change terrain relative to the sea level. The texture paint ma
 brush constraint. `maskWand.wandClick` can read sea/painted-liquid coverage to select texture texels;
 it does not modify either liquid representation.
 
+Every liquid writer goes through `LiquidMap.set` or `touch`, which marks the chunk for the renderer
+(`dirty`) and for a shared session (`takeSessionLiquids`, docs/architecture/session.md, #1017). A new
+writer that changed layers in place without `touch` would neither draw nor reach the other members.
+
 `Engine.cropWater` and `regenWaterOpacity` translate an area selection to touched chunks;
 `shapeChunks` filters chunks containing free-form cells. `cropLiquids` and `regenOpacity` then
 process those **whole chunks**, including cells outside the exact selection. Check Map's crop fix

@@ -35,6 +35,7 @@ import { PresenceView } from './PresenceView'
 import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './heights'
 import { KIND_PAINT, PaintSync, remapSlots, reorderPalette } from './paint'
 import { HoleSync, KIND_HOLES } from './holes'
+import { KIND_LIQUIDS, LiquidSync } from './liquids'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
 import { TILE_YARDS } from '../wow/format'
@@ -156,6 +157,12 @@ const holes = new HoleSync({
 	applied: markUnsaved,
 	failed: (err) => setStatus(`A hole edit did not reach the session: ${err}`, 8000),
 })
+/** The session map's painted liquids (#1017): the changed chunks' layers whole, sent and applied as the paint is. */
+const liquids = new LiquidSync({
+	send: (data) => sessionSend(0, KIND_LIQUIDS, tagged(data)),
+	applied: markUnsaved,
+	failed: (err) => setStatus(`A liquid edit did not reach the session: ${err}`, 8000),
+})
 /** The session map's placed objects (#1003): the changed objects whole, sent and applied as the heights are. */
 const objects = new ObjectSync({
 	send: (data) => sessionSend(0, KIND_OBJECTS, tagged(data)),
@@ -248,7 +255,7 @@ export function presenceMarker(id: number) {
 	return presenceView?.markerAt(id) ?? null
 }
 
-/** Sends the session map's changed heights, paint, holes and objects; stops syncing once that map is closed. */
+/** Sends the session map's changed heights, paint, holes, liquids and objects; stops syncing once that map is closed. */
 function flushEdits() {
 	const doc = sessionDoc()
 	const t = doc?.terrain
@@ -264,6 +271,10 @@ function flushEdits() {
 		if (t !== holes.bound) holes.unbind()
 		else holes.flush()
 	}
+	if (liquids.bound) {
+		if (doc?.liquids !== liquids.bound) liquids.unbind()
+		else liquids.flush()
+	}
 	if (objects.bound) {
 		if (doc?.objects !== objects.bound) objects.unbind()
 		else objects.flush()
@@ -277,6 +288,7 @@ function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
 	heights.bind(d.terrain, afterSeq)
 	paint.bind(d.terrain, afterSeq, ordered)
 	holes.bind(d.terrain, afterSeq)
+	liquids.bind(d.liquids, afterSeq)
 	objects.bind(d.objects, afterSeq, ids)
 }
 
@@ -322,6 +334,7 @@ function subscribe() {
 	heights.wait()
 	paint.wait()
 	holes.wait()
+	liquids.wait()
 	objects.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
 	clearPresence()
@@ -341,6 +354,7 @@ function unsubscribe() {
 	heights.unbind()
 	paint.unbind()
 	holes.unbind()
+	liquids.unbind()
 	objects.unbind()
 }
 
@@ -465,6 +479,7 @@ function onMessage(m: Message) {
 		case KIND_HEIGHTS:
 		case KIND_PAINT:
 		case KIND_HOLES:
+		case KIND_LIQUIDS:
 		case KIND_OBJECTS:
 			receiveEdit(m)
 			return
@@ -491,7 +506,7 @@ function receiveEdit(m: Message) {
 	}
 	// One's own come back as the acknowledgement, which the sync matches by its own count.
 	if (m.from !== shared.you && editGen(m.data) !== mapGen) return
-	const sync = m.kind === KIND_HEIGHTS ? heights : m.kind === KIND_PAINT ? paint : m.kind === KIND_HOLES ? holes : objects
+	const sync = m.kind === KIND_HEIGHTS ? heights : m.kind === KIND_PAINT ? paint : m.kind === KIND_HOLES ? holes : m.kind === KIND_LIQUIDS ? liquids : objects
 	sync.receive(m.seq, m.from, m.data, shared.you)
 }
 

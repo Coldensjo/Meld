@@ -114,6 +114,19 @@ export function rememberLiquidKinds(kinds: Readonly<Record<number, LiquidClass>>
 	}
 }
 
+/** The kind of liquid `id` when the client's table or a map file gives it one, else undefined. */
+export function knownLiquidKind(id: number): LiquidClass | undefined {
+	return (LIQUID_TYPES.find((t) => t.id === id) ?? fileKinds.get(id))?.kind
+}
+
+/** Remembers the kinds another member sent for liquid IDs this Meld knows no kind of (a shared session, #1017); known IDs keep theirs. */
+export function learnLiquidKinds(raw: unknown) {
+	for (const [k, kind] of Object.entries(readLiquidKinds(raw))) {
+		const id = Number(k)
+		if (!knownLiquidKind(id)) fileKinds.set(id, { id, name: `Liquid ${id}`, kind, ...KIND_TEXTURES[kind] })
+	}
+}
+
 /** The liquid with this ID: the client's row, else the kind a map file gave it, else water. */
 export function liquidType(id: number): LiquidType {
 	return LIQUID_TYPES.find((t) => t.id === id) ?? fileKinds.get(id) ?? LIQUID_TYPES[0]
@@ -206,6 +219,8 @@ export class LiquidMap {
 	readonly dirty = new Set<number>()
 	/** Counts changes, for readers that rebuild on any (the walkable-ground view). */
 	version = 0
+	/** Chunks changed since a shared session last took them (`takeSessionLiquids`, lib/session/liquids.ts, #1017). */
+	private session = new Set<number>()
 
 	constructor(cells: number) {
 		this.side = cells / LIQUID_CELLS
@@ -227,6 +242,7 @@ export class LiquidMap {
 	/** Marks chunk c changed. */
 	touch(c: number) {
 		this.dirty.add(c)
+		this.session.add(c)
 		this.version++
 		let lo = Infinity
 		let hi = -Infinity
@@ -238,6 +254,14 @@ export class LiquidMap {
 		}
 		this.bounds[c * 2] = lo
 		this.bounds[c * 2 + 1] = hi
+	}
+
+	/** Fills `out` with the chunks touched since the last call and starts over; false when none were. */
+	takeSessionLiquids(out: number[]): boolean {
+		out.length = 0
+		for (const c of this.session) out.push(c)
+		this.session.clear()
+		return out.length > 0
 	}
 
 	/** Every chunk that has a layer, with its layers. */

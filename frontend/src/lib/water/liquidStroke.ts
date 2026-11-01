@@ -8,7 +8,8 @@ function sameLayer(a: LiquidLayer, b: LiquidLayer): boolean {
 	return true
 }
 
-function sameLayers(a: readonly LiquidLayer[], b: readonly LiquidLayer[]): boolean {
+/** Whether two chunks' layer lists hold the same layers in the same order. */
+export function sameLayers(a: readonly LiquidLayer[], b: readonly LiquidLayer[]): boolean {
 	return a.length === b.length && a.every((l, i) => sameLayer(l, b[i]))
 }
 

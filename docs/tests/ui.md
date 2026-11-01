@@ -1084,6 +1084,22 @@ them, and an applied hole is not sent back.
 - Trap: `cutHoles` takes an end-exclusive cell rect and grows it to whole 2x2 blocks, while the
   messages' rects are inclusive.
 
+## Painted liquids in a session (#1017, probe `session-liquids`)
+
+Checks: a liquid change on the session's map goes to the others as `liquids` messages (whole chunks, as
+the map file's records), the others' are applied in the host's order with one's own unacknowledged chunks
+over them, and an applied chunk is not sent back.
+- `bun test tests/sessionLiquids.test.ts`: two `LiquidSync` members through a scripted host, on real
+  `LiquidMap`s (the replay rule, painting and drying one chunk at once, no echo, a dried chunk sent with no
+  layers, a building liquid's kind sent and learned, a guest holding messages before its map, bad
+  messages ignored whole).
+- `bun run probe session-liquids`: the page hosts, the bot sends chunk 9 of water the page must show
+  and draw, then the page paints with the Water tool (driven through `e.debug.tools.water`) and undoes
+  it; the bot's messages applied in `seq` order over a dry map must encode (`encodeLiquids`) to the
+  page's bytes, and only chunk 9 stays wet.
+- Trap: the receivers hold depth as the byte the file saves (`d / 255`), the sender its float until it
+  reloads, so compare liquids encoded, never the live `depth` arrays across members.
+
 ## Texture paint in a session (#1002, probe `session-paint`)
 
 Checks: a paint change on the session's map goes to the others as `paint` messages (whole chunks, slots
