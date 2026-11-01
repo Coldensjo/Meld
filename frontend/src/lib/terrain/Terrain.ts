@@ -555,6 +555,10 @@ export class Terrain {
 	 */
 	touchChunkData(rect?: DirtyRect | null, cells = false) {
 		this.chunkDataVersion++
+		if (!rect) {
+			growRect(this.sessionChunks, 0, 0, this.paintChunksPerSide - 1, this.paintChunksPerSide - 1)
+			growRect(this.sessionCells, 0, 0, this.size - 1, this.size - 1)
+		} else growRect(cells ? this.sessionCells : this.sessionChunks, rect.x0, rect.z0, rect.x1, rect.z1)
 		// Before the overlay is first shown there is nothing to redraw: making it draws all of it.
 		if (!this.chunkDataTex) return
 		if (!rect) {
@@ -562,6 +566,17 @@ export class Terrain {
 			this.cellDataDirty.mark()
 		} else if (cells) this.cellDataDirty.mark(rect)
 		else this.chunkDataDirty.mark(rect)
+	}
+
+	/** The paint chunk rect and the cell rect (inclusive) touched (`touchChunkData`) since a shared session last took them (`takeSessionChunkData`, lib/session/chunkData.ts, #1018). Empty when x0 > x1. */
+	private sessionChunks = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+	private sessionCells = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+
+	/** Copies into `chunks` and `cells` the rects whose chunk data was touched since the last call and starts new ones; false when none was. */
+	takeSessionChunkData(chunks: DirtyRect, cells: DirtyRect): boolean {
+		const a = takeRect(this.sessionChunks, chunks)
+		const b = takeRect(this.sessionCells, cells)
+		return a || b
 	}
 
 	/**
@@ -843,14 +858,24 @@ export class Terrain {
 		this.shadowUploaded = false
 	}
 
-	/** Uploads the shadow texel rows z0 to z1 (inclusive) after they were written. */
-	touchShadow(z0: number, z1: number) {
+	/** Uploads the shadow texels of a rect (inclusive) after they were written: their rows, and the rect for a shared session (`takeSessionShadow`). */
+	touchShadow(r: DirtyRect) {
+		growRect(this.sessionShadow, r.x0, r.z0, r.x1, r.z1)
 		const t = this.bakedTex
 		if (!t) return
+		const { z0, z1 } = r
 		const side = this.shadowSide
 		if (this.shadowUploaded) t.addUpdateRange(z0 * side, (z1 - z0 + 1) * side)
 		t.needsUpdate = true
 		this.shadowVersion++
+	}
+
+	/** The shadow texel rect (inclusive) touched (`touchShadow`) since a shared session last took it (`takeSessionShadow`, lib/session/shadows.ts, #1018). Empty when x0 > x1. */
+	private sessionShadow = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+
+	/** Copies into `out` the shadow texel rect touched since the last call and starts a new one; false when none was. */
+	takeSessionShadow(out: DirtyRect): boolean {
+		return takeRect(this.sessionShadow, out)
 	}
 
 	/**
@@ -895,4 +920,24 @@ export class Terrain {
 		this.cellTex?.dispose()
 		this.cellSrc?.dispose()
 	}
+}
+
+/** Grows the inclusive rect `g` (empty when x0 > x1) over (x0, z0)-(x1, z1). */
+function growRect(g: DirtyRect, x0: number, z0: number, x1: number, z1: number) {
+	g.x0 = Math.min(g.x0, x0)
+	g.z0 = Math.min(g.z0, z0)
+	g.x1 = Math.max(g.x1, x1)
+	g.z1 = Math.max(g.z1, z1)
+}
+
+/** Copies `g` into `out` and empties it; false when it was empty. */
+function takeRect(g: DirtyRect, out: DirtyRect): boolean {
+	const any = g.x0 <= g.x1 && g.z0 <= g.z1
+	out.x0 = g.x0
+	out.z0 = g.z0
+	out.x1 = g.x1
+	out.z1 = g.z1
+	g.x0 = g.z0 = Infinity
+	g.x1 = g.z1 = -Infinity
+	return any
 }

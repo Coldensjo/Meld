@@ -18,11 +18,11 @@ server. #728 is the umbrella; its parts are separate issues:
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
 | Holes | #1016 | Done (`lib/session/holes.ts`) |
 | Painted liquids | #1017 | Done (`lib/session/liquids.ts`) |
-| The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Open |
+| The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Done (`lib/session/chunkData.ts`, `shadows.ts`) |
 | The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Open |
 | The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
 
-Until those are done, a session syncs only the heights, the paint, the holes, the painted liquids and the placed objects: every other
+Until those are done, a session syncs only the heights, the paint, the holes, the painted liquids, the chunk data, the baked shadows and the placed objects: every other
 edit stays on the member who made it, and the host's export carries only the host's.
 
 ## The transport (`internal/session`)
@@ -171,6 +171,32 @@ edit stays on the member who made it, and the host's export carries only the hos
   (`learnLiquidKinds`). Applying is `LiquidMap.set`, which marks the chunk for the renderer, and marks the
   map unsaved. The sea (`meta.waterLevel`, `waterEnabled`) is a per-map setting and goes with the map's
   settings (#1019); `doc.liquidsKnown` travels in the handoff alone.
+- **Chunk data (#1018, `chunkData.ts`, `ChunkDataSync`).** Every change to the session map's zones
+  (`areaIds`), chunk flags (`chunkFlags`, the impassable flag) and no-effect cells (`noEffect`) (the Map
+  data tool, a paste, Reference image › Zones, a script, an undo) goes out as kind `chunkdata`
+  (`KIND_CHUNK_DATA`), data `{id, a?, f?, n?}`: for each grid that changed, an inclusive rect and its
+  values now (`{rect, b}`, base64 row by row; `a` the area IDs, 4 bytes little-endian a chunk, and `f`
+  the flags over paint chunks, `n` the no-effect bytes over cells). `Terrain.touchChunkData`, which every
+  writer calls, grows a chunk rect or, with `cells`, a cell rect for the session (`takeSessionChunkData`;
+  no rect grows both whole); the heights' timer compares them against a mirror of each grid and sends
+  the values that differ, each grid shrunk to its own. The order, the replay (grid by grid), the echo
+  and the held messages are the holes'. Applying writes the values and calls `touchChunkData` with the
+  rects (the overlay, the ground effects through `chunkDataVersion`), and marks the map unsaved.
+  `doc.chunkDataKnown` travels in the handoff alone.
+- **Baked shadows (#1018, `shadows.ts`, `ShadowSync`).** Every change to the session map's baked
+  shadows (Bake Shadows, the Map data tool's Shadow mode, Clear Shadows, a paste, an undo; all through
+  `ShadowStroke`) goes out as kind `shadows` (`KIND_SHADOWS`), data `{id, rect, b}`: an inclusive texel
+  rect and its bits (a bit a texel, in shadow from 128, as the map file keeps them, base64), or
+  `{id, none: true}` when the map's layer went away (`Terrain.shadow` null: an undo of the first stroke
+  on a map without shadows of its own). `Terrain.touchShadow` grows a texel rect for the session
+  (`takeSessionShadow`), compared on the heights' timer against a mirror kept as bits (a byte a texel
+  would be 64 MB for 8x8 tiles). Baking is slow and reads the models: only the member who bakes runs it,
+  the others take the bits. A receiver without a layer makes one, all lit (`ensureShadow`), before
+  writing; a `none` drops it, unless strokes of one's own are unacknowledged, which then stay on an
+  all-lit layer; a `none` of one's own unacknowledged wipes what arrives before it. A layer that appears
+  with nothing touched is the client's, read for a region whose map has none of its own
+  (`Engine.updateBakedShadows`): each member reads its own, so it goes into the mirror unsent (a member
+  whose client has other shadows than the host's would differ there).
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

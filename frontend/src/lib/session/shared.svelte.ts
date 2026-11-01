@@ -36,6 +36,8 @@ import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './h
 import { KIND_PAINT, PaintSync, remapSlots, reorderPalette } from './paint'
 import { HoleSync, KIND_HOLES } from './holes'
 import { KIND_LIQUIDS, LiquidSync } from './liquids'
+import { ChunkDataSync, KIND_CHUNK_DATA } from './chunkData'
+import { KIND_SHADOWS, ShadowSync } from './shadows'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
 import { TILE_YARDS } from '../wow/format'
@@ -163,6 +165,18 @@ const liquids = new LiquidSync({
 	applied: markUnsaved,
 	failed: (err) => setStatus(`A liquid edit did not reach the session: ${err}`, 8000),
 })
+/** The session map's chunk data (#1018): the changed chunks' zones and flags and the changed no-effect cells, sent and applied as the holes are. */
+const chunkData = new ChunkDataSync({
+	send: (data) => sessionSend(0, KIND_CHUNK_DATA, tagged(data)),
+	applied: markUnsaved,
+	failed: (err) => setStatus(`A map data edit did not reach the session: ${err}`, 8000),
+})
+/** The session map's baked shadows (#1018): the changed texels' bits, or none, sent and applied as the holes are. */
+const shadows = new ShadowSync({
+	send: (data) => sessionSend(0, KIND_SHADOWS, tagged(data)),
+	applied: markUnsaved,
+	failed: (err) => setStatus(`A baked shadow edit did not reach the session: ${err}`, 8000),
+})
 /** The session map's placed objects (#1003): the changed objects whole, sent and applied as the heights are. */
 const objects = new ObjectSync({
 	send: (data) => sessionSend(0, KIND_OBJECTS, tagged(data)),
@@ -255,7 +269,7 @@ export function presenceMarker(id: number) {
 	return presenceView?.markerAt(id) ?? null
 }
 
-/** Sends the session map's changed heights, paint, holes, liquids and objects; stops syncing once that map is closed. */
+/** Sends the session map's changed heights, paint, holes, liquids, chunk data, shadows and objects; stops syncing once that map is closed. */
 function flushEdits() {
 	const doc = sessionDoc()
 	const t = doc?.terrain
@@ -275,6 +289,14 @@ function flushEdits() {
 		if (doc?.liquids !== liquids.bound) liquids.unbind()
 		else liquids.flush()
 	}
+	if (chunkData.bound) {
+		if (t !== chunkData.bound) chunkData.unbind()
+		else chunkData.flush()
+	}
+	if (shadows.bound) {
+		if (t !== shadows.bound) shadows.unbind()
+		else shadows.flush()
+	}
 	if (objects.bound) {
 		if (doc?.objects !== objects.bound) objects.unbind()
 		else objects.flush()
@@ -289,6 +311,8 @@ function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
 	paint.bind(d.terrain, afterSeq, ordered)
 	holes.bind(d.terrain, afterSeq)
 	liquids.bind(d.liquids, afterSeq)
+	chunkData.bind(d.terrain, afterSeq)
+	shadows.bind(d.terrain, afterSeq)
 	objects.bind(d.objects, afterSeq, ids)
 }
 
@@ -335,6 +359,8 @@ function subscribe() {
 	paint.wait()
 	holes.wait()
 	liquids.wait()
+	chunkData.wait()
+	shadows.wait()
 	objects.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
 	clearPresence()
@@ -355,6 +381,8 @@ function unsubscribe() {
 	paint.unbind()
 	holes.unbind()
 	liquids.unbind()
+	chunkData.unbind()
+	shadows.unbind()
 	objects.unbind()
 }
 
@@ -480,6 +508,8 @@ function onMessage(m: Message) {
 		case KIND_PAINT:
 		case KIND_HOLES:
 		case KIND_LIQUIDS:
+		case KIND_CHUNK_DATA:
+		case KIND_SHADOWS:
 		case KIND_OBJECTS:
 			receiveEdit(m)
 			return
@@ -498,6 +528,17 @@ function mapForMe(m: Message): boolean {
 	return m.to ? m.to === shared.you : mapGen >= 0
 }
 
+/** The sync of each edit message's kind. */
+const syncs: Record<string, { receive(seq: number, from: number, data: unknown, you: number): void }> = {
+	[KIND_HEIGHTS]: heights,
+	[KIND_PAINT]: paint,
+	[KIND_HOLES]: holes,
+	[KIND_LIQUIDS]: liquids,
+	[KIND_CHUNK_DATA]: chunkData,
+	[KIND_SHADOWS]: shadows,
+	[KIND_OBJECTS]: objects,
+}
+
 /** An edit message: held while a guest has no map yet, dropped when another member made it against another map than this one (#1008). */
 function receiveEdit(m: Message) {
 	if (mapGen < 0) {
@@ -506,7 +547,7 @@ function receiveEdit(m: Message) {
 	}
 	// One's own come back as the acknowledgement, which the sync matches by its own count.
 	if (m.from !== shared.you && editGen(m.data) !== mapGen) return
-	const sync = m.kind === KIND_HEIGHTS ? heights : m.kind === KIND_PAINT ? paint : m.kind === KIND_HOLES ? holes : m.kind === KIND_LIQUIDS ? liquids : objects
+	const sync = syncs[m.kind] ?? objects
 	sync.receive(m.seq, m.from, m.data, shared.you)
 }
 

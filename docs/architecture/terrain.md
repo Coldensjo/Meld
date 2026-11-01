@@ -78,7 +78,7 @@ mask/liquid, image codec or native/game rendering contracts.
   the client's baked shadow maps (MCSH, 64x64 bits a chunk, read by `adt` into `Chunk.Shadow`). The
   `RegionShadows` binding stitches them for the open block, the Engine reads them once per terrain
   (`updateBakedShadows`) into `Terrain.shadow` (a byte per texel, 8 a cell, `shadowSide` a side,
-  uploaded as `bakedShadowTex`, rows at a time through `touchShadow`); the terrain shader keeps 70% of
+  uploaded as `bakedShadowTex`, rows at a time through `touchShadow(rect)`, which also grows the rect a shared session sends, #1018); the terrain shader keeps 70% of
   the light in shadow, as the client does (`terrain/bakedShadows.ts`). They are the map's from then on:
   painted by the Map data tool's Shadow mode, baked from the ground for the client's lighting sun
   (Terrain › Bake Shadows, `bakeShadows`) or cleared, each through `ShadowStroke`; saved in the map

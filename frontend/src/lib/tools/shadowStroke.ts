@@ -41,7 +41,7 @@ export class ShadowStroke {
 			c.x1 = Math.max(c.x1, r.x1)
 			c.z1 = Math.max(c.z1, r.z1)
 		}
-		this.terrain.touchShadow(r.z0, r.z1)
+		this.terrain.touchShadow(r)
 	}
 
 	finish(): Command | null {
@@ -61,7 +61,7 @@ export class ShadowStroke {
 				return
 			}
 			inject(t.ensureShadow(), t.shadowSide, r, undo ? before : after)
-			t.touchShadow(r.z0, r.z1)
+			t.touchShadow(r)
 		}
 		return { label: this.label, bytes: before.byteLength + after.byteLength, undo: () => apply(true), redo: () => apply(false) }
 	}

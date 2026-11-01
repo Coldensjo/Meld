@@ -1100,6 +1100,25 @@ over them, and an applied chunk is not sent back.
 - Trap: the receivers hold depth as the byte the file saves (`d / 255`), the sender its float until it
   reloads, so compare liquids encoded, never the live `depth` arrays across members.
 
+## Chunk data and baked shadows in a session (#1018, probe `session-chunkdata`)
+
+Checks: a change to the zones, impassable flags, no-tuft cells or baked shadows of the session's map goes
+to the others as `chunkdata` and `shadows` messages, the others' are applied in the host's order with
+one's own unacknowledged values over them, and an applied one is not sent back.
+- `bun test tests/sessionChunkData.test.ts`: two `ChunkDataSync` members through a scripted host (the
+  replay rule grid by grid, all three grids edited at once, no echo, the apply's `touchChunkData` rects,
+  only the changed grids sent and each shrunk, a guest holding messages, bad messages ignored whole).
+- `bun test tests/sessionShadows.test.ts`: two `ShadowSync` members (a stroke on a map without shadows
+  making the layer on the others, as bits; a `none` with one's own strokes after it; a stroke under one's
+  own unacknowledged `none`; both members at once with a drop in the middle; the client's layer not sent;
+  held and bad messages). Compare what a save keeps (a bit a texel, or none), not the bytes.
+- `bun run probe session-chunkdata`: the page hosts a flat map (no shadows), the bot sends a chunk's zone
+  and flag, two no-tuft cells and 8 shadowed texels the page must show; then the page sets a zone and flag
+  (`ChunkDataStroke`) and shadows a rect (`ShadowStroke`), undoes both, and the bot's messages applied in
+  `seq` order over an empty map must equal the page's arrays.
+- Trap: a stroke that sets a value already there changes nothing, so its grid is not in the message (a
+  zone stroke over chunks already impassable sends no `f`).
+
 ## Texture paint in a session (#1002, probe `session-paint`)
 
 Checks: a paint change on the session's map goes to the others as `paint` messages (whole chunks, slots
