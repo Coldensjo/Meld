@@ -1068,6 +1068,22 @@ stay over a remote one.
 - Trap: `P` has no `wait`; a probe sleeps with `setTimeout`. A flush needs up to `HEIGHTS_FLUSH_MS`
   after an edit before the message leaves.
 
+## Holes in a session (#1016, probe `session-holes`)
+
+Checks: a hole cut or filled on the session's map goes to the others as `holes` messages (the touched
+cells' bytes), the others' are applied in the host's order with one's own unacknowledged cells over
+them, and an applied hole is not sent back.
+- `bun test tests/sessionHoles.test.ts`: two `HoleSync` members through a scripted host, as the heights
+  test (the replay rule, cutting and filling at once, no echo, the apply's touch and its vertex mark for
+  the chunk rebuild, the rect shrinking to the changed cells, a guest holding messages before its map,
+  bad messages ignored).
+- `bun run probe session-holes`: the page hosts, the bot sends a 2x2 cut the page must show, then the
+  page cuts a hole (`cutHoles`, one undo step) and undoes it; the bot's messages applied in `seq` order
+  over solid ground must equal the page's holes, and only the bot's four cells stay cut. The guest side
+  binds through the same `bindEdits`, which `session-heights-guest` drives.
+- Trap: `cutHoles` takes an end-exclusive cell rect and grows it to whole 2x2 blocks, while the
+  messages' rects are inclusive.
+
 ## Texture paint in a session (#1002, probe `session-paint`)
 
 Checks: a paint change on the session's map goes to the others as `paint` messages (whole chunks, slots

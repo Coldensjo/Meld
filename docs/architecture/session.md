@@ -16,13 +16,13 @@ server. #728 is the umbrella; its parts are separate issues:
 | Placed objects sync, with the id lanes | #1003 | Done (`lib/session/objects.ts`) |
 | Presence: the others' cameras and brushes | #1004 | Done (`lib/session/presence.ts`, `PresenceView.ts`) |
 | Compile, publish and launch by the host only | #1005 | Done (`isGuestMap`, `refuseGuestExport`) |
-| Holes | #1016 | Open |
+| Holes | #1016 | Done (`lib/session/holes.ts`) |
 | Painted liquids | #1017 | Open |
 | The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Open |
 | The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Open |
 | The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
 
-Until those are done, a session syncs only the heights, the paint and the placed objects: every other
+Until those are done, a session syncs only the heights, the paint, the holes and the placed objects: every other
 edit stays on the member who made it, and the host's export carries only the host's.
 
 ## The transport (`internal/session`)
@@ -146,6 +146,17 @@ edit stays on the member who made it, and the host's export carries only the hos
     uses stands.
   - The paint mask is per-user selection state and stays local. A memory cost: the mirror is a second
     copy of the weights (4 bytes a texel).
+- **Holes (#1016, `holes.ts`, `HoleSync`).** Every hole cut or filled in the session's map (the hole
+  brush, Hole walls, the Clear tool, a paste, a script, an undo) goes out as kind `holes` (`KIND_HOLES`),
+  data `{id, rect: {x0, z0, x1, z1}, b}`: an inclusive cell rect and its hole bytes now (base64, row by
+  row). `Terrain.touchHoles`, which every writer of `holes` calls, grows a cell rect for the session
+  (`takeSessionHoles`); the heights' timer compares it against a mirror of the bytes and sends the cells
+  that differ. The order, the replay, the echo and the held messages are the heights', with a cell the
+  unit. Applying writes the bytes, then `touchHoles` (the hole walls, the walkable view) and
+  `markDirty` one vertex past the rect (the chunk rebuild and the ground effects, as an undo does), and
+  marks the map unsaved; the heights' mirror sees that mark changed nothing. `tileMask` (tiles left out,
+  which `isHole` also counts) is map data, not a hole edit (#1019), and `doc.holesKnown` travels in the
+  handoff alone.
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

@@ -313,8 +313,34 @@ export class Terrain {
 	 */
 	touchHoles(r?: { x0: number; z0: number; x1: number; z1: number } | null) {
 		this.holesVersion++
-		if (r) this.growGroundChange(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
-		else this.growGroundChange(0, 0, this.size, this.size)
+		const s = this.sessionHoles
+		if (r) {
+			this.growGroundChange(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
+			s.x0 = Math.min(s.x0, r.x0)
+			s.z0 = Math.min(s.z0, r.z0)
+			s.x1 = Math.max(s.x1, r.x1)
+			s.z1 = Math.max(s.z1, r.z1)
+		} else {
+			this.growGroundChange(0, 0, this.size, this.size)
+			s.x0 = s.z0 = 0
+			s.x1 = s.z1 = this.size - 1
+		}
+	}
+
+	/** The cell rect (inclusive) touched (`touchHoles`) since a shared session last took it (`takeSessionHoles`, lib/session/holes.ts, #1016). Empty when x0 > x1. */
+	private sessionHoles = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+
+	/** Copies into `out` the cell rect whose holes were touched since the last call and starts a new one; false when none were. */
+	takeSessionHoles(out: { x0: number; z0: number; x1: number; z1: number }): boolean {
+		const g = this.sessionHoles
+		const any = g.x0 <= g.x1 && g.z0 <= g.z1
+		out.x0 = g.x0
+		out.z0 = g.z0
+		out.x1 = g.x1
+		out.z1 = g.z1
+		g.x0 = g.z0 = Infinity
+		g.x1 = g.z1 = -Infinity
+		return any
 	}
 
 	/**
