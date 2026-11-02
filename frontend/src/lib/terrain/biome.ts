@@ -331,3 +331,16 @@ export function featherInside(inside: Uint8Array, R: number, rect: { x0: number;
 		}
 	}
 }
+
+/**
+ * The map's biome list without the biome `name`, for undoing the stroke that added it; null when it must stay.
+ * In a shared session another member's biome can have joined the list since (#1049), so the list is never set
+ * back whole. The biome goes only when it is the last (taking one from the middle would renumber the cells
+ * above) and no cell of `cells` names it.
+ */
+export function withoutAddedBiome(list: readonly Biome[], cells: Uint8Array, name: string): Biome[] | null {
+	const i = list.findIndex((b) => b.name === name)
+	if (i < 0 || i !== list.length - 1) return null
+	for (let k = 0; k < cells.length; k++) if (cells[k] === i + 1) return null
+	return list.slice(0, i)
+}

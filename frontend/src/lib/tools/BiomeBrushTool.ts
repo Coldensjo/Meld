@@ -9,7 +9,7 @@ import * as THREE from 'three'
 import { editor as liveEditor, prefs, setStatus } from '../state/editor.svelte'
 import { History, type Command } from '../state/history'
 import { fbm } from '../engine/noise'
-import { biomeLayer, biomeSeed, copyBiome, roleTextures, type Biome } from '../terrain/biome'
+import { biomeLayer, biomeSeed, copyBiome, roleTextures, withoutAddedBiome, type Biome } from '../terrain/biome'
 import { BiomeBlend, BiomeRepainter, MAX_MAP_BIOMES, NO_BIOME, Repaint, biomeBounds, chunksReached, readChunkPaint, writeChunkPaint, type BiomeLayer } from '../terrain/biomeMap'
 import { MAX_PALETTE, SLOTS, chunkTexelRect, paletteIndex } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
@@ -64,6 +64,23 @@ const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringi
 /** A step that sets `editor.palette` or `editor.mapBiomes` back and forth, writing through the editor at call time. */
 function listStep<T>(label: string, set: (v: T[]) => void, before: T[], after: T[]): Command {
 	return { label, undo: () => set([...before]), redo: () => set([...after]) }
+}
+
+/** Takes the biome `name` out of the map's list (`withoutAddedBiome`), leaving it where it must stay. */
+export function dropAddedBiome(t: Terrain, name: string): void {
+	const list = withoutAddedBiome(liveEditor.mapBiomes, t.biomeMap, name)
+	if (list) liveEditor.mapBiomes = list
+}
+
+/** The step of a stroke adding the biome `biome` to the map's list: undo drops just that biome, redo appends it again where missing. */
+function addBiomeStep(t: Terrain, biome: Biome): Command {
+	return {
+		label: 'Add biome',
+		undo: () => dropAddedBiome(t, biome.name),
+		redo: () => {
+			if (!liveEditor.mapBiomes.some((b) => b.name === biome.name) && liveEditor.mapBiomes.length < MAX_MAP_BIOMES) liveEditor.mapBiomes = [...liveEditor.mapBiomes, copyBiome(biome)]
+		},
+	}
 }
 
 /**
@@ -379,7 +396,7 @@ export class BiomeBrushTool extends BrushTool {
 			// The stroke changed no cell: take back the palette and the biome it added.
 			stroke.finish()
 			if (s?.palette) liveEditor.palette = s.palette
-			if (s?.biomes) liveEditor.mapBiomes = s.biomes
+			if (s?.biomes && s.biome) dropAddedBiome(s.terrain, s.biome.name)
 			return
 		}
 		const types = s.id === NO_BIOME ? [] : this.modelTypes(s.biome)
@@ -387,7 +404,7 @@ export class BiomeBrushTool extends BrushTool {
 		const placed = { n: 0 }
 		const cmd = History.batch(this.label, (h) => {
 			if (s.palette) h.push(listStep('Add textures', (v) => (liveEditor.palette = v), s.palette, [...liveEditor.palette]))
-			if (s.biomes) h.push(listStep('Add biome', (v) => (liveEditor.mapBiomes = v), s.biomes, [...liveEditor.mapBiomes]))
+			if (s.biomes && s.biome) h.push(addBiomeStep(s.terrain, s.biome))
 			const paint = stroke.finish()
 			if (paint) h.push(paint)
 			h.push(this.cellsStep(s))
