@@ -175,6 +175,16 @@ export interface GameWindowInfo {
 }
 
 /**
+ * GraveyardList is a map's graveyards, the ID a new one takes, and whether the world database was
+ * read (without it the facings and links are unknown and can't be saved).
+ */
+export interface GraveyardList {
+    "graveyards": vmangos$0.Graveyard[] | null;
+    "nextId": number;
+    "server": boolean;
+}
+
+/**
  * HeightmapData is a square grid of terrain heights read from an image: Side samples a side, row by row.
  */
 export interface HeightmapData {

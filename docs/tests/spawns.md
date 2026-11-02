@@ -680,6 +680,35 @@ server's names and teleports, draws them, and saves them to the client's patch a
   Place the camera outside it (the probe backs off radius + 4 yd). Cameras that follow the ground
   lift the target onto the terrain over the Deadmines' cave, 25 yd above the trigger.
 
+## Graveyards (#947)
+
+Probe: `graveyards` (about 10 s, on the throwaway client; nothing written). Checks: World ›
+Graveyards… lists the open map's WorldSafeLocs.dbc rows with their facings and zone links, draws a
+cross for each, and saves them to the client's patch, the server's DBC copy and the world database.
+- Unit: `internal/vmangos/graveyards_test.go`: `TestSetGraveyardsEditsAddsAndRemoves` (a row saved
+  unchanged leaves the table byte for byte; a moved and renamed row, a new one with the first row's
+  locale mask, a removed one; the refusals), `TestNewGraveyardID` (above the client's, the server
+  copy's and the world tables' highest), `TestGraveyardSQL`, `TestGraveyardExtras` (only links that
+  hold at patch 10), `TestInstallServerSafeLocs`; with the client, `TestClientGraveyards` (the
+  table and Eastern Kingdoms' 51 graveyards written back unchanged; next ID 928). Front end:
+  `tests/graveyardLayer.test.ts` (colours, facing, picking a cross).
+- Probe: on Azeroth (28 53, Westfall) the dialog lists 51 graveyards, the layer draws them, a click
+  on a cross picks it, New graveyard here adds ID 928 named "Westfall Graveyard" linked to Westfall
+  (zone 40), Place a Spirit Healer spawns 6491 three yards off (undone), and a stand-in
+  `SaveGraveyards` gets the one new row.
+- The SQL against the real tables without touching them: in one `mysql` session, `CREATE TEMPORARY
+  TABLE game_graveyard_zone AS SELECT * FROM mangos.game_graveyard_zone` (and add its primary key
+  `(id, ghost_zone, patch_max)`; a temporary table shadows the real one in that session only), run
+  `GraveyardSQL`'s output, then `SELECT` the rows. `game_graveyard_zone` is MyISAM, so a transaction
+  would not roll it back.
+- Trap: the local server runs `WowPatch = 0`, so it loads links with `patch_min` 0 only; stock links
+  from patch 4 on (28 rows, e.g. graveyard 854) hold at 1.12 and are shown, but this server ignores
+  them. A new link is written for patches 0 to 10.
+- Not checked here: a live Save (it writes Meld's patch-3.MPQ, the server's
+  `data/5875/dbc/WorldSafeLocs.dbc` and the world database), and the game check: on a test map, place
+  and save a graveyard linked to the zone, restart the world server, die in that zone and release:
+  the ghost appears at the graveyard, facing its way (the owner's check).
+
 ## Creatures workspace and the new-creature guide (#132)
 
 Checks: Tools › Creatures… (`ui.creatures = true`): the search opens a creature in the editor, and

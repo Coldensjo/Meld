@@ -19,6 +19,7 @@ export type {
     GameClientInfo,
     GameLoginInfo,
     GameWindowInfo,
+    GraveyardList,
     HeightmapData,
     IconDeleted,
     IconPicture,

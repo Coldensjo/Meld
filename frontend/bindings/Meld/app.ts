@@ -601,6 +601,14 @@ export function GameWindow(): $CancellablePromise<$models.GameWindowInfo> {
 }
 
 /**
+ * Graveyards lists the graveyards of map mapID from the client's WorldSafeLocs.dbc, with their
+ * facings and zone links from the world database when there is one, for World › Graveyards.
+ */
+export function Graveyards(mapID: number): $CancellablePromise<$models.GraveyardList> {
+    return $Call.ByID(3124334343, mapID);
+}
+
+/**
  * GroundEffects reads the client's ground effect tables (the grass tufts each texture grows). The
  * first call for a client learns the texture-to-effect pairs from its tiles, which takes a while;
  * progress goes out as "effects:log" events, and the result is cached in the user's cache dir.
@@ -1915,6 +1923,16 @@ export function SaveCreatureSpells(entry: number, spells: vmangos$0.CreatureSpel
  */
 export function SaveGossipOptions(entry: number, options: vmangos$0.GossipOption[] | null): $CancellablePromise<vmangos$0.GreetingSaved> {
     return $Call.ByID(2508450781, entry, options);
+}
+
+/**
+ * SaveGraveyards writes World › Graveyards' changed graveyards (rows, whole) and removed ones (remove,
+ * by ID) into the client's WorldSafeLocs.dbc (Meld's patch) and the server's copy, and their facings
+ * and zone links into the world database. Nothing is closed or restarted (#661): the running world
+ * server reloads the links, and the result says when it needs a restart for the places and facings.
+ */
+export function SaveGraveyards(rows: vmangos$0.Graveyard[] | null, remove: number[] | null): $CancellablePromise<$models.AreaSaveResult> {
+    return $Call.ByID(3099868938, rows, remove);
 }
 
 /**

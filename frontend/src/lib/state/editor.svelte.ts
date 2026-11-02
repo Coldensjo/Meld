@@ -486,6 +486,7 @@ export type DialogId =
 	| 'effects'
 	| 'zones'
 	| 'portals'
+	| 'graveyards'
 	| 'lights'
 	| 'looks'
 	| 'heightmap'

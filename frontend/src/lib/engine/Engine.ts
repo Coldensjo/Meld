@@ -145,6 +145,7 @@ import { WEATHER_GRADE } from '../wow/weather'
 import { WeatherLayer, type SplashGround } from '../world/WeatherLayer'
 import { editorPoint, serverSpot, teleportCommand, wmoOnlyTiles, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
+import { GraveyardLayer, type GraveyardShape } from '../world/GraveyardLayer'
 import type { TaxiHooks, TaxiPick, TaxiRouteShape, TaxiStopShape } from '../world/TaxiLayer'
 import type { Vec3 } from '../world/taxiRoute'
 import { antialiasAtStart } from './display'
@@ -955,7 +956,7 @@ export class Engine {
 			selectedObject: () => self.selectedObject(),
 			selectionPivot: (targets) => self.selectionPivot(targets),
 		})
-		this.scene.add(this.taxi.layer.group, ...this.transports.groups)
+		this.scene.add(this.taxi.layer.group, ...this.transports.groups, this.graveyardLayer.group)
 		this.ctx = {
 			get terrain() {
 				return self.terrain
@@ -1183,6 +1184,7 @@ export class Engine {
 		this.poolOutline.dispose()
 		for (const d of this.documents) d.dispose()
 		this.triggerLayer.dispose()
+		this.graveyardLayer.dispose()
 		this.taxi.dispose()
 		this.transports.dispose()
 		this.nav.dispose()
@@ -1440,6 +1442,8 @@ export class Engine {
 				}
 				// The Flight Paths window takes a click on a stop or a route point, or one that draws a point.
 				if (this.taxi.press(e)) return
+				// World › Graveyards takes a click on a graveyard's cross (#947).
+				if (this.graveyardPress()) return
 				// World › Transports takes a click on a transport's route or dock (#954).
 				if (this.transports.press()) return
 				// While the reference image is being placed, the top-down view's presses drag it (#184).
@@ -1780,6 +1784,7 @@ export class Engine {
 		this.updateTriggers()
 		this.taxi.update(this.prefs.showFlightPaths, this.topDown)
 		this.transports.update(this.prefs.showTransports, this.topDown)
+		this.graveyardLayer.group.visible = this.graveyardPicked !== null && !this.topDown
 		this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightUploadVersion, ui.historyVersion)
 		m.mark(SECTION.Objects)
 		// Lights first: culling keeps what can throw the shadowed lights' shadows.
@@ -2399,6 +2404,36 @@ export class Engine {
 		this.triggers.edited = true
 		const o = this.serverTiles(this.doc)
 		this.triggerLayer.set(list, o.x, o.y, selected)
+	}
+
+	// ---------------------------------------------------------------- graveyards (#947)
+
+	/** World › Graveyards' graveyards, drawn while it is open. */
+	readonly graveyardLayer = new GraveyardLayer()
+	/** How World › Graveyards hears of a cross clicked in the viewport; null while it is closed. */
+	private graveyardPicked: ((id: number) => void) | null = null
+
+	/** Draws World › Graveyards' list (server coordinates), `selected` highlighted, and hands a click on a cross to `picked` until endGraveyardEdit. */
+	showGraveyards(list: readonly GraveyardShape[], selected: number | null, picked: (id: number) => void) {
+		this.graveyardPicked = picked
+		const o = this.serverTiles(this.doc)
+		this.graveyardLayer.set(list, o.x, o.y, selected)
+	}
+
+	/** World › Graveyards closed: the graveyards are no longer drawn. */
+	endGraveyardEdit() {
+		this.graveyardPicked = null
+		this.graveyardLayer.set([], 0, 0, null)
+	}
+
+	/** A left press while World › Graveyards is open: on a graveyard's cross it picks it. Returns false when the press is the tool's. */
+	private graveyardPress(): boolean {
+		if (!this.graveyardPicked || !this.graveyardLayer.group.visible) return false
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		const id = this.graveyardLayer.pick(this.raycaster)
+		if (id === null) return false
+		this.graveyardPicked(id)
+		return true
 	}
 
 	/** The Portals dialog closed: Show › Area triggers reads the map's triggers again (they may have been saved). */

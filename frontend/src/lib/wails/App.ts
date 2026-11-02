@@ -93,6 +93,7 @@ export const GameClient: Call<AppApi['GameClient']> = (...a) => api().GameClient
 export const GameEvents: NonNullCall<AppApi['GameEvents']> = (...a) => api().GameEvents(...a) as never
 export const GameLogin: Call<AppApi['GameLogin']> = (...a) => api().GameLogin(...a) as never
 export const GameWindow: Call<AppApi['GameWindow']> = (...a) => api().GameWindow(...a) as never
+export const Graveyards: Call<AppApi['Graveyards']> = (...a) => api().Graveyards(...a) as never
 export const GroundEffects: NonNullCall<AppApi['GroundEffects']> = (...a) => api().GroundEffects(...a) as never
 export const HostSession: Call<AppApi['HostSession']> = (...a) => api().HostSession(...a) as never
 export const IconState: Call<AppApi['IconState']> = (...a) => api().IconState(...a) as never
@@ -263,6 +264,7 @@ export const SaveCreature: Call<AppApi['SaveCreature']> = (...a) => api().SaveCr
 export const SaveCreatureQuests: Call<AppApi['SaveCreatureQuests']> = (...a) => api().SaveCreatureQuests(...a) as never
 export const SaveCreatureSpells: Call<AppApi['SaveCreatureSpells']> = (...a) => api().SaveCreatureSpells(...a) as never
 export const SaveGossipOptions: Call<AppApi['SaveGossipOptions']> = (...a) => api().SaveGossipOptions(...a) as never
+export const SaveGraveyards: Call<AppApi['SaveGraveyards']> = (...a) => api().SaveGraveyards(...a) as never
 export const SaveGreeting: Call<AppApi['SaveGreeting']> = (...a) => api().SaveGreeting(...a) as never
 export const SaveHeightmapDialog: Call<AppApi['SaveHeightmapDialog']> = (...a) => api().SaveHeightmapDialog(...a) as never
 export const SaveImageDialog: Call<AppApi['SaveImageDialog']> = (...a) => api().SaveImageDialog(...a) as never

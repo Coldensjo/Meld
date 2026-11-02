@@ -618,6 +618,24 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   name, and lists maps, and teleport targets, this client's Map.dbc lacks: the server checks a
   teleport's map against its own DBCs and drops one it lacks. A trigger name may be 128 characters
   (`areatrigger_template`, stock names reach 85); the teleport's copy is cut to its column's 64.
+- **Graveyards** (#947): World › Graveyards (`GraveyardsDialog.svelte`, bindings `Graveyards` and
+  `SaveGraveyards` in `app_graveyards.go`, `internal/vmangos/graveyards.go`) lists the open map's
+  WorldSafeLocs.dbc rows (ID, map, x, y, z, eight names, a locale mask: 14 fields), with each one's
+  facing (`world_safe_locs_facing`) and the zones it serves (`game_graveyard_zone`: a zone or area, for
+  anyone 0, the Horde 67 or the Alliance 469). VMaNGOS sends a ghost to the nearest graveyard linked to
+  the area it died in, else to its zone (`ObjectMgr::GetClosestGraveYard`), so a new zone needs a link.
+  Only links whose patch range holds at 1.12 (`patch_max` 10) are shown; `GraveyardSQL` leaves a link
+  the row still lists as it is (whatever its patches), deletes the others, and writes a new one for
+  patches 0 to 10. A new ID is above the client's table, the server's copy and both world tables, so
+  it never inherits a removed graveyard's rows. Save writes the table into Meld's patch and the
+  server's `data/5875/dbc` copy (as the taxi routes, `installServerDBC`; refused with an external
+  database when the table changes), then the SQL; a running server reloads `game_graveyard_zone`
+  (`worldReloads`) but reads the table and the facings only at its start, which the result's
+  `restart` says. A form saved with Save, not undo steps (#83). `world/GraveyardLayer.ts` draws a
+  cross per graveyard while the dialog is open (coloured by its links' factions, a line along its
+  facing); a left press on a cross picks it (`Engine.graveyardPress`, before the tools). Place a
+  Spirit Healer spawns creature 6491 three yards to the graveyard's left through
+  `SpawnActions.placeCreature`: an ordinary spawn and undo step, saved with the map's spawns.
 - **A spawn's scripts** (#137): the editors' This spawn tab (`SpawnFields.svelte`) lists, read-only,
   what the world database attaches to the spawn (`ScriptFields.svelte`, the `SpawnScripts` binding,
   `internal/vmangos/scripts.go`, one query): its template's `script_name` (C++), a creature's

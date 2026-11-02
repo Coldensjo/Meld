@@ -414,6 +414,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'Zones…', disabled: !backend, run: () => (ui.dialog = 'zones') },
 				{ kind: 'action', label: 'World Map…', disabled: !backend, run: () => (ui.dialog = 'worldMap') },
 				{ kind: 'action', label: 'Portals and Area Triggers…', disabled: !backend, run: () => (ui.dialog = 'portals') },
+				{ kind: 'action', label: 'Graveyards…', disabled: !backend, run: () => (ui.dialog = 'graveyards') },
 				{ kind: 'action', label: 'Flight Paths…', disabled: !backend, run: () => (ui.flightPaths = true) },
 				{ kind: 'action', label: 'Transports (Boats and Zeppelins)…', disabled: !backend, run: () => (ui.transports = true) },
 				{ kind: 'action', label: 'Lights…', disabled: !backend, run: () => (ui.dialog = 'lights') },

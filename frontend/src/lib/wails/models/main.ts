@@ -15,6 +15,7 @@ export type GameCharacterInfo = V2<M.GameCharacterInfo>
 export type GameClientInfo = V2<M.GameClientInfo>
 export type GameLoginInfo = V2<M.GameLoginInfo>
 export type GameWindowInfo = V2<M.GameWindowInfo>
+export type GraveyardList = V2<M.GraveyardList>
 export type HeightmapData = V2<M.HeightmapData>
 export type IconDeleted = V2<M.IconDeleted>
 export type IconPicture = V2<M.IconPicture>

@@ -54,6 +54,8 @@ export type {
     Gossip,
     GossipOption,
     GossipText,
+    Graveyard,
+    GraveyardLink,
     GreetingSaved,
     GroundEffect,
     GroundEffectTables,

@@ -69,6 +69,10 @@ func worldReloads(save string, entries ...int) (cmds []string, restart string) {
 		return cmds, "the item itself, which it keeps until it restarts"
 	case "SaveWeather":
 		return []string{"game_weather"}, ""
+	case "SaveGraveyards":
+		// The places (WorldSafeLocs.dbc) and facings are read only at the start: SaveGraveyards'
+		// result says so when they changed.
+		return []string{"game_graveyard_zone"}, ""
 	case "SaveSpell", "CreateSpell", "ImportSpells":
 		return []string{"spell_template"}, ""
 	}

@@ -33,6 +33,7 @@ func TestWorldReloads(t *testing.T) {
 		{"SaveGreeting", []int{5}, "", true},
 		{"SaveSpell", nil, "spell_template", false},
 		{"SaveWeather", nil, "game_weather", false},
+		{"SaveGraveyards", nil, "game_graveyard_zone", false},
 		{"SaveMap", nil, "", false},
 	}
 	for _, c := range cases {

@@ -59,6 +59,7 @@ func TestSandboxRefusesWorldDatabaseWrites(t *testing.T) {
 		"SaveAreas":           func() error { _, err := a.SaveAreas(nil, nil); return err },
 		"SaveAreaTriggers":    func() error { _, err := a.SaveAreaTriggers(nil, nil); return err },
 		"SaveTaxi":            func() error { _, err := a.SaveTaxi(vmangos.TaxiEdit{}); return err },
+		"SaveGraveyards":      func() error { _, err := a.SaveGraveyards(nil, nil); return err },
 		"EquipmentFor":        func() error { _, err := a.EquipmentFor([3]int{1, 0, 0}); return err },
 	}
 	for name, call := range calls {

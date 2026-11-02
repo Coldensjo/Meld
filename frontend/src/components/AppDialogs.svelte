@@ -12,6 +12,7 @@
 	import MapPropertiesDialog from './MapPropertiesDialog.svelte'
 	import GroundEffectsDialog from './GroundEffectsDialog.svelte'
 	import PortalsDialog from './PortalsDialog.svelte'
+	import GraveyardsDialog from './GraveyardsDialog.svelte'
 	import ZonesDialog from './ZonesDialog.svelte'
 	import WorldMapDialog from './WorldMapDialog.svelte'
 	import LightsDialog from './LightsDialog.svelte'
@@ -417,6 +418,8 @@
 	<WorldMapDialog onclose={close} />
 {:else if ui.dialog === 'portals'}
 	<PortalsDialog onclose={close} />
+{:else if ui.dialog === 'graveyards'}
+	<GraveyardsDialog onclose={close} />
 {:else if ui.dialog === 'lights'}
 	<LightsDialog onclose={close} />
 {:else if ui.dialog === 'stack'}

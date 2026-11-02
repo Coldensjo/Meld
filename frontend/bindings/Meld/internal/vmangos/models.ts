@@ -869,6 +869,29 @@ export interface GossipText {
 }
 
 /**
+ * Graveyard is a WorldSafeLocs row in the server's coordinates (yards, Z up), with its facing and its
+ * links from the world database (empty without a server folder).
+ */
+export interface Graveyard {
+    "id": number;
+    "mapId": number;
+    "x": number;
+    "y": number;
+    "z": number;
+    "o": number;
+    "name": string;
+    "links": GraveyardLink[] | null;
+}
+
+/**
+ * GraveyardLink is a zone (or area) a graveyard serves, and for whom.
+ */
+export interface GraveyardLink {
+    "zone": number;
+    "faction": number;
+}
+
+/**
  * GreetingSaved is what SaveGreeting changed: the creature's gossip menu now, and the SQL it ran.
  */
 export interface GreetingSaved {
