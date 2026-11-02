@@ -126,6 +126,7 @@ export const JoinSession: Call<AppApi['JoinSession']> = (...a) => api().JoinSess
 export const LaunchGame: Call<AppApi['LaunchGame']> = (...a) => api().LaunchGame(...a) as never
 export const LaunchGameAt: Call<AppApi['LaunchGameAt']> = (...a) => api().LaunchGameAt(...a) as never
 export const LeaveSession: Call<AppApi['LeaveSession']> = (...a) => api().LeaveSession(...a) as never
+export const LiftMotions: NonNullCall<AppApi['LiftMotions']> = (...a) => api().LiftMotions(...a) as never
 export const LiquidTypes: NonNullCall<AppApi['LiquidTypes']> = (...a) => api().LiquidTypes(...a) as never
 export const ListAccounts: NonNullCall<AppApi['ListAccounts']> = (...a) => api().ListAccounts(...a) as never
 export const ListBrushImages: NonNullCall<AppApi['ListBrushImages']> = (...a) => api().ListBrushImages(...a) as never
@@ -161,6 +162,7 @@ export const MouseLookBegin: Call<AppApi['MouseLookBegin']> = (...a) => api().Mo
 export const MouseLookEnd: Call<AppApi['MouseLookEnd']> = (...a) => api().MouseLookEnd(...a) as never
 export const MouseLookRecenter: Call<AppApi['MouseLookRecenter']> = (...a) => api().MouseLookRecenter(...a) as never
 export const NewAreaRow: Call<AppApi['NewAreaRow']> = (...a) => api().NewAreaRow(...a) as never
+export const NewLiftEntry: Call<AppApi['NewLiftEntry']> = (...a) => api().NewLiftEntry(...a) as never
 export const NewLightIDs: Call<AppApi['NewLightIDs']> = (...a) => api().NewLightIDs(...a) as never
 export const NewTransportIDs: Call<AppApi['NewTransportIDs']> = (...a) => api().NewTransportIDs(...a) as never
 export const NextCreatureGUID: Call<AppApi['NextCreatureGUID']> = (...a) => api().NextCreatureGUID(...a) as never
@@ -277,6 +279,7 @@ export const SaveHeightmapDialog: Call<AppApi['SaveHeightmapDialog']> = (...a) =
 export const SaveImageDialog: Call<AppApi['SaveImageDialog']> = (...a) => api().SaveImageDialog(...a) as never
 export const SaveInventory: Call<AppApi['SaveInventory']> = (...a) => api().SaveInventory(...a) as never
 export const SaveItem: Call<AppApi['SaveItem']> = (...a) => api().SaveItem(...a) as never
+export const SaveLift: Call<AppApi['SaveLift']> = (...a) => api().SaveLift(...a) as never
 export const SaveLights: Call<AppApi['SaveLights']> = (...a) => api().SaveLights(...a) as never
 export const SaveMap: Call<AppApi['SaveMap']> = (...a) => api().SaveMap(...a) as never
 export const SaveMapDialog: Call<AppApi['SaveMapDialog']> = (...a) => api().SaveMapDialog(...a) as never

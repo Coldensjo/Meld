@@ -1317,6 +1317,40 @@ export interface LayerView {
 }
 
 /**
+ * LiftEdit is what World › Lifts saves: a template's loop, and for a new lift (New) its template's
+ * name, model (a display) and size.
+ */
+export interface LiftEdit {
+    "entry": number;
+    "new": boolean;
+    "name": string;
+    "displayId": number;
+    "size": number;
+    "frames": LiftFrame[] | null;
+}
+
+/**
+ * LiftFrame is a keyframe of a lift's loop: Time milliseconds after the loop's start, the lift stands
+ * X, Y and Z yards from its spawn (the server's axes, before the spawn's rotation). Seq is the model's
+ * animation for the span after it, kept as the table has it.
+ */
+export interface LiftFrame {
+    "time": number;
+    "x": number;
+    "y": number;
+    "z": number;
+    "seq": number;
+}
+
+/**
+ * LiftMotion is a lift template's loop: its keyframes in time order.
+ */
+export interface LiftMotion {
+    "entry": number;
+    "frames": LiftFrame[] | null;
+}
+
+/**
  * LightKey is one key of a band: the time in half-minutes and the value (an 0xRRGGBB colour for a
  * colour band, the number for a float band).
  */

@@ -877,6 +877,14 @@ export function LeaveSession(): $CancellablePromise<void> {
 }
 
 /**
+ * LiftMotions lists every lift template's loop in the client's TransportAnimation.dbc, as the game
+ * will see it.
+ */
+export function LiftMotions(): $CancellablePromise<vmangos$0.LiftMotion[] | null> {
+    return $Call.ByID(2309990279);
+}
+
+/**
  * LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
  */
 export function LiquidTypes(): $CancellablePromise<vmangos$0.LiquidTypeEntry[] | null> {
@@ -1134,6 +1142,14 @@ export function MouseLookRecenter(): $CancellablePromise<void> {
  */
 export function NewAreaRow(mapID: number, parent: number): $CancellablePromise<vmangos$0.AreaRow> {
     return $Call.ByID(830434100, mapID, parent);
+}
+
+/**
+ * NewLiftEntry is the entry a new lift's template takes: the world database's first free game object
+ * entry.
+ */
+export function NewLiftEntry(): $CancellablePromise<number> {
+    return $Call.ByID(2862385436);
 }
 
 /**
@@ -2034,6 +2050,17 @@ export function SaveInventory(guid: number, items: vmangos$0.InventoryItem[] | n
  */
 export function SaveItem(entry: number, patch: number, values: { [_ in string]?: string } | null): $CancellablePromise<$models.TemplateSaved> {
     return $Call.ByID(1529103551, entry, patch, values);
+}
+
+/**
+ * SaveLift writes a lift's loop into the client's TransportAnimation.dbc (Meld's patch: the client
+ * moves the lift from its own copy) and the server's data, and a new lift's template (type 11) into
+ * the world database first. The world server reads lifts only when it starts: the result says when it
+ * runs and needs a restart. Saving again rewrites the same rows, so a save that failed half way is
+ * finished by another.
+ */
+export function SaveLift(edit: vmangos$0.LiftEdit): $CancellablePromise<$models.LiftSaveResult> {
+    return $Call.ByID(4186638725, edit);
 }
 
 /**

@@ -21,6 +21,7 @@ export type IconDeleted = V2<M.IconDeleted>
 export type IconPicture = V2<M.IconPicture>
 export type IconsExported = V2<M.IconsExported>
 export type IconsImported = V2<M.IconsImported>
+export type LiftSaveResult = V2<M.LiftSaveResult>
 export type LightIDs = V2<M.LightIDs>
 export type LoadingScreenResult = V2<M.LoadingScreenResult>
 export type OwnDisplay = V2<M.OwnDisplay>

@@ -681,6 +681,29 @@ Go on to another continent, and what Save hands `SaveTransport`.
   waits, and a player riding it arrives with it). The owner's check: New transport on a lake of a test
   map, Save, restart the world server, ride it.
 
+## Lifts and elevators (#956)
+
+Probe: `lift-edit`.
+
+Checks: World › Lifts lists the open region's type 11 game objects, draws the picked one's loop from
+TransportAnimation.dbc and plays its model through it; Edit loop, New lift and what Save hands `SaveLift`.
+- Unit: `internal/vmangos/lifts_test.go` (the rows read in time order; a loop replaced on its old IDs,
+  new frames past the highest, the left-over rows taken out; `CheckLiftFrames`' refusals; the new
+  template's SQL; and `TestClientLifts`, with the client: every one of its loops passes the check,
+  Thunder Bluff's 4171 rises about 61.6 yd in 30 s, and writing every loop back gives the same bytes);
+  `tests/liftMotion.test.ts` (the client's evaluator: waits, even moves, the wrap; an offset turned by
+  the facing; the stops; the TS check).
+- Live: probe `lift-edit` (Azeroth 31_41, the gnomes' elevator 152614, guid 9290, five frames, the third
+  12.8 yd below the spawn): the pick selects the spawn and draws five points, Play plays, Edit loop and a
+  new height hand `SaveLift` the five frames with their times; New lift (`NewLiftEntry` stood in) starts
+  the default five frames, Add move makes six, Save places the new lift as a spawn (undone).
+  `SaveLift` and `NewLiftEntry` are stood in: nothing is written.
+- Trap: the region's trees hide the elevator from most camera spots, so a screenshot shows little; the
+  probe reads `engine.lifts.points` and `playedMs` instead.
+- Not checked here: a real save into the client and the server, and a lift in the game (it carries a
+  player up and down). The owner's check: Edit loop on a lift (or New lift and Save Spawns to Database),
+  restart the world server and the game, ride it.
+
 ## Portals and area triggers (#141, #18)
 
 Probes: `teleport-trigger` (#306), `portals-fit` (#718) and `portal-scripts` (#943); a write is a hand check.

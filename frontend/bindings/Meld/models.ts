@@ -235,6 +235,16 @@ export interface IconsImported {
 }
 
 /**
+ * LiftSaveResult is what SaveLift wrote: Save's result (AreaSaveResult's fields).
+ */
+export interface LiftSaveResult {
+    "patch": string;
+    "server": boolean;
+    "waiting": boolean;
+    "restart": boolean;
+}
+
+/**
  * LightIDs are the IDs a new light and its params row take (see vmangos.NewLightIDs).
  */
 export interface LightIDs {

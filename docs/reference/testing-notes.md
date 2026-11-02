@@ -929,6 +929,7 @@ the same scene, the report before and after.
 - Flight paths (#180, probe `flight-paths`)
 - Boats and zeppelins (#954, probe `transports`)
 - Making and editing boats and zeppelins (#955, probe `transport-edit`, `TestClientTransportPeriods`)
+- Lifts and elevators (#956, probe `lift-edit`, `TestClientLifts`)
 - Creatures workspace and the new-creature guide (#132)
 - The database editors' shared frame (#576, unit `templateEditor.test.ts`)
 - Quest editor (#259)

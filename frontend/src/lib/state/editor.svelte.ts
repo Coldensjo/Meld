@@ -572,6 +572,10 @@ export const ui = $state({
 	transports: false,
 	/** The transport (entry) whose preview is sailing (Engine.sailTransport), null for none; Esc or Stop ends it. */
 	transportSailing: null as number | null,
+	/** World › Lifts: the window that lists the open region's lifts and elevators (type 11 game objects) and edits their loops (#956). */
+	lifts: false,
+	/** A lift's preview is playing (Engine.playLift); Esc or Stop ends it. */
+	liftPlaying: false,
 	/** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
 	weaponPick: null as { key: string; slot: number } | null,
 	/** The yes/no prompt open over everything else (`lib/state/confirm.ts` askConfirm, #581); null when none. */

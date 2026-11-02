@@ -423,6 +423,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'Graveyards…', disabled: !backend, run: () => (ui.dialog = 'graveyards') },
 				{ kind: 'action', label: 'Flight Paths…', disabled: !backend, run: () => (ui.flightPaths = true) },
 				{ kind: 'action', label: 'Transports (Boats and Zeppelins)…', disabled: !backend, run: () => (ui.transports = true) },
+				{ kind: 'action', label: 'Lifts and Elevators…', disabled: !backend, run: () => (ui.lifts = true) },
 				{ kind: 'action', label: 'Lights…', disabled: !backend, run: () => (ui.dialog = 'lights') },
 			],
 		},

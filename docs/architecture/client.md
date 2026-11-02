@@ -775,6 +775,32 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   period off by a millisecond drifts further every trip. It matches the nine live transports' rows to
   the millisecond (`TestClientTransportPeriods`). The world server reads transports only when it
   starts: the result's `restart` says so. Not built: deleting a transport.
+- **Lifts and elevators** (#956, World › Lifts and Elevators…, `components/LiftsWindow.svelte`,
+  `ui.lifts`): a game object of type 11 moves along a loop of keyframes in `TransportAnimation.dbc`
+  (ID, template entry, time in ms, the offset x, y, z from the spawn, and a SequenceID that nothing
+  reads and Meld keeps), keyed by the template's entry, so every spawn of an entry moves alike. The
+  offset is turned by the spawn's rotation; between frames the lift moves evenly, two frames at one
+  offset are a wait, and the last frame's time is the loop, which starts again at time 0. The client
+  moves the lift from its own copy (Benilla's `elevators.rs`, the client's 0x5f6280) and VMaNGOS from
+  its own (`ElevatorTransport::Update`), so a save writes both; both read the table, and the server its
+  type 11 spawns (`AddElevatorTransportForMap`), only when they start. `internal/vmangos/lifts.go`
+  reads the loops (`ReadLiftMotions`, `App.LiftMotions`, through `readOverlay` so a save waiting for the
+  game shows) and writes one (`SetLiftFrames`: the entry's old row IDs in order, then past the table's
+  highest; `CheckLiftFrames`: two frames or more, the first at 0, each later than the one before, since
+  the server keys them by time). The window lists the region's type 11 spawns (`editor.spawns`), and
+  the selected spawn, when it is a lift, is the one shown: `engine/LiftView.ts` (`Engine.showLift`)
+  draws its loop over the map and `playLift` moves a `GhostPool` model through it as the client does
+  (`world/liftMotion.ts` `liftOffset`, `liftPoint`: the server's offset turned by the spawn's facing and
+  tilt in the editor's axes); the spawn's own model stays put. Edit loop makes a draft of the frames
+  (each a span after the one before and an offset), New lift one of a new type 11 template under the
+  camera (`App.NewLiftEntry`, the first free entry; a model from the type 11 templates' displays; the
+  loop `defaultLiftFrames`). `App.SaveLift` (`app_lifts.go`) writes a new lift's template first
+  (`LiftSQL`: `INSERT IGNORE` of a type 11 row with flags 0x28, then an `UPDATE`), refuses an entry of
+  another type, and writes the table into Meld's patch and the server's `data/5875/dbc`; the window
+  then places a new lift as a spawn (`Engine.placeObject`, an undo step saved by Save Spawns to
+  Database). A form saved with Save, as the transports' (decision #83). Trap: a spawn is drawn by its
+  facing and tilt, not the database's quaternion, so a lift whose quaternion turns otherwise than its
+  orientation (half the Deeprun Tram's cars: orientation π/2, quaternion -π/2) draws its loop turned.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor,
   or by Tools › Game Objects… (`entry: 0`, no spawn), which opens on Find object (#351): the same

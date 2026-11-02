@@ -179,6 +179,7 @@ import { SpawnActions } from './SpawnActions'
 import { TaxiEditing } from './TaxiEditing'
 import { TransportView, type SailOptions, type TransportHooks } from './TransportView'
 import type { TransportShape } from '../world/TransportLayer'
+import { LiftView, type LiftShape } from './LiftView'
 import { GizmoDrag } from './GizmoDrag'
 import { DocOverlay } from './docOverlay'
 import { SpawnPaths } from '../world/SpawnPaths'
@@ -892,6 +893,14 @@ export class Engine {
 			sceneView: () => self.sceneView(),
 			setSceneView: (v) => self.setSceneView(v),
 		})
+		this.lifts = new LiftView({
+			get doc() {
+				return self.doc
+			},
+			get timer() {
+				return self.timer
+			},
+		})
 		this.reference = new ReferencePlacement({
 			get doc() {
 				return self.doc
@@ -962,7 +971,7 @@ export class Engine {
 			selectedObject: () => self.selectedObject(),
 			selectionPivot: (targets) => self.selectionPivot(targets),
 		})
-		this.scene.add(this.taxi.layer.group, ...this.transports.groups, this.graveyardLayer.group)
+		this.scene.add(this.taxi.layer.group, ...this.transports.groups, ...this.lifts.groups, this.graveyardLayer.group)
 		this.ctx = {
 			get terrain() {
 				return self.terrain
@@ -1194,6 +1203,7 @@ export class Engine {
 		this.graveyardLayer.dispose()
 		this.taxi.dispose()
 		this.transports.dispose()
+		this.lifts.dispose()
 		this.nav.dispose()
 		this.gizmo.dispose()
 		for (const t of Object.values(this.tools)) t.dispose?.()
@@ -1689,6 +1699,7 @@ export class Engine {
 		this.updateSurround()
 		this.taxi.updateFlight()
 		this.transports.updateSail()
+		this.lifts.update()
 		this.updateTopDown()
 		this.fillFrameView(dt, time)
 		this.updateEnvironment(dt, time)
@@ -2260,6 +2271,31 @@ export class Engine {
 	/** Ends a transport's preview. */
 	stopTransportSail() {
 		this.transports.stopSail()
+	}
+
+	// ---------------------------------------------------------------- lifts and elevators (#956)
+
+	/** World › Lifts' picked lift drawn over the map and its preview (LiftView.ts). */
+	readonly lifts: LiftView
+
+	/** Draws a lift's loop over the map (World › Lifts' pick or draft); null draws none. */
+	showLift(lift: LiftShape | null) {
+		this.lifts.show(lift)
+	}
+
+	/** Moves the shown lift's model through its loop, `rate` times its own speed; false when it has none. */
+	playLift(rate: number): boolean {
+		return this.lifts.startPlay(rate)
+	}
+
+	/** Changes a lift preview's playback speed. */
+	setLiftRate(rate: number) {
+		this.lifts.setRate(rate)
+	}
+
+	/** Ends a lift's preview. */
+	stopLiftPlay() {
+		this.lifts.stopPlay()
 	}
 
 	// ---------------------------------------------------------------- walkable ground (#175)

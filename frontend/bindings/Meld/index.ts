@@ -25,6 +25,7 @@ export type {
     IconPicture,
     IconsExported,
     IconsImported,
+    LiftSaveResult,
     LightIDs,
     LoadingScreenResult,
     OwnDisplay,
