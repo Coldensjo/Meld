@@ -231,9 +231,11 @@ export function defaultPrefs() {
 		prefabDir: '',
 		/** How a placed prefab varies (#170): `on`, each root turned up to `turn` degrees, scaled by up to `scale`, dropped with the chance `drop`. */
 		prefabVary: { on: false, turn: 15, scale: 0.1, drop: 0 },
-		/** The Item Editor's search order (#677): a key of `vmangos.itemSorts` (name, entry, quality, itemLevel, requiredLevel), and whether it runs high to low. */
+		/** The Item Editor's search order (#677): a key of `vmangos.itemSorts` (name, entry, quality, itemLevel, requiredLevel, dps), and whether it runs high to low. */
 		itemSort: 'name',
 		itemSortDesc: false,
+		/** The Item Editor's patch filter (#966): only the items a content patch introduced (their first item_template row's patch), -1 for any. */
+		itemPatch: -1,
 		/** File › Host Session and Join Session (#1000): the name shown to the others, the port hosted on and the last host joined. */
 		shareName: '',
 		sharePort: 34180,

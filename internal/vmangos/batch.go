@@ -66,6 +66,15 @@ func (r batchRow) f32(i int) float32 {
 	return float32(v)
 }
 
+// f64 reads field i as a float, 0 when it is missing or not one.
+func (r batchRow) f64(i int) float64 {
+	if i >= len(r) {
+		return 0
+	}
+	v, _ := strconv.ParseFloat(strings.TrimSpace(r[i]), 64)
+	return v
+}
+
 func atou(s string) uint32 {
 	v, _ := strconv.ParseUint(strings.TrimSpace(s), 10, 32)
 	return uint32(v)

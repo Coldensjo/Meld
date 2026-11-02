@@ -46,6 +46,8 @@ test('an editor window command is read only when well formed', () => {
 	expect(readEditorCommand({ type: 'status' })).toBeNull()
 	// Only the preferences the window writes, of the right type.
 	expect(readEditorCommand({ type: 'prefs', prefs: { itemSort: 'quality', itemSortDesc: 'yes', theme: 'light' } })).toEqual({ type: 'prefs', prefs: { itemSort: 'quality' } })
+	expect(readEditorCommand({ type: 'prefs', prefs: { itemPatch: 3 } })).toEqual({ type: 'prefs', prefs: { itemPatch: 3 } })
+	expect(readEditorCommand({ type: 'prefs', prefs: { itemPatch: '3' } })).toEqual({ type: 'prefs', prefs: {} })
 	expect(readEditorCommand({ type: 'forget', forget: { items: [3, 'x', 4], looks: true } })).toEqual({
 		type: 'forget',
 		forget: { items: [3, 4], itemIcons: false, looks: true, spells: undefined, spellTables: false, quests: undefined, questLists: false, creatureDisplays: false, objectTemplates: false },

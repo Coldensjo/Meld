@@ -1213,10 +1213,12 @@ export interface ItemRef {
     "displayId": number;
 
     /**
-     * ItemLevel and RequiredLevel are filled in by SearchItems only.
+     * ItemLevel, RequiredLevel and DPS are filled in by SearchItems only. DPS is a weapon's damage
+     * per second (itemDPS), 0 for any other item.
      */
     "itemLevel"?: number;
     "requiredLevel"?: number;
+    "dps"?: number;
 }
 
 /**

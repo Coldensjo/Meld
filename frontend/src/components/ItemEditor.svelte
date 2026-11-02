@@ -9,6 +9,7 @@
 		ImportItems,
 		ItemDisplayVariant,
 		ItemModelLook,
+		ItemPatches,
 		ListItemKinds,
 		OpenItemsDialog,
 		PlanItemDelete,
@@ -222,8 +223,13 @@
 
 	// Find: items by name or entry.
 	let query = $state('')
-	const search = createSearch((k: { q: string; sort: string; desc: boolean }) => SearchItemsSorted(k.q, k.sort, k.desc).then((r) => r ?? []), { empty: [] as vmangos.ItemRef[], onError: (err) => (ed.error = String(err)) })
-	const found = $derived(search.results)
+	// The results keep the order they were found in, so the number on the right follows the list
+	// on screen, not a sort picked while its search still runs (#966).
+	const search = createSearch((k: { q: string; sort: string; desc: boolean; patch: number }) => SearchItemsSorted(k.q, k.sort, k.desc, k.patch).then((r) => ({ sort: k.sort, items: r ?? [] })), {
+		empty: { sort: 'name', items: [] as vmangos.ItemRef[] },
+		onError: (err) => (ed.error = String(err)),
+	})
+	const found = $derived(search.results.items)
 	const searching = $derived(search.searching)
 	let searchVersion = $state(0)
 	/** The search's orders (#677), done in SQL before its limit of 100, so a broad search gives the highest items, not the first by name. */
@@ -233,15 +239,28 @@
 		['quality', 'Quality'],
 		['itemLevel', 'Item level'],
 		['requiredLevel', 'Required level'],
+		['dps', 'Damage per second'],
 	]
-	/** The number a result shows on the right: its entry, or the level it is sorted by. */
-	const sideNumber = (i: vmangos.ItemRef) => (prefs.itemSort === 'itemLevel' ? `ilvl ${i.itemLevel ?? 0}` : prefs.itemSort === 'requiredLevel' ? `lvl ${i.requiredLevel ?? 0}` : String(i.entry))
+	/** The number a result shows on the right: its entry, or the level or damage per second it is sorted by (a dash for an item that isn't a weapon). */
+	const sideNumber = (i: vmangos.ItemRef, sort: string) =>
+		sort === 'itemLevel' ? `ilvl ${i.itemLevel ?? 0}` : sort === 'requiredLevel' ? `lvl ${i.requiredLevel ?? 0}` : sort === 'dps' ? (i.dps ? `${i.dps.toFixed(1)} dps` : '–') : String(i.entry)
+	/** The content patches that introduced items (#966), which the patch filter offers; VMaNGOS numbers them from 0 for 1.2 to 10 for 1.12. */
+	let patches = $state<number[]>([])
+	const patchName = (p: number) => `Patch 1.${p + 2}`
+	$effect(() => {
+		ItemPatches().then(
+			(p) => (patches = p ?? []),
+			// Without a world database the search says why; the filter just offers no patch.
+			() => (patches = []),
+		)
+	})
 	$effect(() => {
 		const q = query.trim()
 		const sort = prefs.itemSort
 		const desc = prefs.itemSortDesc
+		const patch = prefs.itemPatch
 		void searchVersion
-		search.set(q ? { q, sort, desc } : null)
+		search.set(q || patch >= 0 ? { q, sort, desc, patch } : null)
 	})
 
 	// A new item: a kind of item (a bow, a cloth chest…) with the usual basics of the database's items
@@ -623,17 +642,22 @@
 						>{prefs.itemSortDesc ? '↓' : '↑'}</button
 					>
 				</div>
+				<select bind:value={prefs.itemPatch} aria-label="Items of patch" title="Only the items a content patch introduced (with no name typed, all of them)">
+					<option value={-1}>Any patch</option>
+					{#each patches as p (p)}<option value={p}>New in {patchName(p)}</option>{/each}
+					{#if prefs.itemPatch >= 0 && !patches.includes(prefs.itemPatch)}<option value={prefs.itemPatch}>New in {patchName(prefs.itemPatch)}</option>{/if}
+				</select>
 				<ul class="found" aria-label="Items found">
 					{#each found as i (i.entry)}
 						<li>
 							<button class:on={i.entry === target.entry} onclick={() => open(i.entry)} oncontextmenu={(e) => resultMenu(e, i)} title="Right-click to copy its entry, its name or the command that gives it in the game">
 								<ItemIcon displayId={i.displayId} />
 								<span class="name" style:color={i.entry === target.entry ? undefined : QUALITY_VARS[i.quality]}>{i.name || '(no name)'}</span>
-								<span class="dim" title="Item {i.entry}">{sideNumber(i)}</span>
+								<span class="dim" title="Item {i.entry}">{sideNumber(i, search.results.sort)}</span>
 							</button>
 						</li>
 					{:else}
-						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'No item matches.' : 'Type a name to search the world database.'}</li>
+						<li class="dim">{searching ? 'Searching…' : query.trim() || prefs.itemPatch >= 0 ? 'No item matches.' : 'Type a name to search the world database.'}</li>
 					{/each}
 				</ul>
 			</aside>

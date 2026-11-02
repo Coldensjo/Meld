@@ -824,8 +824,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
   (`SearchItemsSorted`, ordered in SQL before its limit of 100 by name, entry, quality, item level
-  or required level, up or down: `prefs.itemSort` and `itemSortDesc`, #677; a level order shows the
-  level on the right instead of the entry; the other item searches keep `SearchItems`, by name); a result's right-click opens `ui.contextMenu` (z-index 180, over the editor, whose
+  or required level, up or down: `prefs.itemSort` and `itemSortDesc`, #677; or by damage per
+  second, #966: `itemDPS` in `internal/vmangos/vendor.go`, the five damage ranges' middles over the
+  speed as the tooltip works it out, 0 for an item that isn't a weapon; a level or DPS order shows
+  that number on the right instead of the entry, read from the order the list on screen was found
+  in, not the one picked while its search runs; the other item searches keep `SearchItems`, by
+  name). The patch drop-down (`prefs.itemPatch`, -1 for any, #966, the owner's choice B) keeps the
+  items a content patch introduced, those whose first `item_template` row is that patch, and offers
+  the patches that introduced any (`ItemPatches`; VMaNGOS numbers 0 for 1.2 to 10 for 1.12); with a
+  patch picked, an empty name lists that patch's items; a result's right-click opens `ui.contextMenu` (z-index 180, over the editor, whose
   Esc then leaves it to the menu) with Open and Copy `.additem <entry>`, the GM command that gives the
   item to the player selected or to yourself (`ClipboardSetText`); New item starts from a kind of item, a blank junk item or a copy of the open one: a kind is a
   (class, subclass, inventory type) group the world database has at least 3 of (`ListItemKinds` in

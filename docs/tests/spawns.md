@@ -971,8 +971,15 @@ Import or New item.
   the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a
   second Change icon view; Revert; "sword" sorted by Item level, high to low (#677), lists 100
   results with `ilvl N` on the right and falling levels (100 first), then Name again shows entries;
-  the probe puts the user's sort prefs back. `TestItemOrder` (the whitelisted ORDER BY) and, with
-  the world database, `TestSearchItemsSortedFromDatabase`.
+  "sword" by Damage per second, high to low (#966), shows `N.N dps` falling (Twain Random Sword,
+  150.0, first in the owner's database) and the first one's tooltip says the same DPS; the patch
+  drop-down at its newest patch with no name lists its items (39 for 1.12), and Any patch with no
+  name lists nothing; the probe puts the user's sort and patch prefs back. Trap: the number on the
+  right follows the sort the list was found with (`search.results.sort`), so a wait for `dps` or
+  `ilvl` texts waits for the new list; before, it switched with the pref and a wait passed on the
+  old list. `TestItemOrder` (the whitelisted ORDER BY), `TestSearchItemsSQL` (the patch filter and
+  the DPS) and, with the world database, `TestSearchItemsSortedFromDatabase` and
+  `TestSearchItemsByPatchAndDPSFromDatabase` (each listed item's first row is the patch).
 - Delete (#676): `TestDeleteItemSQL` checks the SQL (quest columns cleared with their counts, the
   shop and loot rows, a loot reference row left, `item_template` last); with the world database,
   `TestPlanItemDeleteLive` plans Linen Cloth (2589: creature loot, quests, nothing written). The

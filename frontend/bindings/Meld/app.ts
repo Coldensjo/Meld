@@ -786,6 +786,13 @@ export function ItemModelLook(display: number, invType: number, race: number, se
 }
 
 /**
+ * ItemPatches lists the content patches that introduced items, for the Item Editor's patch filter.
+ */
+export function ItemPatches(): $CancellablePromise<number[] | null> {
+    return $Call.ByID(3518881344);
+}
+
+/**
  * ItemSets gives the client's item sets (ItemSet.dbc) of the given IDs, for the tooltips' set block (#355).
  */
 export function ItemSets(ids: number[] | null): $CancellablePromise<vmangos$0.ItemSet[] | null> {
@@ -2214,11 +2221,12 @@ export function SearchItems(text: string): $CancellablePromise<vmangos$0.ItemRef
 }
 
 /**
- * SearchItemsSorted is SearchItems ordered by sort ("name", "entry", "quality", "itemLevel" or
- * "requiredLevel"), descending when desc, for the Item Editor's sortable list.
+ * SearchItemsSorted is SearchItems ordered by sort ("name", "entry", "quality", "itemLevel",
+ * "requiredLevel" or "dps"), descending when desc, and narrowed to the items introduced in content
+ * patch (-1 for any; with a patch, an empty text lists them all), for the Item Editor's list.
  */
-export function SearchItemsSorted(text: string, sort: string, desc: boolean): $CancellablePromise<vmangos$0.ItemRef[] | null> {
-    return $Call.ByID(603212274, text, sort, desc);
+export function SearchItemsSorted(text: string, sort: string, desc: boolean, patch: number): $CancellablePromise<vmangos$0.ItemRef[] | null> {
+    return $Call.ByID(603212274, text, sort, desc, patch);
 }
 
 /**

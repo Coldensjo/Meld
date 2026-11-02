@@ -42,9 +42,11 @@ type ItemRef struct {
 	Name      string `json:"name"`
 	Quality   int    `json:"quality"`
 	DisplayID int    `json:"displayId"`
-	// ItemLevel and RequiredLevel are filled in by SearchItems only.
-	ItemLevel     int `json:"itemLevel,omitempty"`
-	RequiredLevel int `json:"requiredLevel,omitempty"`
+	// ItemLevel, RequiredLevel and DPS are filled in by SearchItems only. DPS is a weapon's damage
+	// per second (itemDPS), 0 for any other item.
+	ItemLevel     int     `json:"itemLevel,omitempty"`
+	RequiredLevel int     `json:"requiredLevel,omitempty"`
+	DPS           float64 `json:"dps,omitempty"`
 }
 
 // itemNamesJoin joins each row's item to the newest patch of its item_template row, as `it`.
@@ -154,8 +156,17 @@ func SaveVendor(serverRoot string, entry int, items []VendorItem) (string, error
 // SearchItems lists the item templates whose name has text in it, or whose entry is text, by
 // name, at most limit of them.
 func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
-	return SearchItemsSorted(serverRoot, text, "name", false, limit)
+	return SearchItemsSorted(serverRoot, text, "name", false, AnyPatch, limit)
 }
+
+// AnyPatch is SearchItemsSorted's patch for items of every content patch.
+const AnyPatch = -1
+
+// itemDPS is a weapon's damage per second as the tooltip works it out (lib/wow/itemTooltip.ts):
+// the middle of each of its five damage ranges, added up, over its speed in seconds. Any other
+// item, and a weapon without a speed, has 0.
+const itemDPS = "(CASE WHEN i.class = 2 AND i.delay > 0 THEN (i.dmg_min1 + i.dmg_max1 + i.dmg_min2 + i.dmg_max2 + i.dmg_min3 + i.dmg_max3 + " +
+	"i.dmg_min4 + i.dmg_max4 + i.dmg_min5 + i.dmg_max5) / 2 / (i.delay / 1000) ELSE 0 END)"
 
 // itemSorts maps the sort keys SearchItemsSorted takes to their item_template columns.
 var itemSorts = map[string]string{
@@ -164,6 +175,7 @@ var itemSorts = map[string]string{
 	"quality":       "i.quality",
 	"itemLevel":     "i.item_level",
 	"requiredLevel": "i.required_level",
+	"dps":           itemDPS,
 }
 
 // itemOrder builds SearchItemsSorted's ORDER BY clause from a whitelisted key (an unknown one
@@ -187,11 +199,37 @@ func itemOrder(sort string, desc bool) string {
 	return order
 }
 
+// searchItemsSQL is SearchItemsSorted's query: each item's newest row, of the items whose name
+// has text in it (or whose entry it is; an empty text matches every item), introduced in patch
+// (their first row's patch, #966) unless it is AnyPatch, in sort's order.
+func searchItemsSQL(text, sort string, desc bool, patch, limit int) string {
+	var where []string
+	if text != "" {
+		match := "i.name LIKE " + likePattern(text)
+		if n, err := strconv.Atoi(text); err == nil {
+			match = fmt.Sprintf("(%s OR i.entry = %d)", match, n)
+		}
+		where = append(where, match)
+	}
+	if patch != AnyPatch {
+		where = append(where, fmt.Sprintf("n.first = %d", patch))
+	}
+	cond := "TRUE"
+	if len(where) > 0 {
+		cond = strings.Join(where, " AND ")
+	}
+	return fmt.Sprintf("SELECT i.entry, i.name, i.quality, i.display_id, i.item_level, i.required_level, %s FROM item_template i JOIN "+
+		"(SELECT entry, MAX(patch) AS patch, MIN(patch) AS first FROM item_template GROUP BY entry) n ON n.entry = i.entry AND n.patch = i.patch "+
+		"WHERE %s ORDER BY %s LIMIT %d", itemDPS, cond, itemOrder(sort, desc), max(limit, 1))
+}
+
 // SearchItemsSorted is SearchItems with the matches ordered by sort (a key of itemSorts) before
-// the limit, so a broad search gives the best or highest items, not only the first by name.
-func SearchItemsSorted(serverRoot, text, sort string, desc bool, limit int) ([]ItemRef, error) {
+// the limit, so a broad search gives the best or highest items, not only the first by name, and
+// narrowed to the items introduced in patch unless it is AnyPatch. With a patch, an empty text
+// lists that patch's items; without one it finds nothing.
+func SearchItemsSorted(serverRoot, text, sort string, desc bool, patch, limit int) ([]ItemRef, error) {
 	text = strings.TrimSpace(text)
-	if text == "" {
+	if text == "" && patch == AnyPatch {
 		return nil, nil
 	}
 	db, err := worldDatabase(serverRoot)
@@ -201,19 +239,34 @@ func SearchItemsSorted(serverRoot, text, sort string, desc bool, limit int) ([]I
 	if err := ensureDatabase(db, serverRoot); err != nil {
 		return nil, err
 	}
-	match := "i.name LIKE " + likePattern(text)
-	if n, err := strconv.Atoi(text); err == nil {
-		match = fmt.Sprintf("(%s OR i.entry = %d)", match, n)
-	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT i.entry, i.name, i.quality, i.display_id, i.item_level, i.required_level FROM item_template i JOIN "+
-		"(SELECT entry, MAX(patch) AS patch FROM item_template GROUP BY entry) n ON n.entry = i.entry AND n.patch = i.patch "+
-		"WHERE %s ORDER BY %s LIMIT %d", match, itemOrder(sort, desc), max(limit, 1)))
+	raw, err := runSQL(db, searchItemsSQL(text, sort, desc, patch, limit))
 	if err != nil {
 		return nil, err
 	}
 	var out []ItemRef
-	for _, f := range batchRows(raw, 6) {
-		out = append(out, ItemRef{Entry: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3), ItemLevel: f.num(4), RequiredLevel: f.num(5)})
+	for _, f := range batchRows(raw, 7) {
+		out = append(out, ItemRef{Entry: f.num(0), Name: f[1], Quality: f.num(2), DisplayID: f.num(3), ItemLevel: f.num(4), RequiredLevel: f.num(5), DPS: f.f64(6)})
+	}
+	return out, nil
+}
+
+// ItemPatches lists the content patches that introduced items (the patch of an item's first
+// item_template row), lowest first, for the Item Editor's patch filter (#966).
+func ItemPatches(serverRoot string) ([]int, error) {
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return nil, err
+	}
+	raw, err := runSQL(db, "SELECT DISTINCT first FROM (SELECT MIN(patch) AS first FROM item_template GROUP BY entry) n ORDER BY first")
+	if err != nil {
+		return nil, err
+	}
+	out := []int{}
+	for _, f := range batchRows(raw, 1) {
+		out = append(out, f.num(0))
 	}
 	return out, nil
 }

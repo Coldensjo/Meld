@@ -16,14 +16,24 @@ func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	return vmangos.SearchItems(server, text, 100)
 }
 
-// SearchItemsSorted is SearchItems ordered by sort ("name", "entry", "quality", "itemLevel" or
-// "requiredLevel"), descending when desc, for the Item Editor's sortable list.
-func (a *App) SearchItemsSorted(text, sort string, desc bool) ([]vmangos.ItemRef, error) {
+// SearchItemsSorted is SearchItems ordered by sort ("name", "entry", "quality", "itemLevel",
+// "requiredLevel" or "dps"), descending when desc, and narrowed to the items introduced in content
+// patch (-1 for any; with a patch, an empty text lists them all), for the Item Editor's list.
+func (a *App) SearchItemsSorted(text, sort string, desc bool, patch int) ([]vmangos.ItemRef, error) {
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return nil, err
 	}
-	return vmangos.SearchItemsSorted(server, text, sort, desc, 100)
+	return vmangos.SearchItemsSorted(server, text, sort, desc, patch, 100)
+}
+
+// ItemPatches lists the content patches that introduced items, for the Item Editor's patch filter.
+func (a *App) ItemPatches() ([]int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ItemPatches(server)
 }
 
 // ReadItem reads an item template's row, every column by name, for the Shop tab's tooltips.

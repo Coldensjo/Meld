@@ -95,18 +95,19 @@ export function queryArgs(search: string): Record<string, string> {
 
 /** The preferences an editor window reads, copied from the main page (the one that saves them). */
 export interface EditorPrefs {
-	/** The item editor's search order (#677). */
+	/** The item editor's search order (#677) and patch filter (#966). */
 	itemSort: string
 	itemSortDesc: boolean
+	itemPatch: number
 	/** The model preview's (CreaturePreview). */
 	animations: boolean
 	particles: boolean
 }
 
-export const EDITOR_PREF_KEYS = ['itemSort', 'itemSortDesc', 'animations', 'particles'] as const satisfies readonly (keyof EditorPrefs)[]
+export const EDITOR_PREF_KEYS = ['itemSort', 'itemSortDesc', 'itemPatch', 'animations', 'particles'] as const satisfies readonly (keyof EditorPrefs)[]
 
-/** The ones the window changes itself (its sort controls), which it sends back with a `prefs` command. */
-export const EDITOR_PREF_WRITES = ['itemSort', 'itemSortDesc'] as const satisfies readonly (keyof EditorPrefs)[]
+/** The ones the window changes itself (its sort and filter controls), which it sends back with a `prefs` command. */
+export const EDITOR_PREF_WRITES = ['itemSort', 'itemSortDesc', 'itemPatch'] as const satisfies readonly (keyof EditorPrefs)[]
 
 /** What the main page publishes to an editor window: the preferences it reads. */
 export interface EditorView {
@@ -171,6 +172,7 @@ export function readEditorCommand(cmd: ToolCommand): EditorCommand | null {
 			const p: Partial<EditorPrefs> = {}
 			if (typeof c.prefs.itemSort === 'string') p.itemSort = c.prefs.itemSort
 			if (typeof c.prefs.itemSortDesc === 'boolean') p.itemSortDesc = c.prefs.itemSortDesc
+			if (typeof c.prefs.itemPatch === 'number' && Number.isInteger(c.prefs.itemPatch)) p.itemPatch = c.prefs.itemPatch
 			return { type: 'prefs', prefs: p }
 		}
 		case 'forget': {

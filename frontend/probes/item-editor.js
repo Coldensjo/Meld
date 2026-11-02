@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25` or its entry (#681) and offers Mail to the Game Login character, greyed out with the reason without a world server (#962), and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, a level past 255 is an unsaved edit (Go refuses it, a Go test; Save is never pressed), a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355), Delete item… on it asks first with the rows it would take and Keep it closes that (#676), and "sword" sorted by item level high to low (#677) lists the levels falling, with the level on the right, then by name again; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25` or its entry (#681) and offers Mail to the Game Login character, greyed out with the reason without a world server (#962), and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, a level past 255 is an unsaved edit (Go refuses it, a Go test; Save is never pressed), a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355), Delete item… on it asks first with the rows it would take and Keep it closes that (#676), "sword" sorted by item level high to low (#677) lists the levels falling, with the level on the right, then by name again, "sword" by damage per second high to low (#966) lists the DPS falling with the first one's tooltip saying the same DPS, and the patch filter at its newest patch with no name lists its items, and back at Any patch nothing; nothing written.
 // touches: frontend/src/components/ItemEditor.svelte, frontend/src/components/ItemTooltip.svelte, frontend/src/components/ItemTooltipBox.svelte, frontend/src/lib/wow/itemTooltip.ts, frontend/src/lib/world/itemFields.ts, internal/vmangos/items.go, frontend/src/components/TemplateFields.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts, internal/vmangos/vendor.go, app_items.go, frontend/src/lib/io/gameCharacter.ts, frontend/src/components/ContextMenu.svelte, internal/vmangos/soapcharacter.go
 const { ui, prefs } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -233,7 +233,7 @@ await P.frames(1)
 del.kept = !deleteBar() && root().querySelector('h2').textContent.includes('Blackened Defias Belt')
 
 // The search's order (#677): "sword" by item level, high to low, then back to the user's order.
-const was = { sort: prefs.itemSort, desc: prefs.itemSortDesc }
+const was = { sort: prefs.itemSort, desc: prefs.itemSortDesc, patch: prefs.itemPatch }
 const results = () => [...root().querySelectorAll('[aria-label="Items found"] button')].map((b) => b.querySelector('.dim')?.textContent.trim() ?? '')
 type(root().querySelector('aside input[type=search]'), 'sword')
 choose(root().querySelector('[aria-label="Sort items by"]'), 'itemLevel')
@@ -244,8 +244,36 @@ const sorted = { count: levels.length, first: levels.slice(0, 5), falling: level
 choose(root().querySelector('[aria-label="Sort items by"]'), 'name')
 await P.until(() => results().length > 10 && !results()[0].startsWith('ilvl '), WAIT, 'the swords by name')
 sorted.byName = /^\d+$/.test(results()[0])
+
+// By damage per second (#966): weapons first, high to low, with the DPS on the right; the first one's
+// tooltip says the same DPS. Then the patch filter: the newest patch the database has, with no name,
+// lists that patch's items.
+choose(root().querySelector('[aria-label="Sort items by"]'), 'dps')
+await P.until(() => results().length > 10 && results().every((t) => t.endsWith(' dps') || t === '–'), WAIT, 'the swords by DPS')
+const dpsList = results().map((t) => (t === '–' ? 0 : Number(t.slice(0, -4))))
+const byDps = { count: dpsList.length, first: dpsList.slice(0, 5), falling: dpsList.every((d, i) => i === 0 || d <= dpsList[i - 1]) }
+const firstButton = root().querySelector('[aria-label="Items found"] button')
+byDps.name = firstButton.querySelector('.name').textContent.trim()
+firstButton.click()
+await P.until(() => root().querySelector('h2')?.textContent.includes(byDps.name) && tooltip().some((l) => l.includes('damage per second')), WAIT, 'the top weapon')
+byDps.tooltip = tooltip().find((l) => l.includes('damage per second'))
+const patchSelect = root().querySelector('[aria-label="Items of patch"]')
+await P.until(() => patchSelect.options.length > 2, WAIT, 'the patches')
+const patchOptions = [...patchSelect.options].map((o) => o.textContent.trim())
+const newest = Number([...patchSelect.options].at(-1).value)
+type(root().querySelector('aside input[type=search]'), '')
+choose(root().querySelector('[aria-label="Sort items by"]'), 'name')
+choose(patchSelect, String(newest))
+await P.until(() => prefs.itemPatch === newest && results().length > 0 && results().every((t) => /^\d+$/.test(t)), WAIT, 'the items of the newest patch')
+// Which patch an item first appears in is TestSearchItemsByPatchAndDPSFromDatabase's; here the filter lists them with no name typed.
+const byPatch = { options: patchOptions.slice(0, 3), newest, count: results().length }
+choose(patchSelect, '-1')
+await P.frames(1)
+byPatch.anyEmpty = results().length === 0 || root().querySelector('[aria-label="Items found"] li.dim')?.textContent.includes('Type a name')
+
 prefs.itemSort = was.sort
 prefs.itemSortDesc = was.desc
+prefs.itemPatch = was.patch
 ui.itemEditor = null
 await P.frames(1)
 
@@ -324,10 +352,42 @@ const ok =
 	sorted.first[0] >= 60 &&
 	sorted.arrow === '↓' &&
 	sorted.byName &&
+	byDps.falling &&
+	byDps.first[0] > 0 &&
+	byDps.tooltip === `(${byDps.first[0].toFixed(1)} damage per second)` &&
+	byPatch.options[0] === 'Any patch' &&
+	byPatch.options[1].startsWith('New in Patch 1.') &&
+	byPatch.count > 0 &&
+	byPatch.anyEmpty &&
 	del.text === 'Delete Blackened Defias Belt (item 10403) from the world database?' &&
 	del.rows.startsWith('Removes ') &&
 	del.rows.includes('of reference_loot_template') &&
 	del.rows.includes('1 row of item_template') &&
 	del.confirm &&
 	del.kept
-return { ok, del, sorted, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return {
+	ok,
+	del,
+	sorted,
+	byDps,
+	byPatch,
+	setBlock,
+	kind,
+	shot,
+	stats,
+	menu,
+	taken,
+	iconPick,
+	title,
+	tip,
+	held,
+	canvas,
+	alone,
+	edited,
+	nameColor,
+	chest,
+	robe,
+	saveText,
+	reverted,
+	stored: { name: stored.values.name, level: stored.values.required_level },
+}

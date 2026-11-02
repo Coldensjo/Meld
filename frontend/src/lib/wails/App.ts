@@ -115,6 +115,7 @@ export const InventoryItemTemplate: Call<AppApi['InventoryItemTemplate']> = (...
 export const ItemDisplayVariant: Call<AppApi['ItemDisplayVariant']> = (...a) => api().ItemDisplayVariant(...a) as never
 export const ItemIcons: NonNullCall<AppApi['ItemIcons']> = (...a) => api().ItemIcons(...a) as never
 export const ItemModelLook: Call<AppApi['ItemModelLook']> = (...a) => api().ItemModelLook(...a) as never
+export const ItemPatches: NonNullCall<AppApi['ItemPatches']> = (...a) => api().ItemPatches(...a) as never
 export const ItemSets: NonNullCall<AppApi['ItemSets']> = (...a) => api().ItemSets(...a) as never
 export const ItemTables: Call<AppApi['ItemTables']> = (...a) => api().ItemTables(...a) as never
 export const JoinSession: Call<AppApi['JoinSession']> = (...a) => api().JoinSession(...a) as never
