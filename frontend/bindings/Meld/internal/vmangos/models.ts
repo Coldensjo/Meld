@@ -1980,12 +1980,18 @@ export interface QuestHolder {
 }
 
 /**
- * QuestImport is what an SQL script of quests would write: its quest rows, the givers it replaces,
- * and what of it is left out or refused.
+ * QuestImport is what an SQL script of quests would write: its quest rows, the givers, event links
+ * and translations it replaces, the scripts it brings, and what of it is left out or refused.
  */
 export interface QuestImport {
     "quests": QuestImportRow[] | null;
     "lists": ListImport[] | null;
+
+    /**
+     * Carried are the start and end scripts the quests name, with the broadcast texts they say
+     * (carried.go): kept where this server holds the same, else written under fresh IDs.
+     */
+    "carried": CarriedImport[] | null;
 
     /**
      * Refused are the rules a quest row breaks, a line each ("quest 7 (patch 0): ..."): with any,
@@ -1994,13 +2000,14 @@ export interface QuestImport {
     "refused": string[] | null;
 
     /**
-     * Skipped is how many statements are neither quest_template rows nor the givers' rows and
-     * DELETEs, which importing leaves out.
+     * Skipped is how many statements are neither quest_template rows nor the lists' or scripts' rows
+     * and DELETEs, which importing leaves out.
      */
     "skipped": number;
 
     /**
-     * Others counts the givers' rows and DELETEs of quests the script has no template row of, left out.
+     * Others counts the lists' rows and DELETEs of quests the script has no template row of, and the
+     * rows and DELETEs of scripts and texts no quest names, left out.
      */
     "others": number;
 
@@ -2015,6 +2022,12 @@ export interface QuestImport {
      */
     "missingCreatures": number[] | null;
     "missingObjects": number[] | null;
+
+    /**
+     * MissingEvents are the game events the quests are offered in that the world database lacks:
+     * importing writes their links, which the server leaves out.
+     */
+    "missingEvents": number[] | null;
 
     /**
      * Unready are givers here that can't give quests (a creature without the Quest giver flag, a game

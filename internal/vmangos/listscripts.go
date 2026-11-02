@@ -24,7 +24,7 @@ type scriptList struct {
 	// what names the rows in messages; thing what the ID is ("creature", "loot list").
 	what, thing string
 	// names is what the item column names, for the plan's lookup of what the server lacks: "item",
-	// "quest", "creature" or "object".
+	// "quest", "creature", "object" or "event" (none: the plan looks nothing up).
 	names string
 	// ref, when set, is a column whose negative value makes the row a reference rather than an item
 	// (a loot row's mincountOrRef), so its item column names no item.
@@ -301,8 +301,10 @@ func listsImport(db worldDB, plans []listPlan) (out []ListImport, others int, na
 					continue
 				}
 			}
-			n, _ := strconv.Atoi(r.values[lp.list.item])
-			named[lp.list.names] = append(named[lp.list.names], n)
+			if lp.list.names != "" {
+				n, _ := strconv.Atoi(r.values[lp.list.item])
+				named[lp.list.names] = append(named[lp.list.names], n)
+			}
 		}
 		for _, e := range lp.replaced {
 			out = append(out, ListImport{Entry: e, Of: lp.list.thing, Table: lp.list.table, What: lp.list.what, Rows: count[e], Had: had[e]})

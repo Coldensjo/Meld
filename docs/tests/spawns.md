@@ -868,6 +868,19 @@ lists what the quest editor's rules refuse, and writes it on confirmation, repla
   on both (it takes their relation rows too); check `MAX(entry)` of `quest_template` is back.
 - Trap: on the stock database 11 of 4729 quest rows break a rule (emote 9 the client lacks, Method 3),
   so exporting one of those and importing it is refused until the script is fixed.
+- Scripts, event links and translations (#993): `TestQuestScriptCarried` (the start and end scripts
+  by `StartScript` and `CompleteScript` with the broadcast texts a talk command says, a cast's
+  `dataint` not taken for a text; on another server a changed script comes to a fresh ID past the
+  largest a quest names, the quest and the talk's text rewritten; `game_event_quest` and
+  `locales_quest` rows read back). `TestQuestScriptsLive` also exports Wait for Sirra to Finish (401,
+  a start script of 7 rows saying texts 563 and 564, an end script) and Children's Week (172, in an
+  event) and plans them back, every script and text kept as it is. The probe's stand-in plan names
+  an event link, a translation, a script under a new ID, a text kept and a missing event.
+- A write, by a scratch Go test (not kept; done on 2026-11-02): `CreateQuest(dir, 401, 'Probe Sirra')`
+  (the copy names start and end script 401), `ExportQuests`, a word added to the start script's first
+  comment in the script, `PlanQuestImport` (start script 401 to 42652, the end script and both texts
+  kept) and `ImportQuests`: the copy's `StartScript` became 42652 with the 7 rows there, 401 untouched;
+  `DeleteQuest` on the copy took 42652 with it (it deletes a chain no other quest names).
 
 
 ## Quest chain graph (#948)

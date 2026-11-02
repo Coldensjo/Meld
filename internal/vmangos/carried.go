@@ -11,8 +11,10 @@ import (
 // What a creature's or game object's template names by ID (#991): a creature's spell list,
 // equipment, shared vendor and trainer lists, loot, pickpocket and skinning loot and gossip menu, a
 // chest's contents, a readable object's pages (#992: each page_text row a set of its own, naming the
-// next page), and what those name in turn (the reference loot a loot row names, a menu's texts,
-// the broadcast texts they show and the menus its options open). Many templates can name one such
+// next page), a quest's start and end scripts (#993: quest_start_scripts and quest_end_scripts by
+// the StartScript and CompleteScript the quest names), and what those name in turn (the reference
+// loot a loot row names, a menu's texts, the broadcast texts they and a script's talk commands show
+// and the menus its options open). Many templates can name one such
 // set, so it travels as a set of its own: the export writes each set's rows after the templates,
 // keyed by their IDs and cleared first, so the script run on a server alone puts them back by ID as
 // they were. Import doesn't write over a set of the destination, which other templates there may
@@ -20,7 +22,8 @@ import (
 // ID, naming sets that are the same too, is left as it is; any other gets a fresh ID there (the
 // table's largest plus one), and the templates' columns and the other sets' references are rewritten
 // to the IDs they came to, as the spell editor's import does for icons and visuals (spelllooks.go).
-// The conditions, scripts and points of interest the rows name stay IDs, not in the script.
+// The conditions, scripts and points of interest the rows name stay IDs, not in the script, as do
+// the creatures, objects, spells and the like a script's commands name.
 
 // carriedTable is a table of a carried kind's rows, keyed by the set's ID in column id.
 type carriedTable struct {
@@ -38,6 +41,14 @@ type carriedRef struct {
 	// ref: the column names the set negated, a negative value only (a loot row's mincountOrRef);
 	// otherwise a positive value names it (a menu option's action_menu_id, -1 closing the window).
 	ref bool
+	// when, if set, says whether a row's column names the set (a script row's dataint, by its
+	// command), from the row's values by column.
+	when func(value func(string) string) bool
+}
+
+// names says whether the row whose values value gives names a set in the reference's column.
+func (r carriedRef) names(value func(string) string) bool {
+	return r.when == nil || r.when(value)
 }
 
 // carriedKind is a kind of set a template names by ID.
@@ -49,6 +60,23 @@ type carriedKind struct {
 	// server lacks; loot: a row whose mincountOrRef is negative names no item.
 	items []string
 	loot  bool
+}
+
+// scriptTalk is the script command that says a broadcast text (SCRIPT_COMMAND_TALK), its dataint to
+// dataint4 the texts, one picked at random.
+const scriptTalk = "0"
+
+// questScriptKind is a quest's start or end script (#993): the rows of table under the ID the quest
+// names in column, its talk commands naming the broadcast texts they say. A fresh ID goes past any a
+// quest names too, so it never turns up in another quest's script.
+func questScriptKind(key, table, what, column string) carriedKind {
+	k := carriedKind{key: key, what: what, tables: []carriedTable{{name: table, id: "id", order: "`delay`, `priority`, `command`",
+		last: fmt.Sprintf("GREATEST((SELECT COALESCE(MAX(`id`), 0) FROM `%s`), (SELECT COALESCE(MAX(`%s`), 0) FROM `%s`))", table, column, questTable)}}}
+	talk := func(v func(string) string) bool { return strings.TrimSpace(v("command")) == scriptTalk }
+	for _, c := range []string{"dataint", "dataint2", "dataint3", "dataint4"} {
+		k.refs = append(k.refs, carriedRef{table: table, column: c, kind: "broadcast", when: talk})
+	}
+	return k
 }
 
 func lootKind(key, table, what string) carriedKind {
@@ -81,6 +109,8 @@ var carriedKinds = func() []carriedKind {
 				{table: "gossip_menu_option", column: "box_broadcast_text", kind: "broadcast"},
 			}},
 		text,
+		questScriptKind("startscript", "quest_start_scripts", "start script", "StartScript"),
+		questScriptKind("endscript", "quest_end_scripts", "end script", "CompleteScript"),
 		{key: "broadcast", what: "broadcast text", tables: []carriedTable{{name: "broadcast_text", id: "entry", order: "`entry`"}}},
 		{key: "page", what: "page", tables: []carriedTable{{name: "page_text", id: "entry", order: "`entry`", last: lastPageSQL}},
 			refs: []carriedRef{{table: "page_text", column: "next_page", kind: "page"}}},
@@ -104,6 +134,11 @@ var creatureRoots = []rootRef{
 	{column: "pickpocket_loot_id", kind: "pickpocket"},
 	{column: "skinning_loot_id", kind: "skinning"},
 	{column: "gossip_menu_id", kind: "gossip"},
+}
+
+var questRoots = []rootRef{
+	{column: "StartScript", kind: "startscript"},
+	{column: "CompleteScript", kind: "endscript"},
 }
 
 var objectRoots = []rootRef{
@@ -269,7 +304,15 @@ func exportCarried(src carriedSource, roots []rootRef, cols []TemplateColumn, ro
 					}
 					if ci := columnIndex(tc, ref.column); ci >= 0 {
 						for _, f := range rs {
-							add(ref.kind, refID(f[ci], ref.ref))
+							value := func(name string) string {
+								if i := columnIndex(tc, name); i >= 0 {
+									return f[i]
+								}
+								return ""
+							}
+							if ref.names(value) {
+								add(ref.kind, refID(f[ci], ref.ref))
+							}
 						}
 					}
 				}
@@ -495,7 +538,7 @@ func (s *importSet) eachRef(f func(ref carriedRef, r sqlRow, id int)) {
 				continue
 			}
 			for _, r := range s.rows[ti] {
-				if v, ok := r.values[ref.column]; ok {
+				if v, ok := r.values[ref.column]; ok && ref.names(func(name string) string { return r.values[name] }) {
 					if id := refID(v, ref.ref); id > 0 {
 						f(ref, r, id)
 					}
@@ -683,7 +726,7 @@ func (p *carriedPlan) sql(src carriedSource) (string, error) {
 						v, null = strconv.Itoa(s.to), false
 					}
 					for _, ref := range s.kind.refs {
-						if ref.table == t.name && ref.column == c.Name {
+						if ref.table == t.name && ref.column == c.Name && ref.names(func(name string) string { return r.values[name] }) {
 							if n := p.by[ref.kind][refID(v, ref.ref)]; n != nil {
 								v = refValue(n.to, ref.ref)
 							}

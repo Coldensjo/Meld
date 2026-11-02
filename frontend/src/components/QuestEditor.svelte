@@ -7,7 +7,7 @@
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
-	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
+	import { askImport as planImport, carriedText, exportRow, runImport } from '../lib/ui/templateIo'
 	import { questTabs, tabOfColumn } from '../lib/world/questFields'
 	import { forgetName } from '../lib/wow/refNames'
 	import EditorFrame from './EditorFrame.svelte'
@@ -339,25 +339,29 @@
 						<strong>Import {rows.length} quest {rows.length === 1 ? 'row' : 'rows'} into the world database?</strong>
 						<span>{some(rows.map((q) => `${q.title || 'quest'} (${q.entry}${q.patch ? `, patch ${q.patch}` : ''}${q.exists ? ', replaces it' : ', new'})`))}.</span>
 						{#if importLists.length}
-							<span>Replaces the givers: {some(importLists.map(listText))}.</span>
+							<span>Replaces the givers, event links and translations: {some(importLists.map(listText))}.</span>
 						{:else if p.lists?.length}
-							<span>The script gives the quests no givers: any they have here are cleared.</span>
+							<span>The script gives the quests no givers, event links or translations: any they have here are cleared.</span>
 						{:else}
-							<span>The script carries no givers: the quests keep theirs.</span>
+							<span>The script carries no givers, event links or translations: the quests keep theirs.</span>
 						{/if}
+						{#if p.carried?.length}<span>{carriedText(p.carried)}</span>{/if}
 						{#if refused.length}<span class="refused">The server's rules refuse it, so nothing can be imported until the script is fixed: {some(refused, 8)}.</span>{/if}
 						{#if p.missingCreatures?.length}<span>Creatures this world database lacks, which the server leaves out as givers: {p.missingCreatures.join(', ')}. Import them first (the creature editor).</span>{/if}
 						{#if p.missingObjects?.length}<span>Game objects this world database lacks, which the server leaves out as givers: {p.missingObjects.join(', ')}. Import them first (the game object editor).</span>{/if}
+						{#if p.missingEvents?.length}<span>Game events this world database lacks, which the server leaves out: {p.missingEvents.join(', ')}.</span>{/if}
 						{#if p.unready?.length}<span
 								>Givers here that can't give quests, which the server leaves out too (a creature needs the Quest giver flag, an object the quest giver type): {some(
 									p.unready.map((g) => `${g.name || g.kind} (${g.kind} ${g.id})`),
 									8,
 								)}.</span
 							>{/if}
-						{#if p.others}<span>{p.others} giver {p.others === 1 ? 'statement or row is' : 'statements and rows are'} of quests the script has no quest_template row of, and left out.</span>{/if}
-						{#if p.skipped}<span>{p.skipped} other {p.skipped === 1 ? 'statement is' : 'statements are'} left out: only quest_template rows and their givers are imported.</span>{/if}
+						{#if p.others}<span>{p.others} list {p.others === 1 ? 'statement or row is' : 'statements and rows are'} of quests the script has no quest_template row of, or of scripts or texts no quest names, and left out.</span
+							>{/if}
+						{#if p.skipped}<span>{p.skipped} other {p.skipped === 1 ? 'statement is' : 'statements are'} left out: only quest_template rows, their givers, event links, translations and start and end scripts are imported.</span
+							>{/if}
 						{#if p.unknown?.length}<span>Columns this server's tables lack are left out: {p.unknown.join(', ')}.</span>{/if}
-						<span>A replaced quest or giver list can't be brought back, unless you exported it first.</span>
+						<span>A replaced quest or list can't be brought back, unless you exported it first.</span>
 					</div>
 					<button onclick={() => (importPlan = null)}>Cancel</button>
 					<button class="active" disabled={importing || refused.length > 0} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>

@@ -173,8 +173,11 @@ quest's Save checks, and what it names (items, creatures, spells, other quests, 
 and factions) must exist on the destination or come in the same script; the preview lists every
 problem, and Import stays off until the script is fixed. Import the items and creatures a quest
 names first. The preview also names givers the destination lacks, or has without the Quest giver
-flag (a game object not of the quest giver type): the server leaves those out. Start and end
-scripts, event links and translations are not exported.
+flag (a game object not of the quest giver type): the server leaves those out. The script also
+carries the game events each quest is offered in and its translations, replaced the same way, and
+its start and end scripts with the broadcast texts they say: a script the destination holds the same
+is left as it is, any other is written under a new ID there and the quest pointed at it, so another
+quest sharing the old ID keeps its own. The creatures and spells a script names are not exported.
 
 1. Save any edits you want to export. Export reads saved database rows, **not unsaved form values**.
    An entry export includes its patch/build variants; it is not restricted to the row on screen.

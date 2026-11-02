@@ -1,5 +1,5 @@
-// The quest editor's Export…, Export chain… and Import… (#940): on Kobold Camp Cleanup (7), Export… hands the binding the quest's entry and title; Export chain… reads the Chain tab's quests (783 before it, 15 after) and hands them all; Import… shows the plan's bar (the quest rows, the givers it replaces, missing and unready givers) and Cancel drops it; a plan the server's rules refuse disables Import; a confirmed import notes the quest and reads its givers again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestQuestScriptRoundTrip, TestQuestScriptsLive).
-// touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/questscripts.go, internal/vmangos/listscripts.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
+// The quest editor's Export…, Export chain… and Import… (#940): on Kobold Camp Cleanup (7), Export… hands the binding the quest's entry and title; Export chain… reads the Chain tab's quests (783 before it, 15 after) and hands them all; Import… shows the plan's bar (the quest rows, the givers, event links and translations it replaces, the start and end scripts and broadcast texts it carries, kept or under new IDs (#993), missing and unready givers, a missing game event) and Cancel drops it; a plan the server's rules refuse disables Import; a confirmed import notes the quest and reads its givers again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestQuestScriptRoundTrip, TestQuestScriptsLive).
+// touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/questscripts.go, internal/vmangos/listscripts.go, internal/vmangos/carried.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
 const { ui } = await P.state()
 const App = window.go.main.App
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -27,6 +27,12 @@ const plan = (refused) => ({
 		{ entry: 7, of: 'quest', table: 'creature_questrelation', what: 'creatures that start it', rows: 1, had: 1 },
 		{ entry: 7, of: 'quest', table: 'gameobject_questrelation', what: 'game objects that start it', rows: 0, had: 0 },
 		{ entry: 90001, of: 'quest', table: 'creature_involvedrelation', what: 'creatures that end it', rows: 2, had: 0 },
+		{ entry: 90001, of: 'quest', table: 'game_event_quest', what: 'game events it is offered in', rows: 1, had: 0 },
+		{ entry: 7, of: 'quest', table: 'locales_quest', what: 'translations', rows: 1, had: 1 },
+	],
+	carried: [
+		{ what: 'start script', table: 'quest_start_scripts', id: 401, to: 42652, rows: 7, same: false },
+		{ what: 'broadcast text', table: 'broadcast_text', id: 563, to: 563, rows: 1, same: true },
 	],
 	refused,
 	skipped: 1,
@@ -34,6 +40,7 @@ const plan = (refused) => ({
 	unknown: ['quest_template.Shiny'],
 	missingCreatures: [99999],
 	missingObjects: [],
+	missingEvents: [77],
 	unready: [{ kind: 'creature', id: 805, name: 'Cameron' }],
 })
 try {
@@ -93,7 +100,12 @@ try {
 		bar.includes('Import 2 quest rows into the world database?') &&
 		bar.includes('Kobold Camp Cleanup (7, replaces it)') &&
 		bar.includes('Probe Errand (90001, new)') &&
-		bar.includes('Replaces the givers: quest 7: creatures that start it (1, replacing 1); quest 90001: creatures that end it (2).') &&
+		bar.includes(
+			'Replaces the givers, event links and translations: quest 7: creatures that start it (1, replacing 1); quest 90001: creatures that end it (2); quest 90001: game events it is offered in (1); quest 7: translations (1, replacing 1).',
+		) &&
+		bar.includes('start script 401 as 42652 (7 rows)') &&
+		bar.includes('Already here the same, left as they are: broadcast text 563.') &&
+		bar.includes('Game events this world database lacks, which the server leaves out: 77.') &&
 		!bar.includes('game objects that start it') &&
 		!bar.includes('rules refuse') &&
 		bar.includes('99999') &&

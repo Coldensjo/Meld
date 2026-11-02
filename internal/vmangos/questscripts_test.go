@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -134,7 +135,186 @@ func TestQuestScriptsLive(t *testing.T) {
 		}
 		rows += l.Rows
 	}
-	if len(plan.Lists) != 4*len(chain) || rows < 2*len(chain) {
+	if len(plan.Lists) != len(questLists)*len(chain) || rows < 2*len(chain) {
 		t.Fatalf("lists %+v", plan.Lists)
 	}
+	if len(plan.Carried) != 0 {
+		t.Fatalf("the chain names no scripts, but carries %+v", plan.Carried)
+	}
+
+	// Wait for Sirra to Finish (401) has a start script whose talk commands say broadcast texts, and an
+	// end script; Children's Week's 172 is offered in a game event (#993).
+	script, err = ExportQuests(dir, []int{401, 172})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"-- Start script 401: quest_start_scripts", "-- End script 401: quest_end_scripts", "-- Broadcast text ",
+		"-- Quest 172: the game events it is offered in (1 row)", "-- Quest 401: the translations (1 row)"} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("missing %q in\n%.4000s", want, script)
+		}
+	}
+	plan, err = PlanQuestImport(dir, data, script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", plan.Carried)
+	if plan.Skipped != 0 || plan.Others != 0 || len(plan.Unknown) != 0 || len(plan.Refused) != 0 || len(plan.MissingEvents) != 0 {
+		t.Fatalf("plan %+v", plan)
+	}
+	kinds := map[string]int{}
+	for _, c := range plan.Carried {
+		kinds[c.What]++
+		if !c.Same || c.To != c.ID || c.Rows == 0 {
+			t.Errorf("not kept as it is on the server it came from: %+v", c)
+		}
+	}
+	if kinds["start script"] != 1 || kinds["end script"] != 1 || kinds["broadcast text"] == 0 {
+		t.Fatalf("carried %+v", plan.Carried)
+	}
+	for _, l := range plan.Lists {
+		if l.Rows != l.Had {
+			t.Errorf("%s of quest %d: %d rows, has %d", l.Table, l.Entry, l.Rows, l.Had)
+		}
+	}
+}
+
+// A quest's start and end scripts travel in its script by their IDs, with the broadcast texts their
+// talk commands say (#993), and its event links and translations as lists keyed by the quest: kept on
+// the server they came from; on another, a script the server holds other rows of under its ID comes
+// to a fresh ID past any a quest names, StartScript or CompleteScript rewritten, and a talk command's
+// texts with it, while another command's dataint stays as it is.
+func TestQuestScriptCarried(t *testing.T) {
+	cols := append(questScript.keyColumns(),
+		TemplateColumn{Name: "Title", Kind: "text", Nullable: true},
+		TemplateColumn{Name: "StartScript", Kind: "uint", Max: 1<<24 - 1},
+		TemplateColumn{Name: "CompleteScript", Kind: "uint", Max: 1<<24 - 1})
+	rows := []batchRow{{"90001", "0", "Probe's Errand", "401", "402"}}
+	u := func(name string, top int64) TemplateColumn { return TemplateColumn{Name: name, Kind: "uint", Max: top} }
+	i32 := func(name string) TemplateColumn {
+		return TemplateColumn{Name: name, Kind: "int", Min: -1 << 31, Max: 1<<31 - 1}
+	}
+	scriptCols := []TemplateColumn{u("id", 1<<32-1), u("delay", 1<<32-1), u("command", 255), u("datalong", 1<<32-1),
+		i32("dataint"), i32("dataint2"), {Name: "x", Kind: "float"}, {Name: "comments", Kind: "text", MaxLen: 255}}
+	src := &fakeSource{cols: map[string][]TemplateColumn{
+		"quest_start_scripts": scriptCols,
+		"quest_end_scripts":   scriptCols,
+		"broadcast_text":      {u("entry", 1<<24-1), {Name: "male_text", Kind: "text", Nullable: true}},
+	}, data: map[string][]batchRow{
+		// Script 401 says text 500 or 501, then casts spell 7 with dataint 5 (not a text).
+		"quest_start_scripts": {{"401", "0", "0", "0", "500", "501", "0", "Sirra says"}, {"401", "2", "15", "7", "5", "0", "-1.5", "cast"}},
+		"quest_end_scripts":   {{"402", "0", "0", "0", "502", "0", "0", "done"}},
+		"broadcast_text":      {{"500", "Wait."}, {"501", "Hold on."}, {"502", "Thank you."}},
+	}}
+	carried, err := exportCarried(src, questRoots, cols, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"-- Start script 401: quest_start_scripts (2 rows)\nDELETE FROM `quest_start_scripts` WHERE `id` = 401;\n",
+		"(401, 2, 15, 7, 5, 0, -1.5, 'cast');\n",
+		"-- End script 402: quest_end_scripts (1 row)\n",
+		"-- Broadcast text 501: broadcast_text (1 row)\n",
+		"(502, 'Thank you.');\n",
+	} {
+		if !strings.Contains(carried, want) {
+			t.Fatalf("missing %q in\n%s", want, carried)
+		}
+	}
+	if strings.Contains(carried, "Broadcast text 5:") {
+		t.Fatalf("a cast's dataint taken for a text:\n%s", carried)
+	}
+	lcols := []TemplateColumn{{Name: "entry", Kind: "uint", Max: 1<<24 - 1}, {Name: "Title_loc3", Kind: "text", Nullable: true}, {Name: "Title_loc6", Kind: "text", Nullable: true}}
+	ecols := []TemplateColumn{{Name: "quest", Kind: "uint", Max: 1<<24 - 1}, {Name: "event", Kind: "uint", Max: 65535}, {Name: "patch_min", Kind: "uint", Max: 255}}
+	events, locales := questLists[4], questLists[5]
+	script := templateScript(questScript, cols, rows, questHeader, time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)) +
+		listScript(events, ecols, []batchRow{{"90001", "12", "0"}}, []int{90001}) +
+		listScript(locales, lcols, []batchRow{{"90001", "Botengang", "NULL"}}, []int{90001}) + carried
+	for _, want := range []string{
+		"-- Quest 90001: the game events it is offered in (1 row)\nDELETE FROM `game_event_quest` WHERE `quest` = 90001;\n",
+		"-- Quest 90001: the translations (1 row)\nDELETE FROM `locales_quest` WHERE `entry` = 90001;\nREPLACE INTO `locales_quest` (`entry`, `Title_loc3`, `Title_loc6`) VALUES\n(90001, 'Botengang', NULL);\n",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("missing %q in\n%s", want, script)
+		}
+	}
+	order := []string{"entry", "patch", "Title", "StartScript", "CompleteScript"}
+	tmpl, err := planScript(questScript, script, order)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lp, err := planList(locales, script, tmpl.entries(), []string{"entry", "Title_loc3", "Title_loc6"})
+	if err != nil || len(lp.replaced) != 1 || len(lp.rows) != 1 || lp.rows[0].values["Title_loc3"] != "Botengang" || !lp.rows[0].null["Title_loc6"] {
+		t.Fatalf("translations plan %+v %v", lp, err)
+	}
+	ep, err := planList(events, script, tmpl.entries(), []string{"quest", "event", "patch_min"})
+	if err != nil || len(ep.rows) != 1 || ep.rows[0].values["event"] != "12" {
+		t.Fatalf("events plan %+v %v", ep, err)
+	}
+	p, err := planCarried(src, script, questRoots, tmpl.rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.sets) != 5 || p.others != 0 || p.stmts+lp.stmts+ep.stmts != tmpl.skipped {
+		t.Fatalf("%d sets, %d others, %d+%d+%d statements of %d skipped: %+v", len(p.sets), p.others, p.stmts, lp.stmts, ep.stmts, tmpl.skipped, p.imports())
+	}
+	for _, s := range p.imports() {
+		if !s.Same || s.To != s.ID {
+			t.Errorf("on the server it came from: %+v", s)
+		}
+	}
+
+	// Another server: its script 401 is another quest's, its end script 402 the same, its text 500
+	// says something else, and a quest there names start script 900 without rows.
+	other := &fakeSource{cols: src.cols, data: map[string][]batchRow{
+		"quest_start_scripts": {{"401", "0", "15", "8", "0", "0", "0", "other"}, {"450", "0", "0", "0", "0", "0", "0", ""}},
+		"quest_end_scripts":   src.data["quest_end_scripts"],
+		"broadcast_text":      {{"500", "Go away."}, {"501", "Hold on."}, {"502", "Thank you."}, {"520", "x"}},
+	}}
+	tmpl, _ = planScript(questScript, script, order)
+	p, err = planCarried(lastIs{other, map[string]int{"quest_start_scripts": 900}}, script, questRoots, tmpl.rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, s := range p.imports() {
+		got[fmt.Sprintf("%s %d", s.What, s.ID)] = fmt.Sprintf("%d %v", s.To, s.Same)
+	}
+	want := map[string]string{"start script 401": "901 false", "end script 402": "402 true", "broadcast text 500": "521 false", "broadcast text 501": "501 true", "broadcast text 502": "502 true"}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s comes to %q, want %q (%v)", k, got[k], v, got)
+		}
+	}
+	if r := tmpl.rows[0].values; r["StartScript"] != "901" || r["CompleteScript"] != "402" {
+		t.Fatalf("template %v", r)
+	}
+	sql, err := p.sql(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"REPLACE INTO `quest_start_scripts` (`id`, `delay`, `command`, `datalong`, `dataint`, `dataint2`, `x`, `comments`) VALUES (901, 0, 0, 0, 521, 501, 0, 'Sirra says');\n",
+		"VALUES (901, 2, 15, 7, 5, 0, -1.5, 'cast');\n",
+		"REPLACE INTO `broadcast_text` (`entry`, `male_text`) VALUES (521, 'Wait.');\n",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Errorf("missing %q in\n%s", want, sql)
+		}
+	}
+	if strings.Contains(sql, "quest_end_scripts") || strings.Contains(sql, "(401,") || strings.Contains(sql, "(501,") {
+		t.Errorf("wrote over a set of the server:\n%s", sql)
+	}
+}
+
+// lastIs is a carriedSource whose largest ID in use is, for the tables named, the one given, as a
+// table's last expression finds an ID something names without the table having it.
+type lastIs struct {
+	*fakeSource
+	last map[string]int
+}
+
+func (l lastIs) maxID(t carriedTable) (int, error) {
+	n, err := l.fakeSource.maxID(t)
+	return max(n, l.last[t.name]), err
 }

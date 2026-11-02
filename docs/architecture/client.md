@@ -876,7 +876,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   them (`QuestImport.Refused`) and the bar disables Import. On the stock database 11 of 4729 rows
   break a rule (emote 9, Method 3), so such a quest needs its script fixed before it moves. The plan
   names givers the server lacks and givers that can't give quests (`Unready`); their rows are written
-  all the same. Start and end scripts, event links and translations are not in the script.
+  all the same. The quest's event links (`game_event_quest`, by `quest`; the plan names events the
+  server lacks, `MissingEvents`) and translations (`locales_quest`, by `entry`) are lists of the same
+  kind (#993). Its start and end scripts travel as `carried.go` sets (#993; `questRoots`, the
+  `StartScript` and `CompleteScript` columns), since quests can share a script ID: kept where the
+  server holds the same rows, else written under a fresh ID past both the table's largest and the
+  largest the quests name, `quest_template` rewritten to it. A talk command's (`command` 0) `dataint`
+  to `dataint4` name broadcast texts, which travel too (a `carriedRef` with `when`, so another
+  command's `dataint` is left alone); the creatures, spells and conditions a script names stay IDs.
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
   (`SearchItemsSorted`, ordered in SQL before its limit of 100 by name, entry, quality, item level
