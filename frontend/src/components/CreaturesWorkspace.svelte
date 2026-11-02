@@ -122,7 +122,8 @@
 
 	// Step 3: the look shown, the picked display dressed in the picked gear.
 	let hovered = $state<vmangos.DisplayEntry | null>(null)
-	let slot = $state(0)
+	// What the picker on the left picks: -1 the body (a display), 0 to 2 the held item of that slot (#1025: one picker at a time, so the step fits the page).
+	let part = $state(-1)
 	// The names and displays of the holdable items, for the gear's names and icons (read once).
 	let weaponNames = $state<Map<number, string>>(new Map())
 	let weaponDisplays = $state<Map<number, number>>(new Map())
@@ -339,17 +340,20 @@
 					{:else if step === 2}
 						<div class="looks">
 							<div class="pick">
-								<p class="dim">Pick its body (a display); hover a tile to see it on the right.</p>
-								<DisplayPicker selected={draft.display} onpick={(d) => (draft.display = d.id)} onhover={(d) => (hovered = d)} />
-								<h3>Held items</h3>
-								<span class="row">
-									<select bind:value={slot}>
-										{#each SLOTS as s, i (s)}<option value={i}>{s}{draft.items[i] ? ` (${itemName(draft.items[i])})` : ''}</option>{/each}
-									</select>
-									{#if draft.items[slot]}<ItemIcon displayId={weaponDisplays.get(draft.items[slot]) ?? 0} size={14} />{/if}
-									<button disabled={!draft.items[slot]} onclick={() => (draft.items[slot] = 0)}>Empty hand</button>
-								</span>
-								<WeaponPicker which={slot} selected={draft.items[slot]} onpick={(e) => (draft.items[slot] = e)} />
+								<div class="parts" role="tablist" aria-label="What to pick">
+									<button role="tab" aria-selected={part < 0} class:on={part < 0} onclick={() => (part = -1)}>Body</button>
+									{#each SLOTS as s, i (s)}
+										<button role="tab" aria-selected={part === i} class:on={part === i} onclick={() => (part = i)} title={draft.items[i] ? itemName(draft.items[i]) : `Nothing in the ${s.toLowerCase()}`}
+											>{#if draft.items[i]}<ItemIcon displayId={weaponDisplays.get(draft.items[i]) ?? 0} size={14} />{/if}<span>{s}{draft.items[i] ? `: ${itemName(draft.items[i])}` : ''}</span></button
+										>
+									{/each}
+								</div>
+								{#if part < 0}
+									<p class="dim">Pick its body (a display); hover a tile to see it on the right.</p>
+									<DisplayPicker fill selected={draft.display} onpick={(d) => (draft.display = d.id)} onhover={(d) => (hovered = d)} />
+								{:else}
+									<WeaponPicker fill which={part} selected={draft.items[part]} onpick={(e) => (draft.items[part] = e)} />
+								{/if}
 							</div>
 							<div class="show">
 								{#if preview}
@@ -591,7 +595,9 @@
 		list-style: none;
 		margin: 0;
 		padding: 4px;
-		max-height: 260px;
+		/* The page's height left, not a cap of its own (#1025): the list scrolls, the page does not. */
+		flex: 1;
+		min-height: 120px;
 		overflow-y: auto;
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
@@ -605,13 +611,12 @@
 	.bad {
 		color: var(--bad);
 	}
+	/* The step takes the page's height (#1025): the picker's grid fills what is left and scrolls, the page does not. */
 	.looks {
 		display: flex;
 		gap: 16px;
-		min-height: 520px;
-		/* The page is a scrolling flex column: without this the row shrank to 520px and the pickers spilled over what follows. */
-		flex: none;
-		align-items: flex-start;
+		flex: 1;
+		min-height: 360px;
 	}
 	.pick {
 		flex: 1;
@@ -620,14 +625,32 @@
 		flex-direction: column;
 		gap: 6px;
 	}
+	.parts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+	.parts button {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		max-width: 260px;
+		padding: 2px 10px;
+		border-radius: 10px;
+	}
+	.parts button span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.parts button.on {
+		background: var(--accent);
+		color: var(--accent-ink);
+	}
 	.show {
 		width: 360px;
-		height: 520px;
+		max-height: 560px;
 		flex: none;
-		position: sticky;
-		top: 0;
-		z-index: 1;
-		background: var(--bg, transparent);
 		display: flex;
 		flex-direction: column;
 		gap: 8px;

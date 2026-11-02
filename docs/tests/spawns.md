@@ -691,7 +691,7 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
   click a display tile, then step 4 shows level 10 at 594 health, 30 damage, 492 armour (warrior:
   198, 15.2 and 492 from `creature_classlevelstats`). Make creature writes one row; check it with
   `ReadCreature(entry)` and delete it afterwards (`DELETE FROM creature_template WHERE entry = …`).
-- Probe: `creature-spells`, after its Spells checks (once the probes `creature-new` and `creature-looks`): in the creature editor, Copy this creature shows its name bar (Cancel leaves; nothing is written) and New creature closes it and opens the guide (#260); then it walks the guide to step 3 and checks the preview stays in view while the page scrolls past the pickers (#221: it is sticky; the row once shrank to 520px and the pickers spilled over it).
+- Probe: `creature-spells`, after its Spells checks (once the probes `creature-new` and `creature-looks`): in the creature editor, Copy this creature shows its name bar (Cancel leaves; nothing is written) and New creature closes it and opens the guide (#260); then it walks the guide to step 3 and checks the pickers and the preview stay inside the page (#221: the row once shrank to 520px and the pickers spilled over it; since #1025 the page does not scroll at all, one picker shown at a time). Probe `dialog-fit` checks every step of the guide has no scroll bar but its grids and lists (#1025).
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
 

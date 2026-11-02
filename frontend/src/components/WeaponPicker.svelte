@@ -81,8 +81,10 @@
 		selected: number
 		onpick: (entry: number) => void
 		onhover?: (w: vmangos.WeaponEntry | null) => void
+		/** Fills its parent's column, the grid taking the height left (#1025), instead of its own height. */
+		fill?: boolean
 	}
-	let { which, selected, onpick, onhover }: Props = $props()
+	let { which, selected, onpick, onhover, fill = false }: Props = $props()
 
 	let all = $state<vmangos.WeaponEntry[]>([])
 	let error = $state('')
@@ -152,7 +154,7 @@
 	const title = (w: vmangos.WeaponEntry) => `${w.name} (item ${w.entry})\n${weaponKind(w)}`
 </script>
 
-<div class="picker">
+<div class="picker" class:fill>
 	<div class="list">
 		<input type="search" placeholder="Search: a name (scimitar, buckler) or an item entry" bind:value={query} />
 		<div class="row">
@@ -259,6 +261,21 @@
 		border: 1px solid var(--border);
 		border-radius: 4px;
 		padding: 6px;
+	}
+	.picker.fill {
+		grid-template-rows: minmax(0, 1fr);
+		min-height: 240px;
+	}
+	.fill .list {
+		min-height: 0;
+	}
+	.fill .side .preview {
+		height: min(360px, calc(100% - 40px));
+	}
+	.fill .grid-wrap {
+		flex: 1;
+		min-height: 0;
+		height: auto;
 	}
 	.dim {
 		color: var(--text-dim);

@@ -1,5 +1,5 @@
-// The scroll-bar rule (#933, #986): the Texture looks and Brush stack dialogs have no list of their own that scrolls; with 18 textures and 10 brushes (more than their old 420 px and 380 px caps held) each fits the probe page (1400x900, 805 px inside) with no scroll bar, the dialog's body included. The database editors' field pages (#1024) fit it too: every tab of the creature editor on Scarlet Commander Mograine (3976) shows no scroll bar but the lists that grow without bound (the display grid, the spell search's results), every tab of the quest editor on Wolves Across the Border (33), its fields in two columns, and every tab of the game object editor on Small Thorium Vein (324), its fields on Object and What it does, and every tab of the item editor on the Worn Shortsword (25), the five effects two rows each, and every tab of the spell editor on Fireball (133), its fields on ten tabs and the short masks ticked in more columns.
-// touches: frontend/src/components/TextureLooksDialog.svelte, frontend/src/components/BrushStackDialog.svelte, frontend/src/components/GroundEffectsDialog.svelte, frontend/src/components/IconImportDialog.svelte, frontend/src/components/Modal.svelte, frontend/src/components/CreatureEditor.svelte, frontend/src/components/SpellsTab.svelte, frontend/src/components/DisplayPicker.svelte, frontend/src/lib/world/creatureFields.ts, frontend/src/components/QuestEditor.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/world/questFields.ts, frontend/src/components/ObjectEditor.svelte, frontend/src/lib/world/objectFields.ts, frontend/src/components/ItemEditor.svelte, frontend/src/lib/world/itemFields.ts, frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/components/TemplateFields.svelte
+// The scroll-bar rule (#933, #986): the Texture looks and Brush stack dialogs have no list of their own that scrolls; with 18 textures and 10 brushes (more than their old 420 px and 380 px caps held) each fits the probe page (1400x900, 805 px inside) with no scroll bar, the dialog's body included. The database editors' field pages (#1024) fit it too: every tab of the creature editor on Scarlet Commander Mograine (3976) shows no scroll bar but the lists that grow without bound (the display grid, the spell search's results), every tab of the quest editor on Wolves Across the Border (33), its fields in two columns, and every tab of the game object editor on Small Thorium Vein (324), its fields on Object and What it does, and every tab of the item editor on the Worn Shortsword (25), the five effects two rows each, and every tab of the spell editor on Fireball (133), its fields on ten tabs and the short masks ticked in more columns. The Creatures workspace (#1025) fits it on every step of its guide, the factions list filling the page's height instead of its 260 px cap and How it looks showing one picker at a time (Body, Main hand, Off hand, Ranged), its grid filling the height; only the grids and lists that grow without bound scroll.
+// touches: frontend/src/components/TextureLooksDialog.svelte, frontend/src/components/BrushStackDialog.svelte, frontend/src/components/GroundEffectsDialog.svelte, frontend/src/components/IconImportDialog.svelte, frontend/src/components/Modal.svelte, frontend/src/components/CreatureEditor.svelte, frontend/src/components/SpellsTab.svelte, frontend/src/components/DisplayPicker.svelte, frontend/src/lib/world/creatureFields.ts, frontend/src/components/QuestEditor.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/world/questFields.ts, frontend/src/components/ObjectEditor.svelte, frontend/src/lib/world/objectFields.ts, frontend/src/components/ItemEditor.svelte, frontend/src/lib/world/itemFields.ts, frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/components/TemplateFields.svelte, frontend/src/components/CreaturesWorkspace.svelte, frontend/src/components/WeaponPicker.svelte
 const { editor, prefs, ui } = await P.state()
 const { newStackItem } = await P.app('/src/lib/tools/brushStack.ts')
 const paletteWas = editor.palette
@@ -90,7 +90,54 @@ try {
 	r.spellTabs = spell.querySelectorAll('nav.tabs > button').length
 	r.spellTabRows = Math.round(spell.querySelector('nav.tabs').getBoundingClientRect().height / spell.querySelector('nav.tabs > button').getBoundingClientRect().height)
 	r.spellScrolling = await editorTabs(spell)
+	ui.spellEditor = null
+	await P.frames(1)
+
+	// The Creatures workspace (#1025): each step of the guide, and each picker of How it looks.
+	ui.creatures = true
+	const ws = (await P.until(() => document.querySelector('.ws[aria-label="Creatures"] ol.steps button'), 30_000, 'the creatures workspace')).closest('.ws')
+	const wsLists = new Set(['grid-wrap', 'found', 'factions'])
+	const wsScrolling = () =>
+		scrolling(ws).filter(
+			(c) =>
+				!wsLists.has(
+					String(c)
+						.replace(/svelte-\w+/g, '')
+						.trim(),
+				),
+		)
+	const nameBox = ws.querySelector('.form input')
+	nameBox.value = 'Probe 1025'
+	nameBox.dispatchEvent(new Event('input', { bubbles: true }))
+	await P.frames(2)
+	r.wsScrolling = {}
+	const steps = () => [...ws.querySelectorAll('ol.steps button')]
+	for (let i = 0; i < 4; i++) {
+		steps()[i].click()
+		await P.frames(2)
+		if (i === 1) {
+			await P.until(() => ws.querySelector('.factions input[type=radio]'), 30_000, 'the factions')
+			ws.querySelector('.factions input[type=radio]').click()
+			await P.frames(2)
+			r.factionsHeight = Math.round(ws.querySelector('.factions').getBoundingClientRect().height)
+		}
+		if (i === 2) {
+			r.lookParts = ws.querySelectorAll('.parts button').length
+			for (const b of [...ws.querySelectorAll('.parts button')]) {
+				b.click()
+				await P.frames(2)
+				await new Promise((res) => setTimeout(res, 300))
+				const s = wsScrolling()
+				if (s.length) r.wsScrolling[`${steps()[i].textContent.trim()} ${b.textContent.trim()}`] = s
+			}
+			continue
+		}
+		await new Promise((res) => setTimeout(res, 300))
+		const s = wsScrolling()
+		if (s.length) r.wsScrolling[steps()[i].textContent.trim()] = s
+	}
 } finally {
+	ui.creatures = false
 	ui.spellEditor = null
 	ui.itemEditor = null
 	ui.creatureEditor = null
@@ -116,6 +163,9 @@ return {
 		!Object.keys(r.itemScrolling).length &&
 		r.spellTabs >= 10 &&
 		r.spellTabRows === 1 &&
-		!Object.keys(r.spellScrolling).length,
+		!Object.keys(r.spellScrolling).length &&
+		r.factionsHeight > 260 &&
+		r.lookParts === 4 &&
+		!Object.keys(r.wsScrolling).length,
 	...r,
 }

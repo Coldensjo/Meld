@@ -329,7 +329,7 @@ The window layout, the asset browser and the dock panels and floating windows.
   dialog (#776) do. Lists that can grow without bound (search results, the asset grids, spells,
   history, the log) keep theirs, and `Modal.svelte`'s body keeps its `overflow-y: auto` as the
   fallback for a small window, so a list inside a dialog has no cap of its own (Texture looks, Brush
-  stack, Ground effects, the icon import; probe `dialog-fit`). The waypoint, script, shared-shop, problem and result lists inside editors, windows and dialogs have none either (#1027); the shop search results and the pool legend overlay keep theirs.
+  stack, Ground effects, the icon import; probe `dialog-fit`). The waypoint, script, shared-shop, problem and result lists inside editors, windows and dialogs have none either (#1027); the shop search results and the pool legend overlay keep theirs. The Creatures workspace's guide (#1025) fits every step: its factions list takes the page's height left, and How it looks shows one picker at a time (Body, Main hand, Off hand, Ranged chips, `WeaponPicker`'s `fill` like `DisplayPicker`'s) beside the preview. The character editor's tabs (#931) keep the lists sized by the character or the world: the bags column (sized by the equipment beside it, up to four bags of 20), the explored zones, the spell search, and the skills, reputation and flight-path groups, which fit an ordinary character.
 - **The menus and Preferences** (#122, #752): top-level menus, never flyouts (#122, the owner's
   choice), each under about 720 px tall so it fits a 768 px window (probe `preferences` measures
   them): File, Edit, Models, Terrain (shaping, baked shadows, the tile clean-up), Paint (textures,
