@@ -220,7 +220,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `ExportSQLFor`; the CMaNGOS statements and the schema differences are in `vmangos/cmangos.go`). What
   CMaNGOS's tables can't hold (a spawn's display and equipment, formations, a waypoint's wander
   distance and script) is left out and listed in the file's header; its map ID comes from the
-  client's Map.dbc. Saving to the database, and every other server tool, stays VMaNGOS-only. A
+  client's Map.dbc. Saving to the database, and every other server tool, stays VMaNGOS-only, but for
+  File › Compile to CMaNGOS Server (shown while that pref is CMaNGOS classic; `compileCmangos` in
+  `io/compile.ts`, the `UpdateCMaNGOSServer` binding in `app_cmangos.go`, `vmangos/cmangosmaps.go`):
+  it runs the CMaNGOS server's own extractors (`ad`, `vmap_extractor`, `vmap_assembler`, `MoveMapGen`,
+  from the `cmangosPath` folder's `Extractors` or `tools`) over the whole client, as they take no map
+  filter, stages their output in its `DataDir` and moves it over the server's `dbc`, `maps` and
+  `vmaps`, reporting through the VMaNGOS rebuild's `servermaps:*` events and busy flag. A stock `ad`
+  never opens `patch-3.MPQ`, so one without that string is refused (`ErrStockExtractor`), as is an
+  extraction whose Map.dbc lacks the map. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. A game object's entry can
   change (#136, `objectEntryFields`: entry, name, type, display, model and the template's size as
   its scale); the SQL then writes `gameobject.id`. A tilted game object (`gameobject.rotation0` or

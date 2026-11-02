@@ -1,6 +1,6 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import { ApplySpawnEdits, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateRegionServer, VmangosPath } from '../wails/App'
+import { ApplySpawnEdits, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
 import { guarded } from './backend'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
@@ -300,8 +300,47 @@ async function compileServer(engine: Engine, region: RegionBlock, name: string) 
 	await rebuildServerMaps(mapId, tiles, `${spawns.note} Rebuilding the server's map data of ${name} from the client's tiles.`.trimStart())
 }
 
-/** Starts the rebuild of the server's map data of `tiles` ("x_y"; none for the whole map) in the background. */
-async function rebuildServerMaps(mapId: number, tiles: string[], lead: string) {
+/**
+ * File › Compile to CMaNGOS Server (#894, shown while Preferences › Compile and export › Spawn SQL for is
+ * CMaNGOS classic): the CMaNGOS server's map data rebuilt from the client's patch by that server's own
+ * extractors, which take no map filter, so every map is extracted. The patch must already hold the
+ * region's edits (Compile to Client); its spawns go to CMaNGOS through File › Export Spawn SQL….
+ */
+export function compileCmangos(engine: Engine) {
+	if (refuseGuestExport(engine)) return
+	return guarded('Compile to CMaNGOS', () =>
+		withSaving('Compiling to the CMaNGOS server', async () => {
+			const region = engine.activeRegion()
+			if (!region) {
+				setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
+				return
+			}
+			const name = regionName(region)
+			if (!(await CmangosPath())) {
+				setStatus('Set the CMaNGOS server folder first (Edit › Preferences › Folders), then Compile to CMaNGOS Server.', 8000)
+				return
+			}
+			if (await regionUncompiled(engine)) {
+				setStatus(`${name} has edits the client doesn't have yet, and the CMaNGOS server's map data is built from the client's tiles: Compile to Client first.`, 10000)
+				return
+			}
+			const mapId = await RegionMapID(region.mapName).catch(() => -1)
+			if (mapId < 0) {
+				setStatus(`The client's Map.dbc has no row for ${region.mapName}, so the CMaNGOS server has no map to rebuild.`, 10000)
+				return
+			}
+			const n = ui.spawnChanges
+			const spawns = n ? ` Its ${countOf(n, 'spawn edit goes', 'spawn edits go')} to CMaNGOS through File › Export Spawn SQL….` : ''
+			await rebuildServerMaps(mapId, [], `Compiling to the CMaNGOS server: its extractors take no map filter, so every map of the client is extracted.${spawns}`, () => UpdateCMaNGOSServer(mapId))
+		}),
+	)
+}
+
+/**
+ * Starts the rebuild of the server's map data of `tiles` ("x_y"; none for the whole map) in the background:
+ * VMaNGOS's, or another core's through `start` (#894), which reports through the same events.
+ */
+async function rebuildServerMaps(mapId: number, tiles: string[], lead: string, start = () => UpdateRegionServer(mapId, tiles)) {
 	if (serverMapsRunning) {
 		setStatus(`${lead} The server's map data is still being rebuilt from the last compile: Compile to Server again when it is done.`, 10000)
 		return
@@ -309,7 +348,7 @@ async function rebuildServerMaps(mapId: number, tiles: string[], lead: string) {
 	listenToServerMaps()
 	serverMapsRunning = true
 	try {
-		await UpdateRegionServer(mapId, tiles)
+		await start()
 		setStatus(`${lead} Rebuilding the server's map data…`, 0)
 	} catch (e) {
 		serverMapsRunning = false

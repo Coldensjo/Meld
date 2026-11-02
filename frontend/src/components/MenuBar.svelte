@@ -2,7 +2,7 @@
 	import { docs, editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
-	import { compileRegion, exportSpawnSql } from '../lib/io/compile'
+	import { compileCmangos, compileRegion, exportSpawnSql } from '../lib/io/compile'
 	import { launchGame, playHere, exportPortCoords, controlServer, refreshServerStatus } from '../lib/io/game'
 	import { chooseExternalDatabase, disconnectExternal } from '../lib/io/external'
 	import { exportAlphamap, importAlphamap, exportHeightmap, exportNormalMap, writeMinimapTiles } from '../lib/io/images'
@@ -68,6 +68,7 @@
 		io: {
 			compileRegion,
 			exportSpawnSql,
+			compileCmangos,
 			launchGame,
 			playHere,
 			exportPortCoords,

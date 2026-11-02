@@ -282,3 +282,15 @@ test("Grow region's items are the host's in the session's map: a guest's are off
 	assert.ok(grow.kind === 'action' && grow.disabled)
 	assert.equal(grow.title, GUEST_REPLACE_REASON)
 })
+
+test('File › Compile to CMaNGOS Server shows while CMaNGOS classic is the export core (#894)', () => {
+	const has = (core: string) => {
+		const file = makeCtx({ prefs: { exportCore: core } })
+			.build()
+			.find((m) => m.name === 'File')
+		return !!file?.items.some((i) => i.kind !== 'sep' && i.label === 'Compile to CMaNGOS Server')
+	}
+	assert.equal(has('cmangos-classic'), true)
+	assert.equal(has('vmangos'), false)
+	assert.equal(disabled(makeCtx({ prefs: { exportCore: 'cmangos-classic' }, backend: false }).build(), 'File', 'Compile to CMaNGOS Server'), true)
+})

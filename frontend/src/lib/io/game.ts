@@ -1,6 +1,7 @@
 // The game: which client Meld starts and how its window opens, the Benilla and VMaNGOS folders, Launch,
 // Play Here and the port commands.
 import {
+	BrowseCmangosFolder,
 	BrowseVmangosFolder,
 	SaveTextDialog,
 	WriteTextFile,
@@ -14,6 +15,7 @@ import {
 	LaunchGameAt,
 	PlayHere,
 	EnableSoap,
+	SetCmangosPath,
 	SetVmangosPath,
 	ServerStatus,
 	StartServer,
@@ -226,6 +228,19 @@ export async function chooseVmangosFolder() {
 		setStatus(`VMaNGOS folder: ${dir}`)
 	} catch (e) {
 		setStatus(`Not a VMaNGOS server folder: ${e}`, 8000)
+	}
+}
+
+/** Picks the CMaNGOS classic server folder File › Compile to CMaNGOS Server rebuilds (#894). */
+export async function chooseCmangosFolder() {
+	if (!hasBackend()) return
+	try {
+		const dir = await BrowseCmangosFolder()
+		if (!dir) return
+		await SetCmangosPath(dir)
+		setStatus(`CMaNGOS folder: ${dir}`)
+	} catch (e) {
+		setStatus(`Not a CMaNGOS server folder: ${e}`, 8000)
 	}
 }
 

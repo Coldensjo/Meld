@@ -21,6 +21,7 @@ are available on Linux. Client-only editing and writing a patch are separate fro
 | **Compile All** | Client map files, server map data and the region's spawn edits | Update both sides after editing a region |
 | **Save Spawns to Database** | Creature and game object edits in the world database | Save spawn changes without rebuilding terrain |
 | **Export Spawn SQL…** | An SQL file of the region's spawn edits, for VMaNGOS or CMaNGOS classic | Import the spawns into another server's world database yourself |
+| **Compile to CMaNGOS Server** | A CMaNGOS classic server's DBC files, map data and movement maps, built from the client's tiles by its own extractors | Play the region's ground on a CMaNGOS server ([CMaNGOS classic](#cmangos-classic)) |
 
 **Export Spawn SQL…** writes for the server core chosen under **Edit › Preferences… › Compile and
 export › Spawn SQL for**. For **CMaNGOS classic**, the file uses CMaNGOS's tables and lists at the
@@ -174,6 +175,59 @@ Rebuilding a whole map removes that map's previous movement-map files before gen
 failed run can leave missing or incomplete navigation data. Check the log even after a successful
 compile. Meld does not change `mmap.enabled` in `run/mangosd.conf`; the server administrator must
 decide whether to enable and validate movement maps.
+
+### CMaNGOS classic
+
+Besides VMaNGOS, Meld can put a region on a **CMaNGOS classic** server (cmangos/mangos-classic). Only
+the export is shared: the database editors, Save Spawns, Launch, Play Here and the server controls
+stay VMaNGOS-only.
+
+1. Set **Edit › Preferences… › Compile and export › Spawn SQL for** to **CMaNGOS classic**. This adds
+   **File › Compile to CMaNGOS Server**.
+2. Set the server in **Edit › Preferences… › Folders › CMaNGOS server folder**: the folder with
+   `mangosd.exe` and `mangosd.conf` (or `etc/mangosd.conf`). Meld reads its `DataDir` from the conf
+   (relative to that folder) and finds the tools in its `Extractors` folder (a Visual Studio build) or
+   `tools` (an install): `ad.exe`, `vmap_extractor.exe`, `vmap_assembler.exe` and, for movement maps,
+   `MoveMapGen.exe`. Build CMaNGOS with `-DBUILD_EXTRACTORS=ON` to get them.
+3. **Change CMaNGOS's map extractor once.** Stock, `ad` reads only `model`, `dbc`, `terrain`, `patch`
+   and `patch-2.MPQ`, so it never sees Meld's `patch-3.MPQ`. In `contrib/extractor/System.cpp`, add the
+   custom patches to the end of `CONF_mpq_list` (each later one overrides the earlier ones; missing ones
+   are skipped) and rebuild the extractors:
+
+   ```cpp
+   const char* CONF_mpq_list[] =
+   {
+       "model.MPQ",
+       "dbc.MPQ",
+       "terrain.MPQ",
+       "patch.MPQ",
+       "patch-2.MPQ",
+       "patch-3.MPQ",
+       "patch-4.MPQ",
+       "patch-5.MPQ",
+       "patch-6.MPQ",
+       "patch-7.MPQ",
+       "patch-8.MPQ",
+       "patch-9.MPQ",
+   };
+   ```
+
+   Meld refuses a stock `ad.exe` (it looks for `patch-3.MPQ` in it) rather than rebuilding the server
+   from the unchanged client. The vmap extractor already reads every `patch-N.MPQ`. This is the change
+   Meld's own VMaNGOS extractor carries.
+4. Compile the region to the client first (**Compile to Client**), then choose **File › Compile to
+   CMaNGOS Server**. Stop the CMaNGOS world server when asked.
+
+CMaNGOS's tools take no map or tile filter, so each compile extracts **every map** of the client,
+which takes much longer than a VMaNGOS compile. They write into a staging folder in the `DataDir`;
+once all three steps have passed, their files replace the server's `dbc`, `maps` and `vmaps` (the
+compiled map's old map and collision files are removed first). Movement maps are then rebuilt for the
+compiled map only, when **Build movement maps on compile** is on. The client's patch is the same for
+every core.
+
+Spawns go to CMaNGOS through **Export Spawn SQL…**, which you import into its world database
+yourself. A new map that is a dungeon also needs an `instance_template` row on CMaNGOS (it has no
+`map_template`); Meld does not write it yet. Like VMaNGOS's, this automation runs on Windows only.
 
 ### Older working files
 

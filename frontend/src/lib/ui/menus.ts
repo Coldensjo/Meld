@@ -41,6 +41,7 @@ export interface Menu {
 export interface MenuIo {
 	compileRegion: typeof compileIo.compileRegion
 	exportSpawnSql: typeof compileIo.exportSpawnSql
+	compileCmangos: typeof compileIo.compileCmangos
 	launchGame: typeof gameIo.launchGame
 	playHere: typeof gameIo.playHere
 	exportPortCoords: typeof gameIo.exportPortCoords
@@ -225,6 +226,8 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 					{ kind: 'action', label: 'Compile to Client', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileRegion(e, 'client')) },
 					{ kind: 'action', label: 'Compile to Server', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileRegion(e, 'server')) },
 					{ kind: 'action', label: 'Compile All', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileRegion(e, 'all')) },
+					// A CMaNGOS classic server's map data, by its own extractors (#894), while it is the export's core.
+					...(prefs.exportCore === 'cmangos-classic' ? [{ kind: 'action' as const, label: 'Compile to CMaNGOS Server', ...hostOnly(ctx, !backend || ui.busy), run: withEngine((e) => io.compileCmangos(e)) }] : []),
 					// What Compile, Save Spawns or Publish would write, listed before it is written (#959).
 					{
 						kind: 'action',

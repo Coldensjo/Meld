@@ -2,10 +2,10 @@
 	import Modal from './Modal.svelte'
 	import { prefs, setStatus, ui, wow, type PrefsPage } from '../lib/state/editor.svelte'
 	import { hasBackend } from '../lib/io/backend'
-	import { chooseBenillaFolder, chooseVmangosFolder, setGameClient, setGameWindow } from '../lib/io/game'
+	import { chooseBenillaFolder, chooseCmangosFolder, chooseVmangosFolder, setGameClient, setGameWindow } from '../lib/io/game'
 	import { blenderInfo, chooseBlenderFolder } from '../lib/io/blender'
 	import { chooseWowFolder } from '../lib/wow/api'
-	import { ClearThumbnailCache, GameClient, VmangosPath } from '../lib/wails/App'
+	import { ClearThumbnailCache, CmangosPath, GameClient, VmangosPath } from '../lib/wails/App'
 	import { rememberAntialias } from '../lib/engine/display'
 	import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
 	import { UI_SCALES } from '../lib/ui/uiScale'
@@ -36,6 +36,7 @@
 
 	let query = $state('')
 	let server = $state('')
+	let cmangos = $state('')
 	let benilla = $state({ path: '', built: false })
 	let blender = $state({ path: '', program: '', error: '' })
 
@@ -43,6 +44,7 @@
 	async function refresh() {
 		if (!hasBackend()) return
 		server = await VmangosPath().catch(() => '')
+		cmangos = await CmangosPath().catch(() => '')
 		const g = await GameClient().catch(() => null)
 		benilla = { path: g?.benillaPath ?? '', built: !!g?.benillaBuilt }
 		blender = await blenderInfo()
@@ -190,6 +192,19 @@
 		},
 		{
 			page: 'folders',
+			id: 'cmangosFolder',
+			label: 'CMaNGOS server folder',
+			desc: 'A CMaNGOS classic server (the folder with mangosd.exe and its Extractors or tools), for File › Compile to CMaNGOS Server. Every other server tool stays VMaNGOS.',
+			kind: 'folder',
+			path: cmangos,
+			disabled: !hasBackend(),
+			run: async () => {
+				await chooseCmangosFolder()
+				await refresh()
+			},
+		},
+		{
+			page: 'folders',
 			id: 'benillaFolder',
 			label: 'Benilla folder',
 			desc: 'The open-source 1.12 client’s repository, with its release build in target/release. Pick it as the game on the Game page.',
@@ -298,7 +313,7 @@
 			'compile',
 			'exportCore',
 			'Spawn SQL for',
-			'The server core File › Export Spawn SQL… writes its SQL for. What CMaNGOS’s tables can’t hold (a spawn’s display and equipment, formations, waypoint scripts) is listed in the file. Saving spawns to the database stays VMaNGOS.',
+			'The server core File › Export Spawn SQL… writes its SQL for. What CMaNGOS’s tables can’t hold (a spawn’s display and equipment, formations, waypoint scripts) is listed in the file. CMaNGOS classic also adds File › Compile to CMaNGOS Server, which rebuilds that server’s map data with its own extractors. Saving spawns to the database stays VMaNGOS.',
 			[
 				['VMaNGOS', 'vmangos'],
 				['CMaNGOS classic', 'cmangos-classic'],

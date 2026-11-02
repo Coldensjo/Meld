@@ -964,3 +964,26 @@ reason, and a guest's own Leave ends it without one.
   methods): listening on every address makes Windows' firewall ask about the test binary.
 - Not covered yet: two Melds in a session by hand, and the page side (#999 adds a scripted guest for
   the probes, #1000 the menus).
+
+## Compile to CMaNGOS Server (#894, probe `compile-cmangos`, `go test ./internal/vmangos/ -run CMaNGOS`)
+
+Checks: File › Compile to CMaNGOS Server (shown while Preferences › Compile and export › Spawn SQL for is
+CMaNGOS classic) runs a CMaNGOS classic server's own extractors over the client and moves their output
+over the server's `dbc`, `maps` and `vmaps`.
+- Unit: the `TestUpdateCMaNGOSMaps*` tests in `internal/vmangos/cmangosmaps_test.go` run a fake server
+  folder (`mangosd.conf` with `DataDir = "data"`, the tools in `Extractors`) through a fake runner: the
+  tools' arguments, which files are replaced or removed (the compiled map's old tiles, collision tiles
+  and movement maps; other maps' movement maps kept), the staging folder gone; a stock `ad.exe` (no
+  `patch-3.MPQ` string in it) or an extracted Map.dbc without the map refused with the server's data
+  untouched; a failed step keeps it; a running `mangosd.exe` waited for. `TestCheckCMaNGOSFindsTheConfAndDataDir`
+  covers the folder check.
+- Probe `compile-cmangos`: the menu action in the app with `CmangosPath` and `UpdateCMaNGOSServer` stood
+  in (no extractor runs): no folder, edits the client lacks (the document's cached `RegionPending`
+  answer set by hand), the start for map 0; and the real `SetCmangosPath` refusing a folder without
+  `mangosd.conf`, which leaves the config alone.
+- Not run here: a real CMaNGOS server and its extractors (none on this machine). To check by hand, build
+  cmangos/mangos-classic with `-DBUILD_EXTRACTORS=ON` and the `CONF_mpq_list` change
+  (docs/guides/saving-and-compiling.md, "CMaNGOS classic"), set its folder, compile a region whose
+  ground you changed, start its mangosd and walk on the new ground with a character there.
+- Trap: CMaNGOS's tools take no map filter, so a real run extracts every map (many minutes); `ad` copies
+  its `-i` path into 128 bytes, so a client path of 128 characters or more is refused before it runs.

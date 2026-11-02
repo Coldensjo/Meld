@@ -15,6 +15,9 @@ type Config struct {
 	WowPath string `json:"wowPath"`
 	// VmangosPath is the VMaNGOS server folder that map patches and SQL are written for.
 	VmangosPath string `json:"vmangosPath,omitempty"`
+	// CmangosPath is a CMaNGOS classic server folder (the one with mangosd.exe) whose map data Compile
+	// to CMaNGOS rebuilds with that server's extractors (#894). Nothing else of Meld's uses it.
+	CmangosPath string `json:"cmangosPath,omitempty"`
 	// ExternalConf is the mangosd.conf copy last picked to connect to an external database (#856), for
 	// the file dialog's start. Only its path: the connection itself lasts one session.
 	ExternalConf string `json:"externalConf,omitempty"`

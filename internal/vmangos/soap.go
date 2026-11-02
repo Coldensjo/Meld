@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,21 +28,7 @@ type soapConsole struct {
 // confValue reads key's value from the server's mangosd.conf: the text after `key =`, unquoted, or ""
 // when the file doesn't set it.
 func confValue(serverRoot, key string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(serverRoot, "run", "mangosd.conf"))
-	if err != nil {
-		return "", err
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "#") {
-			continue
-		}
-		k, v, ok := strings.Cut(line, "=")
-		if ok && strings.TrimSpace(k) == key {
-			return strings.Trim(strings.TrimSpace(v), `"`), nil
-		}
-	}
-	return "", nil
+	return readConfValue(filepath.Join(serverRoot, "run", "mangosd.conf"), key)
 }
 
 // confSoap reads the SOAP console's settings from mangosd.conf, with the server's defaults (off,

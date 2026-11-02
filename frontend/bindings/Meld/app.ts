@@ -120,6 +120,13 @@ export function BrowseBrushImageFolder(current: string): $CancellablePromise<str
 }
 
 /**
+ * BrowseCmangosFolder lets the user pick a CMaNGOS server folder. Returns "" if cancelled.
+ */
+export function BrowseCmangosFolder(): $CancellablePromise<string> {
+    return $Call.ByID(1481930499);
+}
+
+/**
  * BrowseExternalConf lets the user pick the mangosd.conf of the server to connect to. Returns "" if
  * cancelled.
  */
@@ -238,6 +245,13 @@ export function CloseProject(): $CancellablePromise<void> {
  */
 export function CloseToolWindow(kind: string): $CancellablePromise<void> {
     return $Call.ByID(1501306925, kind);
+}
+
+/**
+ * CmangosPath returns the CMaNGOS classic server folder, or "".
+ */
+export function CmangosPath(): $CancellablePromise<string> {
+    return $Call.ByID(827037942);
 }
 
 /**
@@ -2324,6 +2338,13 @@ export function SetCharacterLevel(level: number): $CancellablePromise<string> {
 }
 
 /**
+ * SetCmangosPath checks that path is a CMaNGOS server folder and remembers it. "" forgets it.
+ */
+export function SetCmangosPath(path: string): $CancellablePromise<void> {
+    return $Call.ByID(776235948, path);
+}
+
+/**
  * SetGameClient picks the game Meld closes and opens around an export: "wow" or "benilla". Benilla
  * needs its folder set first, with a release build in it.
  */
@@ -2549,6 +2570,17 @@ export function TemplateNames(kind: string, ids: number[] | null): $CancellableP
  */
 export function Transports(mapID: number): $CancellablePromise<vmangos$0.Transport[] | null> {
     return $Call.ByID(388490939, mapID);
+}
+
+/**
+ * UpdateCMaNGOSServer rebuilds the CMaNGOS server's map data from the client's patch for mapID (the
+ * open region's map), once the game is closed and the world server stopped, in the background, as
+ * UpdateRegionServer does for VMaNGOS: its progress arrives as "servermaps:log" events and
+ * "servermaps:done" carries an error message, or nothing. It shares the VMaNGOS rebuild's busy flag,
+ * since both read the patch and their world servers are both mangosd.exe.
+ */
+export function UpdateCMaNGOSServer(mapID: number): $CancellablePromise<void> {
+    return $Call.ByID(1084750525, mapID);
 }
 
 /**

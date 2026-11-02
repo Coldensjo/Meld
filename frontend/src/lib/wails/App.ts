@@ -31,6 +31,7 @@ export const Blender: Call<AppApi['Blender']> = (...a) => api().Blender(...a) as
 export const BrowseBenillaFolder: Call<AppApi['BrowseBenillaFolder']> = (...a) => api().BrowseBenillaFolder(...a) as never
 export const BrowseBlenderFolder: Call<AppApi['BrowseBlenderFolder']> = (...a) => api().BrowseBlenderFolder(...a) as never
 export const BrowseBrushImageFolder: Call<AppApi['BrowseBrushImageFolder']> = (...a) => api().BrowseBrushImageFolder(...a) as never
+export const BrowseCmangosFolder: Call<AppApi['BrowseCmangosFolder']> = (...a) => api().BrowseCmangosFolder(...a) as never
 export const BrowseExternalConf: Call<AppApi['BrowseExternalConf']> = (...a) => api().BrowseExternalConf(...a) as never
 export const BrowseOtherClient: Call<AppApi['BrowseOtherClient']> = (...a) => api().BrowseOtherClient(...a) as never
 export const BrowsePrefabFolder: Call<AppApi['BrowsePrefabFolder']> = (...a) => api().BrowsePrefabFolder(...a) as never
@@ -47,6 +48,7 @@ export const ClearThumbnailCache: Call<AppApi['ClearThumbnailCache']> = (...a) =
 export const ClientFilesWaiting: Call<AppApi['ClientFilesWaiting']> = (...a) => api().ClientFilesWaiting(...a) as never
 export const CloseProject: Call<AppApi['CloseProject']> = (...a) => api().CloseProject(...a) as never
 export const CloseToolWindow: Call<AppApi['CloseToolWindow']> = (...a) => api().CloseToolWindow(...a) as never
+export const CmangosPath: Call<AppApi['CmangosPath']> = (...a) => api().CmangosPath(...a) as never
 export const ConnectExternalDatabase: Call<AppApi['ConnectExternalDatabase']> = (...a) => api().ConnectExternalDatabase(...a) as never
 export const CreateAccount: Call<AppApi['CreateAccount']> = (...a) => api().CreateAccount(...a) as never
 export const CreateCreature: Call<AppApi['CreateCreature']> = (...a) => api().CreateCreature(...a) as never
@@ -314,6 +316,7 @@ export const SetAccount: Call<AppApi['SetAccount']> = (...a) => api().SetAccount
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
 export const SetBlenderPath: Call<AppApi['SetBlenderPath']> = (...a) => api().SetBlenderPath(...a) as never
 export const SetCharacterLevel: Call<AppApi['SetCharacterLevel']> = (...a) => api().SetCharacterLevel(...a) as never
+export const SetCmangosPath: Call<AppApi['SetCmangosPath']> = (...a) => api().SetCmangosPath(...a) as never
 export const SetGameClient: Call<AppApi['SetGameClient']> = (...a) => api().SetGameClient(...a) as never
 export const SetGameLogin: Call<AppApi['SetGameLogin']> = (...a) => api().SetGameLogin(...a) as never
 export const SetGameWindow: Call<AppApi['SetGameWindow']> = (...a) => api().SetGameWindow(...a) as never
@@ -343,6 +346,7 @@ export const StopServer: Call<AppApi['StopServer']> = (...a) => api().StopServer
 export const TaxiNetwork: Call<AppApi['TaxiNetwork']> = (...a) => api().TaxiNetwork(...a) as never
 export const TemplateNames: NonNullCall<AppApi['TemplateNames']> = (...a) => api().TemplateNames(...a) as never
 export const Transports: NonNullCall<AppApi['Transports']> = (...a) => api().Transports(...a) as never
+export const UpdateCMaNGOSServer: Call<AppApi['UpdateCMaNGOSServer']> = (...a) => api().UpdateCMaNGOSServer(...a) as never
 export const UpdateRegionServer: Call<AppApi['UpdateRegionServer']> = (...a) => api().UpdateRegionServer(...a) as never
 export const VmangosPath: Call<AppApi['VmangosPath']> = (...a) => api().VmangosPath(...a) as never
 export const WMODoodadSets: NonNullCall<AppApi['WMODoodadSets']> = (...a) => api().WMODoodadSets(...a) as never
