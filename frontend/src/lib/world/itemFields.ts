@@ -320,14 +320,16 @@ function itemTabList(cls: number): QuestTab[] {
 				const i = k + 1
 				return {
 					title: `Effect ${i}`,
+					// Two rows an effect, so the five fit one screen (#1024): the spell, when, charges and procs; then the cooldowns.
+					columns: 5,
 					fields: [
-						{ col: `spellid_${i}`, label: 'Spell', ref: 'spell', wide: true },
+						{ col: `spellid_${i}`, label: 'Spell', ref: 'spell' },
 						{ col: `spelltrigger_${i}`, label: 'When', options: TRIGGERS },
 						{ col: `spellcharges_${i}`, label: 'Charges', hint: '0 for no limit; negative: the item is used up with its last charge' },
 						{ col: `spellppmrate_${i}`, label: 'Procs per minute', hint: 'For Chance on hit' },
 						{ col: `spellcooldown_${i}`, label: 'Cooldown (ms)', hint: "-1 for the spell's own" },
 						{ col: `spellcategory_${i}`, label: 'Cooldown category', ref: 'spell category', hint: 'Items and spells of one category share its cooldown' },
-						{ col: `spellcategorycooldown_${i}`, label: 'Category cooldown (ms)', hint: "-1 for the spell's own" },
+						{ col: `spellcategorycooldown_${i}`, label: 'Category cooldown', hint: "In milliseconds, shared by the items and spells of its category; -1 for the spell's own" },
 					],
 				}
 			}),
@@ -386,10 +388,11 @@ function itemTabList(cls: number): QuestTab[] {
 				{
 					title: 'Links',
 					fields: [
-						{ col: 'random_property', label: 'Random enchantment', ref: 'enchantment', hint: 'The suffixes it may roll ("of the Bear"…): an item_enchantment_template entry', wide: true },
+						// The pet food beside the enchantment, a row saved so the More tab fits one screen (#1024).
+						{ col: 'random_property', label: 'Random enchantment', ref: 'enchantment', hint: 'The suffixes it may roll ("of the Bear"…): an item_enchantment_template entry' },
+						{ col: 'food_type', label: 'Pet food', options: FOOD },
 						{ col: 'set_id', label: 'Item set', ref: 'item set', hint: 'ItemSet.dbc' },
 						{ col: 'disenchant_id', label: 'Disenchants into', ref: 'disenchant', hint: 'What disenchanting gives: a disenchant_loot_template entry', wide: true },
-						{ col: 'food_type', label: 'Pet food', options: FOOD },
 					],
 				},
 			],

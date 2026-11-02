@@ -813,7 +813,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   column goes through the template path (`ReadItemTemplate`, `SaveItem`, `templateUpdateSQL`), laid
   out on tabs by `world/itemFields.ts` (Item, Combat, Stats, Effects, Requirements, More, then Other),
   whose subclass names follow the class; a group may set its grid's `columns` (Stats: 2, a stat's
-  type beside its amount). The ten stat slots hold only 1.12's ITEM_MOD types (mana, health, the five
+  type beside its amount; Effects: 5, each effect in two rows so the five fit one screen, #1024). The ten stat slots hold only 1.12's ITEM_MOD types (mana, health, the five
   attributes), so the Stats tab's Equip bonuses (`components/EquipBonuses.svelte`) give the rest
   (healing, spell damage, crit, hit, dodge, attack power, mana per 5…) as an Equip effect in a free
   `spellid_N` slot: `EquipBonuses` in `internal/vmangos/equipbonus.go` lists, per bonus, the

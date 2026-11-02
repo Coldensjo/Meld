@@ -1277,3 +1277,5 @@ The quest editor on Wolves Across the Border (33) lays each field tab's groups i
 (`div.groups`); the Chain tab's graph scrolls as a view and is left out with the lists.
 The game object editor on Small Thorium Vein (324) shows its fields on Object and What it does; its
 Find object list (`list tall`) is one of the lists left out.
+The item editor on the Worn Shortsword (25): its Effects tab holds the five effects in two rows each
+(a 5-column grid) and More fits with the pet food beside the random enchantment.
