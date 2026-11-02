@@ -171,8 +171,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		max-height: 50vh;
-		overflow-y: auto;
 	}
 	li {
 		display: flex;

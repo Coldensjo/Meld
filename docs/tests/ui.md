@@ -1256,3 +1256,13 @@ colour, a click flying the camera to their view.
   tool's ring follows its cursor there, and switching to another tab hides one's marker on the other.
 - Trap: with Follow the Ground off the camera is at the controller's target (first person), so the
   cone's direction comes from the camera itself (`Engine.eye()`), never from the target.
+
+## Dialogs fit without a scroll bar of their own (#986, probe `dialog-fit`)
+
+Checks the scroll-bar rule (#933, `architecture/ui.md`, "Scroll bars") on the dialogs whose lists
+had a fixed cap: Texture looks with 18 textures and Brush stack with 10 brushes, more than their old
+420 px and 380 px caps held, each show every row on the probe page with nothing scrolling, the
+Modal's body included. Ground effects and the icon import dialog lost the same cap (they need the
+client's tables and picked files, so they are a hand check: open World › Ground Effects on a map with
+many textures). The page is 1400x900 but only 805 px tall inside: a probe that fills a dialog past
+that sees the Modal's body scroll, which is the rule's small-window fallback, not a failure.

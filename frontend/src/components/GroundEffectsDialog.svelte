@@ -209,8 +209,6 @@
 		grid-template-columns: minmax(120px, 1fr) 2fr;
 		gap: 4px 10px;
 		align-items: center;
-		max-height: calc(50 * var(--vh));
-		overflow-y: auto;
 	}
 	.name {
 		font-size: 12px;

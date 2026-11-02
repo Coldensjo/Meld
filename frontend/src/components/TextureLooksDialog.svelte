@@ -85,8 +85,6 @@
 		grid-template-columns: minmax(120px, 1fr) auto 2fr;
 		gap: 6px 8px;
 		align-items: center;
-		max-height: 420px;
-		overflow-y: auto;
 	}
 	.name {
 		overflow: hidden;

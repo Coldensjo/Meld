@@ -328,7 +328,8 @@ The window layout, the asset browser and the dock panels and floating windows.
   (columns, tabs, denser rows, a section that folds), as the character editor (#931) and the New world
   dialog (#776) do. Lists that can grow without bound (search results, the asset grids, spells,
   history, the log) keep theirs, and `Modal.svelte`'s body keeps its `overflow-y: auto` as the
-  fallback for a small window. The sweep of the existing ones is #986.
+  fallback for a small window, so a list inside a dialog has no cap of its own (Texture looks, Brush
+  stack, Ground effects, the icon import; probe `dialog-fit`). The sweep of the existing ones is #986.
 - **The menus and Preferences** (#122, #752): top-level menus, never flyouts (#122, the owner's
   choice), each under about 720 px tall so it fits a 768 px window (probe `preferences` measures
   them): File, Edit, Models, Terrain (shaping, baked shadows, the tile clean-up), Paint (textures,

@@ -144,8 +144,6 @@
 		grid-template-columns: auto minmax(220px, 2fr) repeat(4, minmax(80px, 1fr)) auto;
 		gap: 6px 8px;
 		align-items: center;
-		max-height: 380px;
-		overflow-y: auto;
 	}
 	.h {
 		font-size: 11px;
