@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"meld": {
+			"command": "go",
+			"args": ["run", "./cmd/meldtool", "mcp"]
+		}
+	}
+}

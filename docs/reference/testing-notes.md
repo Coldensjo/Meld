@@ -261,8 +261,10 @@ server and client (`testclient`, skipped without them), so `make test-full` cove
   command line, the output its text (`--table` is not offered: JSON only). A wrong argument, a missing
   file or a command's error comes back as an error result the agent can read. A command that writes
   into the client or the server will take a `write` argument, false by default (its dry run). Add it
-  to Claude Code with `go build -o build/bin/meldtool.exe ./cmd/meldtool`, then `claude mcp add meld
-  -- C:\WoW\meld\build\bin\meldtool.exe mcp`. Traps: a relative path is taken from the folder the
+  to Claude Code: the repository's `.mcp.json` registers it as `meld` (`go run ./cmd/meldtool mcp`,
+  #908), so a session started in the repo root offers it once the user approves the project server
+  (the first start is slow while `go run` builds; `/mcp` lists 20 tools). Elsewhere: `go build -o
+  build/bin/meldtool.exe ./cmd/meldtool`, then `claude mcp add meld -- <path>\meldtool.exe mcp`. Traps: a relative path is taken from the folder the
   agent started the server in, so pass absolute ones; an output past 200 kB is cut (an unfiltered
   `mpq_ls` lists 4.5 MB); a binary file from `mpq_cat` needs `out`; and the SDK drops the replies
   still pending when stdin closes, so a hand check must keep stdin open until each reply is read (a
