@@ -10,7 +10,8 @@ import (
 
 // What a creature's or game object's template names by ID (#991): a creature's spell list,
 // equipment, shared vendor and trainer lists, loot, pickpocket and skinning loot and gossip menu, a
-// chest's contents, and what those name in turn (the reference loot a loot row names, a menu's texts,
+// chest's contents, a readable object's pages (#992: each page_text row a set of its own, naming the
+// next page), and what those name in turn (the reference loot a loot row names, a menu's texts,
 // the broadcast texts they show and the menus its options open). Many templates can name one such
 // set, so it travels as a set of its own: the export writes each set's rows after the templates,
 // keyed by their IDs and cleared first, so the script run on a server alone puts them back by ID as
@@ -26,6 +27,9 @@ type carriedTable struct {
 	name, id string
 	// order sorts a set's rows as the server's own sql files do.
 	order string
+	// last, if set, is an SQL expression for the largest ID in use, where IDs the table lacks can be
+	// named too (a page an object or item names), so a fresh ID never turns up in something else.
+	last string
 }
 
 // carriedRef is a column of a kind's rows that names a set of another kind (or its own).
@@ -78,6 +82,8 @@ var carriedKinds = func() []carriedKind {
 			}},
 		text,
 		{key: "broadcast", what: "broadcast text", tables: []carriedTable{{name: "broadcast_text", id: "entry", order: "`entry`"}}},
+		{key: "page", what: "page", tables: []carriedTable{{name: "page_text", id: "entry", order: "`entry`", last: lastPageSQL}},
+			refs: []carriedRef{{table: "page_text", column: "next_page", kind: "page"}}},
 	}
 }()
 
@@ -102,6 +108,8 @@ var creatureRoots = []rootRef{
 
 var objectRoots = []rootRef{
 	{column: "data1", kind: "objectloot", when: func(v func(string) string) bool { return objectLoot(v("type"), v("data1")) > 0 }},
+	{column: "data0", kind: "page", when: func(v func(string) string) bool { return v("type") == strconv.Itoa(objectTypeText) }},
+	{column: "data7", kind: "page", when: func(v func(string) string) bool { return v("type") == strconv.Itoa(objectTypeGoober) }},
 }
 
 // refID is the set a column's value names (0 for none).
@@ -173,7 +181,11 @@ func (s *dbSource) rows(t carriedTable, cols []TemplateColumn, ids []int) ([]bat
 }
 
 func (s *dbSource) maxID(t carriedTable) (int, error) {
-	raw, err := runSQL(s.db, fmt.Sprintf("SELECT COALESCE(MAX(`%s`), 0) FROM `%s`", t.id, t.name))
+	q := fmt.Sprintf("SELECT COALESCE(MAX(`%s`), 0) FROM `%s`", t.id, t.name)
+	if t.last != "" {
+		q = "SELECT " + t.last
+	}
+	raw, err := runSQL(s.db, q)
 	if err != nil {
 		return 0, err
 	}

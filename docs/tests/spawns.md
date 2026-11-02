@@ -237,19 +237,24 @@ refusals, the users) and `TestForgetPrunesTheClientCaches` (`pagetextcache.wdb`)
 
 Probe: `object-scripts` (about 6 s; nothing written: the dialogs and the writes are stand-ins).
 
-Checks: Export… writes the object's `gameobject_template` rows, its quest lists and a chest's
-contents (the loot list its `data1` names, with the reference loot it names) to an SQL script;
-Import… plans a script and writes it on confirmation, replacing the quest lists and writing the
-contents under a fresh loot ID where the server holds other rows under theirs (#991).
+Checks: Export… writes the object's `gameobject_template` rows, its quest lists, a chest's
+contents (the loot list its `data1` names, with the reference loot it names) and a readable
+object's pages (the `page_text` chain its `data0`, or a goober's `data7`, names, #992) to an SQL
+script; Import… plans a script and writes it on confirmation, replacing the quest lists and writing
+the contents and pages under fresh IDs where the server holds other rows under theirs (#991).
 - Unit: `TestObjectScriptRoundTrip` (the contents keyed by the loot list, with the reference loot
   they name; kept on the server they came from, moved to a fresh ID with both patch rows' `data1` on
   one holding other contents there; a non-chest's `data1` not taken for loot; quest lists of objects
-  the template rows don't name left out; a loot row out of range refused, naming its list) and
+  the template rows don't name left out; a loot row out of range refused, naming its list),
+  `TestObjectPagesRoundTrip` (a text object's and a goober's pages, a goober's lock in `data0` and a
+  door's `data0` not taken for pages; on a server whose second page says something else, it and the
+  page naming it move past the largest page with `next_page` and `data0`/`data7` rewritten) and
   `TestObjectLoot`. With `VMANGOS_DIR`, `TestObjectsLive`
   exports the Battered Chest (2843: two patch rows, loot list 2265 of 28 rows, which the Barrel,
   Cauldron, Clam and Large Crate hold too) and the Old Lion Statue (31: two quests it starts, one it
-  ends) and plans them back (every row exists, each quest list's rows as many as it has, loot list
-  2265 carried and kept as the same); it writes nothing.
+  ends), Missing: Corporal Keeshan (1726, page 245) and A Treatise on Military Ranks (179706, pages
+  2654 on, which item 18664 reads too) and plans them back (every row exists, each quest list's rows
+  as many as it has, loot list 2265 and the pages carried and kept as the same); it writes nothing.
 - The probe, on 2843: Export… hands the binding `[2843]` and the name; Import…'s bar from a stand-in
   plan names the rows, the quest lists, contents under a new loot ID and reference loot kept, a
   missing item, a skipped statement and an unknown column; Cancel drops it; a confirmed import notes
@@ -264,6 +269,12 @@ contents under a fresh loot ID where the server holds other rows under theirs (#
   Since #991 the changed contents come to a fresh loot ID instead (the table's largest plus one, the
   chest's `data1` rewritten to it), so clean up `gameobject_loot_template` above its max before too;
   the creature editor's entry has the write test of that.
+- A page write, by a scratch Go test (not kept; done on 2026-11-02): `ExportObjects(dir, [1726])`,
+  the entry changed to 990001 and the page's text changed in the script, then `ImportObjects`: page
+  245 was left as it was, the new object's `data0` named a fresh page (`page_text`'s largest plus one)
+  holding the changed text. Clean up with `DELETE FROM gameobject_template WHERE entry = 990001` and
+  the new page. The server reads `page_text` at start, and the game caches pages it has read (the
+  Text entry above).
 - Trap: a copied chest (`CreateObject` with a base) shares the base's loot list, so a write test that
   saves its contents changes the base's too: give it its own list first.
 

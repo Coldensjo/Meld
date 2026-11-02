@@ -789,8 +789,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   fishing hole's contents, the `gameobject_loot_template` list its `data1` names (keyed by that loot
   id, not the entry, with the reference loot it names), carried as the creature editor carries a
   template's sets (#991, `carried.go`): kept where the server holds the same, else written under a
-  fresh loot ID with `data1` rewritten, so the other objects sharing the list keep theirs. The text
-  (`page_text`) and the display's sounds (the client's) are not in the script. Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
+  fresh loot ID with `data1` rewritten, so the other objects sharing the list keep theirs. A readable
+  object's text travels the same way (#992): the `page_text` chain its `data0` (a text object) or
+  `data7` (a goober) names, each page a set of its own (kind `page`) naming the next through
+  `next_page`, so a page that differs on the server moves to a fresh ID past the largest page in use
+  (`lastPageSQL`, which counts pages objects and items name without the table holding them), and the
+  pages before it with it. The display's sounds (the client's) are not in the script. Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
   category such as Ore, whose click turns the spawn into that object as an undo step, then
   `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,
   `ReadObject`/`SaveObject`; `objectFields.ts` names data0 to data23 by the object's type, after

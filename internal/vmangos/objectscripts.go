@@ -7,8 +7,9 @@ import "strconv"
 // (listscripts.go), the quests the object starts and ends, keyed by its entry, then a chest's or
 // fishing hole's contents, the gameobject_loot_template list its data1 names, with the reference loot
 // that names (carried.go, #991: a list several objects share comes to a fresh ID on a server holding
-// other rows under its own, so the server's other objects keep theirs). The text the template names
-// by ID (page_text) and the display's sounds, which are the client's, are not in the script.
+// other rows under its own, so the server's other objects keep theirs), and a readable object's text,
+// the page_text chain its data0 (a text object) or data7 (a goober) names (#992), each page the same
+// way. The display's sounds, which are the client's, are not in the script.
 
 var objectScript = scriptTable{name: objectTable, key: "patch", entryMax: 1<<24 - 1, keyMax: 255,
 	thing: "game object", things: "Game objects", editor: "Meld's game object editor (Tools > Game Objects)"}
@@ -21,10 +22,11 @@ var objectLists = []scriptList{
 // objectHeader is the comment the script's header gives after the template's.
 const objectHeader = "-- With the quests each object starts and ends (gameobject_questrelation, gameobject_involvedrelation),\n" +
 	"-- each list cleared first, so loading the script replaces the lists, then a chest's or fishing hole's\n" +
-	"-- contents (the gameobject_loot_template list its data1 names, with the reference loot it names) by its ID.\n" +
-	"-- Run on a server, the script puts the contents back under their IDs; Import gives them fresh IDs where the\n" +
-	"-- server holds other rows under their own, so the server's other objects keep theirs.\n" +
-	"-- Its text (page_text), the conditions the loot names and its display's sounds are not in the script.\n"
+	"-- contents (the gameobject_loot_template list its data1 names, with the reference loot it names) and a\n" +
+	"-- readable object's text (the page_text pages from the one its data0, or a goober's data7, names) by their IDs.\n" +
+	"-- Run on a server, the script puts them back under their IDs; Import gives them fresh IDs where the\n" +
+	"-- server holds other rows under their own, so the server's other objects and items keep theirs.\n" +
+	"-- The conditions the loot names and its display's sounds are not in the script.\n"
 
 // objectLoot is the loot list a template row of type typ and data1 names, or 0 for none.
 func objectLoot(typ, data1 string) int {

@@ -158,11 +158,12 @@ first (Tools › Items), or the server leaves them out.
 
 The game object editor's script carries, the same way, the quests each object starts and ends
 (`gameobject_questrelation`, `gameobject_involvedrelation`) and a chest's or fishing hole's
-contents: the `gameobject_loot_template` list its `data1` names. That list is keyed by its loot ID,
-which other objects can share, so importing replaces the list for every object holding it; the
-preview names the destination's other objects that hold it. To keep them out, give the object a
-loot list of its own first (Contents › its own copy) and export again. Its text (`page_text`), the
-reference loot its contents name and its display's sounds are not exported.
+contents (the `gameobject_loot_template` list its `data1` names, with the reference loot it names)
+and a readable object's text (the `page_text` pages from the one its `data0`, or a goober's `data7`,
+names). Those are keyed by their own IDs, which other objects and items can share, so importing
+leaves a list or page the destination holds the same as it is, and writes any other under a fresh ID
+there, the object's column rewritten to it; the preview lists both. The conditions the loot names
+and the display's sounds are not exported.
 
 The quest editor's script carries each quest's givers the same way: the creatures and game objects
 that start and end it (`creature_questrelation`, `gameobject_questrelation` and the two

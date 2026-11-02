@@ -493,8 +493,9 @@
 						{#if plan.plan.carried?.length}<span>{carriedText(plan.plan.carried)}</span>{/if}
 						{#if plan.plan.missingItems?.length}<span>Items this world database lacks, which the contents then list but the server leaves out: {plan.plan.missingItems.join(', ')}. Import them first (Tools › Items).</span>{/if}
 						{#if plan.plan.missingQuests?.length}<span>Quests this world database lacks, which the server leaves out: {plan.plan.missingQuests.join(', ')}.</span>{/if}
-						{#if plan.plan.others}<span>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of objects or loot lists the script's templates don't name, and left out.</span>{/if}
-						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only gameobject_template rows, quest lists and contents are imported.</span>{/if}
+						{#if plan.plan.others}<span>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of objects, loot lists or pages the script's templates don't name, and left out.</span
+							>{/if}
+						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only gameobject_template rows, quest lists, contents and pages are imported.</span>{/if}
 						{#if plan.plan.unknown?.length}<span>Columns this server's tables lack are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
 						<span>A replaced object or list can't be brought back, unless you exported it first.</span>
 					</div>
