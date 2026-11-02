@@ -40,6 +40,8 @@ export interface ShadowGround {
 	/** A byte a texel (255 in shadow), `shadowSide` a side; null while the map has none of its own. */
 	readonly shadow: Uint8Array | null
 	readonly shadowSide: number
+	/** Set once the client's shadows were asked for (or are not wanted): another member's shadows make it true, so a read still to come never fills in over a `none`. */
+	bakedRequested: boolean
 	/** The layer to write into, made all lit first when there is none. */
 	ensureShadow(): Uint8Array
 	setShadow(bytes: Uint8Array | null): void
@@ -237,6 +239,8 @@ export class ShadowSync {
 			rect = { x0, z0, x1, z1 }
 			bytes = unpackBits(bits, n)
 		}
+		// The session decides this map's shadows from here on, not the client's (a read not yet made would fill the layer a `none` dropped).
+		g.bakedRequested = true
 		// My edits not sent yet are pending from here on, so they are written back over this one too.
 		this.flush()
 		// A none of mine still unacknowledged comes after this one in the host's order and wipes it: what

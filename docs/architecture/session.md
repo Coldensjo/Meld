@@ -196,7 +196,8 @@ edit stays on the member who made it, and the host's export carries only the hos
   all-lit layer; a `none` of one's own unacknowledged wipes what arrives before it. A layer that appears
   with nothing touched is the client's, read for a region whose map has none of its own
   (`Engine.updateBakedShadows`): each member reads its own, so it goes into the mirror unsent (a member
-  whose client has other shadows than the host's would differ there).
+  whose client has other shadows than the host's would differ there). Applying another member's
+  shadows sets `Terrain.bakedRequested`, so a client read not yet made never fills in over a `none`.
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

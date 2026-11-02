@@ -14,6 +14,7 @@ const SIDE = 16
 class Ground implements ShadowGround {
 	readonly shadowSide = SIDE
 	shadow: Uint8Array | null = null
+	bakedRequested = false
 	private c = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
 	touches: TexelRect[] = []
 	ensureShadow() {
@@ -198,4 +199,21 @@ test("a guest holds the messages before the host's map and drops those already i
 	s.receive(8, 3, { id: 3, rect: rect(0, 0, 9, 0), b: bytesToBase64(new Uint8Array(1)) }, 2)
 	s.receive(9, 3, { id: 4 }, 2)
 	assert.equal(g.touches.length, 1)
+})
+
+test('applying a remote none keeps the client shadows from being read over it', () => {
+	const host = new Host()
+	const a = host.member(1, new Ground())
+	const b = host.member(2, new Ground())
+	a.ground.edit(rect(0, 0, 1, 1), 255)
+	a.sync.flush()
+	host.deliver(a)
+	host.deliver(b)
+	a.ground.setShadow(null)
+	a.sync.flush()
+	b.ground.bakedRequested = false
+	host.deliver(a)
+	host.deliver(b)
+	assert.equal(b.ground.shadow, null)
+	assert.equal(b.ground.bakedRequested, true)
 })
