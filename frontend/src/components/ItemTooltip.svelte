@@ -5,8 +5,9 @@
 	import { cssViewport, toCss } from '../lib/ui/uiScale'
 
 	// A game-style tooltip of an item (#202), beside the pointer: its item_template row as the 1.12
-	// client's tooltip shows it. DOM only, no renderer of its own.
-	let { entry, displayId, x, y }: { entry: number; displayId: number; x: number; y: number } = $props()
+	// client's tooltip shows it. DOM only, no renderer of its own. `count`, a stack's size (the character
+	// editor's squares, #987), adds Meld's own line for a stack of more than one.
+	let { entry, displayId, x, y, count = 0 }: { entry: number; displayId: number; x: number; y: number; count?: number } = $props()
 
 	let lines = $state<TooltipLine[]>([])
 	let error = $state('')
@@ -22,13 +23,15 @@
 			.catch((err) => e === entry && (error = String(err)))
 	})
 
+	const shown = $derived(count > 1 && lines.length ? [...lines, { left: `Stack of ${count}`, color: '#808080', extra: true }] : lines)
+
 	// Kept inside the window: left of the pointer near the right edge, above it near the bottom. `x`
 	// and `y` are the pointer's window px, turned into the zoomed page's CSS px (#372).
 	let box = $state<HTMLDivElement>()
 	let left = $state(0)
 	let top = $state(0)
 	$effect(() => {
-		void lines.length
+		void shown.length
 		const w = box?.offsetWidth ?? 0
 		const h = box?.offsetHeight ?? 0
 		const vp = cssViewport()
@@ -40,7 +43,7 @@
 </script>
 
 <div class="tip" bind:this={box} style:left="{left}px" style:top="{top}px">
-	<ItemTooltipBox {lines} {displayId} {error} />
+	<ItemTooltipBox lines={shown} {displayId} {error} />
 </div>
 
 <style>

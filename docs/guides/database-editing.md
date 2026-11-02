@@ -262,7 +262,8 @@ with your backup, and repair only the affected data rather than blindly rerunnin
 4. Its **Equipment and bags** tab shows the equipment slots, the bag slots, the backpack, each
    bag, the keyring, the bank, the bank's bag slots (those the character hasn't bought are dashed;
    change the number bought beside them, though not below a slot that holds a bag) and each bank
-   bag. Drag an item to move it (it swaps with what is there), pick a square to change
+   bag. Each square's border takes the item's quality colour, and hovering an item shows its
+   tooltip, with the stack's size for a stack. Drag an item to move it (it swaps with what is there), pick a square to change
    the item's count, durability, enchantment or random property ("of the Bear") or to **Take out**
    the item (a bag takes its contents with it), and find items by name or entry below to add them:
    one goes into the picked square (the bank and keyring too), or the first free place on the

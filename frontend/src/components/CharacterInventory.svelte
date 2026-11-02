@@ -48,6 +48,8 @@
 	let { guid, race, cls, level, look, dirty = $bindable(false), worn = $bindable([]) }: { guid: number; race: number; cls: number; level: number; look: vmangos.CharacterAppearance; dirty?: boolean; worn?: vmangos.WornItem[] } = $props()
 
 	type Item = vmangos.InventoryItem
+	/** A square's icon, in px: above 40 so ItemIcon takes the client's whole 64 px picture (#987, #988). */
+	const ICON = 48
 	const QUALITY = QUALITY_VARS
 	/** When a saved change reaches the game, shown while no square is picked and on the heading. */
 	const RULES =
@@ -201,11 +203,11 @@
 		}
 	}
 
-	// The item under the pointer, for its tooltip.
-	let hover = $state<{ entry: number; displayId: number; x: number; y: number } | null>(null)
-	function hoverItem(entry: number, displayId: number) {
+	// The item under the pointer, for its tooltip, with the stack's size when it is a square's (#987).
+	let hover = $state<{ entry: number; displayId: number; count: number; x: number; y: number } | null>(null)
+	function hoverItem(entry: number, displayId: number, count = 0) {
 		return {
-			onpointerenter: (e: PointerEvent) => (hover = { entry, displayId, x: e.clientX, y: e.clientY }),
+			onpointerenter: (e: PointerEvent) => (hover = { entry, displayId, count, x: e.clientX, y: e.clientY }),
 			onpointermove: (e: PointerEvent) => hover && hover.entry === entry && ((hover.x = e.clientX), (hover.y = e.clientY)),
 			onpointerleave: () => hover?.entry === entry && (hover = null),
 		}
@@ -225,6 +227,8 @@
 		class:refused={refused === placeKey(p)}
 		class:warn={!!worn}
 		class:new={it?.guid === 0}
+		class:item={!!it}
+		style:--q={it ? (QUALITY[it.template.quality] ?? QUALITY[1]) : null}
 		data-place={placeKey(p)}
 		title={it ? '' : `${placeName(p)} (${locked ? 'not bought' : 'empty'})`}
 		draggable={!!it}
@@ -246,10 +250,10 @@
 			drop(p)
 		}}
 		onclick={() => (selected = p)}
-		{...it ? hoverItem(it.entry, it.template.displayId) : {}}
+		{...it ? hoverItem(it.entry, it.template.displayId, it.count) : {}}
 	>
 		{#if it}
-			<ItemIcon displayId={it.template.displayId} size={36} />
+			<ItemIcon displayId={it.template.displayId} size={ICON} />
 			{#if it.count > 1}<span class="count">{it.count}</span>{/if}
 		{:else}
 			<span class="empty">{label}</span>
@@ -407,13 +411,14 @@
 			</div>
 		</div>
 	{/if}
-	{#if hover}<ItemTooltip entry={hover.entry} displayId={hover.displayId} x={hover.x} y={hover.y} />{/if}
+	{#if hover}<ItemTooltip entry={hover.entry} displayId={hover.displayId} count={hover.count} x={hover.x} y={hover.y} />{/if}
 </div>
 
 <style>
 	/* The tab fills the character page's height (#931): the bags and the bank scroll beside the
 	   equipment when they are taller than it, and the found items in their column below. */
 	.inv {
+		--sq: 56px;
 		flex: 1;
 		min-height: 0;
 		display: flex;
@@ -446,6 +451,7 @@
 	.doll {
 		display: grid;
 		grid-template-columns: auto 220px auto;
+		grid-template-rows: 1fr auto;
 		column-gap: 8px;
 		row-gap: 8px;
 	}
@@ -458,12 +464,15 @@
 		min-height: 300px;
 	}
 	.side {
+		grid-row: span 2;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
 	}
+	/* The weapons under the picture, between the slot columns as in the game's frame, so the bigger squares
+	   (#987) leave the selected item's panel its height. */
 	.bottom {
-		grid-column: 1 / -1;
+		grid-column: 2;
 		display: flex;
 		justify-content: center;
 		gap: 4px;
@@ -473,12 +482,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
-		width: 196px;
+		width: 250px;
 		contain: size;
 		overflow-y: auto;
 	}
 	.bags.bank {
-		width: 290px;
+		width: 370px;
 	}
 	.lower {
 		flex: 1;
@@ -503,11 +512,11 @@
 	}
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(4, 42px);
+		grid-template-columns: repeat(4, var(--sq));
 		gap: 4px;
 	}
 	.grid.wide {
-		grid-template-columns: repeat(6, 42px);
+		grid-template-columns: repeat(6, var(--sq));
 	}
 	.label {
 		margin-top: 4px;
@@ -526,20 +535,23 @@
 	.fields .random {
 		grid-column: span 2;
 	}
+	/* About 56 px squares with the item's quality as their border, as the game's bags colour them (#987). */
 	.sq {
 		position: relative;
-		width: 42px;
-		height: 42px;
-		padding: 2px;
+		width: var(--sq);
+		height: var(--sq);
+		padding: 0;
 		display: grid;
 		place-items: center;
-		border: 1px solid var(--border);
+		border: 2px solid var(--border);
 		border-radius: 4px;
 		background: var(--panel-2);
 	}
+	.sq.item {
+		border-color: var(--q);
+	}
 	.sq.sel {
-		border-color: var(--accent);
-		box-shadow: 0 0 0 1px var(--accent);
+		box-shadow: 0 0 0 2px var(--accent);
 	}
 	.sq.new {
 		background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
@@ -551,14 +563,14 @@
 		outline: 2px solid var(--danger-text);
 	}
 	.empty {
-		font-size: 9px;
+		font-size: 10px;
 		color: var(--text-dim);
 	}
 	.count {
 		position: absolute;
-		right: 3px;
-		bottom: 1px;
-		font-size: 11px;
+		right: 4px;
+		bottom: 2px;
+		font-size: 12px;
 		font-weight: 600;
 		/* Over the game's icon art in either theme, as the game draws a stack's count. */
 		color: rgb(255, 255, 255);

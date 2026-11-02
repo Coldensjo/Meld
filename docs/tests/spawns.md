@@ -1228,7 +1228,9 @@ account, Delete account, Save character and Delete character.
   that it shows as many items as `ReadInventory` reads, drags an item to an empty backpack square
   (synthetic `DragEvent`s with a `new DataTransfer()` work in the headless page; the squares carry
   `data-place="container:slot"`), outlines a place a stood-in `SaveInventory` refuses, adds an item
-  found by its entry (a `.sq.new` square) and reverts. Unit: `inventory_test.go` (which rows the
+  found by its entry (a `.sq.new` square) and reverts. It also checks a filled square (one the
+  character can wear, since `.warn` takes the border) is about 56 px with its item's quality colour
+  as the border (#987; the square's inline `--q` resolved through a child element). Unit: `inventory_test.go` (which rows the
   editor reaches, `checkInventory`'s refusals, `equipmentCache` against a cache the server wrote,
   `inventoryScript`'s deletes, moves, inserts and a new bag's contents, the refusals of a character
   in the world and of a new item while mangosd runs) and `frontend/tests/inventory.test.ts` (moves,

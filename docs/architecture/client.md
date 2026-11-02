@@ -506,6 +506,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   and enchantments, then bag slot 19's entry, as `Player::SaveToDB`). New items need mangosd
   stopped: it hands out item guids from `MAX(guid)` read at start. An item the character can't wear
   (class, race, level, skill) is accepted; the server mails it at login, and the page marks it.
+  The squares are 56 px (`--sq` on `.inv`) with a 48 px icon, so `ItemIcon` takes the client's whole
+  64 px picture (#988), and a filled square's border is its item's quality colour (`--q`, set inline;
+  the selection is a ring outside it, and `.warn` overrides it). The weapons sit under the picture
+  between the slot columns, so the bigger squares leave the selected item's panel its height (#987).
+  Hovering a square shows `ItemTooltip` with `count`, which adds a "Stack of n" line.
   **Random properties** (#879, "of the Bear"): `item_instance.random_property_id` is an
   `ItemRandomProperties.dbc` ID, and the server also writes that row's three enchantments into
   enchantment slots 3 to 5 (`Item::SetItemRandomProperties`); the stats come from those slots and
