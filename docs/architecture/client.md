@@ -755,7 +755,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   column goes through the template path (`ReadQuest`, `templateUpdateSQL`; `parseColumns` gives
   whole numbers their type's range, which `sqlValue` enforces for every template editor), laid out
   on tabs by `world/questFields.ts` (Quest, Objectives, Rewards, Requirements, Emotes and map, then
-  Other for unlisted columns). A column that names something is a `ref` field
+  Other for unlisted columns), each tab's groups in two balanced columns (`div.groups`, styled in
+  `EditorFrame.svelte`: two where the page holds two 420 px columns, #1024) so a tab fits one
+  screen. A column that names something is a `ref` field
   (`components/RefField.svelte`): its number, the name (`lib/wow/refNames.ts`: `TemplateNames` in
   batches for items, creatures, objects and quests; `SpellRefs`; `QuestTables` for Faction.dbc,
   SkillLine.dbc and QuestSort.dbc; `Areas`; `SpawnEmotes`) and Find, which for a spell is a

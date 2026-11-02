@@ -1273,3 +1273,5 @@ grids; `results`, the spell searches), which must be nothing. The creature edito
 Commander Mograine (3976): its fields on five tabs (Creature, Services, AI, Immunities, Flags), the
 Looks tab's display grid and the Spells tab's search filling the height left. The editors' own
 windows (`app_toolwindows.go`) have their own sizes and are a hand check.
+The quest editor on Wolves Across the Border (33) lays each field tab's groups in two columns
+(`div.groups`); the Chain tab's graph scrolls as a view and is left out with the lists.

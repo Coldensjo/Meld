@@ -125,6 +125,27 @@
 		min-height: 0;
 		display: flex;
 	}
+	/* A page of field groups (div.groups, #1024): two columns where the page is wide enough, balanced, so a
+	   tab that took two screens in one column fits one under the scroll-bar rule (#933). A heading stays with
+	   its fields and a field, a flag set or a picker is never split between the columns. */
+	.editor :global(.groups) {
+		columns: 2 420px;
+		column-gap: 24px;
+	}
+	.editor :global(.groups > h3) {
+		break-after: avoid;
+	}
+	.editor :global(.groups > h3:first-child) {
+		margin-top: 0;
+	}
+	.editor :global(.groups > .grid) {
+		margin-bottom: 8px;
+	}
+	.editor :global(.groups label),
+	.editor :global(.groups fieldset),
+	.editor :global(.groups .ref) {
+		break-inside: avoid;
+	}
 	/* The tab bars: only the editors' own are nav.tabs. */
 	.editor :global(nav.tabs) {
 		display: flex;

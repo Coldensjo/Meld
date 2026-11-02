@@ -409,16 +409,19 @@
 						{#if record}<button class:on={tab === 'givers'} onclick={() => (tab = 'givers')}>Givers{giversDirty ? ' (1)' : ''}</button>{/if}
 						{#if record}<button class:on={tab === 'chain'} onclick={() => (tab = 'chain')} title="The quests linked to this one, as a graph">Chain</button>{/if}
 					</nav>
-					<div class="scroll" class:wide={tab === 'chain'}>
+					<!-- The field tabs and the chain take the page's width: the fields in two columns (#1024). -->
+					<div class="scroll" class:wide={tab !== 'givers'}>
 						{#if !record}
 							<p class="dim">{ed.loading ? 'Loading the quest…' : ''}</p>
 						{:else}
 							{#each tabs as t (t.id)}
 								{#if t.id === tab}
-									{#each t.groups as g (g.title)}
-										<h3>{g.title}</h3>
-										<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} codes entry={record.entry} owner="quest" onset={(col, v) => (values[col] = v)} />
-									{/each}
+									<div class="groups">
+										{#each t.groups as g (g.title)}
+											<h3>{g.title}</h3>
+											<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} codes entry={record.entry} owner="quest" onset={(col, v) => (values[col] = v)} />
+										{/each}
+									</div>
 								{/if}
 							{/each}
 							<!-- The givers stay mounted, so their unsaved rows survive a tab switch. -->
