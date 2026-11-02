@@ -3425,11 +3425,11 @@ export class Engine {
 	placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3, rotY?: number) {
 		return this.spawnActions.placeObject(t, at, rotY)
 	}
-	applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
-		return this.spawnActions.applyCreatureTemplate(entry, now, was)
+	applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>, skipDoc = 0) {
+		return this.spawnActions.applyCreatureTemplate(entry, now, was, skipDoc)
 	}
-	applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
-		return this.spawnActions.applyObjectTemplate(entry, now, was)
+	applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>, skipDoc = 0) {
+		return this.spawnActions.applyObjectTemplate(entry, now, was, skipDoc)
 	}
 	spawnEdits(): vmangos.SpawnEdit[] {
 		return this.spawnActions.spawnEdits()

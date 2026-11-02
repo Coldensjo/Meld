@@ -426,9 +426,10 @@ export class SpawnActions {
 	 * Brings the spawns of creature template `entry` in every open region up to date after the
 	 * template was saved (`was` its values before): name, level, faction and the like, and for a spawn
 	 * showing the template's display or equipment rather than its own, the new ones. The database
-	 * already has this, so it is not a spawn edit to save, nor an undo step.
+	 * already has this, so it is not a spawn edit to save, nor an undo step. Tab `skipDoc` is left alone:
+	 * a guest's session map, whose rows are the host's (#1051).
 	 */
-	async applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
+	async applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>, skipDoc = 0) {
 		const t = creatureTemplateOf(entry, now)
 		const old = creatureTemplateOf(entry, was)
 		const info: Partial<vmangos.WorldSpawn> = {
@@ -443,6 +444,7 @@ export class SpawnActions {
 		}
 		const looks = new Map<string, Promise<vmangos.LookResult>>()
 		for (const d of this.host.documents) {
+			if (skipDoc && d.id === skipDoc) continue
 			const layer = d.spawnLayer
 			let touched = false
 			for (const s of layer.spawns.slice()) {
@@ -477,9 +479,10 @@ export class SpawnActions {
 	/**
 	 * Brings the spawns of game object template `entry` in every open region up to date after the
 	 * template was saved (`was` its values before): name, type, and the model and size of its display.
-	 * As with applyCreatureTemplate, the database has this already, so it is no edit and no undo step.
+	 * As with applyCreatureTemplate, the database has this already, so it is no edit and no undo step,
+	 * and tab `skipDoc` is left alone.
 	 */
-	async applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
+	async applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>, skipDoc = 0) {
 		const n = (v: Record<string, string>, col: string) => Number(v[col]) || 0
 		const display = n(now, 'displayId')
 		const vals: Partial<vmangos.WorldSpawn> = { name: now.name ?? '', type: n(now, 'type'), display, scale: n(now, 'size') || 1 }
@@ -491,6 +494,7 @@ export class SpawnActions {
 			}
 		}
 		for (const d of this.host.documents) {
+			if (skipDoc && d.id === skipDoc) continue
 			let touched = false
 			for (const s of d.spawnLayer.spawns.slice()) {
 				if (s.kind !== 'object' || s.entry !== entry) continue

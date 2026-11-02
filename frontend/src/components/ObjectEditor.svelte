@@ -5,7 +5,8 @@
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { SlotTarget } from '../lib/toolwin/editors'
-	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
+	import { mapActions, selectSpawnOnMap, spawnFieldsView } from '../lib/toolwin/spawnFieldsHost.svelte'
+	import { GUEST_TEMPLATE_REASON } from '../lib/session/peers'
 	import { CreateObject, ExportObjects, ImportObjects, NextObjectLoot, ObjectModel, OpenObjectsDialog, PlanObjectImport, ReadObject, SaveObject } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
@@ -245,6 +246,7 @@
 		if (!r || !unsaved) return
 		void ed.save('Saving the game object', async () => {
 			if (changeCount > 0) {
+				if (spawnFieldsView().guestMap) throw new Error(GUEST_TEMPLATE_REASON)
 				const before = { ...saved }
 				await SaveObject(r.entry, r.patch, changes)
 				ed.markSaved()

@@ -4,7 +4,8 @@
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { shareForget } from '../lib/toolwin/editorPage'
 	import type { SlotTarget } from '../lib/toolwin/editors'
-	import { mapActions, selectSpawnOnMap } from '../lib/toolwin/spawnFieldsHost.svelte'
+	import { mapActions, selectSpawnOnMap, spawnFieldsView } from '../lib/toolwin/spawnFieldsHost.svelte'
+	import { GUEST_TEMPLATE_REASON } from '../lib/session/peers'
 	import { CreateCreature, ExportCreatures, ImportCreatures, ModelAnimations, OpenCreaturesDialog, PlanCreatureImport, ReadCreature, SaveCreature, SpawnLook } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
@@ -195,6 +196,7 @@
 		const r = record
 		if (!r || changeCount === 0) return
 		void ed.save('Saving the creature', async () => {
+			if (spawnFieldsView().guestMap) throw new Error(GUEST_TEMPLATE_REASON)
 			const before = { ...saved }
 			await SaveCreature(r.entry, r.patch, changes)
 			forgetDisplays()

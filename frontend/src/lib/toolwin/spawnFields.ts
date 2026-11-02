@@ -13,9 +13,11 @@ export interface SpawnFieldsView {
 	panel: SpawnPanel
 	pathEdit: boolean
 	waypoint: number
+	/** The active tab is a shared session's map and this Meld a guest in it (#1051): the template editors' Save is refused. */
+	guestMap: boolean
 }
 
-export const NO_SPAWN_FIELDS: SpawnFieldsView = { panel: { spawns: [], pick: null }, pathEdit: false, waypoint: -1 }
+export const NO_SPAWN_FIELDS: SpawnFieldsView = { panel: { spawns: [], pick: null }, pathEdit: false, waypoint: -1, guestMap: false }
 
 /** What an editor does on the map; spawns by spawnKey. */
 export interface MapActions extends SpawnPanelActions {

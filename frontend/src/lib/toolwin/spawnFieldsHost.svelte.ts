@@ -1,7 +1,8 @@
 // The two sides of the creature and object editors' map actions (#915, #916, spawnFields.ts). In the main page they run on
 // the Engine and the editor state; in an editor's own window they are `map` commands to the main page, and
 // what the spawn fields read is the copy the main page publishes (EditorToolWindow.svelte sets it here).
-import { editor, ui } from '../state/editor.svelte'
+import { isGuestMap, shared } from '../session/shared.svelte'
+import { docs, editor, ui } from '../state/editor.svelte'
 import { engineRef } from '../state/engineRef'
 import type { vmangos } from '../wails/models'
 import { selectSpawn } from '../world/spawnEdits'
@@ -19,7 +20,15 @@ export const windowWeaponPick = $state<{ pick: { key: string; slot: number } | n
 /** What the spawn fields read besides the spawn. Reactive: read it in a `$derived`. */
 export function spawnFieldsView(): SpawnFieldsView {
 	if (editorPageKind()) return windowSpawnFields.view
-	return { panel: spawnPanel(), pathEdit: ui.pathEdit, waypoint: editor.selectedWaypoint }
+	return { panel: spawnPanel(), pathEdit: ui.pathEdit, waypoint: editor.selectedWaypoint, guestMap: isGuestMap(docs.active) }
+}
+
+/**
+ * The tab whose spawns a saved template leaves alone (#1051): a guest's session map, whose rows are the
+ * host's and sync to it as spawn edits, while the template went into this Meld's own database; else 0.
+ */
+function guestSessionDoc(): number {
+	return shared.role === 'guest' ? shared.docId : 0
 }
 
 /** The main page's map actions, on the active map. `onswitch`: the editor around the fields, which asks about its unsaved edits before it moves to a picked spawn. */
@@ -40,13 +49,13 @@ export function localMapActions(onswitch?: (o: vmangos.WorldSpawn) => void): Map
 			const s = e()?.activeDocument().spawnLayer.get(key)
 			if (s) selectSpawn(s)
 		},
-		applyCreatureTemplate: async (entry, now, was) => void (await e()?.applyCreatureTemplate(entry, now, was)),
+		applyCreatureTemplate: async (entry, now, was) => void (await e()?.applyCreatureTemplate(entry, now, was, guestSessionDoc())),
 		placeCreature(t) {
 			ui.placeCreature = t
 			editor.tool = 'select'
 		},
 		openCreatures: () => (ui.creatures = true),
-		applyObjectTemplate: async (entry, now, was) => void (await e()?.applyObjectTemplate(entry, now, was)),
+		applyObjectTemplate: async (entry, now, was) => void (await e()?.applyObjectTemplate(entry, now, was, guestSessionDoc())),
 		placeObject(t) {
 			ui.placeObject = t
 			ui.placeCreature = null

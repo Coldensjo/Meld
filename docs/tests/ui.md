@@ -1047,6 +1047,7 @@ host's map as a new unsaved tab; leaving or ending clears the chip and the badge
   over the 64 MB a binding call takes) works the same way but is too slow to keep in the probe.
   `tests/sessionPeers.test.ts` checks `splitText` and `PartJoiner`.
 - `bun run probe session-guest-export` (#1005): sets `shared.role = 'guest'` and `shared.docId` by hand (no transport), then checks the File and Game menu items that write into the client or server are disabled with the reason as their tooltip in the session's tab only, `compileRegion`, `playHere` and `publishVmangosMap` refuse with the status line, and a host keeps them.
+- `bun run probe session-template-guest` (#1051): the same hand-set guest state; checks the spawn fields' view's `guestMap` (which the creature and object editors' Save checks) is set on the session's tab only and not for a host, and that a template applied from the guest's own tab renames that tab's spawns of the entry but not the session map's. It does not open the editors (they need a world database).
 
 ## Terrain heights in a session (#1001, probes `session-heights` and `session-heights-guest`)
 

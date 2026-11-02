@@ -90,7 +90,7 @@ A session syncs the heights, the paint, the holes, the painted liquids, the chun
     with the size over `MAX_SEND_BYTES` (60 MB) for any other message. The `session-map-parts` probe
     checks both sides. Timed once (a scratch copy of that probe, the SwiftShader page): 1024 cells of
     hills (98 MB, 13 parts) opened on the guest page about 6 s after it joined.
-- **The host exports.** While this Meld is a guest and the active tab is the session's map (`isGuestMap`), Compile to Client, Server and All, Save Spawns, Export Spawn SQL, Launch and Play Here are off in the menus with the reason (`GUEST_EXPORT_REASON`) as the tooltip, and the actions (`compileRegion`, `saveSpawns`, `exportSpawnSql`, `publishVmangosMap`, `saveOrPublish`, `launchGame`, `playHere`) refuse through `refuseGuestExport`. A guest's other tabs keep them. A new write into the client or server needs the same two guards.
+- **The host exports.** While this Meld is a guest and the active tab is the session's map (`isGuestMap`), Compile to Client, Server and All, Save Spawns, Export Spawn SQL, Launch and Play Here are off in the menus with the reason (`GUEST_EXPORT_REASON`) as the tooltip, and the actions (`compileRegion`, `saveSpawns`, `exportSpawnSql`, `publishVmangosMap`, `saveOrPublish`, `launchGame`, `playHere`) refuse through `refuseGuestExport`. A guest's other tabs keep them. A new write into the client or server needs the same two guards. The creature and object editors' Save of a template refuses on the session's map too (`GUEST_TEMPLATE_REASON`, #1051: it would go into the guest's own world database, never the host's), through the spawn fields' view's `guestMap` (published to an editor's own window); and a template a guest saves from another tab rebases that tab's spawns but not the session map's (`applyCreatureTemplate`'s `skipDoc`), whose rows are the host's and would sync to it as spawn edits. A guest's item, quest and spell editors still write its own database: they touch no spawn rows.
 - **Heights (#1001, `heights.ts`, `HeightSync`).** Every height change to the session's map (a stroke,
   Flatten, a script, an import, an undo) goes out as state, kind `heights` (`KIND_HEIGHTS`), data
   `{id, rect: {x0, z0, x1, z1}, h}`: an inclusive vertex rect and its heights now, base64 float32s row by
@@ -296,8 +296,8 @@ A session syncs the heights, the paint, the holes, the painted liquids, the chun
     and reads no database of its own; the host reads its own. The database's guid check before a save
     (`CheckCreatedGUIDs`) still guards the host's write. Ending the session counts one by one again.
   - **Not synced yet.** A guest without a server can't list templates for the spawn browser or the spawn
-    brush, nor dress a new look (`SpawnLook`, #1050); a template edit saves into the member's own database
-    (`applyCreatureTemplate`'s rebase of the rows then syncs as edits, #1051). A guest's spawn edit count
+    brush, nor dress a new look (`SpawnLook`, #1050); a guest can't change a template on the session's map
+    (#1051, above). A guest's spawn edit count
     (the status bar's) is its own view: the edits it saw since the handoff, which the host's save does not
     clear.
 - **The session's map keeps its document (#1007).** The sync is bound to the session map's document,

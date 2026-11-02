@@ -7,6 +7,9 @@ import { TILE_YARDS } from '../wow/format'
 /** Why a guest cannot write the session's map into the client or server (#1005), shown as the menu items' tooltip and the status line. */
 export const GUEST_EXPORT_REASON = "The host exports the session's map"
 
+/** Why a guest cannot save a creature or object template while on the session's map (#1051): it would go into the guest's own world database, never the host's. */
+export const GUEST_TEMPLATE_REASON = "The session's creatures and objects are in the host's world database: ask the host to change their templates"
+
 /** Why the session's map can't be made again in its tab (#1007: Grow Region, Revert, a recovered copy, a file opened over an untouched map): the others would keep editing the old one. */
 export const SESSION_MAP_REASON = "The session's map can't be replaced while it is shared"
 

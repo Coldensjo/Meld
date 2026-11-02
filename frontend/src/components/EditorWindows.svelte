@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte'
-	import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { docs, editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { isGuestMap } from '../lib/session/shared.svelte'
 	import { throttle } from '../lib/toolwin/channel'
 	import { editorInWindow, editorWindowFailed, editorWindowTarget } from '../lib/toolwin/editorHost.svelte'
 	import { relatedSpawns } from '../lib/toolwin/inspector'
@@ -47,7 +48,7 @@
 	/** What the creature editor's spawn fields read (#915): the selected spawn's pool and formation mates, the pick and path edit on the map. */
 	const spawnFields = (): SpawnFieldsView => {
 		const s = editor.selectedSpawn
-		return { panel: { spawns: s ? $state.snapshot(relatedSpawns(editor.spawns, s)) : [], pick: $state.snapshot(ui.spawnPick) }, pathEdit: ui.pathEdit, waypoint: editor.selectedWaypoint }
+		return { panel: { spawns: s ? $state.snapshot(relatedSpawns(editor.spawns, s)) : [], pick: $state.snapshot(ui.spawnPick) }, pathEdit: ui.pathEdit, waypoint: editor.selectedWaypoint, guestMap: isGuestMap(docs.active) }
 	}
 	const view = (): EditorView => {
 		const p = {} as EditorPrefs
