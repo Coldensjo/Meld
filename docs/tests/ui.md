@@ -1108,7 +1108,9 @@ one's own unacknowledged values over them, and an applied one is not sent back.
 - `bun test tests/sessionChunkData.test.ts`: two `ChunkDataSync` members through a scripted host (the
   replay rule grid by grid, all three grids edited at once, no echo, the apply's `touchChunkData` rects,
   only the changed grids sent and each shrunk, a guest holding messages, bad messages ignored whole, the
-  biome map's cells as grid `m` through `touchBiomeMap`).
+  biome map's cells as grid `m` through `touchBiomeMap`; two members, each with both syncs over one map
+  as `shared.svelte.ts` wires them, who add a different biome at once and end with every cell naming
+  its biome by name, and `mergeBiomes` dropping an unused biome and renumbering the cells after it, #1048).
 - `bun test tests/sessionShadows.test.ts`: two `ShadowSync` members (a stroke on a map without shadows
   making the layer on the others, as bits; a `none` with one's own strokes after it; a stroke under one's
   own unacknowledged `none`; both members at once with a drop in the middle; the client's layer not sent;
@@ -1117,7 +1119,8 @@ one's own unacknowledged values over them, and an applied one is not sent back.
   and flag, two no-tuft cells, two biome map cells with a `settings` message holding the map's biomes, and
   8 shadowed texels the page must show; then the page sets a zone and flag (`ChunkDataStroke`) and a biome
   cell (`touchBiomeMap`) and shadows a rect (`ShadowStroke`), undoes both, and the bot's messages applied in
-  `seq` order over an empty map must equal the page's arrays (the biome map too).
+  `seq` order over an empty map must equal the page's arrays (the biome map too), and the page's `m` must
+  carry `t` naming the bot's biome (#1048).
 - Trap: a stroke that sets a value already there changes nothing, so its grid is not in the message (a
   zone stroke over chunks already impassable sends no `f`).
 

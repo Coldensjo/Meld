@@ -9,8 +9,17 @@
 // `Terrain.touchBiomeMap` grow (`takeSessionChunkData`), compared against a mirror of each grid, so a touch that changed nothing sends
 // nothing. One's own come back as the acknowledgement; another member's arriving while some of mine are
 // unacknowledged is ordered before them, so mine are written back over it, grid by grid.
+//
+// A biome map cell holds 1 plus an index in the member's own list of the map's biomes, and two members who
+// add a biome at once hold different lists for a while (#1048), so the cells go out naming their biomes:
+// the part carries the biomes its bytes name (`t`), and the receiver turns them into its own indexes,
+// adding a biome its list lacks. The settings' `biomes` (settings.ts `mergeBiomes`) keep a biome the cells
+// still use.
 // Kept free of the bindings so a Bun test can run two members against a scripted host.
 import { base64ToBytes, bytesToBase64 } from '../io/base64'
+import { copyBiome, type Biome } from '../terrain/biome'
+import { MAX_MAP_BIOMES } from '../terrain/biomeMap'
+import { prefShapeOk } from '../state/prefsPatch'
 import type { VertexRect } from './heights'
 
 /** The kind of a message carrying chunk data (data: `ChunkDataData`). */
@@ -23,6 +32,8 @@ export type GridRect = VertexRect
 export interface GridPart {
 	rect: GridRect
 	b: string
+	/** The biome map's part only: the biomes its bytes name, a byte `v` naming `t[v - 1]` (#1048). */
+	t?: Biome[]
 }
 
 /**
@@ -34,7 +45,7 @@ export interface ChunkDataData {
 	a?: GridPart
 	f?: GridPart
 	n?: GridPart
-	/** The biome map's cells (a rect of cells, a byte each: 0 for none, else 1 plus the index in the map's biomes). */
+	/** The biome map's cells (a rect of cells, a byte each: 0 for none, else 1 plus the index in `t`, or in the map's biomes without `t`). */
 	m?: GridPart
 }
 
@@ -52,7 +63,17 @@ export interface ChunkDataGround {
 	takeSessionChunkData(chunks: GridRect, cells: GridRect): boolean
 }
 
+/** The map's biomes, whose indexes the biome map's cells hold. */
+export interface ChunkDataBiomes {
+	/** The map's biomes now (`editor.mapBiomes` or its document's `meta.biomes`). */
+	list(): readonly Biome[]
+	/** Appends biomes another member's cells name that the map lacks. */
+	add(biomes: Biome[]): void
+}
+
 export interface ChunkDataSyncHooks {
+	/** The map's biomes, so the biome map's cells go out by biome rather than by this member's index (#1048). Without it the bytes go as they are. */
+	biomes?: ChunkDataBiomes
 	/** Sends one message to everyone; resolves once the host has it. */
 	send(data: ChunkDataData): Promise<unknown>
 	/** After another member's chunk data was written in. */
@@ -173,7 +194,11 @@ export class ChunkDataSync {
 		const data: ChunkDataData = { id }
 		for (const k of KEYS) {
 			const p = parts[k]
-			if (p) data[k] = { rect: p.rect, b: bytesToBase64(p.b) }
+			if (!p) continue
+			if (k === 'm' && this.hooks.biomes) {
+				const { bytes, table } = toWire(p.b, this.hooks.biomes.list())
+				data.m = { rect: p.rect, b: bytesToBase64(bytes), t: table }
+			} else data[k] = { rect: p.rect, b: bytesToBase64(p.b) }
 		}
 		this.hooks.send(data).catch((err) => {
 			this.pending = this.pending.filter((p) => p.id !== id)
@@ -209,6 +234,7 @@ export class ChunkDataSync {
 			if (d[k] === undefined) continue
 			const p = readPart(d[k], grids[k])
 			if (!p) return false
+			if (k === 'm' && !this.fromWire(p.b, (d[k] as GridPart).t)) return false
 			parts[k] = p
 			any = true
 		}
@@ -235,6 +261,67 @@ export class ChunkDataSync {
 		this.hooks.applied?.()
 		return true
 	}
+
+	/** Turns a received biome map part's bytes, naming the biomes of `table`, into this member's indexes in place, adding the biomes the map lacks. False for a table that isn't biomes. */
+	private fromWire(b: Uint8Array, table: unknown): boolean {
+		const hooks = this.hooks.biomes
+		// A message without a table (or a member without the map's biomes) takes the bytes as they are.
+		if (!hooks || table === undefined) return true
+		if (!Array.isArray(table) || !prefShapeOk('biomes', table)) return false
+		const t = table as Biome[]
+		let list = hooks.list()
+		const missing: Biome[] = []
+		for (const e of t) if (!list.some((x) => x.name === e.name) && !missing.some((x) => x.name === e.name)) missing.push(copyBiome(e))
+		const room = MAX_MAP_BIOMES - list.length
+		if (missing.length && room > 0) {
+			hooks.add(missing.slice(0, room))
+			list = hooks.list()
+		}
+		const ids = t.map((e) => {
+			const i = list.findIndex((x) => x.name === e.name)
+			return i >= 0 && i < MAX_MAP_BIOMES ? i + 1 : 0
+		})
+		for (let i = 0; i < b.length; i++) b[i] = b[i] ? (ids[b[i] - 1] ?? 0) : 0
+		return true
+	}
+
+	/**
+	 * Rewrites the biome map's cells through `ids` (an old cell value to its new one, 256 long), with the
+	 * mirror and my unacknowledged parts, so a change of the map's list of biomes (settings.ts
+	 * `mergeBiomes`) keeps every cell naming its biome without sending them again.
+	 */
+	remapBiomes(ids: Uint8Array) {
+		const m = this.grids?.m
+		if (!m) return
+		remapCells(m.bytes, ids)
+		remapCells(m.mirror, ids)
+		for (const p of this.pending) if (p.parts.m) remapCells(p.parts.m.b, ids)
+	}
+}
+
+/** Rewrites biome map bytes through `ids` (an old cell value to its new one, 256 long), in place. */
+export function remapCells(b: Uint8Array, ids: Uint8Array) {
+	for (let i = 0; i < b.length; i++) b[i] = ids[b[i]]
+}
+
+/** A biome map part's bytes as they go out: renumbered by first use, with the biomes they name. A cell naming no biome of `list` goes as none. */
+function toWire(b: Uint8Array, list: readonly Biome[]): { bytes: Uint8Array; table: Biome[] } {
+	const ids = new Uint8Array(256)
+	const table: Biome[] = []
+	const bytes = new Uint8Array(b.length)
+	for (let i = 0; i < b.length; i++) {
+		const v = b[i]
+		if (!v) continue
+		if (!ids[v]) {
+			const biome = list[v - 1]
+			if (!biome) continue
+			// A copy, since the send's JSON is made later in the queue and the biome can change in place before then.
+			table.push(copyBiome(biome))
+			ids[v] = table.length
+		}
+		bytes[i] = ids[v]
+	}
+	return { bytes, table }
 }
 
 /** The part of `grid` within `r` (clipped to it) that differs from its mirror, copied into the mirror; null when none does. */

@@ -7,6 +7,10 @@ import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { ChunkDataSync, KIND_CHUNK_DATA, type ChunkDataData, type ChunkDataGround, type GridRect } from '../src/lib/session/chunkData.ts'
 import { bytesToBase64 } from '../src/lib/io/base64.ts'
+import { KIND_SETTINGS, SettingsSync, mergeBiomes, readSettings, usedBiomes, writeSettings, type SettingsData, type SettingsStore } from '../src/lib/session/settings.ts'
+import { newBiome, type Biome } from '../src/lib/terrain/biome.ts'
+import { NO_ROLE } from '../src/lib/terrain/roles.ts'
+import { noScopedEffects } from '../src/lib/world/groundEffects.ts'
 
 const SIDE = 4
 const S = 16
@@ -267,4 +271,137 @@ test("the Biome Brush's cells reach the other member, and two strokes at once en
 	host.deliver(a)
 	same(a.ground, b.ground)
 	assert.equal(b.ground.biomeMap[2 * S + 2], 0)
+})
+
+/** A member with both the chunk data and the settings syncs over one map, as shared.svelte.ts wires them (#1048). */
+class BiomeMember {
+	ground = new Ground()
+	biomes: Biome[] = []
+	store: SettingsStore = { palette: [], waterLevel: 0, waterEnabled: false, roles: { rock: NO_ROLE, dirt: NO_ROLE }, textureEffects: {}, textureLooks: {}, scopedEffects: noScopedEffects(), paths: [] }
+	chunks: ChunkDataSync
+	settings: SettingsSync
+	constructor(
+		readonly id: number,
+		send: (from: number, kind: string, data: unknown) => void,
+	) {
+		this.chunks = new ChunkDataSync({
+			send: async (d) => send(id, KIND_CHUNK_DATA, d),
+			biomes: { list: () => this.biomes, add: (b) => (this.biomes = [...this.biomes, ...b]) },
+		})
+		this.settings = new SettingsSync({
+			send: async (d) => send(id, KIND_SETTINGS, d),
+			read: () => readSettings(this.store, null, this.biomes),
+			write: (set) =>
+				writeSettings(
+					this.store,
+					null,
+					set,
+					() => undefined,
+					(b) => {
+						const { list, ids } = mergeBiomes(this.biomes, b, usedBiomes(this.ground.biomeMap))
+						this.biomes = list
+						if (ids) this.chunks.remapBiomes(ids)
+					},
+				),
+		})
+		this.chunks.bind(this.ground, 0)
+		this.settings.bind(this.ground, 0)
+	}
+	/** A Biome Brush stroke with biome `name`, added to the map's list where it lacks it, as `onDown` does. */
+	paint(r: GridRect, name: string) {
+		let i = this.biomes.findIndex((b) => b.name === name)
+		if (i < 0) {
+			this.biomes = [...this.biomes, newBiome(name, [name + '.blp'])]
+			i = this.biomes.length - 1
+		}
+		this.ground.biome(r, i + 1)
+	}
+	/** The heights' timer: the chunk data first, then the settings, as `flushAll` runs them. */
+	flush() {
+		this.chunks.flush()
+		this.settings.flush()
+	}
+	/** The biome each cell names, by name. */
+	names(): string[] {
+		return Array.from(this.ground.biomeMap, (v) => (v ? (this.biomes[v - 1]?.name ?? '?') : ''))
+	}
+}
+
+class BiomeHost {
+	seq = 0
+	members: BiomeMember[] = []
+	inbox = new Map<number, { seq: number; from: number; kind: string; data: unknown }[]>()
+	member(id: number) {
+		this.inbox.set(id, [])
+		const m = new BiomeMember(id, (from, kind, data) => {
+			const msg = { seq: ++this.seq, from, kind, data: JSON.parse(JSON.stringify(data)) as unknown }
+			for (const q of this.inbox.values()) q.push(msg)
+		})
+		this.members.push(m)
+		return m
+	}
+	deliver(m: BiomeMember) {
+		for (const msg of this.inbox.get(m.id)!.splice(0)) (msg.kind === KIND_SETTINGS ? m.settings : m.chunks).receive(msg.seq, msg.from, msg.data as SettingsData, m.id)
+	}
+}
+
+test('two members who add a different biome at once keep every cell naming its biome (#1048)', () => {
+	const host = new BiomeHost()
+	const a = host.member(1)
+	const b = host.member(2)
+	// Both start with Forest, then each adds its own biome before either hears of the other's.
+	for (const m of [a, b]) {
+		m.paint(rect(0, 0, 1, 1), 'Forest')
+	}
+	a.flush()
+	host.deliver(a)
+	host.deliver(b)
+	b.flush()
+	host.deliver(a)
+	host.deliver(b)
+	a.paint(rect(2, 2, 6, 6), 'Desert')
+	b.paint(rect(8, 8, 12, 12), 'Snow')
+	a.flush()
+	b.flush()
+	// The cells carry the biomes they name, not the sender's index alone.
+	host.deliver(a)
+	host.deliver(b)
+	// A list sent after an apply goes out again, and every member settles.
+	a.flush()
+	b.flush()
+	host.deliver(a)
+	host.deliver(b)
+	for (const m of [a, b]) {
+		const n = m.names()
+		assert.equal(n[0], 'Forest')
+		assert.equal(n[4 * S + 4], 'Desert', `member ${m.id}`)
+		assert.equal(n[10 * S + 10], 'Snow', `member ${m.id}`)
+		assert.deepEqual(m.biomes.map((x) => x.name).sort(), ['Desert', 'Forest', 'Snow'])
+	}
+	assert.deepEqual(a.names(), b.names())
+	// Nothing more goes out once both have settled.
+	const seq = host.seq
+	a.flush()
+	b.flush()
+	assert.equal(host.seq, seq)
+})
+
+test('a merged list drops a biome no cell uses and renumbers the cells after it (#1048)', () => {
+	const f = newBiome('Forest')
+	const d = newBiome('Desert')
+	const s = newBiome('Snow')
+	const used = new Uint8Array(256)
+	used[1] = 1
+	used[3] = 1
+	const { list, ids } = mergeBiomes([f, d, s], [{ ...f, textures: ['x.blp'] }], used)
+	assert.deepEqual(
+		list.map((x) => x.name),
+		['Forest', 'Snow'],
+	)
+	assert.equal(list[0].textures[0], 'x.blp')
+	assert.equal(ids?.[1], 1)
+	assert.equal(ids?.[3], 2)
+	assert.equal(ids?.[2], 0)
+	// The same names in the same order move nothing.
+	assert.equal(mergeBiomes([f, d], [d, f], used).ids, null)
 })

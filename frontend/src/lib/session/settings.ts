@@ -10,6 +10,10 @@
 // undo syncs like any edit. The later message in the host's order wins per field; a field of mine still
 // unacknowledged stays over another member's, which the host's order puts before mine.
 //
+// The biomes are the exception to a field written whole: the biome map's cells hold indexes in the list, and
+// two members who add a biome at once each send a list without the other's (#1048), so the list is merged
+// by name (`mergeBiomes`): a biome the incoming list lacks stays while a cell still uses it.
+//
 // What stays the member's own (the tab's name and file, the palette, bookmarks, the reference image, the
 // paint layer choices, the locks, the path pick) is not here. Kept free of the bindings and the runes
 // state so a Bun test can run two members against a scripted host.
@@ -22,6 +26,7 @@ import type { MapInfo } from '../engine/mapInfo'
 import type { VmangosRef } from '../engine/MapDocument'
 import { copyBiome, type Biome } from '../terrain/biome'
 import { prefShapeOk } from '../state/prefsPatch'
+import { MAX_MAP_BIOMES } from '../terrain/biomeMap'
 
 /** The kind of a message carrying map settings (data: `SettingsData`). */
 export const KIND_SETTINGS = 'settings'
@@ -72,6 +77,40 @@ export function readSettings(s: SettingsStore, vmangos: VmangosRef | null, biome
 	}
 	if (biomes) out.biomes = biomes
 	return out
+}
+
+/**
+ * The map's biomes after another member's list `incoming` (#1048): the map's own in their order, each
+ * taken from `incoming` where it holds that name, the ones it lacks kept only while a cell uses them
+ * (`used[1 + index]` set), then the rest of `incoming`. `ids` maps an old cell value to its new one (256
+ * long), null where no cell value moves.
+ */
+export function mergeBiomes(local: readonly Biome[], incoming: readonly Biome[], used: Uint8Array): { list: Biome[]; ids: Uint8Array | null } {
+	const byName = new Map(incoming.map((b) => [b.name, b]))
+	const list: Biome[] = []
+	const ids = new Uint8Array(256)
+	let moved = false
+	local.forEach((b, i) => {
+		const inc = byName.get(b.name)
+		if (!inc && !used[i + 1]) {
+			moved = true
+			return
+		}
+		list.push(inc ?? b)
+		byName.delete(b.name)
+		if (i + 1 < 256) ids[i + 1] = list.length
+		if (list.length !== i + 1) moved = true
+	})
+	for (const b of byName.values()) if (list.length < MAX_MAP_BIOMES) list.push(b)
+	// A cell past the list's end names no biome, and stays at 0 in `ids`.
+	return { list, ids: moved ? ids : null }
+}
+
+/** Which cell values the biome map `cells` holds: a flag per value, 256 long. */
+export function usedBiomes(cells: Uint8Array): Uint8Array {
+	const used = new Uint8Array(256)
+	for (let i = 0; i < cells.length; i++) used[cells[i]] = 1
+	return used
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)

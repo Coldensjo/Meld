@@ -185,9 +185,11 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
   and the held messages are the holes'. Applying writes the values and calls `touchChunkData` with the
   rects (the overlay, the ground effects through `chunkDataVersion`; `touchBiomeMap` for `m`), and marks
   the map unsaved. `doc.chunkDataKnown` travels in the handoff alone. A biome map's cell holds 1 plus an
-  index into the map's biomes, which go with the settings (below): two members adding a biome to the map
-  at once both end with the later list, so the other's cells name a biome by the wrong index (or none, as
-  Repaint Biomes skips an index past the list) until one of them paints again.
+  index into the member's own list of the map's biomes, and two members who add a biome at once hold
+  different lists for a while (#1048), so `m` goes out naming its biomes: its `t` holds the biomes its
+  bytes name (renumbered from 1 by first use, `toWire`), and the receiver turns them into its own indexes
+  (`fromWire`), appending a biome its list lacks (the `biomes` hook). A message without `t` is taken as
+  indexes, as before.
   The paint a stroke lays goes as the paint's own, and the textures it adds to the palette as the paint's `add`.
 - **Baked shadows (#1018, `shadows.ts`, `ShadowSync`).** Every change to the session map's baked
   shadows (Bake Shadows, the Map data tool's Shadow mode, Clear Shadows, a paste, an undo; all through
@@ -208,7 +210,9 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
   (`waterLevel`, `waterEnabled`), texture roles, ground effects per texture, zone and tile
   (`textureEffects`, `scopedEffects`), texture looks, paths, and on a map made for the client Map
   Properties' facts (`vmangos.info`) and tile mask (`vmangos.tiles`), and the map's biomes (`biomes`, #1036:
-  `editor.mapBiomes`, or `meta.biomes` off the active tab, checked on arrival as the map file's are) goes out as kind `settings`
+  `editor.mapBiomes`, or `meta.biomes` off the active tab, checked on arrival as the map file's are; merged by
+  name rather than replaced, `mergeBiomes`, #1048: the member's own order, a biome the incoming list lacks
+  kept while a cell uses it, the cells renumbered with the chunk data's mirror, `remapBiomes`) goes out as kind `settings`
   (`KIND_SETTINGS`), data `{id, set: {<field>: value}}`: each changed field whole (`readSettings`). They
   are small and rare, so the heights' timer compares each field's JSON against a mirror and no setter has a
   hook; an undo syncs like any edit. The later message in the host's order wins per field, and a field of

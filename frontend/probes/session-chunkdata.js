@@ -1,4 +1,4 @@
-// The ground's chunk data and baked shadows in a shared session (#1018): the page hosts a flat map, a scripted guest (meldtool session join, through P.bun) sends a `chunkdata` message (a chunk's zone and impassable flag, two no-tuft cells) and a `shadows` message (a row of shadowed texels on a map with none), with two cells of the Biome Brush's biome map and a `settings` message with the map's biomes (#1036), and the page shows them; then the page sets a zone and flag with a biome cell (one undo step) and shadows a rect (one undo step) and undoes both, all going out, and the chunk data and shadows the bot's messages give in the host's order match the page's.
+// The ground's chunk data and baked shadows in a shared session (#1018): the page hosts a flat map, a scripted guest (meldtool session join, through P.bun) sends a `chunkdata` message (a chunk's zone and impassable flag, two no-tuft cells) and a `shadows` message (a row of shadowed texels on a map with none), with two cells of the Biome Brush's biome map and a `settings` message with the map's biomes (#1036), and the page shows them, its own biome cells going out naming their biome (#1048); then the page sets a zone and flag with a biome cell (one undo step) and shadows a rect (one undo step) and undoes both, all going out, and the chunk data and shadows the bot's messages give in the host's order match the page's.
 // touches: frontend/src/lib/session/**, frontend/src/lib/terrain/Terrain.ts, frontend/src/lib/tools/chunkDataStroke.ts, frontend/src/lib/tools/shadowStroke.ts, frontend/src/lib/tools/BiomeBrushTool.ts, frontend/probes/session-bot.mjs, frontend/probes/run.mjs, app_session.go, internal/session/**, cmd/meldtool/session.go
 // timeout: 180
 const e = P.e
@@ -129,6 +129,8 @@ const result = {
 	biomeMap: differ(biomeMap, page.biomeMap),
 	shadow: shadow && page.shadow ? differ(shadow, page.shadow) : shadow === page.shadow ? 0 : -1,
 }
+// The page's biome cells go out naming their biome (#1048): its part's `t` holds the biome its bytes name.
+const named = mine.find((m) => m.kind === 'chunkdata' && m.data.m)?.data.m?.t?.map((b) => b.name) ?? null
 const after = { area0: page.areas[0], flag0: page.flags[0], shadowed: page.shadow ? page.shadow.reduce((n, v) => n + (v ? 1 : 0), 0) : 0 }
 const ok =
 	!hadShadow &&
@@ -138,6 +140,7 @@ const ok =
 	got.biomeCells === 2 &&
 	got.biome === 'Bot biome' &&
 	page.biomeMap[N + 1] === 1 &&
+	named?.join() === 'Bot biome' &&
 	got.shadow === 255 &&
 	got.lit === 0 &&
 	got.unsaved &&
@@ -147,4 +150,4 @@ const ok =
 	after.area0 === 0 &&
 	after.flag0 === 0 &&
 	after.shadowed === 8
-return { ok, got, you, msgs: msgs.length, fromHost: mine.length, kinds: mine.map((m) => m.kind), result, after }
+return { ok, got, you, msgs: msgs.length, fromHost: mine.length, kinds: mine.map((m) => m.kind), named, result, after }

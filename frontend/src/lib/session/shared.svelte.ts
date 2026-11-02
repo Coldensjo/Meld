@@ -36,9 +36,9 @@ import { HEIGHTS_FLUSH_MS, HeightSync, KIND_HEIGHTS, type VertexRect } from './h
 import { KIND_PAINT, PaintSync, remapSlots, reorderPalette } from './paint'
 import { HoleSync, KIND_HOLES } from './holes'
 import { KIND_LIQUIDS, LiquidSync } from './liquids'
-import { ChunkDataSync, KIND_CHUNK_DATA } from './chunkData'
+import { ChunkDataSync, KIND_CHUNK_DATA, remapCells } from './chunkData'
 import { KIND_SHADOWS, ShadowSync } from './shadows'
-import { KIND_SETTINGS, SettingsSync, readSettings, writeSettings } from './settings'
+import { KIND_SETTINGS, SettingsSync, mergeBiomes, readSettings, usedBiomes, writeSettings } from './settings'
 import { KIND_PATH_APPLY, PathApplySync, adoptNotes, notesOf, type ApplyNote, type PathApplyMap } from './pathApplies'
 import { appliesOf, othersApplies } from '../tools/pathRecord'
 import type { Terrain } from '../terrain/Terrain'
@@ -175,6 +175,17 @@ const liquids = new LiquidSync({
 /** The session map's chunk data (#1018): the changed chunks' zones and flags and the changed no-effect and biome map (#1036) cells, sent and applied as the holes are. */
 const chunkData = new ChunkDataSync({
 	send: (data) => sessionSend(0, KIND_CHUNK_DATA, tagged(data)),
+	// The biome map's cells go out naming their biomes, since two members' lists can differ for a while (#1048).
+	biomes: {
+		list: () => (sessionActive() ? editor.mapBiomes : (sessionDoc()?.meta.biomes ?? [])),
+		add: (b) => {
+			if (sessionActive()) editor.mapBiomes = [...editor.mapBiomes, ...b]
+			else {
+				const d = sessionDoc()
+				if (d) d.meta.biomes = [...d.meta.biomes, ...b]
+			}
+		},
+	},
 	applied: markUnsaved,
 	failed: (err) => setStatus(`A map data edit did not reach the session: ${err}`, 8000),
 })
@@ -200,8 +211,13 @@ const settings = new SettingsSync({
 		const live = sessionActive()
 		const setTiles = (tiles: string) => t.setTileMask(maskBytes(tiles, t.size / TILE_CELLS))
 		return writeSettings(live ? editor : d.meta, d.meta.vmangos, set, setTiles, (b) => {
-			if (live) editor.mapBiomes = b
-			else d.meta.biomes = b
+			// Merged by name, keeping a biome the cells still use, and the cells renumbered to the merged list (#1048).
+			const { list, ids } = mergeBiomes(live ? editor.mapBiomes : d.meta.biomes, b, usedBiomes(t.biomeMap))
+			if (live) editor.mapBiomes = list
+			else d.meta.biomes = list
+			if (!ids) return
+			if (chunkData.bound === t) chunkData.remapBiomes(ids)
+			else remapCells(t.biomeMap, ids)
 		})
 	},
 	applied: () => {
