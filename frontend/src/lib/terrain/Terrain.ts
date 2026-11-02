@@ -574,7 +574,12 @@ export class Terrain {
 		else this.chunkDataDirty.mark(rect)
 	}
 
-	/** The paint chunk rect and the cell rect (inclusive) touched (`touchChunkData`) since a shared session last took them (`takeSessionChunkData`, lib/session/chunkData.ts, #1018). Empty when x0 > x1. */
+	/** Marks an inclusive rect of cells of the biome map (`biomeMap`) as edited, for a shared session to send (#1036); nothing draws it. */
+	touchBiomeMap(rect: DirtyRect) {
+		growRect(this.sessionCells, rect.x0, rect.z0, rect.x1, rect.z1)
+	}
+
+	/** The paint chunk rect and the cell rect (inclusive) touched (`touchChunkData`, `touchBiomeMap`) since a shared session last took them (`takeSessionChunkData`, lib/session/chunkData.ts, #1018). Empty when x0 > x1. */
 	private sessionChunks = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
 	private sessionCells = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
 

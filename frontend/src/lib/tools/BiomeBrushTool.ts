@@ -345,6 +345,8 @@ export class BiomeBrushTool extends BrushTool {
 			}
 		}
 		if (!changed) return
+		// For a shared session (#1036): the cells go out as the map data's do.
+		t.touchBiomeMap(changed)
 		s.cells = s.cells ? { x0: Math.min(s.cells.x0, changed.x0), z0: Math.min(s.cells.z0, changed.z0), x1: Math.max(s.cells.x1, changed.x1), z1: Math.max(s.cells.z1, changed.z1) } : { ...changed }
 		const per = t.splatRes / t.paintChunksPerSide
 		for (const c of chunksReached(S, t.paintChunksPerSide, changed, s.blend.reach, this.chunkList)) {
@@ -429,6 +431,7 @@ export class BiomeBrushTool extends BrushTool {
 		}
 		const put = (from: Uint8Array) => {
 			for (let z = c.z0; z <= c.z1; z++) t.biomeMap.set(from.subarray((z - c.z0) * w, (z - c.z0 + 1) * w), z * t.size + c.x0)
+			t.touchBiomeMap(c)
 		}
 		return { label: 'Biome map', bytes: before.length * 2, undo: () => put(before), redo: () => put(after) }
 	}

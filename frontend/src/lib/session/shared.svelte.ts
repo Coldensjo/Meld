@@ -172,7 +172,7 @@ const liquids = new LiquidSync({
 	applied: markUnsaved,
 	failed: (err) => setStatus(`A liquid edit did not reach the session: ${err}`, 8000),
 })
-/** The session map's chunk data (#1018): the changed chunks' zones and flags and the changed no-effect cells, sent and applied as the holes are. */
+/** The session map's chunk data (#1018): the changed chunks' zones and flags and the changed no-effect and biome map (#1036) cells, sent and applied as the holes are. */
 const chunkData = new ChunkDataSync({
 	send: (data) => sessionSend(0, KIND_CHUNK_DATA, tagged(data)),
 	applied: markUnsaved,
@@ -184,18 +184,25 @@ const shadows = new ShadowSync({
 	applied: markUnsaved,
 	failed: (err) => setStatus(`A baked shadow edit did not reach the session: ${err}`, 8000),
 })
-/** The session map's settings (#1019): the sea, roles, ground effects, looks, paths and Map Properties' facts and tiles, each changed field whole. */
+/** The session map's settings (#1019): the sea, roles, ground effects, looks, paths, Map Properties' facts and tiles and the biomes (#1036), each changed field whole. */
 const settings = new SettingsSync({
 	send: (data) => sessionSend(0, KIND_SETTINGS, tagged(data)),
 	read: () => {
 		const d = sessionDoc()
-		return d ? readSettings(sessionActive() ? editor : d.meta, d.meta.vmangos) : null
+		if (!d) return null
+		const live = sessionActive()
+		return readSettings(live ? editor : d.meta, d.meta.vmangos, live ? editor.mapBiomes : d.meta.biomes)
 	},
 	write: (set) => {
 		const d = sessionDoc()
 		if (!d) return []
 		const t = d.terrain
-		return writeSettings(sessionActive() ? editor : d.meta, d.meta.vmangos, set, (tiles) => t.setTileMask(maskBytes(tiles, t.size / TILE_CELLS)))
+		const live = sessionActive()
+		const setTiles = (tiles: string) => t.setTileMask(maskBytes(tiles, t.size / TILE_CELLS))
+		return writeSettings(live ? editor : d.meta, d.meta.vmangos, set, setTiles, (b) => {
+			if (live) editor.mapBiomes = b
+			else d.meta.biomes = b
+		})
 	},
 	applied: () => {
 		markUnsaved()

@@ -1,6 +1,7 @@
 // The session map's settings in a shared session (#1019, docs/architecture/session.md): the sea, the
 // texture roles, the ground effects per texture, zone and tile, the texture looks, the paths, and on a map
-// made for the client its Map Properties facts and its tile mask. Every member's save holds them, so a
+// made for the client its Map Properties facts and its tile mask, and the map's biomes (the Biome Brush's,
+// #1036, whose indexes the biome map's cells hold; the cells go with the chunk data). Every member's save holds them, so a
 // change one member makes goes out and every member applies the others' in the host's order.
 //
 // They are small and rarely change, so a changed field goes out whole: kind `settings`, data
@@ -19,12 +20,14 @@ import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { MapInfo } from '../engine/mapInfo'
 import type { VmangosRef } from '../engine/MapDocument'
+import { copyBiome, type Biome } from '../terrain/biome'
+import { prefShapeOk } from '../state/prefsPatch'
 
 /** The kind of a message carrying map settings (data: `SettingsData`). */
 export const KIND_SETTINGS = 'settings'
 
-/** The synced fields. `info` and `tiles` only on a map made for the client (a `vmangos` ref). */
-export const SETTINGS_FIELDS = ['waterLevel', 'waterEnabled', 'roles', 'textureEffects', 'textureLooks', 'scopedEffects', 'paths', 'info', 'tiles'] as const
+/** The synced fields. `info` and `tiles` only on a map made for the client (a `vmangos` ref); `biomes` only where the caller passes the map's biomes. */
+export const SETTINGS_FIELDS = ['waterLevel', 'waterEnabled', 'roles', 'textureEffects', 'textureLooks', 'scopedEffects', 'paths', 'info', 'tiles', 'biomes'] as const
 export type SettingsField = (typeof SETTINGS_FIELDS)[number]
 
 /** The fields as they go out: plain JSON, the roles as texture paths ('' for none) since each member keeps its own palette (#1002). */
@@ -48,8 +51,11 @@ export interface SettingsStore {
 	paths: MapPath[]
 }
 
-/** The synced fields of a map as they go out. `vmangos` is the map's client ref (Map Properties' facts and tile mask), null for none. */
-export function readSettings(s: SettingsStore, vmangos: VmangosRef | null): MapSettings {
+/**
+ * The synced fields of a map as they go out. `vmangos` is the map's client ref (Map Properties' facts and
+ * tile mask), null for none; `biomes` the map's biomes (`editor.mapBiomes` or its document's `meta.biomes`).
+ */
+export function readSettings(s: SettingsStore, vmangos: VmangosRef | null, biomes?: readonly Biome[]): MapSettings {
 	const role = (i: number) => (i === NO_ROLE ? '' : (s.palette[i] ?? ''))
 	const out: MapSettings = {
 		waterLevel: s.waterLevel,
@@ -64,6 +70,7 @@ export function readSettings(s: SettingsStore, vmangos: VmangosRef | null): MapS
 		out.info = vmangos.info ?? null
 		out.tiles = vmangos.tiles ?? ''
 	}
+	if (biomes) out.biomes = biomes
 	return out
 }
 
@@ -79,10 +86,10 @@ function numbers(v: Record<string, unknown>): Record<string, number> {
 /**
  * Writes the fields of `set` that fit into the map: fresh objects, replaced whole, since the engine tells a
  * change of the ground effects and looks by identity. `setTiles` applies a tile mask ('' for every tile) to
- * the terrain. Returns the fields written; one that doesn't fit (a wrong type, `info` on a map without a
- * client ref) is skipped.
+ * the terrain, and `setBiomes` the map's biomes (fresh copies; without it the biomes are skipped). Returns
+ * the fields written; one that doesn't fit (a wrong type, `info` on a map without a client ref) is skipped.
  */
-export function writeSettings(s: SettingsStore, vmangos: VmangosRef | null, set: MapSettings, setTiles: (tiles: string) => void): SettingsField[] {
+export function writeSettings(s: SettingsStore, vmangos: VmangosRef | null, set: MapSettings, setTiles: (tiles: string) => void, setBiomes?: (biomes: Biome[]) => void): SettingsField[] {
 	const done: SettingsField[] = []
 	for (const f of SETTINGS_FIELDS) {
 		if (!(f in set)) continue
@@ -131,6 +138,11 @@ export function writeSettings(s: SettingsStore, vmangos: VmangosRef | null, set:
 				if (v) vmangos.tiles = v
 				else delete vmangos.tiles
 				setTiles(v)
+				break
+			case 'biomes':
+				// Checked as the map file's and the preferences' are (io/mapData.ts `readBiomes`).
+				if (!setBiomes || !Array.isArray(v) || !prefShapeOk('biomes', v)) continue
+				setBiomes((v as Biome[]).map(copyBiome))
 				break
 		}
 		done.push(f)

@@ -10,12 +10,15 @@ import { NO_ROLE } from '../src/lib/terrain/roles.ts'
 import { noScopedEffects } from '../src/lib/world/groundEffects.ts'
 import { newPath } from '../src/lib/terrain/paths.ts'
 import type { VmangosRef } from '../src/lib/engine/MapDocument.ts'
+import { newBiome, type Biome } from '../src/lib/terrain/biome.ts'
 
 /** A member's map: the store `editor` or a document's meta would be, its client ref, and the tile masks the terrain was given. */
 class Map1 {
 	store: SettingsStore
 	vmangos: VmangosRef | null
 	masks: string[] = []
+	/** The map's biomes (`editor.mapBiomes` or a document's `meta.biomes`). */
+	biomes: Biome[] = []
 	constructor(palette = ['a.blp', 'b.blp', 'c.blp'], vmangos: VmangosRef | null = { dir: 'Probe', mapId: 900 }) {
 		this.store = { palette, waterLevel: 0, waterEnabled: false, roles: { rock: NO_ROLE, dirt: NO_ROLE }, textureEffects: {}, textureLooks: {}, scopedEffects: noScopedEffects(), paths: [] }
 		this.vmangos = vmangos ? { ...vmangos } : null
@@ -38,8 +41,15 @@ class Host {
 		const sends: SettingsData[] = []
 		let applied = 0
 		const sync = new SettingsSync({
-			read: () => readSettings(map.store, map.vmangos),
-			write: (set) => writeSettings(map.store, map.vmangos, set, (t) => map.masks.push(t)),
+			read: () => readSettings(map.store, map.vmangos, map.biomes),
+			write: (set) =>
+				writeSettings(
+					map.store,
+					map.vmangos,
+					set,
+					(t) => map.masks.push(t),
+					(b) => (map.biomes = b),
+				),
 			send: async (data) => {
 				sends.push(data)
 				const m = { seq: ++this.seq, from: id, kind: KIND_SETTINGS, data: JSON.parse(JSON.stringify(data)) as SettingsData }
@@ -221,4 +231,24 @@ test('a guest holds the messages before its map and applies those after the hand
 	s.bind(map, 3)
 	assert.equal(map.store.waterLevel, 0, 'the handoff already held seq 3')
 	assert.equal(map.store.waterEnabled, true)
+})
+
+test("the map's biomes go as the whole list, checked, and a list that isn't biomes is skipped (#1036)", () => {
+	const host = new Host()
+	const a = host.member(1, new Map1())
+	const b = host.member(2, new Map1())
+	a.map.biomes = [newBiome('Forest', ['a.blp']), newBiome('Desert', ['c.blp'])]
+	a.sync.flush()
+	assert.deepEqual(Object.keys(a.sends[0].set), ['biomes'])
+	host.deliver(b)
+	host.deliver(a)
+	assert.deepEqual(b.map.biomes, a.map.biomes)
+	assert.notEqual(b.map.biomes[0], a.map.biomes[0])
+	// The apply is not sent back.
+	b.sync.flush()
+	assert.equal(b.sends.length, 0)
+	// A list that doesn't hold biomes is not written.
+	b.sync.receive(++host.seq, 3, { id: 1, set: { biomes: [{ name: 7 }] } }, 2)
+	assert.equal(b.map.biomes.length, 2)
+	assert.equal(b.applied, 1)
 })

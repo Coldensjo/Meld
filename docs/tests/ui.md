@@ -1102,20 +1102,22 @@ over them, and an applied chunk is not sent back.
 
 ## Chunk data and baked shadows in a session (#1018, probe `session-chunkdata`)
 
-Checks: a change to the zones, impassable flags, no-tuft cells or baked shadows of the session's map goes
+Checks: a change to the zones, impassable flags, no-tuft cells, Biome Brush cells (#1036) or baked shadows of the session's map goes
 to the others as `chunkdata` and `shadows` messages, the others' are applied in the host's order with
 one's own unacknowledged values over them, and an applied one is not sent back.
 - `bun test tests/sessionChunkData.test.ts`: two `ChunkDataSync` members through a scripted host (the
   replay rule grid by grid, all three grids edited at once, no echo, the apply's `touchChunkData` rects,
-  only the changed grids sent and each shrunk, a guest holding messages, bad messages ignored whole).
+  only the changed grids sent and each shrunk, a guest holding messages, bad messages ignored whole, the
+  biome map's cells as grid `m` through `touchBiomeMap`).
 - `bun test tests/sessionShadows.test.ts`: two `ShadowSync` members (a stroke on a map without shadows
   making the layer on the others, as bits; a `none` with one's own strokes after it; a stroke under one's
   own unacknowledged `none`; both members at once with a drop in the middle; the client's layer not sent;
   held and bad messages). Compare what a save keeps (a bit a texel, or none), not the bytes.
 - `bun run probe session-chunkdata`: the page hosts a flat map (no shadows), the bot sends a chunk's zone
-  and flag, two no-tuft cells and 8 shadowed texels the page must show; then the page sets a zone and flag
-  (`ChunkDataStroke`) and shadows a rect (`ShadowStroke`), undoes both, and the bot's messages applied in
-  `seq` order over an empty map must equal the page's arrays.
+  and flag, two no-tuft cells, two biome map cells with a `settings` message holding the map's biomes, and
+  8 shadowed texels the page must show; then the page sets a zone and flag (`ChunkDataStroke`) and a biome
+  cell (`touchBiomeMap`) and shadows a rect (`ShadowStroke`), undoes both, and the bot's messages applied in
+  `seq` order over an empty map must equal the page's arrays (the biome map too).
 - Trap: a stroke that sets a value already there changes nothing, so its grid is not in the message (a
   zone stroke over chunks already impassable sends no `f`).
 
@@ -1129,7 +1131,7 @@ kept over them, and an applied one is not sent back.
   stores (one field at once from both, different fields at once, an unsent change going out before a
   remote apply, roles by texture path across palettes in another order, the facts and the tile mask with
   its `setTiles` call, an undo, the paths as a whole list, bad messages and a map without a client ref,
-  a guest holding messages).
+  a guest holding messages, the map's biomes as the whole list with a list that isn't biomes skipped, #1036).
 - `bun run probe session-settings`: the page hosts a 2×2-tile `newVmangosDocument`, the bot sends a name
   in the facts, a ground effect for the palette's first texture and the mask `1101` (the south-west tile
   out, `tileOff(0, 128)`); then the page moves the sea level and sets the facts and undoes both, and the

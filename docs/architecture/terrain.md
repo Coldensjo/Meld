@@ -814,8 +814,9 @@ mask/liquid, image codec or native/game rendering contracts.
   first replaces each copy with the preferences' biome of its name. Both are one undo step and never
   run on their own. Trap: a repaint blends each texel that borders unpainted ground over its current
   paint, which already holds the biome, so repeated repaints sharpen those edges a little; a border
-  between two biomes is exact every time. Shared sessions don't carry the biome map or the map's
-  biomes yet (#1036).
+  between two biomes is exact every time. A shared session carries the biome map with the chunk
+  data and the map's biomes with the settings (#1036, docs/architecture/session.md); a stroke touches its
+  cells through `Terrain.touchBiomeMap`, and so does its undo.
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'

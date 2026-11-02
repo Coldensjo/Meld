@@ -19,6 +19,7 @@ server. #728 is the umbrella; its parts are separate issues:
 | Holes | #1016 | Done (`lib/session/holes.ts`) |
 | Painted liquids | #1017 | Done (`lib/session/liquids.ts`) |
 | The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Done (`lib/session/chunkData.ts`, `shadows.ts`) |
+| The Biome Brush's biome map and the map's biomes | #1036 | Done (`chunkData.ts`'s `m`, `settings.ts`'s `biomes`) |
 | The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Done (`lib/session/settings.ts`) |
 | The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
 
@@ -172,16 +173,22 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
   settings (#1019); `doc.liquidsKnown` travels in the handoff alone.
 - **Chunk data (#1018, `chunkData.ts`, `ChunkDataSync`).** Every change to the session map's zones
   (`areaIds`), chunk flags (`chunkFlags`, the impassable flag) and no-effect cells (`noEffect`) (the Map
-  data tool, a paste, Reference image › Zones, a script, an undo) goes out as kind `chunkdata`
-  (`KIND_CHUNK_DATA`), data `{id, a?, f?, n?}`: for each grid that changed, an inclusive rect and its
+  data tool, a paste, Reference image › Zones, a script, an undo), and to its biome map (`biomeMap`, the
+  Biome Brush's stroke and its undo, #1036), goes out as kind `chunkdata`
+  (`KIND_CHUNK_DATA`), data `{id, a?, f?, n?, m?}`: for each grid that changed, an inclusive rect and its
   values now (`{rect, b}`, base64 row by row; `a` the area IDs, 4 bytes little-endian a chunk, and `f`
-  the flags over paint chunks, `n` the no-effect bytes over cells). `Terrain.touchChunkData`, which every
+  the flags over paint chunks, `n` the no-effect bytes and `m` the biome map's over cells). `Terrain.touchChunkData`, which every
   writer calls, grows a chunk rect or, with `cells`, a cell rect for the session (`takeSessionChunkData`;
-  no rect grows both whole); the heights' timer compares them against a mirror of each grid and sends
+  no rect grows both whole); `Terrain.touchBiomeMap` grows the same cell rect without redrawing the
+  overlay, since nothing draws the biome map. The heights' timer compares them against a mirror of each grid and sends
   the values that differ, each grid shrunk to its own. The order, the replay (grid by grid), the echo
   and the held messages are the holes'. Applying writes the values and calls `touchChunkData` with the
-  rects (the overlay, the ground effects through `chunkDataVersion`), and marks the map unsaved.
-  `doc.chunkDataKnown` travels in the handoff alone.
+  rects (the overlay, the ground effects through `chunkDataVersion`; `touchBiomeMap` for `m`), and marks
+  the map unsaved. `doc.chunkDataKnown` travels in the handoff alone. A biome map's cell holds 1 plus an
+  index into the map's biomes, which go with the settings (below): two members adding a biome to the map
+  at once both end with the later list, so the other's cells name a biome by the wrong index (or none, as
+  Repaint Biomes skips an index past the list) until one of them paints again.
+  The paint a stroke lays goes as the paint's own, and the textures it adds to the palette as the paint's `add`.
 - **Baked shadows (#1018, `shadows.ts`, `ShadowSync`).** Every change to the session map's baked
   shadows (Bake Shadows, the Map data tool's Shadow mode, Clear Shadows, a paste, an undo; all through
   `ShadowStroke`) goes out as kind `shadows` (`KIND_SHADOWS`), data `{id, rect, b}`: an inclusive texel
@@ -200,7 +207,8 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
 - **The map's settings (#1019, `settings.ts`, `SettingsSync`).** Every change to the session map's sea
   (`waterLevel`, `waterEnabled`), texture roles, ground effects per texture, zone and tile
   (`textureEffects`, `scopedEffects`), texture looks, paths, and on a map made for the client Map
-  Properties' facts (`vmangos.info`) and tile mask (`vmangos.tiles`) goes out as kind `settings`
+  Properties' facts (`vmangos.info`) and tile mask (`vmangos.tiles`), and the map's biomes (`biomes`, #1036:
+  `editor.mapBiomes`, or `meta.biomes` off the active tab, checked on arrival as the map file's are) goes out as kind `settings`
   (`KIND_SETTINGS`), data `{id, set: {<field>: value}}`: each changed field whole (`readSettings`). They
   are small and rare, so the heights' timer compares each field's JSON against a mirror and no setter has a
   hook; an undo syncs like any edit. The later message in the host's order wins per field, and a field of

@@ -26,6 +26,7 @@ class Ground implements ChunkDataGround {
 	readonly areaIds = new Uint32Array(SIDE * SIDE)
 	readonly chunkFlags = new Uint8Array(SIDE * SIDE)
 	readonly noEffect = new Uint8Array(S * S)
+	readonly biomeMap = new Uint8Array(S * S)
 	private c = empty()
 	private n = empty()
 	touches: { rect: GridRect | null; cells: boolean }[] = []
@@ -35,6 +36,11 @@ class Ground implements ChunkDataGround {
 			grow(this.c, { x0: 0, z0: 0, x1: SIDE - 1, z1: SIDE - 1 })
 			grow(this.n, { x0: 0, z0: 0, x1: S - 1, z1: S - 1 })
 		} else grow(cells ? this.n : this.c, rect)
+	}
+	biomeTouches: GridRect[] = []
+	touchBiomeMap(rect: GridRect) {
+		this.biomeTouches.push({ ...rect })
+		grow(this.n, rect)
 	}
 	takeSessionChunkData(chunks: GridRect, cells: GridRect) {
 		const any = this.c.x0 <= this.c.x1 || this.n.x0 <= this.n.x1
@@ -58,6 +64,11 @@ class Ground implements ChunkDataGround {
 	cells(r: GridRect, v: number) {
 		for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) this.noEffect[z * S + x] = v
 		this.touchChunkData(r, true)
+	}
+	/** A Biome Brush stroke over a cell rect (#1036): biome `v` (1 plus its index, 0 for none). */
+	biome(r: GridRect, v: number) {
+		for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) this.biomeMap[z * S + x] = v
+		this.touchBiomeMap(r)
 	}
 }
 
@@ -104,6 +115,7 @@ function same(a: Ground, b: Ground) {
 	assert.deepEqual(a.areaIds, b.areaIds)
 	assert.deepEqual(a.chunkFlags, b.chunkFlags)
 	assert.deepEqual(a.noEffect, b.noEffect)
+	assert.deepEqual(a.biomeMap, b.biomeMap)
 }
 
 const rect = (x0: number, z0: number, x1: number, z1: number) => ({ x0, z0, x1, z1 })
@@ -222,4 +234,37 @@ test('a failed send drops its values from the unacknowledged ones', async () => 
 	await Promise.resolve()
 	assert.equal(failed, 1)
 	assert.equal(s.unacknowledged, 0)
+})
+
+test("the Biome Brush's cells reach the other member, and two strokes at once end as the host order does (#1036)", () => {
+	const host = new Host()
+	const a = host.member(1, new Ground())
+	const b = host.member(2, new Ground())
+	a.ground.biome(rect(2, 2, 6, 6), 1)
+	a.sync.flush()
+	assert.deepEqual(Object.keys(host.log[0].data).sort(), ['id', 'm'])
+	assert.deepEqual(host.log[0].data.m?.rect, rect(2, 2, 6, 6))
+	b.ground.biome(rect(5, 5, 9, 9), 2)
+	b.ground.cells(rect(0, 0, 1, 1), 1)
+	b.sync.flush()
+	host.deliver(a)
+	host.deliver(b)
+	same(a.ground, b.ground)
+	same(a.ground, hostOrder(host.log))
+	assert.equal(a.ground.biomeMap[5 * S + 5], 2)
+	assert.equal(a.ground.biomeMap[2 * S + 2], 1)
+	// The apply marks the cells for the session, but takes the mark itself, so nothing goes back.
+	assert.deepEqual(a.ground.biomeTouches.at(-1), rect(5, 5, 9, 9))
+	const sent = host.log.length
+	a.sync.flush()
+	b.sync.flush()
+	assert.equal(host.log.length, sent)
+	// An undo writes the cells back and touches them: it goes out like the stroke.
+	a.ground.biome(rect(2, 2, 6, 6), 0)
+	a.ground.biome(rect(5, 5, 6, 6), 2)
+	a.sync.flush()
+	host.deliver(b)
+	host.deliver(a)
+	same(a.ground, b.ground)
+	assert.equal(b.ground.biomeMap[2 * S + 2], 0)
 })

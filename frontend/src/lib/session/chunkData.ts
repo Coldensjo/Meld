@@ -1,11 +1,12 @@
 // The ground's chunk data in a shared session (#1018, docs/architecture/session.md): every change to the
 // session map's zones (`areaIds`), chunk flags (`chunkFlags`, the impassable flag) and no-effect cells
-// (`noEffect`) (the Map data tool, a paste, the reference image's zones, a script, an undo) goes out as
-// the changed chunks' and cells' values, and every member applies the others' in the host's order.
+// (`noEffect`) (the Map data tool, a paste, the reference image's zones, a script, an undo) and to its
+// biome map (`biomeMap`, the Biome Brush's cells, #1036) goes out as the changed chunks' and cells' values,
+// and every member applies the others' in the host's order.
 //
-// The holes' sync (holes.ts) over three grids at once: the area IDs and the flags a paint chunk each, the
-// no-effect bytes a cell each. The changed rects come from the two `Terrain.touchChunkData` grows
-// (`takeSessionChunkData`), compared against a mirror of each grid, so a touch that changed nothing sends
+// The holes' sync (holes.ts) over four grids at once: the area IDs and the flags a paint chunk each, the
+// no-effect and biome bytes a cell each. The changed rects come from the two `Terrain.touchChunkData` and
+// `Terrain.touchBiomeMap` grow (`takeSessionChunkData`), compared against a mirror of each grid, so a touch that changed nothing sends
 // nothing. One's own come back as the acknowledgement; another member's arriving while some of mine are
 // unacknowledged is ordered before them, so mine are written back over it, grid by grid.
 // Kept free of the bindings so a Bun test can run two members against a scripted host.
@@ -33,6 +34,8 @@ export interface ChunkDataData {
 	a?: GridPart
 	f?: GridPart
 	n?: GridPart
+	/** The biome map's cells (a rect of cells, a byte each: 0 for none, else 1 plus the index in the map's biomes). */
+	m?: GridPart
 }
 
 /** What the sync needs of a `Terrain`. */
@@ -40,10 +43,12 @@ export interface ChunkDataGround {
 	readonly areaIds: Uint32Array
 	readonly chunkFlags: Uint8Array
 	readonly noEffect: Uint8Array
+	readonly biomeMap: Uint8Array
 	/** Cells a side. */
 	readonly size: number
 	readonly paintChunksPerSide: number
 	touchChunkData(rect?: GridRect | null, cells?: boolean): void
+	touchBiomeMap(rect: GridRect): void
 	takeSessionChunkData(chunks: GridRect, cells: GridRect): boolean
 }
 
@@ -56,8 +61,10 @@ export interface ChunkDataSyncHooks {
 	failed?(err: unknown): void
 }
 
-type Key = 'a' | 'f' | 'n'
-const KEYS: readonly Key[] = ['a', 'f', 'n']
+type Key = 'a' | 'f' | 'n' | 'm'
+const KEYS: readonly Key[] = ['a', 'f', 'n', 'm']
+/** The grids of cells (the rest are of paint chunks). */
+const isCells = (k: Key) => k === 'n' || k === 'm'
 
 interface Part {
 	rect: GridRect
@@ -128,7 +135,7 @@ export class ChunkDataSync {
 		}
 		const side = ground.paintChunksPerSide
 		this.ground = ground
-		this.grids = { a: grid(ground.areaIds, side, 4), f: grid(ground.chunkFlags, side, 1), n: grid(ground.noEffect, ground.size, 1) }
+		this.grids = { a: grid(ground.areaIds, side, 4), f: grid(ground.chunkFlags, side, 1), n: grid(ground.noEffect, ground.size, 1), m: grid(ground.biomeMap, ground.size, 1) }
 		this.pending = []
 		this.held = []
 		this.holding = false
@@ -155,7 +162,7 @@ export class ChunkDataSync {
 		const parts: Partial<Record<Key, Part>> = {}
 		let any = false
 		for (const k of KEYS) {
-			const p = takeChanged(grids[k], k === 'n' ? this.cells : this.chunks)
+			const p = takeChanged(grids[k], isCells(k) ? this.cells : this.chunks)
 			if (!p) continue
 			parts[k] = p
 			any = true
@@ -222,6 +229,7 @@ export class ChunkDataSync {
 		const chunks = union(parts.a?.rect, parts.f?.rect)
 		if (chunks) g.touchChunkData(chunks)
 		if (parts.n) g.touchChunkData(parts.n.rect, true)
+		if (parts.m) g.touchBiomeMap(parts.m.rect)
 		// Not an edit of mine: the flush above took every earlier touch, so these are the apply's alone.
 		g.takeSessionChunkData(this.chunks, this.cells)
 		this.hooks.applied?.()
