@@ -1008,10 +1008,13 @@ export interface IconSpells {
  * IconState says where an icon is: in Meld's patch, waiting for the game to close before the patch
  * has it, and in the client's own archives (outside Meld's patch). Only an icon in the patch or
  * waiting can be deleted (#717); deleting one the client has too brings the client's picture back.
+ * An icon deleted from the patch while the game held it waits to leave the patch once the game has
+ * closed (#925): it is Leaving, not InPatch.
  */
 export interface IconState {
     "inPatch": boolean;
     "waiting": boolean;
+    "leaving": boolean;
     "inClient": boolean;
 }
 
@@ -1824,12 +1827,14 @@ export interface PaintSpec {
  * PatchFileState says where a client file is: in Meld's patch, waiting for the game to close before
  * the patch has it, and in the client's own archives (outside Meld's patch). A file in the patch (or
  * waiting) that the client has too was replaced, and dropping it from the patch restores the
- * client's (#901).
+ * client's (#901). A file in the patch that waits to leave it once the game has closed (#925) is
+ * Leaving, not InPatch.
  */
 export interface PatchFileState {
     "path": string;
     "inPatch": boolean;
     "waiting": boolean;
+    "leaving": boolean;
     "inClient": boolean;
 }
 

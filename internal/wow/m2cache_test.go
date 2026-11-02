@@ -48,7 +48,7 @@ func TestDoodadsCached(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = c.Open("") })
 	reads := 0
-	c.SetOverlay(func(string) ([]byte, bool) { reads++; return nil, false })
+	c.SetOverlay(func(string) ([]byte, bool, error) { reads++; return nil, false, nil })
 
 	c.doodadHull(crate)
 	c.doodadHull(`world\GENERIC\crate.M2`)
@@ -70,7 +70,7 @@ func TestDoodadsCached(t *testing.T) {
 	if err := c.Open(root); err != nil {
 		t.Fatal(err)
 	}
-	c.SetOverlay(func(string) ([]byte, bool) { reads++; return nil, false })
+	c.SetOverlay(func(string) ([]byte, bool, error) { reads++; return nil, false, nil })
 	c.doodadHull(crate)
 	if reads != 4 {
 		t.Fatalf("%d reads, want 4: Open kept the parsed doodads", reads)

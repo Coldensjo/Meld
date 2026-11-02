@@ -60,7 +60,7 @@ func TestRecoverPanics(t *testing.T) {
 func TestHandlerTruncatedModel(t *testing.T) {
 	c := NewClient()
 	c.set = &mpq.Set{}
-	c.SetOverlay(func(path string) ([]byte, bool) { return shortM2(0x110), true })
+	c.SetOverlay(func(path string) ([]byte, bool, error) { return shortM2(0x110), true, nil })
 	w := httptest.NewRecorder()
 	c.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/wow/model?path=x.m2", nil))
 	if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), "header truncated") {

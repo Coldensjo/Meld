@@ -70,7 +70,7 @@ func TestResumeKeepsCache(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = c.Open("") })
 	reads := 0
-	c.SetOverlay(func(string) ([]byte, bool) { reads++; return nil, false })
+	c.SetOverlay(func(string) ([]byte, bool, error) { reads++; return nil, false, nil })
 	texture := func(path string) []byte {
 		t.Helper()
 		out, err := c.Texture(path)

@@ -1012,9 +1012,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `installPatch`'s `drop`, taking the waiting files along; one only waiting is dropped with
   `DropPendingFiles`), which brings the client's picture back for an override. It asks first with how
   many spells and items show the icon (the side's counts; classes, talents and the interface are not
-  counted, and the question says so). With the icon in the patch and the game running it refuses
-  (Windows: the game holds the patch open, and a removal can't wait as a write does); the client's
-  own icons can't be deleted.
+  counted, and the question says so). With the icon in the patch and the game running (Windows: the
+  game holds the patch open) the removal waits for the game to close, as the other patch writes do
+  (#925, `queueClientDrops`, a removal in the waiting files below), and the icon reads as gone at once
+  (`IconState`'s `leaving`); the client's own icons can't be deleted.
 - **Sound tool** (`components/SoundsWindow.svelte`, `ui.soundsTool`, #684): full screen (z-index 165),
   opened by Tools › Sounds… (`{ id: 0 }`; an ID opens it on that SoundEntries row). Its Sounds tab is
   the shared `SoundPicker` (`tall`) and its Files tab every WAV and MP3 under `Sound\` (`SoundFiles`,
@@ -1043,9 +1044,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the import added), sets every other field naming it (the rows' other half, ZoneIntroMusicTable,
   display slots) and the zones' fields naming a removed row to 0, since an import takes the largest ID
   plus one and a dangling ID would play the next import, and drops the file unless another row names
-  it, all in one write (`vmangos.InstallDropping`). Both need the game closed when the patch has the
-  file (a patch the game holds can't be written without it); a file still waiting is dropped from the
-  waiting files and the tables wait with the rest.
+  it, all in one write (`vmangos.InstallDropping`). While the game holds the patch, both wait as the
+  Icons tool's Delete does (#925): the file's removal waits (`PatchFileState`'s `leaving`), a file
+  still waiting is dropped from the waiting files, and the tables wait with the rest.
 - **Spell editor** (`components/SpellEditor.svelte`, `ui.spellEditor`, #294): full screen (z-index 165),
   opened by Tools › Spells… (`entry: 0`, find one; `-1`, a new spell). A spell lives in two places:
   the server reads `spell_template` (VMaNGOS keeps no Spell.dbc; a row per entry and client build,
@@ -1086,7 +1087,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (`vmangos.InstallWithPending`). A watcher write that fails gives up (#481, `runPendingWatch`): at
   once when no retry fixes it (the patch isn't Meld's), after `pendingTries` 30 s apart while the
   patch stays in use (`vmangos.InUse`), saying so once in the status line and the Log
-  (`client:pending-failed`, `StatusBar.svelte`). The files keep waiting for the next patch write. Since #661 every client write goes this way (`installClient`): no
+  (`client:pending-failed`, `StatusBar.svelte`). The files keep waiting for the next patch write. A
+  file leaving the patch waits there too (#925, `AddPendingDrops`): its slot holds the path and
+  a 0x01 byte instead of a 0 byte and the data, `PendingFiles` leaves it out (`PendingDrops` lists it,
+  `PendingCount` counts both for the status bar and the watcher), the next write leaves it out of the
+  patch (`installTakingPending`), and Meld's reads see it gone at once: `readOverlay` and
+  `PendingOverlay` (the asset server's `clientOverlay`) read the archives other than Meld's patch, and
+  the icon and sound lists leave out a removed file the client doesn't have (`withoutLeaving`). A
+  file saved again under its name replaces the removal, as a later save replaces a waiting file. Since #661 every client write goes this way (`installClient`): no
   save closes the game. Patch writes run one at a time
   (`patchMu` in `install.go`, held by `InstallPatch` and by `InstallWithPending` around reading,
   writing and dropping the waiting files), so the watcher never rebuilds the patch beside another

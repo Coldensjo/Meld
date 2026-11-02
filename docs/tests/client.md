@@ -591,6 +591,14 @@ tool's Replace… and Delete… override a client's icon in the patch and take o
 - Go: `wow.TestIconFromPixels`, `vmangos.TestReplaceAndDeleteIcons` (a temporary client: a client's
   icon replaced only with `replace` and read back blue, then deleted and read red again; `IconState`
   of each kind; a waiting icon taken along by the delete's write; a waiting one dropped unwritten).
+- Go, Delete… while the game runs (#925): `vmangos.TestDeleteIconWaits` (removals kept with
+  `AddPendingDrops`: `IconState` `leaving`, the list without the added icon, `PendingIcon` answering the
+  client's own or not found, the Changes window's line, an import after the delete standing, and the
+  next `InstallWithPending` leaving them out); `TestDeleteIconWaitsForGame` and
+  `TestRestoreSoundWaitsForGame` in the app package (`App.gameUp` true: `DeleteIcon` and `RestoreSound`
+  wait instead of refusing, `clientOverlay` serves the client's own, `flushPending` writes the removal).
+  The `icon-import` probe can't reach this path: the throwaway client's patch is never held, so its
+  deletes write at once.
 - Go: `wow.TestIconFromPNG` (64, 128 and 40 px PNGs made in the test come back as 64x64 DXT3 with a
   full mip chain, colours and a transparent corner kept, and out again as a PNG),
   `TestIconFromPNGRefuses` (not square, not a PNG); `vmangos.TestCheckIconName`, `TestPlanIconImport` (a

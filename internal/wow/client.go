@@ -55,12 +55,14 @@ type Client struct {
 	minimapGen int
 
 	// overlay, when set, reads a file the archives don't have yet ahead of them (SetOverlay).
-	overlay func(path string) ([]byte, bool)
+	overlay func(path string) ([]byte, bool, error)
 }
 
-// SetOverlay has the client read a file through over first, when over has it: the client files
-// waiting for the game to close (an icon added while it ran, #364), which the patch has only later.
-func (c *Client) SetOverlay(over func(path string) ([]byte, bool)) {
+// SetOverlay has the client read a file through over first, when over has it (ok): the client files
+// waiting for the game to close (an icon added while it ran, #364), which the patch has only later,
+// and the ones waiting to leave the patch (#925), which over answers with the client's own copy or an
+// error.
+func (c *Client) SetOverlay(over func(path string) (data []byte, ok bool, err error)) {
 	c.mu.Lock()
 	c.overlay = over
 	c.mu.Unlock()
@@ -218,8 +220,8 @@ func (c *Client) read(path string) ([]byte, error) {
 		c.mu.RUnlock()
 		if set != nil {
 			// The overlay runs outside the lock: it reads the waiting files under their own.
-			if b, ok := over(path); ok {
-				return b, nil
+			if b, ok, err := over(path); ok {
+				return b, err
 			}
 			overlaid = true
 			continue

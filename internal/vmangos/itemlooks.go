@@ -285,8 +285,9 @@ func ListItemIcons(dataDir string) ([]string, error) {
 		return nil, err
 	}
 	defer set.Close()
-	// The icons added while the game ran (#364) are listed before the patch has them.
-	out := iconNames(append(set.List(), pendingFileNames(dataDir)...))
+	// The icons added while the game ran (#364) are listed before the patch has them, and the ones
+	// deleted are gone at once (#925).
+	out := iconNames(withoutLeaving(set, dataDir, append(set.List(), pendingFileNames(dataDir)...)))
 	if len(out) == 0 {
 		return nil, errors.New("the client's archives list no icons")
 	}

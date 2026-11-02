@@ -60,17 +60,19 @@ func IsSoundPath(path string) bool {
 	return strings.HasPrefix(l, `sound\`) && (strings.HasSuffix(l, ".wav") || strings.HasSuffix(l, ".mp3"))
 }
 
-// PendingSound is the data of a sound file waiting for the game to close, so Play plays an imported or
-// replaced sound before the patch has it.
-func PendingSound(dataDir, path string) ([]byte, bool) {
+// PendingSound reads a sound file that waits for the game to close, so Play plays an imported or
+// replaced sound before the patch has it, and the client's own again once a restore waits (#925):
+// PendingOverlay.
+func PendingSound(dataDir, path string) ([]byte, bool, error) {
 	if !IsSoundPath(path) {
-		return nil, false
+		return nil, false, nil
 	}
-	return pendingFile(dataDir, strings.ReplaceAll(path, "/", `\`))
+	return PendingOverlay(dataDir, path)
 }
 
 // SoundFileList lists the client's sound files (WAV and MP3 under Sound\, the ones waiting for the
-// game to close included), by path, one of each in any case.
+// game to close included and the ones waiting to leave Meld's patch left out), by path, one of each in
+// any case.
 func SoundFileList(dataDir string) ([]string, error) {
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
@@ -79,7 +81,7 @@ func SoundFileList(dataDir string) ([]string, error) {
 	defer set.Close()
 	seen := map[string]bool{}
 	var out []string
-	for _, f := range append(set.List(), pendingFileNames(dataDir)...) {
+	for _, f := range withoutLeaving(set, dataDir, append(set.List(), pendingFileNames(dataDir)...)) {
 		f = strings.ReplaceAll(f, "/", `\`)
 		k := strings.ToLower(f)
 		if !IsSoundPath(f) || seen[k] {

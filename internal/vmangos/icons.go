@@ -93,9 +93,12 @@ func PlanIconImport(dataDir string, srcs []IconSource, replace bool) (files []mp
 // IconState says where an icon is: in Meld's patch, waiting for the game to close before the patch
 // has it, and in the client's own archives (outside Meld's patch). Only an icon in the patch or
 // waiting can be deleted (#717); deleting one the client has too brings the client's picture back.
+// An icon deleted from the patch while the game held it waits to leave the patch once the game has
+// closed (#925): it is Leaving, not InPatch.
 type IconState struct {
 	InPatch  bool `json:"inPatch"`
 	Waiting  bool `json:"waiting"`
+	Leaving  bool `json:"leaving"`
 	InClient bool `json:"inClient"`
 }
 
@@ -112,11 +115,14 @@ func ReadIconState(dataDir, name string) (IconState, error) {
 	path := IconPath(name)
 	var st IconState
 	st.InClient = clientHasIcon(set, name)
-	_, st.Waiting = pendingFile(dataDir, path)
+	_, drop, waits := pendingEntry(dataDir, path)
+	st.Waiting = waits && !drop
 	if a, err := mpq.Open(filepath.Join(dataDir, PatchName)); err == nil {
 		st.InPatch = a.Has(path)
 		_ = a.Close()
 	}
+	st.Leaving = st.InPatch && waits && drop
+	st.InPatch = st.InPatch && !st.Leaving
 	return st, nil
 }
 
@@ -146,13 +152,40 @@ func pendingFileNames(dataDir string) []string {
 	return names
 }
 
-// PendingIcon is the data of an icon file (a path under Interface\Icons) waiting for the game to
-// close, so Meld's previews show an added icon before the patch has it.
-func PendingIcon(dataDir, path string) ([]byte, bool) {
-	if !IsIconPath(path) {
-		return nil, false
+// withoutLeaving is a listing of the client's files (paths) without the ones waiting to leave Meld's
+// patch (#925) that the client's own archives don't have, as the game will list them once the waiting
+// removals are written.
+func withoutLeaving(set *mpq.Set, dataDir string, paths []string) []string {
+	drops, err := PendingDrops(dataDir)
+	if err != nil || len(drops) == 0 {
+		return paths
 	}
-	return pendingFile(dataDir, strings.ReplaceAll(path, "/", `\`))
+	gone := map[string]bool{}
+	for _, d := range drops {
+		if _, err := set.ReadFileExcept(d, PatchName); err != nil {
+			gone[strings.ToLower(strings.ReplaceAll(d, "/", `\`))] = true
+		}
+	}
+	if len(gone) == 0 {
+		return paths
+	}
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if !gone[strings.ToLower(strings.ReplaceAll(p, "/", `\`))] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// PendingIcon reads an icon file (a path under Interface\Icons) that waits for the game to close, so
+// Meld's previews show an added icon before the patch has it, and a deleted one gone (#925):
+// PendingOverlay.
+func PendingIcon(dataDir, path string) ([]byte, bool, error) {
+	if !IsIconPath(path) {
+		return nil, false, nil
+	}
+	return PendingOverlay(dataDir, path)
 }
 
 // IsIconPath says whether a client file is in the icons' folder.

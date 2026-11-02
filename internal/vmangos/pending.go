@@ -21,6 +21,13 @@ import (
 // folder a client data folder, and are written into the patch once the game has closed. Meld's own
 // reads of those tables see the waiting files first (readOverlay), so the next save builds on them and
 // the editors show what was saved.
+//
+// A file leaving the patch waits the same way (#925): the Icons tool's Delete and the Sound tool's
+// Restore and Delete of a file the patch has keep a removal under the file's name (dropMark instead of
+// the data), and the next patch write leaves the file out. Meld's reads see the file gone at once
+// (readOverlay and PendingOverlay read the archives other than Meld's patch). A removal and a waiting
+// file share the name's slot, so whichever came last stands: an icon deleted and then imported again
+// under its name is written, not removed.
 
 var pendingMu sync.Mutex
 
@@ -107,6 +114,42 @@ func pendingName(name string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(strings.ToLower(name)))
 }
 
+// A waiting file is stored as its archive path, a 0 byte and its data; a waiting removal (#925) as the
+// path and dropMark, with no 0 byte, so a reader that knows only files skips it.
+const dropMark = "\x01"
+
+// parsePending reads a stored entry: the archive path, the data of a waiting file, and whether it is
+// a removal instead. ok is false for anything else.
+func parsePending(b []byte) (name string, data []byte, drop, ok bool) {
+	s := string(b)
+	if n, d, found := strings.Cut(s, "\x00"); found {
+		return n, []byte(d), false, true
+	}
+	if n, found := strings.CutSuffix(s, dropMark); found && n != "" {
+		return n, nil, true, true
+	}
+	return "", nil, false, false
+}
+
+// writePending stores an entry in its name's slot, through a temporary file renamed over it, and
+// notes the name in pendingSet. The caller holds pendingMu.
+func writePending(dir, name string, entry []byte) error {
+	tmp := filepath.Join(dir, pendingName(name)+".tmp")
+	if err := writeSynced(tmp, entry); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, filepath.Join(dir, pendingName(name))); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	loadPending()
+	if pendingSet.dirs[dir] == nil {
+		pendingSet.dirs[dir] = map[string]bool{}
+	}
+	pendingSet.dirs[dir][pendingName(name)] = true
+	return nil
+}
+
 // AddPending keeps files to be written into the patch once the game has closed, each replacing a
 // waiting file of the same name.
 func AddPending(dataDir string, files []mpq.File) error {
@@ -118,20 +161,9 @@ func AddPending(dataDir string, files []mpq.File) error {
 	}
 	for _, f := range files {
 		// The archive path first, then the data: the file name holds it lower case only.
-		data := append(append([]byte(f.Name), 0), f.Data...)
-		tmp := filepath.Join(dir, pendingName(f.Name)+".tmp")
-		if err := writeSynced(tmp, data); err != nil {
+		if err := writePending(dir, f.Name, append(append([]byte(f.Name), 0), f.Data...)); err != nil {
 			return err
 		}
-		if err := os.Rename(tmp, filepath.Join(dir, pendingName(f.Name))); err != nil {
-			_ = os.Remove(tmp)
-			return err
-		}
-		loadPending()
-		if pendingSet.dirs[dir] == nil {
-			pendingSet.dirs[dir] = map[string]bool{}
-		}
-		pendingSet.dirs[dir][pendingName(f.Name)] = true
 	}
 	// Meld's reader serves them through its overlay now, so it forgets what it decoded before (#471).
 	if r := heldReader(); r != nil {
@@ -144,34 +176,85 @@ func AddPending(dataDir string, files []mpq.File) error {
 	return nil
 }
 
-// PendingFiles lists the files waiting for a client data folder, by name.
+// AddPendingDrops keeps the removal of the files named names from Meld's patch until the game has
+// closed (#925), each replacing a waiting file of the same name: the next patch write leaves them out.
+func AddPendingDrops(dataDir string, names []string) error {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	dir := pendingDir(dataDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	for _, name := range names {
+		if err := writePending(dir, name, []byte(name+dropMark)); err != nil {
+			return err
+		}
+	}
+	// Meld's reader now reads them from the client's own archives, or not at all.
+	if r := heldReader(); r != nil {
+		r.Forget(names...)
+	}
+	return nil
+}
+
+// PendingFiles lists the files waiting for a client data folder, by name. The removals waiting with
+// them are PendingDrops.
 func PendingFiles(dataDir string) ([]mpq.File, error) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
+	files, _, err := readPending(dataDir)
+	return files, err
+}
+
+// PendingDrops lists the files waiting to leave Meld's patch once the game has closed (#925), by name.
+func PendingDrops(dataDir string) ([]string, error) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	_, drops, err := readPending(dataDir)
+	return drops, err
+}
+
+// PendingCount is how many client files wait for the game to close, the removals included: what the
+// status bar shows and what the watcher waits on.
+func PendingCount(dataDir string) (int, error) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	files, drops, err := readPending(dataDir)
+	return len(files) + len(drops), err
+}
+
+// readPending reads the waiting files and removals of a client data folder, each sorted by name. The
+// caller holds pendingMu.
+func readPending(dataDir string) ([]mpq.File, []string, error) {
 	entries, err := os.ReadDir(pendingDir(dataDir))
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var out []mpq.File
+	var files []mpq.File
+	var drops []string
 	for _, e := range entries {
 		if e.IsDir() || strings.HasSuffix(e.Name(), ".tmp") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(pendingDir(dataDir), e.Name()))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		name, data, ok := strings.Cut(string(b), "\x00")
-		if !ok {
-			continue
+		name, data, drop, ok := parsePending(b)
+		switch {
+		case !ok:
+		case drop:
+			drops = append(drops, name)
+		default:
+			files = append(files, mpq.File{Name: name, Data: data})
 		}
-		out = append(out, mpq.File{Name: name, Data: []byte(data)})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out, nil
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	sort.Strings(drops)
+	return files, drops, nil
 }
 
 // DropPending drops every file waiting for a client data folder, unwritten: the probes' throwaway
@@ -191,47 +274,98 @@ func ClearPending(dataDir string, written []mpq.File) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	for _, f := range written {
-		path := filepath.Join(pendingDir(dataDir), pendingName(f.Name))
-		b, err := os.ReadFile(path)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
+		if err := clearEntry(dataDir, f.Name, f.Name+"\x00"+string(f.Data)); err != nil {
 			return err
-		}
-		if string(b) == f.Name+"\x00"+string(f.Data) {
-			if err := os.Remove(path); err != nil {
-				return err
-			}
-			delete(pendingSet.dirs[pendingDir(dataDir)], pendingName(f.Name))
 		}
 	}
 	return nil
 }
 
-// pendingFile is a waiting file's data, when one waits under name.
-func pendingFile(dataDir, name string) ([]byte, bool) {
+// clearDrops drops the waiting removals of the files named dropped, after a patch write left them
+// out; a name saved or removed again meanwhile stays.
+func clearDrops(dataDir string, dropped []string) error {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	for _, name := range dropped {
+		if err := clearEntry(dataDir, name, name+dropMark); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// clearEntry removes what is stored under name when it is still entry. The caller holds pendingMu.
+func clearEntry(dataDir, name, entry string) error {
+	path := filepath.Join(pendingDir(dataDir), pendingName(name))
+	b, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if string(b) != entry {
+		return nil
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	delete(pendingSet.dirs[pendingDir(dataDir)], pendingName(name))
+	return nil
+}
+
+// pendingEntry is what waits under name: a file's data, or a removal (drop).
+func pendingEntry(dataDir, name string) (data []byte, drop, ok bool) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir, key := pendingDir(dataDir), pendingName(name)
 	if !pendingNames(dir)[key] {
-		return nil, false
+		return nil, false, false
 	}
 	b, err := os.ReadFile(filepath.Join(dir, key))
 	if err != nil {
-		return nil, false
+		return nil, false, false
 	}
-	_, data, ok := strings.Cut(string(b), "\x00")
-	return []byte(data), ok
+	_, data, drop, ok = parsePending(b)
+	return data, drop, ok
+}
+
+// pendingFile is a waiting file's data, when one waits under name.
+func pendingFile(dataDir, name string) ([]byte, bool) {
+	data, drop, ok := pendingEntry(dataDir, name)
+	return data, ok && !drop
 }
 
 // readOverlay reads a client file as the game will see it once the waiting files are written: the
-// waiting one, else the archives' (Meld's patch included).
+// waiting one, else the archives' (Meld's patch included, unless the file waits to leave it).
 func readOverlay(set *mpq.Set, dataDir, name string) ([]byte, error) {
-	if b, ok := pendingFile(dataDir, name); ok {
-		return b, nil
+	data, drop, ok := pendingEntry(dataDir, name)
+	switch {
+	case ok && drop:
+		return set.ReadFileExcept(name, PatchName)
+	case ok:
+		return data, nil
 	}
 	return set.ReadFile(name)
+}
+
+// PendingOverlay reads a client file for Meld's own reader (the asset server's previews and Play
+// buttons) as the game will see it once the waiting files are written, when something waits under its
+// name: a waiting file's data, or, for a waiting removal (#925), the client's own copy outside Meld's
+// patch, or mpq.ErrNotFound when it has none. ok is false when nothing waits under the name.
+func PendingOverlay(dataDir, name string) (data []byte, ok bool, err error) {
+	name = strings.ReplaceAll(name, "/", `\`)
+	data, drop, ok := pendingEntry(dataDir, name)
+	if !ok || !drop {
+		return data, ok, nil
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, true, err
+	}
+	defer set.Close()
+	data, err = set.ReadFileExcept(name, PatchName)
+	return data, true, err
 }
 
 // InstallWithPending writes files into the patch with the files waiting for the game to close
@@ -241,18 +375,32 @@ func readOverlay(set *mpq.Set, dataDir, name string) ([]byte, error) {
 func InstallWithPending(dataDir string, files []mpq.File) (string, error) {
 	patchMu.Lock()
 	defer patchMu.Unlock()
-	pending, err := PendingFiles(dataDir)
+	return installTakingPending(dataDir, files, nil, false)
+}
+
+// installTakingPending writes files into the patch and leaves the files named drop out of it, taking
+// the waiting files and removals (#925) along, then clears the waiting ones it wrote. A file given
+// stands over a waiting removal of its name: carryOver leaves the patch's copy out, and files has the
+// new one. With nothing given or waiting it writes nothing and returns "", unless always is set. The
+// caller holds patchMu.
+func installTakingPending(dataDir string, files []mpq.File, drop []string, always bool) (string, error) {
+	pendingMu.Lock()
+	pending, drops, err := readPending(dataDir)
+	pendingMu.Unlock()
 	if err != nil {
 		return "", err
 	}
-	if len(pending) == 0 && len(files) == 0 {
+	if !always && len(pending) == 0 && len(drops) == 0 && len(files) == 0 && len(drop) == 0 {
 		return "", nil
 	}
-	patch, err := installPatch(dataDir, WithPending(pending, files))
-	if err != nil || len(pending) == 0 {
+	patch, err := installPatch(dataDir, WithPending(pending, files), append(append([]string(nil), drop...), drops...)...)
+	if err != nil || len(pending) == 0 && len(drops) == 0 {
 		return patch, err
 	}
-	err = ClearPending(dataDir, pending)
+	if err := ClearPending(dataDir, pending); err != nil {
+		return patch, err
+	}
+	err = clearDrops(dataDir, drops)
 	ForgetSpells()
 	return patch, err
 }
@@ -301,7 +449,8 @@ func DropPendingFiles(dataDir string, names []string) (bool, error) {
 
 // RemovePatchFiles writes Meld's patch again without the files named names, taking the waiting files
 // along as InstallWithPending does (one of those names waiting is dropped, unwritten). The game must
-// not hold the patch open (Windows); the caller checks that, as removing can't wait as a write does.
+// not hold the patch open (Windows); the caller checks that, and while it does, keeps the removal
+// waiting instead (AddPendingDrops, #925).
 func RemovePatchFiles(dataDir string, names []string) (string, error) {
 	return InstallDropping(dataDir, nil, names)
 }
@@ -316,27 +465,19 @@ func InstallDropping(dataDir string, files []mpq.File, drop []string) (string, e
 	if _, err := DropPendingFiles(dataDir, drop); err != nil {
 		return "", err
 	}
-	pending, err := PendingFiles(dataDir)
-	if err != nil {
-		return "", err
-	}
-	patch, err := installPatch(dataDir, WithPending(pending, files), drop...)
-	if err != nil || len(pending) == 0 {
-		return patch, err
-	}
-	err = ClearPending(dataDir, pending)
-	ForgetSpells()
-	return patch, err
+	return installTakingPending(dataDir, files, drop, true)
 }
 
 // PatchFileState says where a client file is: in Meld's patch, waiting for the game to close before
 // the patch has it, and in the client's own archives (outside Meld's patch). A file in the patch (or
 // waiting) that the client has too was replaced, and dropping it from the patch restores the
-// client's (#901).
+// client's (#901). A file in the patch that waits to leave it once the game has closed (#925) is
+// Leaving, not InPatch.
 type PatchFileState struct {
 	Path     string `json:"path"`
 	InPatch  bool   `json:"inPatch"`
 	Waiting  bool   `json:"waiting"`
+	Leaving  bool   `json:"leaving"`
 	InClient bool   `json:"inClient"`
 }
 
@@ -356,8 +497,10 @@ func ReadPatchFileStates(dataDir string, paths []string) ([]PatchFileState, erro
 	for _, p := range paths {
 		p = strings.ReplaceAll(p, "/", `\`)
 		st := PatchFileState{Path: p}
-		_, st.Waiting = pendingFile(dataDir, p)
-		st.InPatch = patch != nil && patch.Has(p)
+		_, drop, waits := pendingEntry(dataDir, p)
+		st.Waiting = waits && !drop
+		st.Leaving = waits && drop && patch != nil && patch.Has(p)
+		st.InPatch = !st.Leaving && patch != nil && patch.Has(p)
 		_, err := set.ReadFileExcept(p, PatchName)
 		st.InClient = err == nil
 		out = append(out, st)

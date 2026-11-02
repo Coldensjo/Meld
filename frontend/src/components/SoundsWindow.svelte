@@ -151,9 +151,9 @@
 		if (!(await askConfirm(text, { title: "Restore the client's sound", ok: 'Restore' }))) return
 		busy = true
 		try {
-			await RestoreSound(file)
+			const waiting = await RestoreSound(file)
 			stopSound()
-			tell(`Restored the client's ${file}. The game plays it from its next start.`)
+			tell(`Restored the client's ${file}. ${waiting ? "Your file leaves Meld's patch once the game has closed; the game plays the client's own from its next start." : 'The game plays it from its next start.'}`)
 		} catch (e) {
 			error = String(e)
 		} finally {

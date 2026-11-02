@@ -199,10 +199,12 @@ export interface HeightmapData {
 }
 
 /**
- * IconDeleted is what DeleteIcon did: whether the client's own icon of that name shows again.
+ * IconDeleted is what DeleteIcon did: whether the client's own icon of that name shows again, and
+ * whether the icon waits to leave Meld's patch until the game has closed.
  */
 export interface IconDeleted {
     "restored": boolean;
+    "waiting": boolean;
 }
 
 /**

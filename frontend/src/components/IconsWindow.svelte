@@ -22,7 +22,9 @@
 	// so the tool only says which items show it (the owner's decision on #683: 1A, 2A).
 	// Replace… puts a picture over the picked icon under its name, in Meld's patch (an override for one
 	// of the client's own), and Delete… takes an icon Meld added or replaced out of the patch, after a
-	// question that counts the spells and items showing it (#717, the owner's choice: 1A).
+	// question that counts the spells and items showing it (#717, the owner's choice: 1A). While the game
+	// holds the patch, the delete waits for it to close, as the other patch writes do, and the icon reads
+	// as gone at once (#925).
 
 	const target = $derived(ui.iconsTool)
 
@@ -78,7 +80,7 @@
 		if (!name) return
 		void IconState(name).then(
 			(s) => name === picked && (place = s),
-			() => name === picked && (place = { inPatch: false, waiting: false, inClient: false }),
+			() => name === picked && (place = { inPatch: false, waiting: false, leaving: false, inClient: false }),
 		)
 	})
 
@@ -128,7 +130,8 @@
 			error = ''
 			refresh(name)
 			if (!r.restored) picked = ''
-			note = r.restored ? `Deleted ${name} from Meld's patch: the client's own icon shows again.` : `Deleted ${name}.`
+			const when = r.waiting ? " It leaves Meld's patch once the game has closed." : ''
+			note = (r.restored ? `Deleted ${name} from Meld's patch: the client's own icon shows again.` : `Deleted ${name}.`) + when
 		} catch (e) {
 			error = String(e)
 		} finally {
@@ -222,7 +225,11 @@
 					<p class="dim where">
 						{place.inPatch || place.waiting
 							? `${place.inClient ? "Replaced in Meld's patch (the client's own is kept)" : "Added in Meld's patch"}${place.inPatch ? '' : ', waiting for the game to close'}.`
-							: "One of the client's own icons."}
+							: place.leaving
+								? place.inClient
+									? "One of the client's own icons; Meld's replacement leaves the patch once the game has closed."
+									: "Deleted: it leaves Meld's patch once the game has closed."
+								: "One of the client's own icons."}
 					</p>
 				{/if}
 				{#if picked}

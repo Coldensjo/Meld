@@ -13,8 +13,9 @@ import (
 // Client files that wait for the game to close (#365): no save or compile closes the game or the
 // servers (#661). The files go into Meld's patch at once when the game isn't running, else they wait
 // (vmangos.AddPending) and a watcher writes them once it has closed, so the game has them the next
-// time it starts; "client:pending" tells the status bar how many wait. Any patch write takes the
-// waiting files along. Every patch write runs one at a time (vmangos.InstallPatch,
+// time it starts; "client:pending" tells the status bar how many wait. A file leaving the patch (an
+// icon or a sound deleted, #925) waits the same way (vmangos.AddPendingDrops). Any patch write takes
+// the waiting files and removals along. Every patch write runs one at a time (vmangos.InstallPatch,
 // InstallWithPending), so the watcher never writes beside another (#657).
 
 // pendingPoll is how often the watcher looks whether the game has closed.
@@ -96,11 +97,31 @@ func (a *App) worldRunning() bool {
 	return err == nil && sess.WorldRunning()
 }
 
+// queueClientDrops takes the files named names out of Meld's patch without closing anything: at once
+// when the game isn't running, else once it has closed (#925). waiting says they wait. The probes'
+// throwaway client has a patch of its own, which the game never holds, so it is written at once.
+func (a *App) queueClientDrops(dataDir string, names []string) (waiting bool, err error) {
+	if len(names) == 0 {
+		return false, nil
+	}
+	if !a.sandboxed() && a.gameRunning() {
+		if err := vmangos.AddPendingDrops(dataDir, names); err != nil {
+			return false, err
+		}
+		a.emitPending(dataDir)
+		a.watchPending()
+		return true, nil
+	}
+	_, err = vmangos.RemovePatchFiles(dataDir, names)
+	a.emitPending(dataDir)
+	return false, err
+}
+
 // emitPending tells the status bar how many client files wait for the game to close.
 func (a *App) emitPending(dataDir string) {
-	pending, err := vmangos.PendingFiles(dataDir)
+	n, err := vmangos.PendingCount(dataDir)
 	if err == nil && a.ctx != nil {
-		a.emit("client:pending", len(pending))
+		a.emit("client:pending", n)
 	}
 }
 
@@ -110,11 +131,11 @@ func (a *App) ClientFilesWaiting() int {
 	if err != nil {
 		return 0
 	}
-	pending, err := vmangos.PendingFiles(dataDir)
+	n, err := vmangos.PendingCount(dataDir)
 	if err != nil {
 		return 0
 	}
-	return len(pending)
+	return n
 }
 
 // waitForGameClosed waits, up to gameWait, until the game no longer runs and the files waiting for it
@@ -124,12 +145,12 @@ func (a *App) waitForGameClosed(dataDir string, log func(string)) error {
 	deadline := time.Now().Add(gameWait)
 	said := false
 	for {
-		pending, err := vmangos.PendingFiles(dataDir)
+		pending, err := vmangos.PendingCount(dataDir)
 		if err != nil {
 			return err
 		}
 		if !a.gameRunning() {
-			if len(pending) == 0 {
+			if pending == 0 {
 				return nil
 			}
 			// The watcher may sleep a while yet: write them now (it finds nothing left).
@@ -193,8 +214,8 @@ func (a *App) runPendingWatch() {
 		if err != nil {
 			return
 		}
-		pending, err := vmangos.PendingFiles(dataDir)
-		if err != nil || len(pending) == 0 {
+		pending, err := vmangos.PendingCount(dataDir)
+		if err != nil || pending == 0 {
 			a.emitPending(dataDir)
 			return
 		}

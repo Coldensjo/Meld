@@ -10,16 +10,16 @@ import (
 // Icons from PNG files and back (#364): the icon pickers' Import PNG… and Export PNG…, and the Icons
 // tool's Replace… and Delete… (#717).
 
-// clientOverlay reads an icon or a sound (#684) waiting for the game to close, for the asset
-// server's previews and Play buttons.
-func (a *App) clientOverlay(path string) ([]byte, bool) {
+// clientOverlay reads an icon or a sound (#684) waiting for the game to close, or waiting to leave
+// Meld's patch (#925), for the asset server's previews and Play buttons.
+func (a *App) clientOverlay(path string) ([]byte, bool, error) {
 	icon, sound := vmangos.IsIconPath(path), vmangos.IsSoundPath(path)
 	if !icon && !sound || !vmangos.AnyPending() {
-		return nil, false
+		return nil, false, nil
 	}
 	dataDir, err := a.clientDataDir()
 	if err != nil {
-		return nil, false
+		return nil, false, nil
 	}
 	if sound {
 		return vmangos.PendingSound(dataDir, path)
@@ -97,15 +97,18 @@ func (a *App) IconState(name string) (vmangos.IconState, error) {
 	return vmangos.ReadIconState(dataDir, name)
 }
 
-// IconDeleted is what DeleteIcon did: whether the client's own icon of that name shows again.
+// IconDeleted is what DeleteIcon did: whether the client's own icon of that name shows again, and
+// whether the icon waits to leave Meld's patch until the game has closed.
 type IconDeleted struct {
 	Restored bool `json:"restored"`
+	Waiting  bool `json:"waiting"`
 }
 
 // DeleteIcon takes the icon named name out of Meld's patch (#717), and drops it if it waits for the
 // game to close. Only an icon Meld added or replaced can go: the client's own archives are never
 // written, so deleting a replaced icon brings the client's picture back. A patch the game holds open
-// can't be written again without it, so with the icon in the patch the game must be closed first.
+// can't be written again, so then the icon waits to leave the patch until the game has closed, as the
+// other patch writes wait (#925); Meld shows it gone at once.
 func (a *App) DeleteIcon(name string) (IconDeleted, error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
@@ -115,24 +118,28 @@ func (a *App) DeleteIcon(name string) (IconDeleted, error) {
 	if err != nil {
 		return IconDeleted{}, err
 	}
-	if !st.InPatch && !st.Waiting {
+	switch {
+	case st.Leaving:
+		// Deleted already, waiting for the game to close.
+		return IconDeleted{Restored: st.InClient, Waiting: true}, nil
+	case !st.InPatch && !st.Waiting:
 		return IconDeleted{}, fmt.Errorf("%s is one of the client's own icons, which Meld never removes: only an icon Meld added or replaced can be deleted", name)
 	}
-	// The probes' throwaway client has a patch of its own, which the game never holds.
-	if st.InPatch && !a.sandboxed() && a.gameRunning() {
-		return IconDeleted{}, errors.New("the game has Meld's patch open: close it, then delete the icon")
-	}
 	path := vmangos.IconPath(name)
+	var res IconDeleted
+	res.Restored = st.InClient
 	if st.InPatch {
-		if _, err := vmangos.RemovePatchFiles(dataDir, []string{path}); err != nil {
+		if res.Waiting, err = a.queueClientDrops(dataDir, []string{path}); err != nil {
 			return IconDeleted{}, err
 		}
-	} else if _, err := vmangos.DropPendingFiles(dataDir, []string{path}); err != nil {
-		return IconDeleted{}, err
+	} else {
+		if _, err := vmangos.DropPendingFiles(dataDir, []string{path}); err != nil {
+			return IconDeleted{}, err
+		}
+		a.emitPending(dataDir)
 	}
-	a.emitPending(dataDir)
 	vmangos.ForgetIcons()
-	return IconDeleted{Restored: st.InClient}, nil
+	return res, nil
 }
 
 // ExportIconsDialog asks for the folder to save icons in. Returns "" if cancelled.

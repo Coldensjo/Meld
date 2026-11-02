@@ -238,15 +238,23 @@ func PreviewPublish(readDir, patchDir string, m MapSpec) (PublishPreview, error)
 }
 
 // WaitingFiles lists the client files already written that wait in dataDir's queue for the game to
-// close (#365, #661): the next write goes on top of them.
+// close (#365, #661), and the ones waiting to leave Meld's patch (#925): the next write goes on top of
+// them.
 func WaitingFiles(dataDir string) ([]FileChange, error) {
 	files, err := PendingFiles(dataDir)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]FileChange, 0, len(files))
+	drops, err := PendingDrops(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FileChange, 0, len(files)+len(drops))
 	for _, f := range files {
 		out = append(out, FileChange{Name: f.Name, Group: fileGroup(f.Name), Tile: fileTileName(f.Name), Reason: "written earlier, waiting for the game to close", Waiting: true})
+	}
+	for _, name := range drops {
+		out = append(out, FileChange{Name: name, Group: fileGroup(name), Tile: fileTileName(name), Reason: "deleted earlier, leaving Meld's patch once the game has closed", Waiting: true})
 	}
 	sortChanges(out)
 	return out, nil

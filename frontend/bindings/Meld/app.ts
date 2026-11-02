@@ -346,7 +346,8 @@ export function DeleteConditionText(entry: number, textID: number): $Cancellable
  * DeleteIcon takes the icon named name out of Meld's patch (#717), and drops it if it waits for the
  * game to close. Only an icon Meld added or replaced can go: the client's own archives are never
  * written, so deleting a replaced icon brings the client's picture back. A patch the game holds open
- * can't be written again without it, so with the icon in the patch the game must be closed first.
+ * can't be written again, so then the icon waits to leave the patch until the game has closed, as the
+ * other patch writes wait (#925); Meld shows it gone at once.
  */
 export function DeleteIcon(name: string): $CancellablePromise<$models.IconDeleted> {
     return $Call.ByID(1243629711, name);
@@ -377,9 +378,9 @@ export function DeleteScript(name: string): $CancellablePromise<void> {
 /**
  * DeleteSound deletes the imported sound id (#901): its file leaves Meld's patch, its SoundEntries row
  * and the zone sound rows that played only it go, and the zones' fields and the game object displays'
- * slots that named them are cleared. With the file in the patch it is written at once, so the game
- * must be closed; a file still waiting for the game to close is dropped, and the tables wait with the
- * rest. waiting says they wait.
+ * slots that named them are cleared, in one write when the game isn't running. While it runs, a file
+ * still waiting for the game to close is dropped, and the tables and the file's removal from the patch
+ * wait with the rest (#925). waiting says they wait.
  */
 export function DeleteSound(id: number): $CancellablePromise<boolean> {
     return $Call.ByID(1652167817, id);
@@ -1837,10 +1838,10 @@ export function RestartServer(): $CancellablePromise<void> {
 /**
  * RestoreSound takes the file Meld's patch put over the client's sound file path out of the patch
  * (#901), or drops it if it waits for the game to close, so the client's own file plays again. A
- * patch the game holds open can't be written again without it, so with the file in the patch the game
- * must be closed first.
+ * patch the game holds open can't be written again, so then the file waits to leave the patch until
+ * the game has closed (#925), and waiting says so.
  */
-export function RestoreSound(path: string): $CancellablePromise<void> {
+export function RestoreSound(path: string): $CancellablePromise<boolean> {
     return $Call.ByID(2686100416, path);
 }
 

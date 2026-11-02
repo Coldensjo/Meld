@@ -137,10 +137,10 @@ func TestPendingIcons(t *testing.T) {
 	if err != nil || !strings.Contains(strings.Join(list, ","), "Waiting_One") {
 		t.Fatalf("listed %v %v", list, err)
 	}
-	if _, ok := PendingIcon(dir, `interface/icons/waiting_one.blp`); !ok {
+	if _, ok, _ := PendingIcon(dir, `interface/icons/waiting_one.blp`); !ok {
 		t.Error("the waiting icon isn't read for the preview")
 	}
-	if _, ok := PendingIcon(dir, SpellPath); ok {
+	if _, ok, _ := PendingIcon(dir, SpellPath); ok {
 		t.Error("a waiting table is read as an icon")
 	}
 	if n, _, err := ExportIcons(dir, []string{"Waiting_One"}, t.TempDir()); err != nil || n != 1 {
@@ -252,6 +252,102 @@ func TestReplaceAndDeleteIcons(t *testing.T) {
 	}
 	if st, _ := ReadIconState(dir, "Waiting_Three"); st != (IconState{}) {
 		t.Fatalf("the dropped icon is %+v", st)
+	}
+	ForgetIcons()
+}
+
+// A delete while the game holds Meld's patch waits (#925): the removal is kept beside the waiting
+// files, Meld reads the icon as gone (or the client's own) at once, the next patch write leaves it
+// out, and an import of the same name after the delete is written rather than removed.
+func TestDeleteIconWaits(t *testing.T) {
+	root := t.TempDir()
+	old := pendingRoot
+	pendingRoot = func() string { return root }
+	defer func() { pendingRoot = old }()
+	dir := iconClient(t)
+	blue := iconPixels(color.NRGBA{0, 0, 255, 255})
+	files, _, _, err := PlanIconImport(dir, []IconSource{{Name: "INV_Misc_Bag_07", Pixels: blue}, {Name: "Again", Pixels: blue}}, true)
+	if err != nil || len(files) != 2 {
+		t.Fatal(files, err)
+	}
+	if _, err := InstallPatch(dir, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// The game runs: the three icons' removals wait.
+	if err := AddPendingDrops(dir, []string{IconPath("Meld_Added"), IconPath("INV_Misc_Bag_07"), IconPath("Again")}); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := PendingCount(dir); err != nil || n != 3 {
+		t.Fatalf("waiting %d, %v; want the 3 removals", n, err)
+	}
+	if left, _ := PendingFiles(dir); len(left) != 0 {
+		t.Fatalf("a removal is read as a file to write: %v", left)
+	}
+	for name, want := range map[string]IconState{
+		"Meld_Added":      {Leaving: true},
+		"INV_Misc_Bag_07": {Leaving: true, InClient: true},
+	} {
+		if st, err := ReadIconState(dir, name); err != nil || st != want {
+			t.Errorf("%s: %+v %v, want %+v", name, st, err, want)
+		}
+	}
+	ForgetIcons()
+	list, err := ListItemIcons(dir)
+	if err != nil || strings.Join(list, ",") != "INV_Misc_Bag_07" {
+		t.Fatalf("listed %v %v, want the client's own icon only", list, err)
+	}
+	if _, ok, err := PendingIcon(dir, IconPath("Meld_Added")); !ok || err == nil {
+		t.Errorf("the deleted icon previews: ok %v, %v", ok, err)
+	}
+	b, ok, err := PendingIcon(dir, IconPath("INV_Misc_Bag_07"))
+	if !ok || err != nil {
+		t.Fatalf("the restored icon: ok %v, %v", ok, err)
+	}
+	if img, err := wow.DecodeBLP(b); err != nil || img.Pix[0] < 240 {
+		t.Fatalf("the restored icon previews as the replacement: %v", err)
+	}
+	if _, _, err := ExportIcons(dir, []string{"Meld_Added"}, t.TempDir()); err == nil {
+		t.Error("the deleted icon was exported")
+	}
+	waiting, err := WaitingFiles(dir)
+	if err != nil || len(waiting) != 3 || !strings.Contains(waiting[0].Reason, "leaving") {
+		t.Fatalf("the Changes window's waiting files: %+v %v", waiting, err)
+	}
+
+	// Imported again under its name after the delete: the import stands.
+	again, _, _, err := PlanIconImport(dir, []IconSource{{Name: "Again", Pixels: iconPixels(color.NRGBA{0, 255, 0, 255})}}, true)
+	if err != nil || len(again) != 1 {
+		t.Fatal(again, err)
+	}
+	if err := AddPending(dir, again); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := ReadIconState(dir, "Again"); st != (IconState{InPatch: true, Waiting: true}) {
+		t.Fatalf("imported again: %+v", st)
+	}
+
+	// The game closed: the next write leaves the deleted icons out and writes the import.
+	if _, err := InstallWithPending(dir, nil); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := PendingCount(dir); n != 0 {
+		t.Fatalf("%d still wait after the write", n)
+	}
+	for name, want := range map[string]IconState{
+		"Meld_Added":      {},
+		"INV_Misc_Bag_07": {InClient: true},
+		"Again":           {InPatch: true},
+	} {
+		if st, err := ReadIconState(dir, name); err != nil || st != want {
+			t.Errorf("after the write, %s: %+v %v, want %+v", name, st, err, want)
+		}
+	}
+	if r := readIconRed(t, dir, "INV_Misc_Bag_07"); r < 240 {
+		t.Fatalf("the client's icon reads red %d after the write", r)
+	}
+	if r := readIconRed(t, dir, "Again"); r != 0 {
+		t.Fatalf("the import made after the delete reads red %d", r)
 	}
 	ForgetIcons()
 }

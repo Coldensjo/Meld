@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -11,8 +10,8 @@ import (
 // The Sound tool (#684, Tools › Sounds…): the client's sounds listed, exported as the files they are,
 // imported from WAV or MP3 files as new sounds and put over a client sound's file, each write in Meld's
 // patch without closing anything (as ImportIcons does): at once, or once the game has closed. A replaced
-// sound is restored and an imported one deleted by dropping its file from the patch (#901), which
-// needs the game closed when the patch has the file, as the Icons tool's Delete does (#717).
+// sound is restored and an imported one deleted by dropping its file from the patch (#901), which waits
+// for the game to close as well when the game holds the patch, as the Icons tool's Delete does (#925).
 
 var soundFilters = []fileFilter{{DisplayName: "Sound (*.wav, *.mp3)", Pattern: "*.wav;*.mp3"}}
 
@@ -115,37 +114,36 @@ func (a *App) SoundFileStates(paths []string) ([]vmangos.PatchFileState, error) 
 
 // RestoreSound takes the file Meld's patch put over the client's sound file path out of the patch
 // (#901), or drops it if it waits for the game to close, so the client's own file plays again. A
-// patch the game holds open can't be written again without it, so with the file in the patch the game
-// must be closed first.
-func (a *App) RestoreSound(path string) error {
+// patch the game holds open can't be written again, so then the file waits to leave the patch until
+// the game has closed (#925), and waiting says so.
+func (a *App) RestoreSound(path string) (waiting bool, err error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !vmangos.IsSoundPath(path) {
-		return fmt.Errorf("%s is not a sound file under Sound\\", path)
+		return false, fmt.Errorf("%s is not a sound file under Sound\\", path)
 	}
 	states, err := vmangos.ReadPatchFileStates(dataDir, []string{path})
 	if err != nil {
-		return err
+		return false, err
 	}
 	st := states[0]
 	switch {
 	case !st.InClient:
-		return fmt.Errorf("the client has no %s of its own to restore: an imported sound is deleted instead", st.Path)
+		return false, fmt.Errorf("the client has no %s of its own to restore: an imported sound is deleted instead", st.Path)
+	case st.Leaving:
+		// Restored already, waiting for the game to close.
+		return true, nil
 	case !st.InPatch && !st.Waiting:
-		return fmt.Errorf("%s is the client's own: Meld's patch doesn't replace it", st.Path)
-	case st.InPatch && !a.sandboxed() && a.gameRunning():
-		// The probes' throwaway client has a patch of its own, which the game never holds.
-		return errors.New("the game has Meld's patch open: close it, then restore the sound")
+		return false, fmt.Errorf("%s is the client's own: Meld's patch doesn't replace it", st.Path)
 	}
 	if st.InPatch {
-		_, err = vmangos.RemovePatchFiles(dataDir, []string{st.Path})
-	} else {
-		_, err = vmangos.DropPendingFiles(dataDir, []string{st.Path})
+		return a.queueClientDrops(dataDir, []string{st.Path})
 	}
+	_, err = vmangos.DropPendingFiles(dataDir, []string{st.Path})
 	a.emitPending(dataDir)
-	return err
+	return false, err
 }
 
 // SoundDeletePlan reads what DeleteSound would remove and clear for the imported sound id, changing
@@ -161,9 +159,9 @@ func (a *App) SoundDeletePlan(id int) (vmangos.SoundDeletePlan, error) {
 
 // DeleteSound deletes the imported sound id (#901): its file leaves Meld's patch, its SoundEntries row
 // and the zone sound rows that played only it go, and the zones' fields and the game object displays'
-// slots that named them are cleared. With the file in the patch it is written at once, so the game
-// must be closed; a file still waiting for the game to close is dropped, and the tables wait with the
-// rest. waiting says they wait.
+// slots that named them are cleared, in one write when the game isn't running. While it runs, a file
+// still waiting for the game to close is dropped, and the tables and the file's removal from the patch
+// wait with the rest (#925). waiting says they wait.
 func (a *App) DeleteSound(id int) (waiting bool, err error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
@@ -182,15 +180,26 @@ func (a *App) DeleteSound(id int) (waiting bool, err error) {
 	if err != nil {
 		return false, err
 	}
+	var leave []string
 	for _, st := range states {
 		if st.InPatch {
-			return false, errors.New("the game has Meld's patch open: close it, then delete the sound")
+			leave = append(leave, st.Path)
 		}
 	}
 	if _, err := vmangos.DropPendingFiles(dataDir, plan.Files); err != nil {
 		return false, err
 	}
+	if len(leave) > 0 {
+		if err := vmangos.AddPendingDrops(dataDir, leave); err != nil {
+			return false, err
+		}
+	}
 	_, waiting, err = a.queueClientFiles(dataDir, files)
 	a.emitPending(dataDir)
+	if err == nil && len(leave) > 0 {
+		// queueClientFiles starts the watcher only for files; a removal alone needs it too.
+		a.watchPending()
+		waiting = true
+	}
 	return waiting, err
 }
