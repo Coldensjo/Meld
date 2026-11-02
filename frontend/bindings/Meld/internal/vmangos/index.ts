@@ -205,6 +205,7 @@ export type {
     WornItem,
     Zone,
     ZoneDoodadList,
+    ZoneGraveyard,
     ZoneSoundTables,
     ZoneWeather
 } from "./models.js";

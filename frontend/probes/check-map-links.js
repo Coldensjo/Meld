@@ -1,4 +1,4 @@
-// File › Check Map's world links (#953) against the real client and world database: on a flat map standing in for Kalimdor (map 1), Vesprystus (creature 3838) on the Rut'theran Village stop has no finding (the Horde's far stop isn't his side's), Dungar Longdrink (352) at the map's far corner gets a finding for each side under Flight masters without flights (its nearest stops are far, or have no route), the report reads Kalimdor's stops, and two teleports put into the real report (CheckWorldData stood in around the real one) give a warning for a target 50 yd over the flat ground, pointing at it, and an error for a map the client lacks; nothing saved.
+// File › Check Map's world links (#953) against the real client and world database: on a flat map standing in for Kalimdor (map 1), Vesprystus (creature 3838) on the Rut'theran Village stop has no finding (the Horde's far stop isn't his side's), Dungar Longdrink (352) at the map's far corner gets a finding for each side under Flight masters without flights (its nearest stops are far, or have no route), the report reads Kalimdor's stops, and two teleports put into the real report (CheckWorldData stood in around the real one) give a warning for a target 50 yd over the flat ground, pointing at it, and an error for a map the client lacks; and the map painted Teldrassil (141, linked to graveyards) with a patch of GM Island (876, linked to none) asks Go for both zones' graveyards (#978) and gets one Zones without a graveyard warning, for GM Island, on that patch; nothing saved.
 // touches: frontend/src/lib/check/links.ts, frontend/src/lib/check/run.ts, internal/vmangos/linkcheck.go, internal/vmangos/worlddata.go
 const e = P.e
 const App = window.go.main.App
@@ -16,6 +16,16 @@ e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const doc = e.activeDocument()
 doc.meta.vmangos = { dir: 'Kalimdor', mapId: 1 }
+// Zones (#978): Teldrassil everywhere, GM Island on a 2x2 patch at the far corner.
+const side = doc.terrain.paintChunksPerSide
+doc.terrain.areaIds.fill(141)
+for (const [x, z] of [
+	[side - 2, side - 2],
+	[side - 1, side - 2],
+	[side - 2, side - 1],
+	[side - 1, side - 1],
+])
+	doc.terrain.areaIds[z * side + x] = 876
 // A creature spawn needs no look here: an object spawn's fields, as a creature (as check-map-world does).
 const base = se.newObjectSpawn(templates[0], 999_999_971, 100, 0, 100, 0)
 const at = fromServer(rut.x, rut.y, 0, 0)
@@ -52,9 +62,10 @@ const dungarSides = masters.filter((f) => f.message.includes('creature 352'))
 const portals = world.filter((f) => f.check === 'Portal destinations')
 const high = portals.find((f) => f.message.startsWith('Probe portal lands 50 yd above the ground'))
 const lost = portals.find((f) => f.message.startsWith('Probe lost portal sends the player to map 4242'))
+const graves = world.filter((f) => f.check === 'Zones without a graveyard')
 return {
-	world: world.filter((f) => f.check.startsWith('Flight') || f.check === 'Portal destinations' || f.check === 'World data').map((f) => `${f.severity} ${f.check}: ${f.message}`),
-	asked: asked?.links ? { mapId: asked.links.mapId, spawns: asked.links.spawns.length } : null,
+	world: world.filter((f) => f.check.startsWith('Flight') || f.check === 'Portal destinations' || f.check === 'World data' || f.check === 'Zones without a graveyard').map((f) => `${f.severity} ${f.check}: ${f.message}`),
+	asked: asked?.links ? { mapId: asked.links.mapId, spawns: asked.links.spawns.length, zones: asked.links.zones } : null,
 	ok:
 		!failed &&
 		asked?.links?.mapId === 1 &&
@@ -64,5 +75,10 @@ return {
 		high?.severity === 'warning' &&
 		Math.abs(high.x - 120) < 0.5 &&
 		Math.abs(high.z - 130) < 0.5 &&
-		lost?.severity === 'error',
+		lost?.severity === 'error' &&
+		[...asked.links.zones].sort((a, b) => a - b).join() === '141,876' &&
+		graves.length === 1 &&
+		/GM Island \(zone 876\) has no graveyard/.test(graves[0].message) &&
+		graves[0].target.kind === 'chunk' &&
+		doc.terrain.areaIds[graves[0].target.chunk] === 876,
 }

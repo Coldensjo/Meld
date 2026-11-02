@@ -635,7 +635,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   cross per graveyard while the dialog is open (coloured by its links' factions, a line along its
   facing); a left press on a cross picks it (`Engine.graveyardPress`, before the tools). Place a
   Spirit Healer spawns creature 6491 three yards to the graveyard's left through
-  `SpawnActions.placeCreature`: an ordinary spawn and undo step, saved with the map's spawns.
+  `SpawnActions.placeCreature`: an ordinary spawn and undo step, saved with the map's spawns. File ›
+  Check Map warns about a painted area no link serves for one side or both (#978, `checkGraveyards`
+  in `lib/check/links.ts`, the links read by `zoneGraveyards` in `linkcheck.go`); with none, the
+  server leaves the ghost where the player died (`Player::RepopAtGraveyard`).
 - **A spawn's scripts** (#137): the editors' This spawn tab (`SpawnFields.svelte`) lists, read-only,
   what the world database attaches to the spawn (`ScriptFields.svelte`, the `SpawnScripts` binding,
   `internal/vmangos/scripts.go`, one query): its template's `script_name` (C++), a creature's

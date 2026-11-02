@@ -17,7 +17,7 @@ import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type Check
 import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones, type EdgeSegment } from './terrainChecks'
 import { checkWorldData, CREATURE_REFS, OBJECT_REFS, type WorldDataReport } from './worldData'
 import { checkQuests } from './quests'
-import { checkFlights, checkPortals, type LinkSpawn } from './links'
+import { checkFlights, checkGraveyards, checkPortals, graveyardZones, type CheckArea, type LinkSpawn } from './links'
 
 export interface CheckInput {
 	terrain: Terrain
@@ -33,6 +33,8 @@ export interface CheckInput {
 	knownTexture: ((path: string) => boolean) | null
 	/** Whether the client's AreaTable has an area; null when it isn't read. */
 	knownArea: ((id: number) => boolean) | null
+	/** The client's AreaTable by ID, for the graveyard check's names and zones (#978); null when it isn't read. */
+	areas?: ReadonlyMap<number, CheckArea> | null
 	/** The client's border rows of the tiles around a region; null for a map of its own or when unread. */
 	edges: EdgeSegment[] | null
 	/** Asks the world database what it has under the unsaved spawns' guids and entries; null without a server. */
@@ -67,8 +69,8 @@ export interface WorldDataQuery {
 	objectEntries: number[]
 	creatureRefs: Array<{ type: number; col: string; kind: string }>
 	objectRefs: Array<{ type: number; col: string; kind: string }>
-	/** The open map's flight stops and teleports (#953): its ID and a spawn of each template (Go's `vmangos.LinkQuery`). */
-	links: { mapId: number; spawns: Array<{ kind: string; entry: number; guid: number }> } | null
+	/** The open map's flight stops and teleports (#953): its ID, a spawn of each template, and the areas painted on it with their zones for the graveyards (#978) (Go's `vmangos.LinkQuery`). */
+	links: { mapId: number; spawns: Array<{ kind: string; entry: number; guid: number }>; zones: number[] } | null
 }
 
 /** The six ways the inside test looks from a creature's chest. */
@@ -301,7 +303,7 @@ async function worldDataFindings(input: CheckInput, floorBelow: (x: number, y: n
 			objectEntries: entries(true),
 			creatureRefs: plain(CREATURE_REFS),
 			objectRefs: plain(OBJECT_REFS),
-			links: server ? { mapId: server.mapId, spawns: [...one.values()] } : null,
+			links: server ? { mapId: server.mapId, spawns: [...one.values()], zones: graveyardZones(input.terrain.areaIds, input.areas ?? null) } : null,
 		})
 		const out = [...checkWorldData(spawns, report, input.from ?? null), ...checkQuests(spawns, report.quests, input.from ?? null)]
 		if (!server) out.push(...left("The flight stops and portals weren't checked: the client has no map for this one yet."))
@@ -315,6 +317,7 @@ async function worldDataFindings(input: CheckInput, floorBelow: (x: number, y: n
 				floorBelow,
 			}
 			out.push(...checkFlights(spawns, report.creatures, report.links, map), ...checkPortals(spawns, report.creatures, report.objects, report.links, map, input.from ?? null))
+			if (report.links.graveyardsRead) out.push(...checkGraveyards(t.areaIds, t.paintChunksPerSide, CHUNK_CELLS * t.cellSize, report.links, input.areas ?? null))
 			if (report.links.error) out.push(...left(`Part of the flight stops and portals wasn't checked: ${report.links.error}.`))
 		}
 		return out

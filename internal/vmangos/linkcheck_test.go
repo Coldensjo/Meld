@@ -154,3 +154,20 @@ func TestSpawnTeleportsScript(t *testing.T) {
 		t.Errorf("second %+v", l)
 	}
 }
+
+func TestZoneGraveyards(t *testing.T) {
+	sql := zoneGraveyardsSQL([]uint32{40, 12, 1519})
+	if !strings.Contains(sql, "`ghost_zone` IN (12, 40, 1519)") || !strings.Contains(sql, "`patch_max` >= 10") {
+		t.Fatalf("query: %s", sql)
+	}
+	raw := []byte("3\t12\t0\n9\t40\t469\n77\t40\t67\n")
+	all := parseZoneGraveyards(raw, nil)
+	if len(all) != 3 || all[1] != (ZoneGraveyard{Zone: 40, Faction: GraveyardAlliance, Graveyard: 9}) {
+		t.Fatalf("all: %+v", all)
+	}
+	// A link to a graveyard the client's table lacks is left out, as the server skips it.
+	known := parseZoneGraveyards(raw, map[uint32]bool{3: true, 9: true})
+	if len(known) != 2 || known[1].Graveyard != 9 {
+		t.Fatalf("known: %+v", known)
+	}
+}

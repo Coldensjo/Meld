@@ -206,5 +206,6 @@ export type WorldTemplate = V2<M.WorldTemplate>
 export type WornItem = V2<M.WornItem>
 export type Zone = V2<M.Zone>
 export type ZoneDoodadList = V2<M.ZoneDoodadList>
+export type ZoneGraveyard = V2<M.ZoneGraveyard>
 export type ZoneSoundTables = V2<M.ZoneSoundTables>
 export type ZoneWeather = V2<M.ZoneWeather>

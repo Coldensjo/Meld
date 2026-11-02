@@ -18,7 +18,8 @@ import (
 // teleports that start on the map (its area triggers, the gossip, spells and scripts of its spawns'
 // templates) or land on it from anywhere (area triggers, teleport spells and gossip scripts aimed at
 // it), each with whether the client knows its target map and, on another map, the ground under its
-// target from the client's tiles. The editor decides what is wrong: it matches a flight master to its
+// target from the client's tiles, and the graveyards linked to the zones painted on it (#978). The
+// editor decides what is wrong: it matches a flight master to its
 // stop the server's way and measures a destination on the open map against its own terrain and models.
 
 // spellEffectSendTaxi is SPELL_EFFECT_SEND_TAXI: a spell that flies the player along a route of its own.
@@ -32,10 +33,20 @@ type LinkSpawn struct {
 	Guid  int    `json:"guid"`
 }
 
-// LinkQuery is the open map's ID and the templates its spawns use.
+// LinkQuery is the open map's ID, the templates its spawns use and the areas painted on it with their
+// zones (#978).
 type LinkQuery struct {
 	MapID  int         `json:"mapId"`
 	Spawns []LinkSpawn `json:"spawns"`
+	Zones  []uint32    `json:"zones"`
+}
+
+// ZoneGraveyard is a game_graveyard_zone link to one of the query's zones that holds at 1.12, from a
+// graveyard of any map the client's WorldSafeLocs.dbc has (the server skips a link to one it lacks).
+type ZoneGraveyard struct {
+	Zone      uint32 `json:"zone"`
+	Faction   uint32 `json:"faction"`
+	Graveyard uint32 `json:"graveyard"`
 }
 
 // LinkNode is a flight stop on the open map and how many routes start and end at it. Network says
@@ -78,11 +89,54 @@ type LinkReport struct {
 	Checked bool         `json:"checked"`
 	Nodes   []LinkNode   `json:"nodes"`
 	Portals []PortalLink `json:"portals"`
-	Error   string       `json:"error"`
+	// Graveyards are the links to the query's zones; GraveyardsRead says whether they were read.
+	Graveyards     []ZoneGraveyard `json:"graveyards"`
+	GraveyardsRead bool            `json:"graveyardsRead"`
+	Error          string          `json:"error"`
 }
 
 func emptyLinkReport() LinkReport {
-	return LinkReport{Nodes: []LinkNode{}, Portals: []PortalLink{}}
+	return LinkReport{Nodes: []LinkNode{}, Portals: []PortalLink{}, Graveyards: []ZoneGraveyard{}}
+}
+
+// zoneGraveyardsSQL selects the links to zones that hold at 1.12, as graveyard, zone, faction.
+func zoneGraveyardsSQL(zones []uint32) string {
+	ids := append([]uint32{}, zones...)
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return fmt.Sprintf("SELECT `id`, `ghost_zone`, `faction` FROM `game_graveyard_zone` WHERE `ghost_zone` IN (%s) AND `patch_max` >= %d ORDER BY `ghost_zone`, `id`", graveyardIDs(ids), graveyardPatch)
+}
+
+// parseZoneGraveyards reads zoneGraveyardsSQL's rows, leaving out a link to a graveyard the client's
+// table lacks (known nil keeps them all).
+func parseZoneGraveyards(raw []byte, known map[uint32]bool) []ZoneGraveyard {
+	out := []ZoneGraveyard{}
+	for _, f := range batchRows(raw, 3) {
+		g := ZoneGraveyard{Graveyard: f.u32(0), Zone: f.u32(1), Faction: f.u32(2)}
+		if known == nil || known[g.Graveyard] {
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// zoneGraveyards reads the graveyards linked to the query's zones into r (#978).
+func zoneGraveyards(db worldDB, set *mpq.Set, zones []uint32, r *LinkReport) error {
+	var known map[uint32]bool
+	if dbc, err := set.ReadFile(WorldSafeLocsPath); err == nil {
+		if t, err := safeLocTable(dbc); err == nil {
+			known = map[uint32]bool{}
+			for i := 0; i < t.records; i++ {
+				known[t.u32(i, 0)] = true
+			}
+		}
+	}
+	raw, err := runSQL(db, zoneGraveyardsSQL(zones))
+	if err != nil {
+		return err
+	}
+	r.Graveyards = parseZoneGraveyards(raw, known)
+	r.GraveyardsRead = true
+	return nil
 }
 
 // linkNodes is mapID's stops with their route counts. spellPaths are the routes spells fly on.
@@ -449,6 +503,13 @@ func checkLinks(db worldDB, dataDir string, q LinkQuery) LinkReport {
 			}
 		}
 		r.Portals = append(r.Portals, l)
+	}
+
+	// The graveyards that serve the painted zones.
+	if len(q.Zones) > 0 {
+		if err := zoneGraveyards(db, set, q.Zones, &r); err != nil {
+			fail("graveyards", err)
+		}
 	}
 
 	// Each target's map, and the ground under those on another map.

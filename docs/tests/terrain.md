@@ -412,8 +412,15 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   ./internal/vmangos/ -run TestCheckLinksLive -v` (not with `-short`) reads Elwynn's links from the
   real client and database (475 templates' teleports in one mariadb script on stdin, about 2 s). Stock
   data shows a few findings that are Blizzard's: Fishing Village, Teldrassil (stop 57) has no route,
-  and a master far from every stop of a side gets a note. The graveyard check the issue also asks for
-  waits for #947 (graveyards read from `WorldSafeLocs.dbc` and `game_graveyard_zone`).
+  and a master far from every stop of a side gets a note. Zones without a graveyard (#978): the page
+  sends the painted areas and their AreaTable zones (`graveyardZones`), Go reads their
+  `game_graveyard_zone` links that hold at patch 10 to graveyards the client's `WorldSafeLocs.dbc`
+  has (`zoneGraveyards`), and `checkGraveyards` warns about an area no link serves for anyone or for
+  one side, by its own links or its zone's (`ObjectMgr::GetClosestGraveYard`), at the middle of its
+  largest painted patch. The probe paints Teldrassil (141) with a 2x2 patch of GM Island (876, a
+  Kalimdor zone with no link) and expects one warning there. Unit tests: `TestZoneGraveyards` and
+  `linkChecks.test.ts`. Trap: with no graveyard the server leaves the ghost where the player died
+  (`Player::RepopAtGraveyard` finds none and doesn't move it), not at the map's nearest graveyard.
 - A save of such a planted spawn is refused (#199): `VMANGOS_DIR=/c/WoW/vmangos go test
   ./internal/vmangos/ -run TestCreatedGUIDLive -v` checks the pre-check and that the SQL alone fails on
   the key, leaving guid 1 as it was. Don't test it by saving from the page: a dev window still running

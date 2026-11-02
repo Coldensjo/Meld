@@ -6320,6 +6320,7 @@ export class Engine {
 	async checkMap(): Promise<{ findings: Finding[]; unchecked: number }> {
 		let knownTexture: ((p: string) => boolean) | null = null
 		let knownArea: ((id: number) => boolean) | null = null
+		let areaTable: Map<number, { name: string; parent: number }> | null = null
 		// Only the desktop app reads the client (`window.go` is its bindings).
 		if ('go' in window) {
 			const [tex, areas] = await Promise.all([listAssets('tileset').catch(() => [] as string[]), loadAreas()])
@@ -6328,7 +6329,8 @@ export class Engine {
 				knownTexture = (p) => set.has(p.toLowerCase())
 			}
 			if (areas.length) {
-				const ids = new Set(areas.map((a) => a.id))
+				const ids = new Map(areas.map((a) => [a.id, { name: a.name, parent: a.parent }]))
+				areaTable = ids
 				knownArea = (id) => ids.has(id)
 			}
 		}
@@ -6351,6 +6353,7 @@ export class Engine {
 			maxSlope: this.prefs.climbAngle,
 			knownTexture,
 			knownArea,
+			areas: areaTable,
 			edges,
 			spawnIds: 'go' in window && region ? (q) => CheckSpawnIDs(q as vmangos.SpawnIDQuery) : null,
 			worldData: 'go' in window ? (q) => CheckWorldData(q) : "The world data wasn't checked: this page has no world database.",

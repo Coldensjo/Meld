@@ -430,6 +430,10 @@ GPU or game round trip is certified by these source-verified instructions.
    map is measured against its own terrain and models, edits included; one on another map against the
    client's ground there, and not inside a building there. A target on a dungeon or raid that is one
    building (no ground of its own) is flagged when it lies outside that building's bounds.
+   A zone or area painted on the map that no graveyard serves (none is linked to it or to its zone,
+   for anyone or for one side) is a warning too, at the middle of its largest painted patch: a player
+   who dies there is left a ghost where they fell, with no spirit healer. Link graveyards to zones
+   in World › Graveyards.
 3. Click a located finding to move the camera there. Model/spawn findings also select their target;
    chunk findings move the camera but do not select a terrain area. Notes without a location may
    have no Go there action.

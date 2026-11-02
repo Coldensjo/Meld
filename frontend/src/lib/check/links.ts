@@ -35,6 +35,11 @@ export interface LinkMap {
 const MASTERS = 'Flight masters without flights'
 const STOPS = 'Flight stops without routes'
 const PORTALS = 'Portal destinations'
+const GRAVEYARDS = 'Zones without a graveyard'
+/** The sides a graveyard link is for (game_graveyard_zone.faction). */
+const GRAVEYARD_ANYONE = 0
+const GRAVEYARD_HORDE = 67
+const GRAVEYARD_ALLIANCE = 469
 
 const FLIGHT_MASTER = NPC_FLAGS.find(([, n]) => n === 'flight master')![0]
 /** How far a master's nearest stop may be before the finding says which stop it offers (yards): the stock masters stand within a few yards of theirs. */
@@ -189,4 +194,101 @@ export function checkPortals(spawns: readonly WorldSpawn[], creatures: readonly 
 	const rank = { error: 0, warning: 1, info: 2 }
 	out.sort((a, b) => rank[a.severity] - rank[b.severity])
 	return capped(PORTALS, out)
+}
+
+/** An area of the client's AreaTable: its name and the zone it is part of (0 for a zone). */
+export interface CheckArea {
+	name: string
+	parent: number
+}
+
+/** The areas a map's chunks are painted with and the zones those are part of: what Go reads the graveyard links of. */
+export function graveyardZones(areaIds: ArrayLike<number>, areas: ReadonlyMap<number, CheckArea> | null): number[] {
+	const out = new Set<number>()
+	for (let c = 0; c < areaIds.length; c++) {
+		const id = areaIds[c]
+		if (!id || out.has(id)) continue
+		out.add(id)
+		const parent = areas?.get(id)?.parent
+		if (parent) out.add(parent)
+	}
+	return [...out]
+}
+
+/** The middle of the largest patch of chunks painted with each area (4-connected): the chunk nearest its centre. */
+function largestPatches(areaIds: ArrayLike<number>, side: number): Map<number, number> {
+	const seen = new Uint8Array(areaIds.length)
+	const best = new Map<number, { size: number; chunk: number }>()
+	const stack: number[] = []
+	const patch: number[] = []
+	for (let c0 = 0; c0 < areaIds.length; c0++) {
+		const id = areaIds[c0]
+		if (!id || seen[c0]) continue
+		patch.length = 0
+		stack.push(c0)
+		seen[c0] = 1
+		while (stack.length) {
+			const c = stack.pop()!
+			patch.push(c)
+			const x = c % side
+			for (const n of [x > 0 ? c - 1 : -1, x < side - 1 ? c + 1 : -1, c - side, c + side]) {
+				if (n >= 0 && n < areaIds.length && !seen[n] && areaIds[n] === id) {
+					seen[n] = 1
+					stack.push(n)
+				}
+			}
+		}
+		const had = best.get(id)
+		if (had && had.size >= patch.length) continue
+		let cx = 0
+		let cz = 0
+		for (const c of patch) {
+			cx += c % side
+			cz += Math.floor(c / side)
+		}
+		cx /= patch.length
+		cz /= patch.length
+		let mid = patch[0]
+		let midD = Infinity
+		for (const c of patch) {
+			const d = ((c % side) - cx) ** 2 + (Math.floor(c / side) - cz) ** 2
+			if (d < midD) [mid, midD] = [c, d]
+		}
+		best.set(id, { size: patch.length, chunk: mid })
+	}
+	return new Map([...best].map(([id, b]) => [id, b.chunk]))
+}
+
+/**
+ * Zones without a graveyard (#978): an area painted on the map that no graveyard serves, for either side
+ * or for one. The server's rule (ObjectMgr::GetClosestGraveYard): the graveyards linked to the area the
+ * ghost died in that are for anyone or the player's side, else those linked to its zone (the AreaTable
+ * parent), on any map. With none, the ghost is left where the player died (Player::RepopAtGraveyard),
+ * with no spirit healer to go to. An area the client's AreaTable lacks is left out (Unknown zones names
+ * it). The finding goes to the middle of the area's largest painted patch.
+ */
+export function checkGraveyards(areaIds: ArrayLike<number>, side: number, chunkWorld: number, report: LinkReport, areas: ReadonlyMap<number, CheckArea> | null): Finding[] {
+	const factions = new Map<number, Set<number>>()
+	for (const g of report.graveyards) {
+		let f = factions.get(g.zone)
+		if (!f) factions.set(g.zone, (f = new Set()))
+		f.add(g.faction)
+	}
+	const out: Finding[] = []
+	for (const [id, c] of largestPatches(areaIds, side)) {
+		const area = areas?.get(id)
+		if (areas && !area) continue
+		const parent = area?.parent ?? 0
+		const has = new Set([...(factions.get(id) ?? []), ...(parent ? (factions.get(parent) ?? []) : [])])
+		if (has.has(GRAVEYARD_ANYONE) || (has.has(GRAVEYARD_HORDE) && has.has(GRAVEYARD_ALLIANCE))) continue
+		const zone = parent ? areas?.get(parent) : undefined
+		const name = `${area?.name || 'Zone'} (${parent ? `area ${id} of ${zone?.name || 'zone'} ${parent}` : `zone ${id}`})`
+		const linked = parent ? 'linked to it or its zone' : 'linked to it'
+		const [only, other] = has.has(GRAVEYARD_HORDE) ? ['Horde', 'an Alliance'] : ['Alliance', 'a Horde']
+		const message = has.size
+			? `${name} has a graveyard ${linked} for the ${only} only, so ${other} player who dies there is left a ghost where they fell, with no spirit healer to go to.`
+			: `${name} has no graveyard ${linked}, so a player who dies there is left a ghost where they fell, with no spirit healer to go to.`
+		out.push({ check: GRAVEYARDS, severity: 'warning', message, x: ((c % side) + 0.5) * chunkWorld, z: (Math.floor(c / side) + 0.5) * chunkWorld, group: 'world', target: { kind: 'chunk', chunk: c } })
+	}
+	return capped(GRAVEYARDS, out)
 }

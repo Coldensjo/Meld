@@ -10,7 +10,7 @@ import { CREATURE_REFS, OBJECT_REFS, checkWorldData, type RowFault, type WorldTe
 import type { QuestReport } from '../src/lib/check/quests.ts'
 
 const noQuests: QuestReport = { quests: [], linked: [], spawns: [], summoned: [], items: [], missingTriggers: [], error: '' }
-const noLinks = { checked: false, nodes: [], portals: [], error: '' }
+const noLinks = { checked: false, nodes: [], portals: [], graveyards: [], graveyardsRead: false, error: '' }
 
 const model = (id: number, over: Partial<CheckModel> = {}): CheckModel => ({ id, type: 'm2:crate', name: 'Crate', x: 10, z: 10, yOff: 0, rotY: 0, scale: 1, box: null, ...over })
 const box = (x: number, y: number, z: number, w = 1, h = 1): CheckModel['box'] => ({ min: [x - w, y, z - w], max: [x + w, y + h, z + w] })

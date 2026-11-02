@@ -1,7 +1,7 @@
 // Run with: bun test tests/linkChecks.test.ts
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { checkFlights, checkPortals, FAR_STOP, type LinkMap, type LinkReport } from '../src/lib/check/links.ts'
+import { checkFlights, checkGraveyards, checkPortals, FAR_STOP, graveyardZones, type LinkMap, type LinkReport } from '../src/lib/check/links.ts'
 import { toServer } from '../src/lib/wow/format.ts'
 import type { vmangos } from '../src/lib/wails/models'
 
@@ -14,7 +14,7 @@ const stop = (id: number, x: number, z: number, over: Partial<vmangos.LinkNode> 
 	return { id, mapId: 0, x: s.x, y: s.y, z: 10, name: `Stop ${id}`, hordeMount: 2224, allianceMount: 541, from: 1, to: 1, network: true, ...over }
 }
 
-const report = (over: Partial<LinkReport> = {}): LinkReport => ({ checked: true, nodes: [], portals: [], error: '', ...over })
+const report = (over: Partial<LinkReport> = {}): LinkReport => ({ checked: true, nodes: [], portals: [], graveyards: [], graveyardsRead: true, error: '', ...over })
 
 const template = (entry: number, name: string, npcFlags = 0): vmangos.WorldTemplate => ({ entry, name, npcFlags, aiName: '', type: -1, values: {}, starts: [], ends: [], ownVendor: false, ownTrainer: false, aiEvents: 0 })
 
@@ -147,4 +147,75 @@ test('portals to another map: an unknown map, the client ground there, and a bui
 	const s = toServer(300, 400, FRAME.tileX, FRAME.tileY)
 	const trig = run(portal(other, { kind: 'trigger', trigger: 7, label: 'Area trigger 7', at: [s.x, s.y, 0], ground: 0 }))
 	assert.ok(Math.abs(trig[0].x - 300) < 1e-3 && Math.abs(trig[0].z - 400) < 1e-3)
+})
+
+test('zones without a graveyard: a painted area served by no graveyard for either side, or for one, by its own links or its zone’s', () => {
+	// A 4x4 map: zone 40 (Westfall) on the top row and one more chunk, its subzone 108 in the middle, zone 12 on the bottom row, zone 999 unknown.
+	// prettier-ignore
+	const ids = [
+		40, 40, 40, 40,
+		108, 108, 0, 40,
+		999, 108, 0, 0,
+		12, 12, 12, 0,
+	]
+	const areas = new Map([
+		[40, { name: 'Westfall', parent: 0 }],
+		[108, { name: 'Sentinel Hill', parent: 40 }],
+		[12, { name: 'Elwynn Forest', parent: 0 }],
+	])
+	assert.deepEqual(
+		graveyardZones(ids, areas).sort((a, b) => a - b),
+		[12, 40, 108, 999],
+	)
+	const run = (graveyards: Array<{ zone: number; faction: number }>) => checkGraveyards(ids, 4, 33, report({ graveyards: graveyards.map((g, i) => ({ ...g, graveyard: i + 1 })) }), areas)
+
+	const none = run([])
+	assert.deepEqual(
+		none.map((f) => f.message),
+		[
+			'Westfall (zone 40) has no graveyard linked to it, so a player who dies there is left a ghost where they fell, with no spirit healer to go to.',
+			'Sentinel Hill (area 108 of Westfall 40) has no graveyard linked to it or its zone, so a player who dies there is left a ghost where they fell, with no spirit healer to go to.',
+			'Elwynn Forest (zone 12) has no graveyard linked to it, so a player who dies there is left a ghost where they fell, with no spirit healer to go to.',
+		],
+	)
+	// Zone 40's largest patch is the top row (4 chunks, not the lone chunk 7): its middle is chunk 1 or 2.
+	assert.ok([1, 2].includes((none[0].target as { chunk: number }).chunk))
+	assert.equal(none[0].severity, 'warning')
+	assert.equal(none[0].z, 16.5)
+
+	// The zone's link for anyone serves its subzone too; Elwynn's two sides' links together serve it.
+	assert.deepEqual(
+		run([
+			{ zone: 40, faction: 0 },
+			{ zone: 12, faction: 67 },
+			{ zone: 12, faction: 469 },
+		]),
+		[],
+	)
+	// The subzone's own Alliance link and its zone's Horde one cover both sides; the zone alone has the Horde's only.
+	const split = run([
+		{ zone: 108, faction: 469 },
+		{ zone: 40, faction: 67 },
+		{ zone: 12, faction: 0 },
+	])
+	assert.deepEqual(
+		split.map((f) => f.message),
+		['Westfall (zone 40) has a graveyard linked to it for the Horde only, so an Alliance player who dies there is left a ghost where they fell, with no spirit healer to go to.'],
+	)
+	// Without the client's AreaTable the subzone counts as a zone of its own, and the unknown one is checked too.
+	assert.equal(
+		checkGraveyards(
+			ids,
+			4,
+			33,
+			report({
+				graveyards: [
+					{ zone: 40, faction: 0, graveyard: 1 },
+					{ zone: 12, faction: 0, graveyard: 2 },
+				],
+			}),
+			null,
+		).length,
+		2,
+	)
 })

@@ -1340,11 +1340,13 @@ export interface LinkNode {
 }
 
 /**
- * LinkQuery is the open map's ID and the templates its spawns use.
+ * LinkQuery is the open map's ID, the templates its spawns use and the areas painted on it with their
+ * zones (#978).
  */
 export interface LinkQuery {
     "mapId": number;
     "spawns": LinkSpawn[] | null;
+    "zones": number[] | null;
 }
 
 /**
@@ -1354,6 +1356,12 @@ export interface LinkReport {
     "checked": boolean;
     "nodes": LinkNode[] | null;
     "portals": PortalLink[] | null;
+
+    /**
+     * Graveyards are the links to the query's zones; GraveyardsRead says whether they were read.
+     */
+    "graveyards": ZoneGraveyard[] | null;
+    "graveyardsRead": boolean;
     "error": string;
 }
 
@@ -3564,6 +3572,16 @@ export interface ZoneDoodadList {
      * LandArea is the zone's ground not under a liquid, in square yards.
      */
     "landArea": number;
+}
+
+/**
+ * ZoneGraveyard is a game_graveyard_zone link to one of the query's zones that holds at 1.12, from a
+ * graveyard of any map the client's WorldSafeLocs.dbc has (the server skips a link to one it lacks).
+ */
+export interface ZoneGraveyard {
+    "zone": number;
+    "faction": number;
+    "graveyard": number;
 }
 
 /**
