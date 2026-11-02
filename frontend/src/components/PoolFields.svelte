@@ -155,8 +155,6 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		max-height: 160px;
-		overflow-y: auto;
 		border: 1px solid var(--border);
 	}
 	.points li {

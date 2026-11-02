@@ -127,8 +127,6 @@
 		margin: 0;
 		padding-left: 18px;
 		font-size: 12px;
-		max-height: 140px;
-		overflow-y: auto;
 	}
 	.link {
 		background: none;

@@ -165,7 +165,7 @@
 					<span class="k">Sails on</span>
 					<span>{course(transport).map(mapLabel).join(' → ')}{course(transport).length > 1 ? ', and back to the start' : ''}</span>
 				</div>
-				<ul class="list short" aria-label="Docks">
+				<ul class="list" aria-label="Docks">
 					{#each docks as d, i (i)}
 						<li>
 							<span class="dock">
@@ -271,14 +271,9 @@
 		list-style: none;
 		margin: 0;
 		padding: 4px 0;
-		max-height: 180px;
-		overflow-y: auto;
 		background: var(--bg);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
-	}
-	.list.short {
-		max-height: 120px;
 	}
 	.list button {
 		display: flex;

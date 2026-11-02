@@ -632,7 +632,7 @@
 						<button class="danger" onclick={removeStop}>Delete stop</button>
 					</span>
 				</div>
-				<ul class="list short" aria-label="Routes">
+				<ul class="list" aria-label="Routes">
 					{#each stopRoutes as r (r.id)}
 						<li>
 							<button class:picked={pickRoute === r.id} class:dirty={dirtyRoutes.includes(r.id)} onclick={() => pickRouteFromList(r.id)}>
@@ -791,14 +791,9 @@
 		list-style: none;
 		margin: 0;
 		padding: 4px 0;
-		max-height: 180px;
-		overflow-y: auto;
 		background: var(--bg);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
-	}
-	.list.short {
-		max-height: 120px;
 	}
 	.list button {
 		display: flex;

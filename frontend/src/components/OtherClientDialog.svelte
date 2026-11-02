@@ -336,8 +336,6 @@
 	.result ul {
 		margin: 2px 0 6px;
 		padding-left: 18px;
-		max-height: 120px;
-		overflow-y: auto;
 		font: 11px var(--mono);
 	}
 	.replace {

@@ -213,13 +213,17 @@
 	.search {
 		width: 100%;
 	}
-	.results,
-	.shared {
+	.results {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		max-height: 260px;
 		overflow-y: auto;
+	}
+	.shared {
+		list-style: none;
+		margin: 0;
+		padding: 0;
 	}
 	.results button {
 		width: 100%;

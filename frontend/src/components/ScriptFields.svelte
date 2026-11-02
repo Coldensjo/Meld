@@ -175,8 +175,6 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		max-height: 180px;
-		overflow-y: auto;
 		border: 1px solid var(--border);
 		font-size: 12px;
 	}
