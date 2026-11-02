@@ -1,7 +1,8 @@
 // The per-map settings a tab switch swaps in and out of `editor` (Engine.stashActive, activate), apart
 // from the runes state so the tests can drive them with a plain object (#437): the Engine passes
 // `editor` in. A new per-map editor field goes in DocMeta, DOC_META_KEYS, stashMeta and loadMeta;
-// tests/docMeta.test.ts fails when one of them misses it.
+// tests/docMeta.test.ts fails when one of them misses it. A field every member's save must hold in a
+// shared session also goes in session/settings.ts (`SETTINGS_FIELDS`, #1019).
 import type { editor } from '../state/editor.svelte'
 import { copyPaths } from '../terrain/paths'
 import { copyReference } from '../terrain/referenceImage'

@@ -19,11 +19,10 @@ server. #728 is the umbrella; its parts are separate issues:
 | Holes | #1016 | Done (`lib/session/holes.ts`) |
 | Painted liquids | #1017 | Done (`lib/session/liquids.ts`) |
 | The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Done (`lib/session/chunkData.ts`, `shadows.ts`) |
-| The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Open |
+| The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Done (`lib/session/settings.ts`) |
 | The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
 
-Until those are done, a session syncs only the heights, the paint, the holes, the painted liquids, the chunk data, the baked shadows and the placed objects: every other
-edit stays on the member who made it, and the host's export carries only the host's.
+Until the spawns are done, a session syncs the heights, the paint, the holes, the painted liquids, the chunk data, the baked shadows, the placed objects and the map's settings: an edit to the server's spawns stays on the member who made it, and the host's export carries only the host's.
 
 ## The transport (`internal/session`)
 
@@ -198,6 +197,31 @@ edit stays on the member who made it, and the host's export carries only the hos
   (`Engine.updateBakedShadows`): each member reads its own, so it goes into the mirror unsent (a member
   whose client has other shadows than the host's would differ there). Applying another member's
   shadows sets `Terrain.bakedRequested`, so a client read not yet made never fills in over a `none`.
+- **The map's settings (#1019, `settings.ts`, `SettingsSync`).** Every change to the session map's sea
+  (`waterLevel`, `waterEnabled`), texture roles, ground effects per texture, zone and tile
+  (`textureEffects`, `scopedEffects`), texture looks, paths, and on a map made for the client Map
+  Properties' facts (`vmangos.info`) and tile mask (`vmangos.tiles`) goes out as kind `settings`
+  (`KIND_SETTINGS`), data `{id, set: {<field>: value}}`: each changed field whole (`readSettings`). They
+  are small and rare, so the heights' timer compares each field's JSON against a mirror and no setter has a
+  hook; an undo syncs like any edit. The later message in the host's order wins per field, and a field of
+  one's own still unacknowledged is kept over another member's (the replay, field by field). The roles go
+  as texture paths, since each member keeps its own palette, and a receiver maps them to its own indices
+  (none when its palette lacks the texture); the timer flushes the settings after the paint, whose `add`
+  has announced a texture a role names. Applying (`writeSettings`) writes `editor` when the session's map
+  is the active tab and its `meta` otherwise, replacing each object whole (the engine tells a change of the
+  ground effects and looks by identity; the sea, the roles and the paths it reads each frame), applies a
+  tile mask through `Terrain.setTileMask` (the ground redrawn, the holes touched, which their mirror sees
+  as no change), marks the map unsaved and bumps `ui.historyVersion` for Map Properties' tile view. The
+  paths go as the whole list, so two members changing paths at once both end with the later message's.
+  - **The member's own.** The tab's name, file and unsaved mark, the palette (the paint's), the region and
+    the rest of `vmangos` (changed only by a Revert or a Grow, which send the whole map, #1008), the
+    bookmarks, the paint layer choices, the reference image (a path on the member's disk), the path pick
+    and the flatten and water locks are not synced (the list is on #1019). A new per-map field
+    (`DOC_META_KEYS`) is one or the other: a field every member's save must hold goes in
+    `SETTINGS_FIELDS`, `readSettings` and `writeSettings`.
+  - **The paths' last applies** (`appliesOf`, saved as `pathApplies`) stay with the member who applied:
+    what the apply wrote syncs as heights, paint, liquids and models, but another member's re-apply of
+    that path lays it again without taking the first apply back, and the saves' `pathApplies` differ.
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

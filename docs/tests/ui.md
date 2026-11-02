@@ -1119,6 +1119,24 @@ one's own unacknowledged values over them, and an applied one is not sent back.
 - Trap: a stroke that sets a value already there changes nothing, so its grid is not in the message (a
   zone stroke over chunks already impassable sends no `f`).
 
+## The map's settings in a session (#1019, probe `session-settings`)
+
+Checks: a change to the session map's sea, texture roles, ground effects (per texture, zone and tile),
+texture looks, paths, Map Properties' facts or tile mask goes to the others as a `settings` message (the
+changed fields whole), the others' are applied in the host's order with one's own unacknowledged fields
+kept over them, and an applied one is not sent back.
+- `bun test tests/sessionSettings.test.ts`: two `SettingsSync` members through a scripted host over plain
+  stores (one field at once from both, different fields at once, an unsent change going out before a
+  remote apply, roles by texture path across palettes in another order, the facts and the tile mask with
+  its `setTiles` call, an undo, the paths as a whole list, bad messages and a map without a client ref,
+  a guest holding messages).
+- `bun run probe session-settings`: the page hosts a 2×2-tile `newVmangosDocument`, the bot sends a name
+  in the facts, a ground effect for the palette's first texture and the mask `1101` (the south-west tile
+  out, `tileOff(0, 128)`); then the page moves the sea level and sets the facts and undoes both, and the
+  bot's messages folded in `seq` order over `readSettings` at the start must equal the page's.
+- Trap: the roles go as texture paths, so compare `readSettings` (paths), never the members' role
+  indices, which follow each member's own palette.
+
 ## Texture paint in a session (#1002, probe `session-paint`)
 
 Checks: a paint change on the session's map goes to the others as `paint` messages (whole chunks, slots

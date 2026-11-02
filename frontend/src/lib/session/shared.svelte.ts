@@ -9,7 +9,7 @@ import { HostSession, JoinSession, LeaveSession, SessionSend } from '../wails/Ap
 import type { main, mapfile } from '../wails/models'
 import { EventsOn } from '../wails/runtime'
 import { engineRef } from '../state/engineRef'
-import { editor, setStatus } from '../state/editor.svelte'
+import { editor, setStatus, ui } from '../state/editor.svelte'
 import { fromMapData, toMapData } from '../io/mapData'
 import {
 	GUEST_EXPORT_REASON,
@@ -38,9 +38,11 @@ import { HoleSync, KIND_HOLES } from './holes'
 import { KIND_LIQUIDS, LiquidSync } from './liquids'
 import { ChunkDataSync, KIND_CHUNK_DATA } from './chunkData'
 import { KIND_SHADOWS, ShadowSync } from './shadows'
+import { KIND_SETTINGS, SettingsSync, readSettings, writeSettings } from './settings'
+import { maskBytes } from '../terrain/tileMask'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
-import { TILE_YARDS } from '../wow/format'
+import { TILE_CELLS, TILE_YARDS } from '../wow/format'
 import type { MapDocument, VmangosRef } from '../engine/MapDocument'
 import type { Engine, MapSnapshot } from '../engine/Engine'
 
@@ -177,6 +179,26 @@ const shadows = new ShadowSync({
 	applied: markUnsaved,
 	failed: (err) => setStatus(`A baked shadow edit did not reach the session: ${err}`, 8000),
 })
+/** The session map's settings (#1019): the sea, roles, ground effects, looks, paths and Map Properties' facts and tiles, each changed field whole. */
+const settings = new SettingsSync({
+	send: (data) => sessionSend(0, KIND_SETTINGS, tagged(data)),
+	read: () => {
+		const d = sessionDoc()
+		return d ? readSettings(sessionActive() ? editor : d.meta, d.meta.vmangos) : null
+	},
+	write: (set) => {
+		const d = sessionDoc()
+		if (!d) return []
+		const t = d.terrain
+		return writeSettings(sessionActive() ? editor : d.meta, d.meta.vmangos, set, (tiles) => t.setTileMask(maskBytes(tiles, t.size / TILE_CELLS)))
+	},
+	applied: () => {
+		markUnsaved()
+		// Map Properties' tile view and the History window follow the version; the engine reads the rest each frame.
+		ui.historyVersion++
+	},
+	failed: (err) => setStatus(`A map setting did not reach the session: ${err}`, 8000),
+})
 /** The session map's placed objects (#1003): the changed objects whole, sent and applied as the heights are. */
 const objects = new ObjectSync({
 	send: (data) => sessionSend(0, KIND_OBJECTS, tagged(data)),
@@ -269,7 +291,7 @@ export function presenceMarker(id: number) {
 	return presenceView?.markerAt(id) ?? null
 }
 
-/** Sends the session map's changed heights, paint, holes, liquids, chunk data, shadows and objects; stops syncing once that map is closed. */
+/** Sends the session map's changed heights, paint, holes, liquids, chunk data, shadows, objects and settings; stops syncing once that map is closed. */
 function flushEdits() {
 	const doc = sessionDoc()
 	const t = doc?.terrain
@@ -301,6 +323,11 @@ function flushEdits() {
 		if (doc?.objects !== objects.bound) objects.unbind()
 		else objects.flush()
 	}
+	// After the paint, whose `add` has announced a texture a role names.
+	if (settings.bound) {
+		if (doc !== settings.bound) settings.unbind()
+		else settings.flush()
+	}
 }
 
 /** Starts syncing the session map's edits: the map as it was after message `afterSeq`, new object ids made in `ids`' lane. */
@@ -314,6 +341,7 @@ function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
 	chunkData.bind(d.terrain, afterSeq)
 	shadows.bind(d.terrain, afterSeq)
 	objects.bind(d.objects, afterSeq, ids)
+	settings.bind(d, afterSeq)
 }
 
 /** An edit message's data with the map it was made against (`g`, #1008), left out while the map was never made again. */
@@ -362,6 +390,7 @@ function subscribe() {
 	chunkData.wait()
 	shadows.wait()
 	objects.wait()
+	settings.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
 	clearPresence()
 	presenceTimer = setInterval(tickPresence, PRESENCE_MS)
@@ -384,6 +413,7 @@ function unsubscribe() {
 	chunkData.unbind()
 	shadows.unbind()
 	objects.unbind()
+	settings.unbind()
 }
 
 function apply(info: main.SessionInfo) {
@@ -511,6 +541,7 @@ function onMessage(m: Message) {
 		case KIND_CHUNK_DATA:
 		case KIND_SHADOWS:
 		case KIND_OBJECTS:
+		case KIND_SETTINGS:
 			receiveEdit(m)
 			return
 		case KIND_PRESENCE:
@@ -537,6 +568,7 @@ const syncs: Record<string, { receive(seq: number, from: number, data: unknown, 
 	[KIND_CHUNK_DATA]: chunkData,
 	[KIND_SHADOWS]: shadows,
 	[KIND_OBJECTS]: objects,
+	[KIND_SETTINGS]: settings,
 }
 
 /** An edit message: held while a guest has no map yet, dropped when another member made it against another map than this one (#1008). */
