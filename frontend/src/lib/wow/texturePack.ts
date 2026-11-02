@@ -25,9 +25,24 @@ const KINDS: [TextureKind, RegExp][] = [
 	['grass', /grass|flower|leaf|leaves|moss|fern|clover|weed|lush|bush|needle|meadow|forest/],
 ]
 
+/** Zone names the client misspells in its file names (Azshara's are AshzaraGrass). */
+const ZONE_ALIASES = ['ashzara']
+
 /** What kind of ground a tileset is, by its file name. */
 export function kindOf(path: string): TextureKind {
-	const file = path.slice(path.lastIndexOf('\\') + 1).toLowerCase()
+	const cut = path.lastIndexOf('\\')
+	let file = path.slice(cut + 1).toLowerCase()
+	// The zone's name starts the file name and can hold a kind's word (Darkshore, ThousandNeedles, "ash" in AshzaraGrass), so it is left out (#1030).
+	const folder = path
+		.slice(path.lastIndexOf('\\', cut - 1) + 1, Math.max(cut, 0))
+		.toLowerCase()
+		.replace(/\s+/g, '')
+	for (const prefix of [folder, ...ZONE_ALIASES]) {
+		if (prefix && file.startsWith(prefix) && file.length > prefix.length) {
+			file = file.slice(prefix.length)
+			break
+		}
+	}
 	for (const [kind, re] of KINDS) if (re.test(file)) return kind
 	return 'other'
 }

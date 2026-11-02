@@ -32,6 +32,17 @@ const DUSKWOOD: TextureUse[] = [
 
 const file = (p: string) => p.slice(p.lastIndexOf('\\') + 1)
 
+test('a zone name in the file name is not read as a kind', () => {
+	assert.equal(kindOf('Tileset\\Darkshore\\DarkshoreGrass.blp'), 'grass')
+	assert.equal(kindOf('Tileset\\Darkshore\\DarkshoreDirt.blp'), 'dirt')
+	assert.equal(kindOf('Tileset\\Darkshore\\DarkshoreRock.blp'), 'rock')
+	assert.equal(kindOf('Tileset\\ThousandNeedles\\ThousandNeedlesDirt.blp'), 'dirt')
+	assert.equal(kindOf('Tileset\\ThousandNeedles\\ThousandNeedlesRock.blp'), 'rock')
+	assert.equal(kindOf('Tileset\\Azshara\\AshzaraGrass.blp'), 'grass')
+	assert.equal(kindOf('Tileset\\Azshara\\AshzaraGrassHighlight.blp'), 'grass')
+	assert.equal(kindOf('Tileset\\Tanaris\\TanarisSandStones.blp'), 'sand')
+})
+
 test('a tileset is sorted by its file name, not its folder', () => {
 	assert.equal(kindOf('Tileset\\Tanaris\\TanarisSandStones.blp'), 'sand')
 	assert.equal(kindOf('Tileset\\Duskwood\\DuskwoodCobblestone.blp'), 'road')
