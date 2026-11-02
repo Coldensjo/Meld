@@ -803,8 +803,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the server's copy at once (the server skips a spawn whose display its copy lacks), and the tab
   points the template's `displayId` at it as an unsaved change, its unsaved slots moved along. The
   model tables read waiting files (`readOverlay`), so the copy's model is known while the game runs.
-  Collision for the new display comes only once the vmaps are extracted again, since the server's
-  `temp_gameobject_models` is keyed by display. With an external database it is refused, and in a
+  The server's `vmaps/temp_gameobject_models` (its game object collision, keyed by display) gets the
+  base display's record under the new ID too (`InstallServerObjectModel`, `objectmodels.go`, #923;
+  nothing when the server has no vmaps or the base no collision), so the copy blocks like the original. With an external database it is refused, and in a
   probe's throwaway client the server's copy is left alone), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `SpawnActions.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.

@@ -192,9 +192,13 @@ template's display is a second unsaved change (Save object (2)) that Revert drop
 of the table is never written in the sandbox (the throwaway client's server tables are the real
 ones): `TestCopyObjectDisplay` (an ID above both tables, the other rows kept),
 `TestInstallServerObjectDisplays` and, with the client, `TestClientCopyObjectDisplay` cover it.
+The copy's collision in the server's `vmaps/temp_gameobject_models` (#923): `TestCopyObjectModel`,
+`TestInstallServerObjectModel` (the backup kept) and `TestServerObjectModels` (the server's own list
+reads whole, so the record layout holds).
 In the game (the owner's check): give one Forge a display of its own, a sound on it, Save object,
 restart the world server and the game; that forge plays it and the other braziers do not, and the
-world server's log has no "invalid displayId" for it.
+world server's log has no "invalid displayId" for it. For collision, do the same to a door or a wall
+(a closed door blocks you walking through it) and check it still blocks after the restart.
 
 - In the game (the owner's check): give a display a sound in Stand, Loop or Custom 0 (a loop such as
   CampFireLargeLoop, 3244), save, restart the game and walk up to an object of that display; the

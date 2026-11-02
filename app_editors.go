@@ -852,6 +852,10 @@ func (a *App) OwnObjectDisplay(display int) (OwnDisplay, error) {
 			if _, err := vmangos.InstallServerObjectDisplays(server, made.Server); err != nil {
 				return fmt.Errorf("display %d is in the client's patch, but writing it into the server's data failed: %w", made.Display, err)
 			}
+			// The server's collision list is keyed by display (#923): the new one gets its base's.
+			if _, err := vmangos.InstallServerObjectModel(server, uint32(display), made.Display); err != nil {
+				return fmt.Errorf("display %d is in the client's patch and the server's table, but giving it display %d's collision in the server's vmaps failed: %w", made.Display, display, err)
+			}
 			res.Server = true
 			res.Restart = a.worldRunning()
 			return nil
