@@ -196,6 +196,7 @@ models and maps) run in `make test`; `TestRecordsLive` and `TestModelInfoClient`
 server and client (`testclient`, skipped without them), so `make test-full` covers them.
 
 - `session join [--name N] [--send file.jsonl] [--for seconds] <addr> <code>` and `session host [--on-join] [port]` (#999): a scripted member of a shared session (#728). It prints every message it receives as a JSON line (`seq`, `from`, `to`, `kind`, `data`; the welcome first, as seq 0), sends the lines of `--send` (`{"to":0,"kind":"...","data":{...}}`) once in, and leaves after `--for` seconds or when the host ends the session. `host` listens on 127.0.0.1 (`--bind`), prints `{"hosting":true,"port","code","addr"}` first, so a probe can test the page as a guest; `--on-join` holds `--send` until the first guest is in (#1000). Not an MCP tool (it blocks). The probes use it through `probes/session-bot.mjs`.
+- `region-diff <edit.json> <Data folder>` (#1034): builds a region edit the page dumped (`P.dumpRegionEdit`) and lists, per tile that differs from the client's copy, the inputs that make it differ. Not an MCP tool. See docs/tests/client.md.
 - `wmap info <file.wmap>`: the version, size, palette, objects by kind (`m2`, `wmo`, `helper`), hole
   cells, liquid layers by type, chunks by zone, impassable chunks, no-effect cells, shadows, region and
   the `*Unknown` flags, as JSON. A scene's saved copy is in `<user cache>/Meld/scenes`.

@@ -10,6 +10,7 @@
 //	go run ./cmd/meldtool wmap info <file.wmap>
 //	go run ./cmd/meldtool adt dump [--client DIR] [--chunk x,y] [--placements] <tile>
 //	go run ./cmd/meldtool adt diff [--client DIR] [--client-b DIR] [--eps 0.001] [--place-eps 0.01] <a> <b>
+//	go run ./cmd/meldtool region-diff <edit.json> <Data folder>
 //	go run ./cmd/meldtool mpq ls [--client DIR] [filter]
 //	go run ./cmd/meldtool mpq cat [--client DIR] [-o file] <path>
 //	go run ./cmd/meldtool bindings [--json] [repo dir]
@@ -40,6 +41,7 @@ client or the server. The output is JSON, or a table with --table where a comman
   meldtool wmap info <file.wmap>
   meldtool adt dump [--client DIR] [--big-alpha] [--chunk x,y] [--placements] <tile>
   meldtool adt diff [--client DIR] [--client-b DIR] [--big-alpha] [--eps 0.001] [--place-eps 0.01] <a> <b>
+  meldtool region-diff <edit.json> <Data folder>
   meldtool mpq ls [--client DIR] [filter]
   meldtool mpq cat [--client DIR] [-o file] <path>
   meldtool bindings [--json] [repo dir]
@@ -124,6 +126,8 @@ func dispatch(args []string, out io.Writer) error {
 		return adtDump(args[2:], out)
 	case args[0] == "adt" && sub == "diff":
 		return adtDiff(args[2:], out)
+	case args[0] == "region-diff":
+		return regionDiff(args[1:], out)
 	case args[0] == "mpq" && sub == "ls":
 		return mpqList(args[2:], out)
 	case args[0] == "mpq" && sub == "cat":

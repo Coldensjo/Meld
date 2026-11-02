@@ -46,6 +46,28 @@ const P = {
 		return `no mmaps at ${await window.go.main.App.VmangosPath()} (data/mmaps, map ${map} tile ${x}_${y})`
 	},
 
+	/**
+	 * Writes the active region tab's region edit, as the page sends it to RegionPending and SaveRegion (paint, effects,
+	 * headers, liquids and all), to `path` as JSON, and returns the path (#1034). The edit is taken again until two in a
+	 * row match, since the paint and chunk headers settle some frames after a tab opens. Then
+	 * `go run ./cmd/meldtool region-diff <path> <Data folder>` names, per tile, the inputs that make it differ from the
+	 * client's copy. A path in the throwaway client's scratch folder (`P.sandboxFile`) keeps the real disk clean.
+	 */
+	async dumpRegionEdit(path) {
+		const compileIo = await P.app('/src/lib/io/compile.ts')
+		const region = P.e.activeRegion()
+		if (!region) throw new Error('P.dumpRegionEdit: no region tab is active')
+		let last = ''
+		for (let i = 0; i < 40; i++) {
+			const now = JSON.stringify(compileIo.regionEdit(P.e, region))
+			if (now === last) break
+			last = now
+			await P.frames(10)
+		}
+		await window.go.main.App.WriteTextFile(path, last)
+		return path
+	},
+
 	/** Writes bytes (a Uint8Array or a Blob) as a file of the throwaway client's scratch folder, for a binding that reads a file the user picked; returns its path. */
 	async sandboxFile(name, bytes) {
 		if (bytes instanceof Blob) bytes = new Uint8Array(await bytes.arrayBuffer())

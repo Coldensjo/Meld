@@ -314,6 +314,21 @@ client files and world database rows the write would make, without writing.
   its heights (#492); that is what Publish writes, not a fault of the list. Such a tile reads "only its
   edge's normals, which a neighbour's heights move" (#976, `TestPreviewPublish`).
 
+## Tell which inputs of the page's region edit make a tile differ (#1034, `P.dumpRegionEdit`, `meldtool region-diff`)
+Checks: why a compile lists a tile the author did not touch. A Go test that builds its edit from `ReadRegion`'s
+view passes while the app still lists every tile, since the page's edit also carries paint, ground effects,
+headers and liquids (#990).
+- In a probe (with `P.sandboxClient()` on), `await P.dumpRegionEdit(path)` writes the active region tab's
+  `regionEdit` to `path` once two edits in a row match (the paint and headers settle some frames after the tab
+  opens). Return the path from the probe, or write it under the throwaway client's scratch folder.
+- Then `go run ./cmd/meldtool region-diff <edit.json> <Data folder>` (the throwaway client's `dataDir` from
+  `P.sandboxClient()`) builds the edit with `BuildRegion` and prints, per tile that differs from the copy the
+  client reads, its `causes`: the inputs (heights, objects, paint effects, paint flags, paint no-effect cells,
+  paint textures and weights, headers, liquids) that, swapped alone for the client's own, make the tile equal
+  the client's. A tile with no single cause has a `note` and the inputs that act together.
+- Test: `go test ./cmd/meldtool -run RegionDiff` (needs the client; `make test-full`).
+- Expected on Azeroth 28_50 2x2 compiled for the first time: the ground effects and the no-tuft cells (#1033).
+
 ## Tell a tile rewritten only for its neighbour's edge in the Changes window (#976, probe `changes-edge`)
 Checks: a region's tile whose only difference from the copy the client reads now is the normals of its
 border chunks is listed as "only its edge's normals" (beside the region: "beside the region: only its
