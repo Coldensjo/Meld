@@ -334,11 +334,14 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 
 		// The path, when it changed: the spawn's own points replace its main path (path_id 0). A
 		// creature that walked its template's path gets its own, which the server prefers.
+		// A CMaNGOS formation's leader carries its movement into its group's rows (cmangosGroupSQL).
+		moved := false
 		if s.Kind == Creature {
 			var was []PathPoint
 			if e.Original != nil {
 				was = e.Original.Path
 			}
+			moved = e.Original == nil || !samePath(s.Path, was) || e.Original.MovementType != s.MovementType
 			if cm && (!samePath(s.Path, was) || (e.Created && len(s.Path) > 0)) {
 				lines, skipped := cmangosPathSQL(s)
 				out = append(out, lines...)
@@ -366,8 +369,10 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 			for _, k := range skipped {
 				res.Skipped = append(res.Skipped, name+": "+k)
 			}
-			if formationChanged(s, e.Original) {
-				res.Skipped = append(res.Skipped, name+": its formation; CMaNGOS keeps formations in spawn groups, which Meld doesn't write")
+			lines, skipped = cmangosFormationSQL(s, e.Original, moved)
+			out = append(out, lines...)
+			for _, k := range skipped {
+				res.Skipped = append(res.Skipped, name+": "+k)
 			}
 		} else if s.Kind == Creature {
 			if cols := addonChanges(s, e.Original); len(cols) > 0 {
@@ -444,7 +449,9 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 		header[0] = "-- Meld spawn edits for a CMaNGOS classic world database (`classicmangos`)."
 		// The editor's guids come from the VMaNGOS database it reads; an INSERT under a guid this
 		// database already gives another spawn fails on the key rather than replacing that spawn.
-		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.")
+		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.",
+			fmt.Sprintf("-- A spawn's own display and equipment go in creature_spawn_data_template, and a formation in a spawn group, numbered %d plus the guid", cmangosOwnBase),
+			"-- (the leader's for a formation). An equipment id names the VMaNGOS database's creature_equip_template row.")
 	}
 	if len(res.Skipped) > 0 {
 		header = append(header, "--", "-- Not exported:")

@@ -29,14 +29,17 @@ func cmangosSchema(t *testing.T) map[string]map[string]bool {
 }
 
 // cmangosEdits is an export that reaches every statement the CMaNGOS writer has: a creature added with
-// a path, a pose, a display, a formation and a pool; a game object added; a creature and a game object
-// changed (the object turned into another); a creature and a game object deleted; a pool put into a
-// mother pool.
+// a path, a pose, a display, a formation and a pool (which keeps it out of the spawn group); a walking
+// formation's leader and a member added; a game object added; a creature and a game object changed
+// (the object turned into another); a creature and a game object deleted; a pool put into a mother pool.
 func cmangosEdits() []Edit {
 	walker := Spawn{Kind: Creature, GUID: 500, Entry: 3, Name: "Guard", Map: 0, X: 1, Y: 2, Z: 3, O: 1, Scale: 1, MovementType: 2,
 		Display: 3167, Equipment: 7, StandState: 1, SheathState: 1, EmoteState: 10, Leader: 501, FollowDist: 3, GroupFlags: FormationDefault,
 		Pool: 77, PoolLimit: 1, PoolName: "Guards", PoolChance: 50, MotherPool: 78, MotherLimit: 2,
 		Path: []PathPoint{{X: 1, Y: 2, Z: 3, WaitMs: 1000}, {X: 4, Y: 5, Z: 6, O: 2, WanderDistance: 3, ScriptID: 9}}}
+	captain := Spawn{Kind: Creature, GUID: 501, Entry: 3, Name: "Captain", Scale: 1, MovementType: 2, Equipment: -1, SheathState: 1,
+		Leader: 501, GroupFlags: FormationDefault, Path: []PathPoint{{X: 1, Y: 2, Z: 3}, {X: 7, Y: 8, Z: 9}}}
+	grunt := Spawn{Kind: Creature, GUID: 502, Entry: 3, Name: "Grunt", Scale: 1, Equipment: -1, SheathState: 1, Leader: 501, FollowDist: 4, FollowAngle: 3, GroupFlags: FormationDefault}
 	chest := Spawn{Kind: GameObject, GUID: 600, Entry: 7, Name: "Chest", Map: 1, X: 4, Y: 5, Z: 6, O: 1.5, Scale: 1}
 	boar := Spawn{Kind: Creature, GUID: 42, Entry: 4, Name: "Boar", Map: 0, Scale: 1, MovementType: 1, WanderDistance: 5, Equipment: -1, SheathState: 1}
 	moved := boar
@@ -46,6 +49,8 @@ func cmangosEdits() []Edit {
 	turned.Entry = 9
 	return []Edit{
 		{Spawn: walker, Created: true},
+		{Spawn: captain, Created: true},
+		{Spawn: grunt, Created: true},
 		{Spawn: chest, Created: true},
 		{Spawn: moved, Original: &boar},
 		{Spawn: turned, Original: &door},
@@ -104,7 +109,7 @@ func TestCMaNGOSSpawnSQLMatchesTheSchema(t *testing.T) {
 // The CMaNGOS export writes its own columns and reports what its tables can't hold.
 func TestCMaNGOSSpawnSQL(t *testing.T) {
 	res := ExportSQLFor(CMaNGOSClassic, cmangosEdits(), fixedTime)
-	if res.Added != 2 || res.Changed != 2 || res.Deleted != 2 {
+	if res.Added != 4 || res.Changed != 2 || res.Deleted != 2 {
 		t.Fatalf("counts = %d/%d/%d", res.Added, res.Changed, res.Deleted)
 	}
 	for _, want := range []string{
@@ -126,6 +131,29 @@ func TestCMaNGOSSpawnSQL(t *testing.T) {
 		"WHERE `s`.`Guid` = 44 AND `g`.`Type` = 0;",
 		"DELETE FROM `gameobject_addon` WHERE `guid` = 45;",
 		"WHERE `s`.`Guid` = 45 AND `g`.`Type` = 1;",
+		// The guard's own spawn data template (#906): copied from the one it has, else made, then linked.
+		"INSERT IGNORE INTO `creature_spawn_data_template` (`Entry`, `NpcFlags`,",
+		"SELECT 1000000500, `t`.`NpcFlags`, `t`.`UnitFlags`, `t`.`Faction`, 3167, 7,",
+		"SELECT 1000000500, -1, -1, 0, 3167, 7, 0, 0, 0, 0, 0, 'Meld: Guard (guid 500, entry 3)' FROM DUAL",
+		"DELETE FROM `creature_spawn_data_template` WHERE `Entry` = 1000000500 AND (`ModelId` <> 3167 OR `EquipmentId` <> 7);",
+		"INSERT INTO `creature_spawn_data` (`Guid`, `Id`) VALUES (500, 1000000500) ON DUPLICATE KEY UPDATE",
+		// The captain's formation: its group, slot 0, the walking formation and its path.
+		"INSERT INTO `spawn_group` (`Id`, `Name`, `Type`, `MaxCount`, `Flags`) VALUES (1000000501, 'Meld: formation led by guid 501', 0, 0, 1) ON DUPLICATE KEY UPDATE `Flags` = VALUES(`Flags`);",
+		"WHERE `s`.`Guid` = 501 AND `g`.`Type` = 0 AND `s`.`Id` <> 1000000501;",
+		"VALUES (1000000501, 501, 0, 0) ON DUPLICATE KEY UPDATE `SlotId` = 0;",
+		"SELECT 1000000501, 4, 3, 0, 1000000501, `c`.`MovementType`, 'Meld' FROM `creature` `c` WHERE `c`.`guid` = 501 ON DUPLICATE KEY UPDATE `PathId` = VALUES(`PathId`), `MovementType` = VALUES(`MovementType`);",
+		"DELETE FROM `waypoint_path` WHERE `PathId` = 1000000501;",
+		"FROM `creature_movement` WHERE `Id` = 501;",
+		// The grunt joins it in the next slot, its distance the spread.
+		"ON DUPLICATE KEY UPDATE `Flags` = `Flags` | VALUES(`Flags`);",
+		"SELECT 1000000501, 502, COALESCE(MAX(`SlotId`), 0) + 1, 0 FROM `spawn_group_spawn` WHERE `Id` = 1000000501;",
+		"SELECT 1000000501, 4, 4, 0, 1000000501,",
+		"`MovementType` = VALUES(`MovementType`), `FormationSpread` = VALUES(`FormationSpread`);",
+		"UPDATE `spawn_group_spawn` `s` JOIN (SELECT",
+		// The rat takes its own template and any formation it led with it.
+		"DELETE FROM `creature_spawn_data_template` WHERE `Entry` = 1000000044;",
+		"DELETE FROM `spawn_group` WHERE `Id` = 1000000044;",
+		"DELETE FROM `waypoint_path` WHERE `PathId` = 1000000044;",
 	} {
 		if !strings.Contains(res.SQL, want) {
 			t.Errorf("SQL lacks %q\n%s", want, res.SQL)
@@ -137,7 +165,8 @@ func TestCMaNGOSSpawnSQL(t *testing.T) {
 		}
 	}
 	skipped := strings.Join(res.Skipped, "\n")
-	for _, want := range []string{"Guard (guid 500, entry 3): its display", "Guard (guid 500, entry 3): its equipment", "Guard (guid 500, entry 3): its formation",
+	for _, want := range []string{"Guard (guid 500, entry 3): its formation; CMaNGOS keeps a spawn of a pool out of spawn groups",
+		"Grunt (guid 502, entry 3): its place in the formation; CMaNGOS lines the members up by the group's shape, fanned out behind the leader 4 yards away",
 		"Guard (guid 500, entry 3): its waypoints' wander distances", "Guard (guid 500, entry 3): its waypoints' scripts", "Boar (guid 42, entry 4): its scale (2); CMaNGOS classic takes scale"} {
 		if !strings.Contains(skipped, want) {
 			t.Errorf("Skipped lacks %q:\n%s", want, skipped)
@@ -145,6 +174,11 @@ func TestCMaNGOSSpawnSQL(t *testing.T) {
 	}
 	if !strings.Contains(res.SQL, "-- Not exported:") {
 		t.Error("the skipped changes are not listed in the file")
+	}
+	for _, not := range []string{"its display", "its equipment", "Captain (guid 501, entry 3): its formation"} {
+		if strings.Contains(skipped, not) {
+			t.Errorf("Skipped still has %q, which the export writes:\n%s", not, skipped)
+		}
 	}
 }
 
@@ -163,5 +197,53 @@ func TestCMaNGOSAddonOnlyWhenThePoseChanged(t *testing.T) {
 	}
 	if ExportSQL(cmangosEdits(), fixedTime).SQL != ExportSQLFor(VMaNGOS, cmangosEdits(), fixedTime).SQL {
 		t.Error("ExportSQL is not the VMaNGOS export")
+	}
+}
+
+// A leader that stops leading takes its group with it, a member that leaves one group for another
+// leaves a gap the old group's slots close over, a leader whose path changed copies it to its group's
+// path again, and a change that touches none of it writes no spawn group (#906).
+func TestCMaNGOSFormationChanges(t *testing.T) {
+	sql := func(s Spawn, orig Spawn) string {
+		return ExportSQLFor(CMaNGOSClassic, []Edit{{Spawn: s, Original: &orig}}, fixedTime).SQL
+	}
+	leader := Spawn{Kind: Creature, GUID: 7, Entry: 1, Equipment: -1, SheathState: 1, Leader: 7, GroupFlags: FormationDefault, MovementType: 2,
+		Path: []PathPoint{{X: 1}, {X: 2}}}
+	alone := leader
+	alone.Leader, alone.GroupFlags = 0, 0
+	got := sql(alone, leader)
+	for _, want := range []string{"DELETE FROM `spawn_group_spawn` WHERE `Id` = 1000000007;", "DELETE FROM `spawn_group` WHERE `Id` = 1000000007;",
+		"DELETE FROM `waypoint_path` WHERE `PathId` = 1000000007;"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a leader that stopped leading: lacks %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "INSERT INTO `spawn_group") {
+		t.Errorf("a creature in no formation joins a group:\n%s", got)
+	}
+
+	member := Spawn{Kind: Creature, GUID: 8, Entry: 1, Equipment: -1, SheathState: 1, Leader: 7, FollowDist: 30, GroupFlags: FormationDefault}
+	moved := member
+	moved.Leader = 9
+	got = sql(moved, member)
+	for _, want := range []string{"WHERE `s`.`Guid` = 8 AND `g`.`Type` = 0;", "WHERE `a`.`Id` = 1000000007 AND", "SELECT 1000000009, 8, COALESCE(",
+		"SELECT 1000000009, 4, 15, 0, 1000000009,"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a member that changed leader: lacks %q\n%s", want, got)
+		}
+	}
+
+	walked := leader
+	walked.Path = []PathPoint{{X: 1}, {X: 5}}
+	got = sql(walked, leader)
+	if !strings.Contains(got, "SELECT 1000000007, `Point`,") || strings.Contains(got, "WHERE `s`.`Guid` = 7 AND `g`.`Type` = 0;") {
+		t.Errorf("a leader whose path changed: its group's path is not copied again, or it left its group:\n%s", got)
+	}
+
+	still := leader
+	still.X = 4
+	got = sql(still, leader)
+	if body := got[strings.Index(got, "-- Change"):]; strings.Contains(body, "spawn_group") || strings.Contains(body, "creature_spawn_data") {
+		t.Errorf("a leader that only moved rewrites its group or look:\n%s", got)
 	}
 }

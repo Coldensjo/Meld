@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -13,13 +14,21 @@ import (
 //     no health, mana, flags, visibility or patch columns; gameobject has no animprogress, state,
 //     flags, visibility or patch (gameobject_addon holds the first two; without a row the defaults apply).
 //   - creature_addon has stand_state, sheath_state and emote (VMaNGOS's emote_state), and no display
-//     or equipment: CMaNGOS sets those per spawn through creature_spawn_data's templates, which Meld
-//     doesn't write, so a change of them is reported instead.
+//     or equipment: CMaNGOS sets those per spawn through a creature_spawn_data row naming a
+//     creature_spawn_data_template, whose ModelId 0 and EquipmentId -1 keep the creature template's
+//     (#906). A spawn's own template is cmangosOwnID(guid), copied from the template the spawn had,
+//     so its other overrides (faction, flags, relay script) stay.
 //   - creature_movement is Id, Point, PositionX to Orientation, WaitTime and ScriptId: one path a
 //     creature, no wander distance at a point, and script ids that name dbscripts_on_creature_movement,
 //     not VMaNGOS's creature_movement_scripts, so a path is written without its scripts.
-//   - formations are spawn groups (spawn_group, spawn_group_spawn, spawn_group_formation), not
-//     creature_groups, so a formation change is reported, not written.
+//   - formations are spawn groups (#906): spawn_group (Type 0), spawn_group_spawn (SlotId 0 the leader,
+//     the members 1 up with no gap) and spawn_group_formation, a shape and one spread instead of a
+//     distance and angle a member. A leader's group is cmangosOwnID(leader guid), and a moving group's
+//     leader walks waypoint_path's path of the same ID, not its creature_movement, so that is copied
+//     there. A spawn in a pool or game event can't be in a spawn group (the server skips it).
+//
+// CMaNGOS's own source (ObjectMgr::LoadSpawnGroups, LoadCreatureSpawnDataTemplates, FormationData) is
+// GPL: its behaviour is described here, none of its code is copied.
 
 // cmangosCreatureLinks and cmangosObjectLinks are the CMaNGOS tables that name a spawn by its guid,
 // whose rows go with it.
@@ -31,6 +40,44 @@ const (
 	cmangosGroupCreature   = 0
 	cmangosGroupGameObject = 1
 )
+
+// cmangosOwnBase numbers the rows Meld makes for one spawn in a CMaNGOS database it can't read (#906):
+// a spawn's creature_spawn_data_template entry, and a formation leader's spawn group and its leader's
+// waypoint_path, are cmangosOwnBase plus the guid, far above the IDs CMaNGOS's own data uses, so a
+// second export finds and replaces them. spawn_group.Id is a signed int, hence cmangosMaxOwnGUID.
+const (
+	cmangosOwnBase    = 1000000000
+	cmangosMaxOwnGUID = math.MaxInt32 - cmangosOwnBase
+)
+
+func cmangosOwnID(guid int) int { return cmangosOwnBase + guid }
+
+// The formation shape Meld gives a group (spawn_group_formation.FormationType, CMaNGOS's
+// SPAWN_GROUP_FORMATION_TYPE_FANNED_OUT_BEHIND: the members spread over the half circle behind the
+// leader, the spread away), and the spread a group made from its leader's edit starts with. CMaNGOS
+// refuses a spread past 15 yards.
+const (
+	cmangosFormationShape = 4
+	cmangosDefaultSpread  = 3
+	cmangosMaxSpread      = 15
+)
+
+// cmangosGroupFlags turns a formation's VMaNGOS flags (creature_groups.flags) into a CMaNGOS spawn
+// group's (spawn_group.Flags, CreatureGroupFlags): aggro, respawn and evade together. Moving together
+// is the spawn_group_formation row instead; VMaNGOS's other options have no CMaNGOS flag.
+func cmangosGroupFlags(vm int) int {
+	out := 0
+	if vm&FormationAggro != 0 {
+		out |= 0x01
+	}
+	if vm&0x008 != 0 { // OPTION_RESPAWN_TOGETHER
+		out |= 0x02
+	}
+	if vm&0x004 != 0 { // OPTION_EVADE_TOGETHER
+		out |= 0x04
+	}
+	return out
+}
 
 // cmangosDeleteSQL removes a spawn and the rows that name it.
 func cmangosDeleteSQL(s Spawn) []string {
@@ -47,8 +94,45 @@ func cmangosDeleteSQL(s Spawn) []string {
 		out = append(out, fmt.Sprintf("DELETE FROM `creature_linking` WHERE `guid` = %d OR `master_guid` = %d;", s.GUID, s.GUID))
 	}
 	// A spawn group lists creatures and game objects by guid alike, told apart by the group's type.
-	out = append(out, fmt.Sprintf("DELETE `s` FROM `spawn_group_spawn` `s` JOIN `spawn_group` `g` ON `g`.`Id` = `s`.`Id` WHERE `s`.`Guid` = %d AND `g`.`Type` = %d;", s.GUID, group))
+	out = append(out, cmangosLeaveGroupsSQL(s.GUID, group, 0))
+	if s.Kind == Creature && s.GUID <= cmangosMaxOwnGUID {
+		// Its own spawn data template, and the formation it led: a deleted leader takes it with it.
+		out = append(out, fmt.Sprintf("DELETE FROM `creature_spawn_data_template` WHERE `Entry` = %d;", cmangosOwnID(s.GUID)))
+		out = append(out, cmangosDropGroupSQL(s.GUID)...)
+		if s.Leader != 0 && s.Leader != s.GUID && s.Leader <= cmangosMaxOwnGUID {
+			out = append(out, cmangosCompactSQL(cmangosOwnID(s.Leader)))
+		}
+	}
 	return out
+}
+
+// cmangosLeaveGroupsSQL takes a spawn out of every spawn group of type group but keep (0 for none).
+func cmangosLeaveGroupsSQL(guid, group, keep int) string {
+	but := ""
+	if keep != 0 {
+		but = fmt.Sprintf(" AND `s`.`Id` <> %d", keep)
+	}
+	return fmt.Sprintf("DELETE `s` FROM `spawn_group_spawn` `s` JOIN `spawn_group` `g` ON `g`.`Id` = `s`.`Id` WHERE `s`.`Guid` = %d AND `g`.`Type` = %d%s;", guid, group, but)
+}
+
+// cmangosDropGroupSQL removes the formation leader led: its spawn group, formation and path.
+func cmangosDropGroupSQL(leader int) []string {
+	g := cmangosOwnID(leader)
+	return []string{
+		fmt.Sprintf("DELETE FROM `spawn_group_spawn` WHERE `Id` = %d;", g),
+		fmt.Sprintf("DELETE FROM `spawn_group_formation` WHERE `Id` = %d;", g),
+		fmt.Sprintf("DELETE FROM `spawn_group` WHERE `Id` = %d;", g),
+		fmt.Sprintf("DELETE FROM `waypoint_path` WHERE `PathId` = %d;", g),
+	}
+}
+
+// cmangosCompactSQL numbers group g's members 1 up again after one left, as CMaNGOS wants its slots
+// without a gap (it renumbers them itself, with an error in its log). The derived table is grouped, so
+// it is read in full before the UPDATE writes the table it reads.
+func cmangosCompactSQL(g int) string {
+	return fmt.Sprintf("UPDATE `spawn_group_spawn` `s` JOIN (SELECT `a`.`Guid`, COUNT(*) AS n FROM `spawn_group_spawn` `a` "+
+		"JOIN `spawn_group_spawn` `b` ON `b`.`Id` = `a`.`Id` AND `b`.`SlotId` > 0 AND `b`.`SlotId` <= `a`.`SlotId` "+
+		"WHERE `a`.`Id` = %d AND `a`.`SlotId` > 0 GROUP BY `a`.`Guid`) r ON r.`Guid` = `s`.`Guid` SET `s`.`SlotId` = r.n WHERE `s`.`Id` = %d;", g, g)
 }
 
 // cmangosInsertSQL adds a spawn, respawning between lo and hi seconds, with rotation q (game objects).
@@ -97,25 +181,141 @@ func cmangosPathSQL(s Spawn) ([]string, []string) {
 	return out, skipped
 }
 
-// cmangosAddonSQL writes a creature's pose (creature_addon) when it changed, and says which of its
-// changes CMaNGOS's creature_addon can't hold: its display and its equipment.
+// cmangosAddonSQL writes a creature's pose (creature_addon) and its look (its own spawn data
+// template: display and equipment) where they changed.
 func cmangosAddonSQL(s Spawn, orig *Spawn) ([]string, []string) {
 	base := Spawn{Equipment: -1, SheathState: 1}
 	if orig != nil {
 		base = *orig
 	}
-	var skipped []string
-	if s.Display != base.Display {
-		skipped = append(skipped, "its display; CMaNGOS sets a spawn's model through creature_spawn_data, which Meld doesn't write")
+	var out, skipped []string
+	if s.StandState != base.StandState || s.SheathState != base.SheathState || s.EmoteState != base.EmoteState {
+		// The whole pose, as a new row gets the table's defaults for the columns not named.
+		out = append(out, fmt.Sprintf("INSERT INTO `creature_addon` (`guid`, `stand_state`, `sheath_state`, `emote`) VALUES (%d, %d, %d, %d) "+
+			"ON DUPLICATE KEY UPDATE `stand_state` = VALUES(`stand_state`), `sheath_state` = VALUES(`sheath_state`), `emote` = VALUES(`emote`);",
+			s.GUID, max(s.StandState, 0), max(s.SheathState, 0), max(s.EmoteState, 0)))
 	}
-	if s.Equipment != base.Equipment {
-		skipped = append(skipped, "its equipment; CMaNGOS sets a spawn's equipment through creature_spawn_data, which Meld doesn't write")
+	if s.Display != base.Display || s.Equipment != base.Equipment {
+		if s.GUID > cmangosMaxOwnGUID {
+			skipped = append(skipped, "its display and equipment; its guid is past the spawn data templates Meld numbers from it")
+		} else {
+			out = append(out, cmangosSpawnDataSQL(s)...)
+		}
 	}
-	if s.StandState == base.StandState && s.SheathState == base.SheathState && s.EmoteState == base.EmoteState {
-		return nil, skipped
+	return out, skipped
+}
+
+// cmangosSpawnDataSQL gives a creature its own spawn data template with its display and equipment:
+// a copy of the template it has (CMaNGOS's data gives some spawns one, for a faction or flags), or of
+// the default (template 0: nothing overridden) when it has none, then the link to it. The table's key
+// spans the model and equipment, but the server keeps one template an Entry, so the old row of the
+// spawn's own entry goes once the new one is in.
+func cmangosSpawnDataSQL(s Spawn) []string {
+	t := cmangosOwnID(s.GUID)
+	model, equip := max(s.Display, 0), max(s.Equipment, -1)
+	name := sqlQuote(fmt.Sprintf("Meld: %s", label(s)))
+	cols := "`Entry`, `NpcFlags`, `UnitFlags`, `Faction`, `ModelId`, `EquipmentId`, `CurHealth`, `CurMana`, `SpawnFlags`, `RelayId`, `StringId`, `Name`"
+	return []string{
+		fmt.Sprintf("INSERT IGNORE INTO `creature_spawn_data_template` (%s) SELECT %d, `t`.`NpcFlags`, `t`.`UnitFlags`, `t`.`Faction`, %d, %d, "+
+			"`t`.`CurHealth`, `t`.`CurMana`, `t`.`SpawnFlags`, `t`.`RelayId`, `t`.`StringId`, %s FROM `creature_spawn_data` `d` "+
+			"JOIN `creature_spawn_data_template` `t` ON `t`.`Entry` = `d`.`Id` WHERE `d`.`Guid` = %d LIMIT 1;", cols, t, model, equip, name, s.GUID),
+		fmt.Sprintf("INSERT INTO `creature_spawn_data_template` (%s) SELECT %d, -1, -1, 0, %d, %d, 0, 0, 0, 0, 0, %s FROM DUAL "+
+			"WHERE NOT EXISTS (SELECT 1 FROM `creature_spawn_data_template` WHERE `Entry` = %d AND `ModelId` = %d AND `EquipmentId` = %d);",
+			cols, t, model, equip, name, t, model, equip),
+		fmt.Sprintf("DELETE FROM `creature_spawn_data_template` WHERE `Entry` = %d AND (`ModelId` <> %d OR `EquipmentId` <> %d);", t, model, equip),
+		fmt.Sprintf("INSERT INTO `creature_spawn_data` (`Guid`, `Id`) VALUES (%d, %d) ON DUPLICATE KEY UPDATE `Id` = VALUES(`Id`);", s.GUID, t),
 	}
-	// The whole pose, as a new row gets the table's defaults for the columns not named.
-	return []string{fmt.Sprintf("INSERT INTO `creature_addon` (`guid`, `stand_state`, `sheath_state`, `emote`) VALUES (%d, %d, %d, %d) "+
-		"ON DUPLICATE KEY UPDATE `stand_state` = VALUES(`stand_state`), `sheath_state` = VALUES(`sheath_state`), `emote` = VALUES(`emote`);",
-		s.GUID, max(s.StandState, 0), max(s.SheathState, 0), max(s.EmoteState, 0))}, skipped
+}
+
+// cmangosFormationSQL writes a creature's formation as a spawn group when it changed, or, for a
+// leader, when its movement did (moved), which its group's formation row and path carry.
+func cmangosFormationSQL(s Spawn, orig *Spawn, moved bool) ([]string, []string) {
+	var was Spawn
+	if orig != nil {
+		was = *orig
+	}
+	changed := formationChanged(s, orig)
+	leads := s.Leader == s.GUID
+	if !changed && !(leads && moved) {
+		return nil, nil
+	}
+	if s.GUID > cmangosMaxOwnGUID || s.Leader > cmangosMaxOwnGUID || was.Leader > cmangosMaxOwnGUID {
+		return nil, []string{"its formation; a guid is past the spawn group IDs Meld numbers from it"}
+	}
+	var out []string
+	if changed {
+		// A creature is in one spawn group at most: the server skips it in a second.
+		out = append(out, cmangosLeaveGroupsSQL(s.GUID, cmangosGroupCreature, 0))
+		if was.Leader == s.GUID && !leads {
+			out = append(out, cmangosDropGroupSQL(s.GUID)...)
+		} else if was.Leader != 0 && was.Leader != s.GUID && was.Leader != s.Leader {
+			out = append(out, cmangosCompactSQL(cmangosOwnID(was.Leader)))
+		}
+	}
+	if s.Leader == 0 {
+		return out, nil
+	}
+	if s.Pool != 0 {
+		return out, []string{"its formation; CMaNGOS keeps a spawn of a pool out of spawn groups"}
+	}
+	out = append(out, cmangosGroupSQL(s)...)
+	if leads {
+		return out, nil
+	}
+	g := cmangosOwnID(s.Leader)
+	// The next slot after the group's last; the leader's row, just written, is slot 0.
+	out = append(out, fmt.Sprintf("INSERT INTO `spawn_group_spawn` (`Id`, `Guid`, `SlotId`, `Chance`) SELECT %d, %d, COALESCE(MAX(`SlotId`), 0) + 1, 0 "+
+		"FROM `spawn_group_spawn` WHERE `Id` = %d;", g, s.GUID, g))
+	// A member that moved within the group left a gap behind.
+	out = append(out, cmangosCompactSQL(g))
+	if s.GroupFlags&FormationMove == 0 {
+		return out, nil
+	}
+	return out, []string{fmt.Sprintf("its place in the formation; CMaNGOS lines the members up by the group's shape, fanned out behind the leader %s yards away",
+		num(math.Round(cmangosSpread(s.FollowDist))))}
+}
+
+// cmangosSpread is a member's distance as a formation's spread, which CMaNGOS keeps within 15 yards.
+func cmangosSpread(dist float64) float64 {
+	if math.IsNaN(dist) || dist <= 0 {
+		return cmangosDefaultSpread
+	}
+	return min(dist, cmangosMaxSpread)
+}
+
+// cmangosGroupSQL makes or updates the spawn group of s's leader: the group with its flags (a leader's
+// own set them, a member's add to them), the leader in slot 0 and in no other group, and for a group
+// that moves together its formation row, with the leader's movement read from its creature row, and
+// the leader's path copied to waypoint_path.
+func cmangosGroupSQL(s Spawn) []string {
+	leader, leads := s.Leader, s.Leader == s.GUID
+	g := cmangosOwnID(leader)
+	flags := "`Flags` = `Flags` | VALUES(`Flags`)"
+	if leads {
+		flags = "`Flags` = VALUES(`Flags`)"
+	}
+	out := []string{
+		fmt.Sprintf("INSERT INTO `spawn_group` (`Id`, `Name`, `Type`, `MaxCount`, `Flags`) VALUES (%d, %s, %d, 0, %d) ON DUPLICATE KEY UPDATE %s;",
+			g, sqlQuote(fmt.Sprintf("Meld: formation led by guid %d", leader)), cmangosGroupCreature, cmangosGroupFlags(s.GroupFlags), flags),
+		cmangosLeaveGroupsSQL(leader, cmangosGroupCreature, g),
+		fmt.Sprintf("INSERT INTO `spawn_group_spawn` (`Id`, `Guid`, `SlotId`, `Chance`) VALUES (%d, %d, 0, 0) ON DUPLICATE KEY UPDATE `SlotId` = 0;", g, leader),
+	}
+	if s.GroupFlags&FormationMove == 0 {
+		if leads {
+			out = append(out, fmt.Sprintf("DELETE FROM `spawn_group_formation` WHERE `Id` = %d;", g), fmt.Sprintf("DELETE FROM `waypoint_path` WHERE `PathId` = %d;", g))
+		}
+		return out
+	}
+	spread, update := float64(cmangosDefaultSpread), ""
+	if !leads {
+		spread, update = math.Round(cmangosSpread(s.FollowDist)), ", `FormationSpread` = VALUES(`FormationSpread`)"
+	}
+	return append(out,
+		fmt.Sprintf("INSERT INTO `spawn_group_formation` (`Id`, `FormationType`, `FormationSpread`, `FormationOptions`, `PathId`, `MovementType`, `Comment`) "+
+			"SELECT %d, %d, %s, 0, %d, `c`.`MovementType`, 'Meld' FROM `creature` `c` WHERE `c`.`guid` = %d "+
+			"ON DUPLICATE KEY UPDATE `PathId` = VALUES(`PathId`), `MovementType` = VALUES(`MovementType`)%s;", g, cmangosFormationShape, num(spread), g, leader, update),
+		fmt.Sprintf("DELETE FROM `waypoint_path` WHERE `PathId` = %d;", g),
+		fmt.Sprintf("INSERT INTO `waypoint_path` (`PathId`, `Point`, `PositionX`, `PositionY`, `PositionZ`, `Orientation`, `WaitTime`, `ScriptId`) "+
+			"SELECT %d, `Point`, `PositionX`, `PositionY`, `PositionZ`, `Orientation`, `WaitTime`, `ScriptId` FROM `creature_movement` WHERE `Id` = %d;", g, leader),
+	)
 }

@@ -217,9 +217,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. File › Export
   Spawn SQL… writes for the core of Preferences › Compile and export › Spawn SQL for (the `exportCore`
   pref, passed to `SpawnEditSQL`, #894): VMaNGOS, or CMaNGOS classic (`vmangos.Core`,
-  `ExportSQLFor`; the CMaNGOS statements and the schema differences are in `vmangos/cmangos.go`). What
-  CMaNGOS's tables can't hold (a spawn's display and equipment, formations, a waypoint's wander
-  distance and script) is left out and listed in the file's header; its map ID comes from the
+  `ExportSQLFor`; the CMaNGOS statements and the schema differences are in `vmangos/cmangos.go`). A
+  spawn's display and equipment go in a `creature_spawn_data_template` row of its own and a formation
+  in a spawn group (`spawn_group`, `spawn_group_spawn`, `spawn_group_formation`, and the leader's path
+  copied to `waypoint_path`), numbered 1000000000 plus the guid (the leader's for a group), since Meld
+  can't read the CMaNGOS database for a free ID (#906). A formation becomes one shape (fanned out
+  behind the leader, the member's distance as the spread), and a spawn of a pool stays out of it, as
+  CMaNGOS skips one in a spawn group. What CMaNGOS's tables can't hold (a waypoint's wander distance
+  and script, a member's own slot) is left out and listed in the file's header; its map ID comes from the
   client's Map.dbc. Saving to the database, and every other server tool, stays VMaNGOS-only, but for
   File › Compile to CMaNGOS Server (shown while that pref is CMaNGOS classic; `compileCmangos` in
   `io/compile.ts`, the `UpdateCMaNGOSServer` binding in `app_cmangos.go`, `vmangos/cmangosmaps.go`):

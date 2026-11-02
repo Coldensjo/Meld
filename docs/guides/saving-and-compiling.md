@@ -25,8 +25,10 @@ are available on Linux. Client-only editing and writing a patch are separate fro
 
 **Export Spawn SQL…** writes for the server core chosen under **Edit › Preferences… › Compile and
 export › Spawn SQL for**. For **CMaNGOS classic**, the file uses CMaNGOS's tables and lists at the
-top what they cannot hold: a spawn's display and equipment, formations, and a waypoint's wander
-distance and script are left out. Meld still reads spawns from, and saves them to, the VMaNGOS
+top what they cannot hold: a waypoint's wander distance and script are left out. A spawn's display and
+equipment go in a spawn data template of its own, and a formation in a spawn group numbered after its
+leader, both 1000000000 plus the guid; CMaNGOS lines a formation up by a shape (fanned out behind the
+leader) rather than each member's own place, and keeps a spawn of a pool out of it. Meld still reads spawns from, and saves them to, the VMaNGOS
 database only, so a new spawn's guid is one the VMaNGOS database had free; if your CMaNGOS database
 already uses it, the import stops on that row instead of replacing the other spawn. The client
 patch is the same for every core.

@@ -1,9 +1,10 @@
 // File › Export Spawn SQL… writes for the core of Preferences › Compile and export › Spawn SQL for (#894).
 // Opens Azeroth 31_50 (1x1), stands in the region's spawn edits (one creature added, with a changed
-// pose and display), the save dialog and the file write, and runs the export through the real
+// pose, display, scale and formation), the save dialog and the file write, and runs the export through the real
 // SpawnEditSQL binding twice: for CMaNGOS classic (the pref, which the export passes to Go) and for
 // VMaNGOS. Checks: the CMaNGOS file has CMaNGOS's columns (spawndist, MovementType, emote) and none of
-// VMaNGOS's, names map 0 from the client's Map.dbc, and lists the display it left out; the VMaNGOS file
+// VMaNGOS's, names map 0 from the client's Map.dbc, writes the display as the spawn's own spawn data
+// template and the formation as a spawn group (#906), and lists the scale it left out; the VMaNGOS file
 // is VMaNGOS's; the status names the core. Nothing is written to disk or the database, and the pref is
 // put back.
 // touches: frontend/src/lib/io/compile.ts, app_spawns.go, internal/vmangos/sql.go, internal/vmangos/cmangos.go, internal/vmangos/core.go, internal/vmangos/spawnedit.go
@@ -17,8 +18,8 @@ const App = window.go.main.App
 const real = { SaveSQLDialog: App.SaveSQLDialog, WriteTextFile: App.WriteTextFile }
 const realEdits = P.e.spawnEdits
 const realCore = prefs.exportCore
-const spawn = { kind: 'npc', guid: 990001, entry: 3, name: 'Probe guard', x: 100, y: 50, z: 200, orientation: 1, respawnSecs: 300, respawnMaxSecs: 300, equipment: -1, sheathState: 1 }
-const posed = { ...spawn, standState: 1, emoteState: 10, display: 3167 }
+const spawn = { kind: 'npc', guid: 990001, entry: 3, name: 'Probe guard', x: 100, y: 50, z: 200, orientation: 1, respawnSecs: 300, respawnMaxSecs: 300, equipment: -1, sheathState: 1, scale: 1 }
+const posed = { ...spawn, standState: 1, emoteState: 10, display: 3167, scale: 2, leader: 990000, followDist: 4, groupFlags: 3 }
 P.e.spawnEdits = () => [{ spawn: posed, original: spawn, created: true, deleted: false }]
 let file = null
 let named = ''
@@ -53,7 +54,10 @@ out.ok =
 	cm.sql.includes('CMaNGOS classic world database') &&
 	cm.sql.includes('`spawndist`, `MovementType`) VALUES (990001, 3, 0, 1,') &&
 	cm.sql.includes('`emote`) VALUES (990001, 1, 1, 10)') &&
-	cm.sql.includes('its display; CMaNGOS') &&
+	cm.sql.includes('INSERT INTO `creature_spawn_data` (`Guid`, `Id`) VALUES (990001, 1000990001)') &&
+	cm.sql.includes('SELECT 1000990001, -1, -1, 0, 3167, -1,') &&
+	cm.sql.includes('SELECT 1000990000, 990001, COALESCE(MAX(`SlotId`), 0) + 1, 0') &&
+	cm.sql.includes('its scale (2); CMaNGOS') &&
 	!/wander_distance|movement_type|emote_state|display_id|`patch/.test(cm.sql) &&
 	cm.status.includes('for CMaNGOS classic') &&
 	cm.status.includes('could not be written') &&

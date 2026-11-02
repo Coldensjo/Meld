@@ -355,10 +355,12 @@ written. `TestMotherPoolSQL` checks the `pool_pool` SQL; it was also run on temp
 
 ## Spawn SQL for CMaNGOS classic (#894)
 
-No probe: the Go tests below, and a run against a real CMaNGOS schema by hand.
+Probe: `export-spawn-sql-core` (the export through the `SpawnEditSQL` binding, for both cores); then
+the Go tests below, and a run against a real CMaNGOS schema by hand.
 
 Checks: File › Export Spawn SQL… with Preferences › Compile and export › Spawn SQL for set to CMaNGOS
-classic writes CMaNGOS's columns, and lists in the header what its tables can't hold.
+classic writes CMaNGOS's columns, a spawn's display and equipment as its own spawn data template and a
+formation as a spawn group (#906), and lists in the header what its tables can't hold.
 - Unit: `go test ./internal/vmangos/ -run CMaNGOS`. `TestCMaNGOSSpawnSQLMatchesTheSchema` checks every
   table and column each statement names against `internal/vmangos/testdata/cmangos-classic-spawns.sql`
   (the spawn tables' columns, written out by hand from cmangos/mangos-classic's `sql/base/mangos.sql`;
@@ -369,7 +371,12 @@ classic writes CMaNGOS's columns, and lists in the header what its tables can't 
   to the scratch folder, never into the repo: it is GPL), then run an export twice
   (`ExportSQLFor(CMaNGOSClassic, cmangosEdits(), fixedTime)` written to a file from a throwaway test)
   and read the rows back; `mariadb-admin -P 3399 -u root shutdown` ends it. Done for #894: both runs
-  passed, and a spawn group row of the same guid but the other type survived the delete.
+  passed, and a spawn group row of the same guid but the other type survived the delete. Done for #906
+  on MariaDB 11.8: with a shared template (Faction 35) linked to guid 500 first, both runs left one row
+  for entry 1000000500 with that faction and the new model, a changed model replaced it, and three
+  more exports (a formation of 7 with members 8 and 10, then 8 moving to 9, then 7 no longer leading)
+  left gapless slots and dropped group 1000000007 with its waypoint_path. `TestCMaNGOSFormationChanges`
+  checks the statements of those cases.
 - Trap: the VMaNGOS world database's own user (`mangos` in `run/mangosd.conf`) may not create
   databases, hence the scratch server. When CMaNGOS's schema moves on (its `db_version` column names
   the last update, `required_z2836_...`), compare the tables in the fixture with the new base file.
