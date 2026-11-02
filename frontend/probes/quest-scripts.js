@@ -1,4 +1,4 @@
-// The quest editor's Export…, Export chain… and Import… (#940): on Kobold Camp Cleanup (7), Export… hands the binding the quest's entry and title; Export chain… reads the Chain tab's quests (783 before it, 15 after) and hands them all; Import… shows the plan's bar (the quest rows, the givers, event links and translations it replaces, the start and end scripts and broadcast texts it carries, kept or under new IDs (#993), missing and unready givers, a missing game event) and Cancel drops it; a plan the server's rules refuse disables Import; a confirmed import notes the quest and reads its givers again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestQuestScriptRoundTrip, TestQuestScriptsLive).
+// The quest editor's Export…, Export chain… and Import… (#940): on Kobold Camp Cleanup (7), Export… hands the binding the quest's entry and title; Export chain… reads the Chain tab's quests (783 before it, 15 after) and hands them all; Import… shows the plan's bar (the quest rows, the givers, event links and translations it replaces, the start and end scripts and broadcast texts it carries, kept or under new IDs (#993), missing and unready givers, a missing game event, the creatures and spells the scripts' commands name that the server lacks (#1045)) and Cancel drops it; a plan the server's rules refuse disables Import; a confirmed import notes the quest and reads its givers again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestQuestScriptRoundTrip, TestQuestScriptsLive).
 // touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/questscripts.go, internal/vmangos/listscripts.go, internal/vmangos/carried.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
 const { ui } = await P.state()
 const App = window.go.main.App
@@ -42,6 +42,10 @@ const plan = (refused) => ({
 	missingObjects: [],
 	missingEvents: [77],
 	unready: [{ kind: 'creature', id: 805, name: 'Cameron' }],
+	scriptLacks: [
+		{ what: 'creature', ids: [90002] },
+		{ what: 'spell', ids: [90003, 90004] },
+	],
 })
 try {
 	App.ExportQuests = async (entries, suggested) => {
@@ -110,6 +114,7 @@ try {
 		!bar.includes('rules refuse') &&
 		bar.includes('99999') &&
 		bar.includes('Cameron (creature 805)') &&
+		bar.includes("The scripts' commands name what this world database lacks, so they do nothing or stop at that step: creature 90002; spells 90003, 90004. Import those first.") &&
 		bar.includes('1 other statement is left out') &&
 		bar.includes('quest_template.Shiny') &&
 		calls.imported === 'C:/Meld-probe/quests.sql'

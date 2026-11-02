@@ -884,6 +884,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   largest the quests name, `quest_template` rewritten to it. A talk command's (`command` 0) `dataint`
   to `dataint4` name broadcast texts, which travel too (a `carriedRef` with `when`, so another
   command's `dataint` is left alone); the creatures, spells and conditions a script names stay IDs.
+  The plan names those the server lacks (`ScriptLacks`, #1045; `carriedPlan.scriptNames`): the
+  `datalong` of a summon (10, a creature), a cast or added aura (15, 74, a spell, looked for in
+  `spell_template`, which the server reads alone) and a summoned object (76), and any row's
+  `condition_id` (`conditions.condition_entry`). Commands naming a spawn's guid (respawn, doors) or
+  other tables stay unsaid.
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
   (`SearchItemsSorted`, ordered in SQL before its limit of 100 by name, entry, quality, item level

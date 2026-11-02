@@ -876,6 +876,14 @@ lists what the quest editor's rules refuse, and writes it on confirmation, repla
   a start script of 7 rows saying texts 563 and 564, an end script) and Children's Week (172, in an
   event) and plans them back, every script and text kept as it is. The probe's stand-in plan names
   an event link, a translation, a script under a new ID, a text kept and a missing event.
+- What a script's commands name that the server lacks (#1045): `TestScriptNames` (a summon's
+  creature, a cast's spell, an aura's, a summoned object, a `condition_id`; not a respawn's guid nor a
+  loot set's columns), `TestQuestScriptsLive` (The Thandol Span, 632, summons creature 4062 under
+  condition 390 and plans back with no lacks; `scriptLacks` on the live database names only the IDs
+  past the largest). To find a quest whose script names such things: `SELECT q.entry, s.command,
+  s.datalong, s.condition_id FROM quest_start_scripts s JOIN quest_template q ON q.StartScript = s.id
+  WHERE s.command IN (10,15,74,76) OR s.condition_id > 0`. The `quest-scripts` probe's stand-in plan
+  lists a creature and two spells.
 - A write, by a scratch Go test (not kept; done on 2026-11-02): `CreateQuest(dir, 401, 'Probe Sirra')`
   (the copy names start and end script 401), `ExportQuests`, a word added to the start script's first
   comment in the script, `PlanQuestImport` (start script 401 to 42652, the end script and both texts

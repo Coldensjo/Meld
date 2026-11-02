@@ -220,6 +220,46 @@ type QuestImport struct {
 	// Unready are givers here that can't give quests (a creature without the Quest giver flag, a game
 	// object not of the quest giver type), which the server leaves out too.
 	Unready []UnreadyGiver `json:"unready"`
+	// ScriptLacks are the creatures, game objects, spells and conditions the carried scripts'
+	// commands name that this server lacks (#1045): the script does nothing or stops at that step.
+	ScriptLacks []ScriptLack `json:"scriptLacks"`
+}
+
+// ScriptLack is a kind of thing ("creature", "game object", "spell", "condition") the carried
+// scripts' commands name, with the IDs of it the world database lacks, in increasing order.
+type ScriptLack struct {
+	What string `json:"what"`
+	IDs  []int  `json:"ids"`
+}
+
+// scriptLackTables are the kinds scriptNames gives, in the plan's order: what each is called, and
+// the table and column that hold it. The server reads its spells from spell_template alone.
+var scriptLackTables = []struct{ kind, what, table, column string }{
+	{"creature", "creature", creatureTable, "entry"},
+	{"object", "game object", objectTable, "entry"},
+	{"spell", "spell", spellTable, "entry"},
+	{"condition", "condition", "conditions", "condition_entry"},
+}
+
+// scriptLacks looks up which of the things the plan's script commands name the world database lacks.
+func scriptLacks(db worldDB, p *carriedPlan) ([]ScriptLack, error) {
+	var out []ScriptLack
+	named := p.scriptNames()
+	for _, t := range scriptLackTables {
+		ids := named[t.kind]
+		if len(ids) == 0 {
+			continue
+		}
+		raw, err := runSQL(db, fmt.Sprintf("SELECT DISTINCT `%s` FROM `%s` WHERE `%s` IN (%s)", t.column, t.table, t.column, idList(ids)))
+		if err != nil {
+			return nil, err
+		}
+		if miss := missingEntries(ids, raw); len(miss) > 0 {
+			sort.Ints(miss)
+			out = append(out, ScriptLack{What: t.what, IDs: miss})
+		}
+	}
+	return out, nil
 }
 
 // QuestImportRow is one quest row of a script: its entry, patch and title, and whether the world
@@ -278,6 +318,9 @@ func PlanQuestImport(serverRoot, dataDir, script string) (QuestImport, error) {
 	}
 	out.Carried = plan.carried.imports()
 	out.Others += plan.carried.others
+	if out.ScriptLacks, err = scriptLacks(db, &plan.carried); err != nil {
+		return QuestImport{}, err
+	}
 	if out.MissingEvents, err = lacking(db, "game_event", named["event"]); err != nil {
 		return QuestImport{}, err
 	}

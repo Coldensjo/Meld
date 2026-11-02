@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -177,6 +178,38 @@ func TestQuestScriptsLive(t *testing.T) {
 			t.Errorf("%s of quest %d: %d rows, has %d", l.Table, l.Entry, l.Rows, l.Had)
 		}
 	}
+
+	// Brought from the server they came from, the scripts' commands name nothing it lacks: The
+	// Thandol Span (632) summons creature 4062 under condition 390 (#1045).
+	script, err = ExportQuests(dir, []int{632})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan, err = PlanQuestImport(dir, data, script); err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Carried) == 0 || len(plan.ScriptLacks) != 0 {
+		t.Fatalf("quest 632: carried %+v, lacks %+v", plan.Carried, plan.ScriptLacks)
+	}
+	// What the server lacks of what a script names: the IDs past the largest, not those it has.
+	db, err := openWorld(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := func(command, datalong, condition string) sqlRow {
+		return sqlRow{values: map[string]string{"command": command, "datalong": datalong, "condition_id": condition}}
+	}
+	none := "16777214"
+	p := carriedPlan{sets: []*importSet{{kind: &carriedKinds[slices.IndexFunc(carriedKinds, func(k carriedKind) bool { return k.key == "startscript" })], id: 1,
+		rows: [][]sqlRow{{row("10", "4062", "390"), row("10", none, "0"), row("15", "4984", none), row("74", none, "0"), row("76", none, "0"), row("76", none, "0")}}}}}
+	lacks, err := scriptLacks(db, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprintf("%+v", lacks)
+	if want := "[{What:creature IDs:[16777214]} {What:game object IDs:[16777214]} {What:spell IDs:[16777214]} {What:condition IDs:[16777214]}]"; got != want {
+		t.Fatalf("lacks %s, want %s", got, want)
+	}
 }
 
 // A quest's start and end scripts travel in its script by their IDs, with the broadcast texts their
@@ -263,6 +296,9 @@ func TestQuestScriptCarried(t *testing.T) {
 			t.Errorf("on the server it came from: %+v", s)
 		}
 	}
+	if n := p.scriptNames(); len(n) != 1 || !slices.Equal(n["spell"], []int{7}) {
+		t.Fatalf("the scripts' commands name %v, want spell 7", n)
+	}
 
 	// Another server: its script 401 is another quest's, its end script 402 the same, its text 500
 	// says something else, and a quest there names start script 900 without rows.
@@ -317,4 +353,28 @@ type lastIs struct {
 func (l lastIs) maxID(t carriedTable) (int, error) {
 	n, err := l.fakeSource.maxID(t)
 	return max(n, l.last[t.name]), err
+}
+
+// TestScriptNames: the creatures, objects, spells and conditions a carried script's commands name
+// (#1045), and nothing from a set that holds no script or a command whose datalong is no entry.
+func TestScriptNames(t *testing.T) {
+	row := func(command, datalong, condition string) sqlRow {
+		return sqlRow{values: map[string]string{"command": command, "datalong": datalong, "condition_id": condition}}
+	}
+	script := &carriedKinds[slices.IndexFunc(carriedKinds, func(k carriedKind) bool { return k.key == "startscript" })]
+	loot := &carriedKinds[slices.IndexFunc(carriedKinds, func(k carriedKind) bool { return k.key == "loot" })]
+	p := carriedPlan{sets: []*importSet{
+		{kind: script, id: 1, rows: [][]sqlRow{{row("10", "448", "0"), row("15", "133", "27"), row("74", "0", "0"), row("76", "3000", ""), row("9", "5555", "0"), row("0", "0", "0")}}},
+		{kind: loot, id: 2, rows: [][]sqlRow{{{values: map[string]string{"command": "10", "datalong": "1"}}}}},
+	}}
+	got := p.scriptNames()
+	want := map[string][]int{"creature": {448}, "spell": {133}, "object": {3000}, "condition": {27}}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for k, v := range want {
+		if !slices.Equal(got[k], v) {
+			t.Errorf("%s: got %v, want %v", k, got[k], v)
+		}
+	}
 }

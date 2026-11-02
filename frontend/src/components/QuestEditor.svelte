@@ -349,6 +349,10 @@
 						{#if refused.length}<span class="refused">The server's rules refuse it, so nothing can be imported until the script is fixed: {some(refused, 8)}.</span>{/if}
 						{#if p.missingCreatures?.length}<span>Creatures this world database lacks, which the server leaves out as givers: {p.missingCreatures.join(', ')}. Import them first (the creature editor).</span>{/if}
 						{#if p.missingObjects?.length}<span>Game objects this world database lacks, which the server leaves out as givers: {p.missingObjects.join(', ')}. Import them first (the game object editor).</span>{/if}
+						{#if p.scriptLacks?.length}<span
+								>The scripts' commands name what this world database lacks, so they do nothing or stop at that step: {p.scriptLacks.map((l) => `${l.what}${l.ids.length === 1 ? '' : 's'} ${l.ids.join(', ')}`).join('; ')}.
+								Import those first.</span
+							>{/if}
 						{#if p.missingEvents?.length}<span>Game events this world database lacks, which the server leaves out: {p.missingEvents.join(', ')}.</span>{/if}
 						{#if p.unready?.length}<span
 								>Givers here that can't give quests, which the server leaves out too (a creature needs the Quest giver flag, an object the quest giver type): {some(

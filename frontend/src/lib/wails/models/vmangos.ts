@@ -148,6 +148,7 @@ export type Result = V2<M.Result>
 export type RowChange = V2<M.RowChange>
 export type RowFault = V2<M.RowFault>
 export type ScriptCommand = V2<M.ScriptCommand>
+export type ScriptLack = V2<M.ScriptLack>
 export type SkillChoice = V2<M.SkillChoice>
 export type SoundDeletePlan = V2<M.SoundDeletePlan>
 export type SoundEntryInfo = V2<M.SoundEntryInfo>

@@ -147,6 +147,7 @@ export type {
     RowChange,
     RowFault,
     ScriptCommand,
+    ScriptLack,
     SkillChoice,
     SoundDeletePlan,
     SoundEntryInfo,

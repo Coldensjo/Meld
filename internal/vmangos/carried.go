@@ -23,7 +23,8 @@ import (
 // table's largest plus one), and the templates' columns and the other sets' references are rewritten
 // to the IDs they came to, as the spell editor's import does for icons and visuals (spelllooks.go).
 // The conditions, scripts and points of interest the rows name stay IDs, not in the script, as do
-// the creatures, objects, spells and the like a script's commands name.
+// the creatures, objects, spells and the like a script's commands name (the quest import's plan
+// lists those the server lacks, #1045).
 
 // carriedTable is a table of a carried kind's rows, keyed by the set's ID in column id.
 type carriedTable struct {
@@ -60,6 +61,9 @@ type carriedKind struct {
 	// server lacks; loot: a row whose mincountOrRef is negative names no item.
 	items []string
 	loot  bool
+	// script: the first table's rows are script commands, whose datalong and condition_id name
+	// creatures, objects, spells and conditions by command (scriptNames).
+	script bool
 }
 
 // scriptTalk is the script command that says a broadcast text (SCRIPT_COMMAND_TALK), its dataint to
@@ -70,7 +74,7 @@ const scriptTalk = "0"
 // names in column, its talk commands naming the broadcast texts they say. A fresh ID goes past any a
 // quest names too, so it never turns up in another quest's script.
 func questScriptKind(key, table, what, column string) carriedKind {
-	k := carriedKind{key: key, what: what, tables: []carriedTable{{name: table, id: "id", order: "`delay`, `priority`, `command`",
+	k := carriedKind{key: key, what: what, script: true, tables: []carriedTable{{name: table, id: "id", order: "`delay`, `priority`, `command`",
 		last: fmt.Sprintf("GREATEST((SELECT COALESCE(MAX(`id`), 0) FROM `%s`), (SELECT COALESCE(MAX(`%s`), 0) FROM `%s`))", table, column, questTable)}}}
 	talk := func(v func(string) string) bool { return strings.TrimSpace(v("command")) == scriptTalk }
 	for _, c := range []string{"dataint", "dataint2", "dataint3", "dataint4"} {
@@ -764,6 +768,40 @@ func (p *carriedPlan) items() []int {
 					out = append(out, n)
 				}
 			}
+		}
+	}
+	return out
+}
+
+// What a script command's datalong names, by command (VMaNGOS's ScriptCommands.h): only the
+// commands that name a template entry there; those naming a spawn's guid (respawn, open door) or
+// other tables stay unsaid.
+var scriptDatalong = map[string]string{
+	"10": "creature", // SCRIPT_COMMAND_TEMP_SUMMON_CREATURE: creature_entry
+	"15": "spell",    // SCRIPT_COMMAND_CAST_SPELL: spell_id
+	"74": "spell",    // SCRIPT_COMMAND_ADD_AURA: spell_id
+	"76": "object",   // SCRIPT_COMMAND_SUMMON_OBJECT: gameobject_entry
+}
+
+// scriptNames are the creatures, objects, spells and conditions the sets' script commands name, by
+// kind ("creature", "object", "spell", "condition"; a row's condition_id whatever its command), for
+// the plan's lookup of what the server lacks (#1045).
+func (p *carriedPlan) scriptNames() map[string][]int {
+	out := map[string][]int{}
+	add := func(kind, v string) {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+			out[kind] = append(out[kind], n)
+		}
+	}
+	for _, s := range p.sets {
+		if !s.kind.script {
+			continue
+		}
+		for _, r := range s.rows[0] {
+			if kind := scriptDatalong[strings.TrimSpace(r.values["command"])]; kind != "" {
+				add(kind, r.values["datalong"])
+			}
+			add("condition", r.values["condition_id"])
 		}
 	}
 	return out

@@ -2045,6 +2045,12 @@ export interface QuestImport {
      * object not of the quest giver type), which the server leaves out too.
      */
     "unready": UnreadyGiver[] | null;
+
+    /**
+     * ScriptLacks are the creatures, game objects, spells and conditions the carried scripts'
+     * commands name that this server lacks (#1045): the script does nothing or stops at that step.
+     */
+    "scriptLacks": ScriptLack[] | null;
 }
 
 /**
@@ -2472,6 +2478,15 @@ export interface ScriptCommand {
     "z": number;
     "o": number;
     "comments": string;
+}
+
+/**
+ * ScriptLack is a kind of thing ("creature", "game object", "spell", "condition") the carried
+ * scripts' commands name, with the IDs of it the world database lacks, in increasing order.
+ */
+export interface ScriptLack {
+    "what": string;
+    "ids": number[] | null;
 }
 
 /**
