@@ -78,8 +78,8 @@ export function markdownStructure(tokens, source) {
 	return errors
 }
 
-export async function check() {
-	const config = (await import('../../docs/.vitepress/config.mts')).default
+// The Markdown structure test alone (one H1, no NUL, closed fences), without the VitePress build: `make check` runs it (--structure), since a lone carriage return once broke it unseen (#924).
+export async function parseDocuments(config) {
 	const markdown = await createMarkdownRenderer(docs, config.markdown)
 	const documents = [...filesUnder(docs, '.md'), ...['README.md', 'CLAUDE.md', 'DOCUMENTATION_PLAN.md', 'DOCUMENTATION_AUDIT.md', 'DOCUMENTATION_RULES.md', 'build/README.md'].map((path) => join(repository, path))]
 	const errors = []
@@ -97,6 +97,19 @@ export async function check() {
 			report(path, error)
 		}
 	}
+	return { documents, parsed, errors, report }
+}
+
+export async function checkStructure() {
+	const config = (await import('../../docs/.vitepress/config.mts')).default
+	const { documents, errors } = await parseDocuments(config)
+	if (errors.length) throw new Error(`Markdown structure failed (${errors.length}):\n${errors.join('\n')}`)
+	console.log(`Markdown structure passed: ${documents.length} files.`)
+}
+
+export async function check() {
+	const config = (await import('../../docs/.vitepress/config.mts')).default
+	const { documents, parsed, errors, report } = await parseDocuments(config)
 	let markdownLinks = 0
 	for (const [path, { tokens }] of parsed) {
 		const inspect = (token) => {
@@ -147,4 +160,4 @@ export async function check() {
 	console.log(`Documentation checks passed: ${documents.length} Markdown files, ${markdownLinks} relative links/images, ${pages.size} HTML pages, ${renderedLinks} rendered references; navigation, anchors, assets and Markdown structure.`)
 }
 
-if (import.meta.main) await check()
+if (import.meta.main) await (process.argv.includes('--structure') ? checkStructure() : check())

@@ -191,6 +191,7 @@ The site is built from `docs/` with VitePress. Its dependency and scripts live i
 cd frontend
 bun run docs:dev       # edit with hot reload
 bun run docs:check     # build, validate Markdown/rendered links and anchors, test the checker
+bun run docs:structure # only the Markdown structure (one H1, closed fences), no build; `make check` and CI run it
 bun run docs:preview   # inspect the built site
 ```
 
