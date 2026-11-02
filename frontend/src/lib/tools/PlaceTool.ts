@@ -12,6 +12,7 @@ import { GhostPool } from './ghosts'
 import { clampScale, placementEuler, stepTilt } from '../world/placement'
 import { SpacingGrid } from './doodadBrush'
 import { addedCommand } from '../world/objectCommands'
+import { eachMirror, mirrorHeading, mirrorRoll, type Mirror } from './symmetry'
 
 const TILT_LIMIT = (8 * Math.PI) / 180
 
@@ -230,9 +231,10 @@ export class PlaceTool implements Tool {
 			rot: this.rot,
 			scale: this.scale,
 		})
-		const add = addedCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place')
+		const placed = [o, ...this.placeCopies(ctx, p, surf.parent !== null)]
+		const add = addedCommand(ctx.objects, placed, surf.parent !== null ? 'Place (attached)' : 'Place')
 		// With Fit ground on, a model on open ground has the ground fitted under it in the same undo step.
-		const fit = prefs.placeFitGround && surf.parent === null ? this.hooks.fitGround(o.id, { ...prefs.fitGround }) : null
+		const fit = prefs.placeFitGround && surf.parent === null ? this.fitAll(placed) : null
 		ctx.history.push(
 			fit
 				? {
@@ -249,8 +251,56 @@ export class PlaceTool implements Tool {
 				: add,
 		)
 		// The new object stays selected so it can be nudged/spun with the keys.
-		selectObjects(ctx.objects, [o.id])
+		selectObjects(
+			ctx.objects,
+			placed.map((q) => q.id),
+			o.id,
+		)
 		this.reroll()
+	}
+
+	/**
+	 * With symmetry on (#182), the model just placed at `p` again at each of the stroke's copies, turned
+	 * (or mirrored) with it, on the ground there; a copy of an attached placement stands at the same
+	 * height, on its own. Returns the copies.
+	 */
+	private placeCopies(ctx: ToolContext, p: THREE.Vector3, attached: boolean): WorldObject[] {
+		const out: WorldObject[] = []
+		eachMirror(editor.symmetry, ctx.terrain, p, 0, false, (d) => {
+			if (d.index === 0 || !ctx.terrain.contains(d.x, d.z)) return
+			const y = attached ? p.y : d.y + editor.placeHeight
+			const rot = mirrorHeading(d.mirror, this.rot)
+			const tilt = this.handTilt ? this.mirrorTilt(d.mirror, this.handTilt) : editor.followGround && !attached ? this.groundTilt(ctx, d.x, d.z, rot, { tiltX: 0, tiltZ: 0 }) : this.mirrorTilt(d.mirror, this.tilt)
+			const c = ctx.objects.add({ type: editor.prefab, x: d.x, z: d.z, yOff: 0, rotY: rot, scale: this.scale, ...tilt })
+			ctx.objects.place(c, null, { pos: new THREE.Vector3(d.x, y, d.z), rot, scale: this.scale })
+			out.push(c)
+		})
+		return out
+	}
+
+	/** A tilt as a symmetric stroke's copy `m` has it: the roll mirrored. */
+	private mirrorTilt(m: Mirror, t: { tiltX?: number; tiltZ?: number }): { tiltX?: number; tiltZ?: number } {
+		if (t.tiltX === undefined && t.tiltZ === undefined) return {}
+		return { tiltX: t.tiltX ?? 0, tiltZ: mirrorRoll(m, t.tiltZ ?? 0) }
+	}
+
+	/** Fit ground (#207) under every model placed, as one command; null when none changed the ground. */
+	private fitAll(placed: WorldObject[]): Command | null {
+		const fits: Command[] = []
+		for (const q of placed) {
+			const f = this.hooks.fitGround(q.id, { ...prefs.fitGround })
+			if (f) fits.push(f)
+		}
+		if (fits.length <= 1) return fits[0] ?? null
+		return {
+			label: 'Fit ground',
+			undo: () => {
+				for (let i = fits.length - 1; i >= 0; i--) fits[i].undo()
+			},
+			redo: () => {
+				for (const f of fits) f.redo()
+			},
+		}
 	}
 
 	tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
@@ -269,19 +319,27 @@ export class PlaceTool implements Tool {
 			// Keep a minimum spacing between same-type props in this stroke.
 			if (!this.scatterGrid.fits(x, z, 1, spacing)) continue
 			const rotY = Math.random() * Math.PI * 2
-			const o = ctx.objects.add({
-				type: editor.prefab,
-				x,
-				z,
-				yOff: 0,
-				rotY,
-				scale: editor.placeRandomScale ? 0.75 + Math.random() * 0.5 : 1,
-				...(editor.followGround ? this.groundTilt(ctx, x, z, rotY, { tiltX: 0, tiltZ: 0 }) : randomTilt()),
+			const scale = editor.placeRandomScale ? 0.75 + Math.random() * 0.5 : 1
+			const tilt = randomTilt()
+			// With symmetry on (#182), at each of the stroke's copies too, turned with it.
+			eachMirror(editor.symmetry, ctx.terrain, this.scatterAt.set(x, 0, z), 0, false, (d) => {
+				if (!ctx.terrain.contains(d.x, d.z) || (d.index > 0 && !this.scatterGrid!.fits(d.x, d.z, 1, spacing))) return
+				const rot = mirrorHeading(d.mirror, rotY)
+				const o = ctx.objects.add({
+					type: editor.prefab,
+					x: d.x,
+					z: d.z,
+					yOff: 0,
+					rotY: rot,
+					scale,
+					...(editor.followGround ? this.groundTilt(ctx, d.x, d.z, rot, { tiltX: 0, tiltZ: 0 }) : this.mirrorTilt(d.mirror, tilt)),
+				})
+				this.scattering!.push(o)
+				this.scatterGrid!.add(d.x, d.z, 1)
 			})
-			this.scattering.push(o)
-			this.scatterGrid.add(x, z, 1)
 		}
 	}
+	private scatterAt = new THREE.Vector3()
 
 	onUp(ctx: ToolContext) {
 		if (this.scattering?.length) ctx.history.push(addedCommand(ctx.objects, this.scattering, 'Scatter'))

@@ -12,6 +12,7 @@ import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, SpacingGrid, activeBrushIn, addBrushTo, attemptRate, candidate, fillAttempts, fits, fitsOn, pickEntry, rulesAllow, type DoodadBrush } from './doodadBrush'
 import { ToolGround } from './toolGround'
 import { InputsKey } from './inputsKey'
+import { IDENTITY, eachMirror, mirrorHeading, mirrorOffset, mirrorRoll, type Mirror } from './symmetry'
 import type { SpawnBrushTool } from './SpawnBrushTool'
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
@@ -205,8 +206,7 @@ export class DoodadBrushTool implements Tool {
 		this.placedIds.clear()
 		// The previewed placements land first, so a click puts down what was shown.
 		this.ensurePlan(brush)
-		this.prepareNear(ctx, hit, brush)
-		for (const p of this.plan) this.place(ctx, brush, hit, p)
+		this.placeCopies(ctx, brush, hit, this.plan)
 		this.plan = []
 		this.planKey.reset()
 		this.acc = 0
@@ -589,21 +589,61 @@ export class DoodadBrushTool implements Tool {
 		let attempts = Math.min(MAX_ATTEMPTS, Math.floor(this.acc))
 		if (attempts <= 0) return
 		this.acc -= attempts
-		this.prepareNear(ctx, hit, brush)
+		const rolled = this.rolled
+		rolled.length = 0
 		while (attempts-- > 0) {
 			const p = this.roll(brush, radius, falloff, curve)
-			if (p) this.place(ctx, brush, hit, p)
+			if (p) rolled.push(p)
 		}
+		this.placeCopies(ctx, brush, hit, rolled)
 	}
 
-	/** Removes the brush's models (with anything attached to them) whose ground point is under the brush. */
+	/** This tick's placements, drawn before any lands, so a symmetric stroke's copies put down the same ones mirrored. */
+	private rolled: Planned[] = []
+	private copyAt = new THREE.Vector3()
+	private copyPlan: Planned = { dx: 0, dz: 0, entry: 0, scale: 1, rotY: 0, tiltX: 0, tiltZ: 0, size: 0 }
+
+	/**
+	 * Puts `plans` down about the brush at `hit`, and with symmetry on (#182) about each of its copies
+	 * too, mirrored or turned with it (each model's heading and roll as well), each copy spaced against
+	 * what stands around it. Copies are not merged: the spacing keeps two from landing on one spot.
+	 */
+	private placeCopies(ctx: ToolContext, brush: DoodadBrush, hit: THREE.Vector3, plans: Planned[]) {
+		eachMirror(editor.symmetry, ctx.terrain, hit, editor.brush.radius, false, (d) => {
+			const at = this.copyAt.set(d.x, d.y, d.z)
+			this.prepareNear(ctx, at, brush)
+			for (const p of plans) this.place(ctx, brush, at, this.mirrorPlan(p, d.mirror))
+		})
+	}
+
+	/** Placement `p` as copy `m` of a symmetric stroke, in a scratch plan (`place` copies what it needs). */
+	private mirrorPlan(p: Planned, m: Mirror): Planned {
+		if (m === IDENTITY) return p
+		const q = this.copyPlan
+		const off = this.offScratch
+		mirrorOffset(m, p.dx, p.dz, off)
+		q.dx = off[0]
+		q.dz = off[1]
+		q.entry = p.entry
+		q.scale = p.scale
+		q.rotY = mirrorHeading(m, p.rotY)
+		q.tiltX = p.tiltX
+		q.tiltZ = mirrorRoll(m, p.tiltZ)
+		q.size = p.size
+		return q
+	}
+	private offScratch = new Float64Array(2)
+
+	/** Removes the brush's models (with anything attached to them) whose ground point is under the brush (or, with symmetry on, under any of its copies, #182). */
 	private erase(ctx: ToolContext, hit: THREE.Vector3, brush: DoodadBrush) {
 		const types = new Set(brush.entries.map((e) => e.type))
 		const gone = new Set<number>()
-		for (const o of ctx.objects.rootsNear(hit.x, hit.z, editor.brush.radius, this.found)) {
-			if (types.has(o.type) && ctx.objects.pickable(o.id)) gone.add(o.id)
-		}
-		this.found.length = 0
+		eachMirror(editor.symmetry, ctx.terrain, hit, editor.brush.radius, false, (d) => {
+			for (const o of ctx.objects.rootsNear(d.x, d.z, editor.brush.radius, this.found)) {
+				if (types.has(o.type) && ctx.objects.pickable(o.id)) gone.add(o.id)
+			}
+			this.found.length = 0
+		})
 		ctx.objects.descendantsOf(gone, gone)
 		for (const id of gone) {
 			const o = ctx.objects.objects.get(id)

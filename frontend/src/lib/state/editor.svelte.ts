@@ -1,5 +1,6 @@
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
+import type { SymmetryMode } from '../tools/symmetry'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
@@ -86,6 +87,12 @@ export const editor = $state({
 	 * so several strokes meet at one level. Alt+click in Flatten locks the point under the cursor.
 	 */
 	flattenLock: { on: false, x: 0, y: 0, z: 0 },
+	/**
+	 * Symmetry (#182, tools/symmetry.ts): the brush tools apply each stroke at its mirrored (or turned)
+	 * copies too, about `center` (world x, z; null for the map's centre). Per map, as the locked points
+	 * are: another map starts with it off.
+	 */
+	symmetry: { mode: 'off' as SymmetryMode, count: 4, center: null as { x: number; z: number } | null },
 	/**
 	 * Crevice digs the brush's solid centre into a trench and piles the ground onto both sides, in the
 	 * falloff band. `ridge` scales the pile: 1 keeps the dug volume, 0 only digs.
@@ -509,6 +516,8 @@ export type PrefsPage = 'general' | 'folders' | 'camera' | 'graphics' | 'compile
 
 export const ui = $state({
 	status: 'Ready',
+	/** The options bar's Symmetry › Pick centre is armed: the next click on the ground sets the centre (#182). */
+	symmetryPick: false,
 	/** A short-lived notice drawn big over the viewport (e.g. the placement scale while Shift+scrolling); '' when none. */
 	viewportHint: '',
 	/** Bumped with every hint, so the view can restart its fade even when the text is unchanged. */

@@ -206,6 +206,31 @@ or undo intervening terrain edits safely. Save a copy before rebuilding a baked 
 a new path. The curve is saved as an editing aid in `.wmap`; the applied terrain, liquids and
 models are exported, not the control curve itself.
 
+### Mirror strokes for a symmetric map
+
+For a battleground or arena that must be fair to both sides, set **Symmetry** before you sculpt, paint or
+place. Sculpt, Paint, Water and the Doodad brush keep it in their settings panel (the options bar's
+**Brush**, **Water** or **Placement** button); the other tools show it at the end of the options bar.
+Every stroke then also lands at its copies, in the same undo step:
+
+| Symmetry | Copies |
+| --- | --- |
+| Mirror X | Left and right of the centre |
+| Mirror Z | Before and behind it |
+| Mirror X+Z | Both: four copies |
+| Point | A half turn about the centre |
+| Radial | 2 to 8 copies turned evenly about the centre (**Copies**) |
+
+The centre is the map's middle. To move it, press **Pick centre** and click the ground; **Map centre**
+puts it back. Dashed lines over the ground show the axes. Symmetry works in Sculpt (not Hole or
+Vertex), Paint, Roads, Water, Clear, Map data, Stamp, the Doodad brush and Place; models placed or
+scattered on a copy turn with it, so a gate facing the centre faces it on every side. Each open map
+keeps its own setting, and a map starts with it off.
+
+Where a stroke's copies overlap near an axis they become one dab on the axis, so the ground there is
+not raised or painted twice. Erode's water drops fall at random on each copy, so the sides differ a
+little after an Erode stroke.
+
 ### Place models and scatter details
 
 Pick a model to preview it under the cursor, then click to place it. **Ctrl+wheel** rotates the

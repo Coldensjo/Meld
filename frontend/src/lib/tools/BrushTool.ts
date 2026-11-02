@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { editor as liveEditor, setStatus, type SculptLimit, type ToolSettings } from '../state/editor.svelte'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushShape, type Rect } from './brush'
-import { brushImage, setBrushImageRotation } from './brushImage'
+import { brushImage, setBrushImageTransform } from './brushImage'
+import { IDENTITY, eachMirror, mirrorPoint, symmetryCenter, unmirrorPoint, type Mirror, type MirrorDab } from './symmetry'
 import { dominantTexel, textureWeightTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 
@@ -76,13 +77,60 @@ export abstract class BrushTool implements Tool {
 	protected stroke: TerrainStroke | null = null
 	protected abstract label: string
 	protected abstract records: { heights?: boolean; splat?: boolean; mask?: boolean }
-	protected strokeStart = new THREE.Vector3()
+	/** Where the stroke started, for each copy of a symmetric stroke (#182): `strokeStart` reads the one being applied. */
+	private starts: THREE.Vector3[] = [new THREE.Vector3()]
+	protected get strokeStart(): THREE.Vector3 {
+		return this.starts[this.mirrorIndex] ?? this.starts[0]
+	}
+	/**
+	 * The copy of a symmetric stroke being applied now (#182): its index (0 the stroke itself) and its
+	 * transform, so a tool keeps its per-stroke state (Flatten's height, Terrace's level) per copy.
+	 * `begin` and `apply` run once per copy, with these set.
+	 */
+	protected mirrorIndex = 0
+	protected mirror: Mirror = IDENTITY
+	private mirrorCenter = { x: 0, z: 0 }
+	private unmirrored = new Float64Array(2)
 
 	onDown(ctx: ToolContext, hit: THREE.Vector3 | null) {
 		if (!hit) return
-		this.strokeStart.copy(hit)
 		this.stroke = new TerrainStroke(ctx.terrain, this.label, this.records, (r) => this.resnap(ctx, r))
-		this.begin(ctx, hit)
+		// Every copy begins at its own point (no merging: each keeps its own start), with the ground's height there.
+		eachMirror(liveEditor.symmetry, ctx.terrain, hit, 0, false, (d) => {
+			const start = (this.starts[d.index] ??= new THREE.Vector3()).set(d.x, d.y, d.z)
+			this.setMirror(ctx, d)
+			this.begin(ctx, start)
+		})
+		this.setMirror(ctx, null)
+	}
+
+	/** Makes `d` the copy being applied (null: the stroke itself). */
+	private setMirror(ctx: ToolContext, d: MirrorDab | null) {
+		this.mirrorIndex = d?.index ?? 0
+		this.mirror = d?.mirror ?? IDENTITY
+		if (d) {
+			const c = symmetryCenter(liveEditor.symmetry, ctx.terrain.worldSize)
+			this.mirrorCenter.x = c.x
+			this.mirrorCenter.z = c.z
+		}
+	}
+
+	/**
+	 * The point of the stroke's own copy that the copy being applied now draws at (x, z), into `out`:
+	 * a world-space pattern (Noise's, Mountain's ridges) read there comes out mirrored on every copy.
+	 */
+	protected unmirror(x: number, z: number): Float64Array {
+		const out = this.unmirrored
+		if (this.mirror === IDENTITY) {
+			out[0] = x
+			out[1] = z
+		} else unmirrorPoint(this.mirror, this.mirrorCenter.x, this.mirrorCenter.z, x, z, out)
+		return out
+	}
+
+	/** A point given for the stroke's own copy (the locked Flatten pivot) as the copy being applied now, into `out`. */
+	protected mirrored(x: number, z: number, out: Float64Array | number[]) {
+		mirrorPoint(this.mirror, this.mirrorCenter.x, this.mirrorCenter.z, x, z, out)
 	}
 
 	/** Puts this tool's stroke on `stroke`, shared with the Stamp tool's other brushes (after its onDown). */
@@ -106,6 +154,23 @@ export abstract class BrushTool implements Tool {
 	}
 
 	private center = new THREE.Vector3()
+	/** The tick's ctx and dt for `applyDab`, so the per-copy callback is made once, not every tick. */
+	private tickCtx: ToolContext | null = null
+	private tickDt = 0
+	private readonly applyDab = (d: MirrorDab) => {
+		const ctx = this.tickCtx!
+		const [x, z] = brushCenter(d.x, d.z, this.radius(), ctx.terrain.cellSize, brushShape.square && editor.brush.snap)
+		this.setMirror(ctx, d)
+		if (brushImage.active) setBrushImageTransform(editor.brushImage.rotation, d.mirror)
+		this.apply(ctx, this.tickDt, this.center.set(x, d.y, z))
+	}
+
+	/** One tick's dabs: the stroke's own, and with symmetry on (#182) one for each copy, merged where they overlap. */
+	private applyCopies(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
+		this.tickCtx = ctx
+		this.tickDt = dt
+		eachMirror(liveEditor.symmetry, ctx.terrain, hit, this.radius(), true, this.applyDab)
+	}
 
 	/** Radius of the brush footprint (roads use a narrower one). */
 	radius(): number {
@@ -116,16 +181,16 @@ export abstract class BrushTool implements Tool {
 		if (!this.stroke || !hit) return
 		brushShape.square = editor.brush.shape === 'square'
 		brushShape.curve = editor.brush.curve
-		const [x, z] = brushCenter(hit.x, hit.z, this.radius(), ctx.terrain.cellSize, brushShape.square && editor.brush.snap)
 		// The brush image shapes this stroke only, and only in the tools that take one.
 		brushImage.active = this.imageShaped() && !!brushImage.data
-		if (brushImage.active) setBrushImageRotation(editor.brushImage.rotation)
 		try {
 			const p = ctx.radiusPressure()
-			if (p < 1) withSettings(pressured(editor, p), () => this.apply(ctx, dt, this.center.set(x, hit.y, z)))
-			else this.apply(ctx, dt, this.center.set(x, hit.y, z))
+			if (p < 1) withSettings(pressured(editor, p), () => this.applyCopies(ctx, dt, hit))
+			else this.applyCopies(ctx, dt, hit)
 		} finally {
 			brushImage.active = false
+			this.setMirror(ctx, null)
+			this.tickCtx = null
 		}
 	}
 

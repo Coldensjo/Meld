@@ -1,4 +1,4 @@
-import type * as THREE from 'three'
+import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import { editor, setStatus } from '../state/editor.svelte'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
@@ -7,6 +7,7 @@ import { ChunkDataStroke } from './chunkDataStroke'
 import { ShadowStroke } from './shadowStroke'
 import { SHADOW_PER_CELL } from '../terrain/bakedShadows'
 import { areaName } from '../wow/areas'
+import { eachMirror, type MirrorDab } from './symmetry'
 
 /**
  * The Map data tool paints what a chunk's header says besides its ground, into every chunk whose
@@ -76,8 +77,19 @@ export class MapDataTool implements Tool {
 		setStatus(`Painting ${areaName(id)} (${id}).`)
 	}
 
+	private dabCtx: ToolContext | null = null
+	private dabAt = new THREE.Vector3()
+	private readonly applyDab = (d: MirrorDab) => this.applyAt(this.dabCtx!, this.dabAt.set(d.x, d.y, d.z))
+
+	/** Paints under the brush, and with symmetry on (#182) under each of its copies (each sets a value, so overlapping copies are not merged). */
 	private apply(ctx: ToolContext, hit: THREE.Vector3 | null) {
 		if (!hit) return
+		this.dabCtx = ctx
+		eachMirror(editor.symmetry, ctx.terrain, hit, editor.brush.radius, false, this.applyDab)
+		this.dabCtx = null
+	}
+
+	private applyAt(ctx: ToolContext, hit: THREE.Vector3) {
 		const t = ctx.terrain
 		let changed = false
 		const side = t.paintChunksPerSide

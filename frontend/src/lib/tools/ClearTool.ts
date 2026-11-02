@@ -1,4 +1,3 @@
-import type * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import { editor } from '../state/editor.svelte'
 import { removedCommand } from '../world/objectCommands'
@@ -8,6 +7,8 @@ import { CHUNK_CELLS, SLOTS, dropFaintLayers, resetTexel } from '../terrain/chun
 import { LiquidStroke } from '../water/liquidStroke'
 import { newLiquidBrush, paintLiquid } from '../water/liquids'
 import { HOLE_BLOCK, countHoles, fillHoles } from '../terrain/holes'
+import { eachMirror, type MirrorDab } from './symmetry'
+import * as THREE from 'three'
 
 /**
  * Clear erases what the brush covers, after noggit's clear tools. "models" removes the placed models
@@ -35,7 +36,7 @@ export class ClearTool implements Tool {
 	 */
 	readonly doomed: WorldObject[] = []
 	private doomedIds = new Set<number>()
-	private doomedAt = { x: NaN, z: NaN, r: 0, version: -1, layer: null as ObjectLayer | null }
+	private doomedAt = { x: NaN, z: NaN, r: 0, version: -1, layer: null as ObjectLayer | null, sym: '' as string, count: 0, cx: NaN, cz: NaN }
 
 	onDown(ctx: ToolContext, hit: THREE.Vector3 | null) {
 		this.held = true
@@ -63,13 +64,23 @@ export class ClearTool implements Tool {
 		}
 		const r = editor.brush.radius
 		const objects = ctx.objects
-		if (at.x === hit.x && at.z === hit.z && at.r === r && at.version === objects.version && at.layer === objects) return
+		const sym = editor.symmetry
+		const cx = sym.center?.x ?? NaN
+		const cz = sym.center?.z ?? NaN
+		const same = at.sym === sym.mode && at.count === sym.count && Object.is(at.cx, cx) && Object.is(at.cz, cz)
+		if (same && at.x === hit.x && at.z === hit.z && at.r === r && at.version === objects.version && at.layer === objects) return
+		at.sym = sym.mode
+		at.count = sym.count
+		at.cx = cx
+		at.cz = cz
 		at.x = hit.x
 		at.z = hit.z
 		at.r = r
 		at.version = objects.version
 		at.layer = objects
-		this.modelsIn(objects, hit, this.doomedIds)
+		// Every copy's models, with symmetry on (#182).
+		this.doomedIds.clear()
+		eachMirror(editor.symmetry, ctx.terrain, hit, r, false, (d) => this.modelsIn(objects, this.dabAt.set(d.x, d.y, d.z), this.doomedIds, true))
 		this.doomed.length = 0
 		for (const id of this.doomedIds) {
 			const o = objects.objects.get(id)
@@ -97,8 +108,21 @@ export class ClearTool implements Tool {
 		if (objects && saved.length) ctx.history.push(removedCommand(objects, saved, 'Clear models'))
 	}
 
+	/** The ctx and point of the copy `clearDab` clears at, set per call rather than a closure made every tick. */
+	private dabCtx: ToolContext | null = null
+	private dabAt = new THREE.Vector3()
+	private readonly clearDab = (d: MirrorDab) => this.clearAt(this.dabCtx!, this.dabAt.set(d.x, d.y, d.z))
+
+	/** Clears under the brush, and with symmetry on (#182) under each of its copies: merged where they overlap only where clearing twice would clear more (heights, textures). */
 	private clear(ctx: ToolContext, hit: THREE.Vector3 | null) {
 		if (!hit) return
+		const mode = editor.clearMode
+		this.dabCtx = ctx
+		eachMirror(editor.symmetry, ctx.terrain, hit, editor.brush.radius, mode === 'heights' || mode === 'textures', this.clearDab)
+		this.dabCtx = null
+	}
+
+	private clearAt(ctx: ToolContext, hit: THREE.Vector3) {
 		switch (editor.clearMode) {
 			case 'models':
 				return this.clearModels(ctx, hit)
@@ -207,8 +231,8 @@ export class ClearTool implements Tool {
 	}
 
 	/** Fills `out` with the root models whose ground point is in the brush at `hit`, and what hangs on them. */
-	private modelsIn(objects: ObjectLayer, hit: THREE.Vector3, out: Set<number>) {
-		out.clear()
+	private modelsIn(objects: ObjectLayer, hit: THREE.Vector3, out: Set<number>, add = false) {
+		if (!add) out.clear()
 		// A root model's x and z are its world ground point: the layer's cells find those in the brush.
 		for (const o of objects.rootsNear(hit.x, hit.z, editor.brush.radius, this.near)) if (objects.pickable(o.id)) out.add(o.id)
 		this.near.length = 0

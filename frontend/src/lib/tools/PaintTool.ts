@@ -7,6 +7,7 @@ import { forEachTexel, paintPixel } from './brush'
 import { wandClick } from './maskWand'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
 import { SwapPaint } from './swapPaint'
+import { mirrorOffset } from './symmetry'
 
 export class PaintTool extends BrushTool {
 	protected label = 'Paint'
@@ -87,7 +88,7 @@ export class PaintTool extends BrushTool {
 		const { size, pressure, inner } = editor.spray
 		const dab = sprayDabRadius(size, t.worldSize / t.splatRes)
 		const amt = sprayAmount(strength)
-		const n = sprayDabs(hit.x, hit.z, radius, dab, pressure, dt, Math.random, this.dabs)
+		const n = this.sprayCopy(hit, radius, dab, pressure, dt)
 		let refused = false
 		for (let i = 0; i < n; i++) refused = this.paintAt(ctx, this.dabs[i * 2], this.dabs[i * 2 + 1], dab, falloff, amt) || refused
 		if (inner && falloff < 1) refused = this.paintAt(ctx, hit.x, hit.z, radius * (1 - falloff), falloff, Math.min(1, strength * dt * 5)) || refused
@@ -96,6 +97,32 @@ export class PaintTool extends BrushTool {
 
 	/** Spray dab centres for one frame, as x, z pairs. */
 	private dabs = new Float32Array(MAX_DABS * 2)
+	/** The stroke's own copy's dabs this tick, as offsets from its centre, and how many: a symmetric stroke's other copies (#182) spray them mirrored. */
+	private dabOffsets = new Float32Array(MAX_DABS * 2)
+	private dabCount = 0
+	private off = new Float64Array(2)
+
+	/** Fills `dabs` with this tick's spray dabs about `hit`: new random ones for the stroke's own copy, the same ones mirrored for the others. */
+	private sprayCopy(hit: THREE.Vector3, radius: number, dab: number, pressure: number, dt: number): number {
+		const d = this.dabs
+		const o = this.dabOffsets
+		if (this.mirrorIndex === 0) {
+			const n = sprayDabs(hit.x, hit.z, radius, dab, pressure, dt, Math.random, d)
+			for (let i = 0; i < n; i++) {
+				o[i * 2] = d[i * 2] - hit.x
+				o[i * 2 + 1] = d[i * 2 + 1] - hit.z
+			}
+			this.dabCount = n
+			return n
+		}
+		const n = this.dabCount
+		for (let i = 0; i < n; i++) {
+			mirrorOffset(this.mirror, o[i * 2], o[i * 2 + 1], this.off)
+			d[i * 2] = hit.x + this.off[0]
+			d[i * 2 + 1] = hit.z + this.off[1]
+		}
+		return n
+	}
 
 	/** Paints the active layer in a circle. Returns true when a chunk refused it for having four textures. */
 	private paintAt(ctx: ToolContext, x: number, z: number, radius: number, falloff: number, amt: number): boolean {

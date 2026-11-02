@@ -1,3 +1,4 @@
+import type { SymmetryMode } from '../tools/symmetry'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import { GroundEffectLayer } from '../world/GroundEffectLayer'
 import { noScopedEffects, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
@@ -55,6 +56,8 @@ export interface DocMeta {
 	flattenLock?: { on: boolean; x: number; y: number; z: number }
 	/** The water brush's lock and its locked point (editor.water.lock, lockPos), a position on this map (#449). */
 	waterLock?: { on: boolean; pos: { x: number; y: number; z: number } }
+	/** The brush tools' symmetry (editor.symmetry, #182): its centre is a position on this map; unset means off. */
+	symmetry?: { mode: SymmetryMode; count: number; center: { x: number; z: number } | null }
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */

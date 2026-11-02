@@ -12,6 +12,7 @@ import { Eroder, talusSlope } from '../terrain/erosion'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale, terraceHeight, terraceLevel } from './sculptShapes'
 import { NO_TEXTURE, SLOTS, chunkOfTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
+import { IDENTITY, mirrorDirection } from './symmetry'
 
 const RAISE_RATE = 18 // world units per second at strength 1
 /** Mountain builds much faster than Raise, since a peak is a few hundred units tall. */
@@ -59,9 +60,12 @@ export class SculptTool extends BrushTool {
 	private holeCell = { x0: 0, z0: 0, x1: 0, z1: 0 }
 	/** Whether Hole mode shows the wall handles (`ctx.holeWalls`) now. */
 	private wallsShown = false
-	private flattenTarget = 0
-	/** Terrace with Shift: the level every vertex of the stroke goes to, the step under the first click; null without. */
-	private terraceSame: number | null = null
+	/** The height Flatten levels to, for each copy of a symmetric stroke (#182), each from its own start. */
+	private flattenTargets: number[] = [0]
+	/** Terrace with Shift: the level every vertex of the stroke goes to, the step under the first click (per copy); null without. */
+	private terraceSames: (number | null)[] = [null]
+	/** Scratch for the locked pivot as the copy being applied. */
+	private pivot = new Float64Array(2)
 	private terraceShift = false
 	private scratch = new Float32Array(0)
 	/** Erode: the drops and slides, the brush's patch in cell units, its heights before and its weights, and the drops owed. */
@@ -183,12 +187,13 @@ export class SculptTool extends BrushTool {
 
 	protected begin(ctx: ToolContext, hit: THREE.Vector3) {
 		const { radius, falloff } = editor.brush
-		this.flattenTarget = editor.flattenLock.on ? editor.flattenLock.y : editor.flattenTarget === 'average' ? averageHeight(ctx.terrain, hit.x, hit.z, radius, falloff) : ctx.terrain.heightAt(hit.x, hit.z)
+		const k = this.mirrorIndex
+		this.flattenTargets[k] = editor.flattenLock.on ? editor.flattenLock.y : editor.flattenTarget === 'average' ? averageHeight(ctx.terrain, hit.x, hit.z, radius, falloff) : ctx.terrain.heightAt(hit.x, hit.z)
 		// Each stroke starts the drops from the same seed, so the same stroke erodes the same way.
 		this.eroder.seed(editor.erode.seed)
 		this.dropsOwed = 0
 		const tr = editor.terrace
-		this.terraceSame = this.terraceShift && tr.step > 0 ? terraceLevel(hit.y, tr.step, tr.offset) : null
+		this.terraceSames[k] = this.terraceShift && tr.step > 0 ? terraceLevel(hit.y, tr.step, tr.offset) : null
 	}
 
 	protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
@@ -227,14 +232,17 @@ export class SculptTool extends BrushTool {
 			}
 			case 'flatten': {
 				const k = Math.min(1, rate * 8)
-				const target = this.flattenTarget
+				const target = this.flattenTargets[this.mirrorIndex] ?? this.flattenTargets[0]
 				const dir = editor.flattenDir
 				// Angled: the target is a plane through the stroke's start (or the locked point), pivoting there like noggit's.
+				// A symmetric stroke's copy (#182) tilts its plane the mirrored way, about the mirrored pivot.
 				const ang = editor.flattenAngled
 				const angled = ang.on && ang.angle !== 0
 				const lock = editor.flattenLock
-				const ox = lock.on ? lock.x : this.strokeStart.x
-				const oz = lock.on ? lock.z : this.strokeStart.z
+				if (lock.on) this.mirrored(lock.x, lock.z, this.pivot)
+				const ox = lock.on ? this.pivot[0] : this.strokeStart.x
+				const oz = lock.on ? this.pivot[1] : this.strokeStart.z
+				const orient = this.mirror === IDENTITY ? ang.orientation : (mirrorDirection(this.mirror, (ang.orientation * Math.PI) / 180) * 180) / Math.PI
 				const cs = t.cellSize
 				rect = forEachVertex(
 					t,
@@ -243,7 +251,7 @@ export class SculptTool extends BrushTool {
 					radius,
 					falloff,
 					(i, w, x, z) => {
-						const d = (angled ? angledHeight(x * cs, z * cs, ox, target, oz, ang.angle, ang.orientation) : target) - h[i]
+						const d = (angled ? angledHeight(x * cs, z * cs, ox, target, oz, ang.angle, orient) : target) - h[i]
 						// Raise-only and lower-only leave ground on the far side of the target alone.
 						if ((dir === 'raise' && d <= 0) || (dir === 'lower' && d >= 0)) return
 						if (keeps(h[i], limit, cursorY)) h[i] += d * w * k
@@ -256,7 +264,7 @@ export class SculptTool extends BrushTool {
 				// Toward the step each vertex stands on (or, with Shift, the first click's), blended as Flatten blends.
 				const k = Math.min(1, rate * 8)
 				const { step, offset, sharpness } = editor.terrace
-				const same = this.terraceSame
+				const same = this.terraceSames[this.mirrorIndex] ?? null
 				rect = forEachVertex(
 					t,
 					hit.x,
@@ -355,7 +363,10 @@ export class SculptTool extends BrushTool {
 					radius,
 					falloff,
 					(i, w, x, z) => {
-						if (keeps(h[i], limit, cursorY)) h[i] += (fbm(x * cs * 0.08, z * cs * 0.08, 4, 5) - 0.5) * 2 * s * w
+						if (!keeps(h[i], limit, cursorY)) return
+						// Read where the stroke's own copy is, so every copy of a symmetric stroke gets the same bumps mirrored (#182).
+						const p = this.unmirror(x * cs, z * cs)
+						h[i] += (fbm(p[0] * 0.08, p[1] * 0.08, 4, 5) - 0.5) * 2 * s * w
 					},
 					this.stroke,
 				)
@@ -378,7 +389,8 @@ export class SculptTool extends BrushTool {
 						if (!keeps(h[i], limit, cursorY)) return
 						const wx = x * cs
 						const wz = z * cs
-						const n = ridged(wx * f, wz * f, 5, 13)
+						const p = this.unmirror(wx, wz)
+						const n = ridged(p[0] * f, p[1] * f, 5, 13)
 						h[i] += mountainHeight(brushDist(wx - hit.x, wz - hit.z, radius), n * n, ridges) * s
 					},
 					this.stroke,

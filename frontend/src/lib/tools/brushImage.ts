@@ -2,13 +2,16 @@
 // a greyscale image from the user's own folder is laid over the brush's square, turned by a rotation,
 // and each vertex or texel's brush weight is multiplied by the grey under it, so the stroke takes the
 // image's shape. Kept free of three.js so it can be tested on its own.
+import type { Mirror } from './symmetry'
 
 /**
  * The image the brush iterators read while a stroke that uses it ticks (`active`): grey levels 0 to 1,
- * `w` by `h`, and the rotation's cosine and sine. Brush tools switch `active` on for their own stroke
- * only, so the other brushes are never shaped by it.
+ * `w` by `h`, and the matrix (a00 a01; a10 a11) that takes an offset from the brush centre into the
+ * image's frame: the rotation undone, and a symmetric stroke's copy undone too (#182), so a mirrored
+ * dab paints the image mirrored. Brush tools switch `active` on for their own stroke only, so the other
+ * brushes are never shaped by it.
  */
-export const brushImage = { active: false, data: null as Float32Array | null, w: 0, h: 0, cos: 1, sin: 0, bytes: null as Uint8Array | null, version: 0 }
+export const brushImage = { active: false, data: null as Float32Array | null, w: 0, h: 0, a00: 1, a01: 0, a10: 0, a11: 1, bytes: null as Uint8Array | null, version: 0 }
 
 /** Sets the image (grey bytes, row-major), or clears it with null. */
 export function setBrushImage(pix: Uint8Array | null, w = 0, h = 0) {
@@ -30,9 +33,23 @@ export function setBrushImage(pix: Uint8Array | null, w = 0, h = 0) {
 
 /** Turns the image by `deg` degrees (clockwise seen from above, as the map's x east and z south). */
 export function setBrushImageRotation(deg: number) {
+	setBrushImageTransform(deg, null)
+}
+
+/** Turns the image by `deg` degrees, for the dab a symmetric stroke's copy `m` makes (null for the stroke's own). */
+export function setBrushImageTransform(deg: number, m: Mirror | null) {
 	const r = (deg * Math.PI) / 180
-	brushImage.cos = Math.cos(r)
-	brushImage.sin = Math.sin(r)
+	const c = Math.cos(r)
+	const s = Math.sin(r)
+	// The turn undone after the copy undone: R(-turn) times the copy's transpose (its inverse).
+	const m00 = m ? m.m00 : 1
+	const m01 = m ? m.m01 : 0
+	const m10 = m ? m.m10 : 0
+	const m11 = m ? m.m11 : 1
+	brushImage.a00 = c * m00 + s * m01
+	brushImage.a01 = c * m10 + s * m11
+	brushImage.a10 = -s * m00 + c * m01
+	brushImage.a11 = -s * m10 + c * m11
 }
 
 /**
@@ -43,10 +60,10 @@ export function setBrushImageRotation(deg: number) {
 export function imageWeight(dx: number, dz: number, radius: number): number {
 	const d = brushImage.data
 	if (!d) return 1
-	const { w, h, cos, sin } = brushImage
-	// Into the image's frame: undo the turn, then map [-radius, radius] to the pixel grid.
-	const u = ((dx * cos + dz * sin) / radius + 1) * 0.5 * w - 0.5
-	const v = ((-dx * sin + dz * cos) / radius + 1) * 0.5 * h - 0.5
+	const { w, h, a00, a01, a10, a11 } = brushImage
+	// Into the image's frame: undo the turn (and a symmetric copy), then map [-radius, radius] to the pixel grid.
+	const u = ((a00 * dx + a01 * dz) / radius + 1) * 0.5 * w - 0.5
+	const v = ((a10 * dx + a11 * dz) / radius + 1) * 0.5 * h - 0.5
 	if (u < -0.5 || v < -0.5 || u > w - 0.5 || v > h - 0.5) return 0
 	const x0 = Math.max(0, Math.min(w - 1, Math.floor(u)))
 	const y0 = Math.max(0, Math.min(h - 1, Math.floor(v)))

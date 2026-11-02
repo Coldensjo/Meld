@@ -34,6 +34,7 @@ function fullMeta(n: number): Required<DocMeta> {
 		paths: [path],
 		flattenLock: { on: n % 2 === 1, x: n, y: n + 1, z: n + 2 },
 		waterLock: { on: n % 2 === 0, pos: { x: n, y: n * 2, z: n * 3 } },
+		symmetry: { mode: n % 2 ? 'x' : 'radial', count: 2 + n, center: { x: 10 * n, z: 20 * n } },
 	}
 }
 

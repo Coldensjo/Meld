@@ -102,6 +102,32 @@ interleaved edits or fence assets after reopening; preserve a working copy for t
   `./BrushTool`, never from `state/editor.svelte`: a read of the reactive one would miss the swap. The copy (`copyToolSettings`, `editor.svelte.ts`) holds only the
   fields in `TOOL_SETTING_KEYS`, which `ToolSettings` is a `Pick` of: a new `editor.x` read in
   those files fails to compile until `x` is listed there.
+- **Symmetry** (#182, `tools/symmetry.ts`, `editor.symmetry`, per map in `DocMeta`, off on a new map): a
+  stroke also lands at its copies about a centre (`center`, null for the map's middle; the options bar's
+  Pick centre arms `ui.symmetryPick`, and the Engine's next ground click sets it, snapped to a half cell so
+  vertices mirror onto vertices). The modes are Mirror X (x flips), Mirror Z, Mirror X+Z, Point (a half
+  turn) and Radial (2 to 8 turns), each a list of `Mirror`s (`mirrorsOf`, the identity first): a 2x2
+  matrix over (x, z), turning the way three.js's rotation.y turns, and for a model's heading `rotY` either
+  `base - rotY` (a reflection) or `rotY + base`; a reflection also negates the roll `tiltZ`
+  (`mirrorRoll`), worked out from `placementEuler` for a model facing +x that is the same on its left and
+  right (tests/symmetry.test.ts checks it). `eachMirror` runs a callback per copy's dab, one check when
+  off. With `merge` (the tools that add to what is there) copies whose centres land within the brush
+  radius of an earlier one become one dab at their mean, so a stroke along the axis is not applied twice;
+  the tools that set values and the model tools pass false and keep every copy. `BrushTool.onDown` calls
+  `begin` and `tick` calls `apply` once per copy with `mirrorIndex` and `mirror` set, so per-stroke state
+  is per copy (Sculpt's Flatten target and Terrace level, the stroke start; an angled plane's direction
+  and the locked pivot are mirrored); Noise and Mountain read their world-space pattern through
+  `unmirror`, Paint's spray reuses the stroke's own dabs mirrored, and the brush image is mirrored
+  through `setBrushImageTransform`. The Stamp tool gets it through its brushes' `tick`. Water paint,
+  Clear, Map data, the Doodad brush (each copy spaced against what stands around it, the same draws
+  mirrored), and Place (a click's model, and the scatter) loop over `eachMirror` themselves. Not
+  mirrored: Erode's random drops, a square brush's corners on a radial turn that is not a quarter, the
+  Doodad brush's ghost preview (the stroke's own only), creatures, Fill Selection. `symmetryApplies`
+  (`ui/optionsVisibility.ts`) names the tools and modes that take it (its control,
+  `options/SymmetryOptions.svelte`, sits in the settings panel of the tools that have one, so their bar
+  stays one row, and on the bar for the rest); the Engine draws the guide
+  (`tools/symmetryGuide.ts`: dashed axes, spokes or a star over the ground, over everything, rebuilt a
+  second apart while it shows so it follows a reshaped ground) for them.
 - **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint
   lays down textures. A brush (`tools/doodadBrush.ts`, `DoodadBrush`) is a named list of models with
   a weight, scale range, sink and tilt each, plus a spacing (a multiple of the models' footprints).

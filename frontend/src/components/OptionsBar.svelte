@@ -14,6 +14,7 @@
 	import SculptOptions from './options/SculptOptions.svelte'
 	import SelectOptions from './options/SelectOptions.svelte'
 	import StampOptions from './options/StampOptions.svelte'
+	import SymmetryOptions from './options/SymmetryOptions.svelte'
 	import WaterOptions from './options/WaterOptions.svelte'
 	import { TOOLS } from './Toolbar.svelte'
 	import { MAX_BRUSH_RADIUS, editor, prefs, setStatus } from '../lib/state/editor.svelte'
@@ -212,6 +213,15 @@
 	</select>
 {/snippet}
 
+{#snippet symmetryRow()}
+	{#if vis.symmetric}
+		<div class="row">
+			<span class="dim head">Symmetry</span>
+			<SymmetryOptions />
+		</div>
+	{/if}
+{/snippet}
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="optbar" bind:this={root} onkeydown={onKeyDown}>
 	<div class="options" class:open class:withMore={hidden > 0 || open} bind:this={bar} onfocusin={onFocusIn}>
@@ -260,6 +270,11 @@
 		{#if mapData}
 			<MapDataOptions />
 		{/if}
+		<!-- The tools with a settings panel keep Symmetry there, so their bar stays one row (#715, #734). -->
+		{#if vis.symmetric && !hasPanel}
+			<div class="divider"></div>
+			<SymmetryOptions />
+		{/if}
 		{#if hasPanel}
 			<div class="divider"></div>
 			<button class="brushbtn" class:active={brushOpen} class:painting={sculptPainting || spraying} bind:this={brushBtn} onclick={toggleBrush} aria-expanded={brushOpen} title={panelTitle}>{panelLabel} {brushOpen ? '▴' : '▾'}</button>
@@ -279,11 +294,13 @@
 			{:else if editor.tool === 'paint'}
 				<PaintOptions panel {sizeStrength} {editLimit} {imageBrush} {falloffCurve} {brushShape} />
 			{/if}
+			{@render symmetryRow()}
 		</div>
 	{/if}
 	{#if brushOpen && editor.tool === 'sculpt' && !vertexMode}
 		<div class="brushpanel" bind:this={brushPanel} style:left="{brushLeft}px" role="group" aria-label="Brush settings">
 			<SculptOptions panel {sizeStrength} {editLimit} {imageBrush} {falloffCurve} {brushShape} />
+			{@render symmetryRow()}
 		</div>
 	{/if}
 </div>

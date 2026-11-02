@@ -13,6 +13,9 @@ import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
 import { History, type Command } from '../state/history'
 import { featherInside, roleTextures, type Biome, type BiomePaintResult } from '../terrain/biome'
+import { SymmetryGuide } from '../tools/symmetryGuide'
+import { snapCenter } from '../tools/symmetry'
+import { symmetryApplies } from '../ui/optionsVisibility'
 import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, defaultPrefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
@@ -1161,6 +1164,7 @@ export class Engine {
 		this.abort.abort()
 		this.resizeObs.disconnect()
 		this.controller.dispose()
+		this.symmetryGuide.dispose()
 		this.outline.dispose()
 		this.doomOutline.dispose()
 		this.hoverOutline.dispose()
@@ -1441,6 +1445,16 @@ export class Engine {
 				// While the reference image is being placed, the top-down view's presses drag it (#184).
 				if (this.reference.press(e)) return
 				if (this.startGizmoDrag()) return
+				// Symmetry › Pick centre (#182) takes the next click on the ground as the centre.
+				if (ui.symmetryPick) {
+					this.pick()
+					if (this.hit) {
+						const c = (editor.symmetry.center = snapCenter(this.hit.x, this.hit.z, this.terrain.cellSize))
+						setStatus(`Symmetry centre set to ${c.x.toFixed(1)}, ${c.z.toFixed(1)}.`, 3000)
+					}
+					ui.symmetryPick = false
+					return
+				}
 				// Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
 				if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {
 					this.raycaster.setFromCamera(this.ndc, this.camera)
@@ -1683,6 +1697,8 @@ export class Engine {
 		if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
 		this.placeTool.hidePreview = this.altHeld
 		tool.frame?.(this.ctx, this.hit)
+		// The symmetry's axes or spokes over the ground while a tool that mirrors its strokes is active (#182).
+		this.symmetryGuide.update(this.scene, this.terrain, editor.symmetry, !this.doc.world && !this.minimapShot && symmetryApplies(editor), dt)
 		// A drag moves models on every pointer move; the Inspector's copy follows once a frame.
 		publishMoved(this.objects)
 		publishViewportHint()
@@ -4574,6 +4590,8 @@ export class Engine {
 	private lookTex: THREE.DataTexture | null = null
 	private lookFrom: { looks: unknown; palette: unknown } = { looks: null, palette: null }
 
+	/** The symmetry's guide lines over the ground (#182). */
+	private symmetryGuide = new SymmetryGuide()
 	/** What `frame` sets the terrain's editing overlays to, reused every frame. */
 	private overlays: OverlayState = { brushVisible: 0, gridVisible: 0, unpaintable: -1, climbCos: 0, contourStep: 0, chunkLineWorld: 0, maskVisible: 0 }
 

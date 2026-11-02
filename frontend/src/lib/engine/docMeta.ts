@@ -32,6 +32,7 @@ export type MetaEditor = Pick<
 	| 'pathId'
 	| 'pathPoint'
 	| 'flattenLock'
+	| 'symmetry'
 > & { water: Pick<Editor['water'], 'lock' | 'lockPos'> }
 
 /**
@@ -58,6 +59,7 @@ export const DOC_META_KEYS: Record<keyof DocMeta, true> = {
 	paths: true,
 	flattenLock: true,
 	waterLock: true,
+	symmetry: true,
 }
 
 // The scoped effects as plain JSON first: `editor`'s are a Svelte proxy, which structuredClone refuses.
@@ -88,6 +90,7 @@ export function stashMeta(e: MetaEditor, prev: DocMeta): DocMeta {
 		bookmarks: [...e.bookmarks],
 		flattenLock: { ...e.flattenLock },
 		waterLock: { on: e.water.lock, pos: { ...e.water.lockPos } },
+		symmetry: { mode: e.symmetry.mode, count: e.symmetry.count, center: e.symmetry.center && { ...e.symmetry.center } },
 	}
 }
 
@@ -117,4 +120,7 @@ export function loadMeta(e: MetaEditor, m: DocMeta) {
 	e.flattenLock = { ...(m.flattenLock ?? { on: false, x: 0, y: 0, z: 0 }) }
 	e.water.lock = m.waterLock?.on ?? true
 	e.water.lockPos = { ...(m.waterLock?.pos ?? { x: 0, y: 0, z: 0 }) }
+	// Symmetry is about a point on one map (#182); another map starts with it off.
+	const sym = m.symmetry
+	e.symmetry = { mode: sym?.mode ?? 'off', count: sym?.count ?? 4, center: sym?.center ? { ...sym.center } : null }
 }

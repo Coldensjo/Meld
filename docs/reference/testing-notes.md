@@ -849,6 +849,7 @@ the same scene, the report before and after.
 - The Stamp tool's per-brush settings (#445, probe `stamp-settings`)
 - A tab switch in the middle of a gizmo drag (#549, probe `tab-switch-drag`)
 - Objects near a point and selection groups from the layer's cells (#512, #630; probes `objects-near`, `select-groups`)
+- Symmetric strokes (#182, probe `symmetry`)
 
 ### UI and the window (`docs/tests/ui.md`)
 

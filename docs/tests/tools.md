@@ -572,3 +572,25 @@ scale kept, a selected barrel left alone; Undo brings the old model back.
 - Unit test: `bun test tests/signs.test.ts` (which paths are signs and road signs, the list's order).
 - Trap: the menu needs the sign's model loaded to pick it, so the probe retries the right-click until it
   is; `P.until` takes no async condition.
+
+## Symmetric strokes (#182, probe `symmetry`)
+
+Checks: with the options bar's Symmetry set, a stroke also lands at its mirrored or turned copies in the
+same undo step. On a flat map a Raise stroke with Mirror X leaves every vertex as high as its mirror (vertex
+x and `size - x` about the map's centre) and one undo flattens it again; Radial 4 gives the same heights
+turned a quarter (x, z to c + (z - c), c - (x - c)); a stroke along the axis, a cell off it, merges its
+copies into one dab on the axis (the same heights as one stroke on the axis with symmetry off, not twice
+as high); the Place tool puts a helper cube and its mirrored copy down in one step, their headings adding
+up to a half turn; the dashed guide shows while the tool is active and hides with symmetry off; and a new
+map starts with symmetry off.
+- Probe: `bun run probe symmetry` (a flat map, a few seconds).
+- Unit test: `bun test tests/symmetry.test.ts`: the copies per mode, the merge, a model's heading and roll
+  against `placementEuler` (the copy of a turned model must be the world mirror times it times the model's
+  own left-right flip), and the brush image mirrored on a copy's dab.
+- By hand in the dev page: Sculpt, Symmetry › Radial with 5 copies, a squiggly stroke: five squiggles
+  turned about the centre, and dashed spokes between them. Pick centre, then a click on the ground, moves
+  the centre (snapped to a half cell; the status line says where).
+- Trap: the merge only applies to the tools that add to what is there (Sculpt, Paint, Road, Water's dig
+  and shore, Clear's heights and textures). The tools that set a value (Clear's other modes, Map data,
+  water paint) and the model tools keep every copy, so a probe that counts dabs must use the right kind.
+

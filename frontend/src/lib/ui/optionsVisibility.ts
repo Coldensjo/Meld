@@ -31,6 +31,33 @@ export interface OptionsVisibility {
 	panelLabel: string
 	/** The panel button's tooltip. */
 	panelTitle: string
+	/** The tool and its mode take the Symmetry controls (#182): a stroke applies at its mirrored copies too. */
+	symmetric: boolean
+}
+
+/**
+ * Whether the tool and its mode apply strokes symmetrically (#182): the brush tools, the Doodad brush's
+ * models and the Place tool, but not Sculpt's Hole and Vertex modes, Paint's mask wand, nor creatures.
+ * The Engine reads it each frame for the guide, so it makes nothing.
+ */
+export function symmetryApplies(s: OptionsState): boolean {
+	switch (s.tool) {
+		case 'sculpt':
+			return s.sculptMode !== 'hole' && s.sculptMode !== 'vertex'
+		case 'paint':
+			return !(s.paintMode === 'mask' && s.maskSelect.by !== 'brush')
+		case 'doodad':
+			return s.doodadMode !== 'creatures'
+		case 'road':
+		case 'water':
+		case 'clear':
+		case 'mapdata':
+		case 'stamp':
+		case 'place':
+			return true
+		default:
+			return false
+	}
 }
 
 export function optionsVisibility(s: OptionsState): OptionsVisibility {
@@ -70,6 +97,7 @@ export function optionsVisibility(s: OptionsState): OptionsVisibility {
 		spraying,
 		panelLabel,
 		panelTitle: panelTitle(s, holeMode, paintingWater, spawnBrushing),
+		symmetric: symmetryApplies(s),
 	}
 }
 
