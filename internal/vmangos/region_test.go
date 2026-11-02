@@ -137,12 +137,17 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The block's tiles come first and the WDL last. Between them sit the tiles outside the block that
-	// list a model an earlier compile moved (#647), so their number depends on the client's patch.
-	if len(files) < 5 || files[len(files)-1].Name != wdlPath("Azeroth") {
-		t.Fatalf("a 2x2 region writes 4 tiles and the WDL, got %d files", len(files))
+	// The block's tiles come first and the WDL last, when the block's horizon differs from the one the
+	// client reads now (#990). Between them sit the tiles outside the block that list a model an earlier
+	// compile moved (#647), so their number depends on the client's patch.
+	tileFiles := files
+	if n := len(files); n > 0 && files[n-1].Name == wdlPath("Azeroth") {
+		tileFiles = files[:n-1]
 	}
-	for k, f := range files[:len(files)-1] {
+	if len(tileFiles) < 4 {
+		t.Fatalf("a 2x2 region writes 4 tiles, got %d files", len(files))
+	}
+	for k, f := range tileFiles {
 		inBlock := k < view.Size*view.Size
 		isBlockTile := false
 		for j := 0; j < view.Size; j++ {
@@ -154,7 +159,6 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 			t.Fatalf("file %d is %s: the block's 4 tiles come first, then only tiles outside it", k, f.Name)
 		}
 	}
-	wdl := files[len(files)-1]
 	// The same edit builds the same bytes, so a save with nothing edited finds every file unchanged.
 	twice, err := BuildRegion(dataDir, edit)
 	if err != nil {
@@ -165,12 +169,19 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 			t.Fatalf("%s differs between two builds of the same edit", files[k].Name)
 		}
 	}
-	// The block's horizon is sampled from its heights, and the rest of the map's is the client's.
+	// The block's horizon is sampled from its heights where they differ from the client's own tile, and
+	// is the client's own (without Meld's patch) where they don't (#990); the rest of the map's is the
+	// client's as it reads it now.
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	before, err := set.ReadFile(wdlPath("Azeroth"))
+	if err != nil {
+		set.Close()
+		t.Fatal(err)
+	}
+	unpatched, err := readUnpatched(set, wdlPath("Azeroth"))
 	set.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -179,22 +190,30 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	now, err := ParseWDL(wdl.Data)
+	base, err := ParseWDL(unpatched)
 	if err != nil {
 		t.Fatal(err)
+	}
+	now := was
+	if len(tileFiles) < len(files) {
+		if now, err = ParseWDL(files[len(files)-1].Data); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if len(now) != len(was) {
 		t.Fatalf("the WDL has %d tiles, the client's %d", len(now), len(was))
 	}
 	for k, h := range was {
 		x, y := k%MapTiles-view.X, k/MapTiles-view.Y
-		want := *h
 		if x >= 0 && y >= 0 && x < view.Size && y < view.Size {
 			stride := view.Size*tileCells + 1
-			want = *WDLTileOf(view.Heights[y*tileCells*stride+x*tileCells:], stride)
+			if sampled := *WDLTileOf(view.Heights[y*tileCells*stride+x*tileCells:], stride); *now[k] != sampled && *now[k] != *base[k] {
+				t.Fatalf("tile %d's horizon is neither sampled from its heights nor the client's own", k)
+			}
+			continue
 		}
-		if *now[k] != want {
-			t.Fatalf("tile %d's horizon is not the one expected", k)
+		if *now[k] != *h {
+			t.Fatalf("tile %d's horizon is not the client's", k)
 		}
 	}
 	// Each tile's heights must sit at its place in the stitched block, checked against a tile read on its own.

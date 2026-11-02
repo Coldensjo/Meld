@@ -220,7 +220,11 @@ mask/liquid, image codec or native/game rendering contracts.
     heights, and puts it at the corners' mean, what the editor shows, once any corner has moved by
     more than `SculptedEps` (1e-3 yd; #380), so a flattened area loses the client's bumps. So an
     unsculpted cell's middle is its corners' mean plus the client's lift over that mean, and a
-    sculpted one's is the mean. `RegionInner` (`vmangos.ReadRegionInner`, from the tiles a save starts
+    sculpted one's is the mean. A sample whose new height is within float noise of the chunk's own
+    (`heightNoise`: two float32 steps of it, at least `SculptedEps`/100) keeps the chunk's stored
+    value (#990): the grid holds one value for a sample two chunks (or tiles) share, which differs in
+    its last bits from one chunk's, and writing it rewrote every chunk edge of an untouched block and
+    the normals around it. `RegionInner` (`vmangos.ReadRegionInner`, from the tiles a save starts
     from) sends those lifts, a float a cell, and the client's corner heights they are over;
     `Engine.updateInnerLift` reads them once per terrain into `Terrain.innerLift` and
     `Terrain.innerBase` the first time the view builds a region, the build waits for them
@@ -579,8 +583,12 @@ mask/liquid, image codec or native/game rendering contracts.
   each compile, with the history's change count then. `regionUncompiled` compares the active region's
   against it (the count alone says "unchanged" without hashing; a spawn step changes the count but not
   the key); a region opened from a file has no key, so the Go side's `RegionPending` builds it and
-  compares with the patch (it counts a tile the client has never had compiled as changed, since the
-  builder orders an MCNK's subchunks its own way). That answer is kept on the document
+  compares with the patch. A tile whose models, paint, headers and liquids the save leaves as they are
+  keeps its own bytes (`BuildRegion` checks its `adt.Rewrite` against one with no changes, since
+  Rewrite lays every chunk out anew), and `RegionChanges` drops a file the patch lacks that equals the
+  client's copy (`leaveClientCopies`, #990), so an untouched block of the client builds to nothing. A
+  block the page has not edited still differs on its first compile where the page sends a texture's
+  map-wide ground effect over a chunk's own, or no-tuft cells under buildings the client lacks. That answer is kept on the document
   (`MapDocument.pending`, `cachedPending` in `io/regionKey.ts`) with the fingerprint and change count it
   was taken at, and reused until the history reaches a state with another fingerprint, so repeated
   Launch, Play Here and grow checks don't rebuild the block (#531; 2.2 s a check for a 3×3 block).
@@ -610,7 +618,9 @@ mask/liquid, image codec or native/game rendering contracts.
   saved (`SpawnLayer.markSaved(keys)`); edits tied together (a creature whose formation changed and its
   leader's edit, the edits that change one pool: `spawnTies`) tick and untick together. Compile sends the
   unticked tiles as `RegionEdit.Skip`, which `RegionChanges` drops (`RegionResult.Skipped` names them);
-  the WDT and WDL are always written, the WDL from every tile's heights. After a compile that skipped a
+  the WDT and WDL are always written. The WDL's horizon is redrawn from the heights of the block's tiles
+  whose heights the save changes; the others get the client's own back (from its WDL without Meld's
+  patch), and the WDL goes only when the block's horizon differs from the one the client reads (#990). After a compile that skipped a
   tile, `MapDocument.compiled` is forgotten so Launch asks the Go side again. The window warns of a tile
   left out beside a written one (`seamWarnings`), since the seam steps. Publish's list has no ticks: a
   map made for the client is written whole. Copy, Copy ticked SQL and Copy all SQL (`changesSql`, which

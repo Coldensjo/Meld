@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"fmt"
+	"math"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
@@ -163,8 +164,14 @@ func patchHeights(terrain *adt.Terrain, outer []float32) {
 		for r := 0; r <= adt.CellsPerChunk; r++ {
 			for col := 0; col <= adt.CellsPerChunk; col++ {
 				gr, gc := c.IndexY*adt.CellsPerChunk+r, c.IndexX*adt.CellsPerChunk+col
-				next := outer[gr*LatticeSize+gc]
-				delta[r][col] = next - c.Heights[r*17+col]
+				next, was := outer[gr*LatticeSize+gc], c.Heights[r*17+col]
+				// A sample two chunks share holds one value in the editor's grid, which differs in its
+				// last bits from one chunk's stored height: that chunk keeps its own, so an untouched
+				// tile comes back byte for byte (#990).
+				if heightNoise(next-was, was) {
+					continue
+				}
+				delta[r][col] = next - was
 				c.Heights[r*17+col] = next
 			}
 		}
@@ -184,6 +191,14 @@ func patchHeights(terrain *adt.Terrain, outer []float32) {
 
 // sculpted says a corner's change d moves it off the client's height (#380).
 func sculpted(d float32) bool { return d > SculptedEps || d < -SculptedEps }
+
+// heightNoise says a change d of a sample at height h is float noise rather than an edit (#990): within
+// two float32 steps of h, and never above SculptedEps/100 near zero, so a 1 mm edit (SculptedEps) is kept
+// below 4000 yd, far above any map's ground.
+func heightNoise(d, h float32) bool {
+	tol := max(SculptedEps/100, float32(math.Abs(float64(h)))*0x1p-22)
+	return d <= tol && d >= -tol
+}
 
 // BaseTileRoot returns a tile's file as the client has it without Meld's patch (Blizzard's patch.MPQ
 // and patch-2.MPQ still apply), the file a save rebuilds from.

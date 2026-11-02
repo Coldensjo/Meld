@@ -262,10 +262,15 @@ open region has edits the client lacks, and only then.
 - It never compiles: Compile to Client writes the owner's `patch-3.MPQ`, and Compile to Server or All
   rebuild the server's map data. Check those by hand, with the owner's go-ahead: after Compile to
   Client the patch's time changes and `ReadRegion` of the tile gives the edited heights.
-- Trap: an unedited block built by `BuildRegion` is not byte-equal to a tile the client has never had
-  compiled (the builder orders an MCNK's subchunks its own way), so `RegionPending` says "changed" for
-  any such tile. That's why Launch trusts the fingerprint and asks Go only when there is none.
+- Trap: a block the page has not edited still reads "changed" in `RegionPending` on its first compile,
+  since the page sends each texture's map-wide ground effect over a chunk's own and the no-tuft cells
+  under buildings. That's why Launch trusts the fingerprint and asks Go only when there is none.
 - `go test ./internal/vmangos/ -run TestRegionPending` (with `WOW_DIR`): a raised vertex makes the tile differ.
+- `go test ./internal/vmangos/ -run TestClientUntouchedRegionChangesNothing` (#990, with the client; in a
+  hard-linked copy without Meld's patch): Azeroth 28_50 2x2 as `ReadRegion` gave it, with every chunk's
+  paint and header as the client has them, builds to no file (no float noise at chunk edges, no rebuilt
+  layout, no WDL, no tile beside it); a 1.5 mm edit lists its tile alone, and once installed, the
+  unedited block lists that tile again.
 - The write chains, client-free (#405), with temp client and server folders, a fake runner and a temp
   folder for the files waiting for the game:
   - `go test ./internal/vmangos/ -run PublishChain`: `Publish` writes the map and a queued Spell.dbc
@@ -318,9 +323,12 @@ edge's normals"), not "changed in the region".
   its east border and checks `RegionPending`'s list and the window: 28_50 changed, 29_50 edge only.
 - Unit tests: `go test ./internal/adt/ -run EdgeNormalsOnly` and
   `go test ./internal/vmangos/ -run "TestRegionFileReasonTellsEdgeTiles|TestPreviewPublish"`.
-- Trap: a block's first compile rewrites every tile of it (and a neighbour) for float noise in the
-  heights at chunk edges and because the patch lacks them, so on a block not compiled before every
-  tile reads "changed in the region"; compile it once first. The owner's patch holds tiles from older
+- Trap: a block's first compile from the page rewrites every tile of it, since the page sends each
+  texture's map-wide ground effect over the chunk's own and the no-tuft cells under buildings, which
+  the client's tiles lack; so on a block not compiled before every tile reads "changed in the region";
+  compile it once first. (The float noise at chunk edges and the rebuilt layout that did it too are
+  gone since #990: an untouched block built from the client's own chunks lists nothing,
+  `TestClientUntouchedRegionChangesNothing`.) The owner's patch holds tiles from older
   builds that differ from today's rebuild in more than the edge (Azeroth 31_50 to 35_51), so the probe
   stays off them.
 - Trap: `regionEdit`'s paint and chunk headers settle some frames after `openWowRegion` resolves; an

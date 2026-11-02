@@ -488,6 +488,8 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		// client's own: an earlier compile may have moved, deleted or added models there.
 		patched map[uint32]adt.Placement
 		change  adt.Changes
+		// own says root is the client's tile without Meld's patch, not one only the patch has.
+		own bool
 	}
 	tiles := make([]tileEdit, e.Size*e.Size)
 	// owners is the block's tiles that list each model, by ID: a model whose bounds cross a tile border
@@ -513,7 +515,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			if err != nil {
 				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
 			}
-			t := tileEdit{name: name, root: root, orig: map[uint32]adt.Placement{}}
+			t := tileEdit{name: name, root: root, orig: map[uint32]adt.Placement{}, own: own}
 			if own && patchHolds(set, name) {
 				b, err := set.ReadFile(name)
 				if err != nil {
@@ -815,6 +817,8 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 	}
 	files := make([]mpq.File, 0, len(tiles))
+	// moved is the block's tiles whose heights the save changes, whose far horizon it redraws.
+	moved := make([]bool, len(tiles))
 	for k := range tiles {
 		t := &tiles[k]
 		i, j := k%e.Size, k/e.Size
@@ -822,9 +826,15 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		if err != nil {
 			return nil, err
 		}
+		moved[k] = heightsMoved(t.root, patched)
 		rewritten, err := adt.Rewrite(patched, t.change)
 		if err != nil {
 			return nil, fmt.Errorf("tile %d_%d: %w", e.X+i, e.Y+j, err)
+		}
+		// Rewrite lays every chunk out anew, so a tile whose models, paint, headers and liquids the save
+		// leaves as they are keeps its own bytes, and an untouched one equals the client's (#990).
+		if same, err := adt.Rewrite(patched, adt.Changes{TileX: e.X + i, TileY: e.Y + j}); err == nil && bytes.Equal(same, rewritten) {
+			rewritten = patched
 		}
 		files = append(files, mpq.File{Name: t.name, Data: rewritten})
 	}
@@ -856,20 +866,55 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			files = append(files, mpq.File{Name: b.name, Data: root})
 		}
 	}
-	// The far horizon follows the new heights. A map without a WDL is left without one.
+	// The far horizon follows the new heights. A tile of the client's whose heights the save leaves as
+	// they are gets the client's own horizon back (#990), and the WDL is written only when the block's
+	// horizon differs from the one the client reads now. A map without a WDL is left without one.
 	if b, err := set.ReadFile(wdlPath(e.MapName)); err == nil {
 		horizon, err := ParseWDL(b)
 		if err != nil {
 			return nil, err
 		}
+		var base map[int]*WDLTile
+		if ub, err := readUnpatched(set, wdlPath(e.MapName)); err == nil {
+			base, _ = ParseWDL(ub)
+		}
+		redrawn := false
 		for j := 0; j < e.Size; j++ {
 			for i := 0; i < e.Size; i++ {
-				horizon[(e.Y+j)*MapTiles+e.X+i] = WDLTileOf(heights[j*tileCells*side+i*tileCells:], side)
+				k, key := j*e.Size+i, (e.Y+j)*MapTiles+e.X+i
+				t := base[key]
+				if moved[k] || !tiles[k].own || t == nil {
+					t = WDLTileOf(heights[j*tileCells*side+i*tileCells:], side)
+				}
+				if was := horizon[key]; was == nil || *was != *t {
+					horizon[key] = t
+					redrawn = true
+				}
 			}
 		}
-		files = append(files, mpq.File{Name: wdlPath(e.MapName), Data: BuildWDL(horizon)})
+		if redrawn {
+			files = append(files, mpq.File{Name: wdlPath(e.MapName), Data: BuildWDL(horizon)})
+		}
 	}
 	return files, nil
+}
+
+// heightsMoved says whether tile b's heights differ from those of a, the tile it was built from.
+func heightsMoved(a, b []byte) bool {
+	ta, err := adt.ParseTerrain(a)
+	if err != nil {
+		return true
+	}
+	tb, err := adt.ParseTerrain(b)
+	if err != nil || len(ta.Chunks) != len(tb.Chunks) {
+		return true
+	}
+	for i := range ta.Chunks {
+		if ta.Chunks[i].Heights != tb.Chunks[i].Heights {
+			return true
+		}
+	}
+	return false
 }
 
 // ownTextures is a tile's texture layers and alpha maps by chunk index (y*16 + x), as ReadRegion's
@@ -1047,7 +1092,8 @@ func skipTiles(files []mpq.File, skip []string) ([]mpq.File, []string) {
 }
 
 // RegionChanges builds the edited block's files and keeps those that differ from the patch's copies,
-// less the tiles e.Skip leaves out.
+// less those the patch lacks that the client already reads as they are (an untouched tile, #990) and
+// the tiles e.Skip leaves out.
 func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, error) {
 	res := RegionResult{Tiles: e.Size * e.Size}
 	files, err := BuildRegion(dataDir, e)
@@ -1056,6 +1102,9 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 	}
 	changed, err := ChangedFiles(dataDir, files)
 	if err != nil {
+		return nil, res, err
+	}
+	if changed, err = leaveClientCopies(dataDir, changed); err != nil {
 		return nil, res, err
 	}
 	changed, res.Skipped = skipTiles(changed, e.Skip)
@@ -1088,4 +1137,28 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 		}
 	}
 	return changed, res, nil
+}
+
+// leaveClientCopies drops the files Meld's patch lacks that equal the copy the client reads now: a tile
+// the save rebuilt from the client's own without a change would otherwise go into the patch, and Launch
+// would count the block as edited (#214). A file the patch holds stays, as ChangedFiles kept it.
+func leaveClientCopies(dataDir string, files []mpq.File) ([]mpq.File, error) {
+	if len(files) == 0 {
+		return files, nil
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	kept := files[:0:0]
+	for _, f := range files {
+		if !patchHolds(set, f.Name) {
+			if have, err := set.ReadFile(f.Name); err == nil && bytes.Equal(have, f.Data) {
+				continue
+			}
+		}
+		kept = append(kept, f)
+	}
+	return kept, nil
 }
