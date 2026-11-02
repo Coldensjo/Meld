@@ -1,5 +1,5 @@
-// The creature editor's Export… and Import… (#938): on Pratt McGrubben (7852), Export… hands the binding the creature's entry and name and notes where it wrote; Import… shows the plan's bar (the template rows, the shop and quest lists it replaces, the items the server lacks) and Cancel drops it; a confirmed import notes the creature and reads the open one again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestCreatureScriptRoundTrip, TestCreaturesLive).
-// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/creaturescripts.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
+// The creature editor's Export… and Import… (#938): on Pratt McGrubben (7852), Export… hands the binding the creature's entry and name and notes where it wrote; Import… shows the plan's bar (the template rows, the shop and quest lists it replaces, what the templates name by ID that it writes under new IDs or finds the same (#991), the items the server lacks) and Cancel drops it; a confirmed import notes the creature and reads the open one again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestCreatureScriptRoundTrip, TestCreaturesLive).
+// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/creaturescripts.go, internal/vmangos/carried.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
 const { ui } = await P.state()
 const App = window.go.main.App
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -36,6 +36,10 @@ try {
 		lists: [
 			{ entry: 7852, table: 'npc_vendor', what: 'shop items', rows: 19, had: 19 },
 			{ entry: 90001, table: 'creature_questrelation', what: 'quests it starts', rows: 2, had: 0 },
+		],
+		carried: [
+			{ what: 'loot list', table: 'creature_loot_template', id: 118, to: 17081, rows: 94, same: false },
+			{ what: 'gossip menu', table: 'gossip_menu', id: 1965, to: 1965, rows: 2, same: true },
 		],
 		skipped: 1,
 		others: 0,
@@ -76,6 +80,8 @@ try {
 		bar.includes('Pratt McGrubben (7852, replaces it)') &&
 		bar.includes('Probe Vendor (90001, new)') &&
 		bar.includes('Replaces the lists: shop items of 7852 (19, replacing 19); quests it starts of 90001 (2).') &&
+		bar.includes('under new IDs, since this server holds other rows under theirs (its other templates keep those): loot list 118 as 17081 (94 rows).') &&
+		bar.includes('Already here the same, left as they are: gossip menu 1965.') &&
 		bar.includes('99999') &&
 		bar.includes('1 other statement is left out') &&
 		bar.includes('npc_vendor.shiny') &&

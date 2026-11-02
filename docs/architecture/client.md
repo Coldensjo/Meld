@@ -345,8 +345,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   script run on a server replaces the lists. The import does the same for a list the script clears
   (`parseDeletes`) or gives rows of, and leaves a list the script doesn't name alone; the plan names
   the lists, the items and quests the server lacks, and list rows of creatures without a template
-  row (left out). What the template names by ID (spell list, equipment, loot, gossip menu, shared
-  vendor list) is not in the script. Template edits are a form
+  row (left out). What the template names by ID travels too (#991, `carried.go`): its spell list,
+  equipment, shared vendor and trainer lists, loot, pickpocket and skinning loot (with the reference
+  loot they name) and gossip menu (with its `npc_text` and `broadcast_text` rows and the menus its
+  options open), each set written by its ID as a `DELETE` and its rows, so the script run on a server
+  alone puts them back by ID. The import never writes over a set of the server, which its other
+  templates may name (the owner's choice, B): a set the server holds with the same rows under the same
+  ID, naming sets that are the same too, is kept; any other is written under a fresh ID (the table's
+  largest plus one), and the template's column and the sets naming it are rewritten to it, a menu loop
+  too. Re-importing the same script on another server writes new copies again (it only looks for the
+  same rows under the same ID). Conditions, scripts and points of interest stay IDs. Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
   `SpawnActions.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by
@@ -779,9 +787,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `listscripts.go`: the `gameobject_template` rows, the quests each object starts and ends
   (`gameobject_questrelation`, `gameobject_involvedrelation`, keyed by its entry) and a chest's or
   fishing hole's contents, the `gameobject_loot_template` list its `data1` names (keyed by that loot
-  id, not the entry; reference rows are carried as rows, the reference lists they name are not).
-  A loot list can be shared, so the plan names the objects on the server, other than the script's,
-  that hold a list the import replaces (`ObjectImport.Shared`), as the Contents tab does. The text
+  id, not the entry, with the reference loot it names), carried as the creature editor carries a
+  template's sets (#991, `carried.go`): kept where the server holds the same, else written under a
+  fresh loot ID with `data1` rewritten, so the other objects sharing the list keep theirs. The text
   (`page_text`) and the display's sounds (the client's) are not in the script. Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
   category such as Ore, whose click turns the spawn into that object as an undo step, then
   `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,

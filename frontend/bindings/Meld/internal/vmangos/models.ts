@@ -213,6 +213,23 @@ export interface AreaTrigger {
 }
 
 /**
+ * CarriedImport is a set an import brings, which a template names by ID: what it is, its first
+ * table, the ID the script gives it and the one it comes to here, and its rows.
+ */
+export interface CarriedImport {
+    "what": string;
+    "table": string;
+    "id": number;
+    "to": number;
+    "rows": number;
+
+    /**
+     * Same: this server holds the same rows under ID already, so importing leaves them as they are.
+     */
+    "same": boolean;
+}
+
+/**
  * ChainHolder is a creature, game object or item ("item": an item that starts the quest) that starts
  * or ends a quest of a chain, with its name ("" when its template has no row).
  */
@@ -513,13 +530,20 @@ export interface CreatureImport {
     "lists": ListImport[] | null;
 
     /**
-     * Skipped is how many statements are neither creature_template rows nor the lists' rows and
-     * DELETEs, which importing leaves out.
+     * Carried are the sets the templates name by ID that the script carries (carried.go): kept where
+     * this server holds the same, else written under fresh IDs.
+     */
+    "carried": CarriedImport[] | null;
+
+    /**
+     * Skipped is how many statements are neither creature_template rows nor the lists' or sets' rows
+     * and DELETEs, which importing leaves out.
      */
     "skipped": number;
 
     /**
-     * Others counts the list rows and DELETEs of creatures the script has no template row of, left out.
+     * Others counts the list rows and DELETEs of creatures the script has no template row of, and the
+     * rows and DELETEs of sets no template names, left out.
      */
     "others": number;
 
@@ -529,8 +553,8 @@ export interface CreatureImport {
     "unknown": string[] | null;
 
     /**
-     * MissingItems and MissingQuests are the items the shops sell and the quests the creatures start
-     * or end that the world database lacks: importing writes their rows, which the server leaves out.
+     * MissingItems and MissingQuests are the items the shops sell (and the sets' loot, equipment and
+     * vendor lists name) and the quests the creatures start or end that the world database lacks: importing writes their rows, which the server leaves out.
      */
     "missingItems": number[] | null;
     "missingQuests": number[] | null;
@@ -1477,16 +1501,6 @@ export interface LootItem {
 }
 
 /**
- * LootShare is an object on the server that holds loot list Loot, with its spawn count.
- */
-export interface LootShare {
-    "loot": number;
-    "entry": number;
-    "name": string;
-    "spawns": number;
-}
-
-/**
  * LootUser is a game object template other than the one being edited whose loot is the same list,
  * with how many spawns it has in the world.
  */
@@ -1644,10 +1658,10 @@ export interface ObjectImport {
     "lists": ListImport[] | null;
 
     /**
-     * Shared are the objects on this server, other than the script's, that hold a loot list the
-     * import replaces: their contents change too.
+     * Carried are the contents (and the reference loot they name) the script carries (carried.go):
+     * kept where this server holds the same, else written under fresh IDs.
      */
-    "shared": LootShare[] | null;
+    "carried": CarriedImport[] | null;
 
     /**
      * Skipped is how many statements are neither gameobject_template rows nor the lists' rows and
@@ -1656,8 +1670,8 @@ export interface ObjectImport {
     "skipped": number;
 
     /**
-     * Others counts the list rows and DELETEs of objects (or loot lists) the script's template rows
-     * don't name, left out.
+     * Others counts the list rows and DELETEs of objects the script has no template row of, and the
+     * rows and DELETEs of loot lists no template names, left out.
      */
     "others": number;
 

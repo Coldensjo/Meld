@@ -238,17 +238,20 @@ refusals, the users) and `TestForgetPrunesTheClientCaches` (`pagetextcache.wdb`)
 Probe: `object-scripts` (about 6 s; nothing written: the dialogs and the writes are stand-ins).
 
 Checks: Export… writes the object's `gameobject_template` rows, its quest lists and a chest's
-contents (the loot list its `data1` names) to an SQL script; Import… plans a script and writes it on
-confirmation, replacing those lists.
-- Unit: `TestObjectScriptRoundTrip` (the contents keyed by the loot list, reference rows kept; quest
-  lists and contents of objects or loot lists the template rows don't name left out; a loot row out
-  of range refused, naming its list) and `TestObjectLoot`. With `VMANGOS_DIR`, `TestObjectsLive`
+contents (the loot list its `data1` names, with the reference loot it names) to an SQL script;
+Import… plans a script and writes it on confirmation, replacing the quest lists and writing the
+contents under a fresh loot ID where the server holds other rows under theirs (#991).
+- Unit: `TestObjectScriptRoundTrip` (the contents keyed by the loot list, with the reference loot
+  they name; kept on the server they came from, moved to a fresh ID with both patch rows' `data1` on
+  one holding other contents there; a non-chest's `data1` not taken for loot; quest lists of objects
+  the template rows don't name left out; a loot row out of range refused, naming its list) and
+  `TestObjectLoot`. With `VMANGOS_DIR`, `TestObjectsLive`
   exports the Battered Chest (2843: two patch rows, loot list 2265 of 28 rows, which the Barrel,
   Cauldron, Clam and Large Crate hold too) and the Old Lion Statue (31: two quests it starts, one it
-  ends) and plans them back (every row exists, each list's rows as many as it has, the four sharers
-  named in `Shared`); it writes nothing.
+  ends) and plans them back (every row exists, each quest list's rows as many as it has, loot list
+  2265 carried and kept as the same); it writes nothing.
 - The probe, on 2843: Export… hands the binding `[2843]` and the name; Import…'s bar from a stand-in
-  plan names the rows, the lists (`contents of loot list 2265`), an object sharing the loot list, a
+  plan names the rows, the quest lists, contents under a new loot ID and reference loot kept, a
   missing item, a skipped statement and an unknown column; Cancel drops it; a confirmed import notes
   the object written and reads its contents again.
 - A write, by a scratch Go test (not kept; done on 2026-10-31): `CreateObject(dir, 2843, ...)` and
@@ -258,6 +261,9 @@ confirmation, replacing those lists.
   (contents 1 row for its 2, quests it ends 1 for its 0) and `ImportObjects`: the name, the one loot
   row and both quests came back. Clean up with `DELETE FROM gameobject_template WHERE entry > <the
   max before>`, the loot list on `gameobject_loot_template` (`entry`) and both relation tables (`id`).
+  Since #991 the changed contents come to a fresh loot ID instead (the table's largest plus one, the
+  chest's `data1` rewritten to it), so clean up `gameobject_loot_template` above its max before too;
+  the creature editor's entry has the write test of that.
 - Trap: a copied chest (`CreateObject` with a base) shares the base's loot list, so a write test that
   saves its contents changes the base's too: give it its own list first.
 
@@ -477,17 +483,25 @@ Discard, reopened unchanged; nothing written). The tabs' shared dirty logic is u
 
 Probe: `creature-scripts` (about 5 s; nothing written: the dialogs and the writes are stand-ins).
 
-Checks: Export… writes the creature's `creature_template` rows and its shop and quest lists to an
-SQL script; Import… plans a script and writes it on confirmation, replacing those lists.
+Checks: Export… writes the creature's `creature_template` rows, its shop and quest lists and what
+the template names by ID (#991: spell list, equipment, vendor and trainer lists, loot, gossip menu,
+and what those name) to an SQL script; Import… plans a script and writes it on confirmation,
+replacing those lists and writing each set the server holds other rows of under a fresh ID.
 - Unit: `TestCreatureScriptRoundTrip` (a list's `DELETE` and rows, read back; an emptied list
   clears the creature's rows; a script without lists replaces none; list rows of a creature without
   a template row left out; a row without its key or with a value out of range refused) and
   `TestParseDeletes`. With `VMANGOS_DIR`, `TestCreaturesLive` exports Pratt McGrubben (7852: 19
   shop items, 9 quests he starts and 9 he ends) and plans it back (both patch rows exist, each list's
-  rows as many as it has, nothing skipped or unknown); it writes nothing.
+  rows as many as it has, nothing skipped or unknown), then Pratt, the Stormwind City Guard (68:
+  a menu whose options open about 200 more sets, a spell list, equipment) and the Prowler (118: loot
+  naming reference loot, skinning loot) and checks every set is carried and planned the same, its
+  ID kept; it writes nothing. `TestCarriedSets` (`carried_test.go`, on a stand-in source) covers the
+  sets: export through references (a menu loop, reference loot), kept on the server they came from,
+  and on another a broadcast text that differs moving its text and both menus naming it to fresh IDs,
+  the template's columns and every reference rewritten, and a server with no free menu ID refusing.
 - The probe, on 7852: Export… hands the binding `[7852]` and the name and notes the path; Import…'s
-  bar from a stand-in plan names the rows, the lists, a missing item, a skipped statement and an
-  unknown column; Cancel drops it; a confirmed import notes the creatures written and reads the
+  bar from a stand-in plan names the rows, the lists, a set under a new ID and one kept, a missing
+  item, a skipped statement and an unknown column; Cancel drops it; a confirmed import notes the creatures written and reads the
   open creature's tabs again.
 - A write, by a scratch Go test (not kept; done on 2026-10-31): `CreateCreature(dir, 7852, ...)`,
   `SaveVendor` two items and `SaveCreatureQuests` one quest, `ExportCreatures`, rename the creature
@@ -495,6 +509,15 @@ SQL script; Import… plans a script and writes it on confirmation, replacing th
   quests 1 for its 2) and `ImportCreatures`: the name, both shop items (with the stock) and the one
   quest came back. Clean up with `DELETE FROM creature_template WHERE entry > <the max before>` and
   the same on `npc_vendor` (`entry`) and both relation tables (`id`).
+- A write of a carried set, by a scratch Go test (not kept; done on 2026-11-02): `CreateCreature(dir,
+  118, ...)` (the Prowler: one patch row, so its copy has one too), `ExportCreatures`, an `INSERT` of
+  one more `creature_loot_template` row of list 118 appended to the script, `PlanCreatureImport`
+  (loot list 118 to the table's largest plus one, its skinning and reference loot kept) and
+  `ImportCreatures`: the copy's `loot_id` named the new list, which held the 93 rows plus the new one
+  with its references as they were, and the Prowler's list and template were unchanged. Clean up with
+  `DELETE FROM creature_template WHERE entry > <the max before>` and the same on
+  `creature_loot_template`. The same server can't stand in for another for a whole round trip: change
+  a row in the script to make a set differ.
 - Trap: the dev page has no native dialogs, so a real Export or Import in the page needs the
   desktop app; the probe stands in `ExportCreatures`, `OpenCreaturesDialog`, `PlanCreatureImport`
   and `ImportCreatures` on `window.go.main.App` and puts them back.

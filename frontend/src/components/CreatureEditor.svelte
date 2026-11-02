@@ -9,7 +9,7 @@
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { focusField } from '../lib/ui/focusField'
-	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
+	import { askImport as planImport, carriedText, exportRow, runImport } from '../lib/ui/templateIo'
 	import { CREATURE_FIELD_TABS, creatureTabOfGroup, fieldGroups, withBit, type CreatureFieldTab } from '../lib/world/creatureFields'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
@@ -379,10 +379,15 @@
 						{:else}
 							<span>The script carries no shop or quest lists: the creatures keep theirs.</span>
 						{/if}
+						{#if plan.plan.carried?.length}<span>{carriedText(plan.plan.carried)}</span>{/if}
 						{#if plan.plan.missingItems?.length}<span>Items this world database lacks, which the shops then list but the server leaves out: {plan.plan.missingItems.join(', ')}. Import them first (Tools › Items).</span>{/if}
 						{#if plan.plan.missingQuests?.length}<span>Quests this world database lacks, which the server leaves out: {plan.plan.missingQuests.join(', ')}.</span>{/if}
-						{#if plan.plan.others}<span>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of creatures the script has no template of, and left out.</span>{/if}
-						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only creature_template rows, shops and quest lists are imported.</span>{/if}
+						{#if plan.plan.others}<span
+								>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of creatures the script has no template of, or of loot, menus or texts no template names, and left out.</span
+							>{/if}
+						{#if plan.plan.skipped}<span
+								>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only creature_template rows, shops, quest lists and what the templates name by ID are imported.</span
+							>{/if}
 						{#if plan.plan.unknown?.length}<span>Columns this server's tables lack are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
 						<span>A replaced creature or list can't be brought back, unless you exported it first.</span>
 					</div>

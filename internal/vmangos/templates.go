@@ -71,8 +71,19 @@ type TemplateRecord struct {
 // columns the editor may change: all but the key (entry, patch).
 func parseColumns(raw []byte) []TemplateColumn {
 	var out []TemplateColumn
+	for _, c := range parseAllColumns(raw) {
+		if c.Name != "entry" && c.Name != "patch" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// parseAllColumns reads SHOW COLUMNS rows into a table's columns, every one, in the table's order.
+func parseAllColumns(raw []byte) []TemplateColumn {
+	var out []TemplateColumn
 	for _, f := range batchLines(raw) {
-		if len(f) < 3 || f[0] == "entry" || f[0] == "patch" {
+		if len(f) < 3 {
 			continue
 		}
 		t := strings.ToLower(f[1])

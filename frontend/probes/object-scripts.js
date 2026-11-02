@@ -1,5 +1,5 @@
-// The game object editor's Export… and Import… (#939): on the Battered Chest (2843), Export… hands the binding the object's entry and name and notes where it wrote; Import… shows the plan's bar (the template rows, the quest lists and contents it replaces, the other objects holding a replaced loot list, the items the server lacks) and Cancel drops it; a confirmed import notes the object and reads the open one's contents again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestObjectScriptRoundTrip, TestObjectsLive).
-// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/objectscripts.go, internal/vmangos/listscripts.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
+// The game object editor's Export… and Import… (#939): on the Battered Chest (2843), Export… hands the binding the object's entry and name and notes where it wrote; Import… shows the plan's bar (the template rows, the quest lists it replaces, the contents it writes under a new loot list ID and those the server holds the same (#991), the items the server lacks) and Cancel drops it; a confirmed import notes the object and reads the open one's contents again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestObjectScriptRoundTrip, TestObjectsLive).
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/objectscripts.go, internal/vmangos/carried.go, internal/vmangos/listscripts.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
 const { ui } = await P.state()
 const App = window.go.main.App
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -33,11 +33,11 @@ try {
 			{ entry: 2843, patch: 7, name: 'Battered Chest', exists: true },
 			{ entry: 90001, patch: 0, name: 'Probe Chest', exists: false },
 		],
-		lists: [
-			{ entry: 2265, of: 'loot list', table: 'gameobject_loot_template', what: 'contents', rows: 28, had: 28 },
-			{ entry: 90001, of: 'object', table: 'gameobject_questrelation', what: 'quests it starts', rows: 2, had: 0 },
+		lists: [{ entry: 90001, of: 'object', table: 'gameobject_questrelation', what: 'quests it starts', rows: 2, had: 0 }],
+		carried: [
+			{ what: 'loot list', table: 'gameobject_loot_template', id: 2265, to: 17500, rows: 28, same: false },
+			{ what: 'reference loot list', table: 'reference_loot_template', id: 30019, to: 30019, rows: 23, same: true },
 		],
-		shared: [{ loot: 2265, entry: 2886, name: 'Barrel', spawns: 3 }],
 		skipped: 1,
 		others: 0,
 		unknown: ['gameobject_loot_template.shiny'],
@@ -76,8 +76,9 @@ try {
 		bar.includes('Import 2 game object rows into the world database?') &&
 		bar.includes('Battered Chest (2843, patch 7, replaces it)') &&
 		bar.includes('Probe Chest (90001, new)') &&
-		bar.includes('Replaces the lists: contents of loot list 2265 (28, replacing 28); quests it starts of object 90001 (2).') &&
-		bar.includes('Barrel (2886, loot list 2265, 3 spawns)') &&
+		bar.includes('Replaces the lists: quests it starts of object 90001 (2).') &&
+		bar.includes('loot list 2265 as 17500 (28 rows).') &&
+		bar.includes('Already here the same, left as they are: reference loot list 30019.') &&
 		bar.includes('99999') &&
 		bar.includes('1 other statement is left out') &&
 		bar.includes('gameobject_loot_template.shiny') &&

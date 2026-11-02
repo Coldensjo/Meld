@@ -122,4 +122,30 @@ func TestCreaturesLive(t *testing.T) {
 			t.Errorf("%s: %d rows, has %d", l.Table, l.Rows, l.Had)
 		}
 	}
+	// What the templates name by ID (#991): Pratt's gossip menu, the Stormwind City Guard's menu (whose
+	// options open many more), spell list and equipment, and the Prowler's loot (naming reference loot)
+	// and skinning loot. Planned on the server they came from, every set is the same and keeps its ID.
+	script, err = ExportCreatures(dir, []int{7852, 68, 118})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan, err = PlanCreatureImport(dir, script); err != nil {
+		t.Fatal(err)
+	}
+	if plan.Skipped != 0 || plan.Others != 0 || len(plan.Unknown) != 0 {
+		t.Fatalf("plan %+v", plan)
+	}
+	kinds := map[string]bool{}
+	for _, c := range plan.Carried {
+		kinds[c.Table] = true
+		if !c.Same || c.To != c.ID || c.Rows == 0 {
+			t.Errorf("carried %+v", c)
+		}
+	}
+	for _, table := range []string{"gossip_menu", "npc_text", "broadcast_text", "creature_spells", "creature_equip_template", "creature_loot_template", "reference_loot_template", "skinning_loot_template"} {
+		if !kinds[table] {
+			t.Errorf("no %s carried: %+v", table, plan.Carried)
+		}
+	}
+	t.Logf("%d sets carried", len(plan.Carried))
 }

@@ -7,9 +7,9 @@ import (
 
 // The creature editor's Export and Import (#938): creatures written to an SQL script of their
 // creature_template rows (sqlscript.go) and the lists keyed by their entry that the editor saves
-// beside the template (the shop, and the quests it starts and ends; listscripts.go), and read back.
-// What the template names by ID (its spell list, equipment, loot, gossip menu, shared vendor list) is
-// not in the script.
+// beside the template (the shop, and the quests it starts and ends; listscripts.go), and read back,
+// with what the template names by ID (its spell list, equipment, shared vendor and trainer lists,
+// loot and gossip menu; carried.go, #991).
 
 var creatureScript = scriptTable{name: creatureTable, key: "patch", entryMax: 1<<24 - 1, keyMax: 255,
 	thing: "creature", things: "Creatures", editor: "Meld's creature editor (Tools > Creatures)"}
@@ -23,7 +23,11 @@ var creatureLists = []scriptList{
 // creatureHeader is the comment the script's header gives after the template's.
 const creatureHeader = "-- With each creature's shop (npc_vendor) and the quests it starts and ends (creature_questrelation,\n" +
 	"-- creature_involvedrelation), each list cleared first, so loading the script replaces the lists.\n" +
-	"-- Its spell list, equipment, loot, gossip menu and shared vendor list are named by ID only, not in the script.\n"
+	"-- Then what the templates name by ID: spell lists, equipment, shared vendor and trainer lists, loot (with the\n" +
+	"-- reference loot it names) and gossip menus (with their texts and the menus their options open), each by its ID.\n" +
+	"-- Run on a server, the script puts those back under their IDs; Import gives a set fresh IDs where the server\n" +
+	"-- holds other rows under its own, so the server's other creatures keep theirs.\n" +
+	"-- The conditions, scripts and points of interest those name are named by ID only, not in the script.\n"
 
 // ExportCreatures is an SQL script that puts creatures back as they are now: every patch row of
 // each entry's creature_template, as REPLACE statements that name their columns, then each one's
@@ -38,13 +42,16 @@ func ExportCreatures(serverRoot string, entries []int) (string, error) {
 		return "", err
 	}
 	var found []int
-	script, err := exportScript(db, creatureScript, cols, entries, func(_ []TemplateColumn, rows []batchRow) (string, error) {
+	var carried string
+	script, err := exportScript(db, creatureScript, cols, entries, func(all []TemplateColumn, rows []batchRow) (string, error) {
 		for _, f := range rows {
 			if n := f.num(0); len(found) == 0 || found[len(found)-1] != n {
 				found = append(found, n)
 			}
 		}
-		return creatureHeader, nil
+		var err error
+		carried, err = exportCarried(newDBSource(db), creatureRoots, all, rows)
+		return creatureHeader, err
 	})
 	if err != nil {
 		return "", err
@@ -53,19 +60,22 @@ func ExportCreatures(serverRoot string, entries []int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return script + lists, nil
+	return script + lists + carried, nil
 }
 
-// creaturePlan is what a script of creatures would write: its template rows and its lists.
+// creaturePlan is what a script of creatures would write: its template rows (their columns that name
+// a carried set rewritten to the IDs the sets come to), its lists and the sets.
 type creaturePlan struct {
 	template scriptPlan
 	lists    []listPlan
+	carried  carriedPlan
 	// skipped counts the statements that are neither, unknown the columns left out of either.
 	skipped int
 	unknown []string
 }
 
-// readCreatureScript parses a script of creatures against the world database's columns.
+// readCreatureScript parses a script of creatures against the world database's columns and works
+// out the IDs its carried sets come to there.
 func readCreatureScript(db worldDB, script string) (creaturePlan, error) {
 	tmpl, err := readScript(db, creatureScript, script)
 	if err != nil {
@@ -76,7 +86,12 @@ func readCreatureScript(db worldDB, script string) (creaturePlan, error) {
 	if err != nil {
 		return creaturePlan{}, err
 	}
-	return creaturePlan{template: tmpl, lists: lists, skipped: tmpl.skipped - stmts, unknown: append(append([]string{}, tmpl.unknown...), unknown...)}, nil
+	carried, err := planCarried(newDBSource(db), script, creatureRoots, tmpl.rows)
+	if err != nil {
+		return creaturePlan{}, err
+	}
+	return creaturePlan{template: tmpl, lists: lists, carried: carried, skipped: tmpl.skipped - stmts - carried.stmts,
+		unknown: append(append(append([]string{}, tmpl.unknown...), unknown...), carried.unknown...)}, nil
 }
 
 // CreatureImport is what an SQL script of creatures would write: its creature rows, the lists it
@@ -84,15 +99,19 @@ func readCreatureScript(db worldDB, script string) (creaturePlan, error) {
 type CreatureImport struct {
 	Creatures []CreatureImportRow `json:"creatures"`
 	Lists     []ListImport        `json:"lists"`
-	// Skipped is how many statements are neither creature_template rows nor the lists' rows and
-	// DELETEs, which importing leaves out.
+	// Carried are the sets the templates name by ID that the script carries (carried.go): kept where
+	// this server holds the same, else written under fresh IDs.
+	Carried []CarriedImport `json:"carried"`
+	// Skipped is how many statements are neither creature_template rows nor the lists' or sets' rows
+	// and DELETEs, which importing leaves out.
 	Skipped int `json:"skipped"`
-	// Others counts the list rows and DELETEs of creatures the script has no template row of, left out.
+	// Others counts the list rows and DELETEs of creatures the script has no template row of, and the
+	// rows and DELETEs of sets no template names, left out.
 	Others int `json:"others"`
 	// Unknown are columns the script names that this server's tables lack, left out.
 	Unknown []string `json:"unknown"`
-	// MissingItems and MissingQuests are the items the shops sell and the quests the creatures start
-	// or end that the world database lacks: importing writes their rows, which the server leaves out.
+	// MissingItems and MissingQuests are the items the shops sell (and the sets' loot, equipment and
+	// vendor lists name) and the quests the creatures start or end that the world database lacks: importing writes their rows, which the server leaves out.
 	MissingItems  []int `json:"missingItems"`
 	MissingQuests []int `json:"missingQuests"`
 }
@@ -129,7 +148,9 @@ func PlanCreatureImport(serverRoot, script string) (CreatureImport, error) {
 	if out.Lists, out.Others, named, err = listsImport(db, plan.lists); err != nil {
 		return CreatureImport{}, err
 	}
-	if out.MissingItems, err = lacking(db, itemTable, named["item"]); err != nil {
+	out.Carried = plan.carried.imports()
+	out.Others += plan.carried.others
+	if out.MissingItems, err = lacking(db, itemTable, append(named["item"], plan.carried.items()...)); err != nil {
 		return CreatureImport{}, err
 	}
 	if out.MissingQuests, err = lacking(db, questTable, named["quest"]); err != nil {
@@ -139,8 +160,9 @@ func PlanCreatureImport(serverRoot, script string) (CreatureImport, error) {
 }
 
 // ImportCreatures writes the creature rows of an SQL script into the world database, replacing rows
-// of the same entry and patch, and replaces the lists it carries for those creatures, all in one
-// transaction; it returns the entries it wrote. Every row is checked against its table's columns
+// of the same entry and patch, replaces the lists it carries for those creatures and writes the sets
+// they name under fresh IDs where this server holds other rows under theirs, the templates rewritten
+// to them, all in one transaction; it returns the entries it wrote. Every row is checked against its table's columns
 // first (and a creature's class against the server's class level stats), and nothing is written if
 // one is refused.
 func ImportCreatures(serverRoot, script string) ([]int, error) {
@@ -181,7 +203,11 @@ func ImportCreatures(serverRoot, script string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := runScript(db, sql+lists); err != nil {
+	carried, err := plan.carried.sql(newDBSource(db))
+	if err != nil {
+		return nil, err
+	}
+	if err := runScript(db, sql+lists+carried); err != nil {
 		return nil, err
 	}
 	forgetDisplays()

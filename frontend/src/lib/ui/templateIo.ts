@@ -1,4 +1,5 @@
 import { setStatus } from '../state/editor.svelte'
+import type { vmangos } from '../wails/models'
 import { copyToClipboard } from './clipboard'
 
 // What the item and spell editors share beyond TemplateEditor (#722): copying a GM command, and the
@@ -89,4 +90,21 @@ export async function runImport(
 	} finally {
 		o.busy(false)
 	}
+}
+
+/** What an import brings that the templates name by ID (#991: loot, gossip menus, spell lists…), as the plan bar says it: the sets it writes under new IDs, then those this server holds the same already. */
+export function carriedText(sets: vmangos.CarriedImport[]): string {
+	const fresh = sets.filter((s) => !s.same)
+	const kept = sets.filter((s) => s.same)
+	const more = (n: number) => (n > 8 ? `; and ${n - 8} more` : '')
+	const parts: string[] = []
+	if (fresh.length) {
+		const list = fresh.slice(0, 8).map((s) => `${s.what} ${s.id} as ${s.to} (${s.rows} ${s.rows === 1 ? 'row' : 'rows'})`)
+		parts.push(`Writes what they name by ID under new IDs, since this server holds other rows under theirs (its other templates keep those): ${list.join('; ')}${more(fresh.length)}.`)
+	}
+	if (kept.length) {
+		const list = kept.slice(0, 8).map((s) => `${s.what} ${s.id}`)
+		parts.push(`Already here the same, left as they are: ${list.join('; ')}${more(kept.length)}.`)
+	}
+	return parts.join(' ')
 }

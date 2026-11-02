@@ -10,7 +10,7 @@
 	import type { vmangos } from '../lib/wails/models'
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { focusField } from '../lib/ui/focusField'
-	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
+	import { askImport as planImport, carriedText, exportRow, runImport } from '../lib/ui/templateIo'
 	import { fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups, pageColumn } from '../lib/world/objectFields'
 	import { objectEntryFields } from '../lib/world/spawnEdits'
@@ -445,12 +445,6 @@
 	function listText(l: vmangos.ListImport): string {
 		return `${l.what} of ${l.of} ${l.entry} (${l.rows}${l.had ? `, replacing ${l.had}` : ''})`
 	}
-
-	/** The objects that hold a loot list the import replaces, as the plan bar says them. */
-	function sharedText(shared: vmangos.LootShare[]): string {
-		const list = shared.slice(0, 8).map((s) => `${s.name || 'object'} (${s.entry}, loot list ${s.loot}${s.spawns ? `, ${s.spawns} ${s.spawns === 1 ? 'spawn' : 'spawns'}` : ''})`)
-		return list.join('; ') + (shared.length > 8 ? `; and ${shared.length - 8} more` : '')
-	}
 </script>
 
 {#if target}
@@ -494,9 +488,9 @@
 						{#if plan.plan.lists?.length}
 							<span>Replaces the lists: {plan.plan.lists.slice(0, 12).map(listText).join('; ')}{plan.plan.lists.length > 12 ? `; and ${plan.plan.lists.length - 12} more` : ''}.</span>
 						{:else}
-							<span>The script carries no quest lists or contents: the objects keep theirs.</span>
+							<span>The script carries no quest lists: the objects keep theirs.</span>
 						{/if}
-						{#if plan.plan.shared?.length}<span>Other objects here hold a loot list it replaces, and get the new contents too: {sharedText(plan.plan.shared)}.</span>{/if}
+						{#if plan.plan.carried?.length}<span>{carriedText(plan.plan.carried)}</span>{/if}
 						{#if plan.plan.missingItems?.length}<span>Items this world database lacks, which the contents then list but the server leaves out: {plan.plan.missingItems.join(', ')}. Import them first (Tools › Items).</span>{/if}
 						{#if plan.plan.missingQuests?.length}<span>Quests this world database lacks, which the server leaves out: {plan.plan.missingQuests.join(', ')}.</span>{/if}
 						{#if plan.plan.others}<span>{plan.plan.others} list {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of objects or loot lists the script's templates don't name, and left out.</span>{/if}
