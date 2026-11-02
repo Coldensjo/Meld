@@ -62,9 +62,10 @@ probes, `wails3` at go.mod's Wails version, golangci-lint and the frontend's pac
 already there, so it can run at every session start; `--no-chrome` and `--no-lint` leave those out.
 The CI's `build-linux` job runs it before `make build-linux`, which is its test.
 
-For a Claude Code cloud session, run it from a SessionStart hook in `.claude/settings.json`; the
-script's header holds the hook, which runs only when `CLAUDE_CODE_REMOTE` is `true`, and the PATH
-additions reach the session through `CLAUDE_ENV_FILE`.
+For a Claude Code cloud session, the checked-in `.claude/settings.json` runs it from a SessionStart
+hook, only when `CLAUDE_CODE_REMOTE` is `true` (the hook ends in `|| true`, so Windows sessions and a
+failed setup start as before); the PATH additions reach the session through `CLAUDE_ENV_FILE`. The
+first run takes a few minutes (apt, Chrome, `go install`); to shorten it, add `--no-lint` to the hook.
 
 Such a container has no WoW client: the client-dependent Go tests skip, `make test-full` cannot run,
 and only the probes on flat maps can pass (none that loads client assets or the benchmark scene). The

@@ -1,0 +1,14 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "[ \"$CLAUDE_CODE_REMOTE\" = true ] && \"$CLAUDE_PROJECT_DIR\"/scripts/setup-linux.sh || true"
+					}
+				]
+			}
+		]
+	}
+}
