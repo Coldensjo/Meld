@@ -5,6 +5,7 @@
 	import { optionsVisibility } from '../lib/ui/optionsVisibility'
 	import OptSlider from './OptSlider.svelte'
 	import ScriptBrushBar from './ScriptBrushBar.svelte'
+	import BiomeOptions from './options/BiomeOptions.svelte'
 	import ClearOptions from './options/ClearOptions.svelte'
 	import DoodadOptions from './options/DoodadOptions.svelte'
 	import MapDataOptions from './options/MapDataOptions.svelte'
@@ -236,6 +237,8 @@
 			<SculptOptions {sizeStrength} {editLimit} {imageBrush} {falloffCurve} {brushShape} />
 		{:else if editor.tool === 'paint' || editor.tool === 'road'}
 			<PaintOptions {sizeStrength} {editLimit} {imageBrush} {falloffCurve} {brushShape} />
+		{:else if editor.tool === 'biome'}
+			<BiomeOptions />
 		{:else if editor.tool === 'path'}
 			<PathOptions />
 		{:else if editor.tool === 'water'}

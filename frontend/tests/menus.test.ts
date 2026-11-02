@@ -13,7 +13,7 @@ type Bag = Record<string, unknown>
 /** A context over plain objects; `command` toggles the values the bound commands toggle in the app. */
 function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean; events?: MenuContext['events']; sessionRole?: MenuContext['sessionRole']; sessionGuestMap?: boolean } = {}) {
 	const ui: Bag = { recentProjects: [], serverStatus: null, serverAction: '', externalDb: null, project: null, ...over.ui }
-	const editor: Bag = { bookmarks: [], maskSelect: { step: 4 }, smoothArea: { mode: 'smooth', shape: 'raise' }, selectedIds: [], selection: null, regionBlock: null, worldMap: null, ...over.editor }
+	const editor: Bag = { bookmarks: [], maskSelect: { step: 4 }, smoothArea: { mode: 'smooth', shape: 'raise' }, selectedIds: [], selection: null, regionBlock: null, worldMap: null, mapBiomes: [], ...over.editor }
 	const prefs: Bag = { shownEvents: [], biomes: [], ...over.prefs }
 	const commands: CommandId[] = []
 	// The check items whose click runs a command (their key's), and the value that command flips.

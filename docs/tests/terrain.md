@@ -1022,3 +1022,31 @@ the models; redo brings them back. The Biomes dialog opens from `ui.dialog = 'bi
   and rocks inside only, the edge blending over the mask step.
 - Trap: the status line's "a texture of the old paint gave way" counts border chunks where the old paint
   and the biome together need more than four textures; on an auto-painted map most border chunks do.
+
+## Biome Brush: two biomes side by side, their border and the four-texture limit (#958, probe `biome-brush`)
+
+Checks: a stroke adds its biome to the map's biomes and marks its cells in the biome map; two biomes painted
+side by side blend over the border width (the first's base falls from full to none over several texels, not
+in one step), every chunk keeps four textures at most and the border chunks hold both bases; the first
+biome's scatter lands only on its own cells; one undo takes a stroke back (cells, paint and the biome it
+added) and redo brings it back; Ctrl takes a biome off and leaves the paint; Paint › Update Biomes from Mine
+and Repaint repaints with a changed biome as one step; the biomes and the biome map come back through a
+save and a load in Go (format 9).
+- Unit tests: `bun test tests/biomeMap.test.ts` (the blend's shares across a border, the four-texture
+  choice on a border chunk with a dropped role going to its fallback, a whole chunk keeping three, the fade
+  into unpainted ground, an unchanged map repainting nothing), `tests/mapData.test.ts` (the biomes and biome
+  map round trip, a list that isn't biomes reading as none) and `go test ./internal/mapfile/` (version 9,
+  its fixture `testdata/v9.wmap`, a version 8 map opening without biomes, a biome map of the wrong size
+  refused).
+- Probe: `bun run probe biome-brush` (a flat map, colour swatches for textures and helper cubes for models,
+  so it needs no client; about 10 s). Its `strokeMs` is the time inside the brush's ticks for a 16-tick
+  stroke 80 yd wide (about 55 ms under SwiftShader).
+- By eye: `probes/scratch/` style shot, top-down after two strokes (`bun run probe <file> --shot <dir>`):
+  the border is a soft curve, the chunks that dropped a texture are outlined in orange, and straight
+  chunk-edge cuts appear only where a chunk dropped a texture (the 1.12 limit).
+- With the client: Paint › Biomes…, Make biome from two zones (Elwynn Forest, Westfall), paint one with the
+  Biome Brush and the other next to it, then check a border chunk's layers in the Layers panel (it shows the chunk under the cursor)
+  and after Compile.
+- Trap: the brush paints with the map's copy of a biome of that name, so an edit in Paint › Biomes… shows
+  only after Update Biomes from Mine and Repaint. A repaint blends a texel bordering unpainted ground over
+  its current paint, which already holds the biome, so repeated repaints sharpen such edges a little.

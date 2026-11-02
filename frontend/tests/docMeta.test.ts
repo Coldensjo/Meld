@@ -9,6 +9,7 @@ import { editor, ui } from '../src/lib/state/editor.svelte.ts'
 import { MapDocument, type DocMeta } from '../src/lib/engine/MapDocument.ts'
 import { DOC_META_KEYS, loadMeta, stashMeta } from '../src/lib/engine/docMeta.ts'
 import { copyPaths, newPath } from '../src/lib/terrain/paths.ts'
+import { newBiome } from '../src/lib/terrain/biome.ts'
 
 /** A meta with every field set, the optional ones too; `n` makes each value differ from another n's. */
 function fullMeta(n: number): Required<DocMeta> {
@@ -32,6 +33,7 @@ function fullMeta(n: number): Required<DocMeta> {
 		scopedEffects: { zones: { [`${n}`]: { [`tex${n}`]: n } }, tiles: { [`${n},0`]: { [`tex${n}`]: n + 3 } } },
 		reference: { path: `ref${n}.png`, mode: n % 2 ? 'ground' : 'screen', opacity: n / 10, shown: n % 2 === 0, x: n, z: n, w: 10 * n, h: 5 * n, turn: n / 4 },
 		paths: [path],
+		biomes: [newBiome(`biome ${n}`, [`tex${n}.blp`])],
 		flattenLock: { on: n % 2 === 1, x: n, y: n + 1, z: n + 2 },
 		waterLock: { on: n % 2 === 0, pos: { x: n, y: n * 2, z: n * 3 } },
 		symmetry: { mode: n % 2 ? 'x' : 'radial', count: 2 + n, center: { x: 10 * n, z: 20 * n } },

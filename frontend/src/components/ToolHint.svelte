@@ -17,6 +17,8 @@
 	{/if}
 {:else if editor.tool === 'paint' && editor.paintMode === 'swap' && editor.swap.keep}
 	{editor.swap.from ? `Swapping ${texName(editor.swap.from)}` : 'The next stroke picks the texture to swap'}
+{:else if editor.tool === 'biome'}
+	drag to paint the biome · <kbd>Ctrl</kbd>+drag takes it off (the paint stays) · after changing a biome, Paint › Repaint Biomes · outlined chunks had to drop a texture
 {:else if editor.tool === 'water' && editor.waterMode === 'paint'}
 	<kbd>Ctrl</kbd>+click removes water · <kbd>Alt</kbd>+click locks the height at the cursor
 {:else if editor.tool === 'place'}

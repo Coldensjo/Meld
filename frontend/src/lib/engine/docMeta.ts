@@ -5,6 +5,7 @@
 // shared session also goes in session/settings.ts (`SETTINGS_FIELDS`, #1019).
 import type { editor } from '../state/editor.svelte'
 import { copyPaths } from '../terrain/paths'
+import { copyBiome } from '../terrain/biome'
 import { copyReference } from '../terrain/referenceImage'
 import { noScopedEffects, type ScopedEffects } from '../world/groundEffects'
 import type { DocMeta } from './MapDocument'
@@ -29,6 +30,7 @@ export type MetaEditor = Pick<
 	| 'scopedEffects'
 	| 'reference'
 	| 'paths'
+	| 'mapBiomes'
 	| 'pathId'
 	| 'pathPoint'
 	| 'flattenLock'
@@ -57,6 +59,7 @@ export const DOC_META_KEYS: Record<keyof DocMeta, true> = {
 	scopedEffects: true,
 	reference: true,
 	paths: true,
+	biomes: true,
 	flattenLock: true,
 	waterLock: true,
 	symmetry: true,
@@ -85,6 +88,7 @@ export function stashMeta(e: MetaEditor, prev: DocMeta): DocMeta {
 		scopedEffects: structuredClone(plainScoped(e.scopedEffects)),
 		reference: copyReference(e.reference),
 		paths: copyPaths(e.paths),
+		biomes: e.mapBiomes.map(copyBiome),
 		region: prev.region,
 		vmangos: prev.vmangos,
 		bookmarks: [...e.bookmarks],
@@ -114,6 +118,7 @@ export function loadMeta(e: MetaEditor, m: DocMeta) {
 	e.scopedEffects = structuredClone(m.scopedEffects ?? noScopedEffects())
 	e.reference = copyReference(m.reference)
 	e.paths = copyPaths(m.paths ?? [])
+	e.mapBiomes = (m.biomes ?? []).map(copyBiome)
 	e.pathId = -1
 	e.pathPoint = -1
 	// The locked points are positions on one map; another map starts unlocked (#449).

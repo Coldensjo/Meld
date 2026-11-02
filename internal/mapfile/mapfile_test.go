@@ -49,6 +49,9 @@ func sample(size int) *MapData {
 	// One texel in shadow at each end of the shadow map.
 	shadows := make([]byte, size*ShadowTexels*size*ShadowTexels/8)
 	shadows[0], shadows[len(shadows)-1] = 1, 0x80
+	// Two cells painted with the map's first biome, one with its second.
+	biomeMap := make([]byte, size*size)
+	biomeMap[0], biomeMap[1], biomeMap[size*size-1] = 1, 1, 2
 	return &MapData{
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
@@ -61,6 +64,7 @@ func sample(size int) *MapData {
 			ZoneEffects:    map[string]map[string]uint32{"12": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 7}},
 			TileEffects:    map[string]map[string]uint32{"1,2": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 9}},
 			Reference:      &ReferenceImage{Path: `C:\plans\zone.png`, Mode: "ground", Opacity: 0.6, Shown: true, X: 64, Z: 48, W: 128, H: 96, Turn: 0.25},
+			Biomes:         json.RawMessage(`[{"name":"Forest","textures":["Tileset\\Elwynn\\ElwynnGrassBase.blp"]},{"name":"Rock"}]`),
 			Paths:          []MapPath{{ID: 3, Name: "Road 1", Kind: "road", Points: []PathPoint{{X: 1, Y: 2, Z: 3}, {X: 40, Y: 5, Z: 60}}, Width: 8, Falloff: 4, Edge: 1, Grade: 12, Texture: `Tileset\Elwynn\ElwynnCobblestoneBase.blp`}, {ID: 4, Name: "River 1", Kind: "river", Width: 14, Depth: 3.5, Liquid: 2}, {ID: 5, Name: "Fence 1", Kind: "fence", Model: `m2:World\Generic\fence.m2`, Spacing: 3, Turn: 90}},
 		},
 		Heights:     base64.StdEncoding.EncodeToString(h),
@@ -73,6 +77,7 @@ func sample(size int) *MapData {
 		NoEffect:    base64.StdEncoding.EncodeToString(noEffect),
 		Shadows:     base64.StdEncoding.EncodeToString(shadows),
 		PathApplies: base64.StdEncoding.EncodeToString(appliesBlob(size, res, 3)),
+		BiomeMap:    base64.StdEncoding.EncodeToString(biomeMap),
 	}
 }
 
@@ -119,8 +124,12 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("version = %d, want %d", got.Version, Version)
 	}
 	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes || got.Liquids != m.Liquids ||
-		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect || got.Shadows != m.Shadows || got.PathApplies != m.PathApplies || got.PathApplies == "" {
+		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect || got.Shadows != m.Shadows || got.PathApplies != m.PathApplies || got.PathApplies == "" ||
+		got.BiomeMap != m.BiomeMap || got.BiomeMap == "" {
 		t.Fatal("blob mismatch")
+	}
+	if string(got.Biomes) != string(m.Biomes) {
+		t.Fatalf("biomes %s, want %s", got.Biomes, m.Biomes)
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
 		t.Fatalf("header mismatch: %+v", got.Header)
@@ -325,6 +334,58 @@ func TestReadsVersion7WithoutPathApplies(t *testing.T) {
 	}
 	if m.Version != 7 || m.PathApplies != "" || m.Shadows == "" || len(m.Paths) != 3 {
 		t.Fatalf("version 7 fields: version %d, path applies %d chars", m.Version, len(m.PathApplies))
+	}
+}
+
+// A version 8 map has no biome map and no biomes: it opens with none.
+func TestReadsVersion8WithoutBiomes(t *testing.T) {
+	old := sample(32)
+	old.Biomes = nil
+	m, err := Read(bytes.NewReader(writeOld(t, old, 8)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != 8 || m.BiomeMap != "" || m.Biomes != nil || m.PathApplies == "" {
+		t.Fatalf("version 8 fields: version %d, biome map %d chars, biomes %s", m.Version, len(m.BiomeMap), m.Biomes)
+	}
+}
+
+// A biome map of the wrong size is refused on write and on read; an empty one means none.
+func TestBiomeMapChecked(t *testing.T) {
+	m := sample(32)
+	m.BiomeMap = base64.StdEncoding.EncodeToString(make([]byte, 31))
+	if err := Write(io.Discard, m); err == nil {
+		t.Fatal("wrote a biome map of 31 bytes for 32x32 cells")
+	}
+	m.BiomeMap = ""
+	m.Biomes = nil
+	var buf bytes.Buffer
+	if err := Write(&buf, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.BiomeMap != "" || got.Biomes != nil {
+		t.Fatalf("no biome map read back as %d chars, biomes %s", len(got.BiomeMap), got.Biomes)
+	}
+	// A stream whose biome map's length is neither 0 nor the cells is refused.
+	raw := gunzip(t, func() []byte {
+		var b bytes.Buffer
+		if err := Write(&b, sample(32)); err != nil {
+			t.Fatal(err)
+		}
+		return b.Bytes()
+	}())
+	at := len(raw) - 32*32 - 4
+	binary.LittleEndian.PutUint32(raw[at:], 7)
+	var bad bytes.Buffer
+	gz := gzip.NewWriter(&bad)
+	_, _ = gz.Write(raw[:at+4+7])
+	_ = gz.Close()
+	if _, err := Read(&bad); err == nil {
+		t.Fatal("read a biome map of 7 bytes")
 	}
 }
 

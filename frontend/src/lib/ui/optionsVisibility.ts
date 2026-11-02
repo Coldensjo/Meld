@@ -48,6 +48,7 @@ export function symmetryApplies(s: OptionsState): boolean {
 			return !(s.paintMode === 'mask' && s.maskSelect.by !== 'brush')
 		case 'doodad':
 			return s.doodadMode !== 'creatures'
+		case 'biome':
 		case 'road':
 		case 'water':
 		case 'clear':

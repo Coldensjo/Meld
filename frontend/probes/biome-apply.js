@@ -1,5 +1,5 @@
 // Paint › Apply Biome (#957) over a selected area on a Hills map: the biome's textures go into the palette and paint only inside the area (rock on the steep ground), its ground effect becomes the map's own, its doodad brush scatters only inside, and one undo takes all of it back, palette and models too; redo brings it back. Then the Biomes dialog opens from Paint › Biomes….
-// touches: frontend/src/lib/terrain/biome.ts, frontend/src/lib/terrain/autoPaint.ts, frontend/src/lib/engine/terrainOps.ts, frontend/src/components/BiomesDialog.svelte, frontend/src/lib/state/historyCore.ts, frontend/src/lib/terrain/activeBiome.ts
+// touches: frontend/src/lib/terrain/biome.ts, frontend/src/lib/terrain/autoPaint.ts, frontend/src/lib/engine/terrainOps.ts, frontend/src/components/BiomesDialog.svelte, frontend/src/lib/state/historyCore.ts, frontend/src/lib/terrain/activeBiome.ts, frontend/src/lib/tools/BiomeBrushTool.ts
 const e = P.e
 const { editor, prefs, ui } = await P.state()
 e.newDocument(128, 'mountains', 5, 'Probe')

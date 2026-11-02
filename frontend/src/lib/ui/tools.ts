@@ -14,6 +14,13 @@ export const TOOLS: Array<{ id: ToolId; name: string; desc: string; key: string;
 		letter: 'B',
 		icon: 'M6.5 2.5h12A1.5 1.5 0 0 1 20 4v2a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 5 6V4a1.5 1.5 0 0 1 1.5-1.5zM20 5h2M5 5H4.5A2 2 0 0 0 2.5 7v2.5l9 2.3a1 1 0 0 1 .8 1V14M10.6 15.4a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v5.1a1 1 0 0 1-1 1h-1.2a1 1 0 0 1-1-1z',
 	},
+	{
+		id: 'biome',
+		name: 'Biome Brush',
+		desc: "Paint biomes (Paint › Biomes…): each cell takes the biome's textures by its rules, borders between biomes blend over the border width, and its doodad brushes scatter. Ctrl takes the biome off and keeps the paint.",
+		key: 'L',
+		icon: 'M3 20l5-8 3 4 3-6 7 10zM15 4a2 2 0 1 0 4 0 2 2 0 1 0-4 0M6 9c1-2 3-2 4 0',
+	},
 	{ id: 'road', name: 'Roads', desc: 'Paint a texture with a hard edge and level the ground across it.', key: '4', icon: 'M8 21L10 3M16 21L14 3M12 5v2M12 11v2M12 17v2' },
 	{
 		id: 'path',

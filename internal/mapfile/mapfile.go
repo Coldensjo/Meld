@@ -19,6 +19,13 @@
 //	shadows    []byte   the baked terrain shadows, a bit per shadow texel (version 6)
 //	appliedLen uint32   length of the path applies blob (version 8)
 //	applied    []byte   what each path's last apply replaced (version 8, below)
+//	biomeLen   uint32   length of the biome map: 0, or Size^2 (version 9)
+//	biomeMap   []byte   Size^2 bytes: the biome each cell was painted with (version 9, below)
+//
+// The biome map (#958) is the Biome Brush's: a byte per cell, 0 for none, else 1 plus the index of the
+// biome in the header's Biomes, the map's own copies of the biomes it was painted with, which Meld
+// keeps opaque here (the frontend's terrain/biome.ts Biome). An empty blob means none was painted.
+// Version 8 and older have neither: such a map opens with no biomes.
 //
 // The baked shadows (each chunk's MCSH, kept at its resolution) have ShadowTexels texels a cell, so
 // Size*ShadowTexels a side; texel i (row-major) is bit i&7 of byte i>>3. An empty blob means the map
@@ -71,8 +78,8 @@ import (
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Versions 1 to 7 are still read.
-	Version = 8
+	// Version is the format written. Versions 1 to 8 are still read.
+	Version = 9
 	// ShadowTexels is the baked shadow map's texels per cell side (64 a chunk, as MCSH has them).
 	ShadowTexels = 8
 	// LiquidRecordSize is the bytes of one liquid layer in the liquids blob.
@@ -165,6 +172,9 @@ type Header struct {
 	// a map opened before the table is read) still draws and exports as its kind (#540). Optional;
 	// older readers ignore it, and the frontend checks it.
 	LiquidKinds map[string]string `json:"liquidKinds,omitempty"`
+	// Biomes are the map's own copies of the biomes the Biome Brush painted with (#958), which the
+	// biome map's cells name by index, kept opaque (the frontend checks them). Version 9; optional.
+	Biomes json.RawMessage `json:"biomes,omitempty"`
 }
 
 // PathPoint is a path's control point, in world units.
@@ -248,8 +258,11 @@ type MapData struct {
 	// PathApplies is the path applies blob (version 8): what each path's last apply replaced. Empty
 	// means none.
 	PathApplies string `json:"pathApplies,omitempty"`
-	SplatA      string `json:"splatA,omitempty"` // base64 RGBA8, version 1
-	SplatB      string `json:"splatB,omitempty"` // base64 RGBA8, version 1
+	// BiomeMap is a byte per cell (version 9): 0 for none, else 1 plus the index in Biomes. Empty means
+	// no cell was painted with a biome.
+	BiomeMap string `json:"biomeMap,omitempty"`
+	SplatA   string `json:"splatA,omitempty"` // base64 RGBA8, version 1
+	SplatB   string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
 
 func (h *Header) validate() error {
@@ -524,6 +537,16 @@ func Write(w io.Writer, m *MapData) error {
 	var appliesLen [4]byte
 	binary.LittleEndian.PutUint32(appliesLen[:], uint32(len(applies)))
 	blobs = append(blobs, appliesLen[:], applies)
+	biomes, err := base64.StdEncoding.DecodeString(m.BiomeMap)
+	if err != nil {
+		return fmt.Errorf("biome map: %w", err)
+	}
+	if len(biomes) != 0 && len(biomes) != m.holeBytes() {
+		return fmt.Errorf("biome map: %d bytes, want %d", len(biomes), m.holeBytes())
+	}
+	var biomeLen [4]byte
+	binary.LittleEndian.PutUint32(biomeLen[:], uint32(len(biomes)))
+	blobs = append(blobs, biomeLen[:], biomes)
 
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {
@@ -552,7 +575,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 to 8 are all accepted.
+// Read decodes a map from r. Versions 1 to 9 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -682,6 +705,21 @@ func Read(r io.Reader) (*MapData, error) {
 			}
 			if size > 0 {
 				m.PathApplies = base64.StdEncoding.EncodeToString(buf)
+			}
+		}
+		if v >= 9 {
+			var n [4]byte
+			if _, err := io.ReadFull(gz, n[:]); err != nil {
+				return nil, fmt.Errorf("biome map: %w", err)
+			}
+			switch size := int(binary.LittleEndian.Uint32(n[:])); size {
+			case 0:
+			case m.holeBytes():
+				if m.BiomeMap, err = read(size); err != nil {
+					return nil, fmt.Errorf("biome map: %w", err)
+				}
+			default:
+				return nil, fmt.Errorf("biome map: %d bytes, want %d", size, m.holeBytes())
 			}
 		}
 	}

@@ -31,8 +31,13 @@ mask/liquid, image codec or native/game rendering contracts.
 
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
   float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows + path
-  applies). Blobs cross the bridge as base64 strings. If you change the format, bump `Version`, update the tests and add the new version's fixture
+  applies + biome map). Blobs cross the bridge as base64 strings. If you change the format, bump `Version`, update the tests and add the new version's fixture
   (`internal/mapfile/testdata`, `TestFixtures`, docs/tests/terrain.md).
+  Version 9 adds the biome map (#958, the owner's answers 1A 2A): a length (0 or Size²) and a byte per
+  cell, 0 for none, else 1 plus the index in the header's `biomes`, the map's own copies of the biomes
+  the Biome Brush painted with (kept opaque in Go, checked by `mapData.ts` `readBiomes` with the
+  preferences' shape check; a cell naming a biome the list lacks is cleared on open, `checkBiomeMap`).
+  A version 8 map opens with no biomes.
   Version 8 adds the path applies blob (#395): for each path whose last apply is in the map, what that
   apply replaced (the vertices and their heights, the paint chunks, the liquid chunks and their layers,
   a fence's model IDs and type; the layout is in `mapfile.go`), written and read by `tools/pathRecord.ts`
@@ -774,8 +779,38 @@ mask/liquid, image codec or native/game rendering contracts.
   counted and named in the status line), sets the effects as the map's own (`editor.textureEffects`,
   for the whole map, not just the area) and fills each brush with `DoodadBrushTool.fill` through the
   same mask (attempts from the density over the area, doubled with clumps). The lush noise is seeded
-  by the biome's name, so two applies of one biome side by side match. A brush's `onTextures` rule
-  sees the biome's paint, since the scatter runs after it. #958 (the biome brush) builds on it.
+  by the biome's name (`biomeSeed`), so two applies of one biome side by side match. A brush's `onTextures` rule
+  sees the biome's paint, since the scatter runs after it. The effects go through `setBiomeEffects`
+  (tools/BiomeBrushTool.ts), which the Biome Brush shares.
+  **The Biome Brush** (#958, tool `biome`, key L, `tools/BiomeBrushTool.ts`): paints biomes like
+  colours and works out the borders. The map keeps a biome map, `Terrain.biomeMap` (a byte per cell, 0
+  for none, else 1 plus the index in `editor.mapBiomes`, the map's own copies of the biomes it painted
+  with, `DocMeta.biomes`; both saved in format 9). A stroke marks the cells whose middle the brush
+  covers (Ctrl sets them to none, which keeps their paint) and repaints the chunks within the border's
+  reach (`chunksReached`) through `terrain/biomeMap.ts`: `BiomeBlend` gives each splat texel its
+  biomes' shares from the distance to the nearest cell of another biome (half and half on the cells'
+  edge, its own alone half the border width in, `prefs.biomeBorder` yards; a cell of no biome counts
+  as the old paint), and `BiomeRepainter.chunk` blends each biome's `biomeLayer` (its role textures and
+  `texelRoles` with its rules) over the old paint by those shares, only for texels a changed cell
+  reaches, from the chunk's paint at the stroke's start (`readChunkPaint`), so a stroke never blends
+  into its own paint. Each chunk keeps every biome's base first, then the heaviest of the rest, four
+  at most (three where one biome covers it whole, as auto-paint); a dropped role's weight goes to its
+  biome's fallback (`ROLE_FALLBACK`: snow to rock, rock and sand to dirt, dirt and lush to the base),
+  an old texture's to the kept ones in proportion, and a chunk where a texture with 4% of it had to
+  go is outlined until the next stroke (`ChunkOutline`). On release the stroke is one undo step
+  (`History.batch`): the palette's added textures, the biome added to the map, the paint, the cells
+  (`cellsStep`), the ground effects and the scatter, which `DoodadBrushTool.fill` lays over the cells
+  the stroke newly took at the biome's densities, keeping a point by `2 × share − 1` (none on the
+  border, all half the border in). The brush preloads its biome's models each frame the biome changes;
+  if they are still loading on release, the scatter follows as its own step. The brush paints with
+  the map's copy of a biome of that name (a map shared from another machine paints as it was made);
+  **Paint › Repaint Biomes** (`Engine.repaintBiomes`, `repaintBiomeMap`) repaints every chunk a biome
+  reaches with the map's copies over the current border, and **Update Biomes from Mine and Repaint**
+  first replaces each copy with the preferences' biome of its name. Both are one undo step and never
+  run on their own. Trap: a repaint blends each texel that borders unpainted ground over its current
+  paint, which already holds the biome, so repeated repaints sharpen those edges a little; a border
+  between two biomes is exact every time. Shared sessions don't carry the biome map or the map's
+  biomes yet (#1036).
   **The tiles on the grid** (#46, the owner's answers 1A to 5A): the terrain stays one square, the
   smallest that holds the tiles (`terrain/tileMask.ts`, `boundingSquare`, at most `MAX_WORLD_TILES`
   = 8 a side), at the grid tile `VmangosRef.tileX`, `tileY`, and `VmangosRef.tiles` masks it (a '1'

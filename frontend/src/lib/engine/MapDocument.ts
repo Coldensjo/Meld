@@ -7,6 +7,7 @@ import type { ReferenceImage } from '../terrain/referenceImage'
 import type { LoadedReference } from '../io/referenceLoad'
 import type { PendingAnswer } from '../io/regionKey'
 import type { MapPath } from '../terrain/paths'
+import type { Biome } from '../terrain/biome'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
@@ -52,6 +53,8 @@ export interface DocMeta {
 	reference: ReferenceImage | null
 	/** The map's paths (editor.paths, the Path tool), saved with the map. */
 	paths: MapPath[]
+	/** The map's own biomes (editor.mapBiomes, the Biome Brush, #958), saved with the map. */
+	biomes: Biome[]
 	/** The Flatten tool's locked point (editor.flattenLock), a position on this map; unset means off (#449). */
 	flattenLock?: { on: boolean; x: number; y: number; z: number }
 	/** The water brush's lock and its locked point (editor.water.lock, lockPos), a position on this map (#449). */
@@ -243,6 +246,7 @@ export class MapDocument {
 			scopedEffects: noScopedEffects(),
 			reference: null,
 			paths: [],
+			biomes: [],
 		}
 	}
 

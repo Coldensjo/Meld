@@ -62,6 +62,11 @@ export class Terrain {
 	 * tool, and kept in the map file.
 	 */
 	readonly noEffect: Uint8Array
+	/**
+	 * One byte per cell: the biome the Biome Brush painted it with (#958, terrain/biomeMap.ts), 0 for
+	 * none, else 1 plus its index in the map's biomes (`editor.mapBiomes`). Kept in the map file.
+	 */
+	readonly biomeMap: Uint8Array
 	/** One AreaTable.dbc ID per paint chunk (an MCNK), 0 for none, which the chunk's header names. */
 	readonly areaIds: Uint32Array
 	/** One byte of flags per paint chunk: CHUNK_IMPASSABLE (chunkFlags.ts) where players can't walk it. */
@@ -170,6 +175,7 @@ export class Terrain {
 		this.heights = new Float32Array(this.verts * this.verts)
 		this.holes = new Uint8Array(size * size)
 		this.noEffect = new Uint8Array(size * size)
+		this.biomeMap = new Uint8Array(size * size)
 		this.shadowSide = size * SHADOW_PER_CELL
 		this.areaIds = new Uint32Array(this.paintChunksPerSide * this.paintChunksPerSide)
 		this.chunkFlags = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide)

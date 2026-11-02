@@ -214,6 +214,9 @@ export function defaultPrefs() {
 		/** The biomes (terrain/biome.ts, #957), Paint › Biomes…, and the name of the one Apply Biome lays. Each embeds its doodad brushes. Replace the list, never edit it in place. */
 		biomes: [] as Biome[],
 		biome: '',
+		/** The Biome Brush (#958): the yards over which two biomes blend at their border, and whether a stroke scatters the biome's doodad brushes. */
+		biomeBorder: 16,
+		biomeScatter: true,
 		/**
 		 * The Script Brush tool (#29): the scripts folder's file it loads, and its brushes' setting (tag) values,
 		 * by `file/brush` and then the tag's label. Replace an inner record, never edit it in place.

@@ -10,13 +10,14 @@
 import type { DoodadBrush } from '../tools/doodadBrush'
 import { AUTO_PAINT_MIN_SHARE, AUTO_PAINT_ROLES, AUTO_PAINT_RULES, VARIATION_YARDS, texelRoles, type PaintRules } from './autoPaint'
 import { SAND_BAND } from './beach'
-import { NO_TEXTURE, SLOTS, chunkTexelRect, normalizeTexel } from './chunkPaint'
+import { NO_TEXTURE, SLOTS, chunkTexelRect, normalizeTexel, paletteIndex } from './chunkPaint'
 
 /** The roles a biome gives a texture, in auto-paint's order (wow/texturePack.ts: 0 grass ... 5 snow). */
 export const BIOME_ROLES = ['Base', 'Lush patches', 'Dirt rim', 'Rock', 'Sand', 'Snow'] as const
 
-/** Where a role with no texture of its own looks next, as a texture pack's do. */
-const FALLBACK: Record<number, number> = { 1: 0, 2: 0, 3: 2, 4: 2, 5: 3 }
+/** Where a role with no texture of its own looks next, as a texture pack's do (and where a dropped role's weight goes, terrain/biomeMap.ts). */
+export const ROLE_FALLBACK: Record<number, number> = { 1: 0, 2: 0, 3: 2, 4: 2, 5: 3 }
+const FALLBACK = ROLE_FALLBACK
 
 /** A biome's thresholds, in the units its window shows (degrees and yards). */
 export interface BiomeRules {
@@ -79,6 +80,11 @@ export function freeBiomeName(list: readonly Biome[], base = 'Biome'): string {
 	for (let n = 2; ; n++) if (!taken.has(`${base} ${n}`)) return `${base} ${n}`
 }
 
+/** The seed of a biome's lush noise, from its name: two paints of one biome side by side match. */
+export function biomeSeed(name: string): number {
+	return [...name].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) | 0, 7)
+}
+
 /** A deep copy, so an edit of one never changes another (or a brush it was made from). */
 export function copyBiome(b: Biome): Biome {
 	return JSON.parse(JSON.stringify(b)) as Biome
@@ -122,6 +128,19 @@ export interface BiomePaint {
 	waterLevel: number
 	waterEnabled: boolean
 	seed: number
+}
+
+/**
+ * What biome `b` paints on ground `g` (the Biome Brush's layers, terrain/biomeMap.ts): the palette index
+ * of each role's texture in `palette` (-1 for one the palette lacks) and its rules' weights per texel.
+ */
+export function biomeLayer(b: Biome, g: Omit<BiomeGround, 'weights' | 'chunkSlots'>, palette: readonly string[], waterLevel: number, waterEnabled: boolean): { roleTex: number[]; fill: (i: number, j: number, out: Float32Array) => void } {
+	const roleTex = roleTextures(b).map((p) => (p ? paletteIndex(palette, p) : -1))
+	const fill = texelRoles(
+		{ heights: g.heights, size: g.size, cellSize: g.cellSize, res: g.splatRes, side: g.paintChunksPerSide, roles: ROLE_COUNT, waterLevel, waterEnabled, sand: b.rules.sand, seed: biomeSeed(b.name) },
+		paintRules(b.rules),
+	)
+	return { roleTex, fill }
 }
 
 /** What a paint did: the chunks it changed, and those where a texture of the old paint had to go to make room. */

@@ -385,6 +385,9 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'Biomes…', run: () => (ui.dialog = 'biomes') },
 				{ kind: 'action', label: biome ? `Apply Biome "${biome.name}" to Selection` : 'Apply Biome to Selection', disabled: !editor.selection || !biome, run: withEngine((e) => biome && e.applyBiome(biome, false)) },
 				{ kind: 'action', label: biome ? `Apply Biome "${biome.name}" to Mask` : 'Apply Biome to Mask', disabled: !ui.maskActive || !biome, run: withEngine((e) => biome && e.applyBiome(biome, true)) },
+				// The Biome Brush's biome map (#958): repaint it after a biome changed.
+				{ kind: 'action', label: 'Repaint Biomes', disabled: !editor.mapBiomes.length, run: withEngine((e) => e.repaintBiomes(prefs.biomeBorder, null)) },
+				{ kind: 'action', label: 'Update Biomes from Mine and Repaint', disabled: !editor.mapBiomes.length, run: withEngine((e) => e.repaintBiomes(prefs.biomeBorder, prefs.biomes)) },
 			]),
 		},
 		{

@@ -12,7 +12,9 @@ import { worldRules, type ZoneScatter } from '../wow/zoneTrees'
 import { maskBytes, type TileSquare } from '../terrain/tileMask'
 import { growSnapshot } from '../io/worldGrow'
 import { History, type Command } from '../state/history'
-import { featherInside, roleTextures, type Biome, type BiomePaintResult } from '../terrain/biome'
+import { biomeSeed, copyBiome, featherInside, roleTextures, type Biome, type BiomePaintResult } from '../terrain/biome'
+import { NO_BIOME, checkBiomeMap } from '../terrain/biomeMap'
+import { BiomeBrushTool, addBiomeTextures, repaintBiomeMap, setBiomeEffects } from '../tools/BiomeBrushTool'
 import { SymmetryGuide } from '../tools/symmetryGuide'
 import { snapCenter } from '../tools/symmetry'
 import { symmetryApplies } from '../ui/optionsVisibility'
@@ -102,7 +104,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
-import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tileKey, tuftReach, withTileEffect, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
+import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tuftReach, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
 
 /** A plain copy of the zone and tile effect choices (they may be Svelte proxies). */
 const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
@@ -379,6 +381,10 @@ export interface MapSnapshot {
 	chunkDataKnown: boolean
 	/** The baked shadows' bits (format 6, terrain/bakedShadows.ts); null when the map has none of its own. */
 	shadows: Uint8Array | null
+	/** The map's own biomes (format 9, the Biome Brush, #958); absent or empty for none. */
+	biomes?: Biome[]
+	/** The biome map, a byte per cell (format 9, terrain/biomeMap.ts); absent or null when no cell has a biome. */
+	biomeMap?: Uint8Array | null
 	/** Format 1 maps only, converted on open: the eight global layers and their splats. */
 	legacy?: { layerTextures: string[]; splatA: Uint8Array; splatB: Uint8Array }
 }
@@ -1010,6 +1016,7 @@ export class Engine {
 			select: this.selectTool,
 			sculpt: new SculptTool(),
 			paint: new PaintTool(),
+			biome: new BiomeBrushTool({ doodads: this.doodadTool }),
 			road: new RoadTool(),
 			water: new WaterTool(),
 			place: this.placeTool,
@@ -3955,6 +3962,8 @@ export class Engine {
 			chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
 			chunkDataKnown: d.chunkDataKnown,
 			shadows: t.shadow ? packShadowBits(t.shadow) : null,
+			biomes: (d === this.doc ? editor.mapBiomes : d.meta.biomes).map(copyBiome),
+			biomeMap: t.biomeMap.some((v) => v !== NO_BIOME) ? t.biomeMap : null,
 		}
 	}
 
@@ -4018,6 +4027,11 @@ export class Engine {
 			t.noEffect.set(c.noEffect)
 		}
 		d.chunkDataKnown = m.chunkDataKnown
+		const biomes = (m.biomes ?? []).map(copyBiome)
+		if (m.biomeMap) {
+			if (m.biomeMap.length !== t.biomeMap.length) throw new Error('biome map size mismatch')
+			t.biomeMap.set(checkBiomeMap(m.biomeMap.slice(), biomes.length))
+		}
 		if (m.shadows) {
 			if (m.shadows.length !== (t.shadowSide * t.shadowSide) / 8) {
 				throw new Error('shadow data size mismatch')
@@ -4053,6 +4067,7 @@ export class Engine {
 			scopedEffects: structuredClone(m.scopedEffects ?? noScopedEffects()),
 			reference: copyReference(m.reference),
 			paths: copyPaths(m.paths ?? []),
+			biomes,
 		}
 		// The paths' last applies, live: a reopened map has no history to have undone them (#395).
 		const applies = appliesOf(t)
@@ -4292,6 +4307,51 @@ export class Engine {
 	}
 
 	/**
+	 * Paint › Repaint Biomes (#958): repaints the ground every biome the Biome Brush painted reaches, from
+	 * the biome map with the map's own biomes, over a border `border` yards wide (the brush's), as one undo
+	 * step. With `mine` (the preferences' biomes, as Paint › Biomes… now has them), each of the map's
+	 * biomes first takes its namesake's settings from them. Returns the status it set.
+	 */
+	repaintBiomes(border: number, mine: readonly Biome[] | null): string {
+		const update = !!mine
+		const say = (s: string) => (setStatus(s, 6000), s)
+		if (this.refuseInWorld()) return ''
+		const t = this.terrain
+		if (!t.biomeMap.some((v) => v !== NO_BIOME)) return say('No biome is painted on this map yet: paint one with the Biome Brush.')
+		const before = editor.mapBiomes
+		let updated = 0
+		const biomes = mine
+			? before.map((b) => {
+					const p = mine.find((x) => x.name === b.name)
+					if (!p || JSON.stringify(p) === JSON.stringify(b)) return b
+					updated++
+					return copyBiome(p)
+				})
+			: before
+		let result = { chunks: 0, replaced: [] as number[] }
+		let roomless = false
+		const cmd = History.batch(update ? 'Update and repaint biomes' : 'Repaint biomes', (h) => {
+			if (updated) {
+				editor.mapBiomes = biomes
+				h.push({ label: 'Update biomes', undo: () => (editor.mapBiomes = [...before]), redo: () => (editor.mapBiomes = [...biomes]) })
+			}
+			if (!addBiomeTextures(biomes, h)) {
+				roomless = true
+				return
+			}
+			result = repaintBiomeMap(t, h, biomes, Math.max(0, border))
+		})
+		if (roomless) {
+			cmd?.undo()
+			return say(`This map's texture palette has no room for the biomes' textures (${MAX_PALETTE} at most).`)
+		}
+		if (cmd) this.history.push(cmd)
+		let msg = `Repainted ${result.chunks} chunks from the biome map${update ? `, ${updated} of its ${before.length} biomes updated from yours` : ''}.`
+		if (result.replaced.length) msg += ` In ${result.replaced.length} chunks a texture had to go (four a chunk at most).`
+		return say(msg)
+	}
+
+	/**
 	 * Paint › Apply Biome (#957): lays biome `b` over the selected area (fading out inside its edge over
 	 * the mask step, `editor.maskSelect.step`) or the paint mask (by its value): its textures by its
 	 * rules, its ground effects as the map's own, and its doodad brushes' scatter, as one undo step.
@@ -4338,24 +4398,9 @@ export class Engine {
 				h.push({ label: 'Add textures', undo: () => (editor.palette = [...before]), redo: () => (editor.palette = [...after]) })
 			}
 			const roleTex = textures.map((p) => paletteIndex(editor.palette, p))
-			const seed = [...b.name].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) | 0, 7)
+			const seed = biomeSeed(b.name)
 			painted = ops.paintBiomeOver(t, h, mask, { roleTex, rules: b.rules, waterLevel: editor.waterLevel, waterEnabled: editor.waterEnabled, seed })
-			const effects = Object.entries(b.effects).filter(([p, id]) => textures.includes(p) && (b.tileEffects || editor.textureEffects[p] !== id))
-			if (effects.length && b.tileEffects) {
-				// Only for the tiles the area touches (a tile's choice comes before the map's).
-				const tileCells = CHUNK_CELLS * 16
-				const before = structuredClone(plainScoped(editor.scopedEffects))
-				let next = structuredClone(before)
-				for (let tz = Math.floor(area0.z0 / tileCells); tz <= Math.floor((area0.z1 - 1) / tileCells); tz++)
-					for (let tx = Math.floor(area0.x0 / tileCells); tx <= Math.floor((area0.x1 - 1) / tileCells); tx++) for (const [p, id] of effects) next = withTileEffect(next, tileKey(tx, tz), p, id)
-				editor.scopedEffects = structuredClone(next)
-				h.push({ label: 'Set ground effects of the tiles', undo: () => (editor.scopedEffects = structuredClone(before)), redo: () => (editor.scopedEffects = structuredClone(next)) })
-			} else if (effects.length) {
-				const before = { ...editor.textureEffects }
-				editor.textureEffects = { ...before, ...Object.fromEntries(effects) }
-				const after = { ...editor.textureEffects }
-				h.push({ label: 'Set ground effects', undo: () => (editor.textureEffects = { ...before }), redo: () => (editor.textureEffects = { ...after }) })
-			}
+			setBiomeEffects(b, area0, h)
 			const ctx: ToolContext = Object.create(this.ctx, { history: { value: h } })
 			const cs = t.cellSize
 			const yd2 = (area0.x1 - area0.x0) * (area0.z1 - area0.z0) * cs * cs

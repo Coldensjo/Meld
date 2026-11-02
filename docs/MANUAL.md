@@ -372,6 +372,18 @@ over the paint mask. Either is one undo step. A biome's ground effects become th
 textures everywhere on the map. Where a chunk would need more than four textures, its weakest old one
 gives way, and the status line says in how many chunks.
 
+The **Biome Brush** (L) paints biomes like colours: pick one in the options bar and drag. Each cell
+under the brush takes the biome's textures by its rules, and where two biomes meet (or a biome meets
+unpainted ground) they blend over the **Border** width, half on each side of the edge. A stroke also
+scatters the biome's doodad brushes over the ground it took (**Scatter**), thinning out toward the
+border, and sets its ground effects; the whole stroke is one undo step. **Ctrl**+drag takes the biome
+off the cells and leaves their paint. A chunk holds four textures at most: where a border needs more,
+each biome keeps its base and the lightest textures give way to their nearest kept one, and those
+chunks stay outlined until the next stroke. The map keeps which biome each cell was painted with and
+its own copy of each biome, so after editing a biome in **Paint › Biomes…**, **Paint › Update Biomes
+from Mine and Repaint** repaints the map with your changes (**Repaint Biomes** repaints with the map's
+copies, for instance after changing the border).
+
 ### Exchange images, models and brushes
 
 Use an editable map and the desktop backend for file dialogs. Save As a separate `.wmap` first,

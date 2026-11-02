@@ -122,6 +122,12 @@ export interface MapData {
     "liquidKinds"?: { [_ in string]?: string } | null;
 
     /**
+     * Biomes are the map's own copies of the biomes the Biome Brush painted with (#958), which the
+     * biome map's cells name by index, kept opaque (the frontend checks them). Version 9; optional.
+     */
+    "biomes"?: json$0.RawMessage;
+
+    /**
      * Version is the format the map was read from. Set by Read; Write always writes Version.
      */
     "version"?: number;
@@ -171,6 +177,12 @@ export interface MapData {
      * means none.
      */
     "pathApplies"?: string;
+
+    /**
+     * BiomeMap is a byte per cell (version 9): 0 for none, else 1 plus the index in Biomes. Empty means
+     * no cell was painted with a biome.
+     */
+    "biomeMap"?: string;
 
     /**
      * base64 RGBA8, version 1

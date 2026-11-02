@@ -107,6 +107,7 @@ export function growSnapshot(s: MapSnapshot, dx: number, dy: number, size: numbe
 		weights,
 		chunkSlots,
 		holes: perCell(s.holes),
+		biomeMap: s.biomeMap ? perCell(s.biomeMap) : null,
 		liquids,
 		chunkData,
 		shadows,

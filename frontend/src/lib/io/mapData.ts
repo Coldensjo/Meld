@@ -12,6 +12,8 @@ import { readReference } from '../terrain/referenceImage'
 import { readPaths } from '../terrain/paths'
 import { readLiquidKinds } from '../water/liquids'
 import { decodePathApplies, encodePathApplies } from '../tools/pathRecord'
+import { copyBiome, type Biome } from '../terrain/biome'
+import { prefShapeOk } from '../state/prefsPatch'
 
 export function toMapData(s: MapSnapshot): mapfile.MapData {
 	// The binding only needs the fields, which it sends as JSON; the ones left undefined take Go's zero values.
@@ -53,8 +55,16 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		shadows: s.shadows ? bytesToBase64(s.shadows) : undefined,
 		// What the paths' last applies replaced (#395), so applying one again after reopening takes it back.
 		pathApplies: s.pathApplies?.length ? bytesToBase64(encodePathApplies(s.pathApplies)) : undefined,
+		// The Biome Brush's biomes and biome map (#958, format 9).
+		biomes: s.biomes?.length ? s.biomes : undefined,
+		biomeMap: s.biomeMap ? bytesToBase64(s.biomeMap) : undefined,
 	}
 	return data
+}
+
+/** The map file's biomes, checked as the preferences' are (`prefShapeOk`); anything else reads as none. */
+export function readBiomes(v: unknown): Biome[] {
+	return Array.isArray(v) && prefShapeOk('biomes', v) ? (v as Biome[]).map(copyBiome) : []
 }
 
 /** The bytes of a Uint32Array, little endian as the map file stores them (every target is little endian). */
@@ -147,5 +157,8 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		shadows: m.shadows ? base64ToBytes(m.shadows) : null,
 		// Format 8 keeps what the paths' last applies replaced; an older map's paths have none.
 		...(m.pathApplies ? { pathApplies: decodePathApplies(base64ToBytes(m.pathApplies), m.size, m.splatRes) } : {}),
+		// Format 9 keeps the Biome Brush's biomes and biome map (#958); a list that isn't biomes reads as none.
+		biomes: readBiomes(m.biomes),
+		biomeMap: m.biomeMap ? base64ToBytes(m.biomeMap) : null,
 	}
 }

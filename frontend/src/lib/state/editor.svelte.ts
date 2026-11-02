@@ -6,6 +6,7 @@ import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { ReferenceImage } from '../terrain/referenceImage'
 import type { MapPath, PathKind } from '../terrain/paths'
+import type { Biome } from '../terrain/biome'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { MaskPick } from '../terrain/maskSelect'
 import type { AreaShapeMode } from '../terrain/smoothArea'
@@ -23,7 +24,7 @@ export { setStatus, setViewportHint, queueViewportHint, publishViewportHint } fr
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp' | 'path' | 'script'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'biome' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp' | 'path' | 'script'
 /**
  * What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID), the
  * impassable flag, or the cells that grow no ground effect doodads.
@@ -154,6 +155,11 @@ export const editor = $state({
 	reference: null as ReferenceImage | null,
 	/** The map's paths (terrain/paths.ts, the Path tool, #167): roads drawn along a curve; saved with the map, never exported. */
 	paths: [] as MapPath[],
+	/**
+	 * The map's own copies of the biomes the Biome Brush painted with (#958), which `Terrain.biomeMap`'s
+	 * cells name by index (1 plus it); saved with the map. Replace the list, never edit it in place.
+	 */
+	mapBiomes: [] as Biome[],
 	/** The Path tool's picked path (its id) and point (its index); -1 for none. Not saved. */
 	pathId: -1,
 	pathPoint: -1,

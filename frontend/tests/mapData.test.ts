@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { MapSnapshot } from '../src/lib/engine/Engine'
-import { dropOrphanParents, fromMapData, toMapData } from '../src/lib/io/mapData'
+import { dropOrphanParents, fromMapData, readBiomes, toMapData } from '../src/lib/io/mapData'
+import { newBiome } from '../src/lib/terrain/biome'
 import { bytesToBase64 } from '../src/lib/io/base64'
 import type { mapfile } from '../src/lib/wails/models'
 import { encodeLiquids, LIQUID_MAGMA, liquidKindsOf, LiquidMap, liquidType, newLayer, rememberLiquidKinds, tileLiquidType } from '../src/lib/water/liquids'
@@ -217,6 +218,8 @@ function fullSnapshot(): MapSnapshot {
 		liquidKinds: { 30: 'magma', 31: 'slime' },
 		chunkData: { areaIds, chunkFlags: new Uint8Array([1, 0, 1, 0]), noEffect: ramp(SIZE * SIZE).map((v) => v & 1) },
 		shadows: ramp(SIZE * SIZE * 8),
+		biomes: [newBiome('Forest', ['Tileset\\Elwynn\\ElwynnGrassBase.blp'])],
+		biomeMap: ramp(SIZE * SIZE).map((v) => v & 1),
 	}
 }
 
@@ -391,5 +394,26 @@ describe('every readable .wmap version opens (#431)', () => {
 		expect(fromMapData(reread(m, 7))).toEqual(m)
 		const old = open(6, { ...v6, vmangos: { dir: 'Isle', mapId: 1900 } })
 		expect(old.vmangos).toEqual({ dir: 'Isle', mapId: 1900, info: undefined })
+	})
+})
+
+describe('the Biome Brush biomes and biome map (#958, format 9)', () => {
+	test('round-trip through a save, and a list that is not biomes reads as none', () => {
+		const biomeMap = new Uint8Array(SIZE * SIZE)
+		biomeMap[0] = 1
+		biomeMap[SIZE * SIZE - 1] = 2
+		const forest = newBiome('Forest', ['Tileset/Elwynn/ElwynnGrassBase.blp'])
+		const rock = newBiome('Rock')
+		const s = { ...snapshot(true), biomes: [forest, rock], biomeMap }
+		const m = fromMapData(reread(s, 9))
+		expect(m.biomes).toEqual([forest, rock])
+		expect([...m.biomeMap!]).toEqual([...biomeMap])
+		// None painted: neither goes out.
+		const none = toMapData({ ...snapshot(true), biomes: [], biomeMap: null })
+		expect(none.biomes).toBeUndefined()
+		expect(none.biomeMap).toBeUndefined()
+		expect(fromMapData(reread(snapshot(true), 8)).biomes).toEqual([])
+		expect(readBiomes([{ name: 'x' }])).toEqual([])
+		expect(readBiomes('Forest')).toEqual([])
 	})
 })
