@@ -23,7 +23,7 @@ func TestAreaScriptRoundTrip(t *testing.T) {
 		{ID: 5002, MapID: 451, AreaBit: 1102, Name: "Dry Flats"},
 	}
 	weather := []ZoneWeather{{Zone: 5000, Rain: [4]int{20, 15, 25, 0}, Snow: [4]int{0, 0, 0, 40}, Storm: [4]int{1, 2, 3, 4}}, {Zone: 12, Rain: [4]int{5, 5, 5, 5}}}
-	script, err := AreaScript(rows, weather, true, "Meld Isle", time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	script, err := AreaScript(rows, weather, true, "Meld Isle", nil, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,12 +44,12 @@ func TestAreaScriptRoundTrip(t *testing.T) {
 
 	// Into another client that has none of them: every row new, as exported.
 	dbc := areaDBC([4]uint32{12, 0, 0, 5}, [4]uint32{14, 1, 0, 7})
-	plan, got, gotWeather, err := PlanAreaImport(dbc, script, AreaRefs{}, true)
+	plan, got, gotWeather, files, err := PlanAreaImport(dbc, script, AreaRefs{}, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, rows) {
-		t.Fatalf("imported rows = %+v\nwant %+v", got, rows)
+	if !reflect.DeepEqual(got, rows) || files != nil {
+		t.Fatalf("imported rows = %+v\nwant %+v (files %v)", got, rows, files)
 	}
 	want := []ZoneWeather{weather[0], {Zone: 5002}}
 	if !reflect.DeepEqual(gotWeather, want) {
@@ -76,13 +76,13 @@ func TestAreaScriptRoundTrip(t *testing.T) {
 	}
 
 	// Without a server folder the weather is left out, though the plan still counts it.
-	plan, _, gotWeather, err = PlanAreaImport(dbc, script, AreaRefs{}, false)
+	plan, _, gotWeather, _, err = PlanAreaImport(dbc, script, AreaRefs{}, nil, false)
 	if err != nil || gotWeather != nil || plan.Server || plan.Weather != 1 {
 		t.Fatalf("without a server: weather %v, plan %+v (%v)", gotWeather, plan, err)
 	}
 
 	// Exported without a server, the script holds no weather and says so.
-	noWeather, err := AreaScript(rows[:1], nil, false, "", time.Now())
+	noWeather, err := AreaScript(rows[:1], nil, false, "", nil, time.Now())
 	if err != nil || strings.Contains(noWeather, "game_weather (") || !strings.Contains(noWeather, "No weather") {
 		t.Fatalf("a script without weather:\n%s (%v)", noWeather, err)
 	}
@@ -108,7 +108,7 @@ func TestAreaImportPlan(t *testing.T) {
 		"REPLACE INTO area_template (entry, name) VALUES (600, 'Bit taken');",
 	}, "\n")
 	refs := AreaRefs{Maps: map[uint32]bool{0: true, 1: true}, Music: map[uint32]bool{}, Lights: map[uint32]bool{3: true}}
-	plan, rows, weather, err := PlanAreaImport(dbc, script, refs, true)
+	plan, rows, weather, _, err := PlanAreaImport(dbc, script, refs, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestAreaImportPlan(t *testing.T) {
 
 	// A row Save would refuse refuses the import.
 	bad := areaLine(AreaRow{ID: 700, MapID: 0, AreaBit: 11, Name: "  "})
-	if plan, _, _, err := PlanAreaImport(dbc, bad, AreaRefs{}, false); err != nil || len(plan.Refused) != 1 || !strings.Contains(plan.Refused[0], "needs a name") {
+	if plan, _, _, _, err := PlanAreaImport(dbc, bad, AreaRefs{}, nil, false); err != nil || len(plan.Refused) != 1 || !strings.Contains(plan.Refused[0], "needs a name") {
 		t.Fatalf("a nameless area: refused %v (%v)", plan.Refused, err)
 	}
 }
@@ -158,7 +158,7 @@ func TestAreaScriptRefusesWhatItCantRead(t *testing.T) {
 		"twice":          {line + line, "twice"},
 		"a chance > 100": {line + "REPLACE INTO game_weather (zone, spring_rain_chance) VALUES (600, 120);", "not between 0 and 100"},
 	} {
-		_, _, _, err := PlanAreaImport(dbc, c.script, AreaRefs{}, true)
+		_, _, _, _, err := PlanAreaImport(dbc, c.script, AreaRefs{}, nil, true)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v, want %q", name, err, c.want)
 		}
@@ -181,8 +181,9 @@ func TestMeldLineFields(t *testing.T) {
 
 // TestClientAreaScriptRoundTrip exports the client's own Azeroth areas (with the server's weather
 // when its database answers) and plans the script's import back into the same client: every area
-// replaces itself under its own name and bit, nothing is refused, and the rows written
-// back leave AreaTable.dbc as it was. It needs WOW_DIR (and VMANGOS_DIR for the weather).
+// replaces itself under its own name and bit, nothing is refused, the carried music, ambience and
+// light rows (#997) are each found under their own ID, and the rows written back leave AreaTable.dbc
+// as it was. It needs WOW_DIR (and VMANGOS_DIR for the weather).
 func TestClientAreaScriptRoundTrip(t *testing.T) {
 	dataDir, err := wow.ResolveDataDir(testclient.DataDir(t))
 	if err != nil {
@@ -203,13 +204,25 @@ func TestClientAreaScriptRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	script, err := AreaScript(rows, weather, server != "", "Eastern Kingdoms", time.Now())
+	looks, closeLooks, err := LoadAreaLooks(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, got, gotWeather, err := PlanAreaImport(dbc, script, LoadAreaRefs(dataDir), server != "")
+	defer closeLooks()
+	script, err := AreaScript(rows, weather, server != "", "Eastern Kingdoms", looks, time.Now())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(script, "-- meld zonemusic ") || !strings.Contains(script, "-- meld sound ") || !strings.Contains(script, "-- meld ambience ") {
+		t.Fatal("the script carries no music, ambience or sounds")
+	}
+	plan, got, gotWeather, files, err := PlanAreaImport(dbc, script, LoadAreaRefs(dataDir), looks, server != "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each carried row is this client's own, under its own ID.
+	if len(files) > 0 || len(plan.Carried) > 0 || len(plan.MissingFiles) > 0 {
+		t.Fatalf("planned back into its own client: %d files, carried %v, missing files %v", len(files), plan.Carried, plan.MissingFiles)
 	}
 	if len(plan.Refused) > 0 || len(plan.MissingMaps) > 0 || len(plan.MissingZones) > 0 || plan.Skipped > 0 || plan.Others > 0 {
 		t.Fatalf("plan = refused %v, missing maps %v, zones %v, skipped %d, others %d", plan.Refused, plan.MissingMaps, plan.MissingZones, plan.Skipped, plan.Others)

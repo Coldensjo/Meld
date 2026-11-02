@@ -49,7 +49,7 @@ func TestImportAreasWritesAsSave(t *testing.T) {
 	a.pendingWatch.Store(true)
 
 	zone := vmangos.AreaRow{ID: 600, MapID: 451, AreaBit: 5, Flags: 64, Level: 20, Name: "Meld Vale", Music: 3}
-	script, err := vmangos.AreaScript([]vmangos.AreaRow{zone}, []vmangos.ZoneWeather{{Zone: 600, Rain: [4]int{30, 0, 0, 0}}}, true, "", time.Now())
+	script, err := vmangos.AreaScript([]vmangos.AreaRow{zone}, []vmangos.ZoneWeather{{Zone: 600, Rain: [4]int{30, 0, 0, 0}}}, true, "", nil, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

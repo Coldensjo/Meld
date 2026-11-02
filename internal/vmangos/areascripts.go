@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"Meld/internal/mpq"
 )
 
 // The Zones dialog's Export and Import (#942): a map's zones and subzones as an SQL script. The server
@@ -19,9 +21,10 @@ import (
 //	-- meld area <id> <map> <parent> <bit> <flags> <sound pref> <sound pref underwater> <ambience>
 //	   <music> <intro music> <level> <faction> <liquid> <min elevation> <ambient mul> <light> "<name>"
 //
-// (one line). Import writes the areas from those lines, into the client's AreaTable.dbc and the
-// server's area_template through SaveAreas, so the script's area_template statements are only for a
-// server owner without Meld; it takes the weather from the game_weather statements.
+// (one line), followed by the music, ambience and light rows the areas name (#997, arealooks.go).
+// Import writes the areas from those lines, into the client's AreaTable.dbc and the server's
+// area_template through SaveAreas, so the script's area_template statements are only for a server
+// owner without Meld; it takes the weather from the game_weather statements.
 
 // areaLineFields names the "-- meld area" line's fields, in order.
 var areaLineFields = []string{"id", "map", "zone", "exploration bit", "flags", "sound preferences", "underwater sound preferences",
@@ -69,8 +72,9 @@ func parseAreaLine(f []string) (AreaRow, error) {
 
 // AreaScript is the SQL script of a map's areas (rows, zones before their subzones as ReadAreaRows
 // lists them) and, when withWeather, their zones' weather (weather: the server's game_weather rows; a
-// zone it lacks gets a DELETE). mapName names the map in the header.
-func AreaScript(rows []AreaRow, weather []ZoneWeather, withWeather bool, mapName string, now time.Time) (string, error) {
+// zone it lacks gets a DELETE). mapName names the map in the header; looks, when not nil, are the
+// client's tables the areas' music, ambience and light rows are carried from.
+func AreaScript(rows []AreaRow, weather []ZoneWeather, withWeather bool, mapName string, looks *AreaLooks, now time.Time) (string, error) {
 	if len(rows) == 0 {
 		return "", errors.New("no zones to export")
 	}
@@ -99,6 +103,7 @@ func AreaScript(rows []AreaRow, weather []ZoneWeather, withWeather bool, mapName
 	for _, a := range rows {
 		b.WriteString(areaLine(a))
 	}
+	b.WriteString(areaLooksComment(rows, looks))
 	for _, a := range rows {
 		kind := "zone"
 		if a.Parent != 0 {
@@ -280,6 +285,11 @@ type AreaImport struct {
 	MissingZones []uint32 `json:"missingZones"`
 	// Missing names the sounds, music, liquids and lights the areas name that this client lacks, kept as they are.
 	Missing []string `json:"missing"`
+	// Carried names the music, ambience and light rows the script carries that come to another ID
+	// here (#997): added to this client's tables, or found there under another ID.
+	Carried []string `json:"carried"`
+	// MissingFiles are the sound files of the sounds the import adds that this client lacks.
+	MissingFiles []string `json:"missingFiles"`
 	// Weather and ClearWeather count the zones whose weather the import sets and clears.
 	Weather      int `json:"weather"`
 	ClearWeather int `json:"clearWeather"`
@@ -293,20 +303,26 @@ type AreaImport struct {
 	Refused []string `json:"refused"`
 }
 
-// PlanAreaImport says what importing a zones script into a client (its AreaTable.dbc, dbc) and,
-// with server, its server would write, and returns the rows and weather the import writes: the
-// script's areas, a row whose exploration bit another area of this client holds given the next free
-// one, and its zones' weather (none without a server).
-func PlanAreaImport(dbc []byte, script string, refs AreaRefs, server bool) (AreaImport, []AreaRow, []ZoneWeather, error) {
+// PlanAreaImport says what importing a zones script into a client (its AreaTable.dbc, dbc, and the
+// tables of looks the areas' sounds and light are in; nil leaves the carried rows out) and, with
+// server, its server would write, and returns the rows, weather and other client tables the import
+// writes: the script's areas, a row whose exploration bit another area of this client holds given the
+// next free one and its music, ambience and light the IDs the carried rows come to here, its zones'
+// weather (none without a server), and the sound and light tables with the carried rows added.
+func PlanAreaImport(dbc []byte, script string, refs AreaRefs, looks *AreaLooks, server bool) (AreaImport, []AreaRow, []ZoneWeather, []mpq.File, error) {
 	t, err := areaTable(dbc)
 	if err != nil {
-		return AreaImport{}, nil, nil, err
+		return AreaImport{}, nil, nil, nil, err
 	}
 	s, err := readAreaScript(script)
 	if err != nil {
-		return AreaImport{}, nil, nil, err
+		return AreaImport{}, nil, nil, nil, err
 	}
-	plan := AreaImport{Server: server, Others: s.others, Skipped: s.skipped, Unknown: s.unknown}
+	lp, err := planAreaLooks(script, s.rows, looks)
+	if err != nil {
+		return AreaImport{}, nil, nil, nil, err
+	}
+	plan := AreaImport{Server: server, Others: s.others, Skipped: s.skipped, Unknown: s.unknown, Carried: lp.carried, MissingFiles: lp.missingFiles}
 	// The exploration bits as SetAreaRows checks them: the table's, then each written row's.
 	bits := map[uint32]uint32{}
 	top := uint32(0)
@@ -325,8 +341,9 @@ func PlanAreaImport(dbc []byte, script string, refs AreaRefs, server bool) (Area
 	rows := make([]AreaRow, len(s.rows))
 	missing := map[string]bool{}
 	var missingList []string
-	lack := func(set map[uint32]bool, id uint32, what string, a AreaRow) {
-		if set == nil || id == 0 || set[id] {
+	// An ID the script carries the row of is this client's once imported, so it is not listed.
+	lack := func(set map[uint32]bool, id uint32, what string, a AreaRow, carried map[uint32]uint32) {
+		if _, ok := carried[id]; set == nil || id == 0 || set[id] || ok {
 			return
 		}
 		m := fmt.Sprintf("%s %d", what, id)
@@ -369,13 +386,14 @@ func PlanAreaImport(dbc []byte, script string, refs AreaRefs, server bool) (Area
 				plan.MissingZones = append(plan.MissingZones, a.Parent)
 			}
 		}
-		lack(refs.Music, a.Music, "zone music", a)
-		lack(refs.Intro, a.IntroMusic, "intro music", a)
-		lack(refs.Ambience, a.Ambience, "ambience", a)
-		lack(refs.SoundPrefs, a.SoundPref, "sound preferences", a)
-		lack(refs.SoundPrefs, a.SoundSwim, "sound preferences", a)
-		lack(refs.Liquids, a.Liquid, "liquid", a)
-		lack(refs.Lights, a.Light, "light", a)
+		lack(refs.Music, a.Music, "zone music", a, lp.music)
+		lack(refs.Intro, a.IntroMusic, "intro music", a, lp.intro)
+		lack(refs.Ambience, a.Ambience, "ambience", a, lp.ambience)
+		lack(refs.SoundPrefs, a.SoundPref, "sound preferences", a, nil)
+		lack(refs.SoundPrefs, a.SoundSwim, "sound preferences", a, nil)
+		lack(refs.Liquids, a.Liquid, "liquid", a, nil)
+		lack(refs.Lights, a.Light, "light", a, lp.light)
+		lp.rewrite(&rows[i])
 	}
 	plan.Missing = missingList
 	if _, err := SetAreaRows(dbc, rows); err != nil {
@@ -392,7 +410,7 @@ func PlanAreaImport(dbc []byte, script string, refs AreaRefs, server bool) (Area
 	if server {
 		weather = s.weather
 	}
-	return plan, rows, weather, nil
+	return plan, rows, weather, lp.files, nil
 }
 
 // LoadAreaRefs reads the IDs of the client's maps, zone sounds, liquids and lights, for an import

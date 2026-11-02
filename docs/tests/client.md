@@ -524,16 +524,21 @@ plans a script and, on confirmation, writes it as Save does.
   lines, a `DELETE` for a zone without weather, no subzone weather; without a server the weather is
   left out), `TestAreaImportPlan` (an ID of another area named, a taken exploration bit moved to the
   next free one, a missing zone, map and music listed, other zones' weather and other statements
-  counted), `TestAreaScriptRefusesWhatItCantRead`, `TestMeldLineFields`, and
+  counted), `TestAreaScriptRefusesWhatItCantRead`, `TestMeldLineFields`,
+  `TestAreaScriptCarriesSoundsAndLights` (#997: the music, ambience and light rows with their sounds,
+  params and bands carried, found by content or added under new IDs in another client, the area
+  rewritten, an added sound's missing file listed, nothing added when planned again), and
   `TestClientAreaScriptRoundTrip` (needs the client; with the server, its weather too): Azeroth's
-  areas exported and planned back replace themselves and write AreaTable.dbc unchanged. In the
+  areas exported and planned back replace themselves, their carried rows are each found under their
+  own ID, and AreaTable.dbc is written unchanged. In the
   root package, `TestImportAreasWritesAsSave` imports into a made-up client (the patch, the SQL
   through `App.runSQL`, the moved bit) and checks a refused script writes nothing.
 - Probe: `zone-scripts` (about 7 s, on the throwaway client; nothing written): Elwynn Forest's
   Export zone… hands the binding map 0, 12 and its subzones and its name; Export map… no IDs; Import…
-  of a script the probe writes (Elwynn's own row, a new zone on Elwynn's bit with weather, an
-  `UPDATE`) shows the real plan: Elwynn replaces itself, the new zone moves to a free bit, the
-  weather is set, one statement left out; Cancel drops the bar; a stand-in `ImportAreas` then gets
+  of a script the probe writes (Elwynn's own row, a new zone on Elwynn's bit with weather and a
+  carried ambience row no client has, an `UPDATE`) shows the real plan: Elwynn replaces itself, the
+  new zone moves to a free bit, the ambience is added under a new ID, the weather is set, one
+  statement left out; Cancel drops the bar; a stand-in `ImportAreas` then gets
   the note and the zones read again.
 - Trap: the throwaway client refuses the server's tables while a server folder is set
   (`optionalServerForWrite`), so the probe stands in `ImportAreas`; the dev page has no native

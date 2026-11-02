@@ -107,6 +107,17 @@ export interface AreaImport {
     "missing": string[] | null;
 
     /**
+     * Carried names the music, ambience and light rows the script carries that come to another ID
+     * here (#997): added to this client's tables, or found there under another ID.
+     */
+    "carried": string[] | null;
+
+    /**
+     * MissingFiles are the sound files of the sounds the import adds that this client lacks.
+     */
+    "missingFiles": string[] | null;
+
+    /**
      * Weather and ClearWeather count the zones whose weather the import sets and clears.
      */
     "weather": number;

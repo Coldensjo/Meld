@@ -323,6 +323,8 @@
 				{#if onMaps.some((m) => m !== mapId)}<span>On {onMaps.length === 1 ? 'map' : 'maps'} {onMaps.join(', ')}: the area and map IDs are the exporting client's, kept as they are.</span>{/if}
 				{#if p.missingMaps?.length}<span>Not in this client's Map.dbc: map {p.missingMaps.join(', ')}. The areas are written, but no map of this client shows them.</span>{/if}
 				{#if p.missingZones?.length}<span>Subzones of zones neither the script nor this client has: {p.missingZones.join(', ')}.</span>{/if}
+				{#if p.carried?.length}<span>Music, ambience and lights the script carries, under this client's IDs: {some(p.carried)}.</span>{/if}
+				{#if p.missingFiles?.length}<span>Sound files this client lacks (the script carries only their rows; import each with the Sound tool under the same name to play it): {some(p.missingFiles)}.</span>{/if}
 				{#if p.missing?.length}<span>IDs this client's tables lack, kept as they are: {some(p.missing)}.</span>{/if}
 				{#if !p.server && (p.weather || p.clearWeather)}<span>The weather is left out: set the VMaNGOS server folder to import it.</span>
 				{:else if p.weather || p.clearWeather}<span>Weather: sets {p.weather} {p.weather === 1 ? "zone's" : "zones'"}{p.clearWeather ? `, clears ${p.clearWeather} ${p.clearWeather === 1 ? "zone's" : "zones'"}` : ''}.</span>

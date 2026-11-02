@@ -350,6 +350,12 @@ func afterDatabase(what string, err error) error {
 // from, with the zones' weather into game_weather. Nothing is closed or restarted (#661): the server
 // reads area_template only at its start, so the result says when to restart it.
 func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (AreaSaveResult, error) {
+	return a.saveAreas(rows, weather, nil)
+}
+
+// saveAreas is SaveAreas with other client tables (files: an import's sound and light tables, #997)
+// written into the patch with AreaTable.dbc.
+func (a *App) saveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather, files []mpq.File) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
 	server, err := a.optionalServerForWrite()
@@ -386,7 +392,10 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 		}
 	}
 	if len(rows) > 0 && !bytes.Equal(out, dbc) {
-		if res.Patch, res.Waiting, err = a.installClient(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, nil); err != nil {
+		files = append([]mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, files...)
+	}
+	if len(files) > 0 {
+		if res.Patch, res.Waiting, err = a.installClient(dataDir, files, nil); err != nil {
 			if res.Server {
 				err = afterDatabase("the zones are", err)
 			}
@@ -442,7 +451,12 @@ func (a *App) ExportAreas(mapID uint32, ids []uint32, suggested string) (string,
 			}
 		}
 	}
-	script, err := vmangos.AreaScript(rows, weather, hasDB(server), mapName, time.Now())
+	// The areas' music, ambience and light rows travel with them (#997); without the tables, the IDs alone.
+	looks, closeLooks, err := vmangos.LoadAreaLooks(dataDir)
+	if err == nil {
+		defer closeLooks()
+	}
+	script, err := vmangos.AreaScript(rows, weather, hasDB(server), mapName, looks, time.Now())
 	if err != nil {
 		return "", err
 	}
@@ -463,20 +477,25 @@ func (a *App) OpenAreasDialog() (string, error) {
 
 // planAreaImport reads the zones script at path and plans its import into the client and, when
 // server has a database, the server.
-func (a *App) planAreaImport(server, path string) (vmangos.AreaImport, []vmangos.AreaRow, []vmangos.ZoneWeather, error) {
+func (a *App) planAreaImport(server, path string) (vmangos.AreaImport, []vmangos.AreaRow, []vmangos.ZoneWeather, []mpq.File, error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
-		return vmangos.AreaImport{}, nil, nil, err
+		return vmangos.AreaImport{}, nil, nil, nil, err
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return vmangos.AreaImport{}, nil, nil, err
+		return vmangos.AreaImport{}, nil, nil, nil, err
 	}
 	dbc, err := vmangos.LoadAreaTable(dataDir)
 	if err != nil {
-		return vmangos.AreaImport{}, nil, nil, err
+		return vmangos.AreaImport{}, nil, nil, nil, err
 	}
-	return vmangos.PlanAreaImport(dbc, string(b), vmangos.LoadAreaRefs(dataDir), hasDB(server))
+	looks, closeLooks, err := vmangos.LoadAreaLooks(dataDir)
+	if err != nil {
+		return vmangos.AreaImport{}, nil, nil, nil, err
+	}
+	defer closeLooks()
+	return vmangos.PlanAreaImport(dbc, string(b), vmangos.LoadAreaRefs(dataDir), looks, hasDB(server))
 }
 
 // PlanAreaImport says what importing the zones of the SQL script at path would write: which areas
@@ -486,7 +505,7 @@ func (a *App) PlanAreaImport(path string) (vmangos.AreaImport, error) {
 	a.cfgMu.Lock()
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
-	plan, _, _, err := a.planAreaImport(server, path)
+	plan, _, _, _, err := a.planAreaImport(server, path)
 	return plan, err
 }
 
@@ -504,21 +523,22 @@ type AreaImportResult struct {
 
 // ImportAreas writes the zones of the SQL script at path as Save writes the dialog's (SaveAreas): the
 // areas into the client's AreaTable.dbc and the server's area_template, and their zones' weather into
-// game_weather. Nothing is written while the plan refuses the script.
+// game_weather, with the music, ambience and light rows the script carries that this client lacks
+// added to its tables (#997). Nothing is written while the plan refuses the script.
 func (a *App) ImportAreas(path string) (AreaImportResult, error) {
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
 	server, err := a.optionalServerForWrite()
 	if err != nil {
 		return AreaImportResult{}, err
 	}
-	plan, rows, weather, err := a.planAreaImport(server, path)
+	plan, rows, weather, files, err := a.planAreaImport(server, path)
 	if err != nil {
 		return AreaImportResult{}, err
 	}
 	if len(plan.Refused) > 0 {
 		return AreaImportResult{}, fmt.Errorf("the zones are not imported: %s", strings.Join(plan.Refused, "; "))
 	}
-	res, err := a.SaveAreas(rows, weather)
+	res, err := a.saveAreas(rows, weather, files)
 	return AreaImportResult{Patch: res.Patch, Server: res.Server, Waiting: res.Waiting, Restart: res.Restart, Areas: len(rows), Maps: plan.Maps, Weather: len(weather)}, err
 }
 

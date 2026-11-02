@@ -680,7 +680,8 @@ export function ImportAreaTriggers(path: string): $CancellablePromise<$models.Ar
 /**
  * ImportAreas writes the zones of the SQL script at path as Save writes the dialog's (SaveAreas): the
  * areas into the client's AreaTable.dbc and the server's area_template, and their zones' weather into
- * game_weather. Nothing is written while the plan refuses the script.
+ * game_weather, with the music, ambience and light rows the script carries that this client lacks
+ * added to its tables (#997). Nothing is written while the plan refuses the script.
  */
 export function ImportAreas(path: string): $CancellablePromise<$models.AreaImportResult> {
     return $Call.ByID(198487242, path);

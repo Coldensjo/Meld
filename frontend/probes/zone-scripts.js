@@ -1,5 +1,5 @@
-// The Zones dialog's Export zone…, Export map… and Import… (#942): on Elwynn Forest (12), Export zone… hands the binding map 0, Elwynn and its subzones and its name, and notes where it wrote; Import… of a script the probe writes (Elwynn's row as the client has it, a new zone on Elwynn's exploration bit with weather, and a statement of another table) shows the real plan's bar (Elwynn replaced, the new zone given the next free bit, the weather, the statement left out) and Cancel drops it; a confirmed import (a stand-in, since the throwaway client refuses the server's tables) notes what it wrote and reads the zones again. Nothing is written (the SQL itself is Go's: TestAreaScriptRoundTrip, TestImportAreasWritesAsSave).
-// touches: frontend/src/components/ZonesDialog.svelte, internal/vmangos/areascripts.go, internal/vmangos/meldlines.go, internal/vmangos/sqlparse.go
+// The Zones dialog's Export zone…, Export map… and Import… (#942): on Elwynn Forest (12), Export zone… hands the binding map 0, Elwynn and its subzones and its name, and notes where it wrote; Import… of a script the probe writes (Elwynn's row as the client has it, a new zone on Elwynn's exploration bit with weather and an ambience the script carries, #997, and a statement of another table) shows the real plan's bar (Elwynn replaced, the new zone given the next free bit, the carried ambience added under a new ID, the weather, the statement left out) and Cancel drops it; a confirmed import (a stand-in, since the throwaway client refuses the server's tables) notes what it wrote and reads the zones again. Nothing is written (the SQL itself is Go's: TestAreaScriptRoundTrip, TestImportAreasWritesAsSave).
+// touches: frontend/src/components/ZonesDialog.svelte, internal/vmangos/areascripts.go, internal/vmangos/arealooks.go, internal/vmangos/meldlines.go, internal/vmangos/sqlparse.go
 const { ui } = await P.state()
 const App = window.go.main.App
 await P.sandboxClient()
@@ -36,11 +36,13 @@ try {
 	const e = rows.find((r) => r.id === 12)
 	const line = (a) =>
 		`-- meld area ${[a.id, a.mapId, a.parent, a.areaBit, a.flags, a.soundPref, a.soundSwim, a.ambience, a.music, a.introMusic, a.level, a.faction, a.liquid, a.minElevation, a.ambientMul, a.light].join(' ')} ${JSON.stringify(a.name)}`
-	const fresh = { ...e, id: 60001, parent: 0, name: 'Probe Vale' }
+	const fresh = { ...e, id: 60001, parent: 0, name: 'Probe Vale', ambience: 60001 }
 	const script = [
 		'-- Zones exported by Meld (the zone-scripts probe).',
 		line(e),
 		line(fresh),
+		// An ambience row no client has (its sounds a made-up ID, kept as it is): the plan adds it.
+		'-- meld ambience 60001 4000000 4000000',
 		"REPLACE INTO area_template (entry, map_id, zone_id, explore_flag, flags, area_level, name, team, liquid_type) VALUES (60001, 0, 0, 1, 64, 1, 'Probe Vale', 0, 0);",
 		'REPLACE INTO game_weather (zone, spring_rain_chance) VALUES (60001, 30);',
 		"UPDATE creature_template SET name = 'x' WHERE entry = 1;",
@@ -88,6 +90,7 @@ try {
 		new RegExp(`Probe Vale \\(60001, new, exploration bit \\d+, as ${e.areaBit} is another area's\\)`).test(out.bar) &&
 		(out.bar.includes("Weather: sets 1 zone's") || out.bar.includes('The weather is left out')) &&
 		out.bar.includes('1 other statement is left out') &&
+		/ambience 60001 added as \d+/.test(out.bar) &&
 		!out.refused &&
 		out.cancelled &&
 		calls.imported === path &&

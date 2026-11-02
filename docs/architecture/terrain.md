@@ -885,7 +885,18 @@ mask/liquid, image codec or native/game rendering contracts.
   script's area and map IDs, saying which replace one of this client's (and whose name or map that
   was), and gives a row whose exploration bit another area holds the next free bit, saying so; it
   lists maps, zones, sounds, liquids and lights this client lacks (the stock client itself names
-  intro music 67, which it lacks), and refuses what `SetAreaRows` would.
+  intro music 67, which it lacks), and refuses what `SetAreaRows` would. The areas' own music, intro
+  music, ambience and light rows travel too (#997, `vmangos/arealooks.go`): the export carries the
+  ZoneMusic, ZoneIntroMusicTable, SoundAmbience and Light rows the areas name, the SoundEntries rows
+  those play and the light's LightParams rows with their bands, as `-- meld sound`, `zonemusic`,
+  `intromusic`, `ambience`, `light`, `lightparams`, `lightint` and `lightfloat` lines (every field
+  but text as its 32 bits). The import finds each in this client (its own ID's row when the same,
+  else any row that is, else a new row past the largest ID; a params row matches only with the same
+  bands, and a new one takes an ID whose bands are free too), rewrites the areas to the IDs they came
+  to, writes the changed tables with AreaTable.dbc (`saveAreas`), and its plan names the rows that
+  came to another ID (`Carried`). Sound files are not carried: an added sound whose file this client
+  lacks is listed (`MissingFiles`); the Sound tool's import of a file of that name in `Sound\Meld`
+  then fills the carried row, since `importSoundRows` reuses a row naming that file.
 - **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
   zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
   minimap's shot, any size; it runs `Engine.simulate` for the shot's ortho camera and draws only the
