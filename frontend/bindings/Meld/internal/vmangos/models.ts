@@ -3033,6 +3033,43 @@ export interface Transport {
     "model": string;
     "size": number;
     "legs": TransportLeg[] | null;
+
+    /**
+     * Points are the whole path as TaxiPathNode.dbc holds it, the points either side of a map change
+     * and the curve's ends included: what World › Transports edits (#955).
+     */
+    "points": TaxiPoint[] | null;
+
+    /**
+     * ClientPeriod is the round trip in milliseconds as the client works it out (TransportPeriod), 0
+     * when it can't: what a save writes into the `transports` row.
+     */
+    "clientPeriod": number;
+}
+
+/**
+ * TransportEdit is what World › Transports saves: the template's entry and name, its model (a
+ * display) and size, its speed and acceleration (whole numbers: the template holds integers), the
+ * `transports` row's name, and the taxi path's ID and its points in order, on one map or several.
+ */
+export interface TransportEdit {
+    "entry": number;
+    "name": string;
+    "object": string;
+    "displayId": number;
+    "size": number;
+    "speed": number;
+    "accel": number;
+    "pathId": number;
+    "points": TaxiPoint[] | null;
+}
+
+/**
+ * TransportIDs are the entry and path ID a new transport takes.
+ */
+export interface TransportIDs {
+    "entry": number;
+    "pathId": number;
 }
 
 /**

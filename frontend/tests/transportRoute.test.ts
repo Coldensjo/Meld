@@ -2,7 +2,7 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { isNear } from './support/near.ts'
-import { DOCK, previewTime, TransportMotion, type LegShape } from '../src/lib/world/transportRoute.ts'
+import { defaultTransportRoute, DOCK, JUMP, previewTime, TransportMotion, transportLegs, type LegShape, type PathPoint } from '../src/lib/world/transportRoute.ts'
 
 // Two legs along x: map 0 from 0 to 2000 with a dock at 1000 (60 s), then a jump to map 1 from 5000
 // to 7000 with a dock at 6000 (30 s). At 30 yd/s and 1 yd/s² a run speeds up over 450 yd.
@@ -71,4 +71,36 @@ test("a map's stretches of the round trip, and the preview that plays only them"
 	// The stretch starts where the leg does, though the trip's distance there comes out a hair past the route's length.
 	m.at(a, at)
 	assert.ok(isNear(at.x, 0, 1e-3), `at the leg's start: ${at.x}`)
+})
+
+test("a path's legs are the server's: the ends and the points either side of a map change left out", () => {
+	const at = (mapId: number, x: number, flags = 0): PathPoint => ({ mapId, x, y: 0, z: 0, flags, delay: 0 })
+	// Map 0: 0 shapes the start, 1 to 3 sailed, 4 ends the leg; map 1: 5 left out, 6 to 8 sailed, 9 shapes the end.
+	const path = [0, 1, 2, 3, 4].map((x) => at(0, x)).concat([5, 6, 7, 8, 9].map((x) => at(1, x)))
+	const legs = transportLegs(path)
+	assert.deepEqual(
+		legs.map((l) => [l.mapId, l.points.map((p) => p.x)]),
+		[
+			[0, [1, 2, 3]],
+			[1, [6, 7, 8]],
+		],
+	)
+	// A jump flag ends a leg on the same map, and the point after it is left out.
+	path[2].flags = JUMP
+	assert.deepEqual(
+		transportLegs(path).map((l) => l.points.map((p) => p.x)),
+		[[1], [6, 7, 8]],
+	)
+	assert.deepEqual(transportLegs(path.slice(0, 2)), [])
+})
+
+test('a new route docks twice and sails round on one map', () => {
+	const route = defaultTransportRoute({ x: 100, y: 200, z: 0 }, 1)
+	const legs = transportLegs(route)
+	assert.equal(legs.length, 1)
+	assert.equal(legs[0].points.filter((p) => p.flags === DOCK).length, 2)
+	assert.ok(route.every((p) => p.mapId === 1))
+	const m = new TransportMotion(legs, 30, 1)
+	assert.equal(m.docks().length, 2)
+	assert.ok(m.cycle > 60)
 })

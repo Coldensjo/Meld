@@ -614,6 +614,28 @@ Read only.
 - Trap: the client's own data has odd stops: Northshire Abbey (1) and Programmer Isle (3) carry a
   Riding Horse (308) in the Horde slot, so they draw red; that's the table, not a bug.
 
+## Making and editing boats and zeppelins (#955)
+
+Probe: `transport-edit`.
+
+Checks: World › Transports' Edit and New transport: the path edited on the map, a dock's wait, Draw,
+Go on to another continent, and what Save hands `SaveTransport`.
+- Unit: `internal/vmangos/transportedit_test.go` (the client's period on synthetic routes, and
+  `TestClientTransportPeriods`: the nine live transports' `transports` rows to the millisecond, with
+  the client; `CheckTransport`'s refusals; a new path from stop 0 to stop 0 beside an edited one that
+  keeps its stops, and not listed as a flight; the SQL); `tests/transportRoute.test.ts`
+  (`transportLegs`, `defaultTransportRoute`).
+- Live: probe `transport-edit` (Azeroth 33_39): Edit on Proudmore's Treasure puts path 292's 30 points
+  on the map (15 on Eastern Kingdoms marked), a click on its Menethil dock (point 9) shows a 60 s wait,
+  a wait of 45 and Save hand `SaveTransport` the 30 points; New transport starts 7 points, 2 docks;
+  Draw and a click add one; Go on to Kalimdor adds 4. `SaveTransport` and `NewTransportIDs` are stood
+  in: nothing is written.
+- The SQL was run twice on empty copies of the two tables (`CREATE TABLE ... LIKE mangos....` in a
+  scratch database): it makes one row each and the second run changes nothing.
+- Not checked here: a real save into the client and the server, and a ferry in the game (it docks,
+  waits, and a player riding it arrives with it). The owner's check: New transport on a lake of a test
+  map, Save, restart the world server, ride it.
+
 ## Portals and area triggers (#141, #18)
 
 Probes: `teleport-trigger` (#306), `portals-fit` (#718) and `portal-scripts` (#943); a write is a hand check.

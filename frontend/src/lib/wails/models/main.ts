@@ -35,5 +35,6 @@ export type SoundsSaved = V2<M.SoundsSaved>
 export type SpellSaved = V2<M.SpellSaved>
 export type TaxiImportResult = V2<M.TaxiImportResult>
 export type TemplateSaved = V2<M.TemplateSaved>
+export type TransportSaveResult = V2<M.TransportSaveResult>
 export type WorldMapResult = V2<M.WorldMapResult>
 export type ZoneWeatherList = V2<M.ZoneWeatherList>

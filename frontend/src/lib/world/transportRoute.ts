@@ -292,3 +292,56 @@ export function previewTime(windows: readonly [number, number][], seconds: numbe
 	}
 	return windows[windows.length - 1][1]
 }
+
+/** A point of a transport's whole path as TaxiPathNode.dbc holds it (vmangos.TaxiPoint), what World › Transports edits (#955). */
+export interface PathPoint extends LegPoint {
+	mapId: number
+}
+
+/** The action flag of the points either side of a jump to another map or back to the start (VMaNGOS reads bit 1). */
+export const JUMP = 1
+
+/**
+ * A path's legs as the server sails them (internal/vmangos TransportLegs, GenerateWaypoints): the
+ * first and last points only shape the curve; a point with flag 1, or whose next point is on another
+ * map, ends a leg, and the point after it is left out too. Empty when the path has too few points.
+ */
+export function transportLegs<P extends PathPoint>(points: readonly P[]): { mapId: number; points: P[] }[] {
+	const legs: { mapId: number; points: P[] }[] = []
+	if (points.length < 3) return legs
+	let cur: P[] = []
+	let map = 0
+	const end = () => {
+		if (cur.length) legs.push({ mapId: map, points: cur })
+		cur = []
+	}
+	let skip = false
+	for (let i = 1; i < points.length - 1; i++) {
+		if (skip) {
+			skip = false
+			continue
+		}
+		const p = points[i]
+		if (p.flags & JUMP || p.mapId !== points[i + 1].mapId) {
+			end()
+			skip = true
+			continue
+		}
+		if (cur.length && map !== p.mapId) end()
+		if (!cur.length) map = p.mapId
+		cur.push(p)
+	}
+	end()
+	return legs
+}
+
+/**
+ * A new transport's route on map `mapId` from `at` (server coordinates), for World › Transports' New
+ * transport: out `reach` yards along x to a second dock and back by the other side, the docks waited
+ * at `wait` seconds, the ends shaping the curve. The author drags it where it should sail.
+ */
+export function defaultTransportRoute(at: Vec3, mapId: number, reach = 400, wait = 30): PathPoint[] {
+	const p = (dx: number, dy: number, flags = 0, delay = 0): PathPoint => ({ mapId, x: at.x + dx, y: at.y + dy, z: at.z, flags, delay })
+	const r = reach
+	return [p(-r * 0.15, 0), p(0, 0, DOCK, wait), p(r * 0.5, r * 0.12), p(r, 0, DOCK, wait), p(r * 0.5, -r * 0.12), p(r * 0.04, -r * 0.02), p(-r * 0.15, -r * 0.04)]
+}

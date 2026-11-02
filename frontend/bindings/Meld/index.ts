@@ -39,6 +39,7 @@ export type {
     SpellSaved,
     TaxiImportResult,
     TemplateSaved,
+    TransportSaveResult,
     WorldMapResult,
     ZoneWeatherList
 } from "./models.js";

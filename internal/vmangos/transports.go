@@ -46,6 +46,12 @@ type Transport struct {
 	Model string         `json:"model"`
 	Size  float32        `json:"size"`
 	Legs  []TransportLeg `json:"legs"`
+	// Points are the whole path as TaxiPathNode.dbc holds it, the points either side of a map change
+	// and the curve's ends included: what World › Transports edits (#955).
+	Points []TaxiPoint `json:"points"`
+	// ClientPeriod is the round trip in milliseconds as the client works it out (TransportPeriod), 0
+	// when it can't: what a save writes into the `transports` row.
+	ClientPeriod uint32 `json:"clientPeriod"`
 }
 
 // TransportLegs splits a taxi path's points into the legs the server sails, as GenerateWaypoints keys
@@ -105,7 +111,12 @@ func readTransports(raw []byte, tt TaxiTables, mapID uint32, model func(uint32) 
 	out := []Transport{}
 	for _, f := range batchRows(raw, 9) {
 		t := Transport{Entry: f.u32(0), Name: f[1], Period: f.u32(2), Object: f[3], PathID: f.u32(4), Speed: f.f32(5), Accel: f.f32(6), DisplayID: f.u32(7), Size: f.f32(8)}
-		t.Legs = TransportLegs(points[t.PathID])
+		t.Points = points[t.PathID]
+		if t.Points == nil {
+			t.Points = []TaxiPoint{}
+		}
+		t.Legs = TransportLegs(t.Points)
+		t.ClientPeriod, _ = TransportPeriod(t.Points, t.Speed, t.Accel)
 		here := false
 		for _, l := range t.Legs {
 			here = here || l.MapID == mapID

@@ -7,7 +7,8 @@ import { DOCK, type LegShape } from './transportRoute'
 // Show › Transports is on or World › Transports is open. Each transport's legs on this map are the
 // curves it sails (the server's, taxiRoute.ts), its docks are posts topped by a marker, and its name
 // stands over its first dock here (or the middle of its route, without one). The picked one is drawn
-// over everything in yellow. Read only: nothing here edits a route (#955 will).
+// over everything in yellow. World › Transports edits a route through TaxiEditing (#955) and hands
+// this layer its draft in place of the transport it edits.
 
 /** A transport as the layer draws it (vmangos.Transport, server coordinates). */
 export interface TransportShape {

@@ -182,6 +182,8 @@ export type {
     TextureUse,
     TileSpec,
     Transport,
+    TransportEdit,
+    TransportIDs,
     TransportLeg,
     TriggerImport,
     TriggerImportRow,

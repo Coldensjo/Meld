@@ -161,6 +161,7 @@ export const MouseLookEnd: Call<AppApi['MouseLookEnd']> = (...a) => api().MouseL
 export const MouseLookRecenter: Call<AppApi['MouseLookRecenter']> = (...a) => api().MouseLookRecenter(...a) as never
 export const NewAreaRow: Call<AppApi['NewAreaRow']> = (...a) => api().NewAreaRow(...a) as never
 export const NewLightIDs: Call<AppApi['NewLightIDs']> = (...a) => api().NewLightIDs(...a) as never
+export const NewTransportIDs: Call<AppApi['NewTransportIDs']> = (...a) => api().NewTransportIDs(...a) as never
 export const NextCreatureGUID: Call<AppApi['NextCreatureGUID']> = (...a) => api().NextCreatureGUID(...a) as never
 export const NextObjectGUID: Call<AppApi['NextObjectGUID']> = (...a) => api().NextObjectGUID(...a) as never
 export const NextObjectLoot: Call<AppApi['NextObjectLoot']> = (...a) => api().NextObjectLoot(...a) as never
@@ -298,6 +299,7 @@ export const SaveSpell: Call<AppApi['SaveSpell']> = (...a) => api().SaveSpell(..
 export const SaveTaxi: Call<AppApi['SaveTaxi']> = (...a) => api().SaveTaxi(...a) as never
 export const SaveTextDialog: Call<AppApi['SaveTextDialog']> = (...a) => api().SaveTextDialog(...a) as never
 export const SaveThumbnail: Call<AppApi['SaveThumbnail']> = (...a) => api().SaveThumbnail(...a) as never
+export const SaveTransport: Call<AppApi['SaveTransport']> = (...a) => api().SaveTransport(...a) as never
 export const SaveVendor: Call<AppApi['SaveVendor']> = (...a) => api().SaveVendor(...a) as never
 export const ScriptCommands: NonNullCall<AppApi['ScriptCommands']> = (...a) => api().ScriptCommands(...a) as never
 export const ScriptPathExists: Call<AppApi['ScriptPathExists']> = (...a) => api().ScriptPathExists(...a) as never

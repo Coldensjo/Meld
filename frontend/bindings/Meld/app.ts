@@ -1131,6 +1131,14 @@ export function NewLightIDs(): $CancellablePromise<$models.LightIDs> {
 }
 
 /**
+ * NewTransportIDs is the entry (the world database's first free game object entry) and taxi path ID
+ * (past the client's tables' highest) a new transport takes.
+ */
+export function NewTransportIDs(): $CancellablePromise<vmangos$0.TransportIDs> {
+    return $Call.ByID(3635916896);
+}
+
+/**
  * NextCreatureGUID is the first creature guid the world database doesn't use yet, for creatures
  * placed in the editor.
  */
@@ -2198,6 +2206,18 @@ export function SaveTextDialog(suggested: string): $CancellablePromise<string> {
  */
 export function SaveThumbnail(key: string, pngBase64: string): $CancellablePromise<void> {
     return $Call.ByID(3187703724, key, pngBase64);
+}
+
+/**
+ * SaveTransport writes a boat or zeppelin: its template and `transports` row (with the period the
+ * client works out from the route) into the world database, and its taxi path into the client's
+ * TaxiPath.dbc and TaxiPathNode.dbc (Meld's patch: the client sails it from its own copy) and the
+ * server's data. The world server reads transports only when it starts: the result says when it
+ * runs and needs a restart. Saving again rewrites the same rows, so a save that failed half way is
+ * finished by another.
+ */
+export function SaveTransport(edit: vmangos$0.TransportEdit): $CancellablePromise<$models.TransportSaveResult> {
+    return $Call.ByID(4025629381, edit);
 }
 
 /**

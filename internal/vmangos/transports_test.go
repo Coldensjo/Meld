@@ -11,7 +11,7 @@ import (
 // and path 21 a lift on map 0 alone.
 func transportFixture() TaxiTables {
 	f := math.Float32bits
-	paths := appendFields(nil, 20, 1, 2, 0, 21, 1, 2, 0)
+	paths := appendFields(nil, 20, 1, 2, 0, 21, 2, 1, 0)
 	var points []byte
 	id := uint32(100)
 	add := func(path, index, mapID uint32, x float32, flags, delay uint32) {

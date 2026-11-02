@@ -712,7 +712,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   stops the same way (the server keeps one), names a replaced stop of another name or map, and
   refuses, through `SetTaxi`, a route whose stops neither the script nor the client holds. Eastern
   Kingdoms' whole network (43 stops, 132 routes) is a 246 KB script.
-- **Boats and zeppelins** (#954, read only; making and editing them is #955): VMaNGOS makes every
+- **Boats and zeppelins** (#954; making and editing them, #955, below): VMaNGOS makes every
   `gameobject_template` of type 15 a transport (`TransportMgr::LoadTransportTemplates`); its data0 is
   the taxi path it sails, data1 its speed (yd/s) and data2 its acceleration (yd/s²), and the
   `transports` row (highest build up to 5875) only overrides the period. `internal/vmangos/transports.go`
@@ -732,6 +732,31 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   its list to `Engine.showTransports`) and sails the model (`Engine.sailTransport`, a `GhostPool`
   mesh; `ui.transportSailing`, Esc stops), turned to face along the way it runs (the server's
   `InitialOrientation` adds π: the models face -X), optionally with the camera chasing it.
+- **Making and editing transports** (#955): World › Transports' New transport and Edit make a draft
+  (`TransportsWindow.svelte`): the `transports` row's name, the template's name, display, size, speed
+  and acceleration (whole numbers: the template's data1 and data2 are integers), and the whole taxi
+  path (`Transport.points`, the guards and the points either side of a map change included). The path
+  is edited on the map through `TaxiEditing` as the Flight Paths window's route (`Engine.showTaxi` with
+  one route, the path's ID, no stops), so the window refuses to start a draft while Flight Paths is
+  open; the draft is drawn in `TransportLayer` in place of its transport through `transportLegs` (the
+  TS twin of `TransportLegs`). A picked point becomes a dock (flags 2) with its wait; Go on to adds four
+  points on another continent after it, moved where they belong with that map open. A form saved with
+  Save, not undo steps, as the Flight Paths window (decision #83). New transport takes its entry and
+  path ID from `App.NewTransportIDs` (the first free `gameobject_template` entry, the path past the
+  client's taxi tables' highest) and starts with `defaultTransportRoute` under the camera.
+  `App.SaveTransport` (`app_transports.go`) checks the edit (`CheckTransport`: every leg at least two
+  sailed points, or the server's spline asserts; a route over several maps only between continents,
+  `GenerateWaypoints` asserts; speed and acceleration above 0), writes the template (`INSERT IGNORE` of
+  a type 15 row with the flags 0x28 of the client's own, then an `UPDATE` of every patch row) and the
+  `transports` row of build 5875 (`TransportSQL`), then the path into Meld's patch and the server's
+  `data/5875/dbc` (`SetTransportPath`: a new path runs from stop 0 to stop 0, which `SetTaxi` takes as
+  no flight; an edited one keeps its "Transport, ..." stops). Saving again rewrites the same rows. The
+  period written is the client's (`transportperiod.go` `TransportPeriod`, ported from Benilla's
+  `transport_period.rs`, MIT): the client sails the boat from its own TaxiPathNode.dbc at the server's
+  clock modulo its period, VMaNGOS's own sum differs from it (hence the `transports` override), and a
+  period off by a millisecond drifts further every trip. It matches the nine live transports' rows to
+  the millisecond (`TestClientTransportPeriods`). The world server reads transports only when it
+  starts: the result's `restart` says so. Not built: deleting a transport.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor,
   or by Tools › Game Objects… (`entry: 0`, no spawn), which opens on Find object (#351): the same

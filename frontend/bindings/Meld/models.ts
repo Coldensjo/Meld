@@ -413,6 +413,18 @@ export interface TemplateSaved {
 }
 
 /**
+ * TransportSaveResult is what SaveTransport wrote: Save's result (AreaSaveResult's fields), and the
+ * period written into the transports row, in milliseconds.
+ */
+export interface TransportSaveResult {
+    "patch": string;
+    "server": boolean;
+    "waiting": boolean;
+    "restart": boolean;
+    "period": number;
+}
+
+/**
  * WorldMapResult is what Write World Map wrote: the row (with its ID), the overlays (with theirs,
  * without pictures) and the patch.
  */

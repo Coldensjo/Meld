@@ -50,7 +50,7 @@ const CHASE_UP = 45
  * The boats and zeppelins over the map (#954): Show › Transports' read of the transports whose route
  * touches the open map, World › Transports' picks in the viewport, and its preview, which sails the
  * transport's model along its route on this map as the server times it (transportRoute.ts), the other
- * maps' stretches skipped. Read only. Engine forwards the public names the window calls.
+ * maps' stretches skipped (a draft's too, #955). Engine forwards the public names the window calls.
  */
 export class TransportView {
 	readonly layer = new TransportLayer()

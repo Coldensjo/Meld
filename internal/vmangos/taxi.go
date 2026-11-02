@@ -262,7 +262,7 @@ func checkTaxiRoute(r TaxiRoute) error {
 	if r.ID == 0 {
 		return errors.New("a flight route needs an ID")
 	}
-	if r.From == r.To {
+	if r.From == r.To && r.From != 0 {
 		return fmt.Errorf("flight route %d starts and ends at stop %d", r.ID, r.From)
 	}
 	if len(r.Points) < 2 {
@@ -300,6 +300,7 @@ func appendFields(b []byte, fields ...uint32) []byte {
 // old ones, numbered from 0) and the stops of removeNodes and the routes of removeRoutes (with their
 // points) taken out. It refuses a write that leaves a route at a stop that isn't there, two routes
 // between the same stops the same way (the server keeps one), or a stop the client can't mark known.
+// A route from stop 0 to stop 0 is a transport's path (#955), which no flight uses.
 func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []TaxiRoute, removeRoutes []uint32) (TaxiTables, error) {
 	p, err := parseTaxi(tt)
 	if err != nil {
@@ -410,15 +411,17 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	pairs := map[[2]uint32]uint32{}
 	// The client's own table is taken as it is: only a route this write saves, or one at a stop it
 	// removes, is checked.
+	// A transport's new path (#955) runs from stop 0 to stop 0: it is no flight, and no stop is checked.
 	keep := func(id, from, to, cost uint32) error {
 		_, edited := saved[id]
+		transport := from == 0 && to == 0
 		for _, stop := range []uint32{from, to} {
-			if goneNode[stop] || (edited && !exists[stop]) {
+			if !transport && (goneNode[stop] || (edited && !exists[stop])) {
 				return fmt.Errorf("flight route %d uses stop %d, which is not in the table: remove the route too", id, stop)
 			}
 		}
 		pair := [2]uint32{from, to}
-		if other, ok := pairs[pair]; ok {
+		if other, ok := pairs[pair]; ok && !transport {
 			if _, otherEdited := saved[other]; edited || otherEdited {
 				return fmt.Errorf("flight routes %d and %d both fly from stop %d to %d: the server keeps one", other, id, from, to)
 			}
