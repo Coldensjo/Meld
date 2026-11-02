@@ -230,9 +230,10 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
     applied it. An `off` drops the note of that sender only. The later message in the host's order wins
     per path: another's `on` for a path whose `on` of mine is unacknowledged is dropped. A guest's applies
     that came with the host's map are its own (the host's records, correct for it to take back) and are
-    not sent at bind. The notes stay after the session ends (the record is still the other's); a guest
-    that joins gets no notes of the host's for applies of a third member, and the saves' `pathApplies`
-    still differ (each holds only its own).
+    not sent at bind. The notes stay after the session ends (the record is still the other's). A guest that
+    joins gets the host's notes of other members' applies in the map handoff (`MapHandoff.applies`, #1023,
+    `notesOf`/`adoptNotes`; not its own id, nor a path it holds a live apply of), and the saves'
+    `pathApplies` still differ (each holds only its own).
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

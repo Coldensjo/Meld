@@ -39,7 +39,7 @@ import { KIND_LIQUIDS, LiquidSync } from './liquids'
 import { ChunkDataSync, KIND_CHUNK_DATA } from './chunkData'
 import { KIND_SHADOWS, ShadowSync } from './shadows'
 import { KIND_SETTINGS, SettingsSync, readSettings, writeSettings } from './settings'
-import { KIND_PATH_APPLY, PathApplySync, type PathApplyMap } from './pathApplies'
+import { KIND_PATH_APPLY, PathApplySync, adoptNotes, notesOf, type ApplyNote, type PathApplyMap } from './pathApplies'
 import { appliesOf, othersApplies } from '../tools/pathRecord'
 import type { Terrain } from '../terrain/Terrain'
 import { maskBytes } from '../terrain/tileMask'
@@ -82,6 +82,8 @@ export interface MapHandoff {
 	 * map is sent in that order, the host's own textures not yet in it after them. Absent for all of them.
 	 */
 	ordered?: number
+	/** The paths another member applied last, in the host's notes (#1023), so a guest's Path tool refuses them too. Absent for none. */
+	applies?: ApplyNote[]
 }
 
 /** The `seq` of the last message this page has seen. */
@@ -202,13 +204,15 @@ const settings = new SettingsSync({
 	},
 	failed: (err) => setStatus(`A map setting did not reach the session: ${err}`, 8000),
 })
+/** The name of member `id` as the peers list shows it. */
+function memberName(id: number): string {
+	const p = shared.peers.find((x) => x.id === id)
+	return p ? nameOf(p) : `Member ${id}`
+}
 /** Which member has each path's last apply live in the session map (#1022), so the Path tool refuses to lay another member's twice. */
 const pathApplies = new PathApplySync({
 	send: (data) => sessionSend(0, KIND_PATH_APPLY, tagged(data)),
-	nameOf: (id) => {
-		const p = shared.peers.find((x) => x.id === id)
-		return p ? nameOf(p) : `Member ${id}`
-	},
+	nameOf: memberName,
 	failed: (err) => setStatus(`A path apply did not reach the session: ${err}`, 8000),
 })
 /** The map `pathApplies` works on for terrain `t`, the same object each time so the sync can tell the map is still open. */
@@ -707,6 +711,8 @@ async function sendMap(p: Peer) {
 	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(sessionOrdered(d, e.snapshotOf(d))), ids: { lane, nextId, nextGroup } }
 	if (mapGen > 0) handoff.gen = mapGen
 	if (paint.bound === d.terrain) handoff.ordered = paint.order.length
+	const applies = notesOf(othersApplies(d.terrain))
+	if (applies) handoff.applies = applies
 	try {
 		await sendHandoff(p.id, handoff)
 	} catch (err) {
@@ -786,6 +792,8 @@ function openHandoff(h: MapHandoff) {
 	// The held edits the map doesn't hold yet go in now. A host that sent no lane (an older Meld, a scripted
 	// one) gets this member's id as one, which holds while the members stay below LANES.
 	if (first) myLane = h.ids && 'lane' in h.ids ? h.ids.lane : shared.you % LANES
+	const nd = sessionDoc()
+	if (nd) adoptNotes(applyMapOf(nd.terrain), h.applies, shared.you, memberName)
 	bindEdits(h.seq, { lane: myLane, nextId: h.ids?.nextId ?? 0, nextGroup: h.ids?.nextGroup ?? 0 }, h.ordered)
 	const host = shared.peers.find((p) => p.id === HOST_ID)?.name || 'the host'
 	if (first) setStatus(`Opened ${host}'s map ${h.map.name}`, 6000)

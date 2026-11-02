@@ -4,7 +4,7 @@
 // the sender too, when the test says; each member must end knowing who has each path's live apply.
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { KIND_PATH_APPLY, PathApplySync, type PathApplyData, type PathApplyMap } from '../src/lib/session/pathApplies.ts'
+import { KIND_PATH_APPLY, PathApplySync, adoptNotes, notesOf, type PathApplyData, type PathApplyMap } from '../src/lib/session/pathApplies.ts'
 import type { PathApply, PathRecord } from '../src/lib/tools/pathRecord.ts'
 
 const RECORD: PathRecord = { heights: null, paint: null, liquids: null, models: null }
@@ -139,4 +139,24 @@ test('a guest holds the messages until its map opens, and applies those after th
 	sync.bind(map, 1)
 	assert.deepEqual([...map.others.keys()], [2])
 	assert.equal(sends.length, 0)
+})
+
+test('the host sends its notes of a third member applies in the handoff and a guest that joins takes them', () => {
+	const host: PathApplyMap = { own: new Map(), others: new Map() }
+	host.others.set(5, { by: 2, name: 'Member 2' })
+	host.others.set(6, { by: 3, name: 'Member 3' })
+	const notes = notesOf(host.others)
+	assert.deepEqual(notes, [
+		{ id: 5, by: 2 },
+		{ id: 6, by: 3 },
+	])
+	assert.equal(notesOf(new Map()), undefined)
+	const guest: PathApplyMap = { own: new Map(), others: new Map() }
+	guest.own.set(9, applyOf())
+	// Path 9 came with the map as the host's own apply; the guest's own id (3) is not noted; junk is ignored.
+	const wire = JSON.parse(JSON.stringify([...(notes ?? []), { id: 9, by: 2 }, { id: 'x', by: 2 }, null]))
+	adoptNotes(guest, wire, 3, (n) => `Member ${n}`)
+	assert.deepEqual([...guest.others], [[5, { by: 2, name: 'Member 2' }]])
+	adoptNotes(guest, undefined, 3, (n) => `Member ${n}`)
+	assert.equal(guest.others.size, 1)
 })

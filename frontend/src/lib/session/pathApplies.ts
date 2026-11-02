@@ -169,3 +169,33 @@ function liveOf(own: Map<number, PathApply>): Map<number, PathApply> {
 	for (const [id, a] of own) if (a.live) out.set(id, a)
 	return out
 }
+
+/** One note of another member's apply in a map handoff (#1023): the path id and the member who applied it. */
+export interface ApplyNote {
+	id: number
+	by: number
+}
+
+/** The notes of `others` to send a joining member with the map, or undefined when there are none. */
+export function notesOf(others: Map<number, OthersApply>): ApplyNote[] | undefined {
+	if (!others.size) return undefined
+	const out: ApplyNote[] = []
+	for (const [id, o] of others) out.push({ id, by: o.by })
+	return out
+}
+
+/**
+ * Notes the host's `notes` in a joining member's `map`: the host's notes of the paths another member
+ * applied last. The member's own id (`you`) and paths it holds a live apply of (the host's own, which came
+ * with the map) are left out; a malformed entry is ignored.
+ */
+export function adoptNotes(map: PathApplyMap, notes: unknown, you: number, nameOf: (id: number) => string) {
+	if (!Array.isArray(notes)) return
+	for (const n of notes as Array<Partial<ApplyNote> | null>) {
+		if (!n || !Number.isInteger(n.id) || !Number.isInteger(n.by) || n.by === you) continue
+		const id = n.id as number
+		const by = n.by as number
+		if (map.own.get(id)?.live) continue
+		map.others.set(id, { by, name: nameOf(by) })
+	}
+}
