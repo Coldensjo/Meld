@@ -1279,3 +1279,8 @@ The game object editor on Small Thorium Vein (324) shows its fields on Object an
 Find object list (`list tall`) is one of the lists left out.
 The item editor on the Worn Shortsword (25): its Effects tab holds the five effects in two rows each
 (a 5-column grid) and More fits with the pet food beside the random enchantment.
+The spell editor on Fireball (133): its fields on ten tabs (Spell, Rules, Items, the three effects,
+Needs, Interrupts, Flags, More flags) and Other, the tab bar still one row (`spellTabRows`), the short
+masks (forms, targets, creature types, slots) ticking in five or six columns. Execute (5308) is the
+tallest Items tab (the weapon subclasses' ticks) and fits too. Most tabs leave little room on the
+805 px page: on a 768 px window they fall back to the page's `overflow-y: auto`.

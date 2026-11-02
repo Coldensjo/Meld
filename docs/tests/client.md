@@ -732,11 +732,11 @@ and `TestCreatureListRefsLive` with `VMANGOS_DIR` (the database running) names a
 
 ## The spell editor's tick lists, selects and pickers (#703, probe `spell-pickers`)
 
-Checks: Execute (5308)'s Needs tab ticks Battle and Berserker stance, reads target aura state
-"Health under 20%" and item class Weapon with its subclasses ticked, and its Flags tab ticks "Is an
-ability"; Mongoose Bite (1495) needs the Defense aura state; Smelt Copper (2657) names its spell focus
+Checks: Execute (5308)'s Needs tab ticks Battle and Berserker stance and reads target aura state
+"Health under 20%", its Items tab reads item class Weapon with its subclasses ticked, and its Flags
+tab ticks "Is an ability"; Mongoose Bite (1495) needs the Defense aura state; Smelt Copper (2657) names its spell focus
 (Forge); Hearthstone (8690) names cooldown category 89 by its spells and Fireball (133) global
-cooldown category 133; Eye of Kilrogg (126) names its active icon with its picture, and its Find
+cooldown category 133; Eye of Kilrogg (126) names its active icon (on Rules) with its picture, and its Find
 lists icons by name and puts a picked one's ID in; Effect 1's misc value is Summon Voidwalker's (697)
 creature, Frost Ward's (6143) Frost tick and Arcane Intellect's (1459) Intellect; on Fireball, item
 class Weapon turns the subclasses into a tick list and unticking Dagger is a changed value that

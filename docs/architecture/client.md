@@ -387,11 +387,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   numbers). The Zones dialog ticks AreaTable's flags (`AREA_FLAGS`) and lists LiquidType.dbc for the
   liquid; Map Properties' ghost map is a select of `MapEntries`; a spawn's Display opens
   `DisplayPicker` under the box.
-  The spell editor's fields (`lib/world/spellFields.ts`, #703) put the masks on two tabs: Needs
-  (forms by `1 << (form - 1)`, target flags, creature types by `1 << (type - 1)`, the item class with
-  its subclasses' tick list, which follows the class, and the slots; the aura states, spell focus and
-  reputation) and Flags (the attributes, interrupt, aura and channel interrupt and proc flags, all
-  from VMaNGOS' `SpellDefines.h`; the family; the second visual and the active icon). `spellTabs`
+  The spell editor's fields (`lib/world/spellFields.ts`, #703) sit on ten tabs so each fits one screen
+  of its 716 px page (#1024): Spell (text, casting), Rules (the rules with the server flags, levels,
+  the family, the second visual and the active icon), Items (reagents and tools; the item class with
+  its subclasses' tick list, which follows the class, and the slots), the three effects, Needs (forms
+  by `1 << (form - 1)`, target flags, creature types by `1 << (type - 1)`, the aura states, spell
+  focus and reputation), Interrupts (interrupt, aura and channel interrupt and proc flags), and Flags
+  and More flags (the five attribute sets), all from VMaNGOS' `SpellDefines.h`. A mask whose names are
+  short ticks in more columns (`flagColumns` on the field, `TemplateFields.svelte`). `spellTabs`
   takes the spell's values, since the subclass list and each effect's misc value (`miscField`) follow
   other columns: a creature, object, faction, skill, quest, language, lock type, flight path or event
   picker, a power, dispel, mechanic, stat, form or modifier select, or a school, mechanic or creature

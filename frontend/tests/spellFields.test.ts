@@ -74,7 +74,7 @@ test('every column shows, the unlisted ones on Other, the look ones beside the t
 	const tabs = spellTabs(['name', 'effect1', 'spellIconId', 'spellVisual1', 'customFlags', 'stances', 'castUI'], tables)
 	assert.deepEqual(
 		tabs.map((t) => t.id),
-		['spell', 'effect1', 'needs', 'flags', 'other'],
+		['spell', 'rules', 'effect1', 'needs', 'other'],
 	)
 	const other = tabs.find((t) => t.id === 'other')!.groups.flatMap((g) => g.fields.map((f) => f.col))
 	assert.deepEqual(other, ['castUI'])

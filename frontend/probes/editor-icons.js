@@ -27,9 +27,13 @@ const spell = () => document.querySelector('[data-editor="spell"]')
 ui.spellEditor = { entry: 133 }
 await P.until(() => spell()?.querySelector('h2')?.textContent.includes('Fireball') && tab(spell(), 'Spell'), WAIT, 'the spell')
 await P.until(() => loaded(spell().querySelector('h2')), WAIT, 'the spell title icon')
-tab(spell(), 'Spell').click()
-await P.frames(1)
-const refLabels = [...spell().querySelectorAll('.ref .label')].map((l) => l.textContent.trim())
+// The reagents and tools are on Items, the next spell on Rules (#1024).
+const refLabels = []
+for (const name of ['Rules', 'Items']) {
+	tab(spell(), name).click()
+	await P.frames(1)
+	refLabels.push(...[...spell().querySelectorAll('.ref .label')].map((l) => l.textContent.trim()))
+}
 ui.spellEditor = null
 await P.frames(1)
 

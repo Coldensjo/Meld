@@ -14,6 +14,8 @@ export interface CreatureField {
 	options?: Array<[number, string]>
 	/** Checkboxes for these bits of the value. */
 	flags?: Array<[number, string]>
+	/** With `flags`, the checkboxes' columns, 3 when absent (more for short names, so a page fits one screen, #1024). */
+	flagColumns?: number
 	/** The bits (with `flags`) or the values (with `options`) are classes: each shows its class icon (#682). */
 	classes?: 'mask' | 'id'
 	/** An input that offers these values (a datalist), each with its label if it has one, but still takes any value. */

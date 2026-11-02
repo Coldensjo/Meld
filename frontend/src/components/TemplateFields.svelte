@@ -80,7 +80,7 @@
 					{/if}</label
 				>
 			{:else if f.flags}
-				<fieldset class="wide" class:changed title={f.col}>
+				<fieldset class="wide" class:changed title={f.col} style:grid-template-columns={f.flagColumns ? `repeat(${f.flagColumns}, 1fr)` : undefined}>
 					<legend>{f.label}</legend>
 					{#each f.flags as [bit, name] (bit)}
 						<label class="check"

@@ -541,6 +541,9 @@ function effectFields(n: number, tables: vmangos.SpellTables | null, v: Record<s
 
 function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, string>): QuestTab[] {
 	const cls = v.equippedItemClass === undefined || v.equippedItemClass === '' ? -1 : Number(v.equippedItemClass)
+	// The fields are spread over ten tabs so each fits one screen of the editor's 716 px page, under the
+	// scroll-bar rule (#1024): the masks with short names tick in more columns (flagColumns), the
+	// attributes, whose names are long, keep three and take two tabs.
 	return [
 		{
 			id: 'spell',
@@ -557,6 +560,7 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 				},
 				{
 					title: 'Casting',
+					columns: 4,
 					fields: [
 						{ col: 'school', label: 'School', options: SPELL_SCHOOLS },
 						{ col: 'castingTimeIndex', label: 'Cast time', options: tableOptions(tables?.castTimes, 'Instant') },
@@ -575,15 +579,12 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 						{ col: 'speed', label: 'Missile speed', hint: 'Yards a second a bolt flies; 0 hits at once' },
 					],
 				},
-				{
-					title: 'Levels',
-					fields: [
-						{ col: 'spellLevel', label: 'Spell level' },
-						{ col: 'baseLevel', label: 'Base level' },
-						{ col: 'maxLevel', label: 'Max level', hint: 'The level its points stop growing at' },
-						{ col: 'maxTargetLevel', label: 'Max target level' },
-					],
-				},
+			],
+		},
+		{
+			id: 'rules',
+			title: 'Rules',
+			groups: [
 				{
 					title: 'Rules',
 					fields: [
@@ -596,10 +597,38 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 						{ col: 'procCharges', label: 'Charges' },
 						{ col: 'maxAffectedTargets', label: 'Most targets' },
 						{ col: 'modelNextSpell', label: 'Next spell', ref: 'spell', hint: 'The spell an auto-repeating spell casts again, such as Auto Shot' },
+						{ col: 'customFlags', label: 'Server flags', flags: SPELL_CUSTOM_FLAGS, hint: 'The server’s own, not in the client' },
 					],
 				},
 				{
+					title: 'Levels',
+					columns: 4,
+					fields: [
+						{ col: 'spellLevel', label: 'Spell level' },
+						{ col: 'baseLevel', label: 'Base level' },
+						{ col: 'maxLevel', label: 'Max level', hint: 'The level its points stop growing at' },
+						{ col: 'maxTargetLevel', label: 'Max target level' },
+					],
+				},
+				{
+					title: 'Family and look',
+					columns: 4,
+					fields: [
+						{ col: 'spellFamilyName', label: 'Family', options: SPELL_FAMILIES, hint: 'The class whose talents and set bonuses find it, with the family flags' },
+						{ col: 'spellFamilyFlags', label: 'Family flags', hint: 'Which of the family’s spells it is, for the talents that change them' },
+						{ col: 'spellVisual2', label: 'Second visual', ref: 'spell visual', hint: 'A second SpellVisual.dbc ID, drawn with the first' },
+						{ col: 'activeIconId', label: 'Active icon', ref: 'spell icon', hint: 'The SpellIcon.dbc icon it shows while active (most spells have none)' },
+					],
+				},
+			],
+		},
+		{
+			id: 'items',
+			title: 'Items',
+			groups: [
+				{
 					title: 'Reagents and totems',
+					columns: 6,
 					fields: [
 						...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((i): CreatureField[] => [
 							{ col: `reagent${i}`, label: `Reagent ${i}`, ref: 'item', hint: 'An item the cast uses up' },
@@ -607,6 +636,16 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 						]),
 						{ col: 'totem1', label: 'Tool 1', ref: 'item', hint: 'An item the caster must carry, not used up (a totem, a blacksmith hammer)' },
 						{ col: 'totem2', label: 'Tool 2', ref: 'item' },
+					],
+				},
+				{
+					title: 'Equipped item',
+					fields: [
+						{ col: 'equippedItemClass', label: 'Item class', options: EQUIPPED_CLASSES, hint: 'The kind of item the caster must have equipped' },
+						cls >= 0
+							? { col: 'equippedItemSubClassMask', label: 'Subclasses', flags: subclassMask(cls), flagColumns: 5, hint: 'None ticked: any of the class' }
+							: { col: 'equippedItemSubClassMask', label: 'Subclasses', hint: 'Pick an item class to tick its subclasses' },
+						{ col: 'equippedItemInventoryTypeMask', label: 'Slots', flags: INVENTORY_TYPE_MASK, flagColumns: 6, hint: 'None ticked: any slot' },
 					],
 				},
 			],
@@ -619,8 +658,8 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 				{
 					title: 'Caster',
 					fields: [
-						{ col: 'stances', label: 'Only in these forms', flags: FORM_MASK, hint: 'None ticked: in any form' },
-						{ col: 'stancesNot', label: 'Not in these forms', flags: FORM_MASK },
+						{ col: 'stances', label: 'Only in these forms', flags: FORM_MASK, flagColumns: 6, hint: 'None ticked: in any form' },
+						{ col: 'stancesNot', label: 'Not in these forms', flags: FORM_MASK, flagColumns: 6 },
 						{ col: 'casterAuraState', label: 'Caster aura state', options: AURA_STATES, hint: 'A state the caster must be in, such as after a dodge (Overpower)' },
 						{ col: 'requiresSpellFocus', label: 'Near a spell focus', ref: 'spell focus', hint: 'An object the caster must stand by, such as an anvil or forge (SpellFocusObject.dbc)' },
 						{ col: 'minFactionId', label: 'Reputation with', ref: 'faction', hint: 'A faction the caster needs a standing with' },
@@ -630,19 +669,24 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 				{
 					title: 'Target',
 					fields: [
-						{ col: 'targets', label: 'Can target', flags: TARGET_FLAGS, hint: 'None ticked: the caster' },
-						{ col: 'targetCreatureType', label: 'Creature types', flags: CREATURE_TYPE_MASK, hint: 'None ticked: any' },
+						{ col: 'targets', label: 'Can target', flags: TARGET_FLAGS, flagColumns: 4, hint: 'None ticked: the caster' },
+						{ col: 'targetCreatureType', label: 'Creature types', flags: CREATURE_TYPE_MASK, flagColumns: 6, hint: 'None ticked: any' },
 						{ col: 'targetAuraState', label: 'Target aura state', options: AURA_STATES, hint: 'A state the target must be in, such as under 20% health (Execute)' },
 					],
 				},
+			],
+		},
+		{
+			id: 'interrupts',
+			title: 'Interrupts',
+			groups: [
 				{
-					title: 'Equipped item',
+					title: 'Interrupts and procs',
 					fields: [
-						{ col: 'equippedItemClass', label: 'Item class', options: EQUIPPED_CLASSES, hint: 'The kind of item the caster must have equipped' },
-						cls >= 0
-							? { col: 'equippedItemSubClassMask', label: 'Subclasses', flags: subclassMask(cls), hint: 'None ticked: any of the class' }
-							: { col: 'equippedItemSubClassMask', label: 'Subclasses', hint: 'Pick an item class to tick its subclasses' },
-						{ col: 'equippedItemInventoryTypeMask', label: 'Slots', flags: INVENTORY_TYPE_MASK, hint: 'None ticked: any slot' },
+						{ col: 'interruptFlags', label: 'The cast is interrupted by', flags: INTERRUPT_FLAGS, flagColumns: 5 },
+						{ col: 'auraInterruptFlags', label: 'The aura is removed by', flags: AURA_INTERRUPT_FLAGS, flagColumns: 4 },
+						{ col: 'channelInterruptFlags', label: 'The channel is stopped by', flags: AURA_INTERRUPT_FLAGS, flagColumns: 4 },
+						{ col: 'procFlags', label: 'Procs on', flags: PROC_FLAGS, flagColumns: 4 },
 					],
 				},
 			],
@@ -652,32 +696,24 @@ function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, stri
 			title: 'Flags',
 			groups: [
 				{
-					title: 'Interrupts and procs',
-					fields: [
-						{ col: 'interruptFlags', label: 'The cast is interrupted by', flags: INTERRUPT_FLAGS },
-						{ col: 'auraInterruptFlags', label: 'The aura is removed by', flags: AURA_INTERRUPT_FLAGS },
-						{ col: 'channelInterruptFlags', label: 'The channel is stopped by', flags: AURA_INTERRUPT_FLAGS },
-						{ col: 'procFlags', label: 'Procs on', flags: PROC_FLAGS },
-					],
-				},
-				{
 					title: 'Attributes',
 					fields: [
 						{ col: 'attributes', label: 'Attributes', flags: SPELL_ATTRIBUTES },
 						{ col: 'attributesEx', label: 'Attributes 2', flags: SPELL_ATTRIBUTES_EX },
+					],
+				},
+			],
+		},
+		{
+			id: 'flags2',
+			title: 'More flags',
+			groups: [
+				{
+					title: 'More attributes',
+					fields: [
 						{ col: 'attributesEx2', label: 'Attributes 3', flags: SPELL_ATTRIBUTES_EX2 },
 						{ col: 'attributesEx3', label: 'Attributes 4', flags: SPELL_ATTRIBUTES_EX3 },
 						{ col: 'attributesEx4', label: 'Attributes 5', flags: SPELL_ATTRIBUTES_EX4 },
-						{ col: 'customFlags', label: 'Server flags', flags: SPELL_CUSTOM_FLAGS, hint: 'The server’s own, not in the client' },
-					],
-				},
-				{
-					title: 'Family and look',
-					fields: [
-						{ col: 'spellFamilyName', label: 'Family', options: SPELL_FAMILIES, hint: 'The class whose talents and set bonuses find it, with the family flags' },
-						{ col: 'spellFamilyFlags', label: 'Family flags', hint: 'Which of the family’s spells it is, for the talents that change them' },
-						{ col: 'spellVisual2', label: 'Second visual', ref: 'spell visual', hint: 'A second SpellVisual.dbc ID, drawn with the first' },
-						{ col: 'activeIconId', label: 'Active icon', ref: 'spell icon', hint: 'The SpellIcon.dbc icon it shows while active (most spells have none)' },
 					],
 				},
 			],

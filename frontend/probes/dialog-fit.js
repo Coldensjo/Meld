@@ -1,5 +1,5 @@
-// The scroll-bar rule (#933, #986): the Texture looks and Brush stack dialogs have no list of their own that scrolls; with 18 textures and 10 brushes (more than their old 420 px and 380 px caps held) each fits the probe page (1400x900, 805 px inside) with no scroll bar, the dialog's body included. The database editors' field pages (#1024) fit it too: every tab of the creature editor on Scarlet Commander Mograine (3976) shows no scroll bar but the lists that grow without bound (the display grid, the spell search's results), every tab of the quest editor on Wolves Across the Border (33), its fields in two columns, and every tab of the game object editor on Small Thorium Vein (324), its fields on Object and What it does, and every tab of the item editor on the Worn Shortsword (25), the five effects two rows each.
-// touches: frontend/src/components/TextureLooksDialog.svelte, frontend/src/components/BrushStackDialog.svelte, frontend/src/components/GroundEffectsDialog.svelte, frontend/src/components/IconImportDialog.svelte, frontend/src/components/Modal.svelte, frontend/src/components/CreatureEditor.svelte, frontend/src/components/SpellsTab.svelte, frontend/src/components/DisplayPicker.svelte, frontend/src/lib/world/creatureFields.ts, frontend/src/components/QuestEditor.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/world/questFields.ts, frontend/src/components/ObjectEditor.svelte, frontend/src/lib/world/objectFields.ts, frontend/src/components/ItemEditor.svelte, frontend/src/lib/world/itemFields.ts
+// The scroll-bar rule (#933, #986): the Texture looks and Brush stack dialogs have no list of their own that scrolls; with 18 textures and 10 brushes (more than their old 420 px and 380 px caps held) each fits the probe page (1400x900, 805 px inside) with no scroll bar, the dialog's body included. The database editors' field pages (#1024) fit it too: every tab of the creature editor on Scarlet Commander Mograine (3976) shows no scroll bar but the lists that grow without bound (the display grid, the spell search's results), every tab of the quest editor on Wolves Across the Border (33), its fields in two columns, and every tab of the game object editor on Small Thorium Vein (324), its fields on Object and What it does, and every tab of the item editor on the Worn Shortsword (25), the five effects two rows each, and every tab of the spell editor on Fireball (133), its fields on ten tabs and the short masks ticked in more columns.
+// touches: frontend/src/components/TextureLooksDialog.svelte, frontend/src/components/BrushStackDialog.svelte, frontend/src/components/GroundEffectsDialog.svelte, frontend/src/components/IconImportDialog.svelte, frontend/src/components/Modal.svelte, frontend/src/components/CreatureEditor.svelte, frontend/src/components/SpellsTab.svelte, frontend/src/components/DisplayPicker.svelte, frontend/src/lib/world/creatureFields.ts, frontend/src/components/QuestEditor.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/world/questFields.ts, frontend/src/components/ObjectEditor.svelte, frontend/src/lib/world/objectFields.ts, frontend/src/components/ItemEditor.svelte, frontend/src/lib/world/itemFields.ts, frontend/src/components/SpellEditor.svelte, frontend/src/lib/world/spellFields.ts, frontend/src/components/TemplateFields.svelte
 const { editor, prefs, ui } = await P.state()
 const { newStackItem } = await P.app('/src/lib/tools/brushStack.ts')
 const paletteWas = editor.palette
@@ -82,7 +82,16 @@ try {
 	ui.itemEditor = { entry: 25 }
 	const item = await P.until(() => document.querySelector('[data-editor="item"] nav.tabs button') && document.querySelector('[data-editor="item"] h3') && document.querySelector('[data-editor="item"]'), 60_000, 'the item editor')
 	r.itemScrolling = await editorTabs(item)
+	ui.itemEditor = null
+	await P.frames(1)
+
+	ui.spellEditor = { entry: 133 }
+	const spell = await P.until(() => document.querySelector('[data-editor="spell"] nav.tabs button') && document.querySelector('[data-editor="spell"] h3') && document.querySelector('[data-editor="spell"]'), 60_000, 'the spell editor')
+	r.spellTabs = spell.querySelectorAll('nav.tabs > button').length
+	r.spellTabRows = Math.round(spell.querySelector('nav.tabs').getBoundingClientRect().height / spell.querySelector('nav.tabs > button').getBoundingClientRect().height)
+	r.spellScrolling = await editorTabs(spell)
 } finally {
+	ui.spellEditor = null
 	ui.itemEditor = null
 	ui.creatureEditor = null
 	ui.questEditor = null
@@ -104,6 +113,9 @@ return {
 		!Object.keys(r.creatureScrolling).length &&
 		!Object.keys(r.questScrolling).length &&
 		!Object.keys(r.objectScrolling).length &&
-		!Object.keys(r.itemScrolling).length,
+		!Object.keys(r.itemScrolling).length &&
+		r.spellTabs >= 10 &&
+		r.spellTabRows === 1 &&
+		!Object.keys(r.spellScrolling).length,
 	...r,
 }
