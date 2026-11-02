@@ -231,6 +231,16 @@ async function devDown() {
 	return ''
 }
 
+/** Whether the Go side answers (/wow/status) while the page through Vite does not: Vite hung (idle, no CPU) behind a healthy Wails server (#1028). */
+async function pageHung() {
+	try {
+		const s = await fetch(new URL('/wow/status', PAGE), { signal: AbortSignal.timeout(5000) })
+		return s.ok
+	} catch {
+		return false
+	}
+}
+
 /** When the dev server's Go side started (/wow/status `started`, Unix ms), or 0 when it doesn't answer. A change between two calls means wails3 dev rebuilt and restarted it (#656). */
 async function devStarted() {
 	try {
@@ -274,6 +284,12 @@ async function ensureDev() {
 	const why = await devDown()
 	if (!why) return
 	if (process.env.MELD_URL) fail(`the dev server doesn't answer at ${PAGE} (${why})`)
+	// The Go side answers but the page does not: Vite hung. A second `make dev-page` could not take the ports and would be waited for 10 minutes, so restart the hung one instead (#1028).
+	if (await pageHung()) {
+		if (!(await restartDev(`the Go side answers but the page does not (${why}): Vite is hung`, true)))
+			fail(`the page hangs (${why}) behind a Go side that answers, and it may not be restarted now; stop the dev page's processes or wait for the other run`)
+		return
+	}
 	const log = join(tmpdir(), 'meld-dev.log')
 	console.error(`probe: the dev server is down (${why}); starting \`make dev-page\` (log ${log}), which takes a few minutes`)
 	const out = openSync(log, 'w')
@@ -297,7 +313,7 @@ function restartBlocked() {
 /** Stops the dev page's processes: wails3 dev with its children (Meld-page, Vite's bun), then any Meld-page or Vite `bun run dev` left (#864). Matched by name and command line, never every bun, so this run and others' probe runners stay. */
 function killDevPage() {
 	if (process.platform === 'win32') {
-		const ps = `Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'wails3.exe','Meld-page.exe' -or ($_.Name -in 'bun.exe','node.exe' -and $_.CommandLine -match 'run dev' -and $_.CommandLine -notmatch 'probes') } | ForEach-Object { "$($_.ProcessId)" }`
+		const ps = `Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'wails3.exe','Meld-page.exe' -or ($_.Name -in 'bun.exe','node.exe' -and $_.CommandLine -match 'run dev|vite' -and $_.CommandLine -notmatch 'probes|vite build') } | ForEach-Object { "$($_.ProcessId)" }`
 		const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8', timeout: 30000 })
 		const pids = (r.stdout ?? '')
 			.split(/\r?\n/)
@@ -310,7 +326,7 @@ function killDevPage() {
 	const pids = []
 	for (const l of (r.stdout ?? '').split('\n')) {
 		const m = /^\s*(\d+)\s+(.*)$/.exec(l)
-		if (m && Number(m[1]) !== process.pid && (/(^|\/)(wails3|Meld-page)( |$)/.test(m[2]) || (/bun.*run dev/.test(m[2]) && !/probes/.test(m[2])))) pids.push(Number(m[1]))
+		if (m && Number(m[1]) !== process.pid && (/(^|\/)(wails3|Meld-page)( |$)/.test(m[2]) || (/(bun|node).*(run dev|vite)/.test(m[2]) && !/probes|vite build/.test(m[2])))) pids.push(Number(m[1]))
 	}
 	for (const pid of pids) {
 		try {
@@ -323,7 +339,7 @@ function killDevPage() {
 }
 
 /** Restarts `make dev-page` (#864): kills its processes and lets ensureDev start it again. Returns false, after saying why, when it must not (the loop lock, a probe run). */
-async function restartDev(why) {
+async function restartDev(why, afterKill = false) {
 	if (process.env.MELD_URL) return false
 	const blocked = restartBlocked()
 	if (blocked) {
@@ -333,12 +349,31 @@ async function restartDev(why) {
 	console.error(`probe: restarting the dev page: ${why}`)
 	const n = killDevPage()
 	console.error(`probe: stopped ${n} process(es)`)
+	if (afterKill) {
+		// ensureDev called us: wait for the ports to free, then it must see the server down and start it, not recurse into another restart.
+		for (let i = 0; i < 20 && (await pageHung()); i++) await sleep(500)
+		const log = join(tmpdir(), 'meld-dev.log')
+		console.error(`probe: starting \`make dev-page\` (log ${log}), which takes a few minutes`)
+		const out = openSync(log, 'w')
+		spawn('make', ['dev-page'], { cwd: join(here, '..', '..'), detached: true, stdio: ['ignore', out, out], shell: process.platform === 'win32' }).unref()
+		for (let i = 0; i < 120; i++) {
+			await sleep(5000)
+			if (!(await devDown())) return true
+		}
+		fail(`the dev server did not come up in 10 minutes (see ${log})`)
+	}
 	for (let i = 0; i < 20 && !(await devDown()); i++) await sleep(500)
 	await ensureDev()
 	return true
 }
 
 async function main() {
+	// --restart-page kills first and waits after: ensureDev would take a hung page for a down one (#1028).
+	if (restartOnly && !process.env.MELD_URL && (await devDown())) {
+		if (!(await restartDev('--restart-page'))) process.exit(1)
+		console.log(JSON.stringify({ restarted: true }))
+		process.exit(0)
+	}
 	await ensureDev()
 	let stale = process.env.MELD_URL ? '' : await staleBackend()
 	if (restartOnly || stale) {
