@@ -37,7 +37,18 @@ try {
 		editor.sculptMode = 'raise'
 		editor.brush.radius = 30
 		editor.brush.strength = 1
-		await P.stroke('sculpt', { x: 100, z: 120 }, { x: 160, z: 120 }, 30)
+		// P.stroke's pace, but each step at least 15 ms apart: on the GPU its 30 frames took about 140 ms,
+		// one or two of the 100 ms flushes, and the live sends counted 1 (#1029).
+		const tool = e.debug.tools.sculpt
+		const V3 = e.controller.target.constructor
+		const at = (x, z) => new V3(x, e.terrain.heightAt(x, z), z)
+		tool.onDown(e.debug.ctx, at(100, 120))
+		for (let i = 1; i <= 30; i++) {
+			tool.tick(e.debug.ctx, 0.05, at(100 + 2 * i, 120))
+			await Promise.all([P.frames(1), new Promise((r) => setTimeout(r, 15))])
+		}
+		tool.onUp(e.debug.ctx)
+		await P.frames(1)
 		sentLive = sends
 		await new Promise((r) => setTimeout(r, 400))
 		e.history.undo()
