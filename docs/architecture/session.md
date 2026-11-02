@@ -219,9 +219,20 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
     and the flatten and water locks are not synced (the list is on #1019). A new per-map field
     (`DOC_META_KEYS`) is one or the other: a field every member's save must hold goes in
     `SETTINGS_FIELDS`, `readSettings` and `writeSettings`.
-  - **The paths' last applies** (`appliesOf`, saved as `pathApplies`) stay with the member who applied:
-    what the apply wrote syncs as heights, paint, liquids and models, but another member's re-apply of
-    that path lays it again without taking the first apply back, and the saves' `pathApplies` differ.
+  - **The paths' last applies (#1022, `pathApplies.ts`, `PathApplySync`).** What an apply wrote syncs as
+    heights, paint, liquids and models, but its record of what it replaced (`appliesOf`, saved as
+    `pathApplies`) stays with the member who applied. So each member sends kind `pathapply`
+    (`KIND_PATH_APPLY`), data `{id, on, off}`: the path ids whose live apply became its own since the last
+    flush (a new apply object, or one an undo or redo made live) and those it no longer has, compared on
+    the heights' timer against a mirror of its live applies. A receiver notes the sender as the path's
+    applier (`othersApplies`, not saved) and takes its own apply of that path out of its record (`live`
+    false), since the other's was laid over it; the Path tool then refuses to apply that path, naming who
+    applied it. An `off` drops the note of that sender only. The later message in the host's order wins
+    per path: another's `on` for a path whose `on` of mine is unacknowledged is dropped. A guest's applies
+    that came with the host's map are its own (the host's records, correct for it to take back) and are
+    not sent at bind. The notes stay after the session ends (the record is still the other's); a guest
+    that joins gets no notes of the host's for applies of a third member, and the saves' `pathApplies`
+    still differ (each holds only its own).
 - **Placed objects (#1003, `objects.ts`, `ObjectSync`).** Every change to the session map's models, WMOs
   and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new model or group, an
   undo) goes out as kind `objects` (`KIND_OBJECTS`), data `{id, put, del}`: the added or changed objects

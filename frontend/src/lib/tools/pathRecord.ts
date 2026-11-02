@@ -46,6 +46,25 @@ export function appliesOf(t: Terrain): Map<number, PathApply> {
 	return m
 }
 
+/** Another member's live apply of a path in a shared session (#1022, session/pathApplies.ts): who applied it. */
+export interface OthersApply {
+	by: number
+	name: string
+}
+
+const others = new WeakMap<Terrain, Map<number, OthersApply>>()
+
+/**
+ * The paths of terrain `t`'s map that another member of a shared session applied last, by path id. Their
+ * record of what the apply replaced is theirs alone, so this member cannot take it back (the Path tool
+ * refuses to apply those paths). Not saved: a reopened map has no session.
+ */
+export function othersApplies(t: Terrain): Map<number, OthersApply> {
+	let m = others.get(t)
+	if (!m) others.set(t, (m = new Map()))
+	return m
+}
+
 /**
  * The records the map file keeps for terrain `t`'s map: those of the paths in `paths` whose last apply
  * is in the map. One undone, or of a path deleted since, is left out, since a reopened map has no

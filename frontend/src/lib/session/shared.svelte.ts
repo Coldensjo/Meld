@@ -39,6 +39,9 @@ import { KIND_LIQUIDS, LiquidSync } from './liquids'
 import { ChunkDataSync, KIND_CHUNK_DATA } from './chunkData'
 import { KIND_SHADOWS, ShadowSync } from './shadows'
 import { KIND_SETTINGS, SettingsSync, readSettings, writeSettings } from './settings'
+import { KIND_PATH_APPLY, PathApplySync, type PathApplyMap } from './pathApplies'
+import { appliesOf, othersApplies } from '../tools/pathRecord'
+import type { Terrain } from '../terrain/Terrain'
 import { maskBytes } from '../terrain/tileMask'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
 import { selectObjects } from '../state/selection'
@@ -199,6 +202,22 @@ const settings = new SettingsSync({
 	},
 	failed: (err) => setStatus(`A map setting did not reach the session: ${err}`, 8000),
 })
+/** Which member has each path's last apply live in the session map (#1022), so the Path tool refuses to lay another member's twice. */
+const pathApplies = new PathApplySync({
+	send: (data) => sessionSend(0, KIND_PATH_APPLY, tagged(data)),
+	nameOf: (id) => {
+		const p = shared.peers.find((x) => x.id === id)
+		return p ? nameOf(p) : `Member ${id}`
+	},
+	failed: (err) => setStatus(`A path apply did not reach the session: ${err}`, 8000),
+})
+/** The map `pathApplies` works on for terrain `t`, the same object each time so the sync can tell the map is still open. */
+const applyMaps = new WeakMap<Terrain, PathApplyMap>()
+function applyMapOf(t: Terrain): PathApplyMap {
+	let m = applyMaps.get(t)
+	if (!m) applyMaps.set(t, (m = { own: appliesOf(t), others: othersApplies(t) }))
+	return m
+}
 /** The session map's placed objects (#1003): the changed objects whole, sent and applied as the heights are. */
 const objects = new ObjectSync({
 	send: (data) => sessionSend(0, KIND_OBJECTS, tagged(data)),
@@ -328,6 +347,10 @@ function flushEdits() {
 		if (doc !== settings.bound) settings.unbind()
 		else settings.flush()
 	}
+	if (pathApplies.bound) {
+		if (!t || pathApplies.bound !== applyMapOf(t)) pathApplies.unbind()
+		else pathApplies.flush()
+	}
 }
 
 /** Starts syncing the session map's edits: the map as it was after message `afterSeq`, new object ids made in `ids`' lane. */
@@ -342,6 +365,7 @@ function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
 	shadows.bind(d.terrain, afterSeq)
 	objects.bind(d.objects, afterSeq, ids)
 	settings.bind(d, afterSeq)
+	pathApplies.bind(applyMapOf(d.terrain), afterSeq)
 }
 
 /** An edit message's data with the map it was made against (`g`, #1008), left out while the map was never made again. */
@@ -391,6 +415,7 @@ function subscribe() {
 	shadows.wait()
 	objects.wait()
 	settings.wait()
+	pathApplies.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
 	clearPresence()
 	presenceTimer = setInterval(tickPresence, PRESENCE_MS)
@@ -414,6 +439,7 @@ function unsubscribe() {
 	shadows.unbind()
 	objects.unbind()
 	settings.unbind()
+	pathApplies.unbind()
 }
 
 function apply(info: main.SessionInfo) {
@@ -542,6 +568,7 @@ function onMessage(m: Message) {
 		case KIND_SHADOWS:
 		case KIND_OBJECTS:
 		case KIND_SETTINGS:
+		case KIND_PATH_APPLY:
 			receiveEdit(m)
 			return
 		case KIND_PRESENCE:
@@ -569,6 +596,7 @@ const syncs: Record<string, { receive(seq: number, from: number, data: unknown, 
 	[KIND_SHADOWS]: shadows,
 	[KIND_OBJECTS]: objects,
 	[KIND_SETTINGS]: settings,
+	[KIND_PATH_APPLY]: pathApplies,
 }
 
 /** An edit message: held while a guest has no map yet, dropped when another member made it against another map than this one (#1008). */

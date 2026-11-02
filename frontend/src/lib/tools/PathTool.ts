@@ -9,7 +9,7 @@ import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import type { Command } from '../state/history'
 import type { Terrain } from '../terrain/Terrain'
-import { appliesOf, type PathApply } from './pathRecord'
+import { appliesOf, othersApplies, type PathApply } from './pathRecord'
 import { editor, setStatus } from '../state/editor.svelte'
 import { paletteIndex } from '../terrain/chunkPaint'
 import { copyPaths, nearestSegment, newPath, samplePath, type MapPath, type PathPoint } from '../terrain/paths'
@@ -357,6 +357,12 @@ export class PathTool implements Tool {
 			if (ctx.terrain !== t || !this.current()) return
 		}
 		const path = this.current()!
+		// In a shared session, another member's last apply of this path can't be taken back here (#1022): applying it again would lay it twice.
+		const other = othersApplies(ctx.terrain).get(path.id)
+		if (other) {
+			setStatus(`${other.name} applied ${path.name} last, and only they can take that apply back: applying it here would lay it a second time. Ask ${other.name} to apply it again.`, 6000)
+			return
+		}
 		// A map just opened has its paths' last applies from its file, live, since it has no history.
 		const applied = appliesOf(ctx.terrain)
 		const prev = applied.get(path.id)

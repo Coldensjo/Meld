@@ -1137,6 +1137,20 @@ kept over them, and an applied one is not sent back.
 - Trap: the roles go as texture paths, so compare `readSettings` (paths), never the members' role
   indices, which follow each member's own palette.
 
+## The paths' last applies in a session (#1022, probe `session-path-apply`)
+
+Checks: a member's live apply of a path goes to the others as a `pathapply` message (the path ids on and
+off), a receiver notes who applied it and takes its own apply of that path out of its record, and the
+Path tool refuses to apply a path another member applied last, naming them.
+- `bun test tests/sessionPathApplies.test.ts`: two `PathApplySync` members through a scripted host (an
+  apply and its undo, a guest's re-apply of a path the host's map came with, both applying one path at
+  once, a guest holding messages until the handoff).
+- `bun run probe session-path-apply`: the page hosts a flat map with two raised roads, the bot sends
+  `pathapply` with the first's id on; the page's Apply of it adds no undo step and moves no ground, its
+  status naming the bot, and its Apply of the second goes through and reaches the bot with that id on.
+- Trap: `ui.status` is where the refusal shows; the probe reads it right after the apply, before the
+  line times out.
+
 ## Texture paint in a session (#1002, probe `session-paint`)
 
 Checks: a paint change on the session's map goes to the others as `paint` messages (whole chunks, slots
