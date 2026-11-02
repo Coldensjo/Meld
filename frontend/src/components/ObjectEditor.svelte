@@ -54,7 +54,7 @@
 	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
 	const map = mapActions()
 
-	type Tab = 'spawn' | 'object' | 'display' | 'text' | 'sounds' | 'contents' | 'quests' | 'find' | 'new'
+	type Tab = 'spawn' | 'object' | 'use' | 'display' | 'text' | 'sounds' | 'contents' | 'quests' | 'find' | 'new'
 
 	/** GAMEOBJECT_TYPE_QUESTGIVER: the one object type the server lets offer and take quests. */
 	const QUEST_GIVER_TYPE = 2
@@ -136,8 +136,8 @@
 		else if (t.field) wantField = t.field
 	}
 
-	// Opened on a column (File › Check Map's Edit, #951): once its template is read, the Object tab,
-	// scrolled to the column's field.
+	// Opened on a column (File › Check Map's Edit, #951): once its template is read, the field tab
+	// that holds it, scrolled to the column's field.
 	let wantField = $state<string | null>(null)
 	$effect(() => {
 		const f = target?.field
@@ -148,7 +148,8 @@
 		if (!col || !record || record.entry !== target?.entry) return
 		untrack(() => {
 			wantField = null
-			tab = 'object'
+			const title = groups.find((g) => g.fields.some((f) => f.col === col))?.title
+			tab = title ? groupTab(title) : 'object'
 			focusField(col)
 		})
 	})
@@ -182,6 +183,8 @@
 				)
 			: [],
 	)
+	/** The field tab a group is on (#1024): what the object's type does and its money on What it does, the rest on Object, so each fits one screen. */
+	const groupTab = (title: string): Tab => (title.startsWith('What a') || title === 'Money' ? 'use' : 'object')
 	/** The column holding the object's first page, for the Text tab (null for a type that reads none). */
 	const pageCol = $derived(pageColumn(Number(values.type) || 0))
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
@@ -534,6 +537,7 @@
 					{#if !spawn}<button class:on={tab === 'find'} onclick={() => (tab = 'find')}>Find object</button>{/if}
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
+					{#if record}<button class:on={tab === 'use'} onclick={() => (tab = 'use')}>What it does</button>{/if}
 					{#if record}<button class:on={tab === 'display'} onclick={() => (tab = 'display')}>Display</button>{/if}
 					{#if record}<button class:on={tab === 'text'} onclick={() => (tab = 'text')}>Text{pagesDirty ? ' (1)' : ''}</button>{/if}
 					{#if record}<button class:on={tab === 'sounds'} onclick={() => (tab = 'sounds')}>Sounds{soundsDirty ? ' (1)' : ''}</button>{/if}
@@ -629,7 +633,7 @@
 					{:else if tab === 'contents' || tab === 'quests' || tab === 'sounds' || tab === 'text'}
 						<!-- The Contents, Text, Quests and Sounds tabs stay mounted below, so their unsaved rows survive a tab switch. -->
 					{:else if record}
-						{#each groups as g (g.title)}
+						{#each groups.filter((g) => groupTab(g.title) === (tab === 'use' ? 'use' : 'object')) as g (g.title)}
 							<h3>{g.title}</h3>
 							<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={(col, v) => (values[col] = v)} />
 						{/each}
@@ -714,9 +718,9 @@
 		font-size: 12px;
 	}
 	.right {
-		/* One width on every tab, so the preview beside it never moves. */
+		/* One width on every tab, so the preview beside it never moves; the creature editor's (#1024). */
 		flex: none;
-		width: min(560px, calc(45 * var(--vw)));
+		width: min(720px, calc(52 * var(--vw)));
 		min-width: 0;
 		display: flex;
 		flex-direction: column;

@@ -1275,3 +1275,5 @@ Looks tab's display grid and the Spells tab's search filling the height left. Th
 windows (`app_toolwindows.go`) have their own sizes and are a hand check.
 The quest editor on Wolves Across the Border (33) lays each field tab's groups in two columns
 (`div.groups`); the Chain tab's graph scrolls as a view and is left out with the lists.
+The game object editor on Small Thorium Vein (324) shows its fields on Object and What it does; its
+Find object list (`list tall`) is one of the lists left out.

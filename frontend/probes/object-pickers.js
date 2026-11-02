@@ -20,11 +20,16 @@ async function open(entry) {
 }
 
 await open(32)
-await P.until(() => named('Faction') && named('Lock') && named('Loot'), WAIT, 'the chest names')
-const chest = { faction: text('Faction'), lock: text('Lock'), loot: text('Loot'), lockValue: ref('Lock').querySelector('input').value }
+await P.until(() => named('Faction'), WAIT, 'the faction name')
+const faction = text('Faction')
 await P.until(() => labelled('Display')?.querySelector('.note'), WAIT, 'the display note')
 const display = labelled('Display').querySelector('.note').textContent
 const cursors = [...(labelled('Cursor icon')?.querySelector('input')?.list?.options ?? [])].map((o) => o.value)
+// The type's data columns are on What it does (#1024).
+tab('What it does').click()
+await P.frames(1)
+await P.until(() => named('Lock') && named('Loot'), WAIT, 'the chest names')
+const chest = { faction, lock: text('Lock'), loot: text('Loot'), lockValue: ref('Lock').querySelector('input').value }
 // Lock's Find lists the locks whole; a pick puts its ID in.
 ;[...ref('Lock').querySelectorAll('button')].find((b) => b.textContent === 'Find').click()
 await P.until(() => ref('Lock').querySelectorAll('li button').length > 50, WAIT, 'the lock list')
@@ -36,6 +41,8 @@ const picked = ref('Lock').querySelector('input').value
 const changed = ref('Lock').classList.contains('changed')
 
 await open(37)
+tab('What it does').click()
+await P.frames(1)
 await P.until(() => named('Page') && named('Language') && named('Page material'), WAIT, 'the text names')
 const tomb = { page: text('Page'), language: text('Language'), material: text('Page material') }
 ui.objectEditor = null

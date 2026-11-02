@@ -704,7 +704,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor,
   or by Tools › Game Objects… (`entry: 0`, no spawn), which opens on Find object (#351): the same
   template list and search as This spawn, shown whenever no spawn is selected, whose click opens that
-  object (`{ key: null, entry }`) on its Object tab. New object on `entry: 0` sets `wantNew`, so the
+  object (`{ key: null, entry }`) on its Object tab. Its template's fields are on two tabs (#1024):
+  Object (identity, flags, other columns) and What it does (the type's data columns and the money),
+  in the creature editor's 720 px panel. New object on `entry: 0` sets `wantNew`, so the
   editor opens on its form instead. Export… and Import… (#939, `internal/vmangos/objectscripts.go`)
   write and read an SQL script as the creature editor's do, the shared list code in
   `listscripts.go`: the `gameobject_template` rows, the quests each object starts and ends
