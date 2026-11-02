@@ -44,6 +44,9 @@ import { appliesOf, othersApplies } from '../tools/pathRecord'
 import type { Terrain } from '../terrain/Terrain'
 import { maskBytes } from '../terrain/tileMask'
 import { KIND_OBJECTS, LANES, Lanes, ObjectSync, type IdLane } from './objects'
+import { KIND_SPAWNS, SpawnSync, type SpawnFloors, type SpawnHandoff } from './spawns'
+import { cloneSpawn } from '../world/SpawnLayer'
+import { syncSpawnUi } from '../world/spawnEdits'
 import { selectObjects } from '../state/selection'
 import { TILE_CELLS, TILE_YARDS } from '../wow/format'
 import type { MapDocument, VmangosRef } from '../engine/MapDocument'
@@ -84,6 +87,11 @@ export interface MapHandoff {
 	ordered?: number
 	/** The paths another member applied last, in the host's notes (#1023), so a guest's Path tool refuses them too. Absent for none. */
 	applies?: ApplyNote[]
+	/**
+	 * The server's spawns of the map's region (#1020): the host's layer's rows, each with what it needs to
+	 * draw, and, for a guest that joins, the host's next guids its lane counts from. Absent from an older host.
+	 */
+	spawns?: SpawnHandoff
 }
 
 /** The `seq` of the last message this page has seen. */
@@ -262,6 +270,16 @@ const objects = new ObjectSync({
 	},
 	failed: (err) => setStatus(`A model edit did not reach the session: ${err}`, 8000),
 })
+/** The session map's server spawns (#1020): the changed rows whole, sent and applied as the objects are. Not map file data: the map is not marked unsaved. */
+const spawns = new SpawnSync({
+	send: (data) => sessionSend(0, KIND_SPAWNS, tagged(data)),
+	applied: () => {
+		// The spawn list, the selected spawn's copy and the edit count follow; another tab's are read when it is activated.
+		const d = sessionDoc()
+		if (d && sessionActive()) syncSpawnUi(d.spawnLayer, true)
+	},
+	failed: (err) => setStatus(`A spawn edit did not reach the session: ${err}`, 8000),
+})
 /** The host's id lanes, by member (#1003). */
 let lanes = new Lanes()
 let flushTimer: ReturnType<typeof setInterval> | null = null
@@ -369,6 +387,10 @@ function flushEdits() {
 		if (doc?.objects !== objects.bound) objects.unbind()
 		else objects.flush()
 	}
+	if (spawns.bound) {
+		if (doc?.spawnLayer !== spawns.bound) spawns.unbind()
+		else spawns.flush()
+	}
 	// After the paint, whose `add` has announced a texture a role names.
 	if (settings.bound) {
 		if (doc !== settings.bound) settings.unbind()
@@ -380,8 +402,8 @@ function flushEdits() {
 	}
 }
 
-/** Starts syncing the session map's edits: the map as it was after message `afterSeq`, new object ids made in `ids`' lane. */
-function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
+/** Starts syncing the session map's edits: the map as it was after message `afterSeq`, new object ids and spawn guids made in `ids`' lane (the guids from `floors`, a guest's first handoff's). */
+function bindEdits(afterSeq: number, ids: IdLane, ordered?: number, floors?: SpawnFloors) {
 	const d = sessionDoc()
 	if (!d) return
 	heights.bind(d.terrain, afterSeq)
@@ -391,6 +413,8 @@ function bindEdits(afterSeq: number, ids: IdLane, ordered?: number) {
 	chunkData.bind(d.terrain, afterSeq)
 	shadows.bind(d.terrain, afterSeq)
 	objects.bind(d.objects, afterSeq, ids)
+	spawns.bind(d.spawnLayer, afterSeq)
+	engineRef.current?.setSpawnLane(ids.lane, LANES, floors)
 	settings.bind(d, afterSeq)
 	pathApplies.bind(applyMapOf(d.terrain), afterSeq)
 }
@@ -441,6 +465,7 @@ function subscribe() {
 	chunkData.wait()
 	shadows.wait()
 	objects.wait()
+	spawns.wait()
 	settings.wait()
 	pathApplies.wait()
 	flushTimer = setInterval(flushEdits, HEIGHTS_FLUSH_MS)
@@ -465,6 +490,8 @@ function unsubscribe() {
 	chunkData.unbind()
 	shadows.unbind()
 	objects.unbind()
+	spawns.unbind()
+	engineRef.current?.setSpawnLane(0, 1)
 	settings.unbind()
 	pathApplies.unbind()
 }
@@ -594,6 +621,7 @@ function onMessage(m: Message) {
 		case KIND_CHUNK_DATA:
 		case KIND_SHADOWS:
 		case KIND_OBJECTS:
+		case KIND_SPAWNS:
 		case KIND_SETTINGS:
 		case KIND_PATH_APPLY:
 			receiveEdit(m)
@@ -622,6 +650,7 @@ const syncs: Record<string, { receive(seq: number, from: number, data: unknown, 
 	[KIND_CHUNK_DATA]: chunkData,
 	[KIND_SHADOWS]: shadows,
 	[KIND_OBJECTS]: objects,
+	[KIND_SPAWNS]: spawns,
 	[KIND_SETTINGS]: settings,
 	[KIND_PATH_APPLY]: pathApplies,
 }
@@ -691,7 +720,7 @@ function adoptReplacement(e: Engine, d: MapDocument) {
 	setSessionDoc(nd.id)
 	bindEdits(lastSeq, { lane: 0, nextId: 0, nextGroup: 0 })
 	if (!shared.peers.some((p) => p.id !== HOST_ID)) return
-	const handoff: MapHandoff = { seq: lastSeq, gen: mapGen, map: toMapData(e.snapshotOf(nd)), ids: nd.objects.counts }
+	const handoff: MapHandoff = { seq: lastSeq, gen: mapGen, map: toMapData(e.snapshotOf(nd)), ids: nd.objects.counts, spawns: spawnRows(nd) }
 	sendHandoff(0, handoff).catch((err) => setStatus(`Sending the map to the session failed: ${err}`, 8000))
 }
 
@@ -729,9 +758,15 @@ async function sendMap(p: Peer) {
 		setStatus(`${p.name} joined, but every id lane is held: the session's map was not sent`, 8000)
 		return
 	}
+	// The guest counts its spawn guids from above the host's next ones (read from the world database once), in its lane (#1020).
+	const floors = await e.spawnFloors()
+	if (!e.documents.includes(d)) {
+		setStatus(`${p.name} joined, but the session's map was closed: they have no map to edit`, 8000)
+		return
+	}
 	// The guest counts from above every id and group this map's layer has held, the removed ones too (an undo brings those back).
 	const { nextId, nextGroup } = d.objects.counts
-	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(sessionOrdered(d, e.snapshotOf(d))), ids: { lane, nextId, nextGroup } }
+	const handoff: MapHandoff = { seq: lastSeq, map: toMapData(sessionOrdered(d, e.snapshotOf(d))), ids: { lane, nextId, nextGroup }, spawns: { ...spawnRows(d), floors } }
 	if (mapGen > 0) handoff.gen = mapGen
 	if (paint.bound === d.terrain) handoff.ordered = paint.order.length
 	const applies = notesOf(othersApplies(d.terrain))
@@ -741,6 +776,11 @@ async function sendMap(p: Peer) {
 	} catch (err) {
 		setStatus(`Sending the map to ${p.name} failed: ${err}`, 8000)
 	}
+}
+
+/** A copy of the server spawns tab `d` holds now, for a handoff (#1020): copied, since the send is queued and the rows change in place. */
+function spawnRows(d: MapDocument): SpawnHandoff {
+	return { rows: d.spawnLayer.spawns.map(cloneSpawn) }
 }
 
 /** A guest gathers a map sent in parts and opens it once the last is in. */
@@ -806,6 +846,9 @@ function openHandoff(h: MapHandoff) {
 		if (was !== old.id && e.documents.some((d) => d.id === was)) e.switchDocument(was)
 	}
 	setSessionDoc(id)
+	// The host's spawns (#1020): a guest's session map never reads its own server's.
+	const sd = sessionDoc()
+	if (sd && Array.isArray(h.spawns?.rows)) e.setSpawns(sd, h.spawns.rows)
 	mapGen = gen
 	sentPresence = ''
 	// The edits that came before the map, made against it, wait in the syncs (`wait`) for the bind below.
@@ -817,7 +860,7 @@ function openHandoff(h: MapHandoff) {
 	if (first) myLane = h.ids && 'lane' in h.ids ? h.ids.lane : shared.you % LANES
 	const nd = sessionDoc()
 	if (nd) adoptNotes(applyMapOf(nd.terrain), h.applies, shared.you, memberName)
-	bindEdits(h.seq, { lane: myLane, nextId: h.ids?.nextId ?? 0, nextGroup: h.ids?.nextGroup ?? 0 }, h.ordered)
+	bindEdits(h.seq, { lane: myLane, nextId: h.ids?.nextId ?? 0, nextGroup: h.ids?.nextGroup ?? 0 }, h.ordered, h.spawns?.floors)
 	const host = shared.peers.find((p) => p.id === HOST_ID)?.name || 'the host'
 	if (first) setStatus(`Opened ${host}'s map ${h.map.name}`, 6000)
 	else setStatus(`${host} made the session's map again (a revert or a grow): its tab here holds theirs now, and your edits not yet sent are gone`, 10000)

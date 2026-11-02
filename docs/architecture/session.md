@@ -21,9 +21,9 @@ server. #728 is the umbrella; its parts are separate issues:
 | The chunk data: zones, flags, no-effect cells, baked shadows | #1018 | Done (`lib/session/chunkData.ts`, `shadows.ts`) |
 | The Biome Brush's biome map and the map's biomes | #1036 | Done (`chunkData.ts`'s `m`, `settings.ts`'s `biomes`) |
 | The map's settings: Map Properties, tiles, roles, ground effects, looks, paths | #1019 | Done (`lib/session/settings.ts`) |
-| The server's spawns | #1020 | Open, waiting on the owner (what a guest without the host's server gets) |
+| The server's spawns | #1020 | Done (`lib/session/spawns.ts`) |
 
-Until the spawns are done, a session syncs the heights, the paint, the holes, the painted liquids, the chunk data, the baked shadows, the placed objects and the map's settings: an edit to the server's spawns stays on the member who made it, and the host's export carries only the host's.
+A session syncs the heights, the paint, the holes, the painted liquids, the chunk data, the baked shadows, the placed objects, the map's settings and the server's spawns.
 
 ## The transport (`internal/session`)
 
@@ -270,8 +270,36 @@ Until the spawns are done, a session syncs the heights, the paint, the holes, th
     session puts back the plain count. Ids are the editor's alone: the client export gives a new model
     its unique ID itself, and the host keeps the unique IDs its map read from the client by id
     (`RegionRef.uids`), so a guest's move of such a model exports under it.
-  - Spawns (the server's creatures and objects) are not in it; `MaxGuests` growing past 15 needs `LANES`
-    to grow with it.
+  - The server's spawns sync apart (below); `MaxGuests` growing past 15 needs `LANES` to grow with it.
+- **The server's spawns (#1020, `spawns.ts`, `SpawnSync`; the owner's choice A).** The creatures and game
+  objects of the session map's region are rows of the host's world database, read when the region opens
+  and not in the `.wmap`. The host sends its spawn layer's rows in the map handoff (`MapHandoff.spawns`,
+  `{rows, floors}`); each row holds what it needs to draw (name, model, look), so a guest needs no server,
+  and a guest's session map never reads its own (`reloadSpawns` and `reloadAllSpawns` skip it, and
+  `unsavedSpawnRegions` leaves it out). Every spawn edit to the session's map (placing, the spawn brush,
+  moving, turning, deleting, waypoints, the creature editor's fields, formations and pools, an area
+  paste, an undo) goes out as kind `spawns` (`KIND_SPAWNS`), data `{id, put, del, orig?}`: the added or
+  changed rows whole, the removed keys (`spawnKey`), and for a spawn made in the editor its row as placed
+  (`orig`, `SpawnLayer.createdOriginal`), sent with its first put. `SpawnLayer` notes the keys `add`,
+  `remove`, `touch` and `refresh` change while a session tracks them (`trackSession`,
+  `takeSessionChanges`; null after `set`, a read of the database, when every key is compared); the
+  heights' timer compares their JSON against a mirror. The order, the replay and the held messages are
+  the objects'; a row is the unit. Applying writes through the layer as an edit (`touch`, the row's
+  fields, `refresh`; `add` with `orig`; `remove`), in one `batch`, so the host's layer lists every
+  member's edits against the database's rows and the host's Save Spawns writes them (`doc.leftOut`, the
+  Changes window's choices, stays the host's). Spawns are not map file data: an applied message refreshes
+  the spawn list and the selected spawn's copy (`syncSpawnUi`) and does not mark the map unsaved.
+  - **Guids.** A new spawn's guid and an area paste's pool entries are taken in the member's object id
+    lane (`SpawnActions.setLane`, `inLane`), so two members placing at once never make the same one. A
+    joining guest counts from the host's next ones (`floors`: `Engine.spawnFloors`, the world database's
+    next creature guid, game object guid and pool entry read once, raised above every open tab's spawns)
+    and reads no database of its own; the host reads its own. The database's guid check before a save
+    (`CheckCreatedGUIDs`) still guards the host's write. Ending the session counts one by one again.
+  - **Not synced yet.** A guest without a server can't list templates for the spawn browser or the spawn
+    brush, nor dress a new look (`SpawnLook`, #1050); a template edit saves into the member's own database
+    (`applyCreatureTemplate`'s rebase of the rows then syncs as edits, #1051). A guest's spawn edit count
+    (the status bar's) is its own view: the edits it saw since the handoff, which the host's save does not
+    clear.
 - **The session's map keeps its document (#1007).** The sync is bound to the session map's document,
   so `setSessionDoc` marks it `shared` (`MapDocument.shared`) and nothing replaces it in its tab while
   in the session: `Engine.openDocument` with that tab as `replaceId` and `Engine.growWorld` throw

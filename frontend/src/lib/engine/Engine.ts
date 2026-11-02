@@ -176,6 +176,7 @@ import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/region'
 import { openInBlender, opensInBlender } from '../io/blender'
 import { SpawnActions } from './SpawnActions'
+import type { SpawnFloors } from '../session/spawns'
 import { TaxiEditing } from './TaxiEditing'
 import { TransportView, type SailOptions, type TransportHooks } from './TransportView'
 import type { TransportShape } from '../world/TransportLayer'
@@ -3380,6 +3381,14 @@ export class Engine {
 	private nearBox = new THREE.Box3()
 
 	// The spawn actions (SpawnActions.ts), under the names the components and probes call.
+	/** New guids and pool entries in a shared session's lane (#1020, `SpawnActions.setLane`); lane 0 of 1 ends it. */
+	setSpawnLane(lane: number, lanes: number, floors?: SpawnFloors) {
+		this.spawnActions.setLane(lane, lanes, floors)
+	}
+	/** The next guids and pool entry this Meld would give, which a host sends a guest that joins (#1020). */
+	spawnFloors(): Promise<SpawnFloors> {
+		return this.spawnActions.floors()
+	}
 	focusSpawn(s: vmangos.WorldSpawn) {
 		this.spawnActions.focusSpawn(s)
 	}

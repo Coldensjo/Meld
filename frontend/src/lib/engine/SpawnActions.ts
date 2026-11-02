@@ -8,6 +8,8 @@ import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import type { TriggerDestination } from '../world/areaTriggers'
 import type { SpawnIds } from '../world/clipSpawns'
 import { spawnType } from '../world/spawnInfo'
+import { inLane } from '../world/ObjectLayer'
+import type { SpawnFloors } from '../session/spawns'
 import { pageColumn } from '../world/objectFields'
 import { copyItems } from '../ui/copyId'
 import { firstKeyOf, pressed } from '../ui/commands'
@@ -78,9 +80,47 @@ export class SpawnActions {
 
 	constructor(private host: SpawnHost) {}
 
-	/** Takes the next free guid of `kind`, at least `dbNext` (the database's next one, or 0 once known). */
+	/** In a shared session (#1020), new guids and pool entries are the numbers equal to `lane` modulo `lanes`; outside one, lane 0 of 1. */
+	private lane = 0
+	private lanes = 1
+
+	/**
+	 * Makes new guids and pool entries in lane `lane` of `lanes` (#1020: a shared session's member, as the
+	 * object ids are, `ObjectLayer.setLane`), from at least `floors` (a guest's: the host's next ones, so it
+	 * reads no database of its own; the host gives none and reads its own). Lane 0 of 1 ends it.
+	 */
+	setLane(lane: number, lanes: number, floors?: SpawnFloors) {
+		this.lane = lane
+		this.lanes = Math.max(1, lanes)
+		if (!floors) return
+		const at = (n: number) => (Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1)
+		this.next.creature = Math.max(this.next.creature, at(floors.creature))
+		this.next.object = Math.max(this.next.object, at(floors.object))
+		this.nextPool = Math.max(this.nextPool, at(floors.pool))
+	}
+
+	/**
+	 * The next creature guid, game object guid and pool entry this Meld would give (the host's, sent to a
+	 * guest that joins a shared session, #1020): above the world database's next ones (read once; left out
+	 * when the database can't be read) and every spawn of the open tabs.
+	 */
+	async floors(): Promise<SpawnFloors> {
+		const read = (p: () => Promise<number>) => p().catch(() => 0)
+		const [creature, object, pool] = await Promise.all([read(() => this.dbGuid('creature')), read(() => this.dbGuid('object')), this.nextPool ? 0 : read(NextPoolEntry)])
+		this.next.creature = Math.max(this.next.creature, creature)
+		this.next.object = Math.max(this.next.object, object)
+		this.nextPool = Math.max(this.nextPool, pool)
+		const docs = this.host.documents
+		return {
+			creature: nextFreeGuid(docs, 'creature', Math.max(1, this.next.creature)),
+			object: nextFreeGuid(docs, 'object', Math.max(1, this.next.object)),
+			pool: nextFreePoolEntry(docs, Math.max(1, this.nextPool)),
+		}
+	}
+
+	/** Takes the next free guid of `kind` in this Meld's lane, at least `dbNext` (the database's next one, or 0 once known). */
 	private takeGuid(kind: SpawnKind, dbNext: number): number {
-		const guid = nextFreeGuid(this.host.documents, kind, Math.max(this.next[kind], dbNext))
+		const guid = inLane(nextFreeGuid(this.host.documents, kind, Math.max(this.next[kind], dbNext)), this.lane, this.lanes)
 		this.next[kind] = guid + 1
 		return guid
 	}
@@ -108,7 +148,7 @@ export class SpawnActions {
 		return {
 			guid: (kind) => this.takeGuid(kind, 0),
 			pool: () => {
-				const entry = nextFreePoolEntry(this.host.documents, this.nextPool)
+				const entry = inLane(nextFreePoolEntry(this.host.documents, this.nextPool), this.lane, this.lanes)
 				if (entry > 65535) return 0
 				this.nextPool = entry + 1
 				return entry

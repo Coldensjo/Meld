@@ -1199,6 +1199,28 @@ new ids and selection groups in its own lane (the numbers equal to its lane modu
 - Trap: a scripted guest can't read its lane from the handoff before it sends, so the probe relies on
   the host giving the first guest lane 1.
 
+## The server's spawns in a session (#1020, probes `session-spawns`, `session-spawns-guest`)
+
+Checks: the host's map handoff carries its spawn rows (`MapHandoff.spawns`) and its next guids
+(`floors`); every member's spawn edits (moving, a field, placing, deleting, an undo) go to the others as
+`spawns` messages (the changed rows whole by `spawnKey`, the removed keys, and a new spawn's row as
+placed, `orig`, the first time); the host's layer lists a guest's edits for Save Spawns against the
+database's rows; and each member takes new guids and pool entries in its lane from the host's floors.
+- `bun test tests/sessionSpawns.test.ts`: `SpawnSync` members on real `SpawnLayer`s through a scripted
+  host: a guest's move, delete and undo becoming the host's edits, one spawn moved by two at once, a
+  guest's new spawn reaching the host as created with its original, no echo, the host's spawns read again
+  sending only the difference, and `SpawnActions.setLane`/`floors` giving each member its own guids.
+- `bun run probe session-spawns`: the page hosts a flat map with two stand-in rows (`e.setSpawns`, no
+  server needed); the bot moves the creature and places an NPC (guid `LANES * 1000 + 1`, with `orig`);
+  the page's `spawnLayer.edits()` must list both, then the page's own move, delete and undo go out live,
+  and the bot's messages replayed over the handoff's rows equal the page's.
+- `bun run probe session-spawns-guest`: the page joins a bot host that sends a `spawns` edit before the
+  map (held, then applied), the map with two rows and floors, and a delete after; the page shows them,
+  takes a creature guid in lane 1 above the floor without calling `NextCreatureGUID`, and its new spawn
+  reaches the host with `orig`.
+- Trap: the host reads its database's next guids (`spawnFloors`) before building a joining guest's
+  handoff, so a bot's spawn sent right after joining can already be in the handoff's rows.
+
 ## The session's map keeps its tab (#1007, #1008, #1012, probes `session-replace`, `session-replace-guest`)
 
 Checks: while in a session, nothing makes the session's map again in its tab behind the sync's back,

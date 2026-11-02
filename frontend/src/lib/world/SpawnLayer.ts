@@ -165,6 +165,39 @@ export class SpawnLayer {
 	private deleted = new Map<string, vmangos.WorldSpawn>()
 	/** Which spawns differ from their original, compared only for those marked since the last count. */
 	private changes = new SpawnChanges<vmangos.WorldSpawn>()
+	/** The keys added, removed or changed since `takeSessionChanges`, while a shared session tracks them (#1020); null when none does. */
+	private sessionMarks: Set<string> | null = null
+	/** `set` ran since `takeSessionChanges`: every spawn may have changed. */
+	private sessionAll = false
+
+	/** Starts or stops noting the spawns that change, for a shared session's spawns sync (#1020). */
+	trackSession(on: boolean) {
+		this.sessionMarks = on ? new Set() : null
+		this.sessionAll = false
+	}
+
+	/**
+	 * Moves the keys of the spawns added, removed or changed (`add`, `remove`, `touch`, `refresh`) since the
+	 * last call into `out` and returns true; null when `set` ran (any spawn may have changed); false for none.
+	 */
+	takeSessionChanges(out: Set<string>): boolean | null {
+		const m = this.sessionMarks
+		if (!m) return false
+		if (this.sessionAll) {
+			this.sessionAll = false
+			m.clear()
+			return null
+		}
+		if (!m.size) return false
+		for (const k of m) out.add(k)
+		m.clear()
+		return true
+	}
+
+	/** What a spawn made in the editor was when placed (`add`'s `original`), or undefined for one the database has. */
+	createdOriginal(key: string): vmangos.WorldSpawn | undefined {
+		return this.created.has(key) ? this.originals.get(key) : undefined
+	}
 
 	/** Replaces the drawn spawns, and starts loading their models. Forgets every edit. */
 	set(spawns: vmangos.WorldSpawn[]) {
@@ -175,6 +208,7 @@ export class SpawnLayer {
 		this.created.clear()
 		this.deleted.clear()
 		this.changes.clear()
+		if (this.sessionMarks) this.sessionAll = true
 		this.retype()
 		this.rebuild()
 	}
@@ -416,6 +450,8 @@ export class SpawnLayer {
 		const key = spawnKey(s)
 		if (!this.originals.has(key)) this.originals.set(key, cloneSpawn(s))
 		this.changes.mark(key)
+		// Marked before the change too: a field written after the last `refresh` (a dragged follower's slot) still goes out.
+		this.sessionMarks?.add(key)
 	}
 
 	/**
@@ -444,6 +480,7 @@ export class SpawnLayer {
 	/** Redraws a spawn after it moved, turned or changed its look. */
 	refresh(s: vmangos.WorldSpawn) {
 		this.changes.mark(spawnKey(s))
+		this.sessionMarks?.add(spawnKey(s))
 		const at = this.where.get(s)
 		if (!at || at.type !== spawnType(s)) {
 			this.redraw()
@@ -512,6 +549,7 @@ export class SpawnLayer {
 			this.originals.set(key, cloneSpawn(original))
 		}
 		this.changes.mark(key)
+		this.sessionMarks?.add(key)
 		this.redraw()
 	}
 
@@ -523,6 +561,7 @@ export class SpawnLayer {
 		this.spawns.splice(i, 1)
 		this.keys.delete(key)
 		this.changes.mark(key)
+		this.sessionMarks?.add(key)
 		if (!this.created.has(key)) this.deleted.set(key, this.originals.get(key) ?? cloneSpawn(s))
 		this.redraw()
 	}

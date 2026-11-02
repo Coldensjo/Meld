@@ -583,7 +583,11 @@ export class SelectTool implements Tool {
 			const layer = ctx.spawns
 			// A follower dragged takes its slot where it was dropped (#172).
 			const slot = slotFieldsAt(layer.spawns, s, s.x, s.z)
-			if (slot) Object.assign(s, slot)
+			if (slot) {
+				// Touched, so the slot goes out with the move to a shared session (#1020) and counts as an edit.
+				layer.touch(s)
+				Object.assign(s, slot)
+			}
 			const after: SpawnFields = { x: s.x, y: s.y, z: s.z, followDist: s.followDist, followAngle: s.followAngle }
 			syncSpawnUi(layer)
 			ctx.history.push({ label: `Move ${s.name}`, undo: () => applySpawn(layer, sd.key, sd.before), redo: () => applySpawn(layer, sd.key, after) })

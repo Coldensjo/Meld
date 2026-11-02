@@ -17,7 +17,7 @@ import { blockAround, blockHolds, spotTile } from '../world/teleport'
 import type { TriggerDestination } from '../world/areaTriggers'
 import { vmangos } from '../wails/models'
 import { regionUncompiled } from './compile'
-import { moveSessionMap } from '../session/shared.svelte'
+import { isGuestMap, moveSessionMap } from '../session/shared.svelte'
 
 /**
  * Reads a region's creatures and game objects from the server's world database into its document.
@@ -40,6 +40,11 @@ export function reloadSpawns(engine: Engine) {
 	const b = editor.regionBlock
 	if (!b || !editor.regionMap) return
 	const d = engine.activeDocument()
+	// A guest's session map holds the host's spawns (#1020); its own server's would replace them for everyone.
+	if (isGuestMap(d.id)) {
+		setStatus("The session's spawns are the host's: they are not read from your server", 6000)
+		return
+	}
 	engine.setSpawnsError(d, '')
 	setStatus('Loading creatures and game objects from the server…')
 	void loadSpawns(engine, d, editor.regionMap, b.x, b.y, b.size)
@@ -47,7 +52,8 @@ export function reloadSpawns(engine: Engine) {
 
 /** The open regions with spawn edits not yet saved to the database: a switch of database waits for them (#856). */
 export function unsavedSpawnRegions(engine: Engine): string[] {
-	return engine.documents.filter((d) => d.meta.region && d.spawnLayer.editCount() > 0).map((d) => d.meta.mapName)
+	// A guest's session map holds the host's spawns, which the host saves (#1020).
+	return engine.documents.filter((d) => d.meta.region && !isGuestMap(d.id) && d.spawnLayer.editCount() > 0).map((d) => d.meta.mapName)
 }
 
 /**
@@ -58,7 +64,8 @@ export function unsavedSpawnRegions(engine: Engine): string[] {
 export function reloadAllSpawns(engine: Engine) {
 	for (const d of engine.documents) {
 		const r = d.meta.region
-		if (!r) continue
+		// A guest's session map keeps the host's spawns (#1020).
+		if (!r || isGuestMap(d.id)) continue
 		engine.setSpawns(d, [])
 		void loadSpawns(engine, d, r.mapName, r.x, r.y, r.size)
 	}
