@@ -338,8 +338,6 @@
 		list-style: none;
 		padding: 0;
 		margin: 0;
-		max-height: 220px;
-		overflow-y: auto;
 		font-size: 12px;
 	}
 	.list li {

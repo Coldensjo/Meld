@@ -148,7 +148,7 @@
 		background: none;
 		border: none;
 		border-radius: 0;
-		padding: 4px 8px;
+		padding: 2px 8px;
 		font-size: 12px;
 	}
 	.row .name {

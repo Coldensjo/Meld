@@ -59,13 +59,13 @@
 			>
 		</div>
 	{/if}
-	<div class="fields">
+	<div class="fields three">
 		<label>Limit <input type="number" min="1" step="1" value={s.poolLimit} title="How many of the pool's members the server spawns at a time" onchange={limit} /></label>
 		<label
 			>Chance %
 			<input type="number" min="0" max="100" step="1" value={s.poolChance} title="This spawn's chance, in a pool with a limit of 1; 0 shares what the others leave" onchange={chance} /></label
 		>
-		<label class="wide"
+		<label
 			>Description
 			<input type="text" value={s.poolName} onchange={(e) => act.poolSetting(key, { poolName: (e.currentTarget as HTMLInputElement).value.trim() }, 'Pool description')} /></label
 		>
@@ -144,8 +144,9 @@
 		gap: 2px;
 		color: var(--text-dim);
 	}
-	.fields .wide {
-		grid-column: 1 / -1;
+	/* Limit, chance and description on one row (#1026), so a pool with a formation fits the Inspector without its scroll bar. */
+	.fields.three {
+		grid-template-columns: 52px 64px 1fr;
 	}
 	.fields input {
 		width: 100%;
@@ -169,7 +170,7 @@
 		background: none;
 		border: none;
 		border-radius: 0;
-		padding: 4px 8px;
+		padding: 2px 8px;
 		font-size: 12px;
 	}
 	.row .name {

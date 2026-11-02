@@ -1284,3 +1284,11 @@ Needs, Interrupts, Flags, More flags) and Other, the tab bar still one row (`spe
 masks (forms, targets, creature types, slots) ticking in five or six columns. Execute (5308) is the
 tallest Items tab (the weapon subclasses' ticks) and fits too. Most tabs leave little room on the
 805 px page: on a 768 px window they fall back to the page's `overflow-y: auto`.
+
+The Inspector (#1026, floating on the browser page) is checked last, on a new flat map: thirty kinds of
+helper cubes in one selection scroll only the panel (`.props`), since the By model list lost its 220 px
+cap (`inspector.thirty`), and a creature that leads six followers, or one in a pool of seven (guids from
+9 100 001, set into the spawn layer, never written), shows its list with nothing scrolling
+(`inspector.lead`, `inspector.pool`). Both at once (about 720 px) fall back to the panel's scroll. The
+Inspector's own OS window and the Dock are not in the probe: the window's height is the user's, and the
+dock holds only the minimap (square, never taller than 40% of the window) and Layers (a list that grows).
