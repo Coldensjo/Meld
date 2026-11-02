@@ -47,8 +47,10 @@
 		onpick: (d: vmangos.DisplayEntry) => void
 		/** The display under the pointer, or null when it leaves the grid. */
 		onhover?: (d: vmangos.DisplayEntry | null) => void
+		/** Fills its parent's column, the grid taking the height left (#1024), instead of its own cap. */
+		fill?: boolean
 	}
-	let { kind = 'creature', selected, onpick, onhover }: Props = $props()
+	let { kind = 'creature', selected, onpick, onhover, fill = false }: Props = $props()
 	// The kind is fixed for a picker's life: each editor mounts its own.
 	// svelte-ignore state_referenced_locally
 	const objects = kind === 'object'
@@ -168,7 +170,7 @@
 		`Display ${d.id}: ${objects ? d.model : fileOf(d)}${d.skin ? ` (${d.skin})` : ''}${d.uses ? `\nUsed by ${d.names.join(', ')}${d.uses > d.names.length ? ` and ${d.uses - d.names.length} more` : ''}` : `\nNo ${what} uses it`}`
 </script>
 
-<div class="picker">
+<div class="picker" class:fill>
 	<input type="search" placeholder={objects ? 'Search: an object (Copper Vein), a model (chest, mine) or a display ID' : 'Search: a creature (Hogger), a model (wolf, kobold) or a display ID'} bind:value={query} />
 	<div class="row">
 		<select value={category} onchange={pickCategory} aria-label={objects ? 'Object type' : 'Creature type'}>
@@ -235,6 +237,10 @@
 		flex: 1;
 		min-width: 0;
 	}
+	.picker.fill {
+		flex: 1;
+		min-height: 240px;
+	}
 	.grid-wrap {
 		max-height: min(calc(58 * var(--vh)), 640px);
 		flex: none;
@@ -242,6 +248,11 @@
 		border: 1px solid var(--border);
 		border-radius: 4px;
 		padding: 6px;
+	}
+	.fill .grid-wrap {
+		flex: 1;
+		min-height: 0;
+		max-height: none;
 	}
 	.dim {
 		color: var(--text-dim);

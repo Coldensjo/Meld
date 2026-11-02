@@ -1,11 +1,12 @@
-// The creature editor's Creature tab names its spell columns (#255): Defias Night Runner (215) has aura 6408, shown with its icon and name under the Auras text; Prismatic Exile (2887) has spawn spell 10389, named beside the number; its Find picks Fire Blast from Mage: Fire, and the aura field's Find adds a spell (#367); nothing saved; takes about 30 s.
+// The creature editor's AI tab names its spell columns (#255, on AI since #1024): Defias Night Runner (215) has aura 6408, shown with its icon and name under the Auras text; Prismatic Exile (2887) has spawn spell 10389, named beside the number; its Find picks Fire Blast from Mage: Fire, and the aura field's Find adds a spell (#367); nothing saved; takes about 30 s.
 // touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/TemplateFields.svelte, frontend/src/components/AuraField.svelte, frontend/src/lib/world/creatureFields.ts
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const WAIT = 120_000
 const root = () => document.querySelector('[data-editor="creature"]')
-const tabButton = () => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim() === 'Creature')
+// The spell columns are on the AI tab (#1024).
+const tabButton = () => [...(root()?.querySelectorAll('nav.tabs button') ?? [])].find((b) => b.textContent.trim() === 'AI')
 async function open(entry) {
 	ui.creatureEditor = { key: null, entry }
 	await P.frames(1)

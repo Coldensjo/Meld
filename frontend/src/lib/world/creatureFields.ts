@@ -365,17 +365,43 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
 		],
 	},
 	{
-		title: 'Flags',
+		title: 'Immunities',
 		fields: [
 			{ col: 'mechanic_immune_mask', label: 'Mechanic immunities', flags: MECHANIC_MASK },
 			{ col: 'school_immune_mask', label: 'School immunities', flags: SCHOOL_MASK },
 			{ col: 'immunity_flags', label: 'Immunity flags', flags: IMMUNITY_FLAGS },
+		],
+	},
+	{
+		title: 'Flags',
+		fields: [
 			{ col: 'static_flags1', label: 'Static flags 1', flags: STATIC_FLAGS1 },
 			{ col: 'static_flags2', label: 'Static flags 2', flags: STATIC_FLAGS2 },
 			{ col: 'flags_extra', label: 'Extra flags', flags: FLAGS_EXTRA },
 		],
 	},
 ]
+
+/**
+ * The creature editor's field tabs and the groups each holds (#1024): each fits the editor's
+ * panel (560 px wide) on one screen, as the scroll-bar rule asks (#933). A group not named here
+ * (Other) goes on the AI tab.
+ */
+export const CREATURE_FIELD_TABS = [
+	{ id: 'creature', title: 'Creature', groups: ['Identity', 'Combat', 'Resistances'] },
+	{ id: 'services', title: 'Services', groups: ['Services', 'Loot'] },
+	{ id: 'ai', title: 'AI', groups: ['Movement and AI', 'Other'] },
+	{ id: 'immunities', title: 'Immunities', groups: ['Immunities'] },
+	{ id: 'flags', title: 'Flags', groups: ['Flags'] },
+] as const
+
+export type CreatureFieldTab = (typeof CREATURE_FIELD_TABS)[number]['id']
+
+/** The field tab that shows a group, by its title: the Looks group's is none (the Looks tab shows it). */
+export function creatureTabOfGroup(title: string): CreatureFieldTab | null {
+	if (title === 'Looks') return null
+	return CREATURE_FIELD_TABS.find((t) => (t.groups as readonly string[]).includes(title))?.id ?? 'ai'
+}
 
 /** The groups for a table's columns: the known ones (`listed`, the creature's by default), then every other column under Other. */
 export function fieldGroups(columns: string[], listed: CreatureFieldGroup[] = CREATURE_FIELD_GROUPS): CreatureFieldGroup[] {

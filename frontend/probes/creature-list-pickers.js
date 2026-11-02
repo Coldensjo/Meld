@@ -21,11 +21,15 @@ async function open(entry, tabName) {
 }
 
 const got = {}
-await open(448, 'Creature')
-await P.until(() => ['Loot', 'Pickpocket loot', 'Spell list'].every((l) => named(l)), WAIT, "Hogger's lists")
+// The spell list is on the AI tab, the loot on Services (#1024).
+await open(448, 'AI')
+await P.until(() => named('Spell list'), WAIT, "Hogger's spell list")
+got.spells = text('Spell list')
+tab('Services').click()
+await P.frames(1)
+await P.until(() => ['Loot', 'Pickpocket loot'].every((l) => named(l)), WAIT, "Hogger's lists")
 got.loot = text('Loot')
 got.pickpocket = text('Pickpocket loot')
-got.spells = text('Spell list')
 // Find offers its own list before a search, then a search by an item's name lists other loot.
 ;[...ref('Loot').querySelectorAll('button')].find((b) => b.textContent === 'Find').click()
 const hits = () => [...ref('Loot').querySelectorAll('li button')].map((b) => b.textContent.replace(/\s+/g, ' ').trim())
@@ -49,12 +53,12 @@ got.equipment = text('Equipment')
 await P.until(() => ref('Equipment').querySelector('.name img'), WAIT, "Hogger's equipment icon")
 got.equipmentIcons = ref('Equipment').querySelectorAll('.name img').length
 
-await open(328, 'Creature')
+await open(328, 'Services')
 await P.until(() => named('Trainer list') && named('Gossip menu'), WAIT, "Zaldimar's lists")
 got.trainer = text('Trainer list')
 got.gossip = text('Gossip menu')
 
-await open(1464, 'Creature')
+await open(1464, 'Services')
 await P.until(() => named('Vendor list'), WAIT, "Helbrek's vendor list")
 got.vendor = text('Vendor list')
 

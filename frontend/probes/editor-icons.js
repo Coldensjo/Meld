@@ -36,8 +36,8 @@ await P.frames(1)
 // The creature editor: Trainer class with its icon.
 const creature = () => document.querySelector('[data-editor="creature"]')
 ui.creatureEditor = { key: null, entry: 911 }
-await P.until(() => tab(creature(), 'Creature'), WAIT, 'the creature')
-tab(creature(), 'Creature').click()
+await P.until(() => tab(creature(), 'Services'), WAIT, 'the creature')
+tab(creature(), 'Services').click()
 await P.frames(1)
 const trainer = () => [...creature().querySelectorAll('.grid > .cell > label, .grid > label')].find((l) => l.firstChild?.textContent.trim() === 'Trainer class')
 await P.until(() => trainer()?.querySelector('select')?.value === '1' && loaded(trainer()), WAIT, 'the trainer class icon')

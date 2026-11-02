@@ -30,10 +30,24 @@ await P.frames(1)
 const picked = { value: ref('Faction').querySelector('input').value, text: ref('Faction').querySelector('.name').textContent.replace(/\s+/g, ' ').trim() }
 const selectOptions = (text) => [...(labelled(text)?.querySelectorAll('select option') ?? [])].map((o) => o.textContent)
 const pet = selectOptions('Pet family')
+// The other columns are on the Services, AI, Immunities and Flags tabs (#1024).
+const on = async (name) => {
+	tab(name).click()
+	await P.frames(1)
+}
+await on('Services')
 const race = selectOptions('Trainer race')
+await on('AI')
 const aiInput = labelled('AI')?.querySelector('input')
 const ai = [...(aiInput?.list?.options ?? [])].map((o) => o.value)
-const masks = ['Mechanic immunities', 'School immunities', 'Immunity flags', 'Static flags 1', 'Static flags 2', 'Extra flags'].map((t) => [t, labelled(t)?.querySelectorAll('input[type=checkbox]').length ?? 0])
+const masks = []
+for (const [name, titles] of [
+	['Immunities', ['Mechanic immunities', 'School immunities', 'Immunity flags']],
+	['Flags', ['Static flags 1', 'Static flags 2', 'Extra flags']],
+]) {
+	await on(name)
+	for (const t of titles) masks.push([t, labelled(t)?.querySelectorAll('input[type=checkbox]').length ?? 0])
+}
 tab('Looks').click()
 await P.frames(1)
 await P.until(() => root().querySelector('.slot select'), WAIT, 'the Looks tab')

@@ -1,4 +1,4 @@
-// The creature editor's Spells tab (#243): Scarlet Commander Mograine (3976) shows list 39760's two spells with names, icons and text from the client, the Add spells list shows the creature abilities without typing, the Mage: Fire category lists Fire Blast, the Frost school empties it, a search in it finds Fireball, adding it is an unsaved edit that Save counts and Revert undoes. Then Copy this creature asks for a name (#260), the New creature tab closes the editor and opens the creature guide, and the guide's "How it looks" step keeps the display picker, the weapon picker and the preview inside the page, the preview in view and not covered (#221). Nothing is written to the database.
+// The creature editor's Spells tab (#243): Scarlet Commander Mograine (3976) shows list 39760's two spells with names, icons and text from the client, the Add spells list shows the creature abilities without typing, the Mage: Fire category lists Fire Blast, the Frost school empties it, a search in it finds Fireball, adding it is an unsaved edit that Save counts and Revert undoes. Then Copy this creature asks for a name (#260), the New creature button closes the editor and opens the creature guide, and the guide's "How it looks" step keeps the display picker, the weapon picker and the preview inside the page, the preview in view and not covered (#221). Nothing is written to the database.
 // touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/SpellsTab.svelte, frontend/src/components/SpellPicker.svelte, internal/vmangos/creaturespells.go, internal/vmangos/spelllist.go, frontend/src/components/CreaturesWorkspace.svelte, frontend/src/lib/engine/SpawnActions.ts, frontend/src/components/DisplayPicker.svelte, frontend/src/components/WeaponPicker.svelte, frontend/src/components/CreaturePreview.svelte
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
@@ -65,8 +65,8 @@ const copyBar = root().querySelector('.bar input[placeholder="Name of the copy"]
 button(root().querySelector('.bar'), 'Cancel').click()
 await P.frames(2)
 const barGone = root().querySelector('.bar input[placeholder="Name of the copy"]') === null
-// The New creature tab closes the editor and opens the guide on step 1.
-button(root().querySelector('nav.tabs'), 'New creature').click()
+// The New creature button closes the editor and opens the guide on step 1.
+button(root().querySelector('header .actions'), 'New creature').click()
 await P.frames(2)
 const newCreature = { hasCopy, copyBar, barGone, editorClosed: root() === null, guide: ui.creatures === true, editorCleared: ui.creatureEditor === null }
 

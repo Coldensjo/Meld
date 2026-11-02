@@ -201,7 +201,9 @@
 	{/if}
 
 	<h3>Add spells</h3>
-	<SpellPicker memoryKey="creature" start="npc" onpick={add} disabled={rows.rows.length >= SLOTS} title={rows.rows.length >= SLOTS ? `The list is full (${SLOTS} spells)` : 'Add it to the creature'} />
+	<div class="add">
+		<SpellPicker memoryKey="creature" start="npc" height={0} onpick={add} disabled={rows.rows.length >= SLOTS} title={rows.rows.length >= SLOTS ? `The list is full (${SLOTS} spells)` : 'Add it to the creature'} />
+	</div>
 </div>
 
 {#snippet param(s: vmangos.CreatureSpell, key: 'targetParam1' | 'targetParam2', label: string)}
@@ -225,10 +227,19 @@
 
 <style>
 	.spells {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		font-size: 12px;
+	}
+	/* The spell search takes the height the casts leave (#1024), and at least enough for a few spells: past that the page scrolls. */
+	.add {
+		flex: 1;
+		min-height: 240px;
+		display: flex;
+		flex-direction: column;
 	}
 	h3 {
 		margin: 8px 0 0;
@@ -292,7 +303,7 @@
 	}
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 		gap: 6px 10px;
 	}
 	.grid label {

@@ -1266,3 +1266,10 @@ Modal's body included. Ground effects and the icon import dialog lost the same c
 client's tables and picked files, so they are a hand check: open World › Ground Effects on a map with
 many textures). The page is 1400x900 but only 805 px tall inside: a probe that fills a dialog past
 that sees the Modal's body scroll, which is the rule's small-window fallback, not a failure.
+
+The database editors' field pages (#1024) are checked the same way: the probe opens each editor, clicks
+every tab and lists what scrolls but the lists that grow without bound (`grid-wrap`, the display
+grids; `results`, the spell searches), which must be nothing. The creature editor on Scarlet
+Commander Mograine (3976): its fields on five tabs (Creature, Services, AI, Immunities, Flags), the
+Looks tab's display grid and the Spells tab's search filling the height left. The editors' own
+windows (`app_toolwindows.go`) have their own sizes and are a hand check.

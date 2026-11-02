@@ -314,12 +314,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
   by the right-click menu's Edit creature, the Inspector's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
   any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, also shown in
-  the game object editor; undo steps), Creature (every `creature_template` column: Go reads the columns
-  and their types from the table and validates each value, `creatureFields.ts` only labels and
-  groups them, and unknown columns land under Other), Looks (`DisplayPicker.svelte`: every display
+  the game object editor; undo steps), the field tabs Creature, Services, AI, Immunities and Flags
+  (every `creature_template` column: Go reads the columns and their types from the table and
+  validates each value, `creatureFields.ts` only labels and groups them, and unknown columns land
+  under Other, on AI; `CREATURE_FIELD_TABS` puts each group on a tab small enough to fit the
+  720 px panel on one screen, #1024), Looks (`DisplayPicker.svelte`: every display
   from `ListDisplays`, dressed and cached in Go, with the creature type and names of the templates
   using it, shown as asset-browser thumbnails in a virtualised grid with type chips, a model filter
-  and search; hovering previews). New creature (this tab; Tools › Creatures… opens the same guide) opens
+  and search; hovering previews; its grid fills the height the Displays fields leave). New creature (a
+  header button; Tools › Creatures… opens the same guide) opens
   the guide of `CreaturesWorkspace` (#260); Copy this creature in the header asks for a name and
   makes a copy (`CreateCreature`: the first free entry). Export… and Import… (#938,
   `internal/vmangos/creaturescripts.go`) write and read an SQL script as the item editor's do

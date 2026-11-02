@@ -10,7 +10,7 @@
 	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
 	import { focusField } from '../lib/ui/focusField'
 	import { askImport as planImport, exportRow, runImport } from '../lib/ui/templateIo'
-	import { fieldGroups, withBit } from '../lib/world/creatureFields'
+	import { CREATURE_FIELD_TABS, creatureTabOfGroup, fieldGroups, withBit, type CreatureFieldTab } from '../lib/world/creatureFields'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
@@ -37,7 +37,7 @@
 	let { onunsaved }: { onunsaved?: (unsaved: boolean) => void } = $props()
 	const map = mapActions()
 
-	type Tab = 'spawn' | 'creature' | 'looks' | 'spells' | 'shop' | 'quests' | 'messages'
+	type Tab = 'spawn' | CreatureFieldTab | 'looks' | 'spells' | 'shop' | 'quests' | 'messages'
 
 	const target = $derived(ui.creatureEditor)
 	/** The spawn the editor was opened from, as the panel's copy of it; null once another is selected. */
@@ -97,7 +97,7 @@
 	}
 
 	// Opened on a column (File › Check Map's Edit, #951): once its template is read, the tab that holds
-	// the column (Looks for the Looks group, else Creature), scrolled to its field.
+	// the column (Looks for the Looks group, else the field tab of its group), scrolled to its field.
 	let wantField = $state<string | null>(null)
 	$effect(() => {
 		const f = target?.field
@@ -108,7 +108,8 @@
 		if (!col || !record || record.entry !== target?.entry) return
 		untrack(() => {
 			wantField = null
-			tab = groups.find((g) => g.fields.some((f) => f.col === col))?.title === 'Looks' ? 'looks' : 'creature'
+			const title = groups.find((g) => g.fields.some((f) => f.col === col))?.title
+			tab = title ? (creatureTabOfGroup(title) ?? 'looks') : 'creature'
 			focusField(col)
 		})
 	})
@@ -342,6 +343,7 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
+			<button onclick={startNew} title="Open the creature guide">New creature</button>
 			<button onclick={askImport} title="Read creatures, with their shops and quests, from an SQL script into the world database">Import…</button>
 			{#if record}
 				<button onclick={exportCreature} title="Write this creature, with its shop and quests, to an SQL script">Export…</button>
@@ -419,14 +421,13 @@
 				<nav class="tabs">
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}
-						<button class:on={tab === 'creature'} onclick={() => (tab = 'creature')}>Creature</button>
+						{#each CREATURE_FIELD_TABS as t (t.id)}<button class:on={tab === t.id} onclick={() => (tab = t.id)}>{t.title}</button>{/each}
 						<button class:on={tab === 'looks'} onclick={() => (tab = 'looks')}>Looks</button>
 						<button class:on={tab === 'spells'} onclick={() => (tab = 'spells')}>Spells</button>
 						<button class:on={tab === 'shop'} onclick={() => (tab = 'shop')}>Shop</button>
 						<button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests</button>
 						<button class:on={tab === 'messages'} onclick={() => (tab = 'messages')}>Messages</button>
 					{/if}
-					<button onclick={startNew} title="Open the creature guide">New creature</button>
 				</nav>
 
 				<div class="scroll">
@@ -444,13 +445,13 @@
 							</select>
 							<span class="dim">Hover a tile to see it big on the left.</span>
 						</div>
-						<DisplayPicker selected={Number(values[slot === 0 ? 'mount_display_id' : `display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
+						<DisplayPicker fill selected={Number(values[slot === 0 ? 'mount_display_id' : `display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
 						<h3>Displays</h3>
 						{#each groups.filter((g) => g.title === 'Looks') as g (g.title)}
 							<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} entry={record.entry} />
 						{/each}
 					{:else if record}
-						{#each groups.filter((g) => g.title !== 'Looks') as g (g.title)}
+						{#each groups.filter((g) => creatureTabOfGroup(g.title) === (tab === 'spawn' ? 'creature' : tab)) as g (g.title)}
 							<h3>{g.title}</h3>
 							<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} entry={record.entry} />
 						{/each}
@@ -458,7 +459,7 @@
 						<p class="dim">Loading the creature…</p>
 					{/if}
 					{#if record && target.entry > 0}
-						<div hidden={tab !== 'spells'}>
+						<div class="fill" hidden={tab !== 'spells'}>
 							<SpellsTab bind:this={spellsTab} entry={record.entry} onsaved={spellsSaved} bind:dirty={spellsDirty} />
 						</div>
 						<div hidden={tab !== 'shop'}>
@@ -516,9 +517,9 @@
 		gap: 6px;
 	}
 	.right {
-		/* One width on every tab, so the preview beside it never moves. */
+		/* One width on every tab, so the preview beside it never moves; wide enough for the tab bar on one row (#1024). */
 		flex: none;
-		width: min(560px, calc(45 * var(--vw)));
+		width: min(720px, calc(52 * var(--vw)));
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
@@ -539,6 +540,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+	/* The Spells tab fills the page, its spell search taking the height left (#1024); [hidden] keeps it out when another tab is on. */
+	.fill:not([hidden]) {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 	}
 	h3 {
 		margin: 8px 0 0;
