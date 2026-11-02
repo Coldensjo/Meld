@@ -397,7 +397,7 @@ No P0/P1 remains. Completed source-writing tasks are not reopened.
 1. **Before distribution — DOC-011 P2:** distributor supplies the exact artifact/architecture,
    scope, launcher/sibling revision/assets and attribution decisions; a tester supplies disposable
    native Windows and Linux hosts. Execute the existing
-   [packaging matrix](docs/development.md#disposable-host-verification-still-required), preserve
+   [distribution notes](docs/development.md#distribution), preserve
    logs/artifact hashes and update only claims actually demonstrated. No destructive local tests.
 2. **When a native validation session is authorized — DA-03/04:** exercise first-launch/edit/save,
    image/list dialogs, Check Map focus/fix/Undo, model worker failure/release, representative WMO
