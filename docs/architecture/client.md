@@ -1028,8 +1028,19 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   format as its extension. `SoundFormat` takes PCM WAV (8 or 16 bits, 1 or 2 channels, as the client's
   own) and MP3 only. Every write goes through `queueClientFiles` (at once or once the game has closed);
   `clientOverlay` serves a waiting sound to `/wow/sound`. The owner's decision on #684: import as new
-  and replace, one shared list. Meld's patch can't drop a file, so a replace is undone only by
-  replacing again with the exported original.
+  and replace, one shared list. Restore (#901, `RestoreSound`) shows beside Replace… on a file Meld's
+  patch has (or one waiting) that the client's own archives have too (`SoundFileStates`,
+  `vmangos.ReadPatchFileStates`), and drops it from the patch (`RemovePatchFiles`, as the Icons tool's
+  Delete, #717) or from the waiting files. Delete… (`SoundDeletePlan`, `DeleteSound`,
+  `internal/vmangos/sounddelete.go`) shows on an imported sound (folder `Sound\Meld`) only: its
+  confirmation names the zones (AreaTable rows) and game object displays still using it; the write
+  removes its SoundEntries row and every ZoneMusic or SoundAmbience row left playing nothing (the one
+  the import added), sets every other field naming it (the rows' other half, ZoneIntroMusicTable,
+  display slots) and the zones' fields naming a removed row to 0, since an import takes the largest ID
+  plus one and a dangling ID would play the next import, and drops the file unless another row names
+  it, all in one write (`vmangos.InstallDropping`). Both need the game closed when the patch has the
+  file (a patch the game holds can't be written without it); a file still waiting is dropped from the
+  waiting files and the tables wait with the rest.
 - **Spell editor** (`components/SpellEditor.svelte`, `ui.spellEditor`, #294): full screen (z-index 165),
   opened by Tools › Spells… (`entry: 0`, find one; `-1`, a new spell). A spell lives in two places:
   the server reads `spell_template` (VMaNGOS keeps no Spell.dbc; a row per entry and client build,

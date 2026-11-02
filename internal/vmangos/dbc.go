@@ -178,3 +178,23 @@ func (t *dbcTable) record(r int) []uint32 {
 	}
 	return out
 }
+
+// removeRecords returns the DBC without the records whose IDs are in gone, every other record and the
+// string block as they were (the strings of the removed rows stay, unused).
+func removeRecords(dbc []byte, gone map[uint32]bool) ([]byte, error) {
+	t, err := parseDBC(dbc)
+	if err != nil {
+		return nil, err
+	}
+	out := append([]byte(nil), dbc[:20]...)
+	n := 0
+	for r := 0; r < t.records; r++ {
+		if gone[t.u32(r, 0)] {
+			continue
+		}
+		out = append(out, dbc[20+r*t.recSize:20+(r+1)*t.recSize]...)
+		n++
+	}
+	binary.LittleEndian.PutUint32(out[4:], uint32(n))
+	return append(out, dbc[t.strsAt:]...), nil
+}

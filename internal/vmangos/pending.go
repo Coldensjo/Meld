@@ -303,20 +303,64 @@ func DropPendingFiles(dataDir string, names []string) (bool, error) {
 // along as InstallWithPending does (one of those names waiting is dropped, unwritten). The game must
 // not hold the patch open (Windows); the caller checks that, as removing can't wait as a write does.
 func RemovePatchFiles(dataDir string, names []string) (string, error) {
+	return InstallDropping(dataDir, nil, names)
+}
+
+// InstallDropping writes files into Meld's patch and leaves the files named drop out of it, in one
+// write, taking the waiting files along as InstallWithPending does (one of the dropped names waiting
+// is dropped, unwritten): the Sound tool's Delete (#901) drops an imported sound's file and writes the
+// tables without its rows together. The game must not hold the patch open, as for RemovePatchFiles.
+func InstallDropping(dataDir string, files []mpq.File, drop []string) (string, error) {
 	patchMu.Lock()
 	defer patchMu.Unlock()
-	if _, err := DropPendingFiles(dataDir, names); err != nil {
+	if _, err := DropPendingFiles(dataDir, drop); err != nil {
 		return "", err
 	}
 	pending, err := PendingFiles(dataDir)
 	if err != nil {
 		return "", err
 	}
-	patch, err := installPatch(dataDir, pending, names...)
+	patch, err := installPatch(dataDir, WithPending(pending, files), drop...)
 	if err != nil || len(pending) == 0 {
 		return patch, err
 	}
 	err = ClearPending(dataDir, pending)
 	ForgetSpells()
 	return patch, err
+}
+
+// PatchFileState says where a client file is: in Meld's patch, waiting for the game to close before
+// the patch has it, and in the client's own archives (outside Meld's patch). A file in the patch (or
+// waiting) that the client has too was replaced, and dropping it from the patch restores the
+// client's (#901).
+type PatchFileState struct {
+	Path     string `json:"path"`
+	InPatch  bool   `json:"inPatch"`
+	Waiting  bool   `json:"waiting"`
+	InClient bool   `json:"inClient"`
+}
+
+// ReadPatchFileStates is the PatchFileState of each of paths, in their order.
+func ReadPatchFileStates(dataDir string, paths []string) ([]PatchFileState, error) {
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	var patch *mpq.Archive
+	if a, err := mpq.Open(filepath.Join(dataDir, PatchName)); err == nil {
+		patch = a
+		defer a.Close()
+	}
+	out := make([]PatchFileState, 0, len(paths))
+	for _, p := range paths {
+		p = strings.ReplaceAll(p, "/", `\`)
+		st := PatchFileState{Path: p}
+		_, st.Waiting = pendingFile(dataDir, p)
+		st.InPatch = patch != nil && patch.Has(p)
+		_, err := set.ReadFileExcept(p, PatchName)
+		st.InClient = err == nil
+		out = append(out, st)
+	}
+	return out, nil
 }

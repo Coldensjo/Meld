@@ -375,6 +375,17 @@ export function DeleteScript(name: string): $CancellablePromise<void> {
 }
 
 /**
+ * DeleteSound deletes the imported sound id (#901): its file leaves Meld's patch, its SoundEntries row
+ * and the zone sound rows that played only it go, and the zones' fields and the game object displays'
+ * slots that named them are cleared. With the file in the patch it is written at once, so the game
+ * must be closed; a file still waiting for the game to close is dropped, and the tables wait with the
+ * rest. waiting says they wait.
+ */
+export function DeleteSound(id: number): $CancellablePromise<boolean> {
+    return $Call.ByID(1652167817, id);
+}
+
+/**
  * DisconnectExternalDatabase goes back to the server folder's own databases.
  */
 export function DisconnectExternalDatabase(): $CancellablePromise<void> {
@@ -1824,6 +1835,16 @@ export function RestartServer(): $CancellablePromise<void> {
 }
 
 /**
+ * RestoreSound takes the file Meld's patch put over the client's sound file path out of the patch
+ * (#901), or drops it if it waits for the game to close, so the client's own file plays again. A
+ * patch the game holds open can't be written again without it, so with the file in the patch the game
+ * must be closed first.
+ */
+export function RestoreSound(path: string): $CancellablePromise<void> {
+    return $Call.ByID(2686100416, path);
+}
+
+/**
  * SandboxWriteFile writes a file a probe made (base64 data) into the throwaway client's folder of
  * scratch files and returns its path, for a binding that reads a file the user picked (an icon's
  * PNG). Only while the sandbox is on.
@@ -2422,6 +2443,14 @@ export function SetWowPath(path: string): $CancellablePromise<wow$0.Status> {
 }
 
 /**
+ * SoundDeletePlan reads what DeleteSound would remove and clear for the imported sound id, changing
+ * nothing, for the confirmation.
+ */
+export function SoundDeletePlan(id: number): $CancellablePromise<vmangos$0.SoundDeletePlan> {
+    return $Call.ByID(1901925856, id);
+}
+
+/**
  * SoundEntries lists the client's SoundEntries.dbc rows, each with a file to play, for the game
  * object editor's sound picker (#674).
  */
@@ -2434,6 +2463,15 @@ export function SoundEntries(): $CancellablePromise<vmangos$0.SoundOption[] | nu
  */
 export function SoundEntry(id: number): $CancellablePromise<vmangos$0.SoundEntryInfo> {
     return $Call.ByID(2919565632, id);
+}
+
+/**
+ * SoundFileStates says, for each client sound file at paths, whether Meld's patch has it (or it waits
+ * for the game to close) and whether the client's own archives do: a file in both was replaced, and
+ * Restore the client's (RestoreSound) takes the replacement out.
+ */
+export function SoundFileStates(paths: string[] | null): $CancellablePromise<vmangos$0.PatchFileState[] | null> {
+    return $Call.ByID(1518839636, paths);
 }
 
 /**

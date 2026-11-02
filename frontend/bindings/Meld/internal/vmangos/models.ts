@@ -1821,6 +1821,19 @@ export interface PaintSpec {
 }
 
 /**
+ * PatchFileState says where a client file is: in Meld's patch, waiting for the game to close before
+ * the patch has it, and in the client's own archives (outside Meld's patch). A file in the patch (or
+ * waiting) that the client has too was replaced, and dropping it from the patch restores the
+ * client's (#901).
+ */
+export interface PatchFileState {
+    "path": string;
+    "inPatch": boolean;
+    "waiting": boolean;
+    "inClient": boolean;
+}
+
+/**
  * PortalLink is a teleport and where it lands. Kind is "trigger" for an area trigger on the open map
  * (At its position), "creature" or "object" for a spawned template's teleport (Entry, Guid), and
  * "into" for a teleport from elsewhere that lands on the open map.
@@ -2429,6 +2442,24 @@ export interface SkillChoice {
     "category": number;
     "range": string;
     "top": number;
+}
+
+/**
+ * SoundDeletePlan is what deleting an imported sound removes and clears, for the confirmation and the
+ * write: the files dropped from Meld's patch, the zone sound rows that named it (a ZoneMusic or
+ * SoundAmbience row left playing nothing is removed, the one its import added among them), the intro
+ * rows whose sound is cleared, the zones (AreaTable rows) that played it through one of those, and the
+ * game object displays whose sound slots named it, cleared to none.
+ */
+export interface SoundDeletePlan {
+    "id": number;
+    "name": string;
+    "files": string[] | null;
+    "music": SoundOption[] | null;
+    "ambience": SoundOption[] | null;
+    "intro": SoundOption[] | null;
+    "zones": SoundOption[] | null;
+    "displays": number[] | null;
 }
 
 /**

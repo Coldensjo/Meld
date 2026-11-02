@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"Meld/internal/vmangos"
@@ -8,7 +10,9 @@ import (
 
 // The Sound tool (#684, Tools › Sounds…): the client's sounds listed, exported as the files they are,
 // imported from WAV or MP3 files as new sounds and put over a client sound's file, each write in Meld's
-// patch without closing anything (as ImportIcons does): at once, or once the game has closed.
+// patch without closing anything (as ImportIcons does): at once, or once the game has closed. A replaced
+// sound is restored and an imported one deleted by dropping its file from the patch (#901), which
+// needs the game closed when the patch has the file, as the Icons tool's Delete does (#717).
 
 var soundFilters = []fileFilter{{DisplayName: "Sound (*.wav, *.mp3)", Pattern: "*.wav;*.mp3"}}
 
@@ -96,4 +100,97 @@ func (a *App) ExportSounds(paths []string, dir string) (SoundsExported, error) {
 	}
 	n, failed, err := vmangos.ExportSounds(dataDir, paths, dir)
 	return SoundsExported{Written: n, Failed: failed}, err
+}
+
+// SoundFileStates says, for each client sound file at paths, whether Meld's patch has it (or it waits
+// for the game to close) and whether the client's own archives do: a file in both was replaced, and
+// Restore the client's (RestoreSound) takes the replacement out.
+func (a *App) SoundFileStates(paths []string) ([]vmangos.PatchFileState, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadPatchFileStates(dataDir, paths)
+}
+
+// RestoreSound takes the file Meld's patch put over the client's sound file path out of the patch
+// (#901), or drops it if it waits for the game to close, so the client's own file plays again. A
+// patch the game holds open can't be written again without it, so with the file in the patch the game
+// must be closed first.
+func (a *App) RestoreSound(path string) error {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return err
+	}
+	if !vmangos.IsSoundPath(path) {
+		return fmt.Errorf("%s is not a sound file under Sound\\", path)
+	}
+	states, err := vmangos.ReadPatchFileStates(dataDir, []string{path})
+	if err != nil {
+		return err
+	}
+	st := states[0]
+	switch {
+	case !st.InClient:
+		return fmt.Errorf("the client has no %s of its own to restore: an imported sound is deleted instead", st.Path)
+	case !st.InPatch && !st.Waiting:
+		return fmt.Errorf("%s is the client's own: Meld's patch doesn't replace it", st.Path)
+	case st.InPatch && !a.sandboxed() && a.gameRunning():
+		// The probes' throwaway client has a patch of its own, which the game never holds.
+		return errors.New("the game has Meld's patch open: close it, then restore the sound")
+	}
+	if st.InPatch {
+		_, err = vmangos.RemovePatchFiles(dataDir, []string{st.Path})
+	} else {
+		_, err = vmangos.DropPendingFiles(dataDir, []string{st.Path})
+	}
+	a.emitPending(dataDir)
+	return err
+}
+
+// SoundDeletePlan reads what DeleteSound would remove and clear for the imported sound id, changing
+// nothing, for the confirmation.
+func (a *App) SoundDeletePlan(id int) (vmangos.SoundDeletePlan, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.SoundDeletePlan{}, err
+	}
+	_, plan, err := vmangos.PlanSoundDelete(dataDir, uint32(id))
+	return plan, err
+}
+
+// DeleteSound deletes the imported sound id (#901): its file leaves Meld's patch, its SoundEntries row
+// and the zone sound rows that played only it go, and the zones' fields and the game object displays'
+// slots that named them are cleared. With the file in the patch it is written at once, so the game
+// must be closed; a file still waiting for the game to close is dropped, and the tables wait with the
+// rest. waiting says they wait.
+func (a *App) DeleteSound(id int) (waiting bool, err error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return false, err
+	}
+	files, plan, err := vmangos.PlanSoundDelete(dataDir, uint32(id))
+	if err != nil {
+		return false, err
+	}
+	if a.sandboxed() || !a.gameRunning() {
+		_, err = vmangos.InstallDropping(dataDir, files, plan.Files)
+		a.emitPending(dataDir)
+		return false, err
+	}
+	states, err := vmangos.ReadPatchFileStates(dataDir, plan.Files)
+	if err != nil {
+		return false, err
+	}
+	for _, st := range states {
+		if st.InPatch {
+			return false, errors.New("the game has Meld's patch open: close it, then delete the sound")
+		}
+	}
+	if _, err := vmangos.DropPendingFiles(dataDir, plan.Files); err != nil {
+		return false, err
+	}
+	_, waiting, err = a.queueClientFiles(dataDir, files)
+	a.emitPending(dataDir)
+	return waiting, err
 }

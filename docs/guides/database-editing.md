@@ -236,10 +236,15 @@ with your backup, and repair only the affected data rather than blindly rerunnin
    A sound or loop is picked in the game object editor's Sounds tab. Importing the same file again
    updates that sound instead of adding another.
 4. **Replace…** on a file puts your WAV or MP3 (the same kind as the file) over the client's own,
-   after a confirmation: every sound that names that file plays yours. It stays in Meld's patch, so
-   export the client's file first if you may want it back.
-5. Imports and replacements are written into the patch at once, or wait for the game to close; the
-   game plays them from its next start. Nothing here is undone by History.
+   after a confirmation: every sound that names that file plays yours.
+5. **Restore** (beside Replace… on a file you replaced) takes your file out of Meld's patch, so the
+   client's own plays again.
+6. **Delete…** on a sound you imported takes it back: its file, its SoundEntries row and the zone
+   music or ambience row its import added. The confirmation names the zones and game object displays
+   still using it; those lose that sound.
+7. Imports and replacements are written into the patch at once, or wait for the game to close; the
+   game plays them from its next start. Restore and Delete need the game closed once the file is in
+   the patch. Nothing here is undone by History.
 
 ## Accounts and characters
 

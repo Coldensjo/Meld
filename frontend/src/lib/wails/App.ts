@@ -64,6 +64,7 @@ export const DeleteIcon: Call<AppApi['DeleteIcon']> = (...a) => api().DeleteIcon
 export const DeleteItem: Call<AppApi['DeleteItem']> = (...a) => api().DeleteItem(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never
+export const DeleteSound: Call<AppApi['DeleteSound']> = (...a) => api().DeleteSound(...a) as never
 export const DisconnectExternalDatabase: Call<AppApi['DisconnectExternalDatabase']> = (...a) => api().DisconnectExternalDatabase(...a) as never
 export const DropRecovery: Call<AppApi['DropRecovery']> = (...a) => api().DropRecovery(...a) as never
 export const DropRecoveryParts: Call<AppApi['DropRecoveryParts']> = (...a) => api().DropRecoveryParts(...a) as never
@@ -252,6 +253,7 @@ export const RegionPending: Call<AppApi['RegionPending']> = (...a) => api().Regi
 export const RegionShadows: NonNullCall<AppApi['RegionShadows']> = (...a) => api().RegionShadows(...a) as never
 export const ReplaceSound: Call<AppApi['ReplaceSound']> = (...a) => api().ReplaceSound(...a) as never
 export const RestartServer: Call<AppApi['RestartServer']> = (...a) => api().RestartServer(...a) as never
+export const RestoreSound: Call<AppApi['RestoreSound']> = (...a) => api().RestoreSound(...a) as never
 export const SandboxWriteFile: Call<AppApi['SandboxWriteFile']> = (...a) => api().SandboxWriteFile(...a) as never
 export const SaveAILine: Call<AppApi['SaveAILine']> = (...a) => api().SaveAILine(...a) as never
 export const SaveAreaTriggers: Call<AppApi['SaveAreaTriggers']> = (...a) => api().SaveAreaTriggers(...a) as never
@@ -326,8 +328,10 @@ export const SetToolWindowUnsaved: Call<AppApi['SetToolWindowUnsaved']> = (...a)
 export const SetUnsaved: Call<AppApi['SetUnsaved']> = (...a) => api().SetUnsaved(...a) as never
 export const SetVmangosPath: Call<AppApi['SetVmangosPath']> = (...a) => api().SetVmangosPath(...a) as never
 export const SetWowPath: Call<AppApi['SetWowPath']> = (...a) => api().SetWowPath(...a) as never
+export const SoundDeletePlan: Call<AppApi['SoundDeletePlan']> = (...a) => api().SoundDeletePlan(...a) as never
 export const SoundEntries: NonNullCall<AppApi['SoundEntries']> = (...a) => api().SoundEntries(...a) as never
 export const SoundEntry: Call<AppApi['SoundEntry']> = (...a) => api().SoundEntry(...a) as never
+export const SoundFileStates: NonNullCall<AppApi['SoundFileStates']> = (...a) => api().SoundFileStates(...a) as never
 export const SoundFiles: NonNullCall<AppApi['SoundFiles']> = (...a) => api().SoundFiles(...a) as never
 export const SpawnEditSQL: Call<AppApi['SpawnEditSQL']> = (...a) => api().SpawnEditSQL(...a) as never
 export const SpawnEmotes: NonNullCall<AppApi['SpawnEmotes']> = (...a) => api().SpawnEmotes(...a) as never

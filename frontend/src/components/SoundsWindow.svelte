@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ExportSounds, ExportSoundsDialog, ImportSound, OpenSoundFileDialog, ReplaceSound, SoundEntry, SoundFiles } from '../lib/wails/App'
+	import { DeleteSound, ExportSounds, ExportSoundsDialog, ImportSound, OpenSoundFileDialog, ReplaceSound, RestoreSound, SoundDeletePlan, SoundEntry, SoundFileStates, SoundFiles } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { askConfirm } from '../lib/state/confirm'
@@ -16,7 +16,9 @@
 	// a new sound (the file under Sound\Meld and a SoundEntries row, with a ZoneMusic or SoundAmbience
 	// row for music or ambience, so the object editor's and the Zones dialog's pickers list it); Replace…
 	// puts a file over a client sound's own, which every sound naming it then plays. The owner's
-	// decision on #684: import as new and replace, and one shared sound list.
+	// decision on #684: import as new and replace, and one shared sound list. Restore the client's takes
+	// a replacement out of Meld's patch again, and Delete… takes an imported sound back: its file, its
+	// row and the zone sound row its import added, clearing what still names them (#901).
 
 	const target = $derived(ui.soundsTool)
 
@@ -64,6 +66,30 @@
 		return words.length ? all.filter((f) => words.every((w) => f.toLowerCase().includes(w))) : all
 	})
 
+	// Where the files shown are (Meld's patch, waiting for the game, the client's own archives), for
+	// Restore the client's: read again after a replace or a restore.
+	let states = $state<Record<string, vmangos.PatchFileState>>({})
+	let stateVersion = $state(0)
+	const shownFiles = $derived(tab === 'files' ? (pickedFile ? [pickedFile] : []) : (info?.files ?? []))
+	$effect(() => {
+		const paths = shownFiles
+		void stateVersion
+		if (!target || !paths.length) return
+		void SoundFileStates(paths).then(
+			(list) => {
+				const next: Record<string, vmangos.PatchFileState> = {}
+				for (const [i, st] of list.entries()) next[paths[i]] = st
+				states = next
+			},
+			(e) => (error = String(e)),
+		)
+	})
+	/** Whether Meld's patch put a file over the client's own (or one waits to), so Restore can take it out. */
+	const restorable = (file: string) => {
+		const st = states[file]
+		return !!st && st.inClient && (st.inPatch || st.waiting)
+	}
+
 	const baseName = (f: string) => f.slice(f.lastIndexOf('\\') + 1)
 	const play = (file: string) => playSound(file, (m) => (error = m))
 	const playIcon = (file: string) => (soundPlayer.playing && soundPlayer.playing === file ? '■' : '▶')
@@ -103,13 +129,72 @@
 		const path = await OpenSoundFileDialog(`Replace ${baseName(file)}`).catch((e) => ((error = String(e)), ''))
 		if (!path) return
 		const users = info && info.files.includes(file) ? ` ${info.name} (${info.id}) and any other sound that names it` : ' Every sound that names it'
-		const text = `Put ${baseName(path)} over the client's ${file}?${users} will play the new file. It goes into Meld's patch and stays there; export the client's file first to be able to put it back.`
+		const back = states[file]?.inClient ? " Restore the client's takes it out again." : ''
+		const text = `Put ${baseName(path)} over the client's ${file}?${users} will play the new file. It goes into Meld's patch.${back}`
 		if (!(await askConfirm(text, { title: 'Replace a client sound', ok: 'Replace' }))) return
 		busy = true
 		try {
 			const waiting = await ReplaceSound(file, path)
 			stopSound()
 			tell(`Replaced ${file} with ${baseName(path)}. ${when(waiting)}`)
+		} catch (e) {
+			error = String(e)
+		} finally {
+			busy = false
+			stateVersion++
+		}
+	}
+
+	/** Takes the file Meld's patch put over the client's out of the patch, after a confirmation. */
+	async function restoreFile(file: string) {
+		const text = `Take your file out of Meld's patch, so the client's own ${file} plays again? Export it first to keep it.`
+		if (!(await askConfirm(text, { title: "Restore the client's sound", ok: 'Restore' }))) return
+		busy = true
+		try {
+			await RestoreSound(file)
+			stopSound()
+			tell(`Restored the client's ${file}. The game plays it from its next start.`)
+		} catch (e) {
+			error = String(e)
+		} finally {
+			busy = false
+			stateVersion++
+		}
+	}
+
+	/** Deletes the picked imported sound after a confirmation that names what still plays it. */
+	async function deleteSound() {
+		const s = info
+		if (!s?.imported) return
+		let plan: vmangos.SoundDeletePlan
+		try {
+			plan = await SoundDeletePlan(s.id)
+		} catch (e) {
+			error = String(e)
+			return
+		}
+		let first = `Delete ${plan.name} (${plan.id})? Its SoundEntries row goes`
+		if (plan.files.length) first += `, and ${plan.files.join(', ')} leaves Meld's patch`
+		const parts = [first + '.']
+		const rows: string[] = []
+		if (plan.music.length) rows.push(`ZoneMusic ${list(plan.music)}`)
+		if (plan.ambience.length) rows.push(`SoundAmbience ${plan.ambience.map((a) => a.id).join(', ')}`)
+		if (rows.length) parts.push(`The zone sound rows that play it (${rows.join('; ')}) go; one that plays another sound too keeps that one.`)
+		if (plan.intro.length) parts.push(`Intro music ${list(plan.intro)} plays nothing.`)
+		if (plan.zones.length) parts.push(`Zones still using it, which lose that sound: ${list(plan.zones)}.`)
+		if (plan.displays.length) parts.push(`Game object displays still using it, whose slots are cleared: ${plan.displays.join(', ')}.`)
+		if (!plan.zones.length && !plan.displays.length) parts.push('No zone or game object display uses it.')
+		if (!(await askConfirm(parts.join(' '), { title: 'Delete an imported sound', ok: 'Delete' }))) return
+		busy = true
+		try {
+			const waiting = await DeleteSound(s.id)
+			stopSound()
+			forgetSoundEntries()
+			picked = 0
+			start = ''
+			version++
+			files = null
+			tell(`Deleted ${plan.name} (${plan.id}). ${waiting ? 'It waits for the game to close; the game no longer has it from its next start.' : 'The game no longer has it from its next start.'}`)
 		} catch (e) {
 			error = String(e)
 		} finally {
@@ -251,6 +336,9 @@
 							<button onclick={() => copy(pickedFile, 'the path')}>Copy path</button>
 							<button onclick={() => exportFiles([pickedFile])} title="Save this file as it is stored">Export…</button>
 							<button disabled={busy} onclick={() => replaceFile(pickedFile)} title="Put a WAV or MP3 file of your own over this one">Replace…</button>
+							{#if restorable(pickedFile)}
+								<button disabled={busy} onclick={() => restoreFile(pickedFile)} title="Take your file out of Meld's patch, so the client's own plays again">Restore the client's</button>
+							{/if}
 						</div>
 					{:else}
 						<p class="dim">Pick a file to play, export or replace it.</p>
@@ -264,6 +352,9 @@
 						<button disabled={!info.files.length} onclick={() => info && exportFiles(info.files)} title="Save the sound's files as they are stored"
 							>Export {info.files.length === 1 ? 'file' : `${info.files.length} files`}…</button
 						>
+						{#if info.imported}
+							<button disabled={busy} onclick={deleteSound} title="Take this imported sound back: its file, its row and the zone sound row its import added">Delete…</button>
+						{/if}
 					</div>
 					<dl class="facts">
 						<dt>Folder</dt>
@@ -282,6 +373,9 @@
 									<span class="file" title={f}>{baseName(f)}</span>
 									<button onclick={() => exportFiles([f])} title="Save this file as it is stored">Export…</button>
 									<button disabled={busy} onclick={() => replaceFile(f)} title="Put a WAV or MP3 file of your own over this one: every sound naming it plays yours">Replace…</button>
+									{#if restorable(f)}
+										<button disabled={busy} onclick={() => restoreFile(f)} title="Take your file out of Meld's patch, so the client's own plays again">Restore</button>
+									{/if}
 								</li>
 							{/each}
 						</ul>

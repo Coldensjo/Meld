@@ -1,5 +1,5 @@
-// The Sound tool (#684, Tools › Sounds…): the shared sound list finds CampFireLargeLoop, whose side names its file, its folder and the game object displays that play it; the Files tab lists Sound\Doodad\CampFireLargeLoop.wav. On a throwaway copy of the client (P.sandboxClient), a WAV the probe makes is imported as zone ambience (the file under Sound\Meld, a SoundEntries row and a SoundAmbience row): the tool picks the new sound, the shared list, the Zones dialog's ambience list and /wow/sound have it, Export saves the file, and Replace… puts a longer WAV over it after the confirmation; the real patch is untouched.
-// touches: frontend/src/components/SoundsWindow.svelte, frontend/src/components/SoundPicker.svelte, frontend/src/lib/ui/soundPlayer.svelte.ts, frontend/src/components/ZonesDialog.svelte, internal/vmangos/sounds.go, internal/vmangos/zonesounds.go, app_sounds.go, app_icons.go
+// The Sound tool (#684, Tools › Sounds…): the shared sound list finds CampFireLargeLoop, whose side names its file, its folder and the game object displays that play it; the Files tab lists Sound\Doodad\CampFireLargeLoop.wav. On a throwaway copy of the client (P.sandboxClient), a WAV the probe makes is imported as zone ambience (the file under Sound\Meld, a SoundEntries row and a SoundAmbience row): the tool picks the new sound, the shared list, the Zones dialog's ambience list and /wow/sound have it, Export saves the file, and Replace… puts a longer WAV over it after the confirmation. Delete… (#901) takes the import back after a confirmation naming its SoundAmbience row: /wow/sound no longer serves the file, and neither the shared list nor the Zones dialog's ambience has it. Then CampFireLargeLoop's file is replaced and Restore (offered only for a file the client has of its own) puts the client's back, /wow/sound serving the original's size again; the real patch is untouched.
+// touches: frontend/src/components/SoundsWindow.svelte, frontend/src/components/SoundPicker.svelte, frontend/src/lib/ui/soundPlayer.svelte.ts, frontend/src/components/ZonesDialog.svelte, internal/vmangos/sounds.go, internal/vmangos/sounddelete.go, internal/vmangos/zonesounds.go, internal/vmangos/pending.go, app_sounds.go, app_icons.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -101,6 +101,49 @@ try {
 	out.replaced = bar() || errorBar()
 	const again = await fetch(`/wow/sound?path=${encodeURIComponent(path)}`)
 	out.servedAfter = { status: again.status, bytes: (await again.arrayBuffer()).byteLength }
+
+	// Delete (#901): an imported file has no client copy to restore, so only Delete… is offered.
+	await P.frames(5)
+	out.importRestore = !!button(side().querySelector('[aria-label="The sound\'s files"]'), 'Restore')
+	button(side(), 'Delete').click()
+	const del = await P.until(() => P.dialog('Delete an imported sound'), WAIT, 'the delete confirmation')
+	out.deleteText = del.textContent.replace(/\s+/g, ' ')
+	del.querySelector('[data-confirm="yes"]').click()
+	await P.until(() => /^Deleted/.test(bar()) || errorBar(), WAIT, 'the delete')
+	out.deleted = bar() || errorBar()
+	const gone = await fetch(`/wow/sound?path=${encodeURIComponent(path)}`)
+	out.servedDeleted = gone.status
+	out.entryDeleted = (await App.SoundEntries()).some((e) => e.name === 'MeldProbeChime')
+	out.ambienceDeleted = (await App.ZoneSounds()).ambience.some((a) => a.file === path)
+
+	// Restore: CampFireLargeLoop's file replaced, then the client's put back.
+	const fire = 'Sound\\Doodad\\CampFireLargeLoop.wav'
+	const fireBytes = async () => (await (await fetch(`/wow/sound?path=${encodeURIComponent(fire)}`)).arrayBuffer()).byteLength
+	out.fireBefore = await fireBytes()
+	type(tool().querySelector('[aria-label="Search sounds"]'), 'CampFireLargeLoop')
+	await P.until(() => [...tool().querySelectorAll('[aria-label="Sounds"] li .name')].some((n) => n.textContent.trim() === 'CampFireLargeLoop'), WAIT, 'the search again')
+	;[...tool().querySelectorAll('[aria-label="Sounds"] li')]
+		.find((l) => l.querySelector('.name')?.textContent.trim() === 'CampFireLargeLoop')
+		.querySelector('.row')
+		.click()
+	await P.until(() => side()?.querySelector('.name')?.textContent === 'CampFireLargeLoop', WAIT, 'CampFireLargeLoop picked again')
+	await P.frames(5)
+	out.fireRestoreBefore = !!button(side().querySelector('[aria-label="The sound\'s files"]'), 'Restore')
+	button(side().querySelector('[aria-label="The sound\'s files"]'), 'Replace').click()
+	const ask2 = await P.until(() => P.dialog('Replace a client sound'), WAIT, 'the fire confirmation')
+	out.fireConfirm = ask2.textContent.replace(/\s+/g, ' ')
+	ask2.querySelector('[data-confirm="yes"]').click()
+	await P.until(() => /^Replaced/.test(bar()) || errorBar(), WAIT, 'the fire replace')
+	out.fireReplaced = await fireBytes()
+	await P.until(() => button(side().querySelector('[aria-label="The sound\'s files"]'), 'Restore'), WAIT, 'the Restore button')
+	button(side().querySelector('[aria-label="The sound\'s files"]'), 'Restore').click()
+	const ask3 = await P.until(() => P.dialog("Restore the client's sound"), WAIT, 'the restore confirmation')
+	ask3.querySelector('[data-confirm="yes"]').click()
+	await P.until(() => /^Restored/.test(bar()) || errorBar(), WAIT, 'the restore')
+	out.restored = bar() || errorBar()
+	out.fireAfter = await fireBytes()
+	await P.frames(5)
+	out.fireRestoreAfter = !!button(side().querySelector('[aria-label="The sound\'s files"]'), 'Restore')
 } finally {
 	Object.assign(App, stubs)
 	ui.confirm = null
@@ -133,5 +176,19 @@ const ok =
 	/^Replaced/.test(out.replaced) &&
 	out.servedAfter.status === 200 &&
 	out.servedAfter.bytes === 44 + 8820 * 2 &&
+	!out.importRestore &&
+	/MeldProbeChime/.test(out.deleteText) &&
+	/SoundAmbience \d+/.test(out.deleteText) &&
+	/^Deleted MeldProbeChime/.test(out.deleted) &&
+	out.servedDeleted !== 200 &&
+	!out.entryDeleted &&
+	!out.ambienceDeleted &&
+	out.fireBefore > 0 &&
+	!out.fireRestoreBefore &&
+	/Restore the client's takes it out again/.test(out.fireConfirm) &&
+	out.fireReplaced === 44 + 8820 * 2 &&
+	/^Restored/.test(out.restored) &&
+	out.fireAfter === out.fireBefore &&
+	!out.fireRestoreAfter &&
 	out.ended.realUnchanged
 return { ok, sandbox: sb.dataDir, ...out }

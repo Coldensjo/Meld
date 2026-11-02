@@ -541,21 +541,28 @@ plans a script and, on confirmation, writes it as Save does.
 - Not checked here: an import into the real client and server, and the game showing an imported
   zone (the owner's check).
 
-## The Sound tool (#684, probe `sounds-tool`)
-Checks: Tools › Sounds… lists, plays, exports, imports and replaces the client's sounds.
+## The Sound tool (#684, #901, probe `sounds-tool`)
+Checks: Tools › Sounds… lists, plays, exports, imports, replaces, restores and deletes the client's sounds.
 - Go: `vmangos.TestSoundFormat` (PCM WAVs and MP3s taken; ADPCM, 24-bit, no data chunk and a PNG
   refused), `TestSoundFileName`, `TestSoundEntryInfo` (fields, files and the zone rows and displays
   that play a sound), `TestImportSoundRows` (music adds a SoundEntries and a ZoneMusic row the Zones
   dialog's list shows; the same file again updates its row and adds an ambience row; taken names, bad
   volumes and kinds refused), `TestClientSoundImport` (needs the client: an import into the client's
   own SoundEntries leaves every old row's fields and strings as they were, and the client's sound files
-  are listed; CampFireLargeLoop.wav is a PCM WAV by `SoundFormat`).
+  are listed; CampFireLargeLoop.wav is a PCM WAV by `SoundFormat`), `TestDeleteSoundRows` (deleting
+  an imported music removes its row and its ZoneMusic row, clears the zone and the display slot naming
+  them, keeps a row that also plays another sound, refuses a client's own sound),
+  `TestRestoreAndDeleteSounds` (a replaced client file dropped from the patch reads the client's bytes
+  again; a deleted import's file leaves the patch with a waiting file taken along).
 - Probe: `sounds-tool` (writes only a throwaway client, `P.sandboxClient`): CampFireLargeLoop's side
   names its file, Sound\Doodad and 8 game object displays; the Files tab finds
   Sound\Doodad\CampFireLargeLoop.wav. A WAV made by the probe (`P.sandboxFile`, with
   `OpenSoundFileDialog` and `ExportSoundsDialog` stubbed) is imported as ambience: the tool picks it,
   `SoundEntries`, `ZoneSounds().ambience` and `/wow/sound` have it; Export saves it; Replace… after the
-  confirmation (`P.dialog('Replace a client sound')`) serves the longer WAV. `realUnchanged` at the end.
+  confirmation (`P.dialog('Replace a client sound')`) serves the longer WAV. Delete… on it (no Restore
+  offered: the client has no copy) confirms naming its SoundAmbience row, then `/wow/sound` answers 404
+  and neither list has it. CampFireLargeLoop's file replaced shows Restore, which puts the client's
+  size back on `/wow/sound`. `realUnchanged` at the end.
 - Not checked here: the game playing an imported sound (zone ambience, an object's loop); that is the
   owner's check in the game.
 
