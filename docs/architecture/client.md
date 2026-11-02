@@ -1097,8 +1097,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `.send items <name> "subject" "text" <item>:<count>` through the SOAP console (`SetCharacterLevel`,
   `MailItem`). The console has no selected target, and VMaNGOS runs only the commands whose row in
   `src/game/Chat/Chat.cpp` allows the console: `.levelup`, `.additem` and every `.quest` command are
-  refused there, so items go by mail and quests are not offered. A menu opens its items from the
-  last answer of `GameCharacter` (why the console can't reach the character, "" when it can) and
+  refused there, so items go by mail. Quests (the owner's choice on #962) skip the console: the quest
+  editor's list and the Quests tabs' rows have Give to, Complete for and Remove from <character>
+  (`CharacterQuest`, `internal/vmangos/charquestaction.go`), which write the character's
+  `character_queststatus` row as the Characters tool's Quests tab does, only while the character is
+  out of the world (the world server writes its quests over the rows at logout). Give puts the quest
+  in the log fresh, Complete with its kill and item counts at the quest's (the items themselves must
+  be in the bags to turn it in: the status line names them, mail them), Remove drops the row; both
+  Give and Complete make a done quest not done. A menu opens its items from the
+  last answer of `GameCharacter` (why the console can't reach the character, "" when it can, and
+  `questReason`, why the quest items can't run: the character in the world) and
   replaces them (`ContextItem.tag`) once Go answers again; a disabled item shows its `hint` under it.
 - **The game's template cache** (#234): the 1.12 client asks for a template once and keeps it across
   sessions in `WDB\creaturecache.wdb` / `gameobjectcache.wdb`, never asking again. `SaveCreature` and

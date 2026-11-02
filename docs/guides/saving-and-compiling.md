@@ -209,8 +209,18 @@ The same console sets up the Game Login character for a test, from the right-cli
   put an item in a bag.
 
 The entries are greyed out, with the reason under them, while the world server is not running,
-SOAP is off or Game Login has no character. Giving, completing or removing a quest is not there
-yet: VMaNGOS does not allow its `.quest` commands from the console.
+SOAP is off or Game Login has no character.
+
+A quest's right-click in the Quest Editor's list, or in a creature's or object's Quests tab, has
+**Give to <character>**, **Complete for <character>** and **Remove from <character>**. VMaNGOS does
+not allow its `.quest` commands from the console, so these write the character's quests in the
+character database instead, and work only while the character is out of the world (log out to the
+character list; they are greyed out while it plays). The change shows at the next login:
+
+- **Give** puts the quest in the quest log, in progress, even one the character has done.
+- **Complete** puts it there with its objectives done, ready to turn in. A quest that asks for items
+  still needs them in the bags: the status line names them, and Mail to <character> sends them.
+- **Remove** takes the quest away, done or not, so the character can take it again.
 
 Explicit **Launch** is the exception to the no-automatic-close behavior of saves and compiles.
 Launching the client is not a replacement for completing a pending server rebuild.

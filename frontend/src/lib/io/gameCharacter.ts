@@ -1,8 +1,11 @@
 // The Game Login character's test actions (#962): set its level, mail it items, through the running
 // world server's SOAP console, from the right-click menus of a spawn, a loot row and the item
-// editor's list. The menus open with what was last known of the character (whether the console can
-// reach it), then ask again and replace their items in the open menu once Go answers.
-import { GameCharacter, MailItem, SetCharacterLevel } from '../wails/App'
+// editor's list; and give it a quest, complete one or remove one, written into its quests in the
+// character database while it is out of the world (the console refuses the `.quest` commands; the
+// owner's choice), from the quest editor's list and the Quests tabs. The menus open with what was last
+// known of the character (whether the console can reach it, whether it is out of the world), then ask
+// again and replace their items in the open menu once Go answers.
+import { CharacterQuest, GameCharacter, MailItem, SetCharacterLevel } from '../wails/App'
 import type { main } from '../wails/models'
 import { setStatus, ui, type ContextItem } from '../state/editor.svelte'
 import { hasBackend } from './backend'
@@ -21,19 +24,23 @@ export interface CharacterAction {
 	run: () => Promise<string>
 	/** The status line once the server answered, with the server's own reply. */
 	done: (who: string, reply: string) => string
+	/** What it needs: the server's console (the default), or the character out of the world (a quest action). */
+	needs?: 'console' | 'offline'
 }
 
 /** The menu items of `actions` for character `c`: greyed out with the reason when the console can't reach it. */
 function itemsFor(actions: CharacterAction[], c: main.GameCharacterInfo | null): ContextItem[] {
 	const who = c?.character || 'the Game Login character'
-	const reason = c === null ? 'Asking the server…' : c.reason
-	return actions.map((a) => ({
-		label: a.label(who),
-		tag: TAG,
-		disabled: !!reason,
-		hint: reason ? reason.charAt(0).toUpperCase() + reason.slice(1) : undefined,
-		run: () => void runAction(a, who),
-	}))
+	return actions.map((a) => {
+		const reason = c === null ? 'Asking the server…' : a.needs === 'offline' ? c.questReason : c.reason
+		return {
+			label: a.label(who),
+			tag: TAG,
+			disabled: !!reason,
+			hint: reason ? reason.charAt(0).toUpperCase() + reason.slice(1) : undefined,
+			run: () => void runAction(a, who),
+		}
+	})
 }
 
 async function runAction(a: CharacterAction, who: string) {
@@ -58,7 +65,7 @@ export function characterItems(actions: CharacterAction[]): ContextItem[] {
 		try {
 			c = await GameCharacter()
 		} catch (e) {
-			c = { character: known?.character ?? '', reason: `${e}` }
+			c = { character: known?.character ?? '', reason: `${e}`, questReason: `${e}` }
 		}
 		known = c
 		const menu = ui.contextMenu
@@ -96,4 +103,31 @@ export function mailAction(entry: number, name: string, count = 1): CharacterAct
 		run: () => MailItem(entry, count),
 		done: (who, reply) => `Sent ${what} to ${who} by mail: it's in the mailbox${reply ? ` (the server: ${reply})` : ''}.`,
 	}
+}
+
+/** What a quest action does (CharacterQuest's action). */
+export type QuestVerb = 'give' | 'complete' | 'remove'
+
+/**
+ * Give quest `entry` (titled `title`) to the character, complete it, or remove it: the quest editor's
+ * and the Quests tabs' menu items. They write the character's quests while it is out of the world.
+ */
+export function questAction(verb: QuestVerb, entry: number, title: string): CharacterAction {
+	const what = title ? `${title} (${entry})` : `quest ${entry}`
+	return {
+		needs: 'offline',
+		label: (who) => (verb === 'give' ? `Give to ${who}` : verb === 'complete' ? `Complete for ${who}` : `Remove from ${who}`),
+		run: () => CharacterQuest(entry, verb),
+		done: (who, items) =>
+			verb === 'give'
+				? `Gave ${what} to ${who}: it's in the quest log at the next login.`
+				: verb === 'complete'
+					? `Completed ${what} for ${who}: it's ready to turn in at the next login${items ? `, with ${items} in the bags (mail them from the Item Editor)` : ''}.`
+					: `Removed ${what} from ${who}: the quest is new to the character again.`,
+	}
+}
+
+/** The three quest actions on quest `entry`, as menu items. */
+export function questItems(entry: number, title: string): ContextItem[] {
+	return characterItems((['give', 'complete', 'remove'] as const).map((v) => questAction(v, entry, title)))
 }

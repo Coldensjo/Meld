@@ -178,6 +178,16 @@ export function CharacterModelLook(look: vmangos$0.CharacterAppearance, items: v
 }
 
 /**
+ * CharacterQuest gives ("give"), completes ("complete") or removes ("remove") a quest for the Game
+ * Login's character (#962), writing its quests in the character database while it is out of the
+ * world, since the server's console refuses the `.quest` commands. It returns the items a completed
+ * quest needs in the bags to turn it in ("" for none).
+ */
+export function CharacterQuest(quest: number, action: string): $CancellablePromise<string> {
+    return $Call.ByID(1054672682, quest, action);
+}
+
+/**
  * CheckSpawnIDs tells File › Check Map what the world database has under the unsaved spawns' guids
  * and entries (#195).
  */
@@ -565,7 +575,7 @@ export function ForgetProject(dir: string): $CancellablePromise<void> {
 
 /**
  * GameCharacter says whether the test actions on the Game Login's character (SetCharacterLevel,
- * MailItem) can run now, for the menus that offer them.
+ * MailItem, and CharacterQuest's QuestReason) can run now, for the menus that offer them.
  */
 export function GameCharacter(): $CancellablePromise<$models.GameCharacterInfo> {
     return $Call.ByID(1379271526);

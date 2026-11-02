@@ -231,6 +231,9 @@ func (a *App) PlayHere(spot vmangos.CharacterSpot) (string, error) {
 type GameCharacterInfo struct {
 	Character string `json:"character"`
 	Reason    string `json:"reason"`
+	// QuestReason is why the quest actions (CharacterQuest) can't run now, "" when they can: they
+	// write the character's quests in the database, so they need it out of the world, not the console.
+	QuestReason string `json:"questReason"`
 }
 
 // consoleSession is the session the character test actions send their commands in: it fails, saying
@@ -259,14 +262,52 @@ func (a *App) consoleSession() (game.Session, error) {
 }
 
 // GameCharacter says whether the test actions on the Game Login's character (SetCharacterLevel,
-// MailItem) can run now, for the menus that offer them.
+// MailItem, and CharacterQuest's QuestReason) can run now, for the menus that offer them.
 func (a *App) GameCharacter() GameCharacterInfo {
 	sess, err := a.consoleSession()
 	info := GameCharacterInfo{Character: sess.Login.Character}
 	if err != nil {
 		info.Reason = err.Error()
 	}
+	qs, err := a.questSession()
+	if info.Character == "" {
+		info.Character = qs.Login.Character
+	}
+	if err == nil && qs.WorldRunning() {
+		var online bool
+		if online, err = vmangos.CharacterOnline(qs.ServerRoot, qs.Login.Character); err == nil && online {
+			err = fmt.Errorf("%s is in the world: log out to the character list first (the world server writes its quests over them when it logs out)", qs.Login.Character)
+		}
+	}
+	if err != nil {
+		info.QuestReason = err.Error()
+	}
 	return info
+}
+
+// questSession is the session the quest actions write the Game Login character's quests in: it
+// fails, saying why, when there is no character or server folder.
+func (a *App) questSession() (game.Session, error) {
+	sess, err := a.serverSession()
+	if err != nil {
+		return sess, err
+	}
+	if sess.Login.Character == "" {
+		return sess, errors.New("Game Login has no character (Game › Game Login…)")
+	}
+	return sess, nil
+}
+
+// CharacterQuest gives ("give"), completes ("complete") or removes ("remove") a quest for the Game
+// Login's character (#962), writing its quests in the character database while it is out of the
+// world, since the server's console refuses the `.quest` commands. It returns the items a completed
+// quest needs in the bags to turn it in ("" for none).
+func (a *App) CharacterQuest(quest int, action string) (string, error) {
+	sess, err := a.questSession()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SetCharacterQuest(sess.ServerRoot, sess.Login.Character, quest, action, sess.WorldRunning)
 }
 
 // SetCharacterLevel sets the Game Login's character to level through the world server's SOAP console

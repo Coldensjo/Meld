@@ -136,6 +136,12 @@ export interface ClientSandbox {
 export interface GameCharacterInfo {
     "character": string;
     "reason": string;
+
+    /**
+     * QuestReason is why the quest actions (CharacterQuest) can't run now, "" when they can: they
+     * write the character's quests in the database, so they need it out of the world, not the console.
+     */
+    "questReason": string;
 }
 
 /**

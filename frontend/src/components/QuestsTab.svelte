@@ -6,6 +6,7 @@
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
 	import { RowList, removeRow } from '../lib/ui/rowList.svelte'
+	import { questItems } from '../lib/io/gameCharacter'
 
 	// The Quests tab of the creature editor (#145) and of the game object editor (#293): the quests
 	// the creature or object starts (creature_questrelation, gameobject_questrelation) and ends (the
@@ -14,6 +15,7 @@
 	// `ready` is whether it can: a creature needs the Quest giver flag (onquestflag sets it), and an
 	// object must be of the Quest giver type (2), which Meld never changes for the author (#293's
 	// decision): an object of another type gets no new quests, and says why.
+	// A quest's right-click gives it to the Game Login character, completes or removes it (#962).
 
 	let { kind = 'creature', entry, name, ready, onquestflag, dirty = $bindable(false) }: { kind?: 'creature' | 'object'; entry: number; name: string; ready: boolean; onquestflag?: () => void; dirty?: boolean } = $props()
 
@@ -115,7 +117,7 @@
 		{:else}
 			<ul class="list">
 				{#each rows as r, i (r.quest)}
-					<li use:idMenu={{ ids: [idOf('quest', r.quest)], name: r.title }}>
+					<li use:idMenu={{ ids: [idOf('quest', r.quest)], name: r.title, actions: () => questItems(r.quest, r.title) }}>
 						<span class="lvl">[{r.level}]</span>
 						<span class="name">{r.title || '(unknown quest)'}</span>
 						<span class="dim">{r.quest}{r.patchMin > 0 || r.patchMax < 10 ? ` · patches ${r.patchMin}–${r.patchMax}` : ''}</span>
@@ -136,7 +138,7 @@
 	{#if results.length}
 		<ul class="list results">
 			{#each results as r (r.quest)}
-				<li use:idMenu={{ ids: [idOf('quest', r.quest)], name: r.title }}>
+				<li use:idMenu={{ ids: [idOf('quest', r.quest)], name: r.title, actions: () => questItems(r.quest, r.title) }}>
 					<span class="lvl">[{r.level}]</span>
 					<span class="name">{r.title}</span>
 					<span class="dim">{r.quest}</span>

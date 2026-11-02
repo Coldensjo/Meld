@@ -39,6 +39,7 @@ export const BrowseVmangosFolder: Call<AppApi['BrowseVmangosFolder']> = (...a) =
 export const BrowseWowFolder: Call<AppApi['BrowseWowFolder']> = (...a) => api().BrowseWowFolder(...a) as never
 export const CharacterLooks: Call<AppApi['CharacterLooks']> = (...a) => api().CharacterLooks(...a) as never
 export const CharacterModelLook: Call<AppApi['CharacterModelLook']> = (...a) => api().CharacterModelLook(...a) as never
+export const CharacterQuest: Call<AppApi['CharacterQuest']> = (...a) => api().CharacterQuest(...a) as never
 export const CheckSpawnIDs: Call<AppApi['CheckSpawnIDs']> = (...a) => api().CheckSpawnIDs(...a) as never
 export const CheckWorldData: Call<AppApi['CheckWorldData']> = (...a) => api().CheckWorldData(...a) as never
 export const ClassLevelStats: NonNullCall<AppApi['ClassLevelStats']> = (...a) => api().ClassLevelStats(...a) as never

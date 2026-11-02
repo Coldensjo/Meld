@@ -1,5 +1,5 @@
-// The quest editor (#259): Tools › Quests… finds Wolves Across the Border (33) and names what its numbers stand for (its zone, the wolf meat it asks for, its reward choices, its faction, the quest before it) and who gives it; a level past 255 and an item the database lacks are unsaved edits (Go's refusals are tests, #419; Save is never pressed), and Revert drops the edits; Edit in Eagan Peltskinner's Quests tab opens the quest over the creature editor, and Esc closes only the quest editor.
-// touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/world/questFields.ts, internal/vmangos/quests.go, frontend/src/components/TemplateFields.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
+// The quest editor (#259): Tools › Quests… finds Wolves Across the Border (33) and names what its numbers stand for (its zone, the wolf meat it asks for, its reward choices, its faction, the quest before it) and who gives it, its right-click offers Give to, Complete for and Remove from the Game Login character, greyed out with the reason in the probe's sandbox (#962); a level past 255 and an item the database lacks are unsaved edits (Go's refusals are tests, #419; Save is never pressed), and Revert drops the edits; Edit in Eagan Peltskinner's Quests tab opens the quest over the creature editor, and Esc closes only the quest editor.
+// touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/world/questFields.ts, internal/vmangos/quests.go, frontend/src/lib/io/gameCharacter.ts, internal/vmangos/charquestaction.go, frontend/src/components/TemplateFields.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -33,7 +33,16 @@ await P.frames(1)
 await P.until(() => root(), WAIT, 'the editor')
 type(root().querySelector('aside input[type=search]'), 'Wolves Across')
 await P.until(() => root().querySelector('[aria-label="Quests found"] button'), WAIT, 'the search')
-root().querySelector('[aria-label="Quests found"] button').click()
+const found = root().querySelector('[aria-label="Quests found"] button')
+// The Game Login character's quest items (#962): greyed out with Go's reason (the probe's sandbox writes no character) once Go answers.
+found.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 160 }))
+await P.frames(1)
+const charItems = () => ui.contextMenu?.items.filter((i) => i.tag === 'gameCharacter') ?? []
+await P.until(() => charItems().length && charItems().every((i) => i.hint !== 'Asking the server…'), 10_000, "the character's state")
+const questMenu = charItems().map((i) => ({ label: i.label, disabled: !!i.disabled, hint: i.hint ?? '' }))
+ui.contextMenu = null
+await P.frames(1)
+found.click()
 await P.until(() => root().querySelector('nav.tabs') && field('Level'), WAIT, 'the quest')
 const title = root().querySelector('h2').textContent.trim()
 const quest = await names(['Quest log heading'])
@@ -121,5 +130,7 @@ const ok =
 	stored.values.QuestLevel === '2' &&
 	stored.values.ReqItemId1 === '750' &&
 	!afterEsc.questEditor &&
-	afterEsc.creatureEditor
-return { ok, codesShown, inserted, codeSave, afterEsc, title, quest, objectives, rewards, requirements, givers, saveText, missing, warned, reverted, stored: { level: stored.values.QuestLevel, item: stored.values.ReqItemId1 } }
+	afterEsc.creatureEditor &&
+	questMenu.map((i) => i.label.split(' ')[0]).join('|') === 'Give|Complete|Remove' &&
+	questMenu.every((i) => i.disabled && i.hint.length > 0)
+return { ok, questMenu, codesShown, inserted, codeSave, afterEsc, title, quest, objectives, rewards, requirements, givers, saveText, missing, warned, reverted, stored: { level: stored.values.QuestLevel, item: stored.values.ReqItemId1 } }

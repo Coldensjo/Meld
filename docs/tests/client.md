@@ -891,7 +891,7 @@ with WMO-only unticked the frame is the corner's again. Nothing written.
 - Probe: `bun run probe wmo-only-frame`. It puts the camera and its orbit target straight above the
   building, so either ground mode finds it below.
 
-## The Game Login character's level and mail from the menus (#962, `TestSetCharacterLevelSendsCharacterLevel`, `TestMailItemsSendsItems`)
+## The Game Login character's level, mail and quests from the menus (#962, `TestSetCharacterLevelSendsCharacterLevel`, `TestMailItemsSendsItems`, `TestQuestActionScript`, `TestQuestActionLive`)
 
 Checks: the spawn menu's Set <character>'s level and the Mail to <character> items (item editor's
 list, a game object's Contents rows) send the right console commands, and are greyed out with the
@@ -899,12 +899,19 @@ reason when the console can't reach the character.
 - Unit tests: `go test -run "SetCharacterLevel|MailItems" ./internal/vmangos/` (the command lines sent
   to a fake SOAP console set in a test mangosd.conf, a level past 60 sent as 60, a name with a space
   refused) and `bun test tests/gameCharacter.test.ts` (the labels, the greyed item with Go's reason,
-  the open menu's items replaced once Go answers).
+  the open menu's items replaced once Go answers, the quest items greyed by `questReason` and not
+  by the console's reason).
+- Quests: `go test -run QuestAction ./internal/vmangos/` (the rows Give, Complete and Remove write,
+  the refusals, a full quest log; the live test runs them on a scratch copy of
+  `character_queststatus` and reads quest 33's eight Tough Wolf Meat from the world database).
 - Probe: `item-editor` checks the Worn Shortsword's right-click has Mail to the Game Login character,
   greyed out with a reason (the dev page has no world server or no Game Login character).
 - In the game (the owner): with mangosd running, `SOAP.Enabled = 1` and a Game Login character in the
   world, right-click Linen Cloth (2589) in Tools › Items and Mail to <character>: the mailbox has it.
   Right-click a level 10 creature's spawn and Set <character>'s level to 10: the character levels.
+  Quests: log out to the character list, right-click Wolves Across the Border (33) in World › Quests
+  and Give to <character>, enter the world: it is in the quest log. Complete for <character> while
+  logged out: the log shows it complete, and the status line names the Tough Wolf Meat to mail.
 - Trap: `.quest add`, `.levelup` and `.additem` are refused from the console (`AllowConsole` false in
   `src/game/Chat/Chat.cpp`), whatever the account's GM level; check that column before building
   another console action.

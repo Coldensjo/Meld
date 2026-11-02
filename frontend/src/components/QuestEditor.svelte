@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createSearch } from '../lib/ui/search.svelte'
 	import { idMenu, idOf } from '../lib/ui/copyId'
+	import { questItems } from '../lib/io/gameCharacter'
 	import { CreateQuest, DeleteQuest, ExportQuests, ImportQuests, OpenQuestsDialog, PlanQuestDelete, PlanQuestImport, ReadQuest, ReadQuestChain, SaveQuest, SaveQuestGivers, SearchQuests } from '../lib/wails/App'
 	import { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
@@ -24,6 +25,8 @@
 	// The Chain tab (#948, QuestChainView) draws the quest's chain as saved, and opens a quest of it here.
 	// Export…, Export chain… and Import… (#940) write and read an SQL script of quest_template rows with
 	// their givers (internal/vmangos/questscripts.go); Go holds an imported quest to Save's rules.
+	// A found quest's right-click gives it to the Game Login character, completes or removes it (#962,
+	// lib/io/gameCharacter.ts questItems).
 
 	// In the desktop app it opens as its own OS window (#914, components/toolwin/EditorToolWindow.svelte),
 	// beside the creature or object editor whose Quests tab opened it, which runs it whole on that page's
@@ -369,7 +372,7 @@
 				<ul class="found" aria-label="Quests found">
 					{#each found as q (q.quest)}
 						<li>
-							<button class:on={q.quest === target.entry} onclick={() => open(q.quest)} use:idMenu={{ ids: [idOf('quest', q.quest)], name: q.title }}>
+							<button class:on={q.quest === target.entry} onclick={() => open(q.quest)} use:idMenu={{ ids: [idOf('quest', q.quest)], name: q.title, actions: () => questItems(q.quest, q.title) }}>
 								<span><span class="lvl">[{q.level}]</span> {q.title || '(no title)'}</span>
 								<span class="dim">{q.quest}</span>
 							</button>
