@@ -675,7 +675,12 @@ mask/liquid, image codec or native/game rendering contracts.
   yards to the sea (or, under it, to the land), keyed on the page's Sea level (`Terrain.generate`'s
   `sea`), not 0; `beachHeight` lowers the land to a slope rising `BEACH_RISE` (1.5 yd) over the width,
   back to its own height by 1.6 widths, and raises the seabed to a shelf 3 yd down over the width. It
-  only lowers land and raises seabed, so the coast stays where it was. `autoPaint`'s `sand` band
+  only lowers land and raises seabed, so the coast stays where it was. Near the coast the distance is
+  made sub-cell (#1031): the transforms also give each vertex its nearest vertex across the water's
+  edge, and `coastDistance` measures to the old waterline's marching-squares segments round it, while
+  the shelf leaves the water at the beach's slope; so the new heights cross the sea where the old ones
+  did between vertices. Whole-cell distances made the waterline a staircase along the vertex grid
+  (the unit test measures each crossing's shift). `autoPaint`'s `sand` band
   (`sandBand`: 2 yd with beaches, 1.2 without) covers the strip, and the trees (#758) keep 2 yd over
   the sea, so they stay off it. The pictures lay the same beaches (`drawPresetPreview`). Lakes have
   beaches too (#772): when Lakes is on, `shapeLakeBeaches` finds the lakes, then per lake level lowers the

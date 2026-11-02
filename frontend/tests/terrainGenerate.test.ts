@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { CoastShape, presetHeight, snowLine, type PresetId } from '../src/lib/terrain/presets.ts'
 import { generateHeights, imageGroundHeights } from '../src/lib/terrain/generate.ts'
 import { BEACH_RISE, beachHeight } from '../src/lib/terrain/beach.ts'
+import { squaredDistance } from '../src/lib/terrain/distance.ts'
 
 const CELL = 1600 / 3 / 128
 const TILE = 1600 / 3
@@ -222,7 +223,8 @@ test('beaches lay a nearly flat strip along the sea, wherever the sea level is, 
 	assert.equal(beachHeight(40, 10, 40), BEACH_RISE * 0.25)
 	assert.equal(beachHeight(40, 80, 40), 40)
 	assert.equal(beachHeight(0.2, 10, 40), 0.2)
-	assert.equal(beachHeight(-20, 10, 40), -0.75)
+	// The shelf leaves the waterline at the beach's slope (#1031), then steepens to go down 3 yd over the width.
+	assert.equal(beachHeight(-20, 10, 40), -0.46875)
 	assert.equal(beachHeight(-0.1, 10, 40), -0.1)
 	assert.equal(beachHeight(30, 10, 0), 30)
 	const size = 256
@@ -259,10 +261,51 @@ test('beaches lay a nearly flat strip along the sea, wherever the sea level is, 
 		// Only land is lowered and only seabed raised, so the same vertices are under the sea.
 		assert.equal(flat.wet, none.wet, `sea ${sea}`)
 	}
+	// The waterline follows the old coast between the vertices, not the vertices' staircase (#1031): on
+	// each vertex edge the sea crosses, it crosses near where it did without beaches (before, at about a
+	// third of the way from the land vertex on every edge, half a cell off on average).
+	for (const sea of [0, 12]) {
+		const a = new Float32Array(V * V)
+		const b = new Float32Array(V * V)
+		generateHeights(a, size, CELL, 'island', 11, null, { erosion: 0, beach: 0 }, sea)
+		generateHeights(b, size, CELL, 'island', 11, null, { erosion: 0, beach: 40 }, sea)
+		const off: number[] = []
+		for (let z = 0; z < V; z++) {
+			for (let x = 0; x < V; x++) {
+				for (const j of [x + 1 < V ? z * V + x + 1 : -1, z + 1 < V ? (z + 1) * V + x : -1]) {
+					const i = z * V + x
+					if (j < 0 || a[i] < sea === a[j] < sea) continue
+					off.push(Math.abs((a[i] - sea) / (a[i] - a[j]) - (b[i] - sea) / (b[i] - b[j])))
+				}
+			}
+		}
+		off.sort((p, q) => p - q)
+		const mean = off.reduce((s, e) => s + e, 0) / off.length
+		const p95 = off[Math.floor(off.length * 0.95)]
+		assert.ok(off.length > 500 && mean < 0.06 && p95 < 0.25, `sea ${sea}: waterline off by ${mean} cells on average, ${p95} at the 95th percentile`)
+	}
 	// Canyon has no coast: no beaches.
 	const a = new Float32Array(65 * 65)
 	const b = new Float32Array(65 * 65)
 	generateHeights(a, 64, CELL, 'canyon', 3, null, { erosion: 0 })
 	generateHeights(b, 64, CELL, 'canyon', 3, null, { erosion: 0, beach: 60 })
 	assert.deepEqual(a, b)
+})
+
+test("the distance transform names each sample's nearest sea sample (#1031)", () => {
+	const side = 9
+	const f = new Float64Array(side * side).fill(1e20)
+	f[2 * side + 2] = 0
+	f[6 * side + 7] = 0
+	const nearest = new Int32Array(side * side)
+	const d2 = squaredDistance(f, side, nearest)
+	for (let z = 0; z < side; z++) {
+		for (let x = 0; x < side; x++) {
+			const i = z * side + x
+			const a = (x - 2) ** 2 + (z - 2) ** 2
+			const b = (x - 7) ** 2 + (z - 6) ** 2
+			assert.equal(d2[i], Math.min(a, b))
+			if (a !== b) assert.equal(nearest[i], a < b ? 2 * side + 2 : 6 * side + 7)
+		}
+	}
 })
