@@ -23,11 +23,12 @@ import { isGuestMap, moveSessionMap } from '../session/shared.svelte'
 /**
  * Reads a region's creatures and game objects from the server's world database into its document.
  * A failure (no server folder, the database not running) only costs the spawns, not the region.
+ * Spawns placed while it read (and not saved) stay, with their undo steps (#1083).
  */
 async function loadSpawns(engine: Engine, d: MapDocument, mapName: string, x: number, y: number, size: number) {
 	try {
 		const spawns = await LoadSpawns(mapName, x, y, size)
-		engine.setSpawns(d, spawns)
+		engine.setSpawns(d, spawns, true)
 		setStatus(`Loaded ${spawns.length} creatures and game objects from the server.`, 8000)
 	} catch (err) {
 		console.warn('spawns not loaded', err)

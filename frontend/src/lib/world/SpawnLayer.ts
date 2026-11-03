@@ -199,15 +199,31 @@ export class SpawnLayer {
 		return this.created.has(key) ? this.originals.get(key) : undefined
 	}
 
-	/** Replaces the drawn spawns, and starts loading their models. Forgets every edit. */
-	set(spawns: vmangos.WorldSpawn[]) {
+	/**
+	 * Replaces the drawn spawns, and starts loading their models. Forgets every edit, but with
+	 * `keepAdded` the spawns made in the editor and not saved yet stay, as the same objects (their undo
+	 * steps hold them) and still edits: the database's spawns read after one was placed (#1083). One
+	 * whose key the database has now is left out, the database's spawn drawn instead.
+	 */
+	set(spawns: vmangos.WorldSpawn[], keepAdded = false) {
 		if (this.disposed) return
-		this.spawns = spawns
-		this.keys = new Map(spawns.map((s) => [spawnKey(s), s]))
+		const keys = new Map(spawns.map((s) => [spawnKey(s), s]))
+		const added = new Map<string, vmangos.WorldSpawn>()
+		if (keepAdded) for (const k of this.created) if (!keys.has(k)) added.set(k, this.originals.get(k)!)
+		const kept = this.spawns.filter((s) => added.has(spawnKey(s)))
+		this.spawns = kept.length ? spawns.concat(kept) : spawns
+		for (const s of kept) keys.set(spawnKey(s), s)
+		this.keys = keys
 		this.originals.clear()
 		this.created.clear()
 		this.deleted.clear()
 		this.changes.clear()
+		// An added spawn undone (not drawn) keeps its placed state too, for its redo.
+		for (const [k, o] of added) {
+			this.originals.set(k, o)
+			this.created.add(k)
+			this.changes.mark(k)
+		}
 		if (this.sessionMarks) this.sessionAll = true
 		this.retype()
 		this.rebuild()

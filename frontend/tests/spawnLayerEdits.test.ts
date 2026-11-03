@@ -206,3 +206,34 @@ test('a save of some edits marks only those saved: the left-out ones stay edits 
 		['monster/20', 'monster/10'],
 	)
 })
+
+test('spawns placed before the database spawns arrive stay, with their undo, when set keeps them (#1083)', () => {
+	const layer = new SpawnLayer()
+	const placed = spawn('monster', 50, 300, 4)
+	const cmd: Command = spawnAdd(layer, placed, 'Add')
+	const undone = spawn('object', 51, 400)
+	spawnAdd(layer, undone, 'Add').undo()
+	layer.set([spawn('monster', 10, 100), spawn('object', 11, 200)], true)
+	assert.equal(layer.get('monster/50'), placed)
+	assert.equal(layer.spawns.length, 3)
+	assert.deepEqual(editsOf(layer), [{ key: 'monster/50', guid: 50, entry: 300, created: true, deleted: false }])
+	cmd.undo()
+	assert.equal(layer.get('monster/50'), undefined)
+	assert.deepEqual(editsOf(layer), [])
+	cmd.redo()
+	assert.equal(layer.editCount(), 1)
+	// Without keepAdded (a reload that means to start over), every edit goes.
+	layer.set([spawn('monster', 10, 100)])
+	assert.equal(layer.get('monster/50'), undefined)
+	assert.deepEqual(editsOf(layer), [])
+})
+
+test('a placed spawn whose key the database now has gives way to the database row (#1083)', () => {
+	const layer = new SpawnLayer()
+	spawnAdd(layer, spawn('monster', 10, 300), 'Add')
+	const row = spawn('monster', 10, 100)
+	layer.set([row], true)
+	assert.equal(layer.get('monster/10'), row)
+	assert.equal(layer.spawns.length, 1)
+	assert.deepEqual(editsOf(layer), [])
+})

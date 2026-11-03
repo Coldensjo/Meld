@@ -3263,19 +3263,20 @@ export class Engine {
 	/**
 	 * Gives a region's document its creatures and game objects, from the world database. The
 	 * document may no longer be the active tab by the time they arrive; the layer is kept either way.
+	 * `keepAdded` keeps the spawns placed in the editor and not saved yet (`SpawnLayer.set`).
 	 */
-	setSpawns(d: MapDocument, spawns: vmangos.WorldSpawn[]) {
+	setSpawns(d: MapDocument, spawns: vmangos.WorldSpawn[], keepAdded = false) {
 		// The tab was closed while the database was read: its layer is disposed, nothing to give it (#550).
 		if (!this.documents.includes(d)) return
 		const before = d.spawnLayer.modelTypes(new Set())
-		d.spawnLayer.set(spawns)
+		d.spawnLayer.set(spawns, keepAdded)
 		// Spawns read again: the models only the old ones used are let go of (#505).
 		if (this.documents.includes(d)) this.releaseModels(before)
 		d.spawnsError = ''
 		if (d === this.doc) {
-			editor.spawns = spawns.slice()
+			editor.spawns = d.spawnLayer.spawns.slice()
 			editor.spawnsError = ''
-			ui.spawnChanges = 0
+			ui.spawnChanges = d.spawnLayer.editCount()
 		}
 		this.applyLayerVisibility(this.prefs)
 	}
