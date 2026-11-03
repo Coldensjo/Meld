@@ -664,6 +664,7 @@ func (e *DisplayEntry) setUses(u *displayUse) {
 // listDisplays makes the display list from the client's tables and the templates' uses, by ID.
 func listDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry {
 	t := tables.creatureDisplay
+	skin, extra := t.at("Skin", 0), t.col("Extra")
 	out := make([]DisplayEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
 		id := int(t.u32(r, 0))
@@ -671,7 +672,7 @@ func listDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry 
 		if look.model == "" {
 			continue
 		}
-		e := DisplayEntry{ID: id, Model: look.model, Look: look.look.Query(), Scale: look.scale, Skin: t.str(r, 6), Humanoid: t.u32(r, 3) != 0}
+		e := DisplayEntry{ID: id, Model: look.model, Look: look.look.Query(), Scale: look.scale, Skin: t.str(r, skin), Humanoid: t.u32(r, extra) != 0}
 		if e.Humanoid {
 			e.Skin = ""
 		}
@@ -732,10 +733,11 @@ const objectDisplayUsesSQL = `SELECT t.displayId, t.type, t.name FROM gameobject
 // templates' uses, by ID.
 func listObjectDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry {
 	t := tables.objectDisplay
+	modelCol := t.col("Model")
 	out := make([]DisplayEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
 		id := int(t.u32(r, 0))
-		model := t.str(r, 1)
+		model := t.str(r, modelCol)
 		if id == 0 || model == "" {
 			continue
 		}
@@ -799,17 +801,18 @@ func animationNames(set *mpq.Set, dataDir string) (map[int]string, error) {
 	if n, ok := animNames[dataDir]; ok {
 		return n, nil
 	}
-	b, err := set.ReadFile(`DBFilesClient\AnimationData.dbc`)
+	b, err := set.ReadFile(dbcAnimationData.file())
 	if err != nil {
 		return nil, err
 	}
-	t, err := parseDBC(b)
+	t, err := parseTable(b, dbcAnimationData)
 	if err != nil {
 		return nil, err
 	}
+	name := t.col("Name")
 	n := make(map[int]string, t.records)
 	for r := 0; r < t.records; r++ {
-		n[int(t.u32(r, 0))] = t.str(r, 1)
+		n[int(t.u32(r, 0))] = t.str(r, name)
 	}
 	animNames[dataDir] = n
 	return n, nil

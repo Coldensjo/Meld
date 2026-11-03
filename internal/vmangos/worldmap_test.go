@@ -53,7 +53,7 @@ func TestSetWorldMapRowAddsAndReplaces(t *testing.T) {
 	if err != nil || row.ID != 31 {
 		t.Fatalf("replaced row %+v, %v", row, err)
 	}
-	tb, _ := worldMapTable(out)
+	tb, _, _ := worldMapTable(out)
 	if tb.records != 3 {
 		t.Fatalf("%d records after a replace, want 3", tb.records)
 	}

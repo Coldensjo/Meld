@@ -305,11 +305,12 @@ type CharacterExploration struct {
 // exploreZones groups AreaTable.dbc's areas (1.12: ID, map, parent, explore flag, then the name in
 // field 11) into zones by map, the two continents first, then by name; maps names the maps.
 func exploreZones(dbc []byte, maps map[int]string) ([]ExploreZone, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcAreaTable)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields <= areaName {
+	c := areaColsOf(t.l)
+	if t.fields <= c.name {
 		return nil, fmt.Errorf("AreaTable.dbc has %d fields, not the 1.12 layout", t.fields)
 	}
 	type row struct {
@@ -319,7 +320,7 @@ func exploreZones(dbc []byte, maps map[int]string) ([]ExploreZone, error) {
 	rows := make([]row, 0, t.records)
 	zones := map[int]*ExploreZone{}
 	for r := 0; r < t.records; r++ {
-		a := row{ExploreArea{int(t.u32(r, areaID)), t.str(r, areaName), int(t.u32(r, areaBit))}, int(t.u32(r, areaMap)), int(t.u32(r, areaParent))}
+		a := row{ExploreArea{int(t.u32(r, c.id)), t.str(r, c.name), int(t.u32(r, c.bit))}, int(t.u32(r, c.mapID)), int(t.u32(r, c.parent))}
 		if a.ID == 0 || a.Bit >= MaxAreaBit {
 			continue
 		}
@@ -472,13 +473,13 @@ func taxiSources(dataDir string) map[int]bool {
 	if err != nil {
 		return nil
 	}
-	p, err := taxiTable(tt.Paths, "TaxiPath.dbc", taxiPathFields)
+	p, c, err := taxiPathTable(tt.Paths)
 	if err != nil {
 		return nil
 	}
 	out := map[int]bool{}
 	for r := 0; r < p.records; r++ {
-		out[int(p.u32(r, 1))] = true
+		out[int(p.u32(r, c.from))] = true
 	}
 	return out
 }

@@ -77,7 +77,7 @@ func TestSetWorldMapOverlaysReplacesTheZones(t *testing.T) {
 	if other, _ := WorldMapOverlays(out, 41); len(other) != 1 || other[0].Name != "DOLANAAR" || other[0].OffsetY != 323 {
 		t.Fatalf("another zone's rows changed: %+v", other)
 	}
-	if tb, _ := worldOverlayTable(out); tb.records != 3 {
+	if tb, _, _ := worldOverlayTable(out); tb.records != 3 {
 		t.Fatalf("%d records, want 3", tb.records)
 	}
 

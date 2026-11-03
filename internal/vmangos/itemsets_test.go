@@ -19,7 +19,7 @@ func TestParseItemSetSkipsEmptySlots(t *testing.T) {
 	row[27], row[35] = 900, 3
 	row[29], row[37] = 901, 2
 	row[43], row[44] = 197, 210
-	d := testDBC(t, 45, row)
+	d := as(testDBC(t, 45, row), dbcItemSet)
 	s := parseItemSet(d, 0)
 	if s.ID != 7 || s.Name != "Test Set" || !slices.Equal(s.Items, []int{100, 101, 102}) {
 		t.Fatalf("set %+v", s)

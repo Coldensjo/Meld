@@ -32,16 +32,33 @@ const (
 	SpellVisualEffectPath = `DBFilesClient\SpellVisualEffectName.dbc`
 )
 
+// visualStages is a visual's stages, and kitSlots a kit's attachment points.
 const (
-	visualFields   = 16
-	visualKitBase  = 1 // the stages' kits, 5 fields
-	visualStages   = 5
-	visualMissile  = 6 // has a missile, then model, path type, attachment, sound
-	visualArea     = 11
-	kitFields      = 35
-	kitEffectsBase = 3 // the attachment points' effects, 10 fields
-	kitSlots       = 10
+	visualStages = 5
+	kitSlots     = 10
 )
+
+// visualCols are SpellVisual.dbc's columns (dbcSpellVisual): the first stage's kit (the others
+// follow), the missile's and the area effect's.
+type visualCols struct {
+	kit, missile, missileModel, missilePath, missileAttach, missileSound, area, areaModel, areaSound int
+}
+
+func visualColsOf(l *dbcLayout) visualCols {
+	return visualCols{
+		kit: l.at("Kit", 0), missile: l.col("Missile"), missileModel: l.col("MissileModel"), missilePath: l.col("MissilePath"),
+		missileAttach: l.col("MissileAttach"), missileSound: l.col("MissileSound"),
+		area: l.col("Area"), areaModel: l.col("AreaModel"), areaSound: l.col("AreaSound"),
+	}
+}
+
+// kitCols are SpellVisualKit.dbc's columns (dbcSpellVisualKit): the kind, the animation, the first
+// attachment point's effect (the others follow) and the character glow's first proc (procs of them).
+type kitCols struct{ kind, anim, effect, charProc, procs int }
+
+func kitColsOf(l *dbcLayout) kitCols {
+	return kitCols{l.col("Kind"), l.col("Anim"), l.at("Effect", 0), l.at("CharProc", 0), l.count("CharProc")}
+}
 
 // none is a kit's "no effect on this attachment point".
 const none = 0xFFFFFFFF
@@ -103,7 +120,7 @@ func ListVisualEffects(dataDir string) ([]VisualEffect, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := parseDBC(b)
+	t, err := parseTable(b, dbcVisualEffect)
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +138,14 @@ func ListVisualEffects(dataDir string) ([]VisualEffect, error) {
 
 // listVisualEffects is the effect list from the table and the client's files (lower case).
 func listVisualEffects(t *dbcTable, have map[string]bool) []VisualEffect {
+	name, path := t.col("Name"), t.col("Path")
 	out := make([]VisualEffect, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		m := effectModel(t.str(r, 2))
+		m := effectModel(t.str(r, path))
 		if m == "" || !have[strings.ToLower(m)] {
 			continue
 		}
-		out = append(out, VisualEffect{ID: int(t.u32(r, 0)), Name: t.str(r, 1), Model: m})
+		out = append(out, VisualEffect{ID: int(t.u32(r, 0)), Name: t.str(r, name), Model: m})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if a, b := strings.ToLower(out[i].Name), strings.ToLower(out[j].Name); a != b {
@@ -151,23 +169,28 @@ func readVisualTables(set *mpq.Set, dataDir string) ([]byte, []byte, error) {
 	return vb, kb, nil
 }
 
-// checkVisualTables refuses tables whose layout isn't 1.12's.
-func checkVisualTables(v, k *dbcTable) error {
-	if v.fields != visualFields || v.recSize != v.fields*4 {
-		return fmt.Errorf("SpellVisual.dbc has %d fields, not 1.12's %d", v.fields, visualFields)
+// parseVisualTables reads SpellVisual.dbc and SpellVisualKit.dbc, refusing tables of a layout Meld
+// doesn't know.
+func parseVisualTables(vb, kb []byte) (v, k *dbcTable, err error) {
+	if v, err = parseExact(vb, dbcSpellVisual); err != nil {
+		return nil, nil, err
 	}
-	if k.fields != kitFields || k.recSize != k.fields*4 {
-		return fmt.Errorf("SpellVisualKit.dbc has %d fields, not 1.12's %d", k.fields, kitFields)
+	if k, err = parseExact(kb, dbcSpellVisualKit); err != nil {
+		return nil, nil, err
 	}
-	return nil
+	if v.l.count("Kit") != visualStages || k.l.count("Effect") != kitSlots {
+		return nil, nil, fmt.Errorf("a visual of %d stages and kits of %d attachment points, not %d and %d", v.l.count("Kit"), k.l.count("Effect"), visualStages, kitSlots)
+	}
+	return v, k, nil
 }
 
 // kitEffects are the effects on a kit's attachment points, 0 for none.
 func kitEffects(k *dbcTable, id uint32) []int {
 	out := make([]int, kitSlots)
 	if r, ok := k.row(id); ok && id != 0 {
+		first := k.at("Effect", 0)
 		for i := range out {
-			if e := k.u32(r, kitEffectsBase+i); e != none {
+			if e := k.u32(r, first+i); e != none {
 				out[i] = int(e)
 			}
 		}
@@ -186,18 +209,19 @@ func readVisualDesign(v, k *dbcTable, id int) VisualDesign {
 		return d
 	}
 	d.ID = id
+	c := visualColsOf(v.l)
 	for i := range d.Stages {
-		kid := v.u32(r, visualKitBase+i)
+		kid := v.u32(r, c.kit+i)
 		if _, ok := k.row(kid); !ok {
 			kid = 0
 		}
 		d.Stages[i] = VisualKit{ID: int(kid), Effects: kitEffects(k, kid)}
 	}
-	if v.u32(r, visualMissile) != 0 {
-		d.Missile, d.MissileFrom = int(v.u32(r, visualMissile+1)), id
+	if v.u32(r, c.missile) != 0 {
+		d.Missile, d.MissileFrom = int(v.u32(r, c.missileModel)), id
 	}
-	if v.u32(r, visualArea) != 0 {
-		d.Area, d.AreaFrom = int(v.u32(r, visualArea+1)), id
+	if v.u32(r, c.area) != 0 {
+		d.Area, d.AreaFrom = int(v.u32(r, c.areaModel)), id
 	}
 	return d
 }
@@ -213,15 +237,8 @@ func ReadSpellVisual(dataDir string, id int) (VisualDesign, error) {
 	if err != nil {
 		return VisualDesign{}, err
 	}
-	v, err := parseDBC(vb)
+	v, k, err := parseVisualTables(vb, kb)
 	if err != nil {
-		return VisualDesign{}, err
-	}
-	k, err := parseDBC(kb)
-	if err != nil {
-		return VisualDesign{}, err
-	}
-	if err := checkVisualTables(v, k); err != nil {
 		return VisualDesign{}, err
 	}
 	return readVisualDesign(v, k, id), nil
@@ -241,17 +258,11 @@ var (
 // new effects. The visual is d.ID when nothing changed, else any visual with the same fields, else
 // a new one, a copy of d.ID's with the stages, missile and area set.
 func planVisual(vdbc, kdbc []byte, d VisualDesign) (int, []byte, []byte, error) {
-	v, err := parseDBC(vdbc)
+	v, k, err := parseVisualTables(vdbc, kdbc)
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	k, err := parseDBC(kdbc)
-	if err != nil {
-		return 0, nil, nil, err
-	}
-	if err := checkVisualTables(v, k); err != nil {
-		return 0, nil, nil, err
-	}
+	vc, kc := visualColsOf(v.l), kitColsOf(k.l)
 	if len(d.Stages) != visualStages {
 		return 0, nil, nil, fmt.Errorf("a visual has %d stages, not %d", len(d.Stages), visualStages)
 	}
@@ -289,16 +300,16 @@ func planVisual(vdbc, kdbc []byte, d VisualDesign) (int, []byte, []byte, error) 
 		if hasBase {
 			rec = k.record(base)
 		} else {
-			rec = make([]uint32, kitFields)
-			rec[1], rec[2] = newKitKind[i], newKitAnim[i]
-			for f := 15; f <= 18; f++ {
+			rec = make([]uint32, k.fields)
+			rec[kc.kind], rec[kc.anim] = newKitKind[i], newKitAnim[i]
+			for f := kc.charProc; f < kc.charProc+kc.procs; f++ {
 				rec[f] = none // no character glow
 			}
 		}
 		for j, e := range s.Effects {
-			rec[kitEffectsBase+j] = none
+			rec[kc.effect+j] = none
 			if e > 0 {
-				rec[kitEffectsBase+j] = uint32(e)
+				rec[kc.effect+j] = uint32(e)
 			}
 		}
 		maxKit++
@@ -312,42 +323,44 @@ func planVisual(vdbc, kdbc []byte, d VisualDesign) (int, []byte, []byte, error) 
 		kits[i] = maxKit
 	}
 
-	rec := make([]uint32, visualFields)
+	rec := make([]uint32, v.fields)
 	baseRow, hasBase := v.row(uint32(max(d.ID, 0)))
 	hasBase = hasBase && d.ID > 0
 	if hasBase {
 		rec = v.record(baseRow)
 	}
-	copy(rec[visualKitBase:], kits[:])
+	copy(rec[vc.kit:vc.kit+visualStages], kits[:])
 	// The missile: the path, attachment and sound of the visual it came from, else a plain one.
-	// The attachment (field 9) is set on most visuals, with a missile or without, so only a missile
-	// taken from another visual changes it.
-	for _, f := range []int{visualMissile, visualMissile + 1, visualMissile + 2, visualMissile + 4} {
+	// The attachment is set on most visuals, with a missile or without, so only a missile taken from
+	// another visual changes it.
+	missile := []int{vc.missile, vc.missileModel, vc.missilePath, vc.missileAttach, vc.missileSound}
+	for _, f := range []int{vc.missile, vc.missileModel, vc.missilePath, vc.missileSound} {
 		rec[f] = 0
 	}
 	if d.Missile > 0 {
-		if r, ok := v.row(uint32(d.MissileFrom)); ok && d.MissileFrom > 0 && v.u32(r, visualMissile) != 0 {
-			for f := visualMissile; f < visualMissile+5; f++ {
+		if r, ok := v.row(uint32(d.MissileFrom)); ok && d.MissileFrom > 0 && v.u32(r, vc.missile) != 0 {
+			for _, f := range missile {
 				rec[f] = v.u32(r, f)
 			}
-		} else if rec[visualMissile+3] == 0 {
-			rec[visualMissile+3] = 1 // to the target's chest
+		} else if rec[vc.missileAttach] == 0 {
+			rec[vc.missileAttach] = 1 // to the target's chest
 		}
-		rec[visualMissile], rec[visualMissile+1] = 1, uint32(d.Missile)
+		rec[vc.missile], rec[vc.missileModel] = 1, uint32(d.Missile)
 	}
-	for f := visualArea; f < visualArea+3; f++ {
+	area := []int{vc.area, vc.areaModel, vc.areaSound}
+	for _, f := range area {
 		rec[f] = 0
 	}
 	if d.Area > 0 {
-		if r, ok := v.row(uint32(d.AreaFrom)); ok && d.AreaFrom > 0 && v.u32(r, visualArea) != 0 {
-			for f := visualArea; f < visualArea+3; f++ {
+		if r, ok := v.row(uint32(d.AreaFrom)); ok && d.AreaFrom > 0 && v.u32(r, vc.area) != 0 {
+			for _, f := range area {
 				rec[f] = v.u32(r, f)
 			}
 		}
-		rec[visualArea], rec[visualArea+1] = 1, uint32(d.Area)
+		rec[vc.area], rec[vc.areaModel] = 1, uint32(d.Area)
 	}
 	sameRow := func(r int) bool {
-		for f := 1; f < visualFields; f++ {
+		for f := 1; f < v.fields; f++ {
 			if v.u32(r, f) != rec[f] {
 				return false
 			}

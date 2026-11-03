@@ -55,11 +55,11 @@ func readScriptLooks(script string) scriptLooks {
 				l.icons[id] = rest
 			}
 		case "visual":
-			if f, ok := lookFields(rest, visualFields); ok {
+			if f, ok := lookFields(rest, dbcSpellVisual); ok {
 				l.visuals[id] = f
 			}
 		case "kit":
-			if f, ok := lookFields(rest, kitFields); ok {
+			if f, ok := lookFields(rest, dbcSpellVisualKit); ok {
 				l.kits[id] = f
 			}
 		}
@@ -68,10 +68,11 @@ func readScriptLooks(script string) scriptLooks {
 }
 
 // lookFields reads a carried record (every field but the ID, space-separated) as a whole record of
-// fields with ID 0.
-func lookFields(text string, fields int) ([]uint32, bool) {
+// one of the table's layouts, with ID 0.
+func lookFields(text string, s *dbcSchema) ([]uint32, bool) {
 	parts := strings.Fields(text)
-	if len(parts) != fields-1 {
+	fields := len(parts) + 1
+	if s.layout(fields).columns != fields {
 		return nil, false
 	}
 	rec := make([]uint32, fields)
@@ -120,8 +121,8 @@ func looksComment(cols []TemplateColumn, rows []batchRow, icon, visual, kit *dbc
 	}
 	var b strings.Builder
 	for _, id := range ids(iconAt) {
-		if r, ok := icon.row(uint32(id)); ok && icon.fields >= 2 {
-			if p := commentSafe(icon.str(r, 1)); p != "" {
+		if r, ok := icon.row(uint32(id)); ok && icon.fields > icon.col("Texture") {
+			if p := commentSafe(icon.str(r, icon.col("Texture"))); p != "" {
 				fmt.Fprintf(&b, "-- meld icon %d %s\n", id, p)
 			}
 		}
@@ -129,12 +130,13 @@ func looksComment(cols []TemplateColumn, rows []batchRow, icon, visual, kit *dbc
 	var kits []int
 	for _, id := range ids(visualAt) {
 		r, ok := visual.row(uint32(id))
-		if !ok || visual.fields != visualFields {
+		if !ok || visual.fields != visual.l.columns {
 			continue
 		}
 		rec := visual.record(r)
 		b.WriteString(lookLine("visual", id, rec))
-		for _, k := range rec[visualKitBase : visualKitBase+visualStages] {
+		kitAt := visual.at("Kit", 0)
+		for _, k := range rec[kitAt : kitAt+visual.l.count("Kit")] {
 			if k != 0 && !slices.Contains(kits, int(k)) {
 				kits = append(kits, int(k))
 			}
@@ -142,7 +144,7 @@ func looksComment(cols []TemplateColumn, rows []batchRow, icon, visual, kit *dbc
 	}
 	sort.Ints(kits)
 	for _, id := range kits {
-		if r, ok := kit.row(uint32(id)); ok && kit.fields == kitFields {
+		if r, ok := kit.row(uint32(id)); ok && kit.fields == kit.l.columns {
 			b.WriteString(lookLine("kit", id, kit.record(r)))
 		}
 	}
@@ -181,11 +183,11 @@ func planLooks(l scriptLooks, usedIcons, usedVisuals map[int]bool, iconDBC, visu
 		if iconOut != nil {
 			cur = iconOut
 		}
-		t, err := parseDBC(cur)
+		t, err := parseTable(cur, dbcSpellIcon)
 		if err != nil {
 			return lookPlan{}, fmt.Errorf("SpellIcon.dbc: %w", err)
 		}
-		if r, ok := t.row(uint32(id)); ok && t.fields >= 2 && strings.EqualFold(t.str(r, 1), path) {
+		if r, ok := t.row(uint32(id)); ok && t.fields > t.col("Texture") && strings.EqualFold(t.str(r, t.col("Texture")), path) {
 			continue
 		}
 		nid, out, err := spellIconPathRow(cur, path)
@@ -237,7 +239,8 @@ func planLooks(l scriptLooks, usedIcons, usedVisuals map[int]bool, iconDBC, visu
 			continue
 		}
 		rec := append([]uint32(nil), carried...)
-		for s := visualKitBase; s < visualKitBase+visualStages; s++ {
+		vl := dbcSpellVisual.layout(len(rec))
+		for s := vl.at("Kit", 0); s < vl.at("Kit", 0)+vl.count("Kit"); s++ {
 			k := int(rec[s])
 			kr, ok := l.kits[k]
 			if k == 0 || !ok {

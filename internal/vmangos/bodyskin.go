@@ -58,7 +58,7 @@ func slotPaints(slot, region int) bool {
 // robed says the chest or the legs worn show a robe's skirt (their display's third geoset group).
 func (m *modelTables) robed(worn [wearSlots]int) bool {
 	for _, slot := range []int{wearChest, wearLegs} {
-		if worn[slot] >= 0 && m.itemDisplay.u32(worn[slot], 8) > 0 {
+		if worn[slot] >= 0 && m.itemDisplay.u32(worn[slot], m.itemDisplay.at("Geoset", 2)) > 0 {
 			return true
 		}
 	}
@@ -79,17 +79,17 @@ func (m *modelTables) bodyLayers(cl charLook, worn [wearSlots]int) []wow.SkinLay
 	}
 	for _, s := range []struct {
 		section, variation, color uint32
-		first                     int
+		first                     int // the first of the section's textures
 		regions                   []int
 	}{
-		{1, face, skin, 6, []int{wow.RegionFaceLower, wow.RegionFaceUpper}},
-		{4, 0, skin, 6, []int{wow.RegionLegUpper, wow.RegionTorsoUpper}},
-		{2, facial, hairColor, 6, []int{wow.RegionFaceLower, wow.RegionFaceUpper}},
-		{3, hairStyle, hairColor, 7, []int{wow.RegionFaceLower, wow.RegionFaceUpper}},
+		{1, face, skin, 0, []int{wow.RegionFaceLower, wow.RegionFaceUpper}},
+		{4, 0, skin, 0, []int{wow.RegionLegUpper, wow.RegionTorsoUpper}},
+		{2, facial, hairColor, 0, []int{wow.RegionFaceLower, wow.RegionFaceUpper}},
+		{3, hairStyle, hairColor, 1, []int{wow.RegionFaceLower, wow.RegionFaceUpper}},
 	} {
 		if row, ok := m.section(race, sex, s.section, s.variation, s.color); ok {
 			for i, region := range s.regions {
-				add(region, m.sections.str(row, s.first+i))
+				add(region, m.sections.str(row, m.sections.at("Texture", s.first+i)))
 			}
 		}
 	}
@@ -102,7 +102,7 @@ func (m *modelTables) bodyLayers(cl charLook, worn [wearSlots]int) []wow.SkinLay
 	}
 	layer := func(slot int) int {
 		// Gloves without a cuff of their own go under a robe's sleeves.
-		if slot == wearGloves && m.robed(worn) && m.itemDisplay.u32(worn[slot], 6) == 0 {
+		if slot == wearGloves && m.robed(worn) && m.itemDisplay.u32(worn[slot], m.itemDisplay.at("Geoset", 0)) == 0 {
 			return slotLayers[wearChest] - 1
 		}
 		return slotLayers[slot]
@@ -112,10 +112,11 @@ func (m *modelTables) bodyLayers(cl charLook, worn [wearSlots]int) []wow.SkinLay
 	for _, slot := range slots {
 		row := worn[slot]
 		for i, b := range bodyTextureRegions {
-			if 14+i >= m.itemDisplay.fields || !slotPaints(slot, b.region) {
+			f := m.itemDisplay.at("Texture", i)
+			if f >= m.itemDisplay.fields || !slotPaints(slot, b.region) {
 				continue
 			}
-			add(b.region, m.componentTexture(b.dir, m.itemDisplay.str(row, 14+i), female))
+			add(b.region, m.componentTexture(b.dir, m.itemDisplay.str(row, f), female))
 		}
 	}
 	return out

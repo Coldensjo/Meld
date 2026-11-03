@@ -14,9 +14,9 @@ func TestSpellScriptLooks(t *testing.T) {
 	// The exporting client: icon 7 Interface\Icons\Meld_Bolt (Meld-added), visual 10 with kit 5.
 	iconFrom := iconTable(map[uint32]string{1: `Interface\Icons\Temp`, 7: `Interface\Icons\Meld_Bolt`})
 	visFrom, kitFrom := visualTables()
-	it, _ := parseDBC(iconFrom)
-	vt, _ := parseDBC(visFrom)
-	kt, _ := parseDBC(kitFrom)
+	it, _ := parseTable(iconFrom, dbcSpellIcon)
+	vt, _ := parseTable(visFrom, dbcSpellVisual)
+	kt, _ := parseTable(kitFrom, dbcSpellVisualKit)
 	cols := append(spellScript.keyColumns(),
 		TemplateColumn{Name: "name", Kind: "text", MaxLen: 256},
 		TemplateColumn{Name: "spellIconId", Kind: "uint", Max: 1<<32 - 1},
@@ -73,15 +73,15 @@ func TestSpellScriptLooks(t *testing.T) {
 	for _, f := range p.files {
 		byName[f.Name] = f.Data
 	}
-	ni, _ := parseDBC(byName[SpellIconPath])
+	ni, _ := parseTable(byName[SpellIconPath], dbcSpellIcon)
 	if r, ok := ni.row(10); !ok || ni.str(r, 1) != `Interface\Icons\Meld_Bolt` {
 		t.Fatal("the bolt's icon wasn't added")
 	}
-	nk, _ := parseDBC(byName[SpellVisualKitPath])
+	nk, _ := parseTable(byName[SpellVisualKitPath], dbcSpellVisualKit)
 	if r, ok := nk.row(6); !ok || nk.u32(r, kitEffectsBase+3) != 7 || nk.u32(r, 2) != 52 {
 		t.Fatal("the kit wasn't added")
 	}
-	nv, _ := parseDBC(byName[SpellVisualPath])
+	nv, _ := parseTable(byName[SpellVisualPath], dbcSpellVisual)
 	if r, ok := nv.row(11); !ok || nv.u32(r, 1) != 6 || nv.u32(r, 7) != 7 || nv.u32(r, 9) != 3 {
 		t.Fatal("the visual wasn't added with the new kit")
 	}

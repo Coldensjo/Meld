@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 	"Meld/internal/testclient"
 	"Meld/internal/wow"
@@ -20,7 +21,7 @@ func triggerDBC(rows ...AreaTrigger) []byte {
 	out = binary.LittleEndian.AppendUint32(out, areaTriggerFields*4)
 	out = binary.LittleEndian.AppendUint32(out, 1)
 	for _, r := range rows {
-		for _, v := range triggerRecord(r) {
+		for _, v := range triggerRecord(dbcAreaTrigger.forBuild(clientbuild.Vanilla), r) {
 			out = binary.LittleEndian.AppendUint32(out, v)
 		}
 	}

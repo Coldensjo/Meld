@@ -41,21 +41,21 @@ func loadModelTables(dataDir string) (*modelTables, error) {
 		return nil, err
 	}
 	defer set.Close()
-	read := func(name string) (*dbcTable, error) {
-		b, err := readOverlay(set, dataDir, `DBFilesClient\`+name)
+	read := func(s *dbcSchema) (*dbcTable, error) {
+		b, err := readOverlay(set, dataDir, s.file())
 		if err != nil {
 			return nil, err
 		}
-		return parseDBC(b)
+		return parseTable(b, s)
 	}
 	var m modelTables
-	if m.creatureDisplay, err = read("CreatureDisplayInfo.dbc"); err != nil {
+	if m.creatureDisplay, err = read(dbcCreatureDisplay); err != nil {
 		return nil, err
 	}
-	if m.creatureModelData, err = read("CreatureModelData.dbc"); err != nil {
+	if m.creatureModelData, err = read(dbcCreatureModel); err != nil {
 		return nil, err
 	}
-	if m.objectDisplay, err = read("GameObjectDisplayInfo.dbc"); err != nil {
+	if m.objectDisplay, err = read(dbcObjectDisplay); err != nil {
 		return nil, err
 	}
 	for _, f := range set.List() {
@@ -67,19 +67,19 @@ func loadModelTables(dataDir string) (*modelTables, error) {
 		}
 	}
 	for _, t := range []struct {
-		p    **dbcTable
-		name string
+		p *(*dbcTable)
+		s *dbcSchema
 	}{
-		{&m.creatureExtra, "CreatureDisplayInfoExtra.dbc"},
-		{&m.itemDisplay, "ItemDisplayInfo.dbc"},
-		{&m.hairGeosets, "CharHairGeosets.dbc"},
-		{&m.facialHair, "CharacterFacialHairStyles.dbc"},
-		{&m.sections, "CharSections.dbc"},
-		{&m.races, "ChrRaces.dbc"},
-		{&m.helmVis, "HelmetGeosetVisData.dbc"},
-		{&m.emotes, "Emotes.dbc"},
+		{&m.creatureExtra, dbcCreatureExtra},
+		{&m.itemDisplay, dbcItemDisplay},
+		{&m.hairGeosets, dbcHairGeosets},
+		{&m.facialHair, dbcFacialHair},
+		{&m.sections, dbcCharSections},
+		{&m.races, dbcChrRaces},
+		{&m.helmVis, dbcHelmVis},
+		{&m.emotes, dbcEmotes},
 	} {
-		*t.p, _ = read(t.name)
+		*t.p, _ = read(t.s)
 	}
 	return &m, nil
 }
@@ -126,12 +126,12 @@ const (
 // ground, in a chair (the low one), sleeping, in a low, medium or high chair, dead, kneeling.
 var standAnims = map[int]int{1: 97, 2: 102, 3: 100, 4: 102, 5: 103, 6: 104, 7: 6, 8: 115}
 
-// poseAnim is the animation a creature's pose plays: its looping emote's (Emotes.dbc field 2),
+// poseAnim is the animation a creature's pose plays: its looping emote's (Emotes.dbc's Anim),
 // else its stand state's, else Stand (0).
 func (m *modelTables) poseAnim(stand, emote int) int {
-	if emote != 0 && m != nil && m.emotes != nil && m.emotes.fields > 2 {
+	if emote != 0 && m != nil && m.emotes != nil && m.emotes.fields > m.emotes.col("Anim") {
 		if r, ok := m.emotes.row(uint32(emote)); ok {
-			if a := int(m.emotes.u32(r, 2)); a != 0 {
+			if a := int(m.emotes.u32(r, m.emotes.col("Anim"))); a != 0 {
 				return a
 			}
 		}
@@ -139,9 +139,9 @@ func (m *modelTables) poseAnim(stand, emote int) int {
 	return standAnims[stand]
 }
 
-// creatureLook resolves a creature display and dresses it in gear. CreatureDisplayInfo's fields
-// are: 1 the model, 3 the extra display (humanoids), 4 the scale, 6-8 the skin names, which are
-// .blp files in the model's folder.
+// creatureLook resolves a creature display and dresses it in gear. CreatureDisplayInfo holds the
+// model, the extra display (humanoids), the scale and three skin names, which are .blp files in the
+// model's folder.
 func (m *modelTables) creatureLook(display uint32, g gear) creatureDisplay {
 	out := creatureDisplay{scale: 1}
 	if m == nil || display == 0 {
@@ -151,19 +151,20 @@ func (m *modelTables) creatureLook(display uint32, g gear) creatureDisplay {
 	if !ok {
 		return out
 	}
+	cd := m.creatureDisplay
 	out.model = m.creatureModel(display)
-	if s := m.creatureDisplay.f32(r, 4); s > 0 {
+	if s := cd.f32(r, cd.col("Scale")); s > 0 {
 		out.scale = s
 	}
 	out.look.Anim = m.poseAnim(g.stand, g.emote)
 	dir := out.model[:strings.LastIndex(out.model, `\`)+1]
-	for i := 0; i < 3; i++ {
-		if name := m.creatureDisplay.str(r, 6+i); name != "" {
+	for i := 0; i < cd.l.count("Skin"); i++ {
+		if name := cd.str(r, cd.at("Skin", i)); name != "" {
 			out.setTexture(wow.TexMonster1+i, dir+name+".blp")
 		}
 	}
-	if m.creatureExtra != nil && m.creatureExtra.fields > 18 {
-		if er, ok := m.creatureExtra.row(m.creatureDisplay.u32(r, 3)); ok {
+	if m.creatureExtra != nil && m.creatureExtra.fields > m.creatureExtra.col("Bake") {
+		if er, ok := m.creatureExtra.row(cd.u32(r, cd.col("Extra"))); ok {
 			m.dressCharacter(&out, er)
 		}
 	}
@@ -197,7 +198,7 @@ const (
 	geoCloak    = 15
 )
 
-// The items a humanoid display wears, by index in CreatureDisplayInfoExtra's fields 8-17.
+// The items a humanoid display wears, by index in CreatureDisplayInfoExtra's Item.
 const (
 	wearHelm = iota
 	wearShoulder
@@ -212,22 +213,23 @@ const (
 	wearSlots
 )
 
-// dressCharacter dresses a character model from its CreatureDisplayInfoExtra row er. The row's fields are: 1 race, 2 sex, 3 skin colour, 4 face,
-// 5 hair style, 6 hair colour, 7 facial hair, 8-17 the worn items' displays (see wearHelm..), 18
-// the baked body texture, which already has the face, skin and clothes painted on.
+// dressCharacter dresses a character model from its CreatureDisplayInfoExtra row er: its look, the
+// worn items' displays (see wearHelm..) and the baked body texture, which already has the face, skin
+// and clothes painted on.
 func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
+	x := m.creatureExtra
 	var worn [wearSlots]int
 	for i := range worn {
 		worn[i] = -1
-		if row, ok := m.item(m.creatureExtra.u32(er, 8+i)); ok {
+		if row, ok := m.item(x.u32(er, x.at("Item", i))); ok {
 			worn[i] = row
 		}
 	}
-	m.dress(out, m.extraLook(er), worn, -1, m.creatureExtra.str(er, 18))
+	m.dress(out, m.extraLook(er), worn, -1, x.str(er, x.col("Bake")))
 }
 
 // charLook is a character's race, sex (0 male, 1 female), skin colour, face, hair style, hair colour
-// and facial hair: a CreatureDisplayInfoExtra row's fields 1-7, or a player's characters row.
+// and facial hair: a CreatureDisplayInfoExtra row's, or a player's characters row.
 type charLook struct {
 	race, sex, skin, face, hairStyle, hairColor, facial uint32
 }
@@ -235,7 +237,8 @@ type charLook struct {
 // extraLook is the CreatureDisplayInfoExtra row er's look.
 func (m *modelTables) extraLook(er int) charLook {
 	x := m.creatureExtra
-	return charLook{x.u32(er, 1), x.u32(er, 2), x.u32(er, 3), x.u32(er, 4), x.u32(er, 5), x.u32(er, 6), x.u32(er, 7)}
+	f := func(name string) uint32 { return x.u32(er, x.col(name)) }
+	return charLook{f("Race"), f("Sex"), f("Skin"), f("Face"), f("HairStyle"), f("HairColor"), f("FacialHair")}
 }
 
 // dress dresses a character model as cl's race, sex, skin, face and hair, in worn (an ItemDisplayInfo row per wear slot, -1 for none) and the cloak of ItemDisplayInfo
@@ -249,16 +252,16 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 	if bake != "" {
 		out.setTexture(wow.TexBody, bakedTextures+bake)
 	}
-	// CharSections: 1 race, 2 sex, 3 section (0 skin, 3 hair), 4 variation, 5 colour, 6-8 textures.
+	// CharSections: race, sex, section (0 skin, 3 hair), variation, colour, three textures.
 	if row, ok := m.section(uint32(race), sex, 0, 0, skin); ok {
 		if _, baked := out.look.Textures[wow.TexBody]; !baked {
-			body := m.sections.str(row, 6)
+			body := m.sections.str(row, m.sections.at("Texture", 0))
 			if layers := m.bodyLayers(cl, worn); body != "" && len(layers) > 0 {
 				body = wow.ComposedTexture(append([]wow.SkinLayer{{Region: wow.RegionBase, Path: body}}, layers...))
 			}
 			out.setTexture(wow.TexBody, body)
 		}
-		if fur := m.sections.str(row, 7); fur != "" {
+		if fur := m.sections.str(row, m.sections.at("Texture", 1)); fur != "" {
 			out.setTexture(wow.TexFur, fur)
 		}
 	}
@@ -267,7 +270,7 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 	// same colour, as the client's binder does (Benilla's CharSections::hair_mesh_texture).
 	for _, variation := range []uint32{hairStyle, 1} {
 		if row, ok := m.section(uint32(race), sex, 3, variation, hairColor); ok {
-			if hair := m.sections.str(row, 6); hair != "" {
+			if hair := m.sections.str(row, m.sections.at("Texture", 0)); hair != "" {
 				out.setTexture(wow.TexHair, hair)
 				break
 			}
@@ -280,39 +283,41 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 	// shoulder blades. A 1.12 NPC's extra row has no cloak slot, so it is always 1501.
 	geo := map[int]int{geoHair: 1, geoGloves: 401, geoBoots: 501, geoEars: 702, geoRobe: 1301, geoCloak: 1501,
 		geoFacial1: 101, geoFacial2: 201, geoFacial3: 301}
-	// CharHairGeosets: 1 race, 2 sex, 3 variation, 4 the hair's submesh (0 for bald). The client
-	// shows at least submesh 1, the scalp: for a bald style, and for a style no row names (orc
-	// females have a style more than their rows, goblin females none), so the first row of a
-	// repeated key wins (Benilla's CharacterGeosets::visible_geosets, the client's 0x478540).
-	if t := m.hairGeosets; t != nil && t.fields > 4 {
+	// CharHairGeosets: race, sex, variation, the hair's submesh (0 for bald). The client shows at
+	// least submesh 1, the scalp: for a bald style, and for a style no row names (orc females have a
+	// style more than their rows, goblin females none), so the first row of a repeated key wins
+	// (Benilla's CharacterGeosets::visible_geosets, the client's 0x478540).
+	if t := m.hairGeosets; t != nil && t.fields > t.col("Geoset") {
+		cr, cs, cv, cg := t.col("Race"), t.col("Sex"), t.col("Variation"), t.col("Geoset")
 		for r := 0; r < t.records; r++ {
-			if t.u32(r, 1) == uint32(race) && t.u32(r, 2) == sex && t.u32(r, 3) == hairStyle {
-				geo[geoHair] = max(1, int(t.u32(r, 4)))
+			if t.u32(r, cr) == uint32(race) && t.u32(r, cs) == sex && t.u32(r, cv) == hairStyle {
+				geo[geoHair] = max(1, int(t.u32(r, cg)))
 				break
 			}
 		}
 	}
-	// CharacterFacialHairStyles: 0 race, 1 sex, 2 variation, then the variants of geoset groups
-	// 1, 3 and 2 in fields 6-8 (the order WoW Model Viewer reads them in).
-	if t := m.facialHair; t != nil && t.fields > 8 {
+	// CharacterFacialHairStyles: race, sex, variation, six geosets, the last three the variants of
+	// geoset groups 1, 3 and 2 (the order WoW Model Viewer reads them in).
+	if t := m.facialHair; t != nil && t.fields > t.at("Geoset", 5) {
+		cr, cs, cv := t.col("Race"), t.col("Sex"), t.col("Variation")
 		for r := 0; r < t.records; r++ {
-			if t.u32(r, 0) == uint32(race) && t.u32(r, 1) == sex && t.u32(r, 2) == facial {
+			if t.u32(r, cr) == uint32(race) && t.u32(r, cs) == sex && t.u32(r, cv) == facial {
 				for i, group := range []int{geoFacial1, geoFacial3, geoFacial2} {
-					geo[group] = group*100 + max(1, int(t.u32(r, 6+i)))
+					geo[group] = group*100 + max(1, int(t.u32(r, t.at("Geoset", 3+i))))
 				}
 				break
 			}
 		}
 	}
 
-	// ItemDisplayInfo (23 fields in 1.12): 1-2 models, 3-4 their textures, 5 the icon, 6-8 the
-	// geoset groups, 9 flags, 10 spell visual, 11 group sound, 12-13 the helmet's HelmetGeosetVisData
-	// for a male and a female wearer, 14-21 the body-region textures.
+	// ItemDisplayInfo (dbcItemDisplay): two models and their textures, the icon, three geoset
+	// groups, flags, a spell visual, a group sound, the helmet's HelmetGeosetVisData for a male and a
+	// female wearer, the body-region textures.
 	group := func(slot, i int) int {
 		if worn[slot] < 0 {
 			return 0
 		}
-		return int(m.itemDisplay.u32(worn[slot], 6+i))
+		return int(m.itemDisplay.u32(worn[slot], m.itemDisplay.at("Geoset", i)))
 	}
 	for _, slot := range []int{wearShirt, wearChest} {
 		if v := group(slot, 0); v > 0 {
@@ -344,32 +349,33 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 	if worn[wearTabard] >= 0 {
 		geo[geoTabard] = 1201 + max(1, group(wearTabard, 0))
 	}
-	// A cloak is the back's geoset 1501 plus its first group, skinned with its texture (field 3,
-	// in the Cape folder) in the model's cape slot (texture type 2).
+	// A cloak is the back's geoset 1501 plus its first group, skinned with its texture (the first
+	// model texture, in the Cape folder) in the model's cape slot (texture type 2).
 	if cloak >= 0 {
-		geo[geoCloak] = 1501 + int(m.itemDisplay.u32(cloak, 6))
-		if tex := m.itemDisplay.str(cloak, 3); tex != "" {
+		geo[geoCloak] = 1501 + int(m.itemDisplay.u32(cloak, m.itemDisplay.at("Geoset", 0)))
+		if tex := m.itemDisplay.str(cloak, m.itemDisplay.at("ModelTexture", 0)); tex != "" {
 			out.setTexture(wow.TexItem, capeItems+tex+".blp")
 		}
 	}
 
+	id := m.itemDisplay
 	if row := worn[wearHelm]; row >= 0 {
-		if name, prefix := m.itemDisplay.str(row, 1), m.racePrefix(race); name != "" && prefix != "" {
+		if name, prefix := id.str(row, id.at("Model", 0)), m.racePrefix(race); name != "" && prefix != "" {
 			gender := "M"
 			if female {
 				gender = "F"
 			}
-			out.attach(wow.AttachHelm, headItems+trimModelExt(name)+"_"+prefix+gender+".mdx", headItems, m.itemDisplay.str(row, 3))
+			out.attach(wow.AttachHelm, headItems+trimModelExt(name)+"_"+prefix+gender+".mdx", headItems, id.str(row, id.at("ModelTexture", 0)))
 		}
-		vis := m.itemDisplay.u32(row, 12)
+		vis := id.u32(row, id.at("HelmVis", 0))
 		if female {
-			vis = m.itemDisplay.u32(row, 13)
+			vis = id.u32(row, id.at("HelmVis", 1))
 		}
 		m.hideUnderHelm(geo, vis, race)
 	}
 	if row := worn[wearShoulder]; row >= 0 {
-		out.attach(wow.AttachShoulderLeft, m.itemDisplay.str(row, 1), shoulderItems, m.itemDisplay.str(row, 3))
-		out.attach(wow.AttachShoulderRight, m.itemDisplay.str(row, 2), shoulderItems, m.itemDisplay.str(row, 4))
+		out.attach(wow.AttachShoulderLeft, id.str(row, id.at("Model", 0)), shoulderItems, id.str(row, id.at("ModelTexture", 0)))
+		out.attach(wow.AttachShoulderRight, id.str(row, id.at("Model", 1)), shoulderItems, id.str(row, id.at("ModelTexture", 1)))
 	}
 
 	out.look.Geosets = []int{0}
@@ -389,11 +395,11 @@ func trimModelExt(name string) string {
 	return name
 }
 
-// hideUnderHelm hides what a helmet covers. HelmetGeosetVisData's fields 1-5 are race masks
-// (bit 1<<race) for the hair, the three facial hair groups and the ears: a race whose bit is set
-// has that part put back to its group's first variant under the helmet, the hair to the scalp (1).
+// hideUnderHelm hides what a helmet covers. HelmetGeosetVisData's Hide are race masks (bit 1<<race)
+// for the hair, the three facial hair groups and the ears: a race whose bit is set has that part put
+// back to its group's first variant under the helmet, the hair to the scalp (1).
 func (m *modelTables) hideUnderHelm(geo map[int]int, vis uint32, race int) {
-	if m.helmVis == nil || vis == 0 || race <= 0 || race > 31 || m.helmVis.fields < 6 {
+	if m.helmVis == nil || vis == 0 || race <= 0 || race > 31 || m.helmVis.fields < m.helmVis.l.columns {
 		return
 	}
 	r, ok := m.helmVis.row(vis)
@@ -402,7 +408,7 @@ func (m *modelTables) hideUnderHelm(geo map[int]int, vis uint32, race int) {
 	}
 	bit := uint32(1) << race
 	for i, group := range []int{geoHair, geoFacial1, geoFacial2, geoFacial3, geoEars} {
-		if m.helmVis.u32(r, 1+i)&bit != 0 {
+		if m.helmVis.u32(r, m.helmVis.at("Hide", i))&bit != 0 {
 			geo[group] = group*100 + 1
 		}
 	}
@@ -423,7 +429,7 @@ func (m *modelTables) holdWeapons(out *creatureDisplay, g gear) {
 		if it.invType == invShield {
 			dir, point = shieldItems, wow.AttachShield
 		}
-		out.attach(point, m.itemDisplay.str(row, 1), dir, m.itemDisplay.str(row, 3))
+		out.attach(point, m.itemDisplay.str(row, m.itemDisplay.at("Model", 0)), dir, m.itemDisplay.str(row, m.itemDisplay.at("ModelTexture", 0)))
 	}
 	if g.sheath == sheathRanged {
 		if r := g.weapons[2]; r.invType == invRanged || r.invType == invThrown || r.invType == invGun {
@@ -448,7 +454,7 @@ func (d *creatureDisplay) attach(point int, name, dir, texture string) {
 // item is the ItemDisplayInfo row of a display. ok is false for no item, or a display the
 // client doesn't have.
 func (m *modelTables) item(display uint32) (int, bool) {
-	if display == 0 || m.itemDisplay == nil || m.itemDisplay.fields < 14 {
+	if display == 0 || m.itemDisplay == nil || m.itemDisplay.fields <= m.itemDisplay.at("HelmVis", 1) {
 		return -1, false
 	}
 	return m.itemDisplay.row(display)
@@ -457,31 +463,32 @@ func (m *modelTables) item(display uint32) (int, bool) {
 // section finds a CharSections row by race, sex, section, variation and colour.
 func (m *modelTables) section(race, sex, section, variation, color uint32) (int, bool) {
 	t := m.sections
-	if t == nil || t.fields < 9 {
+	if t == nil || t.fields <= t.at("Texture", 2) {
 		return 0, false
 	}
+	cr, cs, cn, cv, cc := t.col("Race"), t.col("Sex"), t.col("Section"), t.col("Variation"), t.col("Color")
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, 1) == race && t.u32(r, 2) == sex && t.u32(r, 3) == section && t.u32(r, 4) == variation && t.u32(r, 5) == color {
+		if t.u32(r, cr) == race && t.u32(r, cs) == sex && t.u32(r, cn) == section && t.u32(r, cv) == variation && t.u32(r, cc) == color {
 			return r, true
 		}
 	}
 	return 0, false
 }
 
-// racePrefix is a race's short name in item model names (ChrRaces field 6), such as "Hu".
+// racePrefix is a race's short name in item model names (ChrRaces' Prefix), such as "Hu".
 func (m *modelTables) racePrefix(race int) string {
-	if m.races == nil || race <= 0 || m.races.fields < 7 {
+	if m.races == nil || race <= 0 || m.races.fields <= m.races.col("Prefix") {
 		return ""
 	}
 	r, ok := m.races.row(uint32(race))
 	if !ok {
 		return ""
 	}
-	return m.races.str(r, 6)
+	return m.races.str(r, m.races.col("Prefix"))
 }
 
-// creatureModel is the model path a creature display uses, or "" when the display has none.
-// CreatureDisplayInfo's field 1 is the model's ID, and CreatureModelData's field 2 is its path.
+// creatureModel is the model path a creature display uses, or "" when the display has none: the
+// CreatureModelData row CreatureDisplayInfo's Model names holds it.
 func (m *modelTables) creatureModel(display uint32) string {
 	if m == nil || display == 0 {
 		return ""
@@ -490,15 +497,14 @@ func (m *modelTables) creatureModel(display uint32) string {
 	if !ok {
 		return ""
 	}
-	r2, ok := m.creatureModelData.row(m.creatureDisplay.u32(r, 1))
+	r2, ok := m.creatureModelData.row(m.creatureDisplay.u32(r, m.creatureDisplay.col("Model")))
 	if !ok {
 		return ""
 	}
-	return m.creatureModelData.str(r2, 2)
+	return m.creatureModelData.str(r2, m.creatureModelData.col("Path"))
 }
 
-// objectModel is the model path of a game object display, or "". GameObjectDisplayInfo's field 1
-// is the path.
+// objectModel is the model path of a game object display, or "": GameObjectDisplayInfo's Model.
 func (m *modelTables) objectModel(display uint32) string {
 	if m == nil || display == 0 {
 		return ""
@@ -507,5 +513,5 @@ func (m *modelTables) objectModel(display uint32) string {
 	if !ok {
 		return ""
 	}
-	return m.objectDisplay.str(r, 1)
+	return m.objectDisplay.str(r, m.objectDisplay.col("Model"))
 }

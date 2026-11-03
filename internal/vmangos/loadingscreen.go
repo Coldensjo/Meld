@@ -20,8 +20,6 @@ const LoadingScreenSize = 512
 // LoadingScreensPath is the loading screens' table in the client.
 const LoadingScreensPath = `DBFilesClient\LoadingScreens.dbc`
 
-const loadingScreenFields = 3
-
 // LoadingScreen is a row of LoadingScreens.dbc: its ID, name (field 1) and picture (field 2).
 type LoadingScreen struct {
 	ID   uint32 `json:"id"`
@@ -59,20 +57,13 @@ func ReadLoadingScreens(dbc []byte) ([]LoadingScreen, error) {
 	}
 	out := make([]LoadingScreen, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		out = append(out, LoadingScreen{ID: t.u32(r, 0), Name: t.str(r, 1), Path: t.str(r, 2)})
+		out = append(out, LoadingScreen{ID: t.u32(r, 0), Name: t.str(r, t.col("Name")), Path: t.str(r, t.col("Path"))})
 	}
 	return out, nil
 }
 
 func loadingScreenTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
-	if err != nil {
-		return nil, err
-	}
-	if t.fields != loadingScreenFields || t.recSize != loadingScreenFields*4 {
-		return nil, fmt.Errorf("LoadingScreens.dbc has %d fields, not 1.12's %d", t.fields, loadingScreenFields)
-	}
-	return t, nil
+	return parseExact(dbc, dbcLoadingScreen)
 }
 
 // LoadingScreenName is the name a map's own loading screen goes by: its folder's letters, digits
@@ -107,11 +98,12 @@ func SetLoadingScreenRow(dbc []byte, name, path string) ([]byte, LoadingScreen, 
 	if err != nil {
 		return nil, row, err
 	}
+	nameCol, pathCol := t.col("Name"), t.col("Path")
 	r := -1
 	var maxID uint32
 	for i := 0; i < t.records; i++ {
 		maxID = max(maxID, t.u32(i, 0))
-		if strings.EqualFold(t.str(i, 2), path) {
+		if strings.EqualFold(t.str(i, pathCol), path) {
 			r = i
 		}
 	}
@@ -124,33 +116,32 @@ func SetLoadingScreenRow(dbc []byte, name, path string) ([]byte, LoadingScreen, 
 		out = append(append(out, s...), 0)
 		return off
 	}
-	nameAt, pathAt := str(name, 1), str(path, 2)
+	nameAt, pathAt := str(name, nameCol), str(path, pathCol)
 	binary.LittleEndian.PutUint32(out[16:], uint32(len(out)-t.strsAt))
 	if r >= 0 {
 		row.ID = t.u32(r, 0)
 	} else {
 		row.ID = maxID + 1
 	}
-	out, err = setRecords(out, [][]uint32{{row.ID, nameAt, pathAt}})
+	rec := make([]uint32, t.fields)
+	rec[0], rec[nameCol], rec[pathCol] = row.ID, nameAt, pathAt
+	out, err = setRecords(out, [][]uint32{rec})
 	return out, row, err
 }
 
 // SetMapLoadingScreen returns Map.dbc with the loading screen of mapID's row set, and false (the
 // table unchanged) when the map has no row yet: Publish adds it, with the screen from the map's info.
 func SetMapLoadingScreen(dbc []byte, mapID, screen uint32) ([]byte, bool, error) {
-	t, err := parseDBC(dbc)
+	t, err := mapTable(dbc)
 	if err != nil {
 		return nil, false, err
-	}
-	if t.fields < 39 || t.recSize != t.fields*4 {
-		return nil, false, fmt.Errorf("Map.dbc has %d fields, not the 1.12 client's 42", t.fields)
 	}
 	r, ok := t.row(mapID)
 	if !ok {
 		return dbc, false, nil
 	}
 	out := append([]byte(nil), dbc...)
-	binary.LittleEndian.PutUint32(out[20+r*t.recSize+38*4:], screen)
+	binary.LittleEndian.PutUint32(out[20+r*t.recSize+t.col("LoadingScreen")*4:], screen)
 	return out, true, nil
 }
 
@@ -168,7 +159,7 @@ func LoadingScreenFiles(dataDir string, s LoadingScreenSpec) ([]mpq.File, Loadin
 	screens, err := set.ReadFile(LoadingScreensPath)
 	var maps []byte
 	if err == nil {
-		maps, err = set.ReadFile(`DBFilesClient\Map.dbc`)
+		maps, err = set.ReadFile(dbcMap.file())
 	}
 	set.Close()
 	if err != nil {
@@ -189,7 +180,7 @@ func LoadingScreenFiles(dataDir string, s LoadingScreenSpec) ([]mpq.File, Loadin
 		return nil, row, err
 	}
 	if ok {
-		files = append(files, mpq.File{Name: `DBFilesClient\Map.dbc`, Data: maps})
+		files = append(files, mpq.File{Name: dbcMap.file(), Data: maps})
 	}
 	return files, row, nil
 }

@@ -449,7 +449,7 @@ func (m *modelTables) itemModelLook(display uint32, invType, race, sex int) Item
 			}
 		}
 		out.Shown = out.Shown || m.paintsBody(row, wearSlotOf(invType), sex == 1) ||
-			cloak >= 0 && m.itemDisplay.str(cloak, idTexture) != ""
+			cloak >= 0 && m.itemDisplay.str(cloak, m.itemDisplay.at("ModelTexture", 0)) != ""
 	}
 	out.Look = look.look.Query()
 	return out
@@ -461,7 +461,7 @@ func (m *modelTables) paintsBody(row, slot int, female bool) bool {
 		return false
 	}
 	for i, b := range bodyTextureRegions {
-		if 14+i < m.itemDisplay.fields && slotPaints(slot, b.region) && m.componentTexture(b.dir, m.itemDisplay.str(row, 14+i), female) != "" {
+		if f := m.itemDisplay.at("Texture", i); f < m.itemDisplay.fields && slotPaints(slot, b.region) && m.componentTexture(b.dir, m.itemDisplay.str(row, f), female) != "" {
 			return true
 		}
 	}
@@ -473,8 +473,8 @@ func (m *modelTables) paintsBody(row, slot int, female bool) bool {
 // stand-in, which shows the item and nothing the NPC wears.
 func (m *modelTables) plainLook(display uint32, worn [wearSlots]int, cloak int, g gear) creatureDisplay {
 	out := m.creatureLook(display, gear{stand: g.stand, emote: g.emote})
-	if r, ok := m.creatureDisplay.row(display); ok && display != 0 && m.creatureExtra != nil && m.creatureExtra.fields > 18 {
-		if er, ok := m.creatureExtra.row(m.creatureDisplay.u32(r, 3)); ok {
+	if r, ok := m.creatureDisplay.row(display); ok && display != 0 && m.creatureExtra != nil && m.creatureExtra.fields > m.creatureExtra.col("Bake") {
+		if er, ok := m.creatureExtra.row(m.creatureDisplay.u32(r, m.creatureDisplay.col("Extra"))); ok {
 			out.look.Textures, out.look.Attach, out.look.Geosets = nil, nil, nil
 			m.dress(&out, m.extraLook(er), worn, cloak, "")
 		}
@@ -487,8 +487,8 @@ func (m *modelTables) plainLook(display uint32, worn [wearSlots]int, cloak int, 
 // stand-in wears of its own.
 func (m *modelTables) itemAttachment(a wow.Attachment, row int) bool {
 	base := strings.ToLower(trimModelExt(a.Model[strings.LastIndex(a.Model, `\`)+1:]))
-	for _, f := range []int{1, 2} {
-		n := strings.ToLower(trimModelExt(m.itemDisplay.str(row, f)))
+	for i := 0; i < 2; i++ {
+		n := strings.ToLower(trimModelExt(m.itemDisplay.str(row, m.itemDisplay.at("Model", i))))
 		n = n[strings.LastIndex(n, `\`)+1:]
 		if n != "" && strings.HasPrefix(base, n) {
 			return true
@@ -499,30 +499,33 @@ func (m *modelTables) itemAttachment(a wow.Attachment, row int) bool {
 
 // standIn is a creature display of a plain character of race and sex for the item editor to dress
 // (plainLook, which keeps only its skin, face and hair): the humanoid display
-// (CreatureDisplayInfoExtra: 1 race, 2 sex, 8-17 worn items, 18 the baked skin) that wears the
-// fewest items, one with hair first (a style the race has a submesh and a texture for), then one with a baked skin, the lowest ID of those. 0 when the client has none.
+// (CreatureDisplayInfoExtra: its race, sex, worn items and baked skin) that wears the fewest
+// items, one with hair first (a style the race has a submesh and a texture for), then one with a
+// baked skin, the lowest ID of those. 0 when the client has none.
 func (m *modelTables) standIn(race, sex int) uint32 {
-	if m == nil || m.creatureExtra == nil || m.creatureExtra.fields <= 18 {
+	if m == nil || m.creatureExtra == nil || m.creatureExtra.fields <= m.creatureExtra.col("Bake") {
 		return 0
 	}
 	x := m.creatureExtra
+	xr, xs, xi, xb, xh, xc := x.col("Race"), x.col("Sex"), x.at("Item", 0), x.col("Bake"), x.col("HairStyle"), x.col("HairColor")
 	best, bestScore := uint32(0), 1<<30
 	t := m.creatureDisplay
+	extra := t.col("Extra")
 	for r := 0; r < t.records; r++ {
-		er, ok := x.row(t.u32(r, 3))
-		if !ok || int(x.u32(er, 1)) != race || int(x.u32(er, 2)) != sex {
+		er, ok := x.row(t.u32(r, extra))
+		if !ok || int(x.u32(er, xr)) != race || int(x.u32(er, xs)) != sex {
 			continue
 		}
 		score := 0
 		for i := 0; i < wearSlots; i++ {
-			if x.u32(er, 8+i) != 0 {
+			if x.u32(er, xi+i) != 0 {
 				score += 2
 			}
 		}
-		if x.str(er, 18) == "" {
+		if x.str(er, xb) == "" {
 			score++
 		}
-		if !m.hasHair(race, uint32(sex), x.u32(er, 5), x.u32(er, 6)) {
+		if !m.hasHair(race, uint32(sex), x.u32(er, xh), x.u32(er, xc)) {
 			score += 100
 		}
 		id := t.u32(r, 0)
@@ -537,13 +540,14 @@ func (m *modelTables) standIn(race, sex int) uint32 {
 // gives the style a submesh and CharSections a hair texture (a style with neither is bald).
 func (m *modelTables) hasHair(race int, sex, style, color uint32) bool {
 	t := m.hairGeosets
-	if t == nil || t.fields <= 4 {
+	if t == nil || t.fields <= t.col("Geoset") {
 		return true
 	}
 	geo := false
+	cr, cs, cv, cg := t.col("Race"), t.col("Sex"), t.col("Variation"), t.col("Geoset")
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, 1) == uint32(race) && t.u32(r, 2) == sex && t.u32(r, 3) == style {
-			geo = t.u32(r, 4) > 0
+		if t.u32(r, cr) == uint32(race) && t.u32(r, cs) == sex && t.u32(r, cv) == style {
+			geo = t.u32(r, cg) > 0
 			break
 		}
 	}
@@ -551,5 +555,5 @@ func (m *modelTables) hasHair(race int, sex, style, color uint32) bool {
 		return false
 	}
 	row, ok := m.section(uint32(race), sex, 3, style, color)
-	return ok && m.sections.str(row, 6) != ""
+	return ok && m.sections.str(row, m.sections.at("Texture", 0)) != ""
 }

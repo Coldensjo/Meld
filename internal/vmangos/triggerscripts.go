@@ -398,7 +398,7 @@ func PlanTriggerImport(dbc []byte, script string, maps map[uint32]bool, server f
 		}
 		if r, ok := t.row(a.ID); ok {
 			p.Exists = true
-			if m := t.u32(r, 1); m != a.MapID {
+			if m := t.u32(r, t.col("MapID")); m != a.MapID {
 				p.OtherMap, p.WasMap = true, m
 			}
 		}

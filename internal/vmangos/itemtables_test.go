@@ -23,6 +23,7 @@ func TestSpellCategoryNames(t *testing.T) {
 	tbl := testDBC(t, spellFStartCategory+1,
 		spell(1, 4, "Healing Potion"), spell(2, 4, "Mana Potion"), spell(3, 4, "Healing Potion"),
 		spell(4, 4, "Rage Potion"), spell(5, 4, "Swiftness Potion"), spell(6, 9, "Hearthstone"), spell(7, 0, "Fireball"))
+	as(tbl, dbcSpell)
 	got := spellCategoryNames(tbl, spellFCategory)
 	if len(got) != 2 || got[0].ID != 4 || got[1].ID != 9 {
 		t.Fatalf("categories = %+v", got)
@@ -37,7 +38,7 @@ func TestSpellCategoryNames(t *testing.T) {
 }
 
 func TestRandomPropertyNames(t *testing.T) {
-	tbl := testDBC(t, 16, []any{5, "Bear", 1, 2, 0, 0, 0, "of the Bear"}, []any{6, "Internal"})
+	tbl := as(testDBC(t, 16, []any{5, "Bear", 1, 2, 0, 0, 0, "of the Bear"}, []any{6, "Internal"}), dbcRandomProps)
 	got := randomPropertyNames(tbl)
 	if got[5] != "of the Bear" || got[6] != "Internal" {
 		t.Fatalf("got %+v", got)
@@ -109,7 +110,7 @@ func TestSpellEnchantmentNames(t *testing.T) {
 		r[0], r[13] = id, name
 		return r
 	}
-	tbl := testDBC(t, 14, row(7, "+5 Agility"), row(2, ""), row(3, "Fiery Weapon"))
+	tbl := as(testDBC(t, 14, row(7, "+5 Agility"), row(2, ""), row(3, "Fiery Weapon")), dbcSpellEnchant)
 	got := spellEnchantmentNames(tbl)
 	if len(got) != 3 || got[0].ID != 2 || got[0].Name != "Unnamed" || got[1].ID != 3 || got[2].Name != "+5 Agility" {
 		t.Fatalf("enchantments = %+v", got)

@@ -47,7 +47,7 @@ func TestSetLiftFrames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tbl, _ := liftTable(out)
+	tbl, _, _ := liftTable(out)
 	if tbl.records != 4 {
 		t.Fatalf("%d rows after giving entry 10 two frames of three, want 4", tbl.records)
 	}
@@ -62,7 +62,7 @@ func TestSetLiftFrames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tbl, _ = liftTable(out)
+	tbl, _, _ = liftTable(out)
 	if r, ok := tbl.row(7); !ok || tbl.u32(r, liftEntry) != 20 || tbl.u32(r, liftTime) != 2000 {
 		t.Error("entry 20's third frame did not take ID 7, past the highest (6)")
 	}

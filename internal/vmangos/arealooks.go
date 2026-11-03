@@ -37,49 +37,56 @@ import (
 // it). SoundProviderPreferences, the area's other sound IDs, is never Meld's and is not carried.
 
 // dbcCarry is a client table whose rows a zones script carries: the "-- meld" line's kind, the
-// table's name and path, its 1.12 width and its text fields.
+// table's name and path, and its schema. A line holds a whole record of the exporting client's
+// layout; its text fields are the layout's string fields.
 type dbcCarry struct {
 	kind, name, path string
-	fields           int
-	strs             []int
+	schema           *dbcSchema
 }
 
 var (
-	carriedSound      = dbcCarry{"sound", "SoundEntries", SoundEntriesPath, 29, []int{seName, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, seDir}}
-	carriedMusic      = dbcCarry{"zonemusic", "ZoneMusic", ZoneMusicPath, 8, []int{1}}
-	carriedIntro      = dbcCarry{"intromusic", "ZoneIntroMusicTable", ZoneIntroPath, 5, []int{1}}
-	carriedAmbience   = dbcCarry{"ambience", "SoundAmbience", SoundAmbiencePath, 3, nil}
-	carriedLight      = dbcCarry{"light", "Light", lightTablePath("Light"), 12, nil}
-	carriedParams     = dbcCarry{"lightparams", "LightParams", lightTablePath("LightParams"), 9, nil}
-	carriedIntBand    = dbcCarry{"lightint", "LightIntBand", lightTablePath("LightIntBand"), 34, nil}
-	carriedFloatBand  = dbcCarry{"lightfloat", "LightFloatBand", lightTablePath("LightFloatBand"), 34, nil}
+	carriedSound      = dbcCarry{"sound", "SoundEntries", SoundEntriesPath, dbcSoundEntries}
+	carriedMusic      = dbcCarry{"zonemusic", "ZoneMusic", ZoneMusicPath, dbcZoneMusic}
+	carriedIntro      = dbcCarry{"intromusic", "ZoneIntroMusicTable", ZoneIntroPath, dbcZoneIntro}
+	carriedAmbience   = dbcCarry{"ambience", "SoundAmbience", SoundAmbiencePath, dbcSoundAmbience}
+	carriedLight      = dbcCarry{"light", "Light", lightTablePath("Light"), dbcLight}
+	carriedParams     = dbcCarry{"lightparams", "LightParams", lightTablePath("LightParams"), dbcLightParams}
+	carriedIntBand    = dbcCarry{"lightint", "LightIntBand", lightTablePath("LightIntBand"), dbcLightIntBand}
+	carriedFloatBand  = dbcCarry{"lightfloat", "LightFloatBand", lightTablePath("LightFloatBand"), dbcLightFloatBand}
 	carriedAreaTables = []dbcCarry{carriedSound, carriedMusic, carriedIntro, carriedAmbience, carriedLight, carriedParams, carriedIntBand, carriedFloatBand}
 )
 
-// Light.dbc's first LightParams field (five follow: clear, clear underwater, storm, storm underwater,
-// death), and the sound fields of the zone sound tables.
-const (
-	lightParamsAt = 7
-	lightParamsN  = 5
-	musicDay      = 6
-	musicNight    = 7
-	introSound    = 2
-	ambienceDay   = 1
-	ambienceNight = 2
+// The sound fields of the zone sound tables, by name.
+var (
+	musicSounds    = []string{"Day", "Night"}
+	introSounds    = []string{"Sound"}
+	ambienceSounds = []string{"Day", "Night"}
 )
 
-func (c dbcCarry) isStr(f int) bool { return slices.Contains(c.strs, f) }
-
-// dbcCarryRow is a carried record: every field (the ID first; a text field's slot unused) and its texts.
+// dbcCarryRow is a carried record in its table's layout: every field (the ID first; a text field's
+// slot unused) and its texts.
 type dbcCarryRow struct {
+	l    *dbcLayout
 	rec  []uint32
 	strs map[int]string
 }
 
+// cols are the columns of the named fields of the row's layout; a field that is an array gives each
+// of its elements.
+func (row dbcCarryRow) cols(names ...string) []int {
+	var out []int
+	for _, n := range names {
+		for i := 0; i < row.l.count(n); i++ {
+			out = append(out, row.l.at(n, i))
+		}
+	}
+	return out
+}
+
 // rowOf is row r of table t as a carried row.
 func (c dbcCarry) rowOf(t *dbcTable, r int) dbcCarryRow {
-	row := dbcCarryRow{rec: t.record(r), strs: map[int]string{}}
-	for _, f := range c.strs {
+	row := dbcCarryRow{l: t.l, rec: t.record(r), strs: map[int]string{}}
+	for _, f := range t.l.strs {
 		row.strs[f] = t.str(r, f)
 		row.rec[f] = 0
 	}
@@ -90,7 +97,7 @@ func (c dbcCarry) rowOf(t *dbcTable, r int) dbcCarryRow {
 func (c dbcCarry) line(row dbcCarryRow) string {
 	fields := make([]any, len(row.rec))
 	for f, v := range row.rec {
-		if c.isStr(f) {
+		if row.l.isStr[f] {
 			fields[f] = row.strs[f]
 		} else {
 			fields[f] = v
@@ -107,12 +114,13 @@ func (c dbcCarry) read(script string) (map[uint32]dbcCarryRow, error) {
 	}
 	out := map[uint32]dbcCarryRow{}
 	for _, l := range lines {
-		if len(l.fields) != c.fields {
-			return nil, fmt.Errorf("line %d (-- meld %s): has %d fields, not %d", l.line, c.kind, len(l.fields), c.fields)
+		lay := c.schema.layout(len(l.fields))
+		if len(l.fields) != lay.columns {
+			return nil, fmt.Errorf("line %d (-- meld %s): has %d fields, not %d", l.line, c.kind, len(l.fields), lay.columns)
 		}
-		row := dbcCarryRow{rec: make([]uint32, c.fields), strs: map[int]string{}}
+		row := dbcCarryRow{l: lay, rec: make([]uint32, lay.columns), strs: map[int]string{}}
 		for f, text := range l.fields {
-			if c.isStr(f) {
+			if lay.isStr[f] {
 				row.strs[f] = text
 				continue
 			}
@@ -132,8 +140,11 @@ func (c dbcCarry) read(script string) (map[uint32]dbcCarryRow, error) {
 
 // same says whether row r of t holds row's fields, the ID aside (texts compared as client paths are).
 func (c dbcCarry) same(t *dbcTable, r int, row dbcCarryRow) bool {
-	for f := 1; f < c.fields; f++ {
-		if c.isStr(f) {
+	if t.l != row.l {
+		return false
+	}
+	for f := 1; f < t.l.columns; f++ {
+		if t.l.isStr[f] {
 			if !strings.EqualFold(t.str(r, f), row.strs[f]) {
 				return false
 			}
@@ -147,7 +158,7 @@ func (c dbcCarry) same(t *dbcTable, r int, row dbcCarryRow) bool {
 // findOrAdd is the ID row comes to in table b: its own ID's when that row holds the same, else the
 // first row that does, else a new row past the largest ID (the table then returned, added true).
 func (c dbcCarry) findOrAdd(b []byte, row dbcCarryRow) (id uint32, out []byte, added bool, err error) {
-	t, err := parseSized(b, c.name+".dbc", c.fields)
+	t, err := parseExact(b, c.schema)
 	if err != nil {
 		return 0, nil, false, err
 	}
@@ -195,7 +206,7 @@ func LoadAreaLooks(dataDir string) (looks *AreaLooks, close func(), err error) {
 	return looks, set.Close, nil
 }
 
-// table parses one of the tables at its 1.12 width (nil when missing or of another width).
+// table parses one of the tables at a width Meld knows (nil when missing or of another width).
 func (l *AreaLooks) table(c dbcCarry) *dbcTable {
 	if l == nil {
 		return nil
@@ -204,7 +215,7 @@ func (l *AreaLooks) table(c dbcCarry) *dbcTable {
 	if !ok {
 		return nil
 	}
-	t, err := parseSized(b, c.name, c.fields)
+	t, err := parseExact(b, c.schema)
 	if err != nil {
 		return nil
 	}
@@ -249,30 +260,32 @@ func areaLooksComment(rows []AreaRow, looks *AreaLooks) string {
 	}
 	var b strings.Builder
 	sounds := map[uint32]bool{}
-	carry := func(c dbcCarry, ids map[uint32]bool, soundFields ...int) {
+	carry := func(c dbcCarry, ids map[uint32]bool, soundFields ...string) {
 		t := looks.table(c)
 		if t == nil {
 			return
 		}
 		for _, id := range sortedIDs(ids) {
 			if r, ok := t.row(id); ok {
-				b.WriteString(c.line(c.rowOf(t, r)))
-				for _, f := range soundFields {
+				row := c.rowOf(t, r)
+				b.WriteString(c.line(row))
+				for _, f := range row.cols(soundFields...) {
 					sounds[t.u32(r, f)] = true
 				}
 			}
 		}
 	}
-	carry(carriedMusic, music, musicDay, musicNight)
-	carry(carriedIntro, intro, introSound)
-	carry(carriedAmbience, ambience, ambienceDay, ambienceNight)
+	carry(carriedMusic, music, musicSounds...)
+	carry(carriedIntro, intro, introSounds...)
+	carry(carriedAmbience, ambience, ambienceSounds...)
 	carry(carriedSound, sounds)
 	params := map[uint32]bool{}
 	if lt := looks.table(carriedLight); lt != nil {
 		for _, id := range sortedIDs(lights) {
 			if r, ok := lt.row(id); ok {
-				b.WriteString(carriedLight.line(carriedLight.rowOf(lt, r)))
-				for f := lightParamsAt; f < lightParamsAt+lightParamsN; f++ {
+				row := carriedLight.rowOf(lt, r)
+				b.WriteString(carriedLight.line(row))
+				for _, f := range row.cols("Params") {
 					params[lt.u32(r, f)] = true
 				}
 			}
@@ -368,10 +381,11 @@ func planAreaLooks(script string, rows []AreaRow, looks *AreaLooks) (areaLookPla
 			return id, err
 		}
 		if added && looks.HasFile != nil {
-			dir := strings.TrimSuffix(row.strs[seDir], `\`)
-			for f := seFile; f < seFile+soundFiles; f++ {
+			c := seColsOf(row.l)
+			dir := strings.TrimSuffix(row.strs[c.dir], `\`)
+			for f := c.file; f < c.file+c.files; f++ {
 				if file := row.strs[f]; file != "" && !looks.HasFile(dir+`\`+file) {
-					p.missingFiles = append(p.missingFiles, fmt.Sprintf(`%s\%s (%s)`, dir, file, row.strs[seName]))
+					p.missingFiles = append(p.missingFiles, fmt.Sprintf(`%s\%s (%s)`, dir, file, row.strs[c.name]))
 				}
 			}
 		}
@@ -404,13 +418,17 @@ func planAreaLooks(script string, rows []AreaRow, looks *AreaLooks) (areaLookPla
 		what   string
 		id     func(AreaRow) uint32
 		to     map[uint32]uint32
-		sounds []int
+		sounds []string
 		name   func(dbcCarryRow) string
 	}{
-		{carriedMusic, "zone music", func(a AreaRow) uint32 { return a.Music }, p.music, []int{musicDay, musicNight}, func(r dbcCarryRow) string { return r.strs[1] }},
-		{carriedIntro, "intro music", func(a AreaRow) uint32 { return a.IntroMusic }, p.intro, []int{introSound}, func(r dbcCarryRow) string { return r.strs[1] }},
-		{carriedAmbience, "ambience", func(a AreaRow) uint32 { return a.Ambience }, p.ambience, []int{ambienceDay, ambienceNight}, func(r dbcCarryRow) string {
-			return carried[carriedSound.name][r.rec[ambienceDay]].strs[seName]
+		{carriedMusic, "zone music", func(a AreaRow) uint32 { return a.Music }, p.music, musicSounds, func(r dbcCarryRow) string { return r.strs[r.l.col("Name")] }},
+		{carriedIntro, "intro music", func(a AreaRow) uint32 { return a.IntroMusic }, p.intro, introSounds, func(r dbcCarryRow) string { return r.strs[r.l.col("Name")] }},
+		{carriedAmbience, "ambience", func(a AreaRow) uint32 { return a.Ambience }, p.ambience, ambienceSounds, func(r dbcCarryRow) string {
+			s := carried[carriedSound.name][r.rec[r.l.col("Day")]]
+			if s.l == nil {
+				return ""
+			}
+			return s.strs[s.l.col("Name")]
 		}},
 	}
 	for _, z := range zoneSounds {
@@ -420,8 +438,8 @@ func planAreaLooks(script string, rows []AreaRow, looks *AreaLooks) (areaLookPla
 				continue
 			}
 			name := z.name(row)
-			row = dbcCarryRow{rec: slices.Clone(row.rec), strs: row.strs}
-			for _, f := range z.sounds {
+			row = dbcCarryRow{l: row.l, rec: slices.Clone(row.rec), strs: row.strs}
+			for _, f := range row.cols(z.sounds...) {
 				n, err := sound(row.rec[f])
 				if err != nil {
 					return areaLookPlan{}, err
@@ -444,8 +462,8 @@ func planAreaLooks(script string, rows []AreaRow, looks *AreaLooks) (areaLookPla
 		if !ok {
 			continue
 		}
-		row = dbcCarryRow{rec: slices.Clone(row.rec), strs: row.strs}
-		for f := lightParamsAt; f < lightParamsAt+lightParamsN; f++ {
+		row = dbcCarryRow{l: row.l, rec: slices.Clone(row.rec), strs: row.strs}
+		for _, f := range row.cols("Params") {
 			pid := row.rec[f]
 			if pid == 0 {
 				continue
@@ -492,7 +510,7 @@ func planLightParams(pid uint32, carried map[string]map[uint32]dbcCarryRow, cur 
 		if !ok {
 			return pid, nil
 		}
-		t, err := parseSized(b, c.name+".dbc", c.fields)
+		t, err := parseExact(b, c.schema)
 		if err != nil {
 			return 0, err
 		}

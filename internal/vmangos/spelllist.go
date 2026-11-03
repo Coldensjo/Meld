@@ -57,9 +57,9 @@ var spellSkills struct {
 	inSkill map[uint32]bool         // every spell some skill line teaches
 }
 
-// loadSpellSkills reads SkillLine.dbc (1.12: the category in field 1, the enUS name in 3),
-// SkillLineAbility.dbc (the skill line in field 1, the spell in 2) and SkillRaceClassInfo.dbc (the
-// skill line in field 1, the class mask in 3, which names a class skill's class).
+// loadSpellSkills reads SkillLine.dbc (the category and the name), SkillLineAbility.dbc (the skill
+// line and the spell) and SkillRaceClassInfo.dbc (the skill line and the class mask, which names a
+// class skill's class).
 func loadSpellSkills(dataDir string) error {
 	if spellSkills.byLine != nil && spellSkills.dir == dataDir {
 		return nil
@@ -69,38 +69,41 @@ func loadSpellSkills(dataDir string) error {
 		return err
 	}
 	defer set.Close()
-	read := func(name string, fields int) (*dbcTable, error) {
-		b, err := set.ReadFile(`DBFilesClient\` + name + `.dbc`)
+	// read reads a table that holds at least the column last names.
+	read := func(s *dbcSchema, last string) (*dbcTable, error) {
+		b, err := set.ReadFile(s.file())
 		if err != nil {
 			return nil, err
 		}
-		t, err := parseDBC(b)
+		t, err := parseTable(b, s)
 		if err != nil {
-			return nil, fmt.Errorf("%s.dbc: %w", name, err)
+			return nil, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
-		if t.fields < fields {
-			return nil, fmt.Errorf("%s.dbc has %d fields, not the 1.12 layout", name, t.fields)
+		if t.fields <= t.col(last) {
+			return nil, fmt.Errorf("%s.dbc has %d fields, not the 1.12 layout", s.name, t.fields)
 		}
 		return t, nil
 	}
-	lt, err := read("SkillLine", 4)
+	lt, err := read(dbcSkillLine, "Name")
 	if err != nil {
 		return err
 	}
-	at, err := read("SkillLineAbility", 3)
+	at, err := read(dbcSkillLineAbility, "Spell")
 	if err != nil {
 		return err
 	}
 	classOf := map[int]uint32{}
-	if ct, err := read("SkillRaceClassInfo", 4); err == nil {
+	if ct, err := read(dbcSkillRaceClass, "ClassMask"); err == nil {
+		skill, mask := ct.col("Skill"), ct.col("ClassMask")
 		for r := 0; r < ct.records; r++ {
-			classOf[int(ct.u32(r, 1))] |= ct.u32(r, 3)
+			classOf[int(ct.u32(r, skill))] |= ct.u32(r, mask)
 		}
 	}
 	byLine := map[int]map[uint32]bool{}
 	inSkill := map[uint32]bool{}
+	aLine, aSpell := at.col("SkillLine"), at.col("Spell")
 	for r := 0; r < at.records; r++ {
-		line, spell := int(at.u32(r, 1)), at.u32(r, 2)
+		line, spell := int(at.u32(r, aLine)), at.u32(r, aSpell)
 		if byLine[line] == nil {
 			byLine[line] = map[uint32]bool{}
 		}
@@ -108,9 +111,10 @@ func loadSpellSkills(dataDir string) error {
 		inSkill[spell] = true
 	}
 	var lines []skillLine
+	lName, lCategory := lt.col("Name"), lt.col("Category")
 	for r := 0; r < lt.records; r++ {
-		id, name := int(lt.u32(r, 0)), lt.str(r, 3)
-		group, ok := skillGroups[int(int32(lt.u32(r, 1)))]
+		id, name := int(lt.u32(r, 0)), lt.str(r, lName)
+		group, ok := skillGroups[int(int32(lt.u32(r, lCategory)))]
 		if name == "" || strings.Contains(name, "DND") || len(byLine[id]) == 0 {
 			continue
 		}
@@ -170,9 +174,10 @@ func SpellCategories(dataDir string) ([]SpellCategory, error) {
 		return nil, err
 	}
 	t := spellData.spells
+	sc := spellColsOf(t)
 	all, npc := 0, 0
 	for r := 0; r < t.records; r++ {
-		if spellNoise(t.str(r, spellFName)) {
+		if spellNoise(t.str(r, sc.name)) {
 			continue
 		}
 		all++
@@ -189,7 +194,7 @@ func SpellCategories(dataDir string) ([]SpellCategory, error) {
 	for _, l := range spellSkills.lines {
 		n := 0
 		for id := range spellSkills.byLine[l.id] {
-			if r, ok := t.row(id); ok && !spellNoise(t.str(r, spellFName)) {
+			if r, ok := t.row(id); ok && !spellNoise(t.str(r, sc.name)) {
 				n++
 			}
 		}
@@ -225,12 +230,13 @@ func ListSpells(dataDir, category string, school int, text string, limit int) (S
 		return SpellList{}, err
 	}
 	t := spellData.spells
+	sc := spellColsOf(t)
 	hits := matchSpells(t, strings.TrimSpace(text), func(r int, byID bool) bool {
 		if byID {
 			return true
 		}
 		id := t.u32(r, 0)
-		return (category == "every" || !spellNoise(t.str(r, spellFName))) && (school < 0 || int(t.u32(r, 1)) == school) && spellInCategory(category, id)
+		return (category == "every" || !spellNoise(t.str(r, sc.name))) && (school < 0 || int(t.u32(r, sc.school)) == school) && spellInCategory(category, id)
 	})
 	total := len(hits)
 	if len(hits) > max(limit, 1) {
@@ -248,6 +254,7 @@ func ListSpells(dataDir, category string, school int, text string, limit int) (S
 // equal to text, then names starting with it, then the rest, each by name, rank and ID.
 // spellData must be locked.
 func matchSpells(t *dbcTable, text string, keep func(r int, byID bool) bool) []int {
+	sc := spellColsOf(t)
 	want := strings.ToLower(text)
 	type hit struct {
 		r, kind int
@@ -258,7 +265,7 @@ func matchSpells(t *dbcTable, text string, keep func(r int, byID bool) bool) []i
 	for r := 0; r < t.records; r++ {
 		// Some names start with a space or a dot (" Valentine", ".Winter Reveler"), which
 		// would sort them first.
-		name := strings.TrimLeft(t.str(r, spellFName), " .")
+		name := strings.TrimLeft(t.str(r, sc.name), " .")
 		if idErr == nil && int(t.u32(r, 0)) == id {
 			if keep(r, true) {
 				hits = append(hits, hit{r, 0, name})
@@ -293,7 +300,7 @@ func matchSpells(t *dbcTable, text string, keep func(r int, byID bool) bool) []i
 			return a.name < b.name
 		}
 		// Rank 2 before Rank 10.
-		if ra, rb := t.str(a.r, spellFRank), t.str(b.r, spellFRank); ra != rb {
+		if ra, rb := t.str(a.r, sc.rank), t.str(b.r, sc.rank); ra != rb {
 			if len(ra) != len(rb) {
 				return len(ra) < len(rb)
 			}

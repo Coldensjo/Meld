@@ -23,7 +23,6 @@ const (
 	worldMapTile   = 256
 	worldMapCols   = 4
 	worldMapRows   = 3
-	worldMapFields = 8
 )
 
 // WorldMapRow is a WorldMapArea.dbc row: ID, map, area, the art's folder name, then the extent as the
@@ -65,31 +64,32 @@ func worldMapTilePath(name string, i int) string {
 	return fmt.Sprintf(`Interface\WorldMap\%s\%s%d.blp`, name, name, i)
 }
 
-func worldMapRowAt(t *dbcTable, r int) WorldMapRow {
-	return WorldMapRow{ID: t.u32(r, 0), MapID: t.u32(r, 1), AreaID: t.u32(r, 2), Name: t.str(r, 3), Left: t.f32(r, 4), Right: t.f32(r, 5), Top: t.f32(r, 6), Bottom: t.f32(r, 7)}
+// worldAreaCols are WorldMapArea.dbc's columns (dbcWorldMapArea).
+type worldAreaCols struct{ mapID, areaID, name, left, right, top, bottom int }
+
+func worldMapRowAt(t *dbcTable, c worldAreaCols, r int) WorldMapRow {
+	return WorldMapRow{ID: t.u32(r, 0), MapID: t.u32(r, c.mapID), AreaID: t.u32(r, c.areaID), Name: t.str(r, c.name),
+		Left: t.f32(r, c.left), Right: t.f32(r, c.right), Top: t.f32(r, c.top), Bottom: t.f32(r, c.bottom)}
 }
 
-// worldMapTable reads WorldMapArea.dbc, checking it has 1.12's layout.
-func worldMapTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
+// worldMapTable reads WorldMapArea.dbc, checking it has a layout Meld knows.
+func worldMapTable(dbc []byte) (*dbcTable, worldAreaCols, error) {
+	t, err := parseExact(dbc, dbcWorldMapArea)
 	if err != nil {
-		return nil, err
+		return nil, worldAreaCols{}, err
 	}
-	if t.fields != worldMapFields || t.recSize != worldMapFields*4 {
-		return nil, fmt.Errorf("WorldMapArea.dbc has %d fields, not 1.12's %d", t.fields, worldMapFields)
-	}
-	return t, nil
+	return t, worldAreaCols{t.col("MapID"), t.col("AreaID"), t.col("Name"), t.col("Left"), t.col("Right"), t.col("Top"), t.col("Bottom")}, nil
 }
 
 // FindWorldMapRow is the row of the map's zone, or nil.
 func FindWorldMapRow(dbc []byte, mapID, areaID uint32) (*WorldMapRow, error) {
-	t, err := worldMapTable(dbc)
+	t, c, err := worldMapTable(dbc)
 	if err != nil {
 		return nil, err
 	}
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, 1) == mapID && t.u32(r, 2) == areaID {
-			row := worldMapRowAt(t, r)
+		if t.u32(r, c.mapID) == mapID && t.u32(r, c.areaID) == areaID {
+			row := worldMapRowAt(t, c, r)
 			return &row, nil
 		}
 	}
@@ -99,7 +99,7 @@ func FindWorldMapRow(dbc []byte, mapID, areaID uint32) (*WorldMapRow, error) {
 // SetWorldMapRow returns the table with row in it: replacing the row of its map and area (keeping
 // that row's ID), or added with the next free ID. It returns the row as written.
 func SetWorldMapRow(dbc []byte, row WorldMapRow) ([]byte, WorldMapRow, error) {
-	t, err := worldMapTable(dbc)
+	t, c, err := worldMapTable(dbc)
 	if err != nil {
 		return nil, row, err
 	}
@@ -120,7 +120,7 @@ func SetWorldMapRow(dbc []byte, row WorldMapRow) ([]byte, WorldMapRow, error) {
 	var maxID uint32
 	for r := 0; r < t.records; r++ {
 		maxID = max(maxID, t.u32(r, 0))
-		if t.u32(r, 1) == row.MapID && t.u32(r, 2) == row.AreaID {
+		if t.u32(r, c.mapID) == row.MapID && t.u32(r, c.areaID) == row.AreaID {
 			at = r * t.recSize
 			row.ID = t.u32(r, 0)
 		}
@@ -133,22 +133,22 @@ func SetWorldMapRow(dbc []byte, row WorldMapRow) ([]byte, WorldMapRow, error) {
 		added = 1
 	}
 	put := func(f int, v uint32) { binary.LittleEndian.PutUint32(records[at+f*4:], v) }
-	if at/t.recSize >= t.records || t.str(at/t.recSize, 3) != row.Name {
-		put(3, uint32(len(strs)))
+	if at/t.recSize >= t.records || t.str(at/t.recSize, c.name) != row.Name {
+		put(c.name, uint32(len(strs)))
 		strs = append(strs, row.Name...)
 		strs = append(strs, 0)
 	}
 	put(0, row.ID)
-	put(1, row.MapID)
-	put(2, row.AreaID)
-	put(4, math.Float32bits(row.Left))
-	put(5, math.Float32bits(row.Right))
-	put(6, math.Float32bits(row.Top))
-	put(7, math.Float32bits(row.Bottom))
+	put(c.mapID, row.MapID)
+	put(c.areaID, row.AreaID)
+	put(c.left, math.Float32bits(row.Left))
+	put(c.right, math.Float32bits(row.Right))
+	put(c.top, math.Float32bits(row.Top))
+	put(c.bottom, math.Float32bits(row.Bottom))
 	out := append([]byte(nil), "WDBC"...)
 	out = binary.LittleEndian.AppendUint32(out, uint32(t.records+added))
-	out = binary.LittleEndian.AppendUint32(out, worldMapFields)
-	out = binary.LittleEndian.AppendUint32(out, worldMapFields*4)
+	out = binary.LittleEndian.AppendUint32(out, uint32(t.fields))
+	out = binary.LittleEndian.AppendUint32(out, uint32(t.recSize))
 	out = binary.LittleEndian.AppendUint32(out, uint32(len(strs)))
 	out = append(out, records...)
 	return append(out, strs...), row, nil

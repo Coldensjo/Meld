@@ -11,12 +11,12 @@ import (
 // itemDisplayDBC is an ItemDisplayInfo table: a sword (7), the same sword with another icon (8), a
 // robe that only paints the body (9), and an unused helm (10).
 func itemDisplayDBC(t *testing.T) *dbcTable {
-	return testDBC(t, itemDisplayFields,
+	return as(testDBC(t, itemDisplayFields,
 		[]any{7, "Sword_1H_A.mdx", "", "SwordSkin", "", "INV_Sword_04"},
 		[]any{8, "Sword_1H_A.mdx", "", "SwordSkin", "", "INV_Sword_05"},
 		[]any{9, "", "", "", "", "INV_Chest_Cloth_01", 0, 1, 0, 0, 0, 0, 0, 0, "Robe_TU"},
 		[]any{10, "Helm_Plate_A.mdx", "", "HelmSkin", "", "INV_Helmet_01"},
-	)
+	), dbcItemDisplay)
 }
 
 func TestListItemDisplays(t *testing.T) {
@@ -127,7 +127,7 @@ func TestShotVisuals(t *testing.T) {
 		[]any{22, "Bow_A.mdx", "", "XbowSkin", "", "INV_Weapon_Bow_09", 0, 0, 0, 0, 743},
 	)
 	rows := []batchRow{{"20", "15", "Shortbow", "2", "2"}, {"21", "26", "Crossbow", "2", "18"}}
-	got := listItemDisplays(tab, rows)
+	got := listItemDisplays(as(tab, dbcItemDisplay), rows)
 	if got[0].Shoots != 2 || got[1].Shoots != 18 || got[2].Shoots != 18 || got[2].Visual != 743 {
 		t.Fatalf("shoots %d %d %d", got[0].Shoots, got[1].Shoots, got[2].Shoots)
 	}

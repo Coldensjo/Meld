@@ -23,16 +23,15 @@ import (
 // TransportAnimationPath is the lifts' table in the client's archives.
 const TransportAnimationPath = `DBFilesClient\TransportAnimation.dbc`
 
-// The 1.12 layout (VMaNGOS's DBCfmt.h "diifffx", Benilla's schema): ID, the template entry, the time,
-// the offset's x, y and z, and the model's animation for the span after the frame (the client's
-// SequenceID; neither the server nor Benilla reads it, the client's own lifts hold 0 or 162 and 164).
-const (
-	liftFields = 7
-	liftEntry  = 1
-	liftTime   = 2
-	liftX      = 3
-	liftSeq    = 6
-)
+// liftCols are TransportAnimation.dbc's columns (dbcTransportAnim; 1.12's is VMaNGOS's DBCfmt.h
+// "diifffx", Benilla's schema): the template entry, the time, the offset's x (y and z follow), and the
+// model's animation for the span after the frame (the client's SequenceID; neither the server nor
+// Benilla reads it, the client's own lifts hold 0 or 162 and 164).
+type liftCols struct{ entry, time, x, seq int }
+
+func liftColsOf(l *dbcLayout) liftCols {
+	return liftCols{l.col("Transport"), l.col("Time"), l.at("Pos", 0), l.col("Sequence")}
+}
 
 // objectTypeLift is gameobject_template's type of a lift (GAMEOBJECT_TYPE_TRANSPORT).
 const objectTypeLift = 11
@@ -77,29 +76,26 @@ type LiftEdit struct {
 	Frames    []LiftFrame `json:"frames"`
 }
 
-// liftTable parses TransportAnimation.dbc and checks it has the 1.12 layout.
-func liftTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
+// liftTable parses TransportAnimation.dbc and checks it has a layout Meld knows.
+func liftTable(dbc []byte) (*dbcTable, liftCols, error) {
+	t, err := parseExact(dbc, dbcTransportAnim)
 	if err != nil {
-		return nil, fmt.Errorf("TransportAnimation.dbc: %w", err)
+		return nil, liftCols{}, err
 	}
-	if t.fields != liftFields || t.recSize != liftFields*4 {
-		return nil, fmt.Errorf("TransportAnimation.dbc has %d fields of %d bytes a record, not 1.12's %d", t.fields, t.recSize, liftFields)
-	}
-	return t, nil
+	return t, liftColsOf(t.l), nil
 }
 
 // ReadLiftMotions lists every template's loop in TransportAnimation.dbc, by entry, each loop's frames
 // in time order.
 func ReadLiftMotions(dbc []byte) ([]LiftMotion, error) {
-	t, err := liftTable(dbc)
+	t, c, err := liftTable(dbc)
 	if err != nil {
 		return nil, err
 	}
 	by := map[uint32][]LiftFrame{}
 	for r := 0; r < t.records; r++ {
-		e := t.u32(r, liftEntry)
-		by[e] = append(by[e], LiftFrame{Time: t.u32(r, liftTime), X: t.f32(r, liftX), Y: t.f32(r, liftX+1), Z: t.f32(r, liftX+2), Seq: t.u32(r, liftSeq)})
+		e := t.u32(r, c.entry)
+		by[e] = append(by[e], LiftFrame{Time: t.u32(r, c.time), X: t.f32(r, c.x), Y: t.f32(r, c.x+1), Z: t.f32(r, c.x+2), Seq: t.u32(r, c.seq)})
 	}
 	out := make([]LiftMotion, 0, len(by))
 	for e, f := range by {
@@ -167,7 +163,7 @@ func CheckLift(e LiftEdit) error {
 // entry's old rows' IDs in order and, past those, IDs after the table's highest; the entry's rows left
 // over are taken out. No frames takes the entry's loop out.
 func SetLiftFrames(dbc []byte, entry uint32, frames []LiftFrame) ([]byte, error) {
-	t, err := liftTable(dbc)
+	t, c, err := liftTable(dbc)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +172,7 @@ func SetLiftFrames(dbc []byte, entry uint32, frames []LiftFrame) ([]byte, error)
 	for r := 0; r < t.records; r++ {
 		id := t.u32(r, 0)
 		top = max(top, id)
-		if t.u32(r, liftEntry) == entry {
+		if t.u32(r, c.entry) == entry {
 			ids = append(ids, id)
 		}
 	}
@@ -190,7 +186,10 @@ func SetLiftFrames(dbc []byte, entry uint32, frames []LiftFrame) ([]byte, error)
 			top++
 			id = top
 		}
-		rows[i] = []uint32{id, entry, f.Time, math.Float32bits(f.X), math.Float32bits(f.Y), math.Float32bits(f.Z), f.Seq}
+		row := make([]uint32, t.fields)
+		row[0], row[c.entry], row[c.time], row[c.seq] = id, entry, f.Time, f.Seq
+		row[c.x], row[c.x+1], row[c.x+2] = math.Float32bits(f.X), math.Float32bits(f.Y), math.Float32bits(f.Z)
+		rows[i] = row
 	}
 	out := dbc
 	if len(ids) > len(frames) {

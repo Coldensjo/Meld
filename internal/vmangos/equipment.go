@@ -90,7 +90,7 @@ func (m *modelTables) heldItemPaths(it heldItem) (model, texture string) {
 	if it.invType == invShield {
 		dir = shieldItems
 	}
-	return itemPaths(m.itemDisplay.str(row, 1), dir, m.itemDisplay.str(row, 3))
+	return itemPaths(m.itemDisplay.str(row, m.itemDisplay.at("Model", 0)), dir, m.itemDisplay.str(row, m.itemDisplay.at("ModelTexture", 0)))
 }
 
 // itemPaths is the client path of an item model named `name` in folder `dir` (a name that already

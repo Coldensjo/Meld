@@ -24,33 +24,24 @@ type ItemSetBonus struct {
 	Threshold int `json:"threshold"`
 }
 
-// ItemSet.dbc's fields in 1.12 (VMaNGOS ItemSetEntry): the ID, the name in 8 locales and its flags,
-// 17 item IDs, 8 bonus spells, the 8 thresholds, then the required skill and its rank.
-const (
-	itemSetFName      = 1
-	itemSetFItems     = 10
-	itemSetFSpells    = 27
-	itemSetFThreshold = 35
-	itemSetFSkill     = 43
-	itemSetFSkillRank = 44
-)
-
-// parseItemSet reads row r of ItemSet.dbc, leaving out the empty item and spell slots.
+// parseItemSet reads row r of ItemSet.dbc (dbcItemSet; 1.12's is VMaNGOS ItemSetEntry), leaving out
+// the empty item and spell slots.
 func parseItemSet(t *dbcTable, r int) ItemSet {
-	s := ItemSet{ID: int(t.u32(r, 0)), Name: t.str(r, itemSetFName), Items: []int{}, Bonuses: []ItemSetBonus{}}
-	for i := 0; i < 17 && itemSetFItems+i < t.fields; i++ {
-		if id := t.u32(r, itemSetFItems+i); id != 0 {
+	items, spells, thresholds := t.at("Item", 0), t.at("Spell", 0), t.at("Threshold", 0)
+	s := ItemSet{ID: int(t.u32(r, 0)), Name: t.str(r, t.col("Name")), Items: []int{}, Bonuses: []ItemSetBonus{}}
+	for i := 0; i < t.l.count("Item") && items+i < t.fields; i++ {
+		if id := t.u32(r, items+i); id != 0 {
 			s.Items = append(s.Items, int(id))
 		}
 	}
-	for i := 0; i < 8 && itemSetFThreshold+i < t.fields; i++ {
-		if spell := t.u32(r, itemSetFSpells+i); spell != 0 {
-			s.Bonuses = append(s.Bonuses, ItemSetBonus{Spell: int(spell), Threshold: int(t.u32(r, itemSetFThreshold+i))})
+	for i := 0; i < t.l.count("Spell") && thresholds+i < t.fields; i++ {
+		if spell := t.u32(r, spells+i); spell != 0 {
+			s.Bonuses = append(s.Bonuses, ItemSetBonus{Spell: int(spell), Threshold: int(t.u32(r, thresholds+i))})
 		}
 	}
-	if t.fields > itemSetFSkillRank {
-		s.RequiredSkill = int(t.u32(r, itemSetFSkill))
-		s.RequiredSkillRank = int(t.u32(r, itemSetFSkillRank))
+	if skill, rank := t.col("Skill"), t.col("SkillRank"); t.fields > rank {
+		s.RequiredSkill = int(t.u32(r, skill))
+		s.RequiredSkillRank = int(t.u32(r, rank))
 	}
 	return s
 }
@@ -71,12 +62,12 @@ func ItemSets(dataDir string, ids []int) ([]ItemSet, error) {
 		if err != nil {
 			return nil, err
 		}
-		b, err := set.ReadFile(`DBFilesClient\ItemSet.dbc`)
+		b, err := set.ReadFile(dbcItemSet.file())
 		set.Close()
 		if err != nil {
 			return nil, err
 		}
-		t, err := parseDBC(b)
+		t, err := parseTable(b, dbcItemSet)
 		if err != nil {
 			return nil, err
 		}

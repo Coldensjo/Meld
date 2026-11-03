@@ -47,54 +47,55 @@ func soundDeletePaths() map[string]string {
 // tables is skipped (SoundEntries must be there).
 func deleteSoundRows(tables map[string][]byte, id uint32) (map[string][]byte, SoundDeletePlan, error) {
 	plan := SoundDeletePlan{ID: id, Files: []string{}, Music: []SoundOption{}, Ambience: []SoundOption{}, Intro: []SoundOption{}, Zones: []SoundOption{}, Displays: []uint32{}}
-	se, err := parseSized(tables["SoundEntries"], "SoundEntries.dbc", soundTableFields["SoundEntries"])
+	se, err := parseExact(tables["SoundEntries"], dbcSoundEntries)
 	if err != nil {
 		return nil, plan, err
 	}
+	c := seColsOf(se.l)
 	r, ok := se.row(id)
 	if !ok || id == 0 {
 		return nil, plan, fmt.Errorf("the client has no sound %d in SoundEntries.dbc", id)
 	}
-	dir := strings.TrimSuffix(se.str(r, seDir), `\`)
+	dir := strings.TrimSuffix(se.str(r, c.dir), `\`)
 	if !strings.EqualFold(dir, ImportedSoundDir) {
-		return nil, plan, fmt.Errorf("%s (%d) is one of the client's own sounds, which Meld never removes: only an imported sound can be deleted", se.str(r, seName), id)
+		return nil, plan, fmt.Errorf("%s (%d) is one of the client's own sounds, which Meld never removes: only an imported sound can be deleted", se.str(r, c.name), id)
 	}
-	plan.Name = se.str(r, seName)
+	plan.Name = se.str(r, c.name)
 	plan.Files = soleFiles(se, r)
 	out := map[string][]byte{}
 	if out["SoundEntries"], err = removeRecords(tables["SoundEntries"], map[uint32]bool{id: true}); err != nil {
 		return nil, plan, err
 	}
-	music, goneMusic, err := clearSoundFields(tables, out, "ZoneMusic", []int{6, 7}, 1, true, id, plan.Name, &plan.Music)
+	music, goneMusic, err := clearSoundFields(tables, out, "ZoneMusic", []string{"Day", "Night"}, "Name", true, id, plan.Name, &plan.Music)
 	if err != nil {
 		return nil, plan, err
 	}
-	ambience, goneAmbience, err := clearSoundFields(tables, out, "SoundAmbience", []int{1, 2}, 0, true, id, plan.Name, &plan.Ambience)
+	ambience, goneAmbience, err := clearSoundFields(tables, out, "SoundAmbience", []string{"Day", "Night"}, "", true, id, plan.Name, &plan.Ambience)
 	if err != nil {
 		return nil, plan, err
 	}
-	intro, _, err := clearSoundFields(tables, out, "ZoneIntroMusicTable", []int{2}, 1, false, id, plan.Name, &plan.Intro)
+	intro, _, err := clearSoundFields(tables, out, "ZoneIntroMusicTable", []string{"Sound"}, "Name", false, id, plan.Name, &plan.Intro)
 	if err != nil {
 		return nil, plan, err
 	}
 	if b, ok := tables["AreaTable"]; ok && (len(music) > 0 || len(ambience) > 0 || len(intro) > 0) {
-		at, err := parseSized(b, "AreaTable.dbc", areaFields)
+		at, ac, err := areaTable(b)
 		if err != nil {
 			return nil, plan, err
 		}
 		var rows [][]uint32
 		for i := 0; i < at.records; i++ {
 			rec := at.record(i)
-			if !music[rec[areaMusic]] && !ambience[rec[areaAmbience]] && !intro[rec[areaIntroMusic]] {
+			if !music[rec[ac.music]] && !ambience[rec[ac.ambience]] && !intro[rec[ac.intro]] {
 				continue
 			}
-			plan.Zones = append(plan.Zones, SoundOption{ID: rec[areaID], Name: at.str(i, areaName)})
-			if goneMusic[rec[areaMusic]] || goneAmbience[rec[areaAmbience]] {
-				if goneMusic[rec[areaMusic]] {
-					rec[areaMusic] = 0
+			plan.Zones = append(plan.Zones, SoundOption{ID: rec[ac.id], Name: at.str(i, ac.name)})
+			if goneMusic[rec[ac.music]] || goneAmbience[rec[ac.ambience]] {
+				if goneMusic[rec[ac.music]] {
+					rec[ac.music] = 0
 				}
-				if goneAmbience[rec[areaAmbience]] {
-					rec[areaAmbience] = 0
+				if goneAmbience[rec[ac.ambience]] {
+					rec[ac.ambience] = 0
 				}
 				rows = append(rows, rec)
 			}
@@ -107,15 +108,16 @@ func deleteSoundRows(tables map[string][]byte, id uint32) (map[string][]byte, So
 		}
 	}
 	if b, ok := tables["GameObjectDisplayInfo"]; ok {
-		d, err := parseSized(b, "GameObjectDisplayInfo.dbc", objectDisplayFields)
+		d, err := parseExact(b, dbcObjectDisplay)
 		if err != nil {
 			return nil, plan, err
 		}
+		first, n := d.at("Sound", 0), d.l.count("Sound")
 		var rows [][]uint32
 		for i := 0; i < d.records; i++ {
 			rec := d.record(i)
 			hit := false
-			for s := 2; s < objectDisplayFields; s++ {
+			for s := first; s < first+n; s++ {
 				if rec[s] == id {
 					rec[s], hit = 0, true
 				}
@@ -136,19 +138,20 @@ func deleteSoundRows(tables map[string][]byte, id uint32) (map[string][]byte, So
 
 // soleFiles are the files SoundEntries row r names that no other row names (client paths, each once).
 func soleFiles(se *dbcTable, r int) []string {
+	c := seColsOf(se.l)
 	named := map[string]int{}
 	for i := 0; i < se.records; i++ {
-		d := strings.ToLower(strings.TrimSuffix(se.str(i, seDir), `\`))
-		for f := seFile; f < seFile+soundFiles; f++ {
+		d := strings.ToLower(strings.TrimSuffix(se.str(i, c.dir), `\`))
+		for f := c.file; f < c.file+c.files; f++ {
 			if file := se.str(i, f); file != "" {
 				named[d+`\`+strings.ToLower(file)]++
 			}
 		}
 	}
-	dir := strings.TrimSuffix(se.str(r, seDir), `\`)
+	dir := strings.TrimSuffix(se.str(r, c.dir), `\`)
 	seen := map[string]bool{}
 	out := []string{}
-	for f := seFile; f < seFile+soundFiles; f++ {
+	for f := c.file; f < c.file+c.files; f++ {
 		file := se.str(r, f)
 		path := dir + `\` + file
 		k := strings.ToLower(path)
@@ -162,17 +165,21 @@ func soleFiles(se *dbcTable, r int) []string {
 
 // clearSoundFields sets the fields of tables[name] that name id to 0 and puts the table into out when
 // any did. With drop, a row whose fields are then all 0 is removed. Each row it touched goes into
-// into, named by its string field label (or by name when label is 0). Returns the IDs of the rows it
+// into, named by its string field label (or by sound when label is ""). Returns the IDs of the rows it
 // touched and of the ones it removed.
-func clearSoundFields(tables, out map[string][]byte, name string, fields []int, label int, drop bool, id uint32, sound string, into *[]SoundOption) (touched, gone map[uint32]bool, err error) {
+func clearSoundFields(tables, out map[string][]byte, name string, names []string, label string, drop bool, id uint32, sound string, into *[]SoundOption) (touched, gone map[uint32]bool, err error) {
 	touched, gone = map[uint32]bool{}, map[uint32]bool{}
 	b, ok := tables[name]
 	if !ok {
 		return touched, gone, nil
 	}
-	t, err := parseSized(b, name+".dbc", soundTableFields[name])
+	t, err := parseExact(b, soundTables[name])
 	if err != nil {
 		return nil, nil, err
+	}
+	fields := make([]int, len(names))
+	for i, n := range names {
+		fields[i] = t.col(n)
 	}
 	var rows [][]uint32
 	for i := 0; i < t.records; i++ {
@@ -189,8 +196,8 @@ func clearSoundFields(tables, out map[string][]byte, name string, fields []int, 
 		}
 		touched[rec[0]] = true
 		opt := SoundOption{ID: rec[0], Name: sound}
-		if label > 0 {
-			opt.Name = t.str(i, label)
+		if label != "" {
+			opt.Name = t.str(i, t.col(label))
 		}
 		*into = append(*into, opt)
 		if drop && !left {

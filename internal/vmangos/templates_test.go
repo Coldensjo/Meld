@@ -222,7 +222,7 @@ func TestDisplayUses(t *testing.T) {
 }
 
 func TestObjectDisplays(t *testing.T) {
-	m := &modelTables{objectDisplay: testDBC(t, 2,
+	m := &modelTables{objectDisplay: testTable(t, dbcObjectDisplay,
 		[]any{31, `World\Generic\Ore\Thorium.mdx`},
 		[]any{7, `World\Generic\Chests\Chest01.mdx`},
 		[]any{8, ""},

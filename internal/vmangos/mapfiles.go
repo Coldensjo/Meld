@@ -64,7 +64,8 @@ func AddMapRow(dbc []byte, mapID uint32, dir string) ([]byte, error) {
 	fields := int(binary.LittleEndian.Uint32(dbc[8:]))
 	recordSize := int(binary.LittleEndian.Uint32(dbc[12:]))
 	stringSize := int(binary.LittleEndian.Uint32(dbc[16:]))
-	if records == 0 || fields < 2 || recordSize != fields*4 {
+	dirCol := dbcMap.layout(fields).col("Directory")
+	if records == 0 || fields <= dirCol || recordSize != fields*4 {
 		return nil, fmt.Errorf("map table: %d fields of %d bytes", fields, recordSize)
 	}
 	recordsAt := 20
@@ -83,8 +84,8 @@ func AddMapRow(dbc []byte, mapID uint32, dir string) ([]byte, error) {
 
 	row := append([]byte(nil), dbc[recordsAt:recordsAt+recordSize]...)
 	binary.LittleEndian.PutUint32(row[0:], mapID)
-	// Field 1 names the map's folder: a string at an offset into the string block.
-	binary.LittleEndian.PutUint32(row[4:], uint32(stringSize))
+	// The Directory field names the map's folder: a string at an offset into the string block.
+	binary.LittleEndian.PutUint32(row[dirCol*4:], uint32(stringSize))
 
 	var out []byte
 	out = append(out, "WDBC"...)
@@ -120,12 +121,13 @@ func MapRowDir(dbc []byte, mapID uint32) string {
 	fields := int(binary.LittleEndian.Uint32(dbc[8:]))
 	recordSize := int(binary.LittleEndian.Uint32(dbc[12:]))
 	stringsAt := 20 + records*recordSize
+	dirCol := dbcMap.layout(fields).col("Directory")
 	for r := 0; r < records; r++ {
 		row := 20 + r*recordSize
-		if binary.LittleEndian.Uint32(dbc[row:]) != mapID || fields < 2 {
+		if binary.LittleEndian.Uint32(dbc[row:]) != mapID || fields <= dirCol {
 			continue
 		}
-		off := int(binary.LittleEndian.Uint32(dbc[row+4:]))
+		off := int(binary.LittleEndian.Uint32(dbc[row+dirCol*4:]))
 		end := stringsAt + off
 		for end < len(dbc) && dbc[end] != 0 {
 			end++
@@ -136,9 +138,9 @@ func MapRowDir(dbc []byte, mapID uint32) string {
 }
 
 // MapInfo is what a map made for the client says about itself besides its folder and ID: the client's
-// Map.dbc row (instance type, display name, zone, loading screen; fields checked against the 1.12 table:
-// 2 the type, 3 the PvP flag, 4 the English name, 19 the AreaTable ID, 38 the LoadingScreens ID) and the
-// server's map_template (type, zone, player limit, reset delay and where a ghost goes back to its corpse).
+// Map.dbc row (instance type, display name, zone, loading screen: dbcMap's InstanceType, PvP, Name,
+// AreaID and LoadingScreen) and the server's map_template (type, zone, player limit, reset delay and
+// where a ghost goes back to its corpse).
 type MapInfo struct {
 	// Type is 0 a world map, 1 a dungeon, 2 a raid, 3 a battleground (the same in both tables).
 	Type          uint32 `json:"type"`
@@ -154,15 +156,24 @@ type MapInfo struct {
 	GhostY     float32 `json:"ghostY"`
 }
 
-// SetMapRowInfo returns Map.dbc with the row for mapID given the info's type, PvP flag (a
-// battleground's), zone, loading screen and, when set, English name (added to the string block).
-func SetMapRowInfo(dbc []byte, mapID uint32, info MapInfo) ([]byte, error) {
-	t, err := parseDBC(dbc)
+// mapTable reads Map.dbc, of 32-bit fields through the loading screen's at least.
+func mapTable(dbc []byte) (*dbcTable, error) {
+	t, err := parseTable(dbc, dbcMap)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields < 39 || t.recSize != t.fields*4 {
+	if t.fields <= t.col("LoadingScreen") || t.recSize != t.fields*4 {
 		return nil, fmt.Errorf("Map.dbc has %d fields, not the 1.12 client's 42", t.fields)
+	}
+	return t, nil
+}
+
+// SetMapRowInfo returns Map.dbc with the row for mapID given the info's type, PvP flag (a
+// battleground's), zone, loading screen and, when set, English name (added to the string block).
+func SetMapRowInfo(dbc []byte, mapID uint32, info MapInfo) ([]byte, error) {
+	t, err := mapTable(dbc)
+	if err != nil {
+		return nil, err
 	}
 	if info.Type > 3 {
 		return nil, fmt.Errorf("map type %d is not one of the client's (0 to 3)", info.Type)
@@ -174,16 +185,16 @@ func SetMapRowInfo(dbc []byte, mapID uint32, info MapInfo) ([]byte, error) {
 	out := append([]byte(nil), dbc...)
 	at := 20 + r*t.recSize
 	put := func(f int, v uint32) { binary.LittleEndian.PutUint32(out[at+f*4:], v) }
-	put(2, info.Type)
+	put(t.col("InstanceType"), info.Type)
 	pvp := uint32(0)
 	if info.Type == 3 {
 		pvp = 1
 	}
-	put(3, pvp)
-	put(19, info.AreaID)
-	put(38, info.LoadingScreen)
-	if info.Name != "" && !strings.ContainsRune(info.Name, 0) && t.str(r, 4) != info.Name {
-		put(4, uint32(len(dbc)-t.strsAt))
+	put(t.col("PvP"), pvp)
+	put(t.col("AreaID"), info.AreaID)
+	put(t.col("LoadingScreen"), info.LoadingScreen)
+	if name := t.col("Name"); info.Name != "" && !strings.ContainsRune(info.Name, 0) && t.str(r, name) != info.Name {
+		put(name, uint32(len(dbc)-t.strsAt))
 		out = append(out, info.Name...)
 		out = append(out, 0)
 		binary.LittleEndian.PutUint32(out[16:], uint32(len(out)-t.strsAt))

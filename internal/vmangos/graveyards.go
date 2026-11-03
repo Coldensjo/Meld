@@ -26,13 +26,8 @@ import (
 // WorldSafeLocsPath is WorldSafeLocs.dbc's name in the client's archives.
 const WorldSafeLocsPath = `DBFilesClient\WorldSafeLocs.dbc`
 
-// The 1.12 layout (VMaNGOS's WorldSafeLocsEntryfmt "nifffxxxxxxxxx", checked against the server's
-// file): ID, map, x, y, z, eight names, then the names' locale mask.
-const (
-	safeLocFields = 14
-	safeLocName   = 5
-	safeLocMask   = 13
-)
+// WorldSafeLocs.dbc's layout is dbcWorldSafeLocs (1.12's is VMaNGOS's WorldSafeLocsEntryfmt
+// "nifffxxxxxxxxx", checked against the server's file): ID, map, x, y, z and the localized name.
 
 // The factions a graveyard link is for (game_graveyard_zone.faction, VMaNGOS's Team).
 const (
@@ -92,14 +87,7 @@ func ReadServerSafeLocs(serverDir string) ([]byte, error) {
 }
 
 func safeLocTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
-	if err != nil {
-		return nil, fmt.Errorf("WorldSafeLocs.dbc: %w", err)
-	}
-	if t.fields != safeLocFields || t.recSize != safeLocFields*4 {
-		return nil, fmt.Errorf("WorldSafeLocs.dbc has %d fields of %d bytes a record, not 1.12's %d", t.fields, t.recSize, safeLocFields)
-	}
-	return t, nil
+	return parseExact(dbc, dbcWorldSafeLocs)
 }
 
 // ReadGraveyards lists map mapID's graveyards by ID, without facings or links (GraveyardExtras).
@@ -108,12 +96,13 @@ func ReadGraveyards(dbc []byte, mapID uint32) ([]Graveyard, error) {
 	if err != nil {
 		return nil, err
 	}
+	cm, cp, cn := t.col("MapID"), t.at("Pos", 0), t.col("Name")
 	out := []Graveyard{}
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, 1) != mapID {
+		if t.u32(r, cm) != mapID {
 			continue
 		}
-		out = append(out, Graveyard{ID: t.u32(r, 0), MapID: mapID, X: t.f32(r, 2), Y: t.f32(r, 3), Z: t.f32(r, 4), Name: t.str(r, safeLocName), Links: []GraveyardLink{}})
+		out = append(out, Graveyard{ID: t.u32(r, 0), MapID: mapID, X: t.f32(r, cp), Y: t.f32(r, cp+1), Z: t.f32(r, cp+2), Name: t.str(r, cn), Links: []GraveyardLink{}})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
@@ -183,32 +172,33 @@ func SetGraveyards(dbc []byte, rows []Graveyard, remove []uint32) ([]byte, error
 	strs := append([]byte(nil), dbc[t.strsAt:]...)
 	n := t.records
 	f := math.Float32bits
+	cm, cp, cn, cmask := t.col("MapID"), t.at("Pos", 0), t.col("Name"), t.mask("Name")
 	for _, g := range rows {
 		r, ok := t.row(g.ID)
 		if !ok {
 			// A new record starts from the first one's locale mask, with the other locales empty.
 			r = n
 			n++
-			rec := make([]uint32, safeLocFields)
+			rec := make([]uint32, t.fields)
 			if t.records > 0 {
-				rec[safeLocMask] = t.u32(0, safeLocMask)
+				rec[cmask] = t.u32(0, cmask)
 			}
 			recs = appendFields(recs, rec...)
 		}
 		at := r * t.recSize
 		put := func(field int, v uint32) { binary.LittleEndian.PutUint32(recs[at+field*4:], v) }
-		if !ok || t.str(r, safeLocName) != g.Name {
+		if !ok || t.str(r, cn) != g.Name {
 			if len(strs) == 0 {
 				strs = []byte{0}
 			}
-			put(safeLocName, uint32(len(strs)))
+			put(cn, uint32(len(strs)))
 			strs = append(append(strs, g.Name...), 0)
 		}
 		put(0, g.ID)
-		put(1, g.MapID)
-		put(2, f(g.X))
-		put(3, f(g.Y))
-		put(4, f(g.Z))
+		put(cm, g.MapID)
+		put(cp, f(g.X))
+		put(cp+1, f(g.Y))
+		put(cp+2, f(g.Z))
 	}
 	kept := recs
 	if len(gone) > 0 {
@@ -223,7 +213,7 @@ func SetGraveyards(dbc []byte, rows []Graveyard, remove []uint32) ([]byte, error
 		}
 		n = left
 	}
-	return dbcFile(safeLocFields, n, kept, strs), nil
+	return dbcFile(t.fields, n, kept, strs), nil
 }
 
 // NewGraveyardID is the first ID above every graveyard of the client's table, the server's copy

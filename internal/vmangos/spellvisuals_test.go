@@ -24,8 +24,8 @@ func visualTables() ([]byte, []byte) {
 
 func TestPlanVisual(t *testing.T) {
 	vb, kb := visualTables()
-	v, _ := parseDBC(vb)
-	k, _ := parseDBC(kb)
+	v, _ := parseTable(vb, dbcSpellVisual)
+	k, _ := parseTable(kb, dbcSpellVisualKit)
 	d := readVisualDesign(v, k, 10)
 	if d.Stages[0].ID != 5 || d.Stages[0].Effects[3] != 7 || d.Stages[0].Effects[0] != 0 || d.Missile != 7 || d.MissileFrom != 10 || d.Area != 0 {
 		t.Fatalf("read %+v", d)
@@ -41,7 +41,7 @@ func TestPlanVisual(t *testing.T) {
 	if err != nil || id != 11 || vis == nil || kits != nil {
 		t.Fatalf("area: %d %v %v %v", id, vis != nil, kits != nil, err)
 	}
-	nv, _ := parseDBC(vis)
+	nv, _ := parseTable(vis, dbcSpellVisual)
 	r, _ := nv.row(11)
 	if nv.u32(r, 1) != 5 || nv.u32(r, 7) != 7 || nv.u32(r, 8) != 2 || nv.u32(r, 11) != 1 || nv.u32(r, 12) != 9 {
 		t.Fatalf("the new visual: %v", nv.record(r))
@@ -55,12 +55,12 @@ func TestPlanVisual(t *testing.T) {
 	if err != nil || id != 11 || vis == nil || kits == nil {
 		t.Fatalf("kit: %d %v", id, err)
 	}
-	nk, _ := parseDBC(kits)
+	nk, _ := parseTable(kits, dbcSpellVisualKit)
 	kr, ok := nk.row(6)
 	if !ok || nk.u32(kr, 2) != 52 || nk.u32(kr, kitEffectsBase+3) != 7 || nk.u32(kr, kitEffectsBase+4) != 8 || nk.u32(kr, kitEffectsBase) != none {
 		t.Fatalf("the new kit: %v", nk.record(kr))
 	}
-	nv, _ = parseDBC(vis)
+	nv, _ = parseTable(vis, dbcSpellVisual)
 	if r, _ := nv.row(11); nv.u32(r, 1) != 6 {
 		t.Fatal("the new visual doesn't use the new kit")
 	}
@@ -68,7 +68,7 @@ func TestPlanVisual(t *testing.T) {
 	d.Stages[0].Effects[4] = 0
 	d.Stages[1].Effects[1] = 8
 	_, _, kits, _ = planVisual(vb, kb, d)
-	nk, _ = parseDBC(kits)
+	nk, _ = parseTable(kits, dbcSpellVisualKit)
 	if kr, ok := nk.row(6); !ok || nk.u32(kr, 1) != 0 || nk.u32(kr, 2) != 54 || nk.u32(kr, kitEffectsBase+1) != 8 {
 		t.Fatal("the new cast kit is wrong")
 	}
@@ -99,12 +99,11 @@ func TestSpellVisualsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	eb, _ := set.ReadFile(SpellVisualEffectPath)
-	v, _ := parseDBC(vb)
-	k, _ := parseDBC(kb)
-	e, _ := parseDBC(eb)
-	if err := checkVisualTables(v, k); err != nil {
+	v, k, err := parseVisualTables(vb, kb)
+	if err != nil {
 		t.Fatal(err)
 	}
+	e, _ := parseTable(eb, dbcVisualEffect)
 	share := func(tb *dbcTable, fields []int, in *dbcTable, skip uint32) (int, int) {
 		set, hit := 0, 0
 		for r := 0; r < tb.records; r++ {
@@ -155,7 +154,7 @@ func TestSpellVisualsLive(t *testing.T) {
 	if err != nil || len(files) != 1 || files[0].Name != SpellVisualPath {
 		t.Fatalf("lava blizzard: %d, %d files, %v", id, len(files), err)
 	}
-	nv, _ := parseDBC(files[0].Data)
+	nv, _ := parseTable(files[0].Data, dbcSpellVisual)
 	r, _ := nv.row(uint32(id))
 	b, _ := v.row(259)
 	fr, _ := v.row(329)

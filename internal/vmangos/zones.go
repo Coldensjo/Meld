@@ -24,30 +24,32 @@ type Zone struct {
 // TileYards is the width of a tile in yards.
 const TileYards = 1600.0 / 3
 
-// ReadZones lists the zones of WorldMapArea.dbc: field 1 is the map, field 2 the area (0 for a
-// whole continent, which is left out), field 3 the internal name, and fields 4 to 7 the extent in
-// world yards as left, right, top, bottom. `names` gives an area ID's English name, if known.
+// ReadZones lists the zones of WorldMapArea.dbc: each row's map, area (0 for a whole continent,
+// which is left out), internal name, and extent in world yards as left, right, top, bottom. `names`
+// gives an area ID's English name, if known.
 func ReadZones(dbc []byte, names map[uint32]string) ([]Zone, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcWorldMapArea)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields < 8 {
+	if t.fields < t.l.columns {
 		return nil, errors.New("WorldMapArea.dbc has too few fields")
 	}
+	mapCol, areaCol, nameCol := t.col("MapID"), t.col("AreaID"), t.col("Name")
+	leftCol, rightCol, topCol, bottomCol := t.col("Left"), t.col("Right"), t.col("Top"), t.col("Bottom")
 	f32 := func(r, f int) float64 { return float64(math.Float32frombits(t.u32(r, f))) }
 	// World x runs north (up the map, decreasing tile row) and y runs west (decreasing tile column).
 	col := func(y float64) float64 { return 32 - y/TileYards }
 	row := func(x float64) float64 { return 32 - x/TileYards }
 	var zones []Zone
 	for r := 0; r < t.records; r++ {
-		area := t.u32(r, 2)
+		area := t.u32(r, areaCol)
 		if area == 0 {
 			continue
 		}
-		left, right, top, bottom := f32(r, 4), f32(r, 5), f32(r, 6), f32(r, 7)
+		left, right, top, bottom := f32(r, leftCol), f32(r, rightCol), f32(r, topCol), f32(r, bottomCol)
 		z := Zone{
-			MapID:  t.u32(r, 1),
+			MapID:  t.u32(r, mapCol),
 			AreaID: area,
 			Name:   names[area],
 			X0:     zoneTile(math.Floor(col(left))),
@@ -56,7 +58,7 @@ func ReadZones(dbc []byte, names map[uint32]string) ([]Zone, error) {
 			Y1:     zoneTile(math.Ceil(row(bottom))),
 		}
 		if z.Name == "" {
-			z.Name = t.str(r, 3)
+			z.Name = t.str(r, nameCol)
 		}
 		if z.X1 <= z.X0 || z.Y1 <= z.Y0 || z.Name == "" {
 			continue
@@ -82,18 +84,19 @@ func zoneTile(v float64) int {
 	return int(v)
 }
 
-// ReadAreaNames maps area IDs to English names from AreaTable.dbc (field 11).
+// ReadAreaNames maps area IDs to English names from AreaTable.dbc.
 func ReadAreaNames(dbc []byte) (map[uint32]string, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcAreaTable)
 	if err != nil {
 		return nil, err
 	}
 	names := make(map[uint32]string, t.records)
-	if t.fields <= 11 {
+	name := t.col("Name")
+	if t.fields <= name {
 		return names, nil
 	}
 	for r := 0; r < t.records; r++ {
-		names[t.u32(r, 0)] = t.str(r, 11)
+		names[t.u32(r, 0)] = t.str(r, name)
 	}
 	return names, nil
 }
@@ -106,12 +109,12 @@ func LoadZones(dataDir string) ([]Zone, error) {
 	}
 	defer set.Close()
 	names := map[uint32]string{}
-	if b, err := set.ReadFile(`DBFilesClient\AreaTable.dbc`); err == nil {
+	if b, err := set.ReadFile(dbcAreaTable.file()); err == nil {
 		if n, err := ReadAreaNames(b); err == nil {
 			names = n
 		}
 	}
-	b, err := set.ReadFile(`DBFilesClient\WorldMapArea.dbc`)
+	b, err := set.ReadFile(dbcWorldMapArea.file())
 	if err != nil {
 		return nil, err
 	}

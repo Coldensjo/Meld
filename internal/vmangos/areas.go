@@ -18,19 +18,20 @@ type Area struct {
 	Name   string `json:"name"`
 }
 
-// ReadAreas lists AreaTable.dbc's areas: field 0 is the ID, 1 the map, 2 the parent area and 11 the
-// English name. Rows without a name are left out. The list is by map, then name.
+// ReadAreas lists AreaTable.dbc's areas: each one's ID, map, parent area and English name. Rows
+// without a name are left out. The list is by map, then name.
 func ReadAreas(dbc []byte) ([]Area, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcAreaTable)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields <= 11 {
+	c := areaColsOf(t.l)
+	if t.fields <= c.name {
 		return nil, errors.New("AreaTable.dbc has too few fields")
 	}
 	areas := make([]Area, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		a := Area{ID: t.u32(r, 0), MapID: t.u32(r, 1), Parent: t.u32(r, 2), Name: t.str(r, 11)}
+		a := Area{ID: t.u32(r, c.id), MapID: t.u32(r, c.mapID), Parent: t.u32(r, c.parent), Name: t.str(r, c.name)}
 		if a.ID == 0 || a.Name == "" {
 			continue
 		}
@@ -52,7 +53,7 @@ func LoadAreas(dataDir string) ([]Area, error) {
 		return nil, err
 	}
 	defer set.Close()
-	b, err := set.ReadFile(`DBFilesClient\AreaTable.dbc`)
+	b, err := set.ReadFile(dbcAreaTable.file())
 	if err != nil {
 		return nil, err
 	}

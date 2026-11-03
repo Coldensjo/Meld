@@ -11,29 +11,22 @@ import (
 	"Meld/internal/mpq"
 )
 
-// AreaTable.dbc in 1.12 has 25 fields a row. These are the ones the zone editor reads and writes;
-// fields 12 to 18 are the other locales' names, and 19 the names' locale mask, which are kept.
-const (
-	areaFields        = 25
-	areaID            = 0
-	areaMap           = 1
-	areaParent        = 2
-	areaBit           = 3
-	areaFlags         = 4
-	areaSoundPref     = 5
-	areaSoundPrefSwim = 6
-	areaAmbience      = 7
-	areaMusic         = 8
-	areaIntroMusic    = 9
-	areaLevel         = 10
-	areaName          = 11
-	areaNameMask      = 19
-	areaFaction       = 20
-	areaLiquid        = 21
-	areaMinElevation  = 22
-	areaAmbientMul    = 23
-	areaLight         = 24
-)
+// areaCols are the AreaTable.dbc columns the zone editor reads and writes (dbcAreaTable's layout);
+// the name's other locales and its locale mask are kept as the table has them.
+type areaCols struct {
+	id, mapID, parent, bit, flags, soundPref, soundSwim, ambience, music, intro, level, name, nameMask int
+	faction, liquid, minElevation, ambientMul, light                                                   int
+}
+
+func areaColsOf(l *dbcLayout) areaCols {
+	return areaCols{
+		id: l.col("ID"), mapID: l.col("MapID"), parent: l.col("ParentID"), bit: l.col("AreaBit"), flags: l.col("Flags"),
+		soundPref: l.col("SoundPref"), soundSwim: l.col("SoundPrefSwim"), ambience: l.col("Ambience"), music: l.col("Music"),
+		intro: l.col("IntroMusic"), level: l.col("Level"), name: l.col("Name"), nameMask: l.mask("Name"),
+		faction: l.col("Faction"), liquid: l.col("Liquid"), minElevation: l.col("MinElevation"), ambientMul: l.col("AmbientMul"),
+		light: l.col("Light"),
+	}
+}
 
 // MaxAreaBit is one past the last exploration bit a 1.12 player has (PLAYER_EXPLORED_ZONES is 64
 // 32-bit fields), so a new area's bit must stay below it.
@@ -63,36 +56,33 @@ type AreaRow struct {
 	Light        uint32  `json:"light"`
 }
 
-// areaTable checks a DBC is a 1.12 AreaTable.
-func areaTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
+// areaTable reads an AreaTable of a width Meld knows, with its columns.
+func areaTable(dbc []byte) (*dbcTable, areaCols, error) {
+	t, err := parseExact(dbc, dbcAreaTable)
 	if err != nil {
-		return nil, err
+		return nil, areaCols{}, err
 	}
-	if t.fields != areaFields || t.recSize != areaFields*4 {
-		return nil, fmt.Errorf("AreaTable.dbc has %d fields, not the 1.12 client's %d", t.fields, areaFields)
-	}
-	return t, nil
+	return t, areaColsOf(t.l), nil
 }
 
 // ReadAreaRows lists the areas of a map in AreaTable.dbc, zones before their subzones and each by name.
 func ReadAreaRows(dbc []byte, mapID uint32) ([]AreaRow, error) {
-	t, err := areaTable(dbc)
+	t, c, err := areaTable(dbc)
 	if err != nil {
 		return nil, err
 	}
 	var rows []AreaRow
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, areaMap) != mapID {
+		if t.u32(r, c.mapID) != mapID {
 			continue
 		}
 		rows = append(rows, AreaRow{
-			ID: t.u32(r, areaID), MapID: mapID, Parent: t.u32(r, areaParent), AreaBit: t.u32(r, areaBit),
-			Flags: t.u32(r, areaFlags), SoundPref: t.u32(r, areaSoundPref), SoundSwim: t.u32(r, areaSoundPrefSwim),
-			Ambience: t.u32(r, areaAmbience), Music: t.u32(r, areaMusic), IntroMusic: t.u32(r, areaIntroMusic),
-			Level: int32(t.u32(r, areaLevel)), Name: t.str(r, areaName), Faction: t.u32(r, areaFaction),
-			Liquid: t.u32(r, areaLiquid), MinElevation: t.f32(r, areaMinElevation), AmbientMul: t.f32(r, areaAmbientMul),
-			Light: t.u32(r, areaLight),
+			ID: t.u32(r, c.id), MapID: mapID, Parent: t.u32(r, c.parent), AreaBit: t.u32(r, c.bit),
+			Flags: t.u32(r, c.flags), SoundPref: t.u32(r, c.soundPref), SoundSwim: t.u32(r, c.soundSwim),
+			Ambience: t.u32(r, c.ambience), Music: t.u32(r, c.music), IntroMusic: t.u32(r, c.intro),
+			Level: int32(t.u32(r, c.level)), Name: t.str(r, c.name), Faction: t.u32(r, c.faction),
+			Liquid: t.u32(r, c.liquid), MinElevation: t.f32(r, c.minElevation), AmbientMul: t.f32(r, c.ambientMul),
+			Light: t.u32(r, c.light),
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool {
@@ -108,14 +98,14 @@ func ReadAreaRows(dbc []byte, mapID uint32) ([]AreaRow, error) {
 // the first free exploration bit past the table's, with the flags most of the client's areas have.
 // A subzone takes its zone's sounds, music, faction and liquid.
 func NewAreaRow(dbc []byte, mapID, parent uint32) (AreaRow, error) {
-	t, err := areaTable(dbc)
+	t, c, err := areaTable(dbc)
 	if err != nil {
 		return AreaRow{}, err
 	}
 	var id, bit uint32
 	for r := 0; r < t.records; r++ {
-		id = max(id, t.u32(r, areaID))
-		bit = max(bit, t.u32(r, areaBit))
+		id = max(id, t.u32(r, c.id))
+		bit = max(bit, t.u32(r, c.bit))
 	}
 	if bit+1 >= MaxAreaBit {
 		return AreaRow{}, errors.New("the client has no exploration bit left for another area")
@@ -127,9 +117,9 @@ func NewAreaRow(dbc []byte, mapID, parent uint32) (AreaRow, error) {
 			return AreaRow{}, fmt.Errorf("area %d is not in the table", parent)
 		}
 		row.Name = "New subzone"
-		row.SoundPref, row.SoundSwim = t.u32(p, areaSoundPref), t.u32(p, areaSoundPrefSwim)
-		row.Ambience, row.Music, row.IntroMusic = t.u32(p, areaAmbience), t.u32(p, areaMusic), t.u32(p, areaIntroMusic)
-		row.Faction, row.Liquid, row.Level = t.u32(p, areaFaction), t.u32(p, areaLiquid), int32(t.u32(p, areaLevel))
+		row.SoundPref, row.SoundSwim = t.u32(p, c.soundPref), t.u32(p, c.soundSwim)
+		row.Ambience, row.Music, row.IntroMusic = t.u32(p, c.ambience), t.u32(p, c.music), t.u32(p, c.intro)
+		row.Faction, row.Liquid, row.Level = t.u32(p, c.faction), t.u32(p, c.liquid), int32(t.u32(p, c.level))
 	}
 	return row, nil
 }
@@ -138,13 +128,13 @@ func NewAreaRow(dbc []byte, mapID, parent uint32) (AreaRow, error) {
 // that row's fields (its other locales' names and the locale mask are kept), and a new ID is added
 // at the end. A changed name is added to the string block; the old string stays, unused.
 func SetAreaRows(dbc []byte, rows []AreaRow) ([]byte, error) {
-	t, err := areaTable(dbc)
+	t, c, err := areaTable(dbc)
 	if err != nil {
 		return nil, err
 	}
 	bits := map[uint32]uint32{}
 	for r := 0; r < t.records; r++ {
-		bits[t.u32(r, areaBit)] = t.u32(r, areaID)
+		bits[t.u32(r, c.bit)] = t.u32(r, c.id)
 	}
 	records := append([]byte(nil), dbc[20:t.strsAt]...)
 	strs := append([]byte(nil), dbc[t.strsAt:]...)
@@ -173,34 +163,34 @@ func SetAreaRows(dbc []byte, rows []AreaRow) ([]byte, error) {
 			// A new row starts from the first row's fields, so its other locales and mask are the client's kind.
 			at = len(records)
 			records = append(records, records[:t.recSize]...)
-			for f := areaName + 1; f < areaNameMask; f++ {
+			for f := c.name + 1; f < c.nameMask; f++ {
 				binary.LittleEndian.PutUint32(records[at+f*4:], 0)
 			}
 			added++
 		}
 		put := func(f int, v uint32) { binary.LittleEndian.PutUint32(records[at+f*4:], v) }
-		old := binary.LittleEndian.Uint32(records[at+areaName*4:])
-		if at >= t.records*t.recSize || t.str(at/t.recSize, areaName) != a.Name || old == 0 {
-			put(areaName, uint32(len(strs)))
+		old := binary.LittleEndian.Uint32(records[at+c.name*4:])
+		if at >= t.records*t.recSize || t.str(at/t.recSize, c.name) != a.Name || old == 0 {
+			put(c.name, uint32(len(strs)))
 			strs = append(strs, a.Name...)
 			strs = append(strs, 0)
 		}
-		put(areaID, a.ID)
-		put(areaMap, a.MapID)
-		put(areaParent, a.Parent)
-		put(areaBit, a.AreaBit)
-		put(areaFlags, a.Flags)
-		put(areaSoundPref, a.SoundPref)
-		put(areaSoundPrefSwim, a.SoundSwim)
-		put(areaAmbience, a.Ambience)
-		put(areaMusic, a.Music)
-		put(areaIntroMusic, a.IntroMusic)
-		put(areaLevel, uint32(a.Level))
-		put(areaFaction, a.Faction)
-		put(areaLiquid, a.Liquid)
-		put(areaMinElevation, math.Float32bits(a.MinElevation))
-		put(areaAmbientMul, math.Float32bits(a.AmbientMul))
-		put(areaLight, a.Light)
+		put(c.id, a.ID)
+		put(c.mapID, a.MapID)
+		put(c.parent, a.Parent)
+		put(c.bit, a.AreaBit)
+		put(c.flags, a.Flags)
+		put(c.soundPref, a.SoundPref)
+		put(c.soundSwim, a.SoundSwim)
+		put(c.ambience, a.Ambience)
+		put(c.music, a.Music)
+		put(c.intro, a.IntroMusic)
+		put(c.level, uint32(a.Level))
+		put(c.faction, a.Faction)
+		put(c.liquid, a.Liquid)
+		put(c.minElevation, math.Float32bits(a.MinElevation))
+		put(c.ambientMul, math.Float32bits(a.AmbientMul))
+		put(c.light, a.Light)
 		if _, ok := t.row(a.ID); !ok {
 			// Two new rows with one ID would both be added; index the new one.
 			t.byID[a.ID] = at / t.recSize
@@ -209,8 +199,8 @@ func SetAreaRows(dbc []byte, rows []AreaRow) ([]byte, error) {
 	var out []byte
 	out = append(out, "WDBC"...)
 	out = binary.LittleEndian.AppendUint32(out, uint32(t.records+added))
-	out = binary.LittleEndian.AppendUint32(out, areaFields)
-	out = binary.LittleEndian.AppendUint32(out, areaFields*4)
+	out = binary.LittleEndian.AppendUint32(out, uint32(t.fields))
+	out = binary.LittleEndian.AppendUint32(out, uint32(t.recSize))
 	out = binary.LittleEndian.AppendUint32(out, uint32(len(strs)))
 	out = append(out, records...)
 	return append(out, strs...), nil

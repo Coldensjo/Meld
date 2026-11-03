@@ -76,29 +76,30 @@ type MapLights struct {
 // ReadMapLights reads a map's lights from the four tables. A map without a global light of its own
 // takes Azeroth's (map 0), as a new map has none.
 func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*MapLights, error) {
-	lt, err := parseDBC(light)
+	lt, err := parseTable(light, dbcLight)
 	if err != nil {
 		return nil, fmt.Errorf("Light.dbc: %w", err)
 	}
-	if lt.fields < 12 {
+	if lt.fields < lt.l.columns {
 		return nil, fmt.Errorf("Light.dbc has %d fields, not the 1.12 client's 12", lt.fields)
 	}
+	lc := lightColsOf(lt.l)
 	row := func(r int) MapLight {
 		l := MapLight{
-			ID: lt.u32(r, 0),
-			X:  lt.f32(r, 2) / lightScale, Y: lt.f32(r, 3) / lightScale, Z: lt.f32(r, 4) / lightScale,
-			Inner: lt.f32(r, 5) / lightScale, Outer: lt.f32(r, 6) / lightScale,
+			ID: lt.u32(r, lc.id),
+			X:  lt.f32(r, lc.pos) / lightScale, Y: lt.f32(r, lc.pos+1) / lightScale, Z: lt.f32(r, lc.pos+2) / lightScale,
+			Inner: lt.f32(r, lc.inner) / lightScale, Outer: lt.f32(r, lc.outer) / lightScale,
 		}
-		l.Global = lt.f32(r, 2) == 0 && lt.f32(r, 3) == 0 && lt.f32(r, 4) == 0
+		l.Global = lt.f32(r, lc.pos) == 0 && lt.f32(r, lc.pos+1) == 0 && lt.f32(r, lc.pos+2) == 0
 		for i := range l.Params {
-			l.Params[i] = lt.u32(r, 7+i)
+			l.Params[i] = lt.u32(r, lc.params+i)
 		}
 		return l
 	}
 	out := &MapLights{MapID: mapID, Params: map[uint32]LightParamSet{}}
 	hasGlobal := false
 	for r := 0; r < lt.records; r++ {
-		if lt.u32(r, 1) != mapID {
+		if lt.u32(r, lc.mapID) != mapID {
 			continue
 		}
 		l := row(r)
@@ -107,41 +108,42 @@ func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*Map
 	}
 	if !hasGlobal {
 		for r := 0; r < lt.records; r++ {
-			if l := row(r); lt.u32(r, 1) == 0 && l.Global {
+			if l := row(r); lt.u32(r, lc.mapID) == 0 && l.Global {
 				l.Borrowed = mapID != 0
 				out.Lights = append(out.Lights, l)
 				break
 			}
 		}
 	}
-	pt, err := parseDBC(params)
+	pt, err := parseTable(params, dbcLightParams)
 	if err != nil {
 		return nil, fmt.Errorf("LightParams.dbc: %w", err)
 	}
-	it, err := parseDBC(intBand)
+	it, err := parseTable(intBand, dbcLightIntBand)
 	if err != nil {
 		return nil, fmt.Errorf("LightIntBand.dbc: %w", err)
 	}
-	ft, err := parseDBC(floatBand)
+	ft, err := parseTable(floatBand, dbcLightFloatBand)
 	if err != nil {
 		return nil, fmt.Errorf("LightFloatBand.dbc: %w", err)
 	}
-	if pt.fields < 9 || it.fields < 34 || ft.fields < 34 {
+	if pt.fields < pt.l.columns || it.fields < it.l.columns || ft.fields < ft.l.columns {
 		return nil, errors.New("the light tables aren't the 1.12 client's")
 	}
-	bands := func(t *dbcTable, id uint32, float bool) []LightKey {
+	pc, ic, fc := paramColsOf(pt.l), bandColsOf(it.l), bandColsOf(ft.l)
+	bands := func(t *dbcTable, c bandCols, id uint32, float bool) []LightKey {
 		r, ok := t.row(id)
 		if !ok {
 			return nil
 		}
-		n := int(t.u32(r, 1))
+		n := int(t.u32(r, c.count))
 		keys := make([]LightKey, 0, n)
-		for k := 0; k < n && k < 16; k++ {
-			v := float64(t.u32(r, 18+k))
+		for k := 0; k < n && k < c.keys; k++ {
+			v := float64(t.u32(r, c.value+k))
 			if float {
-				v = float64(t.f32(r, 18+k))
+				v = float64(t.f32(r, c.value+k))
 			}
-			keys = append(keys, LightKey{T: int(t.u32(r, 2+k)), V: v})
+			keys = append(keys, LightKey{T: int(t.u32(r, c.time+k)), V: v})
 		}
 		return keys
 	}
@@ -157,15 +159,15 @@ func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*Map
 			return
 		}
 		p := LightParamSet{
-			ID: id, HighlightSky: pt.u32(r, 1) != 0, Glow: pt.f32(r, 4),
-			WaterAlpha: [2]float32{pt.f32(r, 5), pt.f32(r, 6)},
-			OceanAlpha: [2]float32{pt.f32(r, 7), pt.f32(r, 8)},
+			ID: id, HighlightSky: pt.u32(r, pc.highlight) != 0, Glow: pt.f32(r, pc.glow),
+			WaterAlpha: [2]float32{pt.f32(r, pc.water), pt.f32(r, pc.water+1)},
+			OceanAlpha: [2]float32{pt.f32(r, pc.ocean), pt.f32(r, pc.ocean+1)},
 		}
 		for i := 0; i < LightBands; i++ {
-			p.Colors = append(p.Colors, bands(it, id*LightBands-(LightBands-1)+uint32(i), false))
+			p.Colors = append(p.Colors, bands(it, ic, id*LightBands-(LightBands-1)+uint32(i), false))
 		}
 		for i := 0; i < LightFloats; i++ {
-			p.Floats = append(p.Floats, bands(ft, id*LightFloats-(LightFloats-1)+uint32(i), true))
+			p.Floats = append(p.Floats, bands(ft, fc, id*LightFloats-(LightFloats-1)+uint32(i), true))
 		}
 		out.Params[id] = p
 	}
@@ -205,6 +207,29 @@ type LightsEdit struct {
 // lightTables are the four light DBCs, in the order LoadMapLights reads them.
 var lightTables = [4]string{"Light", "LightParams", "LightIntBand", "LightFloatBand"}
 
+// lightCols are Light.dbc's columns (dbcLight): the map, the position's first of three, the radii and
+// the first of the five params.
+type lightCols struct{ id, mapID, pos, inner, outer, params int }
+
+func lightColsOf(l *dbcLayout) lightCols {
+	return lightCols{l.col("ID"), l.col("MapID"), l.at("Pos", 0), l.col("Inner"), l.col("Outer"), l.at("Params", 0)}
+}
+
+// paramCols are LightParams.dbc's columns (dbcLightParams): the water and ocean alphas are two each.
+type paramCols struct{ highlight, skybox, cloud, glow, water, ocean int }
+
+func paramColsOf(l *dbcLayout) paramCols {
+	return paramCols{l.col("HighlightSky"), l.col("Skybox"), l.col("Cloud"), l.col("Glow"), l.at("WaterAlpha", 0), l.at("OceanAlpha", 0)}
+}
+
+// bandCols are a band table's columns (dbcLightIntBand, dbcLightFloatBand): the key count, then keys
+// times and as many values.
+type bandCols struct{ count, time, value, keys int }
+
+func bandColsOf(l *dbcLayout) bandCols {
+	return bandCols{l.col("Count"), l.at("Time", 0), l.at("Value", 0), l.count("Time")}
+}
+
 // lightTablePath is a light table's name in the client's archives.
 func lightTablePath(name string) string { return `DBFilesClient\` + name + `.dbc` }
 
@@ -215,18 +240,27 @@ func lightTablePath(name string) string { return `DBFilesClient\` + name + `.dbc
 // within the day (0 to 2879 half-minutes), unless it is sent back as the client already has it.
 func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 	var out [4][]byte
-	pt, err := parseDBC(tables[1])
+	// Light.dbc is read only when the edit has lights.
+	lt := &dbcTable{l: dbcLight.layouts[0], fields: dbcLight.layouts[0].columns}
+	if len(e.Lights) > 0 {
+		var err error
+		if lt, err = parseTable(tables[0], dbcLight); err != nil {
+			return out, fmt.Errorf("Light.dbc: %w", err)
+		}
+	}
+	pt, err := parseTable(tables[1], dbcLightParams)
 	if err != nil {
 		return out, fmt.Errorf("LightParams.dbc: %w", err)
 	}
-	it, err := parseDBC(tables[2])
+	it, err := parseTable(tables[2], dbcLightIntBand)
 	if err != nil {
 		return out, fmt.Errorf("LightIntBand.dbc: %w", err)
 	}
-	ft, err := parseDBC(tables[3])
+	ft, err := parseTable(tables[3], dbcLightFloatBand)
 	if err != nil {
 		return out, fmt.Errorf("LightFloatBand.dbc: %w", err)
 	}
+	lc, pc, ic, fc := lightColsOf(lt.l), paramColsOf(pt.l), bandColsOf(it.l), bandColsOf(ft.l)
 	var lightRows, paramRows, intRows, floatRows [][]uint32
 	for _, l := range e.Lights {
 		if l.ID == 0 {
@@ -239,9 +273,12 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 		if l.Global {
 			x, y, z = 0, 0, 0
 		}
-		row := []uint32{l.ID, e.MapID, f32bits(x * lightScale), f32bits(y * lightScale), f32bits(z * lightScale), f32bits(l.Inner * lightScale), f32bits(l.Outer * lightScale)}
-		for _, p := range l.Params {
-			row = append(row, p)
+		row := make([]uint32, lt.fields)
+		row[lc.id], row[lc.mapID] = l.ID, e.MapID
+		row[lc.pos], row[lc.pos+1], row[lc.pos+2] = f32bits(x*lightScale), f32bits(y*lightScale), f32bits(z*lightScale)
+		row[lc.inner], row[lc.outer] = f32bits(l.Inner*lightScale), f32bits(l.Outer*lightScale)
+		for i, p := range l.Params {
+			row[lc.params+i] = p
 		}
 		lightRows = append(lightRows, row)
 	}
@@ -256,14 +293,19 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 		if r, ok := pt.row(p.ID); ok {
 			src = r
 		}
-		paramRows = append(paramRows, []uint32{p.ID, pt.u32(src, 1), pt.u32(src, 2), pt.u32(src, 3), f32bits(p.Glow),
-			f32bits(p.WaterAlpha[0]), f32bits(p.WaterAlpha[1]), f32bits(p.OceanAlpha[0]), f32bits(p.OceanAlpha[1])})
-		band := func(t *dbcTable, id uint32, keys []LightKey, float bool) ([]uint32, error) {
-			if len(keys) > 16 {
-				return nil, fmt.Errorf("params %d: a band has %d keys, the client takes 16", p.ID, len(keys))
+		prow := make([]uint32, pt.fields)
+		prow[0] = p.ID
+		prow[pc.highlight], prow[pc.skybox], prow[pc.cloud] = pt.u32(src, pc.highlight), pt.u32(src, pc.skybox), pt.u32(src, pc.cloud)
+		prow[pc.glow] = f32bits(p.Glow)
+		prow[pc.water], prow[pc.water+1] = f32bits(p.WaterAlpha[0]), f32bits(p.WaterAlpha[1])
+		prow[pc.ocean], prow[pc.ocean+1] = f32bits(p.OceanAlpha[0]), f32bits(p.OceanAlpha[1])
+		paramRows = append(paramRows, prow)
+		band := func(t *dbcTable, c bandCols, id uint32, keys []LightKey, float bool) ([]uint32, error) {
+			if len(keys) > c.keys {
+				return nil, fmt.Errorf("params %d: a band has %d keys, the client takes %d", p.ID, len(keys), c.keys)
 			}
 			// An existing row keeps what its unused key slots hold (the client's are 0xcccccccc).
-			row := make([]uint32, 34)
+			row := make([]uint32, t.fields)
 			r, had := t.row(id)
 			if had {
 				for f := range row {
@@ -274,36 +316,36 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 				// list their keys out of time order, which the client walks as a cycle in file order
 				// (Benilla's light/tables.rs, segment), so they must neither be refused nor sorted,
 				// and recolouring one of their keys must not reorder them (#276).
-				if sameBandTimes(row, keys) {
+				if sameBandTimes(row, c, keys) {
 					for k, key := range keys {
-						if row[18+k] != bandValue(key, float, false) {
-							row[18+k] = bandValue(key, float, true)
+						if row[c.value+k] != bandValue(key, float, false) {
+							row[c.value+k] = bandValue(key, float, true)
 						}
 					}
 					return row, nil
 				}
 			}
-			row[0], row[1] = id, uint32(len(keys))
+			row[0], row[c.count] = id, uint32(len(keys))
 			last := -1
 			for k, key := range keys {
 				if key.T <= last || key.T >= 2880 {
 					return nil, fmt.Errorf("params %d: band keys must run through the day in order (half-minutes 0 to 2879)", p.ID)
 				}
 				last = key.T
-				row[2+k] = uint32(key.T)
-				row[18+k] = bandValue(key, float, true)
+				row[c.time+k] = uint32(key.T)
+				row[c.value+k] = bandValue(key, float, true)
 			}
 			return row, nil
 		}
 		for i, keys := range p.Colors {
-			row, err := band(it, p.ID*LightBands-(LightBands-1)+uint32(i), keys, false)
+			row, err := band(it, ic, p.ID*LightBands-(LightBands-1)+uint32(i), keys, false)
 			if err != nil {
 				return out, err
 			}
 			intRows = append(intRows, row)
 		}
 		for i, keys := range p.Floats {
-			row, err := band(ft, p.ID*LightFloats-(LightFloats-1)+uint32(i), keys, true)
+			row, err := band(ft, fc, p.ID*LightFloats-(LightFloats-1)+uint32(i), keys, true)
 			if err != nil {
 				return out, err
 			}
@@ -322,14 +364,14 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 	return out, nil
 }
 
-// sameBandTimes tells whether keys have the times a band's row (34 fields: ID, count, 16 times,
-// 16 values) already holds, in the same order.
-func sameBandTimes(row []uint32, keys []LightKey) bool {
-	if row[1] != uint32(len(keys)) {
+// sameBandTimes tells whether keys have the times a band's row (of columns c) already holds, in the
+// same order.
+func sameBandTimes(row []uint32, c bandCols, keys []LightKey) bool {
+	if row[c.count] != uint32(len(keys)) {
 		return false
 	}
 	for k, key := range keys {
-		if row[2+k] != uint32(key.T) {
+		if row[c.time+k] != uint32(key.T) {
 			return false
 		}
 	}
@@ -351,11 +393,11 @@ func bandValue(key LightKey, float, masked bool) uint32 {
 // NewLightIDs gives the IDs a new light and its params row take: past every light and params row in
 // the tables, so the params row's bands (whose IDs follow from it) are new too.
 func NewLightIDs(light, params []byte) (lightID, paramsID uint32, err error) {
-	lt, err := parseDBC(light)
+	lt, err := parseTable(light, dbcLight)
 	if err != nil {
 		return 0, 0, err
 	}
-	pt, err := parseDBC(params)
+	pt, err := parseTable(params, dbcLightParams)
 	if err != nil {
 		return 0, 0, err
 	}

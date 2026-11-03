@@ -30,7 +30,7 @@ func TestEquipBonuses(t *testing.T) {
 		bonusSpell(15, "Increased Critical 1", auraModCrit, 0, 0, 1),
 		talent, old,
 	)
-	kinds := equipBonuses(tab, map[int]bool{11: true})
+	kinds := equipBonuses(as(tab, dbcSpell), map[int]bool{11: true})
 	got := map[string][]EquipBonusSpell{}
 	for _, k := range kinds {
 		got[k.ID] = k.Amounts

@@ -24,22 +24,23 @@ func LoadLiquidTypes(dataDir string) ([]LiquidTypeEntry, error) {
 		return nil, err
 	}
 	defer set.Close()
-	b, err := set.ReadFile(`DBFilesClient\LiquidType.dbc`)
+	b, err := set.ReadFile(dbcLiquidType.file())
 	if err != nil {
 		return nil, fmt.Errorf("LiquidType.dbc: %w", err)
 	}
-	t, err := parseDBC(b)
+	t, err := parseTable(b, dbcLiquidType)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields < 3 {
+	name, kind, spell := t.col("Name"), t.col("Kind"), t.col("Spell")
+	if t.fields <= kind {
 		return nil, fmt.Errorf("LiquidType.dbc has %d fields; the 1.12 layout has 4", t.fields)
 	}
 	out := make([]LiquidTypeEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		e := LiquidTypeEntry{ID: int(t.u32(r, 0)), Name: t.str(r, 1), Kind: int(t.u32(r, 2))}
-		if t.fields > 3 {
-			e.Spell = int(t.u32(r, 3))
+		e := LiquidTypeEntry{ID: int(t.u32(r, 0)), Name: t.str(r, name), Kind: int(t.u32(r, kind))}
+		if t.fields > spell {
+			e.Spell = int(t.u32(r, spell))
 		}
 		out = append(out, e)
 	}

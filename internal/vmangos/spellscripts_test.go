@@ -87,7 +87,7 @@ func TestSpellScriptsLive(t *testing.T) {
 	if err != nil || len(files) != 1 || files[0].Name != SpellPath {
 		t.Fatalf("files %v %v", files, err)
 	}
-	tb, err := parseDBC(files[0].Data)
+	tb, err := parseTable(files[0].Data, dbcSpell)
 	if err != nil {
 		t.Fatal(err)
 	}

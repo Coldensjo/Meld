@@ -148,7 +148,7 @@ func linkNodes(tt TaxiTables, mapID uint32, spellPaths map[uint32]bool) ([]LinkN
 	from, to := map[uint32]int{}, map[uint32]int{}
 	plain := map[uint32]bool{} // has a route from it that is not a spell's
 	for r := 0; r < p.paths.records; r++ {
-		id, f, t := p.paths.u32(r, 0), p.paths.u32(r, 1), p.paths.u32(r, 2)
+		id, f, t, _ := p.path(r)
 		from[f]++
 		to[t]++
 		if !spellPaths[id] {
@@ -444,7 +444,7 @@ func checkLinks(db worldDB, dataDir string, q LinkQuery) LinkReport {
 		fail("area triggers", err)
 	} else {
 		for i := 0; i < t.records; i++ {
-			triggerMap[t.u32(i, 0)] = t.u32(i, 1)
+			triggerMap[t.u32(i, 0)] = t.u32(i, t.col("MapID"))
 		}
 		triggers, _ := ReadAreaTriggers(dbc, mapID)
 		if _, err := triggerExtras(db, triggers); err != nil {

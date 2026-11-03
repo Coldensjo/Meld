@@ -41,19 +41,14 @@ func namedList(names []string) string {
 	return strings.Join(names[:3], ", ") + " and " + strconv.Itoa(len(names)-3) + " more"
 }
 
-// Spell.dbc's cooldown category fields: Category, and StartRecoveryCategory (the global cooldown's).
-const (
-	spellFCategory      = 2
-	spellFStartCategory = 157
-)
-
-// spellCategoryNames names each cooldown category in Spell.dbc's field (spellFCategory or
-// spellFStartCategory) by the distinct names of the spells in it, those used most first.
+// spellCategoryNames names each cooldown category in Spell.dbc's field (spellCols' category, or
+// startCategory: the global cooldown's) by the distinct names of the spells in it, those used most first.
 func spellCategoryNames(t *dbcTable, field int) []NamedID {
+	sc := spellColsOf(t)
 	byCat := map[int]map[string]int{}
 	for r := 0; r < t.records; r++ {
 		c := int(t.u32(r, field))
-		name := strings.TrimSpace(t.str(r, spellFName))
+		name := strings.TrimSpace(t.str(r, sc.name))
 		if c == 0 || name == "" {
 			continue
 		}
@@ -80,17 +75,18 @@ func spellCategoryNames(t *dbcTable, field int) []NamedID {
 	return out
 }
 
-// randomPropertyNames reads ItemRandomProperties.dbc (1.12: ID, internal name, 3 enchantments, 2
-// unused, the suffix in 8 locales), naming a row by its suffix or else its internal name.
+// randomPropertyNames reads ItemRandomProperties.dbc (dbcRandomProps), naming a row by its suffix
+// or else its internal name.
 func randomPropertyNames(t *dbcTable) map[int]string {
+	suffix, internal := t.col("Suffix"), t.col("Name")
 	out := make(map[int]string, t.records)
 	for r := 0; r < t.records; r++ {
 		name := ""
-		if t.fields > 7 {
-			name = t.str(r, 7)
+		if t.fields > suffix {
+			name = t.str(r, suffix)
 		}
-		if name == "" && t.fields > 1 {
-			name = t.str(r, 1)
+		if name == "" && t.fields > internal {
+			name = t.str(r, internal)
 		}
 		out[int(t.u32(r, 0))] = name
 	}
@@ -100,12 +96,13 @@ func randomPropertyNames(t *dbcTable) map[int]string {
 // randomPropertyEnchants reads ItemRandomProperties.dbc's three enchantments (SpellItemEnchantment
 // IDs) by ID: what Item::SetItemRandomProperties puts in an item's random property slots.
 func randomPropertyEnchants(t *dbcTable) map[int][3]int {
+	first := t.at("Enchant", 0)
 	out := make(map[int][3]int, t.records)
 	for r := 0; r < t.records; r++ {
 		var e [3]int
 		for i := range e {
-			if 2+i < t.fields {
-				e[i] = int(t.u32(r, 2+i))
+			if first+i < t.fields {
+				e[i] = int(t.u32(r, first+i))
 			}
 		}
 		out[int(t.u32(r, 0))] = e
@@ -133,19 +130,20 @@ func loadItemDBCs(dataDir string) error {
 		return err
 	}
 	tables := map[string]*dbcTable{}
-	for _, name := range []string{"ItemSet", "ItemRandomProperties"} {
-		b, err := set.ReadFile(`DBFilesClient\` + name + `.dbc`)
+	for _, s := range []*dbcSchema{dbcItemSet, dbcRandomProps} {
+		b, err := set.ReadFile(s.file())
 		if err == nil {
-			tables[name], err = parseDBC(b)
+			tables[s.name], err = parseTable(b, s)
 		}
 		if err != nil {
 			set.Close()
-			return fmt.Errorf("%s.dbc: %w", name, err)
+			return fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
 	}
 	set.Close()
 	sets := tables["ItemSet"]
-	out := ItemTables{Sets: byIDNamed(sets, func(r int) string { return sets.str(r, itemSetFName) })}
+	setName := sets.col("Name")
+	out := ItemTables{Sets: byIDNamed(sets, func(r int) string { return sets.str(r, setName) })}
 	maps, err := LoadMapEntries(dataDir)
 	if err != nil {
 		return err
@@ -157,7 +155,7 @@ func loadItemDBCs(dataDir string) error {
 	spellData.Lock()
 	err = loadSpellData(dataDir)
 	if err == nil {
-		out.SpellCategories = spellCategoryNames(spellData.spells, spellFCategory)
+		out.SpellCategories = spellCategoryNames(spellData.spells, spellColsOf(spellData.spells).category)
 	}
 	spellData.Unlock()
 	if err != nil {

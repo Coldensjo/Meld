@@ -114,7 +114,7 @@ func SetTransportPath(tt TaxiTables, pathID uint32, points []TaxiPoint) (TaxiTab
 	}
 	r := TaxiRoute{ID: pathID, Points: points}
 	if row, ok := p.paths.row(pathID); ok {
-		r.From, r.To, r.Cost = p.paths.u32(row, 1), p.paths.u32(row, 2), p.paths.u32(row, 3)
+		_, r.From, r.To, r.Cost = p.path(row)
 	}
 	return SetTaxi(tt, nil, nil, []TaxiRoute{r}, nil)
 }
@@ -130,7 +130,7 @@ func NextTaxiPath(tt TaxiTables) (uint32, error) {
 		top = max(top, p.paths.u32(r, 0))
 	}
 	for r := 0; r < p.points.records; r++ {
-		top = max(top, p.points.u32(r, 1))
+		top = max(top, p.points.u32(r, p.tc.path))
 	}
 	return top + 1, nil
 }

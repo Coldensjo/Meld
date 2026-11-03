@@ -15,7 +15,7 @@ func TestLockInfos(t *testing.T) {
 	}
 	row[0], row[1], row[2], row[9], row[10], row[17] = 5, 2, 1, 1, 1234, 25
 	empty := []any{7}
-	got, err := lockInfos(testDBC(t, 33, empty, row))
+	got, err := lockInfos(as(testDBC(t, 33, empty, row), dbcLock))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,20 +26,20 @@ func TestLockInfos(t *testing.T) {
 	if len(got[0].Parts) != 2 || got[0].Parts[0] != want[0] || got[0].Parts[1] != want[1] {
 		t.Fatalf("lock 5 parts = %+v, want %+v", got[0].Parts, want)
 	}
-	if _, err := lockInfos(testDBC(t, 10, empty)); err == nil {
+	if _, err := lockInfos(as(testDBC(t, 10, empty), dbcLock)); err == nil {
 		t.Fatal("a short Lock.dbc should fail")
 	}
 }
 
 func TestTaxiAndCinematicNames(t *testing.T) {
-	nodes := testDBC(t, 6, []any{2, 0, 0, 0, 0, "Stormwind"}, []any{4, 0, 0, 0, 0, "Ironforge"})
-	paths := testDBC(t, 4, []any{6, 2, 4, 110}, []any{9, 2, 99, 0})
+	nodes := as(testDBC(t, 6, []any{2, 0, 0, 0, 0, "Stormwind"}, []any{4, 0, 0, 0, 0, "Ironforge"}), dbcTaxiNodes)
+	paths := as(testDBC(t, 4, []any{6, 2, 4, 110}, []any{9, 2, 99, 0}), dbcTaxiPath)
 	got := taxiPathNames(paths, nodes)
 	if len(got) != 2 || got[0].Name != "Stormwind to Ironforge" || got[1].Name != "Stormwind to node 99" {
 		t.Fatalf("taxi paths = %+v", got)
 	}
-	cams := testDBC(t, 2, []any{29, `Cameras\FlybyUndead.mdx`})
-	seqs := testDBC(t, 10, []any{2, 0, 29}, []any{3, 0, 77})
+	cams := as(testDBC(t, 2, []any{29, `Cameras\FlybyUndead.mdx`}), dbcCinematicCam)
+	seqs := as(testDBC(t, 10, []any{2, 0, 29}, []any{3, 0, 77}), dbcCinematicSeq)
 	c := cinematicNames(seqs, cams)
 	if len(c) != 2 || c[0].Name != "FlybyUndead" || c[1].Name != "Cinematic 3" {
 		t.Fatalf("cinematics = %+v", c)

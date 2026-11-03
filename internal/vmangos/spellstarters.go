@@ -187,10 +187,11 @@ func spellLook(dataDir, name string) (int, int, error) {
 		return 0, 1, err
 	}
 	t := spellData.spells
+	sc := spellColsOf(t)
 	best := -1
 	for r := 0; r < t.records; r++ {
 		// The lowest with a visual and a real icon (1 is Temp, a question mark).
-		if t.u32(r, spellFVisual) == 0 || t.u32(r, spellFIcon) <= 1 || !strings.EqualFold(t.str(r, spellFName), name) {
+		if t.u32(r, sc.visual) == 0 || t.u32(r, sc.icon) <= 1 || !strings.EqualFold(t.str(r, sc.name), name) {
 			continue
 		}
 		if best < 0 || t.u32(r, 0) < t.u32(best, 0) {
@@ -200,5 +201,5 @@ func spellLook(dataDir, name string) (int, int, error) {
 	if best < 0 {
 		return 0, 1, nil
 	}
-	return int(t.u32(best, spellFVisual)), int(t.u32(best, spellFIcon)), nil
+	return int(t.u32(best, sc.visual)), int(t.u32(best, sc.icon)), nil
 }

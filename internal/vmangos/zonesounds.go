@@ -30,25 +30,25 @@ type soundEntry struct {
 	name, file string
 }
 
-// 1.12 layouts, checked against the client (#31): SoundEntries is ID, type, name, ten files, ten
-// frequencies, the folder, then volume, flags and distances (29 fields); ZoneMusic is ID, set name,
-// two silence ranges and two SoundEntries (8); ZoneIntroMusicTable is ID, name, sound, priority and
-// delay (5); SoundAmbience is ID and a day and a night SoundEntries (3); SoundProviderPreferences
-// is ID and a description, then the provider's numbers (24).
-var soundTableFields = map[string]int{"SoundEntries": 29, "ZoneMusic": 8, "ZoneIntroMusicTable": 5, "SoundAmbience": 3, "SoundProviderPreferences": 24}
+// soundTables are the zone sound tables by name (#31; their layouts are in dbcschemas.go).
+var soundTables = map[string]*dbcSchema{
+	"SoundEntries": dbcSoundEntries, "ZoneMusic": dbcZoneMusic, "ZoneIntroMusicTable": dbcZoneIntro,
+	"SoundAmbience": dbcSoundAmbience, "SoundProviderPreferences": dbcSoundPrefs,
+}
 
 func soundEntries(t *dbcTable) map[uint32]soundEntry {
+	c := seColsOf(t.l)
 	out := make(map[uint32]soundEntry, t.records)
 	for r := 0; r < t.records; r++ {
-		e := soundEntry{name: t.str(r, 2)}
-		dir := t.str(r, 23)
-		for f := 3; f <= 12; f++ {
+		e := soundEntry{name: t.str(r, c.name)}
+		dir := t.str(r, c.dir)
+		for f := c.file; f < c.file+c.files; f++ {
 			if file := t.str(r, f); file != "" {
 				e.file = strings.TrimSuffix(dir, `\`) + `\` + file
 				break
 			}
 		}
-		out[t.u32(r, 0)] = e
+		out[t.u32(r, c.id)] = e
 	}
 	return out
 }
@@ -56,39 +56,43 @@ func soundEntries(t *dbcTable) map[uint32]soundEntry {
 // zoneSoundTables builds the options from the five tables' bytes, by name.
 func zoneSoundTables(tables map[string][]byte) (ZoneSoundTables, error) {
 	parsed := map[string]*dbcTable{}
-	for name, want := range soundTableFields {
-		t, err := parseDBC(tables[name])
+	for name, s := range soundTables {
+		t, err := parseTable(tables[name], s)
 		if err != nil {
 			return ZoneSoundTables{}, fmt.Errorf("%s.dbc: %w", name, err)
 		}
-		if t.fields != want {
-			return ZoneSoundTables{}, fmt.Errorf("%s.dbc has %d fields, not 1.12's %d", name, t.fields, want)
+		if t.fields != t.l.columns {
+			return ZoneSoundTables{}, fmt.Errorf("%s.dbc has %d fields, not 1.12's %d", name, t.fields, s.layouts[0].columns)
 		}
 		parsed[name] = t
 	}
 	sounds := soundEntries(parsed["SoundEntries"])
 	var z ZoneSoundTables
 	m := parsed["ZoneMusic"]
+	mid, mname, mday := m.col("ID"), m.col("Name"), m.col("Day")
 	for r := 0; r < m.records; r++ {
-		day := sounds[m.u32(r, 6)]
-		z.Music = append(z.Music, SoundOption{ID: m.u32(r, 0), Name: m.str(r, 1), File: day.file})
+		day := sounds[m.u32(r, mday)]
+		z.Music = append(z.Music, SoundOption{ID: m.u32(r, mid), Name: m.str(r, mname), File: day.file})
 	}
 	in := parsed["ZoneIntroMusicTable"]
+	iid, iname, isound := in.col("ID"), in.col("Name"), in.col("Sound")
 	for r := 0; r < in.records; r++ {
-		z.Intro = append(z.Intro, SoundOption{ID: in.u32(r, 0), Name: in.str(r, 1), File: sounds[in.u32(r, 2)].file})
+		z.Intro = append(z.Intro, SoundOption{ID: in.u32(r, iid), Name: in.str(r, iname), File: sounds[in.u32(r, isound)].file})
 	}
 	a := parsed["SoundAmbience"]
+	aid, aday, anight := a.col("ID"), a.col("Day"), a.col("Night")
 	for r := 0; r < a.records; r++ {
-		day, night := sounds[a.u32(r, 1)], sounds[a.u32(r, 2)]
+		day, night := sounds[a.u32(r, aday)], sounds[a.u32(r, anight)]
 		name := day.name
 		if night.name != "" && night.name != day.name {
 			name += " / " + night.name
 		}
-		z.Ambience = append(z.Ambience, SoundOption{ID: a.u32(r, 0), Name: name, File: day.file})
+		z.Ambience = append(z.Ambience, SoundOption{ID: a.u32(r, aid), Name: name, File: day.file})
 	}
 	p := parsed["SoundProviderPreferences"]
+	pid, pname := p.col("ID"), p.col("Description")
 	for r := 0; r < p.records; r++ {
-		z.Prefs = append(z.Prefs, SoundOption{ID: p.u32(r, 0), Name: p.str(r, 1)})
+		z.Prefs = append(z.Prefs, SoundOption{ID: p.u32(r, pid), Name: p.str(r, pname)})
 	}
 	for _, list := range [][]SoundOption{z.Music, z.Intro, z.Ambience, z.Prefs} {
 		sort.Slice(list, func(i, j int) bool { return list[i].ID < list[j].ID })
@@ -105,8 +109,8 @@ func ZoneSounds(dataDir string) (ZoneSoundTables, error) {
 	}
 	defer set.Close()
 	tables := map[string][]byte{}
-	for name := range soundTableFields {
-		b, err := readOverlay(set, dataDir, `DBFilesClient\`+name+`.dbc`)
+	for name, s := range soundTables {
+		b, err := readOverlay(set, dataDir, s.file())
 		if err != nil {
 			return ZoneSoundTables{}, fmt.Errorf("%s.dbc: %w", name, err)
 		}

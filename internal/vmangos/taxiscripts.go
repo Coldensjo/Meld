@@ -319,8 +319,8 @@ func PlanTaxiImport(tt TaxiTables, script string, maps map[uint32]bool, server b
 	byID := map[uint32]TaxiRoute{}
 	byPair := map[[2]uint32]uint32{}
 	for r := 0; r < p.paths.records; r++ {
-		id := p.paths.u32(r, 0)
-		cr := TaxiRoute{ID: id, From: p.paths.u32(r, 1), To: p.paths.u32(r, 2), Cost: p.paths.u32(r, 3), Points: points[id]}
+		id, from, to, cost := p.path(r)
+		cr := TaxiRoute{ID: id, From: from, To: to, Cost: cost, Points: points[id]}
 		byID[id] = cr
 		byPair[[2]uint32{cr.From, cr.To}] = id
 	}

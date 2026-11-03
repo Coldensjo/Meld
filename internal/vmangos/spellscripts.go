@@ -32,13 +32,13 @@ func ExportSpells(serverRoot, dataDir string, entries []int) (string, error) {
 		}
 		defer set.Close()
 		var tables [3]*dbcTable
-		for i, name := range []string{SpellIconPath, SpellVisualPath, SpellVisualKitPath} {
-			b, err := readOverlay(set, dataDir, name)
+		for i, s := range []*dbcSchema{dbcSpellIcon, dbcSpellVisual, dbcSpellVisualKit} {
+			b, err := readOverlay(set, dataDir, s.file())
 			if err != nil {
 				return "", err
 			}
-			if tables[i], err = parseDBC(b); err != nil {
-				return "", fmt.Errorf("%s: %w", name, err)
+			if tables[i], err = parseTable(b, s); err != nil {
+				return "", fmt.Errorf("%s: %w", s.file(), err)
 			}
 		}
 		return looksComment(all, rows, tables[0], tables[1], tables[2]), nil

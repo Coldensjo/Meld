@@ -18,21 +18,19 @@ import (
 // power of two (16 or more) past what is left; DXT3 with mips, its alpha soft at the edges.
 // Read from the client 2026-10-18: 526 rows of 17 fields; Elwynn's twelve (rows 121 to 132).
 
-const (
-	worldOverlayFields = 17
-	worldOverlayAreas  = 4
-	ovMapArea          = 1
-	ovArea0            = 2
-	ovName             = 8
-	ovWidth            = 9
-	ovHeight           = 10
-	ovOffsetX          = 11
-	ovOffsetY          = 12
-	ovHitTop           = 13
-	ovHitLeft          = 14
-	ovHitBottom        = 15
-	ovHitRight         = 16
-)
+// ovCols are WorldMapOverlay.dbc's columns (dbcWorldMapOverlay): the first of its areas (areas of
+// them), the name, the size, the offset and the hit rectangle.
+type ovCols struct {
+	mapArea, area, areas, name, width, height, offsetX, offsetY, hitTop, hitLeft, hitBottom, hitRight int
+}
+
+func ovColsOf(l *dbcLayout) ovCols {
+	return ovCols{
+		mapArea: l.col("MapArea"), area: l.at("Area", 0), areas: l.count("Area"), name: l.col("Name"),
+		width: l.col("Width"), height: l.col("Height"), offsetX: l.col("OffsetX"), offsetY: l.col("OffsetY"),
+		hitTop: l.col("HitTop"), hitLeft: l.col("HitLeft"), hitBottom: l.col("HitBottom"), hitRight: l.col("HitRight"),
+	}
+}
 
 // WorldMapOverlay is a WorldMapOverlay.dbc row, and its picture: Width x Height RGBA, row 0 at the
 // top. ID 0 is a new row. Read, Pixels is nil when the client's art is missing; written, empty Pixels
@@ -53,26 +51,23 @@ type WorldMapOverlay struct {
 	Pixels    []byte   `json:"pixels"`
 }
 
-// worldOverlayTable reads WorldMapOverlay.dbc, checking it has 1.12's layout.
-func worldOverlayTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
+// worldOverlayTable reads WorldMapOverlay.dbc, checking it has a layout Meld knows.
+func worldOverlayTable(dbc []byte) (*dbcTable, ovCols, error) {
+	t, err := parseExact(dbc, dbcWorldMapOverlay)
 	if err != nil {
-		return nil, err
+		return nil, ovCols{}, err
 	}
-	if t.fields != worldOverlayFields || t.recSize != worldOverlayFields*4 {
-		return nil, fmt.Errorf("WorldMapOverlay.dbc has %d fields, not 1.12's %d", t.fields, worldOverlayFields)
-	}
-	return t, nil
+	return t, ovColsOf(t.l), nil
 }
 
-func worldOverlayAt(t *dbcTable, r int) WorldMapOverlay {
+func worldOverlayAt(t *dbcTable, c ovCols, r int) WorldMapOverlay {
 	o := WorldMapOverlay{
-		ID: t.u32(r, 0), Name: t.str(r, ovName),
-		Width: t.u32(r, ovWidth), Height: t.u32(r, ovHeight), OffsetX: t.u32(r, ovOffsetX), OffsetY: t.u32(r, ovOffsetY),
-		HitTop: t.u32(r, ovHitTop), HitLeft: t.u32(r, ovHitLeft), HitBottom: t.u32(r, ovHitBottom), HitRight: t.u32(r, ovHitRight),
+		ID: t.u32(r, 0), Name: t.str(r, c.name),
+		Width: t.u32(r, c.width), Height: t.u32(r, c.height), OffsetX: t.u32(r, c.offsetX), OffsetY: t.u32(r, c.offsetY),
+		HitTop: t.u32(r, c.hitTop), HitLeft: t.u32(r, c.hitLeft), HitBottom: t.u32(r, c.hitBottom), HitRight: t.u32(r, c.hitRight),
 	}
-	for i := 0; i < worldOverlayAreas; i++ {
-		if a := t.u32(r, ovArea0+i); a != 0 {
+	for i := 0; i < c.areas; i++ {
+		if a := t.u32(r, c.area+i); a != 0 {
 			o.Areas = append(o.Areas, a)
 		}
 	}
@@ -82,14 +77,14 @@ func worldOverlayAt(t *dbcTable, r int) WorldMapOverlay {
 // WorldMapOverlays are the overlay rows of a zone's WorldMapArea row, in the table's order, without
 // their pictures.
 func WorldMapOverlays(dbc []byte, mapArea uint32) ([]WorldMapOverlay, error) {
-	t, err := worldOverlayTable(dbc)
+	t, c, err := worldOverlayTable(dbc)
 	if err != nil {
 		return nil, err
 	}
 	var out []WorldMapOverlay
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, ovMapArea) == mapArea {
-			out = append(out, worldOverlayAt(t, r))
+		if t.u32(r, c.mapArea) == mapArea {
+			out = append(out, worldOverlayAt(t, c, r))
 		}
 	}
 	return out, nil
@@ -158,7 +153,7 @@ func readWorldOverlayPixels(set *mpq.Set, zone string, o WorldMapOverlay) []byte
 // takes the next free ID, and the zone's rows not in the list are dropped. It returns the overlays as
 // written, IDs set and pixels left out.
 func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay) ([]byte, []WorldMapOverlay, error) {
-	t, err := worldOverlayTable(dbc)
+	t, c, err := worldOverlayTable(dbc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -166,15 +161,15 @@ func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay)
 	var maxID uint32
 	for r := 0; r < t.records; r++ {
 		maxID = max(maxID, t.u32(r, 0))
-		if t.u32(r, ovMapArea) == mapArea {
+		if t.u32(r, c.mapArea) == mapArea {
 			own[t.u32(r, 0)] = true
 		}
 	}
 	names := map[string]bool{}
 	written := make([]WorldMapOverlay, len(overlays))
 	for i, o := range overlays {
-		if len(o.Areas) == 0 || len(o.Areas) > worldOverlayAreas {
-			return nil, nil, fmt.Errorf("overlay %q names %d areas; it needs 1 to %d", o.Name, len(o.Areas), worldOverlayAreas)
+		if len(o.Areas) == 0 || len(o.Areas) > c.areas {
+			return nil, nil, fmt.Errorf("overlay %q names %d areas; it needs 1 to %d", o.Name, len(o.Areas), c.areas)
 		}
 		if !worldMapName.MatchString(o.Name) {
 			return nil, nil, fmt.Errorf("the overlay name %q must be letters, digits and _ (it names the art's files)", o.Name)
@@ -203,7 +198,7 @@ func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay)
 		strs = []byte{0}
 	}
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, ovMapArea) != mapArea {
+		if t.u32(r, c.mapArea) != mapArea {
 			records = append(records, t.data[20+r*t.recSize:20+(r+1)*t.recSize]...)
 		}
 	}
@@ -211,26 +206,26 @@ func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay)
 		rec := make([]byte, t.recSize)
 		put := func(f int, v uint32) { binary.LittleEndian.PutUint32(rec[f*4:], v) }
 		put(0, o.ID)
-		put(ovMapArea, mapArea)
+		put(c.mapArea, mapArea)
 		for i, a := range o.Areas {
-			put(ovArea0+i, a)
+			put(c.area+i, a)
 		}
-		put(ovName, uint32(len(strs)))
+		put(c.name, uint32(len(strs)))
 		strs = append(append(strs, o.Name...), 0)
-		put(ovWidth, o.Width)
-		put(ovHeight, o.Height)
-		put(ovOffsetX, o.OffsetX)
-		put(ovOffsetY, o.OffsetY)
-		put(ovHitTop, o.HitTop)
-		put(ovHitLeft, o.HitLeft)
-		put(ovHitBottom, o.HitBottom)
-		put(ovHitRight, o.HitRight)
+		put(c.width, o.Width)
+		put(c.height, o.Height)
+		put(c.offsetX, o.OffsetX)
+		put(c.offsetY, o.OffsetY)
+		put(c.hitTop, o.HitTop)
+		put(c.hitLeft, o.HitLeft)
+		put(c.hitBottom, o.HitBottom)
+		put(c.hitRight, o.HitRight)
 		records = append(records, rec...)
 	}
 	out := append([]byte(nil), "WDBC"...)
 	out = binary.LittleEndian.AppendUint32(out, uint32(len(records)/t.recSize))
-	out = binary.LittleEndian.AppendUint32(out, worldOverlayFields)
-	out = binary.LittleEndian.AppendUint32(out, worldOverlayFields*4)
+	out = binary.LittleEndian.AppendUint32(out, uint32(t.fields))
+	out = binary.LittleEndian.AppendUint32(out, uint32(t.recSize))
 	out = binary.LittleEndian.AppendUint32(out, uint32(len(strs)))
 	out = append(out, records...)
 	return append(out, strs...), written, nil

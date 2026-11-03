@@ -300,19 +300,19 @@ func ItemIcons(dataDir string, displays []int) (map[int]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		b, err := set.ReadFile(`DBFilesClient\ItemDisplayInfo.dbc`)
+		b, err := set.ReadFile(ItemDisplayPath)
 		set.Close()
 		if err != nil {
 			return nil, err
 		}
-		t, err := parseDBC(b)
+		t, err := parseTable(b, dbcItemDisplay)
 		if err != nil {
 			return nil, err
 		}
 		icons := make(map[int]string, t.records)
-		if t.fields > 5 {
+		if icon := t.col("Icon"); t.fields > icon {
 			for r := 0; r < t.records; r++ {
-				if name := t.str(r, 5); name != "" {
+				if name := t.str(r, icon); name != "" {
 					icons[int(t.u32(r, 0))] = name
 				}
 			}

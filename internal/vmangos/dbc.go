@@ -17,6 +17,7 @@ type dbcTable struct {
 	recSize int
 	strsAt  int
 	byID    map[uint32]int
+	l       *dbcLayout // the table's layout, when read with parseTable
 }
 
 // parseDBC reads a DBC table's header and indexes its records by ID.

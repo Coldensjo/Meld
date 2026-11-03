@@ -9,26 +9,6 @@ import (
 	"Meld/internal/mpq"
 )
 
-// Spell.dbc field indexes of 1.12.1 (173 fields): the indexes are those of MaNGOS's SpellEntry, and
-// TestSpellRefsFromClient checks them against the client's own rows.
-const (
-	spellFProcChance  = 25
-	spellFProcCharges = 26
-	spellFDuration    = 30
-	spellFEffectDie   = 64 // three fields: EffectDieSides
-	spellFEffectDice  = 67 // EffectBaseDice
-	spellFEffectBase  = 76 // EffectBasePoints
-	spellFAmplitude   = 94 // EffectAuraPeriod
-	spellFChain       = 100
-	spellFDescription = 138 // enUS; the other locales and a flags field follow
-	spellFStack       = 39
-	spellFIcon        = 117 // SpellIconID
-	spellFVisual      = 115 // SpellVisual
-	spellFRadius      = 88  // EffectRadiusIndex
-	spellFName        = 120 // enUS
-	spellFRank        = 129 // enUS
-)
-
 // spellData is what spell descriptions are filled in from, read once per client data folder, and
 // again when the waiting files changed on disk (another process saved a spell while the game ran,
 // #1080).
@@ -56,36 +36,39 @@ func loadSpellData(dataDir string) error {
 	if err != nil {
 		return err
 	}
-	spells, err := parseDBC(sb)
+	spells, err := parseTable(sb, dbcSpell)
 	if err != nil {
 		return err
 	}
-	if spells.fields <= spellFDescription {
+	if spells.fields <= spellColsOf(spells).description {
 		return fmt.Errorf("Spell.dbc has %d fields, not the 1.12 layout", spells.fields)
 	}
 	durations := map[uint32]int{}
-	if db, err := set.ReadFile(`DBFilesClient\SpellDuration.dbc`); err == nil {
-		if dt, err := parseDBC(db); err == nil && dt.fields > 1 {
+	if db, err := set.ReadFile(dbcSpellDuration.file()); err == nil {
+		if dt, err := parseTable(db, dbcSpellDuration); err == nil && dt.fields > dt.col("Duration") {
+			c := dt.col("Duration")
 			for r := 0; r < dt.records; r++ {
-				durations[dt.u32(r, 0)] = int(int32(dt.u32(r, 1)))
+				durations[dt.u32(r, 0)] = int(int32(dt.u32(r, c)))
 			}
 		}
 	}
 	icons := map[uint32]string{}
 	if ib, err := readOverlay(set, dataDir, SpellIconPath); err == nil {
-		if it, err := parseDBC(ib); err == nil && it.fields > 1 {
+		if it, err := parseTable(ib, dbcSpellIcon); err == nil && it.fields > it.col("Texture") {
+			c := it.col("Texture")
 			for r := 0; r < it.records; r++ {
-				if p := it.str(r, 1); p != "" {
+				if p := it.str(r, c); p != "" {
 					icons[it.u32(r, 0)] = p
 				}
 			}
 		}
 	}
 	radii := map[uint32]float32{}
-	if rb, err := set.ReadFile(`DBFilesClient\SpellRadius.dbc`); err == nil {
-		if rt, err := parseDBC(rb); err == nil && rt.fields > 1 {
+	if rb, err := set.ReadFile(dbcSpellRadius.file()); err == nil {
+		if rt, err := parseTable(rb, dbcSpellRadius); err == nil && rt.fields > rt.col("Radius") {
+			c := rt.col("Radius")
 			for r := 0; r < rt.records; r++ {
-				radii[rt.u32(r, 0)] = rt.f32(r, 1)
+				radii[rt.u32(r, 0)] = rt.f32(r, c)
 			}
 		}
 	}
@@ -107,7 +90,7 @@ func SpellTexts(dataDir string, ids []int) (map[int]string, error) {
 		if !ok {
 			continue
 		}
-		if d := spellData.spells.str(r, spellFDescription); d != "" {
+		if d := spellData.spells.str(r, spellColsOf(spellData.spells).description); d != "" {
 			out[id] = expandSpellText(d, spellData.spells, r, spellData.durations)
 		}
 	}
@@ -131,10 +114,11 @@ func spellDuration(ms int) string {
 // $x (chain targets), $a (radius, when spellData's radii are read) and $l singular:plural; tokens it
 // doesn't know stay as written.
 func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) string {
+	sc := spellColsOf(t)
 	i32 := func(base, k int) int { return int(int32(t.u32(r, base+k))) }
-	lo := func(k int) int { return i32(spellFEffectBase, k) + max(i32(spellFEffectDice, k), 1) }
-	hi := func(k int) int { return i32(spellFEffectBase, k) + i32(spellFEffectDie, k) }
-	duration := durations[t.u32(r, spellFDuration)]
+	lo := func(k int) int { return i32(sc.effectBase, k) + max(i32(sc.effectDice, k), 1) }
+	hi := func(k int) int { return i32(sc.effectBase, k) + i32(sc.effectDie, k) }
+	duration := durations[t.u32(r, sc.duration)]
 	abs := func(v int) int {
 		if v < 0 {
 			return -v
@@ -195,7 +179,7 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 		case 'o', 'O':
 			// An aura with no period of its own (the food and drink regeneration) counts
 			// every 5 seconds: spell 433's 17 over 18 sec shows as 61, as the game says.
-			period := i32(spellFAmplitude, e)
+			period := i32(sc.amplitude, e)
 			if period <= 0 {
 				period = 5000
 			}
@@ -205,21 +189,21 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 			}
 			text = strconv.Itoa(n)
 		case 't', 'T':
-			n = i32(spellFAmplitude, e) / 1000
+			n = i32(sc.amplitude, e) / 1000
 			text = strconv.Itoa(n)
 		case 'd', 'D':
 			text, isNum = spellDuration(duration), false
 		case 'h', 'H':
-			n = int(t.u32(r, spellFProcChance))
+			n = int(t.u32(r, sc.procChance))
 			text = strconv.Itoa(n)
 		case 'n', 'N':
-			n = int(t.u32(r, spellFProcCharges))
+			n = int(t.u32(r, sc.procCharges))
 			text = strconv.Itoa(n)
 		case 'u', 'U':
-			n = int(t.u32(r, spellFStack))
+			n = int(t.u32(r, sc.stack))
 			text = strconv.Itoa(n)
 		case 'a', 'A':
-			yd, ok := spellData.radii[t.u32(r, spellFRadius+e)]
+			yd, ok := spellData.radii[t.u32(r, sc.radius+e)]
 			if !ok {
 				b.WriteString(desc[i:k])
 				i = k - 1
@@ -228,7 +212,7 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 			n = int(yd)
 			text = strconv.FormatFloat(float64(yd), 'f', -1, 32)
 		case 'x', 'X':
-			n = i32(spellFChain, e)
+			n = i32(sc.chain, e)
 			text = strconv.Itoa(n)
 		}
 		if isNum {
@@ -255,8 +239,9 @@ type SpellRef struct {
 // spellRef reads row r of Spell.dbc; spellData must be loaded and locked.
 func spellRef(r int) SpellRef {
 	t := spellData.spells
-	ref := SpellRef{ID: int(t.u32(r, 0)), Name: t.str(r, spellFName), Rank: t.str(r, spellFRank), Icon: spellData.icons[t.u32(r, spellFIcon)], Visual: int(t.u32(r, spellFVisual))}
-	if d := t.str(r, spellFDescription); d != "" {
+	sc := spellColsOf(t)
+	ref := SpellRef{ID: int(t.u32(r, 0)), Name: t.str(r, sc.name), Rank: t.str(r, sc.rank), Icon: spellData.icons[t.u32(r, sc.icon)], Visual: int(t.u32(r, sc.visual))}
+	if d := t.str(r, sc.description); d != "" {
 		ref.Text = expandSpellText(d, t, r, spellData.durations)
 	}
 	return ref

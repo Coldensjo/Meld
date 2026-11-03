@@ -28,18 +28,20 @@ const (
 	TaxiPathNodePath = `DBFilesClient\TaxiPathNode.dbc`
 )
 
-// The 1.12 layouts (VMaNGOS's DBCfmt.h, checked against the client's files): TaxiNodes is ID, map,
-// x, y, z, eight names, the names' locale mask, then the Horde and the Alliance mount creature;
-// TaxiPath is ID, from, to and price; TaxiPathNode is ID, path, index, map, x, y, z, flags and delay.
-const (
-	taxiNodeFields  = 16
-	taxiNodeName    = 5
-	taxiNodeMask    = 13
-	taxiNodeHorde   = 14
-	taxiNodeAlly    = 15
-	taxiPathFields  = 4
-	taxiPointFields = 9
-)
+// The taxi tables' layouts are dbcTaxiNodes, dbcTaxiPath and dbcTaxiPathNode (1.12's are VMaNGOS's
+// DBCfmt.h, checked against the client's files): TaxiNodes is ID, map, x, y, z, the localized name,
+// then the Horde and the Alliance mount creature; TaxiPath is ID, from, to and price; TaxiPathNode
+// is ID, path, index, map, x, y, z, flags and delay.
+
+// taxiNodeCols are TaxiNodes.dbc's columns: the position's x (y and z follow), the name and its
+// locale mask, and the mounts.
+type taxiNodeCols struct{ mapID, pos, name, mask, horde, ally int }
+
+// taxiPathCols are TaxiPath.dbc's columns.
+type taxiPathCols struct{ from, to, cost int }
+
+// taxiPointCols are TaxiPathNode.dbc's columns: the position's x (y and z follow).
+type taxiPointCols struct{ path, index, mapID, pos, flags, delay int }
 
 // MaxTaxiNode is the highest stop ID a 1.12 player can know: the taxi mask is 8 32-bit fields, and
 // node i is bit i-1 (VMaNGOS's TaxiMaskSize).
@@ -129,41 +131,69 @@ func LoadTaxiTables(dataDir string) (TaxiTables, error) {
 	return t, nil
 }
 
-// taxiTable parses one of the taxi tables and checks it has its 1.12 layout.
-func taxiTable(dbc []byte, name string, fields int) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
+// taxiPathTable parses TaxiPath.dbc and checks it has a layout Meld knows.
+func taxiPathTable(dbc []byte) (*dbcTable, taxiPathCols, error) {
+	t, err := parseExact(dbc, dbcTaxiPath)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
+		return nil, taxiPathCols{}, err
 	}
-	if t.fields != fields || t.recSize != fields*4 {
-		return nil, fmt.Errorf("%s has %d fields of %d bytes a record, not 1.12's %d", name, t.fields, t.recSize, fields)
-	}
-	return t, nil
+	return t, taxiPathCols{t.col("From"), t.col("To"), t.col("Cost")}, nil
 }
 
 type taxiParsed struct {
 	nodes, paths, points *dbcTable
+	nc                   taxiNodeCols
+	pc                   taxiPathCols
+	tc                   taxiPointCols
 }
 
 func parseTaxi(tt TaxiTables) (taxiParsed, error) {
 	var p taxiParsed
 	var err error
-	if p.nodes, err = taxiTable(tt.Nodes, "TaxiNodes.dbc", taxiNodeFields); err != nil {
+	if p.nodes, err = parseExact(tt.Nodes, dbcTaxiNodes); err != nil {
 		return p, err
 	}
-	if p.paths, err = taxiTable(tt.Paths, "TaxiPath.dbc", taxiPathFields); err != nil {
+	n := p.nodes
+	p.nc = taxiNodeCols{n.col("MapID"), n.at("Pos", 0), n.col("Name"), n.mask("Name"), n.col("HordeMount"), n.col("AllianceMount")}
+	if p.paths, p.pc, err = taxiPathTable(tt.Paths); err != nil {
 		return p, err
 	}
-	p.points, err = taxiTable(tt.Points, "TaxiPathNode.dbc", taxiPointFields)
-	return p, err
+	if p.points, err = parseExact(tt.Points, dbcTaxiPathNode); err != nil {
+		return p, err
+	}
+	t := p.points
+	p.tc = taxiPointCols{t.col("Path"), t.col("Index"), t.col("MapID"), t.at("Pos", 0), t.col("Flags"), t.col("Delay")}
+	return p, nil
 }
 
 func (p taxiParsed) node(r int) TaxiNode {
-	t := p.nodes
+	t, c := p.nodes, p.nc
 	return TaxiNode{
-		ID: t.u32(r, 0), MapID: t.u32(r, 1), X: t.f32(r, 2), Y: t.f32(r, 3), Z: t.f32(r, 4),
-		Name: t.str(r, taxiNodeName), HordeMount: t.u32(r, taxiNodeHorde), AllianceMount: t.u32(r, taxiNodeAlly),
+		ID: t.u32(r, 0), MapID: t.u32(r, c.mapID), X: t.f32(r, c.pos), Y: t.f32(r, c.pos+1), Z: t.f32(r, c.pos+2),
+		Name: t.str(r, c.name), HordeMount: t.u32(r, c.horde), AllianceMount: t.u32(r, c.ally),
 	}
+}
+
+// path is TaxiPath row r: its ID, its stops and its price.
+func (p taxiParsed) path(r int) (id, from, to, cost uint32) {
+	t, c := p.paths, p.pc
+	return t.u32(r, 0), t.u32(r, c.from), t.u32(r, c.to), t.u32(r, c.cost)
+}
+
+// pathRecord is a TaxiPath record.
+func (p taxiParsed) pathRecord(id, from, to, cost uint32) []uint32 {
+	rec := make([]uint32, p.paths.fields)
+	rec[0], rec[p.pc.from], rec[p.pc.to], rec[p.pc.cost] = id, from, to, cost
+	return rec
+}
+
+// pointRecord is a TaxiPathNode record.
+func (p taxiParsed) pointRecord(id, path, index uint32, pt TaxiPoint) []uint32 {
+	c, f := p.tc, math.Float32bits
+	rec := make([]uint32, p.points.fields)
+	rec[0], rec[c.path], rec[c.index], rec[c.mapID] = id, path, index, pt.MapID
+	rec[c.pos], rec[c.pos+1], rec[c.pos+2], rec[c.flags], rec[c.delay] = f(pt.X), f(pt.Y), f(pt.Z), pt.Flags, pt.Delay
+	return rec
 }
 
 // routePoints lists every path's points by path ID, in their index order.
@@ -173,10 +203,11 @@ func (p taxiParsed) routePoints() map[uint32][]TaxiPoint {
 		pt    TaxiPoint
 	}
 	by := map[uint32][]indexed{}
-	t := p.points
+	t, c := p.points, p.tc
 	for r := 0; r < t.records; r++ {
-		path := t.u32(r, 1)
-		by[path] = append(by[path], indexed{t.u32(r, 2), TaxiPoint{MapID: t.u32(r, 3), X: t.f32(r, 4), Y: t.f32(r, 5), Z: t.f32(r, 6), Flags: t.u32(r, 7), Delay: t.u32(r, 8)}})
+		path := t.u32(r, c.path)
+		by[path] = append(by[path], indexed{t.u32(r, c.index), TaxiPoint{MapID: t.u32(r, c.mapID), X: t.f32(r, c.pos), Y: t.f32(r, c.pos+1), Z: t.f32(r, c.pos+2),
+			Flags: t.u32(r, c.flags), Delay: t.u32(r, c.delay)}})
 	}
 	out := make(map[uint32][]TaxiPoint, len(by))
 	for path, list := range by {
@@ -212,7 +243,7 @@ func ReadTaxiNetwork(tt TaxiTables, mapID, serverMaxNode uint32) (TaxiNetwork, e
 	points := p.routePoints()
 	var topRoute uint32
 	for r := 0; r < p.paths.records; r++ {
-		id, from, to := p.paths.u32(r, 0), p.paths.u32(r, 1), p.paths.u32(r, 2)
+		id, from, to, cost := p.path(r)
 		topRoute = max(topRoute, id)
 		if !onMap[from] && !onMap[to] {
 			continue
@@ -221,7 +252,7 @@ func ReadTaxiNetwork(tt TaxiTables, mapID, serverMaxNode uint32) (TaxiNetwork, e
 		if pts == nil {
 			pts = []TaxiPoint{}
 		}
-		net.Routes = append(net.Routes, TaxiRoute{ID: id, From: from, To: to, Cost: p.paths.u32(r, 3), Points: pts})
+		net.Routes = append(net.Routes, TaxiRoute{ID: id, From: from, To: to, Cost: cost, Points: pts})
 	}
 	sort.Slice(net.Nodes, func(i, j int) bool { return net.Nodes[i].ID < net.Nodes[j].ID })
 	sort.Slice(net.Routes, func(i, j int) bool { return net.Routes[i].ID < net.Routes[j].ID })
@@ -342,27 +373,27 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 			r = nodeCount
 			nodeCount++
 			nodeAt[n.ID] = r
-			rec := make([]uint32, taxiNodeFields)
+			rec := make([]uint32, p.nodes.fields)
 			if p.nodes.records > 0 {
-				rec[taxiNodeMask] = p.nodes.u32(0, taxiNodeMask)
+				rec[p.nc.mask] = p.nodes.u32(0, p.nc.mask)
 			}
 			nodeRecs = appendFields(nodeRecs, rec...)
 		}
 		at := r * p.nodes.recSize
 		put := func(f int, v uint32) { binary.LittleEndian.PutUint32(nodeRecs[at+f*4:], v) }
-		if !ok || r >= p.nodes.records || p.nodes.str(r, taxiNodeName) != n.Name || p.nodes.u32(r, taxiNodeName) == 0 {
-			put(taxiNodeName, uint32(len(strs)))
+		if !ok || r >= p.nodes.records || p.nodes.str(r, p.nc.name) != n.Name || p.nodes.u32(r, p.nc.name) == 0 {
+			put(p.nc.name, uint32(len(strs)))
 			strs = append(strs, n.Name...)
 			strs = append(strs, 0)
 		}
 		f := math.Float32bits
 		put(0, n.ID)
-		put(1, n.MapID)
-		put(2, f(n.X))
-		put(3, f(n.Y))
-		put(4, f(n.Z))
-		put(taxiNodeHorde, n.HordeMount)
-		put(taxiNodeAlly, n.AllianceMount)
+		put(p.nc.mapID, n.MapID)
+		put(p.nc.pos, f(n.X))
+		put(p.nc.pos+1, f(n.Y))
+		put(p.nc.pos+2, f(n.Z))
+		put(p.nc.horde, n.HordeMount)
+		put(p.nc.ally, n.AllianceMount)
 	}
 	var keptNodes []byte
 	kept := 0
@@ -381,7 +412,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 			return TaxiTables{}, fmt.Errorf("flight stop %d is not in the table", id)
 		}
 	}
-	outNodes := dbcFile(taxiNodeFields, kept, keptNodes, strs)
+	outNodes := dbcFile(p.nodes.fields, kept, keptNodes, strs)
 
 	// Routes: edited in place, new ones at the end.
 	saved := map[uint32]TaxiRoute{}
@@ -427,16 +458,15 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 			}
 		}
 		pairs[pair] = id
-		pathRecs = appendFields(pathRecs, id, from, to, cost)
+		pathRecs = appendFields(pathRecs, p.pathRecord(id, from, to, cost)...)
 		pathCount++
 		return nil
 	}
 	for r := 0; r < p.paths.records; r++ {
-		id := p.paths.u32(r, 0)
+		id, from, to, cost := p.path(r)
 		if goneRoute[id] {
 			continue
 		}
-		from, to, cost := p.paths.u32(r, 1), p.paths.u32(r, 2), p.paths.u32(r, 3)
 		if s, ok := saved[id]; ok {
 			from, to, cost = s.From, s.To, s.Cost
 		}
@@ -450,7 +480,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 			return TaxiTables{}, err
 		}
 	}
-	outPaths := dbcFile(taxiPathFields, pathCount, pathRecs, tt.Paths[p.paths.strsAt:])
+	outPaths := dbcFile(p.paths.fields, pathCount, pathRecs, tt.Paths[p.paths.strsAt:])
 
 	// Points: a saved or removed route's old points go; a saved route's new ones are added at the
 	// end, reusing its old IDs first, then IDs past the table's highest.
@@ -459,7 +489,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	var topPoint uint32
 	reuse := map[uint32][]uint32{}
 	for r := 0; r < p.points.records; r++ {
-		id, path := p.points.u32(r, 0), p.points.u32(r, 1)
+		id, path := p.points.u32(r, 0), p.points.u32(r, p.tc.path)
 		topPoint = max(topPoint, id)
 		if _, ok := saved[path]; ok {
 			reuse[path] = append(reuse[path], id)
@@ -487,12 +517,11 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 				topPoint++
 				id = topPoint
 			}
-			f := math.Float32bits
-			pointRecs = appendFields(pointRecs, id, path, uint32(i), pt.MapID, f(pt.X), f(pt.Y), f(pt.Z), pt.Flags, pt.Delay)
+			pointRecs = appendFields(pointRecs, p.pointRecord(id, path, uint32(i), pt)...)
 			pointCount++
 		}
 	}
-	outPoints := dbcFile(taxiPointFields, pointCount, pointRecs, tt.Points[p.points.strsAt:])
+	outPoints := dbcFile(p.points.fields, pointCount, pointRecs, tt.Points[p.points.strsAt:])
 	return TaxiTables{Nodes: outNodes, Paths: outPaths, Points: outPoints}, nil
 }
 

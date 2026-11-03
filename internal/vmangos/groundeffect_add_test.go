@@ -54,7 +54,7 @@ func TestAddGroundEffectSynthetic(t *testing.T) {
 		t.Fatal("the header is wrong")
 	}
 	// Read back as the editor does, the slots name the same models.
-	paths := detailPaths(mustDBC(t, doodads))
+	paths := detailPaths(as(mustDBC(t, doodads), dbcGroundDoodad))
 	for i, m := range models {
 		if got := paths[tt.u32(r, 1+i)]; !strings.EqualFold(got, m) {
 			t.Fatalf("slot %d reads back as %q, not %q", i, got, m)
@@ -133,7 +133,7 @@ func TestClientAddGroundEffect(t *testing.T) {
 		t.Fatalf("the new effect %d's row is wrong", id)
 	}
 	// The slots name the models by the IDs the client looks them up by, so they read back as the same models.
-	dt, _ := parseDBC(doodadDBC)
+	dt, _ := parseTable(doodadDBC, dbcGroundDoodad)
 	paths := detailPaths(dt)
 	for i, m := range models {
 		if got := paths[after.u32(r, 1+i)]; !strings.EqualFold(got, m) {

@@ -17,28 +17,29 @@ type FactionInfo struct {
 	Horde    string `json:"horde"`
 }
 
-// factionTemplate is FactionTemplate.dbc's 1.12 row: ID, faction, flags, the groups it is in, is
-// friends with and is enemies with (1 player, 2 Alliance, 4 Horde, 8 monster), then four enemy and
-// four friend factions.
+// factionTemplate is a FactionTemplate.dbc row: ID, faction, the groups it is in, is friends with and
+// is enemies with (1 player, 2 Alliance, 4 Horde, 8 monster), then four enemy and four friend factions.
 type factionTemplate struct {
 	id, faction, ours, friendGroup, enemyGroup uint32
 	enemies, friends                           [4]uint32
 }
 
 func readFactionTemplates(dbc []byte) ([]factionTemplate, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcFactionTemplate)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields != 14 {
+	if t.fields != t.l.columns {
 		return nil, fmt.Errorf("FactionTemplate.dbc has %d fields, not 1.12's 14", t.fields)
 	}
+	faction, group, friend, enemy := t.col("Faction"), t.col("Group"), t.col("FriendGroup"), t.col("EnemyGroup")
+	enemies, friends := t.at("Enemy", 0), t.at("Friend", 0)
 	out := make([]factionTemplate, t.records)
 	for r := range out {
 		f := &out[r]
-		f.id, f.faction, f.ours, f.friendGroup, f.enemyGroup = t.u32(r, 0), t.u32(r, 1), t.u32(r, 3), t.u32(r, 4), t.u32(r, 5)
+		f.id, f.faction, f.ours, f.friendGroup, f.enemyGroup = t.u32(r, 0), t.u32(r, faction), t.u32(r, group), t.u32(r, friend), t.u32(r, enemy)
 		for i := 0; i < 4; i++ {
-			f.enemies[i], f.friends[i] = t.u32(r, 6+i), t.u32(r, 10+i)
+			f.enemies[i], f.friends[i] = t.u32(r, enemies+i), t.u32(r, friends+i)
 		}
 	}
 	return out, nil
@@ -100,12 +101,13 @@ const (
 )
 
 // factionInfos names each template and works out its reactions; names come from Faction.dbc's
-// field 19 (its English name).
+// English name.
 func factionInfos(templates []factionTemplate, factionDBC []byte) ([]FactionInfo, error) {
-	ft, err := parseDBC(factionDBC)
+	ft, err := parseTable(factionDBC, dbcFaction)
 	if err != nil {
 		return nil, err
 	}
+	nameCol := ft.col("Name")
 	var alliance, horde *factionTemplate
 	for i := range templates {
 		switch templates[i].id {
@@ -121,8 +123,8 @@ func factionInfos(templates []factionTemplate, factionDBC []byte) ([]FactionInfo
 	out := make([]FactionInfo, 0, len(templates))
 	for _, f := range templates {
 		name := ""
-		if r, ok := ft.row(f.faction); ok && ft.fields > 19 {
-			name = ft.str(r, 19)
+		if r, ok := ft.row(f.faction); ok && ft.fields > nameCol {
+			name = ft.str(r, nameCol)
 		}
 		out = append(out, FactionInfo{ID: f.id, Name: name, Alliance: reaction(f, *alliance), Horde: reaction(f, *horde)})
 	}
@@ -137,11 +139,11 @@ func Factions(dataDir string) ([]FactionInfo, error) {
 		return nil, err
 	}
 	defer set.Close()
-	tdbc, err := set.ReadFile(`DBFilesClient\FactionTemplate.dbc`)
+	tdbc, err := set.ReadFile(dbcFactionTemplate.file())
 	if err != nil {
 		return nil, err
 	}
-	fdbc, err := set.ReadFile(`DBFilesClient\Faction.dbc`)
+	fdbc, err := set.ReadFile(dbcFaction.file())
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +162,7 @@ var clientFactionTemplates = func(dataDir string) ([]int, error) {
 		return nil, err
 	}
 	defer set.Close()
-	dbc, err := set.ReadFile(`DBFilesClient\FactionTemplate.dbc`)
+	dbc, err := set.ReadFile(dbcFactionTemplate.file())
 	if err != nil {
 		return nil, err
 	}

@@ -224,12 +224,13 @@ func Emotes(dataDir string) ([]Emote, error) {
 		return nil, err
 	}
 	t := tables.emotes
-	if t == nil || t.fields < 3 {
+	if t == nil || t.fields <= t.col("Anim") {
 		return nil, nil
 	}
+	name, anim := t.col("Command"), t.col("Anim")
 	out := make([]Emote, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		out = append(out, Emote{ID: int(t.u32(r, 0)), Name: t.str(r, 1), Anim: int(t.u32(r, 2))})
+		out = append(out, Emote{ID: int(t.u32(r, 0)), Name: t.str(r, name), Anim: int(t.u32(r, anim))})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil

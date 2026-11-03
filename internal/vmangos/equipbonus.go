@@ -16,14 +16,8 @@ import (
 // ranged); a spell the world database's items already use as an Equip effect wins an amount over one
 // no item uses, and old and test spells (zzOLD…, (Old)…, QA…) and the druids' feral ones are left out.
 
-// Spell.dbc fields of 1.12.1 (MaNGOS's SpellEntry) the bonuses read, besides those of spelltext.go.
-const (
-	spellFAttributes = 6
-	spellIconGeneric = 1
-	spellFEffect     = 61 // three fields: Effect
-	spellFAura       = 91 // EffectApplyAuraName
-	spellFMisc       = 106
-)
+// spellIconGeneric is the generic icon of the client's stat bonus spells.
+const spellIconGeneric = 1
 
 const (
 	spellAttrPassive   = 0x40
@@ -127,11 +121,12 @@ func EquipBonuses(serverRoot, dataDir string) ([]EquipBonusKind, error) {
 
 func equipBonuses(t *dbcTable, used map[int]bool) []EquipBonusKind {
 	kinds := equipBonusKinds()
-	if t.fields <= spellFMisc+2 {
+	sc := spellColsOf(t)
+	if t.fields <= sc.misc+2 {
 		return kinds
 	}
 	i32 := func(r, f int) int { return int(int32(t.u32(r, f))) }
-	amountOf := func(r, e int) int { return i32(r, spellFEffectBase+e) + max(i32(r, spellFEffectDice+e), 1) }
+	amountOf := func(r, e int) int { return i32(r, sc.effectBase+e) + max(i32(r, sc.effectDice+e), 1) }
 	// best[kind][amount]: the spell found, the best scored (used by an item, then described), then the lowest ID.
 	type pick struct{ spell, score int }
 	best := make([]map[int]pick, len(kinds))
@@ -139,29 +134,29 @@ func equipBonuses(t *dbcTable, used map[int]bool) []EquipBonusKind {
 		best[i] = map[int]pick{}
 	}
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, spellFAttributes)&spellAttrPassive == 0 || t.u32(r, spellFIcon) != spellIconGeneric || t.u32(r, spellFEffect) != spellEffectAura || t.u32(r, spellFEffect+2) != 0 {
+		if t.u32(r, sc.attributes)&spellAttrPassive == 0 || t.u32(r, sc.icon) != spellIconGeneric || t.u32(r, sc.effect) != spellEffectAura || t.u32(r, sc.effect+2) != 0 {
 			continue
 		}
-		name := strings.ToLower(t.str(r, spellFName))
+		name := strings.ToLower(t.str(r, sc.name))
 		if strings.HasPrefix(name, "zz") || strings.HasPrefix(name, "(old)") || strings.HasPrefix(name, "qa") || strings.Contains(name, "test") || strings.Contains(name, "feral") {
 			continue
 		}
 		// One value, not a range: BasePoints plus a die of one side.
-		if i32(r, spellFEffectDie) > 1 {
+		if i32(r, sc.effectDie) > 1 {
 			continue
 		}
 		amount := amountOf(r, 0)
 		if amount <= 0 {
 			continue
 		}
-		aura, misc := t.u32(r, spellFAura), int64(i32(r, spellFMisc))
+		aura, misc := t.u32(r, sc.aura), int64(i32(r, sc.misc))
 		// A second effect only as the second aura of a bonus of two, of the same amount.
 		aura2 := uint32(0)
-		if t.u32(r, spellFEffect+1) != 0 {
-			if t.u32(r, spellFEffect+1) != spellEffectAura || amountOf(r, 1) != amount {
+		if t.u32(r, sc.effect+1) != 0 {
+			if t.u32(r, sc.effect+1) != spellEffectAura || amountOf(r, 1) != amount {
 				continue
 			}
-			aura2 = t.u32(r, spellFAura+1)
+			aura2 = t.u32(r, sc.aura+1)
 		}
 		for i, k := range kinds {
 			if k.aura != aura || k.aura2 != aura2 || (k.misc >= 0 && k.misc != misc) {
@@ -172,7 +167,7 @@ func equipBonuses(t *dbcTable, used map[int]bool) []EquipBonusKind {
 			if used[id] {
 				p.score += 2
 			}
-			if t.str(r, spellFDescription) != "" {
+			if t.str(r, sc.description) != "" {
 				p.score++
 			}
 			if old, ok := best[i][amount]; !ok || p.score > old.score || (p.score == old.score && p.spell < old.spell) {

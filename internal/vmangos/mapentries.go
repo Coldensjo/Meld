@@ -23,24 +23,25 @@ type MapEntry struct {
 	Name string
 }
 
-// ReadMapEntries lists the maps in a Map.dbc, by ID. Field 1 is the folder, field 2 the instance
-// type, and field 4 the English name.
+// ReadMapEntries lists the maps in a Map.dbc, by ID: each map's folder, instance type and English
+// name, those a narrower table has.
 func ReadMapEntries(dbc []byte) ([]MapEntry, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcMap)
 	if err != nil {
 		return nil, err
 	}
+	dir, typ, name := t.col("Directory"), t.col("InstanceType"), t.col("Name")
 	entries := make([]MapEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
 		e := MapEntry{ID: t.u32(r, 0)}
-		if t.fields > 1 {
-			e.Dir = t.str(r, 1)
+		if t.fields > dir {
+			e.Dir = t.str(r, dir)
 		}
-		if t.fields > 2 {
-			e.Type = int(t.u32(r, 2))
+		if t.fields > typ {
+			e.Type = int(t.u32(r, typ))
 		}
-		if t.fields > 4 {
-			e.Name = t.str(r, 4)
+		if t.fields > name {
+			e.Name = t.str(r, name)
 		}
 		entries = append(entries, e)
 	}
@@ -55,7 +56,7 @@ func LoadMapEntries(dataDir string) ([]MapEntry, error) {
 		return nil, err
 	}
 	defer set.Close()
-	b, err := set.ReadFile(`DBFilesClient\Map.dbc`)
+	b, err := set.ReadFile(dbcMap.file())
 	if err != nil {
 		return nil, err
 	}

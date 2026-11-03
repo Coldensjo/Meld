@@ -36,22 +36,19 @@ const (
 	SoundAmbiencePath = `DBFilesClient\SoundAmbience.dbc`
 )
 
-// SoundEntries.dbc's 1.12 fields (wowdev's SoundEntries, checked against the client): ID, the sound
-// type, the name, ten files, their ten frequencies (weights), the folder, then volume, flags, minimum
+// seCols are SoundEntries.dbc's columns (dbcSoundEntries): the sound type, the name, files file
+// columns from file and their frequencies (weights) from freq, the folder, then volume, flags, minimum
 // distance, distance cutoff and EAX definition.
-const (
-	seType     = 1
-	seName     = 2
-	seFile     = 3
-	seFreq     = 13
-	seDir      = 23
-	seVolume   = 24
-	seFlags    = 25
-	seMinDist  = 26
-	seCutoff   = 27
-	seEAX      = 28
-	soundFiles = 10
-)
+type seCols struct {
+	id, typ, name, file, freq, files, dir, volume, flags, minDist, cutoff, eax int
+}
+
+func seColsOf(l *dbcLayout) seCols {
+	return seCols{
+		id: l.col("ID"), typ: l.col("Type"), name: l.col("Name"), file: l.at("File", 0), freq: l.at("Freq", 0), files: l.count("File"),
+		dir: l.col("Dir"), volume: l.col("Volume"), flags: l.col("Flags"), minDist: l.col("MinDist"), cutoff: l.col("Cutoff"), eax: l.col("EAX"),
+	}
+}
 
 // IsSoundPath says whether a client file is a sound the WebView and the game play: a WAV or an MP3
 // under Sound\.
@@ -124,50 +121,55 @@ func round3(v float32) float64 { return math.Round(float64(v)*1000) / 1000 }
 // soundEntryInfo reads row id of SoundEntries and what plays it from the zone tables and
 // GameObjectDisplayInfo (by name; a table missing from tables is skipped).
 func soundEntryInfo(tables map[string][]byte, id uint32) (SoundEntryInfo, error) {
-	se, err := parseSized(tables["SoundEntries"], "SoundEntries.dbc", soundTableFields["SoundEntries"])
+	se, err := parseExact(tables["SoundEntries"], dbcSoundEntries)
 	if err != nil {
 		return SoundEntryInfo{}, err
 	}
+	c := seColsOf(se.l)
 	r, ok := se.row(id)
 	if !ok || id == 0 {
 		return SoundEntryInfo{}, fmt.Errorf("the client has no sound %d in SoundEntries.dbc", id)
 	}
-	dir := strings.TrimSuffix(se.str(r, seDir), `\`)
+	dir := strings.TrimSuffix(se.str(r, c.dir), `\`)
 	out := SoundEntryInfo{
-		ID: id, Name: se.str(r, seName), Type: se.u32(r, seType), Dir: dir, Files: []string{},
-		Volume: round3(se.f32(r, seVolume)), Flags: se.u32(r, seFlags), MinDist: round3(se.f32(r, seMinDist)), Cutoff: round3(se.f32(r, seCutoff)),
+		ID: id, Name: se.str(r, c.name), Type: se.u32(r, c.typ), Dir: dir, Files: []string{},
+		Volume: round3(se.f32(r, c.volume)), Flags: se.u32(r, c.flags), MinDist: round3(se.f32(r, c.minDist)), Cutoff: round3(se.f32(r, c.cutoff)),
 		Imported: strings.EqualFold(dir, ImportedSoundDir),
 		Music:    []SoundOption{}, Intro: []SoundOption{}, Ambience: []SoundOption{},
 	}
-	for f := seFile; f < seFile+soundFiles; f++ {
+	for f := c.file; f < c.file+c.files; f++ {
 		if file := se.str(r, f); file != "" {
 			out.Files = append(out.Files, dir+`\`+file)
 		}
 	}
-	if m, err := parseSized(tables["ZoneMusic"], "ZoneMusic.dbc", soundTableFields["ZoneMusic"]); err == nil {
+	if m, err := parseExact(tables["ZoneMusic"], dbcZoneMusic); err == nil {
+		mid, name, day, night := m.col("ID"), m.col("Name"), m.col("Day"), m.col("Night")
 		for i := 0; i < m.records; i++ {
-			if m.u32(i, 6) == id || m.u32(i, 7) == id {
-				out.Music = append(out.Music, SoundOption{ID: m.u32(i, 0), Name: m.str(i, 1)})
+			if m.u32(i, day) == id || m.u32(i, night) == id {
+				out.Music = append(out.Music, SoundOption{ID: m.u32(i, mid), Name: m.str(i, name)})
 			}
 		}
 	}
-	if in, err := parseSized(tables["ZoneIntroMusicTable"], "ZoneIntroMusicTable.dbc", soundTableFields["ZoneIntroMusicTable"]); err == nil {
+	if in, err := parseExact(tables["ZoneIntroMusicTable"], dbcZoneIntro); err == nil {
+		iid, name, sound := in.col("ID"), in.col("Name"), in.col("Sound")
 		for i := 0; i < in.records; i++ {
-			if in.u32(i, 2) == id {
-				out.Intro = append(out.Intro, SoundOption{ID: in.u32(i, 0), Name: in.str(i, 1)})
+			if in.u32(i, sound) == id {
+				out.Intro = append(out.Intro, SoundOption{ID: in.u32(i, iid), Name: in.str(i, name)})
 			}
 		}
 	}
-	if a, err := parseSized(tables["SoundAmbience"], "SoundAmbience.dbc", soundTableFields["SoundAmbience"]); err == nil {
+	if a, err := parseExact(tables["SoundAmbience"], dbcSoundAmbience); err == nil {
+		aid, day, night := a.col("ID"), a.col("Day"), a.col("Night")
 		for i := 0; i < a.records; i++ {
-			if a.u32(i, 1) == id || a.u32(i, 2) == id {
-				out.Ambience = append(out.Ambience, SoundOption{ID: a.u32(i, 0), Name: out.Name})
+			if a.u32(i, day) == id || a.u32(i, night) == id {
+				out.Ambience = append(out.Ambience, SoundOption{ID: a.u32(i, aid), Name: out.Name})
 			}
 		}
 	}
-	if d, err := parseSized(tables["GameObjectDisplayInfo"], "GameObjectDisplayInfo.dbc", objectDisplayFields); err == nil {
+	if d, err := parseExact(tables["GameObjectDisplayInfo"], dbcObjectDisplay); err == nil {
+		first, n := d.at("Sound", 0), d.l.count("Sound")
 		for i := 0; i < d.records; i++ {
-			for s := 2; s < objectDisplayFields; s++ {
+			for s := first; s < first+n; s++ {
 				if d.u32(i, s) == id {
 					out.Displays++
 					break
@@ -355,72 +357,81 @@ func importSoundRows(tables map[string][]byte, fileName string, opt SoundImport)
 	case !(opt.Volume > 0 && opt.Volume <= 1):
 		return nil, soundImported{}, errors.New("the volume is from 0 to 1")
 	}
-	se, err := parseSized(tables["SoundEntries"], "SoundEntries.dbc", soundTableFields["SoundEntries"])
+	se, err := parseExact(tables["SoundEntries"], dbcSoundEntries)
 	if err != nil {
 		return nil, soundImported{}, err
 	}
+	c := seColsOf(se.l)
 	var res soundImported
 	for r := 0; r < se.records; r++ {
-		if strings.EqualFold(strings.TrimSuffix(se.str(r, seDir), `\`), ImportedSoundDir) && strings.EqualFold(se.str(r, seFile), fileName) {
-			res.id, res.reused = se.u32(r, 0), true
+		if strings.EqualFold(strings.TrimSuffix(se.str(r, c.dir), `\`), ImportedSoundDir) && strings.EqualFold(se.str(r, c.file), fileName) {
+			res.id, res.reused = se.u32(r, c.id), true
 			break
 		}
 	}
 	for r := 0; r < se.records; r++ {
-		if id := se.u32(r, 0); id != res.id && strings.EqualFold(se.str(r, seName), name) {
-			return nil, soundImported{}, fmt.Errorf("the client has a sound named %s (%d); give this one another name", se.str(r, seName), id)
+		if id := se.u32(r, c.id); id != res.id && strings.EqualFold(se.str(r, c.name), name) {
+			return nil, soundImported{}, fmt.Errorf("the client has a sound named %s (%d); give this one another name", se.str(r, c.name), id)
 		}
 	}
 	rec := make([]uint32, se.fields)
 	if res.reused {
 		r, _ := se.row(res.id)
 		rec = se.record(r)
-		for f := seFile; f < seFile+soundFiles; f++ {
-			rec[f], rec[f+soundFiles] = 0, 0
+		for i := 0; i < c.files; i++ {
+			rec[c.file+i], rec[c.freq+i] = 0, 0
 		}
 	} else {
 		res.id = maxID(se) + 1
 	}
-	rec[0] = res.id
-	rec[seType], rec[seFlags], rec[seEAX] = kind.typ, kind.flags, kind.eax
-	rec[seFreq] = 1
-	rec[seVolume] = math.Float32bits(float32(opt.Volume))
-	rec[seMinDist], rec[seCutoff] = math.Float32bits(kind.minDist), math.Float32bits(kind.cutoff)
+	rec[c.id] = res.id
+	rec[c.typ], rec[c.flags], rec[c.eax] = kind.typ, kind.flags, kind.eax
+	rec[c.freq] = 1
+	rec[c.volume] = math.Float32bits(float32(opt.Volume))
+	rec[c.minDist], rec[c.cutoff] = math.Float32bits(kind.minDist), math.Float32bits(kind.cutoff)
 	out := map[string][]byte{}
-	if out["SoundEntries"], err = putRecord(tables["SoundEntries"], rec, map[int]string{seName: name, seFile: fileName, seDir: ImportedSoundDir}); err != nil {
+	if out["SoundEntries"], err = putRecord(tables["SoundEntries"], rec, map[int]string{c.name: name, c.file: fileName, c.dir: ImportedSoundDir}); err != nil {
 		return nil, soundImported{}, err
 	}
 	switch opt.Kind {
 	case "music":
-		m, err := parseSized(tables["ZoneMusic"], "ZoneMusic.dbc", soundTableFields["ZoneMusic"])
+		m, err := parseExact(tables["ZoneMusic"], dbcZoneMusic)
 		if err != nil {
 			return nil, soundImported{}, err
 		}
+		mid, day, night := m.col("ID"), m.col("Day"), m.col("Night")
 		for r := 0; r < m.records && res.zone == 0; r++ {
-			if m.u32(r, 6) == res.id && m.u32(r, 7) == res.id {
-				res.zone = m.u32(r, 0)
+			if m.u32(r, day) == res.id && m.u32(r, night) == res.id {
+				res.zone = m.u32(r, mid)
 			}
 		}
 		if res.zone == 0 {
 			res.zone = maxID(m) + 1
-			row := append(append([]uint32{res.zone, 0}, zoneMusicSilence...), res.id, res.id)
-			if out["ZoneMusic"], err = putRecord(tables["ZoneMusic"], row, map[int]string{1: name}); err != nil {
+			row := make([]uint32, m.fields)
+			row[mid], row[day], row[night] = res.zone, res.id, res.id
+			for i := 0; i < 2; i++ {
+				row[m.at("SilenceMin", i)], row[m.at("SilenceMax", i)] = zoneMusicSilence[i], zoneMusicSilence[2+i]
+			}
+			if out["ZoneMusic"], err = putRecord(tables["ZoneMusic"], row, map[int]string{m.col("Name"): name}); err != nil {
 				return nil, soundImported{}, err
 			}
 		}
 	case "ambience":
-		a, err := parseSized(tables["SoundAmbience"], "SoundAmbience.dbc", soundTableFields["SoundAmbience"])
+		a, err := parseExact(tables["SoundAmbience"], dbcSoundAmbience)
 		if err != nil {
 			return nil, soundImported{}, err
 		}
+		aid, day, night := a.col("ID"), a.col("Day"), a.col("Night")
 		for r := 0; r < a.records && res.zone == 0; r++ {
-			if a.u32(r, 1) == res.id && a.u32(r, 2) == res.id {
-				res.zone = a.u32(r, 0)
+			if a.u32(r, day) == res.id && a.u32(r, night) == res.id {
+				res.zone = a.u32(r, aid)
 			}
 		}
 		if res.zone == 0 {
 			res.zone = maxID(a) + 1
-			if out["SoundAmbience"], err = setRecords(tables["SoundAmbience"], [][]uint32{{res.zone, res.id, res.id}}); err != nil {
+			row := make([]uint32, a.fields)
+			row[aid], row[day], row[night] = res.zone, res.id, res.id
+			if out["SoundAmbience"], err = setRecords(tables["SoundAmbience"], [][]uint32{row}); err != nil {
 				return nil, soundImported{}, err
 			}
 		}

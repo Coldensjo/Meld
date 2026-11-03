@@ -70,47 +70,49 @@ const noDoodad = 0xFFFFFFFF
 // ID 29. A path is the file name, .mdl in the table and .m2 in the archives.
 func detailPaths(doodads *dbcTable) map[uint32]string {
 	paths := map[uint32]string{}
+	pathCol, idCol := doodads.col("Path"), doodads.col("DoodadID")
 	for r := 0; r < doodads.records; r++ {
-		name := doodads.str(r, 2)
+		name := doodads.str(r, pathCol)
 		if name == "" {
 			continue
 		}
 		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdl"), ".MDL")
 		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdx"), ".MDX")
-		paths[doodads.u32(r, 1)] = detailDir + name + ".m2"
+		paths[doodads.u32(r, idCol)] = detailDir + name + ".m2"
 	}
 	return paths
 }
 
 // readGroundEffectDBCs reads the two tables from the client.
 func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
-	read := func(name string) (*dbcTable, error) {
-		b, err := set.ReadFile(`DBFilesClient\` + name)
+	read := func(s *dbcSchema) (*dbcTable, error) {
+		b, err := set.ReadFile(s.file())
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return nil, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
-		return parseDBC(b)
+		return parseTable(b, s)
 	}
-	doodads, err := read("GroundEffectDoodad.dbc")
+	doodads, err := read(dbcGroundDoodad)
 	if err != nil {
 		return nil, err
 	}
-	textures, err := read("GroundEffectTexture.dbc")
+	textures, err := read(dbcGroundTexture)
 	if err != nil {
 		return nil, err
 	}
-	if doodads.fields < 3 || textures.fields < 7 {
+	if doodads.fields < doodads.l.columns || textures.fields < textures.l.columns {
 		return nil, fmt.Errorf("ground effect tables have %d and %d fields; the 1.12 layout has 3 and 7", doodads.fields, textures.fields)
 	}
 	paths := detailPaths(doodads)
+	slot, density, terrain := textures.at("Doodad", 0), textures.col("Density"), textures.col("Terrain")
 	out := map[uint32]GroundEffect{}
 	for r := 0; r < textures.records; r++ {
 		var e GroundEffect
-		for f := 1; f <= 4; f++ {
-			e.Slots[f-1] = -1
-			if id := textures.u32(r, f); id != noDoodad {
+		for i := range e.Slots {
+			e.Slots[i] = -1
+			if id := textures.u32(r, slot+i); id != noDoodad {
 				if p, ok := paths[id]; ok {
-					e.Slots[f-1] = len(e.Doodads)
+					e.Slots[i] = len(e.Doodads)
 					e.Doodads = append(e.Doodads, p)
 				}
 			}
@@ -118,8 +120,8 @@ func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 		if len(e.Doodads) == 0 {
 			continue
 		}
-		e.Density = int(textures.u32(r, 5))
-		e.Terrain = int(textures.u32(r, 6))
+		e.Density = int(textures.u32(r, density))
+		e.Terrain = int(textures.u32(r, terrain))
 		out[textures.u32(r, 0)] = e
 	}
 	return out, nil
@@ -131,16 +133,17 @@ func readTerrainTypes(set *mpq.Set) ([]TerrainType, error) {
 	if err != nil {
 		return nil, fmt.Errorf("TerrainType.dbc: %w", err)
 	}
-	t, err := parseDBC(b)
+	t, err := parseTable(b, dbcTerrainType)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields != 6 {
+	if t.fields != t.l.columns {
 		return nil, fmt.Errorf("TerrainType.dbc has %d fields; the 1.12 layout has 6", t.fields)
 	}
+	name, flags := t.col("Name"), t.col("Flags")
 	out := make([]TerrainType, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		out = append(out, TerrainType{ID: int(t.u32(r, 0)), Name: t.str(r, 1), Footprints: t.u32(r, 5)&1 != 0})
+		out = append(out, TerrainType{ID: int(t.u32(r, 0)), Name: t.str(r, name), Footprints: t.u32(r, flags)&1 != 0})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
@@ -233,15 +236,15 @@ func AddGroundEffect(doodadDBC, textureDBC []byte, doodads []string, density, te
 	if density == 0 || density > 64 {
 		return nil, 0, fmt.Errorf("density %d is outside 1 to 64", density)
 	}
-	dt, err := parseDBC(doodadDBC)
+	dt, err := parseTable(doodadDBC, dbcGroundDoodad)
 	if err != nil {
 		return nil, 0, err
 	}
-	tt, err := parseDBC(textureDBC)
+	tt, err := parseTable(textureDBC, dbcGroundTexture)
 	if err != nil {
 		return nil, 0, err
 	}
-	if dt.fields < 3 || tt.fields != 7 {
+	if dt.fields < dt.l.columns || tt.fields != tt.l.columns || len(doodads) > tt.l.count("Doodad") {
 		return nil, 0, errors.New("the ground effect tables aren't the 1.12 client's")
 	}
 	// A slot names the doodad's internal ID (see detailPaths); a model listed twice takes its lower one.
@@ -257,13 +260,18 @@ func AddGroundEffect(doodadDBC, textureDBC []byte, doodads []string, density, te
 		next = max(next, tt.u32(r, 0))
 	}
 	next++
-	row := []uint32{next, noDoodad, noDoodad, noDoodad, noDoodad, density, terrain}
+	row := make([]uint32, tt.fields)
+	row[0], row[tt.col("Density")], row[tt.col("Terrain")] = next, density, terrain
+	slot := tt.at("Doodad", 0)
+	for i := 0; i < tt.l.count("Doodad"); i++ {
+		row[slot+i] = noDoodad
+	}
 	for i, d := range doodads {
 		id, ok := ids[strings.ToLower(d)]
 		if !ok {
 			return nil, 0, fmt.Errorf("%s is not a ground effect model of the client", d)
 		}
-		row[1+i] = id
+		row[slot+i] = id
 	}
 	out, err := setRecords(textureDBC, [][]uint32{row})
 	return out, next, err

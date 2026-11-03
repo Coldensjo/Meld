@@ -58,11 +58,10 @@ var charTableCache = struct {
 	by map[string]*charTables
 }{by: map[string]*charTables{}}
 
-// loadCharTables reads the tables from the client (1.12 layouts: CharSections' race, gender,
-// section, variation and colour in fields 1-5 and its flags in 9; CharacterFacialHairStyles, which
-// has no ID, its race, gender and variation in 0-2; SkillLine's category in 1 and name in 3;
-// SkillRaceClassInfo's skill, race mask, class mask and tier in 1, 2, 3 and 6; SkillTiers' highest
-// values in 17-32).
+// loadCharTables reads the tables from the client: CharSections' race, gender, section, variation,
+// colour and flags; CharacterFacialHairStyles' (which has no ID) race, gender and variation;
+// SkillLine's category and name; SkillRaceClassInfo's skill, race mask, class mask and tier;
+// SkillTiers' highest values.
 func loadCharTables(dataDir string) (*charTables, error) {
 	charTableCache.Lock()
 	defer charTableCache.Unlock()
@@ -74,54 +73,60 @@ func loadCharTables(dataDir string) (*charTables, error) {
 		return nil, err
 	}
 	defer set.Close()
-	read := func(name string, fields int) (*dbcTable, error) {
-		b, err := set.ReadFile(`DBFilesClient\` + name + `.dbc`)
+	// read reads a table that holds at least the column of field last (element lastAt of an array).
+	read := func(s *dbcSchema, last string, lastAt int) (*dbcTable, error) {
+		b, err := set.ReadFile(s.file())
 		if err != nil {
 			return nil, err
 		}
-		t, err := parseDBC(b)
+		t, err := parseTable(b, s)
 		if err != nil {
-			return nil, fmt.Errorf("%s.dbc: %w", name, err)
+			return nil, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
-		if t.fields < fields {
-			return nil, fmt.Errorf("%s.dbc has %d fields, not the 1.12 layout", name, t.fields)
+		if t.fields <= t.at(last, lastAt) {
+			return nil, fmt.Errorf("%s.dbc has %d fields, not the 1.12 layout", s.name, t.fields)
 		}
 		return t, nil
 	}
 	c := &charTables{facial: map[[3]int]bool{}, skills: map[int]skillLineRow{}, tiers: map[int]int{}}
-	t, err := read("CharSections", 10)
+	t, err := read(dbcCharSections, "Flags", 0)
 	if err != nil {
 		return nil, err
 	}
+	race, sex, section, variation, color, flags := t.col("Race"), t.col("Sex"), t.col("Section"), t.col("Variation"), t.col("Color"), t.col("Flags")
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, 9)&1 == 0 {
-			c.sections = append(c.sections, charSection{int(t.u32(r, 1)), int(t.u32(r, 2)), int(t.u32(r, 3)), int(t.u32(r, 4)), int(t.u32(r, 5))})
+		if t.u32(r, flags)&1 == 0 {
+			c.sections = append(c.sections, charSection{int(t.u32(r, race)), int(t.u32(r, sex)), int(t.u32(r, section)), int(t.u32(r, variation)), int(t.u32(r, color))})
 		}
 	}
-	if t, err = read("CharacterFacialHairStyles", 3); err != nil {
+	if t, err = read(dbcFacialHair, "Variation", 0); err != nil {
 		return nil, err
 	}
+	race, sex, variation = t.col("Race"), t.col("Sex"), t.col("Variation")
 	for r := 0; r < t.records; r++ {
-		c.facial[[3]int{int(t.u32(r, 0)), int(t.u32(r, 1)), int(t.u32(r, 2))}] = true
+		c.facial[[3]int{int(t.u32(r, race)), int(t.u32(r, sex)), int(t.u32(r, variation))}] = true
 	}
-	if t, err = read("SkillLine", 4); err != nil {
+	if t, err = read(dbcSkillLine, "Name", 0); err != nil {
 		return nil, err
 	}
+	category, name := t.col("Category"), t.col("Name")
 	for r := 0; r < t.records; r++ {
-		c.skills[int(t.u32(r, 0))] = skillLineRow{int(int32(t.u32(r, 1))), t.str(r, 3)}
+		c.skills[int(t.u32(r, 0))] = skillLineRow{int(int32(t.u32(r, category))), t.str(r, name)}
 	}
-	if t, err = read("SkillRaceClassInfo", 7); err != nil {
+	if t, err = read(dbcSkillRaceClass, "SkillTier", 0); err != nil {
 		return nil, err
 	}
+	skill, raceMask, classMask, tier := t.col("Skill"), t.col("RaceMask"), t.col("ClassMask"), t.col("SkillTier")
 	for r := 0; r < t.records; r++ {
-		c.raceClass = append(c.raceClass, skillRaceClass{int(t.u32(r, 1)), int(t.u32(r, 2)), int(t.u32(r, 3)), int(t.u32(r, 6))})
+		c.raceClass = append(c.raceClass, skillRaceClass{int(t.u32(r, skill)), int(t.u32(r, raceMask)), int(t.u32(r, classMask)), int(t.u32(r, tier))})
 	}
-	if t, err = read("SkillTiers", 33); err != nil {
+	if t, err = read(dbcSkillTiers, "Value", 15); err != nil {
 		return nil, err
 	}
+	value, values := t.at("Value", 0), t.l.count("Value")
 	for r := 0; r < t.records; r++ {
 		top := 0
-		for f := 17; f < 33; f++ {
+		for f := value; f < value+values; f++ {
 			top = max(top, int(t.u32(r, f)))
 		}
 		c.tiers[int(t.u32(r, 0))] = top

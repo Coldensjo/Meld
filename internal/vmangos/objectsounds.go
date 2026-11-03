@@ -23,12 +23,8 @@ const (
 	SoundEntriesPath          = `DBFilesClient\SoundEntries.dbc`
 )
 
-// ObjectSoundSlots is how many sound slots a game object display has, and objectDisplayFields its
-// 1.12 width: ID, the model and the slots.
-const (
-	ObjectSoundSlots    = 10
-	objectDisplayFields = 2 + ObjectSoundSlots
-)
+// ObjectSoundSlots is how many sound slots a game object display has (dbcObjectDisplay's Sound).
+const ObjectSoundSlots = 10
 
 // ObjectDisplaySounds are a game object display's model and its ten sound slots' SoundEntries IDs
 // (0: none).
@@ -55,21 +51,21 @@ func openSoundTables(dataDir string) (display, sounds []byte, err error) {
 	return display, sounds, nil
 }
 
-// parseSized parses a DBC and checks it has the 1.12 width.
-func parseSized(b []byte, name string, fields int) (*dbcTable, error) {
-	t, err := parseDBC(b)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
+// objectDisplay reads GameObjectDisplayInfo of a width Meld knows, with its model column and its
+// first sound slot's.
+func objectDisplay(b []byte) (t *dbcTable, model, slot int, err error) {
+	if t, err = parseExact(b, dbcObjectDisplay); err != nil {
+		return nil, 0, 0, err
 	}
-	if t.fields != fields {
-		return nil, fmt.Errorf("%s has %d fields, not 1.12's %d", name, t.fields, fields)
+	if t.l.count("Sound") != ObjectSoundSlots {
+		return nil, 0, 0, fmt.Errorf("GameObjectDisplayInfo.dbc has %d sound slots, not %d", t.l.count("Sound"), ObjectSoundSlots)
 	}
-	return t, nil
+	return t, t.col("Model"), t.at("Sound", 0), nil
 }
 
 // soundList is every SoundEntries row with its name and first file, by ID.
 func soundList(b []byte) ([]SoundOption, error) {
-	t, err := parseSized(b, "SoundEntries.dbc", soundTableFields["SoundEntries"])
+	t, err := parseExact(b, dbcSoundEntries)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +92,7 @@ func SoundEntryList(dataDir string) ([]SoundOption, error) {
 
 // objectDisplaySounds reads one display's slots from GameObjectDisplayInfo's bytes.
 func objectDisplaySounds(b []byte, display uint32) (ObjectDisplaySounds, error) {
-	t, err := parseSized(b, "GameObjectDisplayInfo.dbc", objectDisplayFields)
+	t, model, slot, err := objectDisplay(b)
 	if err != nil {
 		return ObjectDisplaySounds{}, err
 	}
@@ -104,9 +100,9 @@ func objectDisplaySounds(b []byte, display uint32) (ObjectDisplaySounds, error) 
 	if !ok || display == 0 {
 		return ObjectDisplaySounds{}, fmt.Errorf("the client has no game object display %d", display)
 	}
-	out := ObjectDisplaySounds{Display: display, Model: t.str(r, 1), Sounds: make([]uint32, ObjectSoundSlots)}
+	out := ObjectDisplaySounds{Display: display, Model: t.str(r, model), Sounds: make([]uint32, ObjectSoundSlots)}
 	for i := range out.Sounds {
-		out.Sounds[i] = t.u32(r, 2+i)
+		out.Sounds[i] = t.u32(r, slot+i)
 	}
 	return out, nil
 }
@@ -128,7 +124,7 @@ func setObjectDisplaySounds(display, soundEntriesDBC []byte, id uint32, sounds [
 	if len(sounds) != ObjectSoundSlots {
 		return nil, false, fmt.Errorf("%d sound slots, not %d", len(sounds), ObjectSoundSlots)
 	}
-	t, err := parseSized(display, "GameObjectDisplayInfo.dbc", objectDisplayFields)
+	t, _, slot, err := objectDisplay(display)
 	if err != nil {
 		return nil, false, err
 	}
@@ -136,7 +132,7 @@ func setObjectDisplaySounds(display, soundEntriesDBC []byte, id uint32, sounds [
 	if !ok || id == 0 {
 		return nil, false, fmt.Errorf("the client has no game object display %d", id)
 	}
-	se, err := parseSized(soundEntriesDBC, "SoundEntries.dbc", soundTableFields["SoundEntries"])
+	se, err := parseExact(soundEntriesDBC, dbcSoundEntries)
 	if err != nil {
 		return nil, false, err
 	}
@@ -145,10 +141,10 @@ func setObjectDisplaySounds(display, soundEntriesDBC []byte, id uint32, sounds [
 		if _, ok := se.row(s); s != 0 && !ok {
 			return nil, false, fmt.Errorf("sound slot %d: the client has no sound %d in SoundEntries.dbc", i, s)
 		}
-		if rec[2+i] != s {
+		if rec[slot+i] != s {
 			changed = true
 		}
-		rec[2+i] = s
+		rec[slot+i] = s
 	}
 	if !changed {
 		return display, false, nil
@@ -226,7 +222,7 @@ func CopyObjectDisplay(dataDir, serverDir string, base uint32) (ObjectDisplayCop
 // and, when given, to server, under the first ID above both tables' highest. The other rows stay as
 // they were in each.
 func copyObjectDisplay(client, server []byte, base uint32) (id uint32, outClient, outServer []byte, err error) {
-	ct, err := parseSized(client, "GameObjectDisplayInfo.dbc", objectDisplayFields)
+	ct, model, _, err := objectDisplay(client)
 	if err != nil {
 		return 0, nil, nil, err
 	}
@@ -244,8 +240,8 @@ func copyObjectDisplay(client, server []byte, base uint32) (id uint32, outClient
 	id = top(ct)
 	var st *dbcTable
 	if server != nil {
-		if st, err = parseSized(server, "the server's GameObjectDisplayInfo.dbc", objectDisplayFields); err != nil {
-			return 0, nil, nil, err
+		if st, _, _, err = objectDisplay(server); err != nil {
+			return 0, nil, nil, fmt.Errorf("the server's %w", err)
 		}
 		id = max(id, top(st))
 	}
@@ -255,12 +251,12 @@ func copyObjectDisplay(client, server []byte, base uint32) (id uint32, outClient
 	id++
 	rec := ct.record(r)
 	rec[0] = id
-	model := map[int]string{1: ct.str(r, 1)}
-	if outClient, err = putRecord(client, rec, model); err != nil {
+	strs := map[int]string{model: ct.str(r, model)}
+	if outClient, err = putRecord(client, rec, strs); err != nil {
 		return 0, nil, nil, err
 	}
 	if st != nil {
-		if outServer, err = putRecord(server, rec, model); err != nil {
+		if outServer, err = putRecord(server, rec, strs); err != nil {
 			return 0, nil, nil, err
 		}
 	}

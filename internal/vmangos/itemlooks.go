@@ -21,24 +21,18 @@ import (
 // ItemDisplayPath is ItemDisplayInfo.dbc's name in the client's archives.
 const ItemDisplayPath = `DBFilesClient\ItemDisplayInfo.dbc`
 
-// ItemDisplayInfo.dbc in 1.12: 23 fields. These are the ones the pickers read; 1-4 and 14-21 are
-// strings (the models, their textures and the body-region textures).
-const (
-	itemDisplayFields = 23
-	idModel           = 1
-	idModel2          = 2
-	idTexture         = 3
-	idIcon            = 5
-	// idVisual is the SpellVisual a basic shot of the item plays (the bow's, the crossbow's, the
-	// gun's fire clip and missile), which the game takes from the ranged weapon's display.
-	idVisual = 10
-)
+// idCols are the ItemDisplayInfo.dbc columns the pickers read (dbcItemDisplay): the first model
+// and its texture, the icon, the first body-region texture (bodyN of them), and visual, the
+// SpellVisual a basic shot of the item plays (the bow's, the crossbow's, the gun's fire clip and
+// missile), which the game takes from the ranged weapon's display.
+type idCols struct{ model, texture, icon, visual, body, bodyN int }
+
+func idColsOf(l *dbcLayout) idCols {
+	return idCols{l.at("Model", 0), l.at("ModelTexture", 0), l.col("Icon"), l.col("SpellVisual"), l.at("Texture", 0), l.count("Texture")}
+}
 
 // rangedSubclasses are the weapon subclasses a basic shot fires from: bow, gun, thrown, crossbow, wand.
 var rangedSubclasses = map[int]bool{2: true, 3: true, 16: true, 18: true, 19: true}
-
-// itemDisplayStrings are ItemDisplayInfo's string fields.
-var itemDisplayStrings = map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 14: true, 15: true, 16: true, 17: true, 18: true, 19: true, 20: true, 21: true}
 
 // ItemDisplayEntry is an item display as the look picker lists it: its icon, its model (a name
 // without its folder, "" for none), where it goes ("weapon", "shield", "held", "ranged", "head",
@@ -131,12 +125,12 @@ func ListItemDisplays(serverRoot, dataDir string) ([]ItemDisplayEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := parseDBC(b)
+	t, err := parseTable(b, dbcItemDisplay)
 	if err != nil {
 		return nil, err
 	}
-	if t.fields < itemDisplayFields-1 {
-		return nil, fmt.Errorf("ItemDisplayInfo.dbc has %d fields, not 1.12's %d", t.fields, itemDisplayFields)
+	if t.fields < t.l.columns-1 {
+		return nil, fmt.Errorf("ItemDisplayInfo.dbc has %d fields, not 1.12's %d", t.fields, t.l.columns)
 	}
 	var rows []batchRow
 	if hasDatabase(serverRoot) {
@@ -176,17 +170,18 @@ func listItemDisplays(t *dbcTable, rows []batchRow) []ItemDisplayEntry {
 		u.kinds[invKind(inv)]++
 		u.names = append(u.names, f[2])
 	}
+	c := idColsOf(t.l)
 	out := make([]ItemDisplayEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		e := ItemDisplayEntry{ID: int(t.u32(r, 0)), Icon: t.str(r, idIcon), Model: trimModelExt(t.str(r, idModel)), Shoots: -1}
-		if t.fields > idVisual {
-			e.Visual = int(t.u32(r, idVisual))
+		e := ItemDisplayEntry{ID: int(t.u32(r, 0)), Icon: t.str(r, c.icon), Model: trimModelExt(t.str(r, c.model)), Shoots: -1}
+		if t.fields > c.visual {
+			e.Visual = int(t.u32(r, c.visual))
 			if sub, ok := shoots[e.Visual]; ok && e.Visual != 0 {
 				e.Shoots = sub
 			}
 		}
 		bodyTextures := false
-		for f := 14; f <= 21 && f < t.fields; f++ {
+		for f := c.body; f < c.body+c.bodyN && f < t.fields; f++ {
 			bodyTextures = bodyTextures || t.str(r, f) != ""
 		}
 		if u := uses[e.ID]; u != nil {
@@ -204,7 +199,7 @@ func listItemDisplays(t *dbcTable, rows []batchRow) []ItemDisplayEntry {
 		} else {
 			e.Kind = modelKind(e.Model, bodyTextures)
 		}
-		e.Path, e.Skin = displayModel(e.Kind, t.str(r, idModel), t.str(r, idTexture))
+		e.Path, e.Skin = displayModel(e.Kind, t.str(r, c.model), t.str(r, c.texture))
 		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -224,11 +219,12 @@ func shotSubclasses(t *dbcTable, rows []batchRow) map[int]int {
 		if err1 != nil || err2 != nil || !rangedSubclasses[sub] {
 			continue
 		}
+		visual := t.col("SpellVisual")
 		r, ok := t.row(uint32(d))
-		if !ok || t.fields <= idVisual {
+		if !ok || t.fields <= visual {
 			continue
 		}
-		v := int(t.u32(r, idVisual))
+		v := int(t.u32(r, visual))
 		if votes[v] == nil {
 			votes[v] = map[int]int{}
 		}
@@ -350,16 +346,17 @@ func ItemDisplayVariant(dataDir string, display int, icon string, visual int) (i
 }
 
 func itemDisplayVariant(dbc []byte, display uint32, icon string, visual int) (int, []byte, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcItemDisplay)
 	if err != nil {
 		return 0, nil, err
 	}
-	if t.fields <= idVisual || t.recSize != t.fields*4 {
+	c := idColsOf(t.l)
+	if t.fields <= c.visual || t.recSize != t.fields*4 {
 		return 0, nil, errors.New("ItemDisplayInfo.dbc is not a table of 32-bit fields")
 	}
 	base, hasBase := t.row(display)
 	if icon == "" && hasBase {
-		icon = t.str(base, idIcon)
+		icon = t.str(base, c.icon)
 	}
 	if icon == "" {
 		return 0, nil, errors.New("a look without a display needs an icon")
@@ -368,17 +365,17 @@ func itemDisplayVariant(dbc []byte, display uint32, icon string, visual int) (in
 	if visual >= 0 {
 		wantVisual = uint32(visual)
 	} else if hasBase {
-		wantVisual = t.u32(base, idVisual)
+		wantVisual = t.u32(base, c.visual)
 	}
 	same := func(r int) bool {
-		if !strings.EqualFold(t.str(r, idIcon), icon) || t.u32(r, idVisual) != wantVisual {
+		if !strings.EqualFold(t.str(r, c.icon), icon) || t.u32(r, c.visual) != wantVisual {
 			return false
 		}
 		for f := 1; f < t.fields; f++ {
-			if f == idIcon || f == idVisual {
+			if f == c.icon || f == c.visual {
 				continue
 			}
-			if itemDisplayStrings[f] {
+			if f < t.l.columns && t.l.isStr[f] {
 				if hasBase && !strings.EqualFold(t.str(r, f), t.str(base, f)) || !hasBase && t.str(r, f) != "" {
 					return false
 				}
@@ -410,8 +407,8 @@ func itemDisplayVariant(dbc []byte, display uint32, icon string, visual int) (in
 	}
 	id := maxID + 1
 	binary.LittleEndian.PutUint32(rec[0:], id)
-	binary.LittleEndian.PutUint32(rec[idVisual*4:], wantVisual)
-	binary.LittleEndian.PutUint32(rec[idIcon*4:], uint32(len(strs)))
+	binary.LittleEndian.PutUint32(rec[c.visual*4:], wantVisual)
+	binary.LittleEndian.PutUint32(rec[c.icon*4:], uint32(len(strs)))
 	strs = append(append(strs, icon...), 0)
 	out := make([]byte, 0, len(dbc)+len(rec)+len(icon)+1)
 	out = append(out, "WDBC"...)

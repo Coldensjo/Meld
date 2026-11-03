@@ -6,7 +6,9 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 )
 
@@ -28,57 +30,81 @@ const (
 	SpellIconPath = `DBFilesClient\SpellIcon.dbc`
 )
 
-// spellLocales is how many locales each of Spell.dbc's strings has (a flags field follows them).
-const spellLocales = 8
+// dbcSpell's fields are named for the spell_template columns they hold (MaNGOS' SpellEntry for
+// 1.12), so spellSQLColumns can map one to the other.
+var dbcSpell = vanilla("Spell", `entry school category castUI dispel mechanic attributes attributesEx attributesEx2
+	attributesEx3 attributesEx4 stances stancesNot targets targetCreatureType requiresSpellFocus casterAuraState
+	targetAuraState castingTimeIndex recoveryTime categoryRecoveryTime interruptFlags auraInterruptFlags
+	channelInterruptFlags procFlags procChance procCharges maxLevel baseLevel spellLevel durationIndex powerType manaCost
+	manCostPerLevel manaPerSecond manaPerSecondPerLevel rangeIndex speed:f modelNextSpell stackAmount totem[2] reagent[8]
+	reagentCount[8] equippedItemClass:i equippedItemSubClassMask equippedItemInventoryTypeMask effect[3]
+	effectDieSides:i[3] effectBaseDice:i[3] effectDicePerLevel:f[3] effectRealPointsPerLevel:f[3] effectBasePoints:i[3]
+	effectMechanic[3] effectImplicitTargetA[3] effectImplicitTargetB[3] effectRadiusIndex[3] effectApplyAuraName[3]
+	effectAmplitude:i[3] effectMultipleValue:f[3] effectChainTarget:i[3] effectItemType[3] effectMiscValue:i[3]
+	effectTriggerSpell[3] effectPointsPerComboPoint:f[3] spellVisual[2] spellIconId activeIconId spellPriority name:loc
+	nameSubtext:loc description:loc auraDescription:loc manaCostPercentage startRecoveryCategory startRecoveryTime
+	maxTargetLevel spellFamilyName spellFamilyFlags spellFamilyFlagsHi maxAffectedTargets dmgClass preventionType
+	stanceBarOrder dmgMultiplier:f[3] minFactionId minReputation requiredAuraVision`)
 
-// spellDBCColumns names the spell_template column each of Spell.dbc's 173 fields holds, in the
-// client's order (MaNGOS' SpellEntry for 1.12): a string column takes its 8 locale fields (each
-// "name#1" past the first) and a locale mask that stays the client's (""), and spellFamilyFlags,
-// 64 bits, two ("#hi" the high half). The server's own columns (effectBonusCoefficient1-3,
-// minTargetLevel, customFlags, script_name) and its locale masks (nameFlags...) have no field.
-// TestSpellColumnsMatchClient checks it against the client's rows and the server's.
-var spellDBCColumns = func() []string {
-	out := []string{"entry"}
-	add := func(names ...string) { out = append(out, names...) }
-	three := func(name string) { add(name+"1", name+"2", name+"3") }
-	text := func(name string) {
-		add(name)
-		for l := 1; l < spellLocales; l++ {
-			add(name + "#" + strconv.Itoa(l))
+// spellSQLColumns names the spell_template column each of a Spell.dbc layout's fields holds: an
+// array's element i is the name with i+1 ("effect1"), a string's locale fields past the first "name#1"
+// and on, and its locale mask stays the client's (""; the server's nameFlags... are older builds'),
+// and spellFamilyFlags, 64 bits, is two fields ("#hi" the high half).
+func spellSQLColumns(l *dbcLayout) []string {
+	out := make([]string, l.columns)
+	for _, f := range l.fields {
+		switch {
+		case f.kind == dbcLoc:
+			out[f.at] = f.name
+			for i := 1; i < l.locales; i++ {
+				out[f.at+i] = f.name + "#" + strconv.Itoa(i)
+			}
+		case f.count > 1:
+			for i := 0; i < f.count; i++ {
+				out[f.at+i] = f.name + strconv.Itoa(i+1)
+			}
+		case f.name == "spellFamilyFlagsHi":
+			out[f.at] = "spellFamilyFlags#hi"
+		default:
+			out[f.at] = f.name
 		}
-		// The locale mask after the 8: the server's (nameFlags...) are older builds', so the client keeps its own.
-		add("")
 	}
-	add("school", "category", "castUI", "dispel", "mechanic", "attributes", "attributesEx", "attributesEx2", "attributesEx3",
-		"attributesEx4", "stances", "stancesNot", "targets", "targetCreatureType", "requiresSpellFocus", "casterAuraState",
-		"targetAuraState", "castingTimeIndex", "recoveryTime", "categoryRecoveryTime", "interruptFlags", "auraInterruptFlags",
-		"channelInterruptFlags", "procFlags", "procChance", "procCharges", "maxLevel", "baseLevel", "spellLevel", "durationIndex",
-		"powerType", "manaCost", "manCostPerLevel", "manaPerSecond", "manaPerSecondPerLevel", "rangeIndex", "speed",
-		"modelNextSpell", "stackAmount", "totem1", "totem2")
-	for i := 1; i <= 8; i++ {
-		add("reagent" + strconv.Itoa(i))
-	}
-	for i := 1; i <= 8; i++ {
-		add("reagentCount" + strconv.Itoa(i))
-	}
-	add("equippedItemClass", "equippedItemSubClassMask", "equippedItemInventoryTypeMask")
-	for _, n := range []string{"effect", "effectDieSides", "effectBaseDice", "effectDicePerLevel", "effectRealPointsPerLevel",
-		"effectBasePoints", "effectMechanic", "effectImplicitTargetA", "effectImplicitTargetB", "effectRadiusIndex",
-		"effectApplyAuraName", "effectAmplitude", "effectMultipleValue", "effectChainTarget", "effectItemType",
-		"effectMiscValue", "effectTriggerSpell", "effectPointsPerComboPoint"} {
-		three(n)
-	}
-	add("spellVisual1", "spellVisual2", "spellIconId", "activeIconId", "spellPriority")
-	text("name")
-	text("nameSubtext")
-	text("description")
-	text("auraDescription")
-	add("manaCostPercentage", "startRecoveryCategory", "startRecoveryTime", "maxTargetLevel", "spellFamilyName",
-		"spellFamilyFlags", "spellFamilyFlags#hi", "maxAffectedTargets", "dmgClass", "preventionType", "stanceBarOrder")
-	three("dmgMultiplier")
-	add("minFactionId", "minReputation", "requiredAuraVision")
 	return out
-}()
+}
+
+// spellDBCColumns names the spell_template column each of the 1.12 Spell.dbc's 173 fields holds,
+// in the client's order. The server's own columns (effectBonusCoefficient1-3, minTargetLevel,
+// customFlags, script_name) and its locale masks (nameFlags...) have no field. The spell editor is
+// VMaNGOS', so its tables are 1.12's. TestSpellColumnsMatchClient checks it against the client's rows
+// and the server's.
+var spellDBCColumns = spellSQLColumns(dbcSpell.forBuild(clientbuild.Vanilla))
+
+// spellCols are the Spell.dbc columns Meld's readers use besides the spell editor's (the first of an
+// array's: its other elements follow it).
+type spellCols struct {
+	school, category, attributes, procChance, procCharges, duration, stack, effect, effectDie, effectDice, effectBase int
+	radius, aura, amplitude, chain, misc, visual, icon, name, rank, description, startCategory                        int
+}
+
+var spellColsByLayout sync.Map // *dbcLayout -> *spellCols
+
+// spellColsOf is a Spell table's columns, resolved once per layout.
+func spellColsOf(t *dbcTable) *spellCols {
+	if c, ok := spellColsByLayout.Load(t.l); ok {
+		return c.(*spellCols)
+	}
+	l := t.l
+	c := &spellCols{
+		school: l.col("school"), category: l.col("category"), attributes: l.col("attributes"), procChance: l.col("procChance"),
+		procCharges: l.col("procCharges"), duration: l.col("durationIndex"), stack: l.col("stackAmount"), effect: l.at("effect", 0),
+		effectDie: l.at("effectDieSides", 0), effectDice: l.at("effectBaseDice", 0), effectBase: l.at("effectBasePoints", 0),
+		radius: l.at("effectRadiusIndex", 0), aura: l.at("effectApplyAuraName", 0), amplitude: l.at("effectAmplitude", 0),
+		chain: l.at("effectChainTarget", 0), misc: l.at("effectMiscValue", 0), visual: l.at("spellVisual", 0), icon: l.col("spellIconId"),
+		name: l.col("name"), rank: l.col("nameSubtext"), description: l.col("description"), startCategory: l.col("startRecoveryCategory"),
+	}
+	spellColsByLayout.Store(l, c)
+	return c
+}
 
 // spellTextColumns are spell_template's text columns that Spell.dbc holds.
 var spellTextColumns = map[string]bool{"name": true, "nameSubtext": true, "description": true, "auraDescription": true}
@@ -171,7 +197,8 @@ func spellField(c TemplateColumn, v string, high bool) (uint32, error) {
 // fields with their text: every locale of a text column gets the text, as the client of any locale
 // then shows it. Fields no column holds keep base's value.
 func spellClientRow(entry int, cols []TemplateColumn, values map[string]string, base []uint32, fields int) ([]uint32, map[int]string, error) {
-	if fields != len(spellDBCColumns) {
+	names := spellSQLColumns(dbcSpell.layout(fields))
+	if fields != len(names) {
 		return nil, nil, fmt.Errorf("Spell.dbc has %d fields, not 1.12's %d", fields, len(spellDBCColumns))
 	}
 	rec := make([]uint32, fields)
@@ -182,7 +209,7 @@ func spellClientRow(entry int, cols []TemplateColumn, values map[string]string, 
 		byName[c.Name] = c
 	}
 	strs := map[int]string{}
-	for f, name := range spellDBCColumns {
+	for f, name := range names {
 		if f == 0 || name == "" {
 			continue
 		}
@@ -238,7 +265,7 @@ func spellClientFile(dbc []byte, entry, from int, cols []TemplateColumn, values 
 // get the value most of the client's spells have there.
 func commonSpellFields(t *dbcTable) []uint32 {
 	rec := make([]uint32, t.fields)
-	for f, name := range spellDBCColumns {
+	for f, name := range spellSQLColumns(dbcSpell.layout(t.fields)) {
 		if name != "" || f >= t.fields {
 			continue
 		}
@@ -262,23 +289,24 @@ func spellIconRow(dbc []byte, icon string) (int, []byte, error) {
 
 // spellIconPathRow is spellIconRow for an icon's whole texture path.
 func spellIconPathRow(dbc []byte, path string) (int, []byte, error) {
-	t, err := parseDBC(dbc)
+	t, err := parseTable(dbc, dbcSpellIcon)
 	if err != nil {
 		return 0, nil, err
 	}
-	if t.fields < 2 {
+	tex := t.col("Texture")
+	if t.fields <= tex {
 		return 0, nil, errors.New("SpellIcon.dbc has no texture field")
 	}
 	maxID := uint32(0)
 	for r := 0; r < t.records; r++ {
-		if strings.EqualFold(t.str(r, 1), path) {
+		if strings.EqualFold(t.str(r, tex), path) {
 			return int(t.u32(r, 0)), nil, nil
 		}
 		maxID = max(maxID, t.u32(r, 0))
 	}
 	rec := make([]uint32, t.fields)
 	rec[0] = maxID + 1
-	out, err := putRecord(dbc, rec, map[int]string{1: path})
+	out, err := putRecord(dbc, rec, map[int]string{tex: path})
 	return int(maxID + 1), out, err
 }
 
@@ -552,13 +580,14 @@ func SpellsWithVisual(dataDir string, visual, limit int) ([]SpellRef, error) {
 		return nil, err
 	}
 	t := spellData.spells
+	sc := spellColsOf(t)
 	seen := map[string]bool{}
 	var out []SpellRef
 	for r := 0; r < t.records && len(out) < max(limit, 1); r++ {
-		if int(t.u32(r, spellFVisual)) != visual {
+		if int(t.u32(r, sc.visual)) != visual {
 			continue
 		}
-		name := t.str(r, spellFName)
+		name := t.str(r, sc.name)
 		if seen[name] {
 			continue
 		}
@@ -596,6 +625,7 @@ func SpellsWithIcon(dataDir, icon string, limit int) (IconSpells, error) {
 // the Spell.dbc rows of up to limit spells (one per name) whose icon is any of them, and how many
 // spells show it in all.
 func spellsWithIcon(icons map[uint32]string, t *dbcTable, icon string, limit int) (int, []int, int) {
+	sc := spellColsOf(t)
 	path := `Interface\Icons\` + icon
 	ids := map[uint32]bool{}
 	first := uint32(0)
@@ -614,11 +644,11 @@ func spellsWithIcon(icons map[uint32]string, t *dbcTable, icon string, limit int
 	var rows []int
 	count := 0
 	for r := 0; r < t.records; r++ {
-		if !ids[t.u32(r, spellFIcon)] {
+		if !ids[t.u32(r, sc.icon)] {
 			continue
 		}
 		count++
-		if name := t.str(r, spellFName); !seen[name] && len(rows) < max(limit, 1) {
+		if name := t.str(r, sc.name); !seen[name] && len(rows) < max(limit, 1) {
 			seen[name] = true
 			rows = append(rows, r)
 		}

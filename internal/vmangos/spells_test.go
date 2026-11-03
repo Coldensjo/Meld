@@ -160,7 +160,7 @@ func TestSpellColumnsMatchClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tb, err := parseDBC(sb)
+	tb, err := parseTable(sb, dbcSpell)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestPlanSpellLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("new entry %d: %s", made.Entry, made.SQL[:120])
-	tb, err := parseDBC(made.File.Data)
+	tb, err := parseTable(made.File.Data, dbcSpell)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestPlanSpellLive(t *testing.T) {
 	if spell == nil || (saved.IconAdded != "") != (icons != nil) {
 		t.Fatalf("files %d, icon added %q", len(saved.Files), saved.IconAdded)
 	}
-	tb, _ = parseDBC(spell)
+	tb, _ = parseTable(spell, dbcSpell)
 	r, _ = tb.row(133)
 	if int32(tb.u32(r, spellFEffectBase)) != 99 || tb.str(r, spellFName) != "Fireball" {
 		t.Fatalf("the saved row: base %d, %q", int32(tb.u32(r, spellFEffectBase)), tb.str(r, spellFName))
@@ -272,7 +272,7 @@ func TestPlanSpellLive(t *testing.T) {
 		}
 	}
 	// Every other spell's row is as it was.
-	old, _ := parseDBC(mustClientFile(t, dataDir, SpellPath))
+	old, _ := parseTable(mustClientFile(t, dataDir, SpellPath), dbcSpell)
 	if old.records != tb.records {
 		t.Fatalf("%d rows, was %d", tb.records, old.records)
 	}
@@ -333,7 +333,7 @@ func TestSpellStartersLive(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", s.ID, err)
 		}
-		tb, err := parseDBC(made.File.Data)
+		tb, err := parseTable(made.File.Data, dbcSpell)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -379,14 +379,14 @@ func TestSpellsWithIcon(t *testing.T) {
 		spell(300, 9, "Strike"),
 		spell(400, 0, "Nothing"),
 	)
-	id, rows, count := spellsWithIcon(icons, tbl, "spell_fire_flamebolt", 8)
+	id, rows, count := spellsWithIcon(icons, as(tbl, dbcSpell), "spell_fire_flamebolt", 8)
 	if id != 7 || count != 3 || len(rows) != 2 || tbl.u32(rows[0], 0) != 133 || tbl.u32(rows[1], 0) != 200 {
 		t.Fatalf("flamebolt: id %d, count %d, rows %v", id, count, rows)
 	}
-	if _, rows, count := spellsWithIcon(icons, tbl, "spell_fire_flamebolt", 1); count != 3 || len(rows) != 1 {
+	if _, rows, count := spellsWithIcon(icons, as(tbl, dbcSpell), "spell_fire_flamebolt", 1); count != 3 || len(rows) != 1 {
 		t.Fatalf("limit 1: count %d, rows %v", count, rows)
 	}
-	if id, rows, count := spellsWithIcon(icons, tbl, "INV_Axe_01", 8); id != 0 || rows != nil || count != 0 {
+	if id, rows, count := spellsWithIcon(icons, as(tbl, dbcSpell), "INV_Axe_01", 8); id != 0 || rows != nil || count != 0 {
 		t.Fatalf("unused icon: id %d, count %d, rows %v", id, count, rows)
 	}
 }

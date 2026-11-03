@@ -701,13 +701,14 @@ var questDBCs = struct {
 	by map[string]*questDBC
 }{by: map[string]*questDBC{}}
 
-// readNamed lists a DBC's rows by ID with the name in field nameField, skipping unnamed rows, and
-// keep says which to list (nil for all; every row is named in the map).
-func readNamed(b []byte, nameField int, keep func(t *dbcTable, r int) bool) ([]NamedID, map[int]string, error) {
-	t, err := parseDBC(b)
+// readNamed lists a DBC's rows by ID with the name in its field nameName, skipping unnamed rows,
+// and keep says which to list (nil for all; every row is named in the map).
+func readNamed(b []byte, s *dbcSchema, nameName string, keep func(t *dbcTable, r int) bool) ([]NamedID, map[int]string, error) {
+	t, err := parseTable(b, s)
 	if err != nil {
 		return nil, nil, err
 	}
+	nameField := t.col(nameName)
 	if t.fields <= nameField {
 		return nil, nil, fmt.Errorf("the table has %d fields, too few for a name in field %d", t.fields, nameField)
 	}
@@ -726,9 +727,8 @@ func readNamed(b []byte, nameField int, keep func(t *dbcTable, r int) bool) ([]N
 	return list, names, nil
 }
 
-// loadQuestDBC reads the quest editor's client tables (1.12 layouts: QuestSort's name is field 1,
-// SkillLine's field 3, Faction's field 19 with its reputation index, -1 for none, in field 1,
-// MailTemplate's body field 1, named by its first line).
+// loadQuestDBC reads the quest editor's client tables: QuestSort's names, SkillLine's, Faction's
+// with a reputation index (-1 for none), and MailTemplate's bodies, named by their first lines.
 func loadQuestDBC(dataDir string) (*questDBC, error) {
 	questDBCs.Lock()
 	defer questDBCs.Unlock()
@@ -742,23 +742,24 @@ func loadQuestDBC(dataDir string) (*questDBC, error) {
 	defer set.Close()
 	d := &questDBC{names: map[string]map[int]string{}}
 	for _, t := range []struct {
-		kind, file string
-		field      int
-		list       *[]NamedID
-		keep       func(t *dbcTable, r int) bool
+		kind  string
+		s     *dbcSchema
+		field string
+		list  *[]NamedID
+		keep  func(t *dbcTable, r int) bool
 	}{
-		{"sort", "QuestSort", 1, &d.tables.Sorts, nil},
-		{"skill", "SkillLine", 3, &d.tables.Skills, nil},
-		{"faction", "Faction", 19, &d.tables.Factions, func(t *dbcTable, r int) bool { return int32(t.u32(r, 1)) >= 0 }},
-		{"mail template", "MailTemplate", 1, &d.tables.MailTemplates, nil},
+		{"sort", dbcQuestSort, "Name", &d.tables.Sorts, nil},
+		{"skill", dbcSkillLine, "Name", &d.tables.Skills, nil},
+		{"faction", dbcFaction, "Name", &d.tables.Factions, func(t *dbcTable, r int) bool { return int32(t.u32(r, t.col("ReputationIndex"))) >= 0 }},
+		{"mail template", dbcMailTemplate, "Body", &d.tables.MailTemplates, nil},
 	} {
-		b, err := set.ReadFile(`DBFilesClient\` + t.file + `.dbc`)
+		b, err := set.ReadFile(t.s.file())
 		if err != nil {
 			return nil, err
 		}
-		list, names, err := readNamed(b, t.field, t.keep)
+		list, names, err := readNamed(b, t.s, t.field, t.keep)
 		if err != nil {
-			return nil, fmt.Errorf("%s.dbc: %w", t.file, err)
+			return nil, fmt.Errorf("%s.dbc: %w", t.s.name, err)
 		}
 		if t.kind == "mail template" {
 			list, names = firstLines(list, names)

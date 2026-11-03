@@ -48,21 +48,23 @@ var objectTables = struct {
 	by map[string]*ObjectTables
 }{by: map[string]*ObjectTables{}}
 
-// lockInfos reads Lock.dbc (1.12: ID, Type[8], Index[8], Skill[8], Action[8]), leaving out the
-// empty slots.
+// lockInfos reads Lock.dbc (dbcLock: eight slots of a type, an index, a skill and an action),
+// leaving out the empty slots.
 func lockInfos(t *dbcTable) ([]LockInfo, error) {
-	if t.fields < 25 {
+	slots := t.l.count("Type")
+	if t.fields <= t.at("Skill", slots-1) {
 		return nil, fmt.Errorf("Lock.dbc has %d fields, fewer than 1.12's 33", t.fields)
 	}
+	types, index, skill := t.at("Type", 0), t.at("Index", 0), t.at("Skill", 0)
 	out := make([]LockInfo, 0, t.records)
 	for r := 0; r < t.records; r++ {
 		l := LockInfo{ID: int(t.u32(r, 0)), Parts: []LockPart{}}
-		for s := 0; s < 8; s++ {
-			typ := int(t.u32(r, 1+s))
+		for s := 0; s < slots; s++ {
+			typ := int(t.u32(r, types+s))
 			if typ == 0 {
 				continue
 			}
-			l.Parts = append(l.Parts, LockPart{Type: typ, Index: int(t.u32(r, 9+s)), Skill: int(t.u32(r, 17+s))})
+			l.Parts = append(l.Parts, LockPart{Type: typ, Index: int(t.u32(r, index+s)), Skill: int(t.u32(r, skill+s))})
 		}
 		out = append(out, l)
 	}
@@ -83,31 +85,34 @@ func byIDNamed(t *dbcTable, name func(r int) string) []NamedID {
 }
 
 // taxiPathNames names TaxiPath.dbc's rows (ID, from node, to node, cost) by their nodes' names in
-// TaxiNodes.dbc (ID, map, x, y, z, name).
+// TaxiNodes.dbc.
 func taxiPathNames(paths, nodes *dbcTable) []NamedID {
+	name := nodes.col("Name")
 	node := func(id uint32) string {
-		if r, ok := nodes.row(id); ok && nodes.fields > 5 {
-			if n := nodes.str(r, 5); n != "" {
+		if r, ok := nodes.row(id); ok && nodes.fields > name {
+			if n := nodes.str(r, name); n != "" {
 				return n
 			}
 		}
 		return "node " + strconv.Itoa(int(id))
 	}
-	return byIDNamed(paths, func(r int) string { return node(paths.u32(r, 1)) + " to " + node(paths.u32(r, 2)) })
+	from, to := paths.col("From"), paths.col("To")
+	return byIDNamed(paths, func(r int) string { return node(paths.u32(r, from)) + " to " + node(paths.u32(r, to)) })
 }
 
 // cinematicNames names CinematicSequences.dbc's rows (ID, sound, camera[8]) by their first camera's
 // model in CinematicCamera.dbc (ID, model path, ...), such as "FlybyUndead".
 func cinematicNames(seqs, cams *dbcTable) []NamedID {
+	camera, model := seqs.at("Camera", 0), cams.col("Model")
 	return byIDNamed(seqs, func(r int) string {
-		if seqs.fields < 3 {
+		if seqs.fields <= camera {
 			return ""
 		}
-		c, ok := cams.row(seqs.u32(r, 2))
-		if !ok || cams.fields < 2 {
+		c, ok := cams.row(seqs.u32(r, camera))
+		if !ok || cams.fields <= model {
 			return "Cinematic " + strconv.Itoa(int(seqs.u32(r, 0)))
 		}
-		m := strings.ReplaceAll(cams.str(c, 1), `\`, "/")
+		m := strings.ReplaceAll(cams.str(c, model), `\`, "/")
 		return strings.TrimSuffix(path.Base(m), path.Ext(m))
 	})
 }
@@ -125,30 +130,30 @@ func LoadObjectTables(dataDir string) (ObjectTables, error) {
 	}
 	defer set.Close()
 	tables := map[string]*dbcTable{}
-	for _, name := range []string{"Lock", "LockType", "Languages", "PageTextMaterial", "SpellFocusObject", "CinematicSequences", "CinematicCamera", "TaxiPath", "TaxiNodes", "AuctionHouse"} {
-		b, err := set.ReadFile(`DBFilesClient\` + name + `.dbc`)
+	for _, s := range []*dbcSchema{dbcLock, dbcLockType, dbcLanguages, dbcPageMaterial, dbcSpellFocus, dbcCinematicSeq, dbcCinematicCam, dbcTaxiPath, dbcTaxiNodes, dbcAuctionHouse} {
+		b, err := set.ReadFile(s.file())
 		if err != nil {
-			return ObjectTables{}, fmt.Errorf("%s.dbc: %w", name, err)
+			return ObjectTables{}, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
-		if tables[name], err = parseDBC(b); err != nil {
-			return ObjectTables{}, fmt.Errorf("%s.dbc: %w", name, err)
+		if tables[s.name], err = parseTable(b, s); err != nil {
+			return ObjectTables{}, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
 	}
-	// The 1.12 layouts: the name is field 1 of LockType, Languages, PageTextMaterial and
-	// SpellFocusObject, and field 4 of AuctionHouse (ID, faction, deposit, cut, name).
-	field := func(name string, f int) []NamedID {
+	// named lists a table's rows by its Name.
+	named := func(name string) []NamedID {
 		t := tables[name]
+		f := t.col("Name")
 		if t.fields <= f {
 			return []NamedID{}
 		}
 		return byIDNamed(t, func(r int) string { return t.str(r, f) })
 	}
 	out := ObjectTables{
-		LockTypes:     field("LockType", 1),
-		Languages:     field("Languages", 1),
-		PageMaterials: field("PageTextMaterial", 1),
-		SpellFocus:    field("SpellFocusObject", 1),
-		AuctionHouses: field("AuctionHouse", 4),
+		LockTypes:     named("LockType"),
+		Languages:     named("Languages"),
+		PageMaterials: named("PageTextMaterial"),
+		SpellFocus:    named("SpellFocusObject"),
+		AuctionHouses: named("AuctionHouse"),
 		Cinematics:    cinematicNames(tables["CinematicSequences"], tables["CinematicCamera"]),
 		TaxiPaths:     taxiPathNames(tables["TaxiPath"], tables["TaxiNodes"]),
 	}

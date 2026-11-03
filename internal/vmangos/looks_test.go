@@ -59,11 +59,11 @@ func humanTables(t *testing.T) *modelTables {
 	cde[8+wearHelm], cde[8+wearShoulder], cde[8+wearChest], cde[8+wearGloves] = 100, 101, 102, 103
 	cde[18] = "Bake.blp"
 	return &modelTables{
-		creatureDisplay:   testDBC(t, 12, []any{10, 1, 0, 5, 0}),
-		creatureModelData: testDBC(t, 3, []any{1, 0, `Character\Human\Male\HumanMale.mdx`}),
-		objectDisplay:     testDBC(t, 2),
-		creatureExtra:     testDBC(t, 19, cde),
-		itemDisplay: testDBC(t, 23,
+		creatureDisplay:   testTable(t, dbcCreatureDisplay, []any{10, 1, 0, 5, 0}),
+		creatureModelData: testTable(t, dbcCreatureModel, []any{1, 0, `Character\Human\Male\HumanMale.mdx`}),
+		objectDisplay:     testTable(t, dbcObjectDisplay),
+		creatureExtra:     testTable(t, dbcCreatureExtra, cde),
+		itemDisplay: testTable(t, dbcItemDisplay,
 			[]any{100, "Helm_A.mdx", "", "HelmTex", "", "", "", 0, 0, 0, 0, 0, 50, 51},
 			[]any{101, "LShoulder_A.mdx", "RShoulder_A.mdx", "ShoulderTex", "ShoulderTex"},
 			// 102: a robe with sleeves (geoset groups at 6-8); 103: gloves of variant 2.
@@ -72,15 +72,15 @@ func humanTables(t *testing.T) *modelTables {
 			[]any{104, "Sword_A.mdx", "", "SwordTex"},
 			[]any{105, "Shield_A.mdx", "", "ShieldTex"},
 			[]any{106, "Bow_A.mdx", "", "BowTex"}),
-		hairGeosets: testDBC(t, 6, []any{1, 1, 0, 2, 5, 0}),
-		facialHair:  testDBC(t, 9, []any{1, 0, 3, 0, 0, 0, 2, 3, 0}),
-		sections: testDBC(t, 10,
+		hairGeosets: testTable(t, dbcHairGeosets, []any{1, 1, 0, 2, 5, 0}),
+		facialHair:  testTable(t, dbcFacialHair, []any{1, 0, 3, 0, 0, 0, 2, 3, 0}),
+		sections: testTable(t, dbcCharSections,
 			[]any{1, 1, 0, 0, 0, 0, "Skin.blp", "", ""},
 			[]any{2, 1, 0, 3, 2, 1, "Hair.blp", "", ""}),
-		races: testDBC(t, 7, []any{1, 0, 0, 0, 0, 0, "Hu"}),
+		races: testTable(t, dbcChrRaces, []any{1, 0, 0, 0, 0, 0, "Hu"}),
 		// Helmet 50 hides the hair of race 1 (bit 1<<1) and leaves the facial hair and ears alone.
-		helmVis: testDBC(t, 6, []any{50, 1 << 1, 0, 0, 0, 0}),
-		emotes:  testDBC(t, 7, []any{233, "WORK", 69}),
+		helmVis: testTable(t, dbcHelmVis, []any{50, 1 << 1, 0, 0, 0, 0}),
+		emotes:  testTable(t, dbcEmotes, []any{233, "WORK", 69}),
 	}
 }
 
@@ -120,7 +120,7 @@ func TestCreatureLookDressesAHumanoid(t *testing.T) {
 
 func TestCreatureLookShowsHairWithoutAHelmet(t *testing.T) {
 	m := humanTables(t)
-	m.creatureExtra = testDBC(t, 19, []any{5, 1, 0, 0, 0, 2, 1, 3})
+	m.creatureExtra = testTable(t, dbcCreatureExtra, []any{5, 1, 0, 0, 0, 2, 1, 3})
 	d := m.creatureLook(10, gear{})
 	if !slices.Contains(d.look.Geosets, 5) {
 		t.Fatalf("geosets %v lack hair style 5", d.look.Geosets)
@@ -150,9 +150,9 @@ func hairGeosets(geo []int) []int {
 func TestCreatureLookShowsTheScalp(t *testing.T) {
 	for _, style := range []int{0, 7} {
 		m := humanTables(t)
-		m.creatureExtra = testDBC(t, 19, []any{5, 1, 0, 0, 0, style, 1, 3})
-		m.hairGeosets = testDBC(t, 6, []any{1, 1, 0, 0, 0, 1}, []any{2, 1, 0, 2, 5, 0})
-		m.sections = testDBC(t, 10, []any{2, 1, 0, 3, 1, 1, "Hair01.blp", "", ""})
+		m.creatureExtra = testTable(t, dbcCreatureExtra, []any{5, 1, 0, 0, 0, style, 1, 3})
+		m.hairGeosets = testTable(t, dbcHairGeosets, []any{1, 1, 0, 0, 0, 1}, []any{2, 1, 0, 2, 5, 0})
+		m.sections = testTable(t, dbcCharSections, []any{2, 1, 0, 3, 1, 1, "Hair01.blp", "", ""})
 		d := m.creatureLook(10, gear{})
 		if got := hairGeosets(d.look.Geosets); !slices.Equal(got, []int{1}) {
 			t.Errorf("style %d: hair geosets %v, want the scalp (1)", style, got)
@@ -274,12 +274,12 @@ func TestReadEquipment(t *testing.T) {
 // off, a robe's skirt, and a cloak on the back.
 func TestItemLookPaintsBodyArmour(t *testing.T) {
 	m := humanTables(t)
-	m.sections = testDBC(t, 10,
+	m.sections = testTable(t, dbcCharSections,
 		[]any{1, 1, 0, 0, 0, 0, "Skin.blp", "", ""},
 		[]any{2, 1, 0, 1, 0, 0, "FaceLower.blp", "FaceUpper.blp", ""},
 		[]any{3, 1, 0, 4, 0, 0, "Pelvis.blp", "", ""})
 	// 110: a robe naming a hand texture its slot doesn't paint; 111: a cloak of variant 2.
-	m.itemDisplay = testDBC(t, 23,
+	m.itemDisplay = testTable(t, dbcItemDisplay,
 		[]any{110, "", "", "", "", "", 1, 0, 1, 0, 0, 0, 0, 0, "Robe_AU", "", "Robe_HA", "Robe_TU", "", "Robe_LU"},
 		[]any{111, "", "", "Cape_A", "", "", 2})
 	m.components = map[string]bool{}
@@ -326,11 +326,11 @@ func TestItemLookPaintsBodyArmour(t *testing.T) {
 // holds nothing else.
 func TestCharacterModelWearsItsEquipment(t *testing.T) {
 	m := humanTables(t)
-	m.sections = testDBC(t, 10,
+	m.sections = testTable(t, dbcCharSections,
 		[]any{1, 1, 0, 0, 0, 0, "Skin.blp", "", ""},
 		[]any{2, 1, 0, 3, 2, 1, "Hair.blp", "", ""},
 		[]any{3, 1, 0, 3, 4, 0, "OtherHair.blp", "", ""})
-	m.hairGeosets = testDBC(t, 6, []any{1, 1, 0, 2, 5, 0}, []any{2, 1, 0, 4, 7, 0})
+	m.hairGeosets = testTable(t, dbcHairGeosets, []any{1, 1, 0, 2, 5, 0}, []any{2, 1, 0, 4, 7, 0})
 	parse := func(c CharacterModel) wow.Look {
 		q, err := url.ParseQuery(c.Look)
 		if err != nil {

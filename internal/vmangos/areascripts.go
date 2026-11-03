@@ -310,7 +310,7 @@ type AreaImport struct {
 // next free one and its music, ambience and light the IDs the carried rows come to here, its zones'
 // weather (none without a server), and the sound and light tables with the carried rows added.
 func PlanAreaImport(dbc []byte, script string, refs AreaRefs, looks *AreaLooks, server bool) (AreaImport, []AreaRow, []ZoneWeather, []mpq.File, error) {
-	t, err := areaTable(dbc)
+	t, c, err := areaTable(dbc)
 	if err != nil {
 		return AreaImport{}, nil, nil, nil, err
 	}
@@ -327,8 +327,8 @@ func PlanAreaImport(dbc []byte, script string, refs AreaRefs, looks *AreaLooks, 
 	bits := map[uint32]uint32{}
 	top := uint32(0)
 	for r := 0; r < t.records; r++ {
-		bits[t.u32(r, areaBit)] = t.u32(r, areaID)
-		top = max(top, t.u32(r, areaBit))
+		bits[t.u32(r, c.bit)] = t.u32(r, c.id)
+		top = max(top, t.u32(r, c.bit))
 	}
 	for _, a := range s.rows {
 		top = max(top, a.AreaBit)
@@ -356,7 +356,7 @@ func PlanAreaImport(dbc []byte, script string, refs AreaRefs, looks *AreaLooks, 
 		p := AreaImportRow{ID: a.ID, MapID: a.MapID, Parent: a.Parent, Name: a.Name}
 		if r, ok := t.row(a.ID); ok {
 			p.Exists = true
-			if was, wasMap := t.str(r, areaName), t.u32(r, areaMap); was != a.Name || wasMap != a.MapID {
+			if was, wasMap := t.str(r, c.name), t.u32(r, c.mapID); was != a.Name || wasMap != a.MapID {
 				p.Was, p.WasMap = was, wasMap
 			}
 		}
@@ -435,8 +435,9 @@ func LoadAreaRefs(dataDir string) AreaRefs {
 		refs.Liquids = set(len(l), func(i int) uint32 { return uint32(l[i].ID) })
 	}
 	if tables, err := LoadLightTables(dataDir); err == nil {
-		if t, err := parseDBC(tables[0]); err == nil {
-			refs.Lights = set(t.records, func(r int) uint32 { return t.u32(r, 0) })
+		if t, err := parseTable(tables[0], dbcLight); err == nil {
+			id := t.col("ID")
+			refs.Lights = set(t.records, func(r int) uint32 { return t.u32(r, id) })
 		}
 	}
 	return refs

@@ -15,10 +15,6 @@ import (
 // AreaTriggerPath is AreaTrigger.dbc's name in the client's archives.
 const AreaTriggerPath = `DBFilesClient\AreaTrigger.dbc`
 
-// areaTriggerFields is AreaTrigger.dbc's record in 1.12: ID, map, x, y, z, radius, box length,
-// width, height and yaw (Benilla's area_trigger.rs, 0x28 bytes a row).
-const areaTriggerFields = 10
-
 // triggerBuild is the client build VMaNGOS loads areatrigger_template rows for (5875 is 1.12.1).
 const triggerBuild = 5875
 
@@ -67,15 +63,16 @@ func LoadAreaTriggerTable(dataDir string) ([]byte, error) {
 	return set.ReadFile(AreaTriggerPath)
 }
 
+// triggerCols are AreaTrigger.dbc's columns (dbcAreaTrigger; 1.12's is Benilla's area_trigger.rs,
+// 0x28 bytes a row): the map, the position's x (y and z follow), the radius and the box.
+type triggerCols struct{ mapID, pos, radius, length, width, height, yaw int }
+
+func triggerColsOf(l *dbcLayout) triggerCols {
+	return triggerCols{l.col("MapID"), l.at("Pos", 0), l.col("Radius"), l.col("BoxLength"), l.col("BoxWidth"), l.col("BoxHeight"), l.col("BoxYaw")}
+}
+
 func areaTriggerTable(dbc []byte) (*dbcTable, error) {
-	t, err := parseDBC(dbc)
-	if err != nil {
-		return nil, err
-	}
-	if t.fields != areaTriggerFields || t.recSize != areaTriggerFields*4 {
-		return nil, fmt.Errorf("AreaTrigger.dbc has %d fields of %d bytes a record, not 1.12's %d", t.fields, t.recSize, areaTriggerFields)
-	}
-	return t, nil
+	return parseExact(dbc, dbcAreaTrigger)
 }
 
 // ReadAreaTriggers lists the triggers on map mapID, in the table's order.
@@ -84,24 +81,30 @@ func ReadAreaTriggers(dbc []byte, mapID uint32) ([]AreaTrigger, error) {
 	if err != nil {
 		return nil, err
 	}
+	c := triggerColsOf(t.l)
 	var out []AreaTrigger
 	for r := 0; r < t.records; r++ {
-		if t.u32(r, 1) != mapID {
+		if t.u32(r, c.mapID) != mapID {
 			continue
 		}
 		out = append(out, AreaTrigger{
 			ID: t.u32(r, 0), MapID: mapID,
-			X: t.f32(r, 2), Y: t.f32(r, 3), Z: t.f32(r, 4), Radius: t.f32(r, 5),
-			BoxX: t.f32(r, 6), BoxY: t.f32(r, 7), BoxZ: t.f32(r, 8), BoxYaw: t.f32(r, 9),
+			X: t.f32(r, c.pos), Y: t.f32(r, c.pos+1), Z: t.f32(r, c.pos+2), Radius: t.f32(r, c.radius),
+			BoxX: t.f32(r, c.length), BoxY: t.f32(r, c.width), BoxZ: t.f32(r, c.height), BoxYaw: t.f32(r, c.yaw),
 		})
 	}
 	return out, nil
 }
 
-// triggerRecord is a trigger as the table's ten fields.
-func triggerRecord(a AreaTrigger) []uint32 {
+// triggerRecord is a trigger as a record of layout l.
+func triggerRecord(l *dbcLayout, a AreaTrigger) []uint32 {
 	f := math.Float32bits
-	return []uint32{a.ID, a.MapID, f(a.X), f(a.Y), f(a.Z), f(a.Radius), f(a.BoxX), f(a.BoxY), f(a.BoxZ), f(a.BoxYaw)}
+	c := triggerColsOf(l)
+	rec := make([]uint32, l.columns)
+	rec[0], rec[c.mapID] = a.ID, a.MapID
+	rec[c.pos], rec[c.pos+1], rec[c.pos+2], rec[c.radius] = f(a.X), f(a.Y), f(a.Z), f(a.Radius)
+	rec[c.length], rec[c.width], rec[c.height], rec[c.yaw] = f(a.BoxX), f(a.BoxY), f(a.BoxZ), f(a.BoxYaw)
+	return rec
 }
 
 // checkTrigger refuses a trigger the client or server can't use.
@@ -164,7 +167,7 @@ func SetAreaTriggers(dbc []byte, rows []AreaTrigger, remove []uint32) ([]byte, e
 		if _, ok := set[a.ID]; ok {
 			return nil, fmt.Errorf("trigger %d is listed twice", a.ID)
 		}
-		set[a.ID] = triggerRecord(a)
+		set[a.ID] = triggerRecord(t.l, a)
 		if _, ok := t.row(a.ID); !ok {
 			added = append(added, a.ID)
 		}
@@ -196,8 +199,8 @@ func SetAreaTriggers(dbc []byte, rows []AreaTrigger, remove []uint32) ([]byte, e
 	out := make([]byte, 20, 20+len(recs)+len(strs))
 	copy(out, "WDBC")
 	binary.LittleEndian.PutUint32(out[4:], uint32(n))
-	binary.LittleEndian.PutUint32(out[8:], areaTriggerFields)
-	binary.LittleEndian.PutUint32(out[12:], areaTriggerFields*4)
+	binary.LittleEndian.PutUint32(out[8:], uint32(t.fields))
+	binary.LittleEndian.PutUint32(out[12:], uint32(t.recSize))
 	binary.LittleEndian.PutUint32(out[16:], uint32(len(strs)))
 	out = append(out, recs...)
 	return append(out, strs...), nil
