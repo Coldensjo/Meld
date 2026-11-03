@@ -1,8 +1,7 @@
 // The Changes window tells an edited tile from one rewritten only for its neighbour's edge (#976): in a throwaway
 // client, Azeroth 28_50 (2x2, none of its tiles in the owner's patch) is opened and compiled once as it is, so the
-// patch holds the block as the page sends it: its first compile rewrites its tiles, since the page sends each
-// texture's map-wide ground effect and the no-tuft cells under buildings, which the client's tiles lack (#990 left
-// those), and that would hide the edge. Then one vertex of 28_50 one in from its east
+// patch holds the block as the page sends it: its first compile rewrites its tiles, since the page sends the no-tuft
+// cells under buildings, which the client's tiles lack (kept on purpose, #1033), and that would hide the edge. Then one vertex of 28_50 one in from its east
 // border rises: RegionPending lists 28_50 as changed in the region and 29_50, whose heights stay but whose west
 // edge's normals take 28_50's, as rewritten only for its edge's normals; the window shows both lines. The real
 // client is left alone.

@@ -406,7 +406,7 @@ func buildTile(t TileSpec, ring adt.Ring, objs []adt.Object, water *adt.Water) (
 		if len(weights) != perSide*perSide*4 {
 			return nil, fmt.Errorf("chunk %d has %d weights, want %d", p.Chunk, len(weights), perSide*perSide*4)
 		}
-		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
+		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, nil, p.Flags, p.NoEffect, weights, perSide)
 	}
 	return adt.BuildTile(t.Outer, ring, ch)
 }

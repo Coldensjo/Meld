@@ -110,7 +110,7 @@ function regionPaint(engine: Engine, size: number) {
 	const tiles = mapToTiles(engine.exportInput()).tiles
 	const block = (t: { X: number; Y: number }, chunk: number) => (t.Y * TILE_CHUNKS + Math.floor(chunk / TILE_CHUNKS)) * perRow + t.X * TILE_CHUNKS + (chunk % TILE_CHUNKS)
 	return {
-		paint: tiles.flatMap((t) => t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, flags: p.Flags, noEffect: p.NoEffect ?? undefined }))),
+		paint: tiles.flatMap((t) => t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, ownEffects: p.OwnEffects, flags: p.Flags, noEffect: p.NoEffect ?? undefined }))),
 		// The chunk headers, by block chunk; for a map saved before it kept chunk data, only holes and shadows (#644).
 		headers: tiles.flatMap((t) => (t.Headers ?? []).map((h) => ({ ...h, chunk: block(t, h.chunk) }))),
 	}

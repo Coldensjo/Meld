@@ -41,6 +41,31 @@ func tileEffects(top *topLevel) map[string]uint32 {
 	return effects
 }
 
+// chunkEffects gives the ground effect each texture of one chunk's own layers carries (lower-case
+// texture path to GroundEffectTexture ID, 0 included), from its MCLY sub-chunk with its 8-byte header
+// and the tile's texture names.
+func chunkEffects(mcly []byte, names []string) map[string]uint32 {
+	out := map[string]uint32{}
+	if len(mcly) < 8 {
+		return out
+	}
+	size := int(binary.LittleEndian.Uint32(mcly[4:]))
+	body := mcly[8:]
+	if size < len(body) {
+		body = body[:size]
+	}
+	for o := 0; o+16 <= len(body); o += 16 {
+		id := int(binary.LittleEndian.Uint32(body[o:]))
+		if id < len(names) {
+			key := strings.ToLower(names[id])
+			if _, seen := out[key]; !seen {
+				out[key] = binary.LittleEndian.Uint32(body[o+12:])
+			}
+		}
+	}
+	return out
+}
+
 // LayerLookFlags are the MCLY layer flags that change how a texture looks rather than how its alpha
 // is stored: the animation's turn (0x7, 45 degrees a step), its speed (0x38) and its switch (0x40),
 // overbright (0x80) and the cube map reflection (0x400).

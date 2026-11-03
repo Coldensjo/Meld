@@ -27,6 +27,10 @@ type Layer struct {
 	// Effect is the GroundEffectTexture ID the layer grows (grass tufts); 0 keeps the effect the
 	// tile's own layers of that texture had, if any.
 	Effect uint32
+	// OwnEffect says Effect is only the texture's usual effect, not one the map chose for it: a chunk
+	// whose own layers have the texture keeps the effect its layer has there (#1033), since the
+	// client's chunks give one texture different effects in different places.
+	OwnEffect bool
 	// Flags are the layer's look flags (LayerLookFlags: the animation's turn, speed and switch, and
 	// overbright); nil keeps what the tile's own layers of that texture had, if any.
 	Flags *uint32
@@ -42,7 +46,7 @@ type ChunkPaint struct {
 	// effect doodads; the bits are added to the chunk's own. Nil leaves the chunk's own bits.
 	NoEffect []uint8
 	// ClientAlpha says Layers are the chunk's own, unpainted (KeepClientAlpha): its layer records and
-	// alpha bytes stay as they are, but for a layer's Effect (when not 0) and Flags (when set).
+	// alpha bytes stay as they are, but for a layer's Effect (when not 0 or OwnEffect) and Flags (when set).
 	ClientAlpha bool
 }
 
@@ -525,6 +529,14 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 		if len(paint.Layers) > 4 {
 			return nil, errors.New("more than four layers")
 		}
+		// The effect each texture has in the chunk's own layers, for the layers that keep it.
+		var ownEffects map[string]uint32
+		for _, layer := range paint.Layers {
+			if layer.OwnEffect {
+				ownEffects = chunkEffects(layersRaw, texNames.names)
+				break
+			}
+		}
 		mcly = make([]byte, 16*len(paint.Layers))
 		for l, layer := range paint.Layers {
 			id := texNames.of(layer.Texture)
@@ -547,8 +559,11 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 			binary.LittleEndian.PutUint32(mcly[l*16+4:], f)
 			binary.LittleEndian.PutUint32(mcly[l*16+8:], alphaOfs)
 			effect := layer.Effect
-			if effect == 0 {
-				effect = effects[strings.ToLower(layer.Texture)]
+			key := strings.ToLower(layer.Texture)
+			if own, ok := ownEffects[key]; ok && layer.OwnEffect {
+				effect = own
+			} else if effect == 0 {
+				effect = effects[key]
 			}
 			binary.LittleEndian.PutUint32(mcly[l*16+12:], effect)
 		}

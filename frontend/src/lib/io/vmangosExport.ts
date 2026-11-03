@@ -55,6 +55,11 @@ export interface ExportInput {
 	 * zone or tile; optional, `effects` otherwise.
 	 */
 	effectAt?: (tex: number, gx: number, gz: number) => number
+	/**
+	 * Whether a palette texture's effect in paint chunk (gx, gz) is only its usual one, with no choice of
+	 * the map's, so a region's compile keeps the effect the client's chunk has for it (#1033); optional.
+	 */
+	ownEffect?: (tex: number, gx: number, gz: number) => boolean
 	/** One byte per cell, set where no ground effect doodads grow (under buildings); optional. */
 	noEffect?: Uint8Array
 	/**
@@ -91,6 +96,8 @@ export interface PaintOut {
 	Weights: string
 	/** The ground effect per texture, in the same order (0 for none, which keeps the tile's own). */
 	Effects: number[]
+	/** Per texture, whether its effect is only its usual one, which a client chunk that has the texture keeps its own over; only when any is. */
+	OwnEffects?: boolean[]
 	/** The look flags per texture, in the same order (-1 keeps the tile's own); only when the map sets one. */
 	Flags?: number[]
 	/** The no-doodad bits, one per cell row with a bit per cell, where any is set (added to the tile's own). */
@@ -236,6 +243,10 @@ export function mapToTiles(input: ExportInput, layout?: TileLayout): ExportOut {
 						}
 					}
 					const out: PaintOut = { Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: bytesToBase64(weights), Effects: effects }
+					if (input.ownEffect) {
+						const keep = used.map((k) => input.ownEffect!(input.chunkSlots[chunk * SLOTS + k], gx, gz))
+						if (keep.some(Boolean)) out.OwnEffects = keep
+					}
 					const flags = used.map((k) => input.looks?.[input.chunkSlots[chunk * SLOTS + k]] ?? -1)
 					if (flags.some((f) => f >= 0)) out.Flags = flags
 					const noEffect = input.noEffect ? chunkNoEffect(input.noEffect, input.size, gx, gz) : null

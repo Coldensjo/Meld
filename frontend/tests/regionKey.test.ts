@@ -172,6 +172,8 @@ const exportSources: { [K in keyof ExportInput]-?: ((i: RegionKeyInput) => void)
 	effects: [(i) => (i.settings.textureEffects = { 'tileset\\a.blp': 5 })],
 	looks: [(i) => (i.settings.textureLooks = {})],
 	effectAt: [(i) => (i.settings.scopedEffects = { zones: {}, tiles: {} }), (i) => (i.terrain.areaIds[0] = 999)],
+	// Built from the same choices as the effects: the map's, its zones' and its tiles'.
+	ownEffect: [(i) => (i.settings.textureEffects = { 'tileset\\a.blp': 5 }), (i) => (i.settings.scopedEffects = { zones: {}, tiles: {} }), (i) => (i.terrain.areaIds[0] = 999)],
 	// The cells under buildings are worked out from the models, so moving one counts.
 	noEffect: [(i) => (i.terrain.noEffect[5] ^= 1), (i) => (i.objects = [{ ...i.objects[0], x: 50 }])],
 	headers: [(i) => (i.terrain.areaIds[3] += 1), (i) => (i.terrain.chunkFlags[1] ^= 1), (i) => (i.settings.chunkDataKnown = false)],

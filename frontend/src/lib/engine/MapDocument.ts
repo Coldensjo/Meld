@@ -1,7 +1,7 @@
 import type { SymmetryMode } from '../tools/symmetry'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import { GroundEffectLayer } from '../world/GroundEffectLayer'
-import { noScopedEffects, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
+import { noScopedEffects, type ClientEffects, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { ReferenceImage } from '../terrain/referenceImage'
 import type { LoadedReference } from '../io/referenceLoad'
@@ -166,6 +166,12 @@ export class MapDocument {
 	 * chunk headers alone. Kept across saves as `liquidsKnown` is (`chunkDataUnknown`).
 	 */
 	chunkDataKnown = true
+	/**
+	 * Each client chunk's own ground effect per texture, as the region's tiles had it when it opened
+	 * from the client (#1033); null for a map of its own or a region opened from a file. The tufts show
+	 * those where the map has no choice of its own, as the compile keeps them.
+	 */
+	clientEffects: ClientEffects | null = null
 	/**
 	 * The tab is a shared session's map (#1007, set by lib/session/shared.svelte.ts): it is never replaced
 	 * by another document (`Engine.openDocument` refuses), since the session's sync is bound to this one.

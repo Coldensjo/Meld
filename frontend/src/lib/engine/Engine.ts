@@ -104,7 +104,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
-import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tuftReach, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
+import { chosenEffect, clientChunkKey, effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tuftReach, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
 
 /** A plain copy of the zone and tile effect choices (they may be Svelte proxies). */
 const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
@@ -3638,6 +3638,7 @@ export class Engine {
 			effects: editor.palette.map((p) => effectFor(p, editor.textureEffects, groundEffectTables())),
 			looks: looksByIndex(editor.palette, editor.textureLooks),
 			effectAt: hasScopedEffects(editor.scopedEffects) ? this.exportEffectAt() : undefined,
+			ownEffect: this.exportOwnEffect(),
 			noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
 			// A map saved before the file kept chunk data has none of its own, so the client's zones,
 			// impassable flags and no-tuft cells stay; its holes and baked shadows are still sent (#644).
@@ -5336,6 +5337,36 @@ export class Engine {
 		return (tex, gx, gz) => effectAt(palette[tex] ?? '', own, scoped, t.areaIds[gz * side + gx], Math.floor(gx / 16), Math.floor(gz / 16), tables)
 	}
 
+	/**
+	 * Whether the export's effect for a palette texture in paint chunk (gx, gz) is only the texture's
+	 * usual one, the map, its zone and its tile having no choice of their own for it: a region's compile
+	 * then keeps the effect the client's chunk has for that texture (#1033).
+	 */
+	private exportOwnEffect(): (tex: number, gx: number, gz: number) => boolean {
+		const t = this.terrain
+		const side = t.paintChunksPerSide
+		const palette = editor.palette
+		const own = editor.textureEffects
+		const scoped = plainScoped(editor.scopedEffects)
+		return (tex, gx, gz) => chosenEffect(palette[tex] ?? '', own, scoped, t.areaIds[gz * side + gx], Math.floor(gx / 16), Math.floor(gz / 16)) === undefined
+	}
+
+	/**
+	 * The effect palette texture `tex` grows in paint chunk `chunk` of map `d` (the active one): the map's, its
+	 * zone's or its tile's choice, else the client chunk's own (a region opened from the client), else
+	 * the texture's usual one.
+	 */
+	chunkEffect(tex: number, chunk: number, d: MapDocument = this.doc): number {
+		const t = d.terrain
+		const side = t.paintChunksPerSide
+		const gx = chunk % side
+		const gz = Math.floor(chunk / side)
+		const o = this.tileOrigin(d)
+		const chunkOwn = d.clientEffects?.get(clientChunkKey(o.x * 16 + gx, o.y * 16 + gz))
+		// The tile as chunkTileKey counts it (16 paint chunks a tile).
+		return effectAt(editor.palette[tex] ?? '', editor.textureEffects, editor.scopedEffects, t.areaIds[chunk], Math.floor(gx / 16), Math.floor(gz / 16), groundEffectTables(), chunkOwn)
+	}
+
 	/** Where the camera is for the ground effect choices: the zone of the chunk under it and the map's tile. */
 	effectScopeAtCamera(): { areaId: number; tx: number; tz: number } {
 		const t = this.terrain
@@ -5630,14 +5661,7 @@ export class Engine {
 				files: scriptFiles,
 				palette: () => editor.palette,
 				setPalette: (p) => (editor.palette = p),
-				effect: (tex, chunk) => {
-					const t = doc.terrain
-					const side = t.paintChunksPerSide
-					const gx = chunk % side
-					const gz = Math.floor(chunk / side)
-					// The tile as chunkTileKey counts it (16 paint chunks a tile).
-					return effectAt(editor.palette[tex] ?? '', editor.textureEffects, editor.scopedEffects, t.areaIds[chunk], Math.floor(gx / 16), Math.floor(gz / 16), groundEffectTables())
-				},
+				effect: (tex, chunk) => this.chunkEffect(tex, chunk, doc),
 				scopedEffects: () => editor.scopedEffects,
 				setScopedEffects: (s) => (editor.scopedEffects = s),
 			},
@@ -5854,7 +5878,7 @@ export class Engine {
 			this.geKey = k + this.scopedKey
 		}
 		const key = this.geKey
-		const input = (this.geInput ??= { palette: editor.palette, own: editor.textureEffects, tables, key, objects: this.objects, frill: 0, scoped: editor.scopedEffects, origin: { x: 0, y: 0 } })
+		const input = (this.geInput ??= { palette: editor.palette, own: editor.textureEffects, tables, key, objects: this.objects, frill: 0, scoped: editor.scopedEffects, origin: { x: 0, y: 0 }, client: null })
 		input.palette = editor.palette
 		input.own = editor.textureEffects
 		input.tables = tables
@@ -5862,6 +5886,7 @@ export class Engine {
 		input.objects = this.objects
 		input.frill = frillDensity(density)
 		input.scoped = editor.scopedEffects
+		input.client = this.doc.clientEffects
 		// The client seeds each chunk's tufts by its place in the client's map: a region's tiles start at its first.
 		tileOrigin(this.doc.meta, input.origin)
 		// Tufts show as far as the fade lets them, which is farther at the corners of a wide view.
@@ -6575,7 +6600,7 @@ export class Engine {
 		for (let k = 0; k < SLOTS; k++) {
 			const idx = t.chunkSlots[chunk * SLOTS + k]
 			if (idx === NO_TEXTURE) continue
-			textures.push(this.detailTexture(editor.palette[idx] ?? '', sums[k] / (SPLAT_PER_CELL * SPLAT_PER_CELL * 255), tables))
+			textures.push(this.detailTexture(editor.palette[idx] ?? '', sums[k] / (SPLAT_PER_CELL * SPLAT_PER_CELL * 255), tables, this.chunkEffect(idx, chunk)))
 		}
 		const lc = (cz % CHUNK_CELLS) * CHUNK_CELLS + (cx % CHUNK_CELLS)
 		const liquids = this.doc.liquids
@@ -6604,10 +6629,10 @@ export class Engine {
 		}
 	}
 
-	/** A texture layer of the Detail info readout: its short name, its share (0 to 1) as a percent, and its ground effect. */
-	private detailTexture(path: string, share: number, tables: ReturnType<typeof groundEffectTables>): DetailInfo['textures'][number] {
+	/** A texture layer of the Detail info readout: its short name, its share (0 to 1) as a percent, and its ground effect (`effect`, else the texture's). */
+	private detailTexture(path: string, share: number, tables: ReturnType<typeof groundEffectTables>, effect?: number): DetailInfo['textures'][number] {
 		const name = texName(path)
-		return { name, weight: Math.round(share * 100), effect: effectFor(path, editor.textureEffects, tables) }
+		return { name, weight: Math.round(share * 100), effect: effect ?? effectFor(path, editor.textureEffects, tables) }
 	}
 
 	private worldCursorAt = new THREE.Vector3()

@@ -2277,6 +2277,12 @@ export interface RegionPaint {
     "effects"?: number[] | null;
 
     /**
+     * OwnEffects says, per texture, that its effect is only the texture's usual one, not the map's
+     * choice, so a chunk that has the texture in the client keeps its own effect for it (#1033); optional.
+     */
+    "ownEffects"?: boolean[] | null;
+
+    /**
      * Flags is each texture's look flags (animation, overbright), or -1 to keep the tile's own; optional.
      */
     "flags"?: number[] | null;

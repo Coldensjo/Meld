@@ -162,7 +162,7 @@ func ownLayers(raw []byte, layers []Layer) []byte {
 			f := binary.LittleEndian.Uint32(out[o+4:])
 			binary.LittleEndian.PutUint32(out[o+4:], f&^LayerLookFlags|*layer.Flags&LayerLookFlags)
 		}
-		if layer.Effect != 0 {
+		if layer.Effect != 0 && !layer.OwnEffect {
 			binary.LittleEndian.PutUint32(out[o+12:], layer.Effect)
 		}
 	}

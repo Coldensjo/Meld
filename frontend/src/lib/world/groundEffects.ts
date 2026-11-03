@@ -67,16 +67,40 @@ export function withTileEffect(s: ScopedEffects, key: string, path: string, id: 
 }
 
 /**
- * The effect ID texture `path` grows in a chunk of zone `areaId` on tile (`tx`, `tz`): the tile's own
- * choice, else the zone's, else the map's, else the client's.
+ * The effect each texture of a client chunk carries in the client's own tile (lower-case path to
+ * GroundEffectTexture ID, 0 for none), by `clientChunkKey`: read when a region opens, since the
+ * client's chunks give one texture different effects in different places (#1033).
  */
-export function effectAt(path: string, own: TextureEffects, scoped: ScopedEffects, areaId: number, tx: number, tz: number, tables: GroundEffectTables | null): number {
+export type ClientEffects = Map<number, Record<string, number>>
+
+/** The key of the client's chunk (`gx`, `gy`) on its map, counted over all its 64 x 16 chunks a side. */
+export const clientChunkKey = (gx: number, gy: number) => gy * 1024 + gx
+
+/**
+ * The map's own choice of effect for texture `path` in a chunk of zone `areaId` on tile (`tx`, `tz`):
+ * the tile's, else the zone's, else the map-wide one; undefined when it has none, which leaves the
+ * chunk's own effect as the client has it (0 for a colour, which grows nothing).
+ */
+export function chosenEffect(path: string, own: TextureEffects, scoped: ScopedEffects, areaId: number, tx: number, tz: number): number | undefined {
 	if (path.startsWith('#')) return 0
 	const tile = scoped.tiles[tileKey(tx, tz)]?.[path]
 	if (tile !== undefined) return tile
 	const zone = areaId ? scoped.zones[String(areaId)]?.[path] : undefined
 	if (zone !== undefined) return zone
-	return effectFor(path, own, tables)
+	return Object.hasOwn(own, path) ? own[path] : undefined
+}
+
+/**
+ * The effect ID texture `path` grows in a chunk of zone `areaId` on tile (`tx`, `tz`): the map's
+ * choice (`chosenEffect`), else the chunk's own in the client (`chunkOwn`, the chunk's entry of
+ * `ClientEffects`), else what the client's tiles mostly give the texture.
+ */
+export function effectAt(path: string, own: TextureEffects, scoped: ScopedEffects, areaId: number, tx: number, tz: number, tables: GroundEffectTables | null, chunkOwn?: Record<string, number>): number {
+	const chosen = chosenEffect(path, own, scoped, areaId, tx, tz)
+	if (chosen !== undefined) return chosen
+	const key = path.toLowerCase()
+	if (chunkOwn && Object.hasOwn(chunkOwn, key)) return chunkOwn[key]
+	return tables?.textures[key] ?? 0
 }
 
 /** The effect ID texture `path` grows: the map's own choice first, else what the client's tiles give it; 0 for none. */

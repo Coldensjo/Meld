@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
-import { CHUNK_CELLS, NO_TEXTURE } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, NO_TEXTURE, SLOTS } from '../terrain/chunkPaint'
 import { TILE_CHUNKS } from '../wow/format'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import { patchCascadeShadows } from '../engine/shadowCascades'
@@ -8,8 +8,9 @@ import type { ObjectLayer } from './ObjectLayer'
 import type { FrameView } from './frameView'
 import {
 	BlizzardRandomizer,
-	cellTexture,
+	cellPredominant,
 	chunkSeed,
+	clientChunkKey,
 	coverCells,
 	effectAt,
 	effectFor,
@@ -18,6 +19,7 @@ import {
 	TUFT_ALPHA_REF,
 	TUFT_FADE_FAR,
 	TUFT_FADE_NEAR,
+	type ClientEffects,
 	type GroundEffect,
 	type ScopedEffects,
 	type CoverBox,
@@ -124,6 +126,8 @@ export interface GroundEffectInput {
 	scoped: ScopedEffects
 	/** The client tile at the map's north-west corner (a region's first tile, 0 for a map of its own), which seeds each chunk. */
 	origin: { x: number; y: number }
+	/** Each client chunk's own effect per texture, where the map has no choice of its own; null for none (a map of its own). */
+	client: ClientEffects | null
 }
 
 /**
@@ -141,6 +145,8 @@ export class GroundEffectLayer {
 	private rng = new BlizzardRandomizer()
 	/** The effect of each cell of the chunk being built, row by row. */
 	private cellEffects = new Array<GroundEffect | null>(CHUNK_CELLS * CHUNK_CELLS).fill(null)
+	/** The effect of each texture slot of the chunk being built. */
+	private slotEffects = new Array<GroundEffect | null>(SLOTS).fill(null)
 	private m = new THREE.Matrix4()
 	private q = new THREE.Quaternion()
 	private p = new THREE.Vector3()
@@ -197,7 +203,7 @@ export class GroundEffectLayer {
 	}
 
 	private build(eye: THREE.Vector3, input: GroundEffectInput, tables: GroundEffectTables) {
-		const { palette, own, objects, frill, scoped } = input
+		const { palette, own, objects, frill, scoped, client } = input
 		const tileX = input.origin.x
 		const tileY = input.origin.y
 		const t = this.terrain
@@ -218,11 +224,11 @@ export class GroundEffectLayer {
 			const id = effectFor(p, own, tables)
 			return id ? (tables.effects[id] ?? null) : null
 		})
-		// With zone or tile choices, a cell's effect depends on its chunk's zone and its tile too: looked up
-		// once per texture, zone and tile in a build.
+		// With zone or tile choices, or the client's chunks' own effects, a cell's effect depends on its
+		// chunk too: looked up once per texture slot of each chunk.
 		const scopedOn = hasScopedEffects(scoped)
-		const byScope = new Map<number, GroundEffect | null>()
 		const cellEffects = this.cellEffects
+		const slotEffects = this.slotEffects
 		const r2 = r * r
 		let total = 0
 		for (let gz = gz0; gz <= gz1; gz++) {
@@ -230,9 +236,20 @@ export class GroundEffectLayer {
 			for (let gx = gx0; gx <= gx1; gx++) {
 				const nx = Math.min(Math.max(eye.x, gx * per), (gx + 1) * per) - eye.x
 				if (nx * nx + nz * nz > r2) continue
-				const area = t.areaIds[gz * side + gx]
+				const chunk = gz * side + gx
+				const area = t.areaIds[chunk]
 				const tx = Math.floor(gx / TILE_CHUNKS)
 				const tz = Math.floor(gz / TILE_CHUNKS)
+				const chunkOwn = client?.get(clientChunkKey(tileX * TILE_CHUNKS + gx, tileY * TILE_CHUNKS + gz))
+				for (let k = 0; k < SLOTS; k++) {
+					const tex = t.chunkSlots[chunk * SLOTS + k]
+					if (tex === NO_TEXTURE) slotEffects[k] = null
+					else if (!scopedOn && !chunkOwn) slotEffects[k] = effectOf[tex]
+					else {
+						const id = effectAt(palette[tex] ?? '', own, scoped, area, tx, tz, tables, chunkOwn)
+						slotEffects[k] = id ? (tables.effects[id] ?? null) : null
+					}
+				}
 				// Each cell's effect, by the texture that weighs most on it; none where it grows nothing.
 				let any = false
 				for (let row = 0; row < CHUNK_CELLS; row++) {
@@ -241,20 +258,8 @@ export class GroundEffectLayer {
 						const cx = gx * CHUNK_CELLS + col
 						let effect: GroundEffect | null = null
 						if (!blocked[cz * cells + cx] && !t.isHole((cx + 0.5) * cs, (cz + 0.5) * cs)) {
-							const tex = cellTexture(t.weights, t.chunkSlots, t.splatRes, side, cx, cz)
-							if (tex !== NO_TEXTURE) {
-								effect = effectOf[tex]
-								if (scopedOn) {
-									const k = ((area * 64 + tz) * 64 + tx) * 256 + tex
-									let e = byScope.get(k)
-									if (e === undefined) {
-										const id = effectAt(palette[tex] ?? '', own, scoped, area, tx, tz, tables)
-										e = id ? (tables.effects[id] ?? null) : null
-										byScope.set(k, e)
-									}
-									effect = e
-								}
-							}
+							const k = cellPredominant(t.weights, t.splatRes, cx, cz)
+							if (k >= 0) effect = slotEffects[k]
 						}
 						if (effect && effect.doodads.length === 0) effect = null
 						cellEffects[row * CHUNK_CELLS + col] = effect

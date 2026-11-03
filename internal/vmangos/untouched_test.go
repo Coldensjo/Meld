@@ -46,6 +46,22 @@ func TestClientUntouchedRegionChangesNothing(t *testing.T) {
 		t.Errorf("an untouched block lists %d files (tiles %v), want none", len(files), res.ChangedTiles)
 	}
 
+	// The page sends a texture's usual effect, not the chunk's, marked as only that: each chunk keeps
+	// its own (#1033).
+	usual := edit
+	usual.Paint = make([]RegionPaint, len(edit.Paint))
+	for i, p := range edit.Paint {
+		p.Effects = make([]uint32, len(p.Textures))
+		p.OwnEffects = make([]bool, len(p.Textures))
+		for k := range p.Effects {
+			p.Effects[k], p.OwnEffects[k] = 1, true
+		}
+		usual.Paint[i] = p
+	}
+	if files, res, err = RegionChanges(data, usual); err != nil || len(files) != 0 {
+		t.Errorf("an untouched block sent its textures' usual effects lists %d files (tiles %v, %v), want none", len(files), res.ChangedTiles, err)
+	}
+
 	// One sample in the middle of tile 29_51 raised by 1.5 mm, above SculptedEps: that tile is written.
 	side := size*tileCells + 1
 	heights := slices.Clone(view.Heights)

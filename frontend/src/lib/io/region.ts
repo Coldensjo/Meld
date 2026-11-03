@@ -11,6 +11,7 @@ import { base64ToFloats } from './base64'
 import { ALPHA_BYTES, tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
+import { clientChunkKey, type ClientEffects } from '../world/groundEffects'
 import { TILE_CELLS, TILE_CHUNKS } from '../wow/format'
 import { tileKey } from './mapTiles'
 import { blockAround, blockHolds, spotTile } from '../world/teleport'
@@ -178,6 +179,23 @@ export function restoreClientPaint(engine: Engine) {
 	})
 }
 
+/**
+ * Each chunk's own ground effect per texture in a region view, by its chunk on the client's map, for
+ * the tufts where the map has no choice of its own (#1033).
+ */
+function clientEffects(view: vmangos.RegionView): ClientEffects {
+	const out: ClientEffects = new Map()
+	for (const c of view.chunks) {
+		const own: Record<string, number> = {}
+		for (const l of c.layers ?? []) {
+			const key = l.texture.toLowerCase()
+			if (!(key in own)) own[key] = l.effect
+		}
+		out.set(clientChunkKey(view.x * TILE_CHUNKS + c.indexX, view.y * TILE_CHUNKS + c.indexY), own)
+	}
+	return out
+}
+
 /** Opens a block read from the client (LoadRegion, LoadBuildingMap) in a new tab, then its spawns. */
 async function openRegionView(engine: Engine, view: vmangos.RegionView) {
 	const { mapName, x, y, size } = view
@@ -229,6 +247,7 @@ async function openRegionView(engine: Engine, view: vmangos.RegionView) {
 		setStatus(`${mapName} ${x}_${y} ${size}×${size} is already open.`)
 		return
 	}
+	d.clientEffects = clientEffects(view)
 	const notes = paint.dropped ? [`${paint.dropped} extra layers left out (a chunk takes four)`] : []
 	setStatus(
 		view.wmoOnly

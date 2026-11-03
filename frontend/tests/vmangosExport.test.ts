@@ -107,3 +107,13 @@ test('the no-doodad cells go out per chunk as row bits, and only for chunks that
 	assert.deepEqual(second.NoEffect, [0, 2, 0, 0, 0, 0, 0, 0])
 	assert.equal(tiles[0].Paint.find((p) => p.Chunk === 2)!.NoEffect, undefined)
 })
+
+test("a texture with no effect chosen by the map is marked to keep each client chunk's own (#1033)", () => {
+	const inp = input(128, { effects: [5, 6, 7], ownEffect: (tex, gx) => !(tex === 0 && gx === 1) })
+	const paint = mapToTiles(inp).tiles[0].Paint
+	assert.deepEqual(paint[0].Effects, [5])
+	assert.deepEqual(paint[0].OwnEffects, [true])
+	// Chosen for the chunk: nothing to keep, so no flags at all.
+	assert.equal(paint[1].OwnEffects, undefined)
+	assert.equal(mapToTiles(input(128)).tiles[0].Paint[0].OwnEffects, undefined)
+})

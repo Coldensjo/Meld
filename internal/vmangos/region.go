@@ -104,6 +104,9 @@ type RegionPaint struct {
 	Weights  string   `json:"weights"`
 	// Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
 	Effects []uint32 `json:"effects,omitempty"`
+	// OwnEffects says, per texture, that its effect is only the texture's usual one, not the map's
+	// choice, so a chunk that has the texture in the client keeps its own effect for it (#1033); optional.
+	OwnEffects []bool `json:"ownEffects,omitempty"`
 	// Flags is each texture's look flags (animation, overbright), or -1 to keep the tile's own; optional.
 	Flags []int `json:"flags,omitempty"`
 	// NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow;
@@ -165,12 +168,16 @@ func DecodeHeights(s string) ([]float32, error) {
 }
 
 // chunkPaint is a chunk's layers from the bridge's textures, effects and weights, with the per-cell
-// predominant layer the game grows the effects on and the cells it grows none on.
-func chunkPaint(textures []string, effects []uint32, flags []int, noEffect []int, weights []byte, perSide int) adt.ChunkPaint {
+// predominant layer the game grows the effects on and the cells it grows none on. ownEffects (nil
+// for none) marks the layers that keep the chunk's own effect for their texture (adt.Layer.OwnEffect).
+func chunkPaint(textures []string, effects []uint32, ownEffects []bool, flags []int, noEffect []int, weights []byte, perSide int) adt.ChunkPaint {
 	layers := adt.LayersFromWeights(textures, weights, perSide)
 	for k := range layers {
 		if k < len(effects) {
 			layers[k].Effect = effects[k]
+		}
+		if k < len(ownEffects) {
+			layers[k].OwnEffect = ownEffects[k]
 		}
 		if k < len(flags) && flags[k] >= 0 {
 			f := uint32(flags[k]) & adt.LayerLookFlags
@@ -754,7 +761,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		gx, gy := p.Chunk%perRow, p.Chunk/perRow
 		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
 		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
-		paint := chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
+		paint := chunkPaint(p.Textures, p.Effects, p.OwnEffects, p.Flags, p.NoEffect, weights, perSide)
 		if own[k] == nil {
 			if own[k], err = ownTextures(tiles[k].root, bigAlpha); err != nil {
 				return nil, fmt.Errorf("tile %d_%d: %w", e.X+k%e.Size, e.Y+k/e.Size, err)

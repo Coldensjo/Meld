@@ -8,6 +8,7 @@ import {
 	cellTexture,
 	chunkSeed,
 	chunkNoEffect,
+	chosenEffect,
 	coverCells,
 	effectAt,
 	effectFor,
@@ -156,6 +157,21 @@ test("a tile's choice comes before its zone's, a zone's before the map's, and th
 	assert.equal(effectAt(grass, { [grass]: 6 }, scoped, 40, 0, 0, tables), 6)
 	assert.equal(hasScopedEffects(noScopedEffects()), false)
 	assert.equal(hasScopedEffects(scoped), true)
+})
+
+test('a client chunk keeps its own effect for a texture unless the map chooses one (#1033)', () => {
+	const grass = 'Tileset\\Grass.blp'
+	const tables = { effects: {}, textures: { [grass.toLowerCase()]: 5 } }
+	const scoped = { zones: { '12': { [grass]: 7 } }, tiles: {} }
+	const chunkOwn = { [grass.toLowerCase()]: 3 }
+	assert.equal(effectAt(grass, {}, noScopedEffects(), 12, 0, 0, tables, chunkOwn), 3)
+	assert.equal(effectAt(grass, {}, noScopedEffects(), 12, 0, 0, tables, { [grass.toLowerCase()]: 0 }), 0)
+	assert.equal(effectAt(grass, {}, noScopedEffects(), 12, 0, 0, tables, {}), 5)
+	assert.equal(effectAt(grass, { [grass]: 6 }, noScopedEffects(), 12, 0, 0, tables, chunkOwn), 6)
+	assert.equal(effectAt(grass, {}, scoped, 12, 0, 0, tables, chunkOwn), 7)
+	assert.equal(chosenEffect(grass, {}, noScopedEffects(), 12, 0, 0), undefined)
+	assert.equal(chosenEffect(grass, { [grass]: 0 }, noScopedEffects(), 12, 0, 0), 0)
+	assert.equal(chosenEffect('#ff0000', {}, noScopedEffects(), 12, 0, 0), 0)
 })
 
 test("tufts fade on view depth as the client's do (Benilla clutter.rs landmarks)", () => {

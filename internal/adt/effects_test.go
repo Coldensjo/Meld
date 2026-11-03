@@ -1,6 +1,9 @@
 package adt
 
-import "testing"
+import (
+	"encoding/binary"
+	"testing"
+)
 
 func TestPredominantFromWeights(t *testing.T) {
 	// A 32-texel chunk: the base everywhere but the last cell row, where layer 1 weighs more.
@@ -183,4 +186,59 @@ func TestRewriteLayerLookFlags(t *testing.T) {
 	if got := layerFlags(cleared); got != layerUseAlpha {
 		t.Fatalf("explicit flags 0 left %#x", got)
 	}
+}
+
+func TestRewriteOwnEffectKeepsEachChunksOwn(t *testing.T) {
+	const grass, dirt = `Tileset\Elwynn\ElwynnGrassBase.blp`, `Tileset\Elwynn\ElwynnDirtBase.blp`
+	alpha := make([]byte, 64*64)
+	for i := range alpha {
+		alpha[i] = 255
+	}
+	// The client gives grass a different effect in each of two chunks, and none in a third.
+	root, err := Rewrite(newTileRoot(32, 48), Changes{TileX: 32, TileY: 48, Paint: map[int]ChunkPaint{
+		5: {Layers: []Layer{{Texture: grass, Effect: 42}}},
+		6: {Layers: []Layer{{Texture: grass, Effect: 7}}},
+		7: {Layers: []Layer{{Texture: grass}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The page sends grass's usual effect, 99, as only that; dirt is new to every chunk.
+	learned := []Layer{{Texture: grass, Effect: 99, OwnEffect: true}, {Texture: dirt, Alpha: alpha, Effect: 99, OwnEffect: true}}
+	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Paint: map[int]ChunkPaint{5: {Layers: learned}, 6: {Layers: learned}, 7: {Layers: learned}, 8: {Layers: learned}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for chunk, want := range map[int][2]uint32{5: {42, 99}, 6: {7, 99}, 7: {0, 99}, 8: {99, 99}} {
+		if got := layerEffects(t, out, chunk); got != want {
+			t.Errorf("chunk %d effects %v, want %v", chunk, got, want)
+		}
+	}
+	// The map's own choice (OwnEffect unset) replaces the chunk's.
+	out, err = Rewrite(root, Changes{TileX: 32, TileY: 48, Paint: map[int]ChunkPaint{5: {Layers: []Layer{{Texture: grass, Effect: 99}}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := layerEffects(t, out, 5); got[0] != 99 {
+		t.Errorf("a chosen effect wrote %d, want 99", got[0])
+	}
+}
+
+// layerEffects reads the first two layers' effects of chunk idx of a tile.
+func layerEffects(t *testing.T, root []byte, idx int) [2]uint32 {
+	t.Helper()
+	top, err := readTop(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := top.mcnks[idx]
+	mcly, ok := subRegion(m, int(binary.LittleEndian.Uint32(m[0x1c:])))
+	if !ok {
+		t.Fatalf("chunk %d has no MCLY", idx)
+	}
+	var out [2]uint32
+	for l := 0; l < 2 && (l+1)*16 <= len(mcly); l++ {
+		out[l] = binary.LittleEndian.Uint32(mcly[l*16+12:])
+	}
+	return out
 }
