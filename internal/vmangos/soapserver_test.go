@@ -48,7 +48,11 @@ type liveSoap struct {
 // logs\Server.log a failure quotes. On cleanup it shuts the server down through SOAP (killed if that
 // fails) and deletes the account with its characters and rows. A test that uses it makes scratch
 // characters only (#884).
-func startSoapServer(t *testing.T) liveSoap {
+//
+// Each setup step runs after the account is made and before the server starts: a scratch character
+// goes in there (scratchCharacter), since the server reads the characters' names at its start, and a
+// console command naming one made later does not find it.
+func startSoapServer(t *testing.T, setup ...func(liveSoap)) liveSoap {
 	t.Helper()
 	if os.Getenv(liveSoapEnv) != "1" {
 		t.Skip(liveSoapEnv + "=1 not set: this test starts the world server")
@@ -113,6 +117,10 @@ func startSoapServer(t *testing.T) liveSoap {
 			t.Errorf("the scratch account %s (id %d) was not deleted: %v", s.Account, s.AccountID, err)
 		}
 	})
+
+	for _, step := range setup {
+		step(s)
+	}
 
 	cmd := exec.Command(exe, "-c", conf)
 	cmd.Dir = filepath.Dir(exe)
