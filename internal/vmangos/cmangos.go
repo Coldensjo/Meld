@@ -23,7 +23,8 @@ import (
 //     VMaNGOS equipment (Spawn.EquipItems), found or made by the SQL (#1042).
 //   - creature_movement is Id, Point, PositionX to Orientation, WaitTime and ScriptId: one path a
 //     creature, no wander distance at a point, and script ids that name dbscripts_on_creature_movement,
-//     not VMaNGOS's creature_movement_scripts, so a path is written without its scripts.
+//     not VMaNGOS's creature_movement_scripts, so a point's script is translated into one of the
+//     spawn's own (cmangosscripts.go, #1041).
 //   - formations are spawn groups (#906): spawn_group (Type 0), spawn_group_spawn (SlotId 0 the leader,
 //     the members 1 up with no gap) and spawn_group_formation, a shape and one spread instead of a
 //     distance and angle a member. A leader's group is cmangosOwnID(leader guid), and a moving group's
@@ -93,6 +94,7 @@ func cmangosDeleteSQL(s Spawn) []string {
 		out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", link, s.GUID))
 	}
 	if s.Kind == Creature {
+		out = append(out, cmangosDropScriptsSQL(s.GUID))
 		out = append(out, fmt.Sprintf("DELETE FROM `creature_movement` WHERE `Id` = %d;", s.GUID))
 		out = append(out, fmt.Sprintf("DELETE FROM `creature_linking` WHERE `guid` = %d OR `master_guid` = %d;", s.GUID, s.GUID))
 	}
@@ -158,28 +160,30 @@ func cmangosCreatureUpdateSQL(s Spawn, lo, hi int) string {
 		s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), lo, hi, num(s.WanderDistance), s.MovementType, s.GUID)
 }
 
-// cmangosPathSQL replaces a creature's path (creature_movement) with its points, and says what of
-// them CMaNGOS can't take: a wander distance at a point, and the points' scripts.
+// cmangosPathSQL replaces a creature's path (creature_movement) with its points and their scripts,
+// translated (cmangosPathScripts), and says what of them CMaNGOS can't take: a wander distance at a
+// point, and what of the scripts doesn't translate.
 func cmangosPathSQL(s Spawn) ([]string, []string) {
-	out := []string{fmt.Sprintf("DELETE FROM `creature_movement` WHERE `Id` = %d;", s.GUID)}
+	out := []string{cmangosDropScriptsSQL(s.GUID), fmt.Sprintf("DELETE FROM `creature_movement` WHERE `Id` = %d;", s.GUID)}
 	if len(s.Path) == 0 {
 		return out, nil
 	}
-	var skipped []string
-	wander, scripts := false, false
+	ids, lines, skipped := cmangosPathScripts(s)
+	out = append(out, lines...)
+	wander := false
 	rows := make([]string, len(s.Path))
 	for i, p := range s.Path {
 		wander = wander || p.WanderDistance > 0
-		scripts = scripts || p.ScriptID != 0
-		rows[i] = fmt.Sprintf("(%d, %d, %s, %s, %s, %s, %d, 0)", s.GUID, i+1, num(p.X), num(p.Y), num(p.Z), num(p.O), max(p.WaitMs, 0))
+		script := "0"
+		if n, ok := ids[p.ScriptID]; ok && p.ScriptID > 0 {
+			script = fmt.Sprintf("@meld_script + %d", n)
+		}
+		rows[i] = fmt.Sprintf("(%d, %d, %s, %s, %s, %s, %d, %s)", s.GUID, i+1, num(p.X), num(p.Y), num(p.Z), num(p.O), max(p.WaitMs, 0), script)
 	}
 	out = append(out, "INSERT INTO `creature_movement` (`Id`, `Point`, `PositionX`, `PositionY`, `PositionZ`, `Orientation`, `WaitTime`, `ScriptId`) VALUES "+
 		strings.Join(rows, ", ")+";")
 	if wander {
 		skipped = append(skipped, "its waypoints' wander distances; CMaNGOS's creature_movement has none")
-	}
-	if scripts {
-		skipped = append(skipped, "its waypoints' scripts; their ids name VMaNGOS's scripts, not CMaNGOS's")
 	}
 	return out, skipped
 }

@@ -51,6 +51,9 @@ type Spawn struct {
 	EquipItems *[3]int
 	// Path is the creature's waypoints (creature_movement), in point order.
 	Path []PathPoint
+	// PathScripts are the VMaNGOS scripts its points name (creature_movement_scripts), by id, read
+	// for a core whose database has other scripts under those ids (CMaNGOS, #1041); nil when unknown.
+	PathScripts map[int][]ScriptStep
 	// The creature's formation (creature_groups): its leader's guid (its own for a leader, 0 for
 	// none), its slot's distance and angle from the leader's facing in radians, and its flags.
 	Leader                  int
@@ -461,7 +464,8 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 		// database already gives another spawn fails on the key rather than replacing that spawn.
 		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.",
 			fmt.Sprintf("-- A spawn's own display and equipment go in creature_spawn_data_template, and a formation in a spawn group, numbered %d plus the guid", cmangosOwnBase),
-			"-- (the leader's for a formation). A spawn's equipment is the creature_equip_template row with its items, made after the highest entry when none has them.")
+			"-- (the leader's for a formation). A spawn's equipment is the creature_equip_template row with its items, made after the highest entry when none has them.",
+			fmt.Sprintf("-- A waypoint's VMaNGOS script is translated into a dbscripts_on_creature_movement script of the spawn's own, numbered from %d up and commented 'Meld:'.", cmangosScriptBase))
 	}
 	if len(res.Skipped) > 0 {
 		header = append(header, "--", "-- Not exported:")

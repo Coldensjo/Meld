@@ -187,19 +187,21 @@ func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.Spawn
 		if err != nil {
 			return vmangos.Result{}, err
 		}
-		var equipment map[int][3]int
-		if ids := vmangos.SpawnEquipmentIDs(edits); len(ids) > 0 {
+		var from vmangos.VMaNGOSRows
+		equipIDs, scriptIDs := vmangos.SpawnEquipmentIDs(edits), vmangos.SpawnPathScriptIDs(edits)
+		if len(equipIDs) > 0 || len(scriptIDs) > 0 {
 			if server, _, err := a.serverAndData(); err == nil {
-				equipment, _ = vmangos.EquipmentItemsOf(server, ids)
+				from.Equipment, _ = vmangos.EquipmentItemsOf(server, equipIDs)
+				from.Scripts, _ = vmangos.MovementScriptsOf(server, scriptIDs)
 			}
 		}
-		return vmangos.SpawnSQL(core, "", dataDir, mapName, x, y, size, edits, equipment, time.Now())
+		return vmangos.SpawnSQL(core, "", dataDir, mapName, x, y, size, edits, from, time.Now())
 	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return vmangos.Result{}, err
 	}
-	return vmangos.SpawnSQL(core, server, dataDir, mapName, x, y, size, edits, nil, time.Now())
+	return vmangos.SpawnSQL(core, server, dataDir, mapName, x, y, size, edits, vmangos.VMaNGOSRows{}, time.Now())
 }
 
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
@@ -213,7 +215,7 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 	if err := vmangos.CheckCreatedGUIDs(server, edits); err != nil {
 		return vmangos.Result{}, err
 	}
-	res, err := vmangos.SpawnSQL(vmangos.VMaNGOS, server, dataDir, mapName, x, y, size, edits, nil, time.Now())
+	res, err := vmangos.SpawnSQL(vmangos.VMaNGOS, server, dataDir, mapName, x, y, size, edits, vmangos.VMaNGOSRows{}, time.Now())
 	if err != nil {
 		return res, err
 	}

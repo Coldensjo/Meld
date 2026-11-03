@@ -36,7 +36,8 @@ func cmangosEdits() []Edit {
 	walker := Spawn{Kind: Creature, GUID: 500, Entry: 3, Name: "Guard", Map: 0, X: 1, Y: 2, Z: 3, O: 1, Scale: 1, MovementType: 2,
 		Display: 3167, Equipment: 7, EquipItems: &[3]int{1899, 0, 2550}, StandState: 1, SheathState: 1, EmoteState: 10, Leader: 501, FollowDist: 3, GroupFlags: FormationDefault,
 		Pool: 77, PoolLimit: 1, PoolName: "Guards", PoolChance: 50, MotherPool: 78, MotherLimit: 2,
-		Path: []PathPoint{{X: 1, Y: 2, Z: 3, WaitMs: 1000}, {X: 4, Y: 5, Z: 6, O: 2, WanderDistance: 3, ScriptID: 9}}}
+		Path:        []PathPoint{{X: 1, Y: 2, Z: 3, WaitMs: 1000}, {X: 4, Y: 5, Z: 6, O: 2, WanderDistance: 3, ScriptID: 9}},
+		PathScripts: map[int][]ScriptStep{9: {{Command: 0, DataInt: [4]int{123}, TextChatType: 0, Comments: "Hello"}, {Command: 39, Delay: 2}}}}
 	captain := Spawn{Kind: Creature, GUID: 501, Entry: 3, Name: "Captain", Scale: 1, MovementType: 2, Equipment: -1, SheathState: 1,
 		Leader: 501, GroupFlags: FormationDefault, Path: []PathPoint{{X: 1, Y: 2, Z: 3}, {X: 7, Y: 8, Z: 9}}}
 	grunt := Spawn{Kind: Creature, GUID: 502, Entry: 3, Name: "Grunt", Scale: 1, Equipment: -1, SheathState: 1, Leader: 501, FollowDist: 4, FollowAngle: 3, GroupFlags: FormationDefault}
@@ -122,7 +123,11 @@ func TestCMaNGOSSpawnSQL(t *testing.T) {
 		"`spawndist` = 8, `MovementType` = 1 WHERE `guid` = 42;",
 		"UPDATE `gameobject` SET `id` = 9,",
 		"DELETE FROM `creature_movement` WHERE `Id` = 500;",
-		"VALUES (500, 1, 1, 2, 3, 0, 1000, 0), (500, 2, 4, 5, 6, 2, 0, 0);",
+		"VALUES (500, 1, 1, 2, 3, 0, 1000, 0), (500, 2, 4, 5, 6, 2, 0, @meld_script + 0);",
+		// Its waypoint's script, translated (#1041), after the scripts of its old path went.
+		"DELETE `d` FROM `dbscripts_on_creature_movement` `d` JOIN `creature_movement` `m` ON `m`.`ScriptId` = `d`.`id` WHERE `m`.`Id` = 500 AND `d`.`id` >= 16000000 AND `d`.`comments` LIKE 'Meld:%';",
+		"VALUES (@meld_script + 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'Meld: guid 500, VMaNGOS waypoint script 9: Hello');",
+		"WHERE `m`.`Id` = 44 AND `d`.`id` >= 16000000",
 		"INSERT INTO `creature_addon` (`guid`, `stand_state`, `sheath_state`, `emote`) VALUES (500, 1, 1, 10) ON DUPLICATE KEY UPDATE",
 		"INSERT INTO `pool_creature` (`guid`, `pool_entry`, `chance`, `description`) VALUES (500, 77, 50,",
 		"INSERT INTO `pool_pool` (`pool_id`, `mother_pool`, `chance`, `description`) VALUES (77, 78, 0,",
@@ -173,7 +178,7 @@ func TestCMaNGOSSpawnSQL(t *testing.T) {
 	skipped := strings.Join(res.Skipped, "\n")
 	for _, want := range []string{"Guard (guid 500, entry 3): its formation; CMaNGOS keeps a spawn of a pool out of spawn groups",
 		"Grunt (guid 502, entry 3): its place in the formation; CMaNGOS lines the members up by the group's shape, fanned out behind the leader 4 yards away",
-		"Guard (guid 500, entry 3): its waypoints' wander distances", "Guard (guid 500, entry 3): its waypoints' scripts", "Boar (guid 42, entry 4): its scale (2); CMaNGOS classic takes scale"} {
+		"Guard (guid 500, entry 3): its waypoints' wander distances", "Guard (guid 500, entry 3): its waypoints' script 9, in part (command 39 at 2s, as CMaNGOS has no like command)", "Boar (guid 42, entry 4): its scale (2); CMaNGOS classic takes scale"} {
 		if !strings.Contains(skipped, want) {
 			t.Errorf("Skipped lacks %q:\n%s", want, skipped)
 		}
@@ -311,7 +316,7 @@ func TestCMaNGOSEquipmentByItems(t *testing.T) {
 		t.Errorf("SpawnEquipmentIDs = %v, want [7]", ids)
 	}
 	data := clientWithMaps(t, []uint32{0}, []string{"Azeroth"})
-	got, err := SpawnSQL(CMaNGOSClassic, "", data, "Azeroth", 32, 32, 1, edits, map[int][3]int{7: {11, 0, 0}}, fixedTime)
+	got, err := SpawnSQL(CMaNGOSClassic, "", data, "Azeroth", 32, 32, 1, edits, VMaNGOSRows{Equipment: map[int][3]int{7: {11, 0, 0}}}, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
