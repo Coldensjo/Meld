@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { addNode, compileGraph, connect, errorNode, GraphError, NODE_SPECS, parseGraph, serializeGraph, starterGraph, type Graph, type Value } from '../src/lib/script/nodeGraph'
+import { addNode, compileGraph, connect, errorNode, GraphError, graphLibrary, NODE_SPECS, parseGraph, serializeGraph, specFor, starterGraph, type Graph, type Value } from '../src/lib/script/nodeGraph'
 import { runScript } from '../src/lib/script/scriptApi'
 import { fakeHost } from './fakeScriptHost'
 
@@ -364,7 +364,8 @@ describe('node graphs', () => {
 
 	test('every node compiles to Lua that loads', async () => {
 		for (const spec of NODE_SPECS) {
-			if (spec.type === 'begin') continue
+			// A Procedure needs a graph to call: the procedures' own test compiles one.
+			if (spec.type === 'begin' || spec.type === 'procedure') continue
 			const { g, at, link } = build()
 			const begin = at('begin')
 			const node = at(spec.type)
@@ -415,6 +416,108 @@ describe('node graphs', () => {
 			const r = await runScript(`local f, err = load(${JSON.stringify(lua)}, '=graph')\nif not f then error(err, 0) end`, 'check', fakeHost().host)
 			expect([spec.type, r.error]).toEqual([spec.type, undefined])
 		}
+	})
+
+	/** A graph that doubles its input `x` (default 3) into its output `y`, printing "in double" and stopping with Return before a print. */
+	function doubleGraph(): Graph {
+		const { g, at, link } = build()
+		const begin = at('begin')
+		const x = at('procInput', { name: 'x', type: 'number', def: 3 })
+		const times = at('math', { op: '×', b: 2 })
+		const say = at('print', { value: 'in double' })
+		const out = at('procOutput', { name: 'y' })
+		const stop = at('return')
+		const after = at('print', { value: 'not reached' })
+		link(begin, 'next', say, 'in')
+		link(say, 'next', out, 'in')
+		link(x, 'value', times, 'a')
+		link(times, 'value', out, 'value')
+		link(out, 'next', stop, 'in')
+		void after
+		return g
+	}
+
+	test('procedures: a graph called as a node, with inputs and outputs', async () => {
+		const lib = graphLibrary([{ name: 'double.mgraph', text: serializeGraph(doubleGraph()) }])
+		// Run alone, the input gives its default and the output prints.
+		const alone = await run(doubleGraph())
+		expect(alone.error).toBeUndefined()
+		expect(alone.out).toEqual(['in double', 'y = 6'])
+
+		const { g, at, link } = build()
+		const begin = at('begin')
+		const call = at('procedure', { graph: 'double' })
+		const five = at('number', { value: 5 })
+		const say = at('print')
+		const again = at('procedure', { graph: 'Double', in_x: 21 })
+		const say2 = at('print')
+		expect(
+			specFor(
+				g.nodes.find((n) => n.id === call)!,
+				lib,
+			)?.inputs.map((p) => p.id),
+		).toEqual(['in', 'graph', 'in_x'])
+		expect(
+			specFor(
+				g.nodes.find((n) => n.id === call)!,
+				lib,
+			)?.outputs.map((p) => p.id),
+		).toEqual(['next', 'out_y'])
+		expect(connect(g, five, 'value', call, 'in_x')).not.toBeNull() // without the library, the pin isn't known
+		expect(connect(g, five, 'value', call, 'in_x', lib)).toBeNull()
+		link(begin, 'next', call, 'in')
+		expect(connect(g, call, 'next', say, 'in', lib)).toBeNull()
+		expect(connect(g, call, 'out_y', say, 'value', lib)).toBeNull()
+		link(say, 'next', again, 'in')
+		expect(connect(g, again, 'next', say2, 'in', lib)).toBeNull()
+		expect(connect(g, again, 'out_y', say2, 'value', lib)).toBeNull()
+		const c = compileGraph(g, 'graph', lib)
+		// The callee is one function, however many nodes call it.
+		expect(c.lua.match(/local function __proc/g)?.length).toBe(1)
+		const host = fakeHost(9, 2)
+		const r = await runScript(c.lua, 'graph', host.host)
+		expect(r.error).toBeUndefined()
+		expect(host.out).toEqual(['in double', '10', 'in double', '42'])
+
+		// The links to its pins keep through the file, which knows nothing of the callee.
+		const back = parseGraph(serializeGraph(g)).graph
+		expect(back.links).toEqual(g.links)
+		expect(back.nodes.find((n) => n.id === again)?.values.in_x).toBe(21)
+		expect(compileGraph(back, 'graph', lib).lua).toBe(c.lua)
+	})
+
+	test('procedures: a missing callee and one that calls itself are refused', () => {
+		const self = build()
+		const sb = self.at('begin')
+		const sc = self.at('procedure', { graph: 'loop' })
+		self.link(sb, 'next', sc, 'in')
+		const other = build()
+		const ob = other.at('begin')
+		const oc = other.at('procedure', { graph: 'loop' })
+		other.link(ob, 'next', oc, 'in')
+		const lib = graphLibrary([
+			{ name: 'loop.mgraph', text: serializeGraph(self.g) },
+			{ name: 'outer.mgraph', text: serializeGraph(other.g) },
+		])
+		const fail = (g: Graph, name: string) => {
+			try {
+				compileGraph(g, name, lib)
+			} catch (e) {
+				expect(e).toBeInstanceOf(GraphError)
+				return e as GraphError
+			}
+			throw new Error('compiled')
+		}
+		expect(fail(self.g, 'loop').message).toMatch(/loop → loop calls itself/)
+		const e = fail(other.g, 'outer')
+		expect(e.node).toBe(oc)
+		expect(e.message).toMatch(/loop: Procedure: loop → loop calls itself/)
+		const { g, at, link } = build()
+		const call = at('procedure', { graph: 'gone' })
+		link(at('begin'), 'next', call, 'in')
+		const m = fail(g, 'graph')
+		expect(m.node).toBe(call)
+		expect(m.message).toMatch(/no graph "gone"/)
 	})
 
 	test('a graph keeps through its file, dropping what this Meld lacks', () => {

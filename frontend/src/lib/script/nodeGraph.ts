@@ -33,9 +33,15 @@ export interface PinSpec {
 	optional?: boolean
 }
 
-export type Category = 'Flow' | 'Variables' | 'Lists' | 'Terrain' | 'Chunks' | 'Models' | 'Images' | 'Selection' | 'World' | 'Vectors' | 'Maths' | 'Logic' | 'Text' | 'Random' | 'Noise'
+export type Category = 'Flow' | 'Procedures' | 'Variables' | 'Lists' | 'Terrain' | 'Chunks' | 'Models' | 'Images' | 'Selection' | 'World' | 'Vectors' | 'Maths' | 'Logic' | 'Text' | 'Random' | 'Noise'
 
-export const CATEGORIES: readonly Category[] = ['Flow', 'Variables', 'Lists', 'Terrain', 'Chunks', 'Models', 'Images', 'Selection', 'World', 'Vectors', 'Maths', 'Logic', 'Text', 'Random', 'Noise']
+export const CATEGORIES: readonly Category[] = ['Flow', 'Procedures', 'Variables', 'Lists', 'Terrain', 'Chunks', 'Models', 'Images', 'Selection', 'World', 'Vectors', 'Maths', 'Logic', 'Text', 'Random', 'Noise']
+
+/** The graphs a Procedure node can call: the scripts folder's .mgraph files, by name without the extension. */
+export interface GraphLibrary {
+	names: readonly string[]
+	get(name: string): Graph | undefined
+}
 
 export interface NodeSpec {
 	type: string
@@ -54,6 +60,11 @@ export interface NodeSpec {
 	hoist?: boolean
 	/** The helper functions (HELPERS) its Lua calls. */
 	helpers?: string[]
+	/**
+	 * The spec of one placed node, for a node whose pins depend on its settings or on another graph (a
+	 * Procedure's pins are its callee's inputs and outputs, `in_<name>` and `out_<name>`).
+	 */
+	instance?: (node: GraphNode, lib: GraphLibrary | undefined) => NodeSpec
 }
 
 /** A node placed in a graph: its type, where it sits on the canvas, and its fields' values. */
@@ -88,6 +99,15 @@ export interface ExprCtx {
 	in(pin: string): string
 	/** The raw value of a field (`field` or `options`). */
 	field(pin: string): Value
+	/** The Lua name of a procedure's argument (a Procedure Input's name), or null when the graph runs on its own. */
+	param(name: string): string | null
+}
+
+/** A graph compiled as a procedure: its Lua function, and its inputs and outputs by name, in order. */
+export interface ProcInfo {
+	fn: string
+	params: string[]
+	results: string[]
 }
 
 export interface EmitCtx extends ExprCtx {
@@ -112,6 +132,10 @@ export interface EmitCtx extends ExprCtx {
 	inLoop(): boolean
 	/** The label at the end of the innermost loop's body, for Continue to jump to (null outside a loop). */
 	continueLabel(): string | null
+	/** Whether the graph is compiled as a procedure another graph calls (Return and Procedure Output differ). */
+	inProcedure(): boolean
+	/** Compiles the graph named `file` as a procedure (once a script) and gives its function and signature. */
+	procedure(file: string): ProcInfo
 }
 
 /** Lua helpers a node's code may call, written once at the top of a script that needs them. */
@@ -140,6 +164,73 @@ const choice = (id: string, label: string, options: readonly string[]): PinSpec 
 const MATH_OPS: Record<string, string> = { '+': '+', '−': '-', '×': '*', '÷': '/', '^': '^', mod: '%' }
 const MATH_FNS = ['abs', 'sqrt', 'floor', 'ceil', 'round', 'sin', 'cos', 'tan', 'exp', 'log', 'negate'] as const
 const COMPARE_OPS: Record<string, string> = { '<': '<', '≤': '<=', '=': '==', '≠': '~=', '>': '>', '≥': '>=' }
+/** The types a Procedure Input can take, and those whose default can be written on the node. */
+const PARAM_TYPES: readonly PinType[] = ['any', 'number', 'bool', 'text', 'vec', 'sel', 'vert', 'model', 'chunk', 'image', 'list', 'random', 'noise']
+const LITERAL_TYPES: readonly PinType[] = ['any', 'number', 'bool', 'text']
+
+/** A Procedure Input node's type. */
+function paramType(n: GraphNode): PinType {
+	const t = String(n.values.type ?? 'any')
+	return PARAM_TYPES.includes(t as PinType) ? (t as PinType) : 'any'
+}
+
+/** A graph's inputs and outputs as a procedure: its Procedure Input and Output nodes, top to bottom, one of each name. */
+export function procSignature(g: Graph): { params: { name: string; type: PinType; def: Value | undefined }[]; results: string[] } {
+	const order = [...g.nodes].sort((a, b) => a.y - b.y || a.x - b.x)
+	const params: { name: string; type: PinType; def: Value | undefined }[] = []
+	const results: string[] = []
+	for (const n of order) {
+		if (n.type === 'procInput') {
+			const name = String(n.values.name ?? 'value')
+			if (!name || params.some((p) => p.name === name)) continue
+			const type = paramType(n)
+			params.push({ name, type, def: LITERAL_TYPES.includes(type) ? (n.values.def ?? 0) : undefined })
+		} else if (n.type === 'procOutput') {
+			const name = String(n.values.name ?? 'result')
+			if (name && !results.includes(name)) results.push(name)
+		}
+	}
+	return { params, results }
+}
+
+/** A Procedure node's spec: the graph it calls picked from the library, and that graph's inputs and outputs as its pins. */
+function procedureSpec(n: GraphNode, lib: GraphLibrary | undefined): NodeSpec {
+	const spec = SPECS.get('procedure') as NodeSpec
+	const file = String(n.values.graph ?? '')
+	const names = lib ? [...lib.names] : []
+	if (file && !names.some((x) => x.toLowerCase() === file.toLowerCase())) names.unshift(file)
+	const graphPin: PinSpec = names.length ? { id: 'graph', label: 'graph', type: 'text', def: names[0], options: names } : spec.inputs[1]
+	const callee = lib && (file || names[0]) ? lib.get(file || names[0]) : undefined
+	const sig = callee ? procSignature(callee) : { params: [], results: [] }
+	return {
+		...spec,
+		inputs: [flowIn, graphPin, ...sig.params.map((p): PinSpec => ({ id: `in_${p.name}`, label: p.name, type: p.type, def: p.def }))],
+		outputs: [next(), ...sig.results.map((r) => pin(`out_${r}`, r, 'any'))],
+	}
+}
+
+/** The library of graphs from the scripts folder's .mgraph files (name and text), each parsed when first asked for. */
+export function graphLibrary(files: readonly { name: string; text: string }[]): GraphLibrary {
+	const byName = new Map(files.map((f) => [f.name.replace(/\.mgraph$/i, '').toLowerCase(), f.text]))
+	const parsed = new Map<string, Graph | undefined>()
+	return {
+		names: files.map((f) => f.name.replace(/\.mgraph$/i, '')),
+		get(name) {
+			const k = name.trim().toLowerCase()
+			if (!parsed.has(k)) {
+				const text = byName.get(k)
+				let g: Graph | undefined
+				try {
+					g = text === undefined ? undefined : parseGraph(text).graph
+				} catch {
+					g = undefined
+				}
+				parsed.set(k, g)
+			}
+			return parsed.get(k)
+		},
+	}
+}
 
 /** Every node the editor offers, by type. */
 export const NODE_SPECS: NodeSpec[] = [
@@ -237,10 +328,65 @@ export const NODE_SPECS: NodeSpec[] = [
 		type: 'return',
 		title: 'Return',
 		category: 'Flow',
-		help: 'Ends the run here: what ran before it stays done (a loop’s heights are written back too).',
+		help: 'Ends the run here: what ran before it stays done (a loop’s heights are written back too). In a procedure, it ends the procedure, going back to the graph that called it.',
 		inputs: [flowIn],
 		outputs: [],
-		emit: (c) => c.line('do return end'),
+		emit: (c) => c.line(c.inProcedure() ? 'do return __out end' : 'do return end'),
+	},
+	// Procedures: a graph of the scripts folder called as a node.
+	{
+		type: 'procedure',
+		title: 'Procedure',
+		category: 'Procedures',
+		help: 'Runs another graph of the scripts folder here, in full: its Procedure Inputs are this node’s inputs and its Procedure Outputs its outputs.',
+		width: 240,
+		inputs: [flowIn, { id: 'graph', label: 'graph', type: 'text', def: '', field: true }],
+		outputs: [next()],
+		instance: procedureSpec,
+		emit: (c) => {
+			const p = c.procedure(String(c.field('graph')))
+			const call = `${p.fn}(${p.params.map((q) => c.in(`in_${q}`)).join(', ')})`
+			if (!p.results.length) {
+				c.line(call)
+				return
+			}
+			const r = c.local('result', call)
+			for (const q of p.results) c.local(`out_${q}`, `${r}[${luaString(q)}]`)
+		},
+	},
+	{
+		type: 'procInput',
+		title: 'Procedure Input',
+		category: 'Procedures',
+		help: 'A value this graph takes when a Procedure node in another graph runs it, under a name; run on its own, it gives its default.',
+		inputs: [{ id: 'name', label: 'name', type: 'text', def: 'value', field: true }, choice('type', 'type', PARAM_TYPES), { id: 'def', label: 'default', type: 'any', def: 0, field: true }],
+		outputs: [pin('value', 'value', 'any')],
+		instance: (n) => {
+			const spec = SPECS.get('procInput') as NodeSpec
+			return { ...spec, outputs: [pin('value', String(n.values.name ?? 'value') || 'value', paramType(n))] }
+		},
+		expr: (c) => {
+			const name = String(c.field('name'))
+			const a = c.param(name)
+			if (a) return a
+			const type = PARAM_TYPES.includes(String(c.field('type')) as PinType) ? (String(c.field('type')) as PinType) : 'any'
+			if (!LITERAL_TYPES.includes(type)) return 'nil'
+			const v = c.field('def')
+			return lit(v, type === 'any' ? (typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'bool' : 'text') : type)
+		},
+	},
+	{
+		type: 'procOutput',
+		title: 'Procedure Output',
+		category: 'Procedures',
+		help: 'Gives a value back, under a name, to the graph whose Procedure node runs this one; run on its own, it prints it.',
+		inputs: [flowIn, { id: 'name', label: 'name', type: 'text', def: 'result', field: true }, { id: 'value', label: 'value', type: 'any', def: 0 }],
+		outputs: [next()],
+		emit: (c) => {
+			const k = lit(c.field('name'), 'text')
+			if (c.inProcedure()) c.line(`__out[${k}] = ${c.in('value')}`)
+			else c.line(`print(${k} .. ' = ' .. tostring(${c.in('value')}))`)
+		},
 	},
 	{
 		type: 'print',
@@ -1082,6 +1228,15 @@ export function nodeSpec(type: string): NodeSpec | undefined {
 	return SPECS.get(type)
 }
 
+/** The spec of a placed node, its pins as they are for it (a Procedure's are its callee's), or undefined for a type this Meld doesn't know. */
+export function specFor(node: GraphNode, lib?: GraphLibrary): NodeSpec | undefined {
+	const spec = SPECS.get(node.type)
+	return spec?.instance ? spec.instance(node, lib) : spec
+}
+
+/** A pin of a node whose pins change with its settings or callee (`instance`): kept through a file read even when the callee isn't at hand. */
+const dynamicPin = (spec: NodeSpec, id: string) => !!spec.instance && /^(in|out)_/.test(id)
+
 /** Whether an output of type `from` may feed an input of type `to`. */
 export function canLink(from: PinType, to: PinType): boolean {
 	if (from === 'exec' || to === 'exec') return from === to
@@ -1153,16 +1308,39 @@ export interface CompiledGraph {
 	owners: (number | null)[]
 }
 
-/** Compiles a graph to a Lua script for the script API. Throws a GraphError naming the node at fault. */
-export function compileGraph(graph: Graph, name = 'graph'): CompiledGraph {
-	return new Compiler(graph, name).run()
+/**
+ * Compiles a graph to a Lua script for the script API. Throws a GraphError naming the node at fault. `lib`
+ * holds the graphs its Procedure nodes call; each becomes a local function at the top of the script.
+ */
+export function compileGraph(graph: Graph, name = 'graph', lib?: GraphLibrary): CompiledGraph {
+	const shared: Shared = { lib, helpers: new Set(), defs: [], procs: new Map(), stack: [name.trim().toLowerCase()], count: 0 }
+	return new Compiler(graph, name, shared, null).run()
+}
+
+type Line = { text: string; owner: number | null }
+
+/** What the compilers of a script and of the procedures it calls share. */
+interface Shared {
+	lib: GraphLibrary | undefined
+	helpers: Set<string>
+	/** The procedures' functions, each after those it calls. */
+	defs: Line[]
+	procs: Map<string, ProcInfo>
+	/** The graphs being compiled, the script's first, to refuse one that calls itself. */
+	stack: string[]
+	count: number
+}
+
+/** A graph compiled as a procedure: its arguments' Lua names by input name, and the node of the script its lines are put down to. */
+interface ProcMode {
+	params: Map<string, string>
+	owner: number
 }
 
 class Compiler {
 	private nodes = new Map<number, GraphNode>()
-	private body: { text: string; owner: number | null }[] = []
-	private top: { text: string; owner: number | null }[] = []
-	private helpers = new Set<string>()
+	private body: Line[] = []
+	private top: Line[] = []
 	private hoisted = new Map<string, string>()
 	private scopes: Set<string>[] = [new Set()]
 	private depth = 1
@@ -1175,29 +1353,86 @@ class Compiler {
 	/** Set while a hoisted node is tried at the top, where no variable is set yet. */
 	private hoisting = false
 
+	private specs = new Map<number, NodeSpec>()
+
 	constructor(
 		private graph: Graph,
 		private name: string,
+		private shared: Shared,
+		private proc: ProcMode | null,
 	) {
 		for (const n of graph.nodes) this.nodes.set(n.id, n)
 	}
 
-	run(): CompiledGraph {
+	/** Walks the flow from Begin into `body`; gives the Begin node. */
+	private walk(): GraphNode {
 		for (const n of this.graph.nodes) if (!SPECS.has(n.type)) throw new GraphError(`Meld has no node "${n.type}"`, n.id)
 		const begins = this.graph.nodes.filter((n) => n.type === 'begin')
 		if (!begins.length) throw new GraphError('The graph has no Begin node: add one (Flow › Begin) and link what should run to it.', null)
 		if (begins.length > 1) throw new GraphError('The graph has more than one Begin node: keep one.', begins[1].id)
 		this.chain(begins[0], 'next')
-		const head: { text: string; owner: number | null }[] = [{ text: `-- ${this.name}: a node graph compiled by Meld's Node Editor.`, owner: null }]
+		return begins[0]
+	}
+
+	run(): CompiledGraph {
+		const begin = this.walk()
+		const head: Line[] = [{ text: `-- ${this.name}: a node graph compiled by Meld's Node Editor.`, owner: null }]
+		for (const h of this.shared.helpers) head.push({ text: HELPERS[h], owner: null })
+		head.push(...this.shared.defs)
 		if (this.usesVars) head.push({ text: 'local V = {}', owner: null })
-		for (const h of this.helpers) head.push({ text: HELPERS[h], owner: null })
 		const all = [...head, ...this.top, ...this.body]
-		if (!this.body.length) all.push({ text: "print('Nothing is linked to Begin.')", owner: begins[0].id })
+		if (!this.body.length) all.push({ text: "print('Nothing is linked to Begin.')", owner: begin.id })
 		return { lua: all.map((l) => l.text).join('\n') + '\n', owners: all.map((l) => l.owner) }
 	}
 
+	/** The graph as a procedure's body: its own variables, the table of its outputs, and what it runs. */
+	private procBody(): Line[] {
+		this.walk()
+		const lines: Line[] = []
+		if (this.usesVars) lines.push({ text: 'local V = {}', owner: null })
+		lines.push({ text: 'local __out = {}', owner: null }, ...this.top, ...this.body, { text: 'return __out', owner: null })
+		return lines
+	}
+
+	/** Compiles the graph `file` of the library as a procedure, once a script, and gives its function. */
+	private procedure(file: string, caller: GraphNode): ProcInfo {
+		const key = file.trim().toLowerCase()
+		if (!key) throw new GraphError('Procedure: pick the graph it runs (save one in the scripts folder first).', caller.id)
+		const loop = this.shared.stack.indexOf(key)
+		if (loop >= 0) throw new GraphError(`Procedure: ${[...this.shared.stack.slice(loop), key].join(' → ')} calls itself: a procedure can’t run the graph it is in.`, caller.id)
+		const done = this.shared.procs.get(key)
+		if (done) return done
+		const g = this.shared.lib?.get(file)
+		if (!g) throw new GraphError(`Procedure: there is no graph "${file}" in the scripts folder (renamed or deleted?).`, caller.id)
+		const sig = procSignature(g)
+		const owner = this.proc?.owner ?? caller.id
+		const params = new Map(sig.params.map((p, i) => [p.name, `a${i + 1}`]))
+		const info: ProcInfo = { fn: `__proc${++this.shared.count}_${file.replace(/\W/g, '_')}`, params: sig.params.map((p) => p.name), results: sig.results }
+		this.shared.stack.push(key)
+		let lines: Line[]
+		try {
+			lines = new Compiler(g, file, this.shared, { params, owner }).procBody()
+		} catch (err) {
+			if (err instanceof GraphError) throw new GraphError(`${file}: ${err.message}`, caller.id)
+			throw err
+		} finally {
+			this.shared.stack.pop()
+		}
+		const defs = this.shared.defs
+		defs.push({ text: `local function ${info.fn}(${[...params.values()].join(', ')})`, owner })
+		for (const l of lines) defs.push({ text: '\t' + l.text, owner })
+		defs.push({ text: 'end', owner })
+		this.shared.procs.set(key, info)
+		return info
+	}
+
 	private spec(n: GraphNode): NodeSpec {
-		return SPECS.get(n.type) as NodeSpec
+		let s = this.specs.get(n.id)
+		if (!s) {
+			s = specFor(n, this.shared.lib) as NodeSpec
+			this.specs.set(n.id, s)
+		}
+		return s
 	}
 
 	private linkInto(node: number, pin: string): GraphLink | undefined {
@@ -1301,7 +1536,7 @@ class Compiler {
 			if (this.hoisting) throw new ScopeError('', n.id)
 			this.usesVars = true
 		}
-		for (const h of spec.helpers ?? []) this.helpers.add(h)
+		for (const h of spec.helpers ?? []) this.shared.helpers.add(h)
 		const inner = new Set(seen)
 		inner.add(n.id)
 		return spec.expr(this.ctx(n, false, inner), pin)
@@ -1309,10 +1544,11 @@ class Compiler {
 
 	private ctx(n: GraphNode, flow: boolean, seen = new Set<number>([n.id])): ExprCtx | EmitCtx {
 		const spec = this.spec(n)
-		for (const h of spec.helpers ?? []) this.helpers.add(h)
+		for (const h of spec.helpers ?? []) this.shared.helpers.add(h)
 		const ctx: ExprCtx = {
 			in: (pin) => this.input(n, pin, seen),
 			field: (pin) => n.values[pin] ?? spec.inputs.find((p) => p.id === pin)?.def ?? '',
+			param: (name) => this.proc?.params.get(name) ?? null,
 		}
 		if (!flow) return ctx
 		const emit: EmitCtx = {
@@ -1375,6 +1611,8 @@ class Compiler {
 				l.used = true
 				return l.label
 			},
+			inProcedure: () => !!this.proc,
+			procedure: (file) => this.procedure(file, n),
 		}
 		if (n.type === 'setVar' || n.type === 'addVar') this.usesVars = true
 		return emit
@@ -1429,7 +1667,8 @@ export function parseGraph(textIn: string): { graph: Graph; dropped: string[] } 
 			continue
 		}
 		const values: Record<string, Value> = {}
-		if (n.values && typeof n.values === 'object') for (const [k, v] of Object.entries(n.values)) if ((typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') && spec.inputs.some((p) => p.id === k)) values[k] = v
+		if (n.values && typeof n.values === 'object')
+			for (const [k, v] of Object.entries(n.values)) if ((typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') && (spec.inputs.some((p) => p.id === k) || dynamicPin(spec, k))) values[k] = v
 		ids.add(n.id)
 		nodes.push({ id: n.id, type: n.type, x: Number(n.x) || 0, y: Number(n.y) || 0, values })
 	}
@@ -1440,8 +1679,11 @@ export function parseGraph(textIn: string): { graph: Graph; dropped: string[] } 
 		const a = byId.get(Number(l.from))
 		const b = byId.get(Number(l.to))
 		if (!a || !b || typeof l.out !== 'string' || typeof l.in !== 'string') continue
-		const out = SPECS.get(a.type)?.outputs.find((p) => p.id === l.out)
-		const inp = SPECS.get(b.type)?.inputs.find((p) => p.id === l.in)
+		const sa = SPECS.get(a.type) as NodeSpec
+		const sb = SPECS.get(b.type) as NodeSpec
+		// A Procedure's own pins depend on the graph it calls, which a file read doesn't have: they are kept as they are.
+		const out = sa.outputs.find((p) => p.id === l.out) ?? (dynamicPin(sa, l.out) ? pin(l.out, '', 'any') : undefined)
+		const inp = sb.inputs.find((p) => p.id === l.in) ?? (dynamicPin(sb, l.in) ? pin(l.in, '', 'any') : undefined)
 		if (!out || !inp || !linkable(inp) || !canLink(out.type, inp.type)) continue
 		links.push({ from: a.id, out: l.out, to: b.id, in: l.in })
 	}
@@ -1449,12 +1691,12 @@ export function parseGraph(textIn: string): { graph: Graph; dropped: string[] } 
 }
 
 /** Links output (from, out) to input (to, in), replacing what the input (a data input) or the output (a flow output) was linked to. */
-export function connect(graph: Graph, from: number, out: string, to: number, inp: string): string | null {
+export function connect(graph: Graph, from: number, out: string, to: number, inp: string, lib?: GraphLibrary): string | null {
 	if (from === to) return 'A node can’t link to itself.'
 	const a = graph.nodes.find((n) => n.id === from)
 	const b = graph.nodes.find((n) => n.id === to)
-	const po = a && SPECS.get(a.type)?.outputs.find((p) => p.id === out)
-	const pi = b && SPECS.get(b.type)?.inputs.find((p) => p.id === inp)
+	const po = a && specFor(a, lib)?.outputs.find((p) => p.id === out)
+	const pi = b && specFor(b, lib)?.inputs.find((p) => p.id === inp)
 	if (!po || !pi || !linkable(pi)) return 'Those pins can’t be linked.'
 	if (!canLink(po.type, pi.type)) return `A ${typeName(po.type)} can’t go into a ${typeName(pi.type)} pin.`
 	// A data input takes one value; a flow output leads to one node (a flow input can be reached from many).
@@ -1489,6 +1731,25 @@ export function addNode(graph: Graph, type: string, x: number, y: number): Graph
 	const node: GraphNode = { id, type, x: Math.round(x), y: Math.round(y), values: {} }
 	graph.nodes.push(node)
 	return node
+}
+
+/** Drops the links of a node to pins it no longer has (a Procedure set to call another graph, an input's type changed). */
+export function pruneLinks(graph: Graph, id: number, lib?: GraphLibrary) {
+	const n = graph.nodes.find((x) => x.id === id)
+	const spec = n && specFor(n, lib)
+	if (!n || !spec) return
+	const outs = new Map(spec.outputs.map((p) => [p.id, p]))
+	const ins = new Map(spec.inputs.map((p) => [p.id, p]))
+	graph.links = graph.links.filter((l) => {
+		if (l.from === id) {
+			const p = outs.get(l.out)
+			const to = graph.nodes.find((x) => x.id === l.to)
+			const q = to && specFor(to, lib)?.inputs.find((x) => x.id === l.in)
+			return !!p && (!q || canLink(p.type, q.type))
+		}
+		if (l.to === id) return ins.has(l.in)
+		return true
+	})
 }
 
 /** Removes a node and its links. */

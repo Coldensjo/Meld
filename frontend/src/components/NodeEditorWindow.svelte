@@ -14,6 +14,7 @@
 		connect,
 		errorNode,
 		GraphError,
+		graphLibrary,
 		linkable,
 		NODE_HEAD,
 		NODE_ROW,
@@ -23,8 +24,10 @@
 		nodeSpec,
 		parseGraph,
 		pinPos,
+		pruneLinks,
 		removeNode,
 		serializeGraph,
+		specFor,
 		starterGraph,
 		type Graph,
 		type GraphNode,
@@ -80,13 +83,15 @@
 	let menu = $state<{ x: number; y: number; wx: number; wy: number; filter: string; pending: { node: number; side: 'in' | 'out'; pin: string; type: PinType } | null } | null>(null)
 	let menuInput = $state<HTMLInputElement>()
 
-	const specOf = (n: GraphNode) => nodeSpec(n.type) as NodeSpec
+	/** The scripts folder's graphs, for the Procedure nodes to call and take their pins from. */
+	const lib = $derived(graphLibrary(files))
+	const specOf = (n: GraphNode) => specFor(n, lib) as NodeSpec
 	const widthOf = (spec: NodeSpec) => spec.width ?? NODE_W
 
 	const lua = $derived.by(() => {
 		if (!showLua) return ''
 		try {
-			return compileGraph($state.snapshot(graph) as Graph, name || 'graph').lua
+			return compileGraph($state.snapshot(graph) as Graph, name || 'graph', lib).lua
 		} catch (e) {
 			return `-- ${e instanceof Error ? e.message : String(e)}`
 		}
@@ -250,7 +255,7 @@
 		const label = name || 'graph'
 		let compiled
 		try {
-			compiled = compileGraph($state.snapshot(graph) as Graph, label)
+			compiled = compileGraph($state.snapshot(graph) as Graph, label, lib)
 		} catch (err) {
 			if (err instanceof GraphError) {
 				badNode = err.node
@@ -378,10 +383,10 @@
 		if (pend) {
 			if (pend.side === 'out') {
 				const p = spec.inputs.find((q) => linkable(q) && canLink(pend.type, q.type))
-				if (p) connect(graph, pend.node, pend.pin, n.id, p.id)
+				if (p) connect(graph, pend.node, pend.pin, n.id, p.id, lib)
 			} else {
 				const p = spec.outputs.find((q) => canLink(q.type, pend.type))
-				if (p) connect(graph, n.id, p.id, pend.node, pend.pin)
+				if (p) connect(graph, n.id, p.id, pend.node, pend.pin, lib)
 			}
 		}
 		selectedNode = n.id
@@ -467,7 +472,7 @@
 					const toSide = el.dataset.side as 'in' | 'out'
 					const toPin = el.dataset.pin as string
 					if (toSide === w0.side) return
-					const err = w0.side === 'out' ? connect(graph, w0.node, w0.pin, to, toPin) : connect(graph, to, toPin, w0.node, w0.pin)
+					const err = w0.side === 'out' ? connect(graph, w0.node, w0.pin, to, toPin, lib) : connect(graph, to, toPin, w0.node, w0.pin, lib)
 					if (err) setStatus(err, 4000)
 				} finally {
 					commit(before)
@@ -522,6 +527,8 @@
 	function setValue(n: GraphNode, p: PinSpec, raw: string | boolean) {
 		const before = serializeGraph(graph)
 		assignValue(n, p, raw)
+		// A Procedure set to call another graph, or an input given another type, loses the links its pins no longer take.
+		if (nodeSpec(n.type)?.instance) pruneLinks(graph, n.id, lib)
 		commit(before)
 	}
 
