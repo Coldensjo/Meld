@@ -1,5 +1,5 @@
 # Convenience targets (Linux/macOS/Git-Bash). On Windows without make, run the
-# commands directly — see README.md and docs/MANUAL.md.
+# commands directly — see README.md.
 
 # On Windows, run the recipes through Git for Windows' sh, so they also work
 # when make is started from PowerShell or cmd (which have no sh on the PATH).
@@ -16,7 +16,7 @@ ifeq ($(OS),Windows_NT)
 EXE := .exe
 endif
 
-.PHONY: dev dev-page dev-build dev-page-build build build-linux build-windows frontend-build frontend-dist test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf docs clean
+.PHONY: dev dev-page dev-build dev-page-build build build-linux build-windows frontend-build frontend-dist test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf clean
 
 # The desktop window, with Vite's hot reload; a Go change rebuilds and restarts it (build/dev.yml).
 dev:
@@ -58,7 +58,7 @@ test: frontend-dist
 	go test -short -tags "$(LINUX_TAGS)" .
 	cd frontend && bun run test
 
-# Mutates each client parser's fuzzer for 10 s (internal/*/fuzz_test.go, docs/TESTS.md); `make test` runs only their seeds.
+# Mutates each client parser's fuzzer for 10 s (internal/*/fuzz_test.go); `make test` runs only their seeds.
 fuzz:
 	for f in FuzzParseM2 FuzzParseWMORoot FuzzParseWMOGroup FuzzParseMLIQ FuzzDecodeBLP FuzzDXTOf; do go test ./internal/wow -run '^$$' -fuzz "^$$f\$$" -fuzztime=10s || exit 1; done
 	for f in FuzzParseTerrain FuzzParsePlacements; do go test ./internal/adt -run '^$$' -fuzz "^$$f\$$" -fuzztime=10s || exit 1; done
@@ -111,24 +111,19 @@ check: bindings-check notices-check format-check frontend-dist lint
 	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
 	go vet -tags "$(LINUX_TAGS)" ./internal/... ./cmd/... .
 	cd frontend && bun run lint && bun run check
-	@if [ -d docs ]; then cd frontend && bun run docs:structure; else echo 'skipping docs:structure (no local docs folder)'; fi
 
-# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev-page` (docs/TESTS.md, "Probes").
+# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev-page`.
 # The whole set outgrew the agent harness's 30-minute task limit (#669): `make probe SHARD=1/2`, then `SHARD=2/2`, runs it in halves.
 probe:
 	cd frontend && bun run probe --all $(if $(SHARD),--shard $(SHARD))
 
-# The probes marked `// tier: smoke`: fast and deterministic, guarding the shared code most commits touch (docs/TESTS.md, "Probes").
+# The probes marked `// tier: smoke`: fast and deterministic, guarding the shared code most commits touch.
 probe-smoke:
 	cd frontend && bun run probe --smoke
 
-# The benchmark probes, which print numbers for a before/after (docs/TESTS.md, "Measuring performance").
+# The benchmark probes, which print numbers for a before/after.
 probe-perf:
 	cd frontend && bun run probe bench 'perf-*'
-
-# The documentation site (VitePress) -> docs/.vitepress/dist, built locally only: docs/ is not tracked.
-docs:
-	cd frontend && bun run docs:build
 
 clean:
 	rm -rf build/bin frontend/dist meld_windows_amd64.syso

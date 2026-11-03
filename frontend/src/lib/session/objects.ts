@@ -1,4 +1,4 @@
-// Placed objects in a shared session (#1003, docs/architecture/session.md): every change to the session
+// Placed objects in a shared session (#1003): every change to the session
 // map's models, WMOs and helper shapes (placing, deleting, moving, turning, scaling, attaching, a new
 // model or group, an undo) goes out as the changed objects whole, a few times a second while it lasts,
 // and every member applies the others' in the host's order, as heights and paint do (heights.ts, #1001).

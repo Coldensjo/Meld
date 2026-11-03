@@ -40,7 +40,7 @@ test('a glob matches within one folder with *, across folders with **, and under
 	assert.ok(globRe('internal/adt/*').test('internal/adt/tile.go'))
 	assert.ok(!globRe('internal/adt/*').test('internal/adt/testdata/x.adt'))
 	assert.ok(globRe('frontend/**/*.ts').test('frontend/src/lib/a.ts'))
-	assert.ok(globRe('docs/').test('docs/tests/ui.md'))
+	assert.ok(globRe('frontend/').test('frontend/src/main.ts'))
 	assert.ok(!globRe('app.go').test('app_go'), 'a dot is literal')
 })
 

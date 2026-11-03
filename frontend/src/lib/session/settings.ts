@@ -1,4 +1,4 @@
-// The session map's settings in a shared session (#1019, docs/architecture/session.md): the sea, the
+// The session map's settings in a shared session (#1019): the sea, the
 // texture roles, the ground effects per texture, zone and tile, the texture looks, the paths, and on a map
 // made for the client its Map Properties facts and its tile mask, and the map's biomes (the Biome Brush's,
 // #1036, whose indexes the biome map's cells hold; the cells go with the chunk data). Every member's save holds them, so a

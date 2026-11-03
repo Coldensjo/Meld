@@ -8,7 +8,7 @@ const activeWas = prefs.brushStack
 /** The elements under the dialog that scroll now, by class: none is the rule kept. */
 const scrolling = (dlg) => [dlg, ...dlg.querySelectorAll('*')].filter((el) => el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowY)).map((el) => el.className || el.tagName)
 const r = { page: [innerWidth, innerHeight] }
-/** The lists that grow without bound and keep their scroll bar (docs/architecture/ui.md, "Scroll bars"), and the quest chain's graph (a view that scrolls). */
+/** The lists that grow without bound and keep their scroll bar, and the quest chain's graph (a view that scrolls). */
 const LISTS = new Set(['grid-wrap', 'results', 'list tall', 'canvas'])
 /** Each tab of a database editor and what scrolls on it but those lists (#1024). */
 const editorTabs = async (root) => {

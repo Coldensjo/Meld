@@ -1,4 +1,4 @@
-// The baked shadows in a shared session (#1018, docs/architecture/session.md): every change to the session
+// The baked shadows in a shared session (#1018): every change to the session
 // map's baked shadows (Bake Shadows, the Map data tool's Shadow mode, Clear Shadows, a paste, an undo)
 // goes out as the shadow bits of the texels it changed, and every member applies the others' in the
 // host's order. Baking reads the models and is slow, so only the member who bakes runs it; the others

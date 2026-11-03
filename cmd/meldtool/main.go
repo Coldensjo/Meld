@@ -35,7 +35,7 @@ import (
 	"os"
 )
 
-const usage = `meldtool: Meld's command line tools (docs/TESTS.md, "meldtool"). None writes into the
+const usage = `meldtool: Meld's command line tools. None writes into the
 client or the server. The output is JSON, or a table with --table where a command takes it.
 
   meldtool wmap info <file.wmap>

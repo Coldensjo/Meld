@@ -1,4 +1,4 @@
-// Texture paint in a shared session (#1002, docs/architecture/session.md): every paint change to the
+// Texture paint in a shared session (#1002): every paint change to the
 // session's map (a stroke, a fill, a script, an undo) goes out as whole paint chunks, a few times a
 // second while it lasts, and every member applies the others' in the host's order, as heights do
 // (heights.ts, #1001).

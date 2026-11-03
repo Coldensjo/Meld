@@ -42,10 +42,6 @@ its `make build-linux` job is allowed to fail for now.
 
 On first start, pick your WoW 1.12 client folder under Edit › Preferences… › Folders.
 
-## Documentation
-
-The documentation is not part of this repository: it is kept in a local, untracked `docs/` folder.
-
 ## Credits
 
 Much of Meld's rendering of the game (particles, ribbons, clouds, WMO rooms, liquids, grass tufts and

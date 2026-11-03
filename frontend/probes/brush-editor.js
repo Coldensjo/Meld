@@ -2,7 +2,7 @@
 // Brushes… still covers the page, and its edits go straight into prefs, which the Doodad Brush tool paints
 // with: New makes a brush, a click on two model tiles adds them (✓ on each), a typed weight is kept, Esc
 // closes it, and Paint with it closes it and picks the Doodad tool. The desktop app opens it as its own OS
-// window instead (docs/tests/ui.md, "The doodad brush editor as its own OS window"), which no probe can drive.
+// window instead, which no probe can drive.
 // touches: frontend/src/components/DoodadBrushEditor.svelte, frontend/src/components/DoodadBrushWindow.svelte, frontend/src/lib/toolwin/doodadBrushes.ts, frontend/src/lib/tools/doodadBrush.ts
 const { ui, prefs, editor } = await P.state()
 const was = { brushes: JSON.stringify(prefs.doodadBrushes), brush: prefs.doodadBrush, tool: editor.tool }

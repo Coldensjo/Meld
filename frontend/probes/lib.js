@@ -6,7 +6,7 @@ const P = {
 	},
 
 	/**
-	 * The benchmark scene (docs/TESTS.md, "Measuring performance"): Northshire, over the abbey. Its view is
+	 * The benchmark scene: Northshire, over the abbey. Its view is
 	 * an orbit 60 yd out, so it turns Follow the Ground on: with the default flying camera the target is
 	 * the camera itself, down on the ground (#256).
 	 */

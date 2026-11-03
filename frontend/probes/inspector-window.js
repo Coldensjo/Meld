@@ -3,7 +3,7 @@
 // of nothing, and whose typed Height is one undo step. Then the commands the Inspector's own OS window
 // sends (lib/toolwin/inspector.ts) are run here as the main page runs them, out of order as requests can
 // arrive: a scrub's live edits and its commit make one undo step that goes back to where it began. The
-// desktop app's window itself no probe can drive (docs/tests/ui.md, "The Inspector as its own OS window").
+// desktop app's window itself no probe can drive.
 // touches: frontend/src/components/Inspector.svelte, frontend/src/components/PropertiesPanel.svelte, frontend/src/components/PoolFields.svelte, frontend/src/components/FormationFields.svelte, frontend/src/components/SpawnFields.svelte, frontend/src/lib/toolwin/
 const e = P.e
 const { editor, ui } = await P.state()

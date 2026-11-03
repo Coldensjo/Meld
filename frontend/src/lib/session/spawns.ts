@@ -1,4 +1,4 @@
-// The server's spawns in a shared session (#1020, docs/architecture/session.md): the creatures and game
+// The server's spawns in a shared session (#1020): the creatures and game
 // objects of the session map's region, which are rows of the host's world database and not in the `.wmap`.
 // The host sends its spawn layer's rows with the map (`MapHandoff.spawns`), each row holding what it needs
 // to draw (name, model, look), so a guest needs no server of its own; every member's spawn edits (placing,

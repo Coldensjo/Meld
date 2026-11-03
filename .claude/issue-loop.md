@@ -7,7 +7,6 @@ are the owner's; the loop files them as `needs-approval` issues rather than edit
 
 - Repo: `Coldensjo/Meld`
 - Owner: `Coldensjo` (the GitHub login whose comments are instructions; Claude posts through it too)
-- Design doc: `docs/DESIGN.md` (goal, hard rules, priorities, non-goals; the loop never edits it)
 - Cap: 8 items per run (a number, or `all` to go on until no eligible issue is left; a run started
   as `/issue-loop:run <n>` or `/issue-loop:run all` overrides it for that run)
 - Questions: issues (`issues`: owner questions and approvals go on the issues and ping the owner;
@@ -17,23 +16,17 @@ are the owner's; the loop files them as `needs-approval` issues rather than edit
 
 ## Areas
 
-One `area:` label per issue. Name each, and the docs a worker reads before changing it. Every area
-also reads its checks in the index of `docs/TESTS.md` (the entries live in `docs/tests/<area>.md`),
-and an architecture doc only when the issue's notes don't already say which code to change and what
-the traps are (CLAUDE.md, "Architecture docs").
+One `area:` label per issue:
 
-- `area:terrain`: sculpting and painting, the brushes and tools. Docs: `docs/architecture/terrain.md`,
-  `docs/architecture/tools.md`
-- `area:water`: liquids, the water brush, the sea, MCLQ export. Docs: `docs/architecture/water.md`
+- `area:terrain`: sculpting and painting, the brushes and tools.
+- `area:water`: liquids, the water brush, the sea, MCLQ export.
 - `area:map`: the map, the client and the server: `.wmap`, tiles, patches, spawns, exports.
-  Docs: `docs/architecture/client.md`, `docs/architecture/terrain.md`
 - `area:view`: navigation, view and display: rendering, shaders, lighting, models.
-  Docs: `docs/architecture/lighting.md`, `docs/architecture/objects.md`
-- `area:ui`: settings, UI and help. Docs: `docs/architecture/ui.md`
-- `area:scripting`: scripting (a non-goal for now, docs/DESIGN.md).
-- `area:tooling`: tests, probes, scripts, CI and docs for developers. Docs: `docs/TESTS.md`
+- `area:ui`: settings, UI and help.
+- `area:scripting`: scripting (a non-goal for now).
+- `area:tooling`: tests, probes, scripts and CI.
 
-Other labels: `benilla` (Benilla integration, `docs/BENILLA.md`), `perf` (performance), `source:gap`
+Other labels: `benilla` (Benilla integration), `perf` (performance), `source:gap`
 (a Noggit Red feature Meld lacks).
 
 High-risk areas (their `effort:S` items don't go to the cheaper model, and their `effort:M` ones get
@@ -78,16 +71,14 @@ Before commit (all of them):
 - `make build-windows` (on Linux, `make build-linux`)
 - the probes that touch the change, again (`bun run probe --touching HEAD` against the uncommitted change, plus the ones you added; the same subject probes when `--touching` names more than about 30)
 - for a rendering item (`area:view`, `area:water`, or a change to a shader or to what the 3D view draws), the probes
-  that touch it again with `PROBE_GPU=1` (the machine's GPU instead of SwiftShader, docs/TESTS.md, "On the
-  real GPU"): SwiftShader hid the cause of #747. Only pass/fail counts there; timings and the bench baseline
+  that touch it again with `PROBE_GPU=1` (the machine's GPU instead of SwiftShader): SwiftShader hid the cause of #747. Only pass/fail counts there; timings and the bench baseline
   stay SwiftShader's. Say in the closing comment which ran on the GPU.
 
 Cannot run here: the Linux build (`make build-linux`), on Windows. Workers say so in the closing
 comment.
 
 If the item changes what the app shows or does, check it in the app or say in the closing comment
-that you did not. A check worth repeating becomes a probe (`frontend/probes/<name>.js`, docs/TESTS.md,
-"Probes"), committed with the item. Name the probes run in the closing comment.
+that you did not. A check worth repeating becomes a probe (`frontend/probes/<name>.js`), committed with the item. Name the probes run in the closing comment.
 
 Full-run check (once per run, after the last item, when the run committed anything). The coordinator
 records `git rev-parse origin/main` at step 1, after the pull (the run's start), and uses it as the
@@ -97,7 +88,7 @@ was fixed on the probe or runner side, none was a regression in the editor, and 
 the real regressions (#366, #377) were found by workers inside their items. The sweep cost 23 to 31
 minutes a run plus fix items (#439).
 - Skip it all when the range changed only Markdown files (`git diff --name-only <start>..HEAD` lists
-  only `.md` files), since no probe can catch a doc edit; say so in the report.
+  only `.md` files), since no probe can catch a Markdown edit; say so in the report.
 - Every run: `make probe-smoke` (#398) and `cd frontend && bun run probe --touching <start>..HEAD`
   (#397), then `PROBE_GPU=1 bun run probe --touching <start>..HEAD` once more when the range touched rendering code
   (pass/fail only, #753), then `cd frontend && bun run probe bench` as the draw-count guard (#429), and `make test-full`
@@ -119,8 +110,7 @@ minutes a run plus fix items (#439).
 - The run log says which selection ran and how long it took. A failure is handled as before: find the
   commit, file a bug, revert if it cannot be fixed.
 
-Flaky probes (#440): a probe line with `flaky: true` (failed once, passed on the retry, docs/TESTS.md
-"Probes") is quarantined after its second flaky result on commits that did not touch its subject,
+Flaky probes (#440): a probe line with `flaky: true` (failed once, passed on the retry) is quarantined after its second flaky result on commits that did not touch its subject,
 instead of costing a worker item each time (`wmo-cull` cost #350 and #392 that way, #392 at high
 effort, before #393 fixed `P.settle`).
 - Untouched means the probe is not picked by `cd frontend && bun run probe --touching <range> --list`
@@ -147,7 +137,7 @@ effort, before #393 fixed `P.settle`).
   real there or its bug issue is picked; that item takes the `quarantine` line out when it closes.
 
 Benchmark for optimizations: `cd frontend && bun run probe bench`, on the commit before the change and
-on the change (docs/TESTS.md, "Measuring performance"). An estimate with its working also counts (e.g.
+on the change. An estimate with its working also counts (e.g.
 "stormwind.wmo draws 1.3M triangles a frame, about 77k of them in view").
 
 ## Services
@@ -165,14 +155,14 @@ Started by the coordinator before the first worker and left running; workers nev
   probe <any probe>`), which starts `make dev-page` detached when the server is down (log `meld-dev.log` in
   the temp folder) and waits for it, so it outlives the run's shell. Never start it as a background task
   of the agent harness: the harness stops those after 30 minutes, and a worker then found no server
-  (#277, #513, #321). Healthy when `curl -s localhost:34115/wow/status` answers. Read the dead-session
-  trap in docs/TESTS.md first: the owner's own session may be half dead.
+  (#277, #513, #321). Healthy when `curl -s localhost:34115/wow/status` answers. The owner's own session may be
+  half dead.
 - After a worker changes a bound Go method, `make dev-page` may not rebuild (#319, #387), and the binding
   then answers null or "is not a function". The probe runner restarts the page itself when a Go file is
   newer than the running Go side (#864), so just run a probe; `cd frontend && bun run probe --restart-page`
   does it on demand. Workers never kill the processes by hand (the agent harness refuses it). The runner
   will not restart while another live loop holds the loop lock or another probe run is alive, and says
-  so (`staleBackend`, in docs/reference/testing-notes.md).
+  so (`staleBackend`).
 
 ## Priority lanes
 
@@ -182,7 +172,7 @@ Labels worked right after `bug`, in this order, lowest issue number first within
 
 ## Needs approval
 
-Besides large and non-goal work (docs/DESIGN.md), these always get `needs-approval`:
+Besides large and non-goal work, these always get `needs-approval`:
 
 - format-level work: the `.wmap` format, the files Meld writes into the client (tiles, the map
   table, the patch) or the server (spawn SQL, map data).

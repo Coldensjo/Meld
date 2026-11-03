@@ -1,4 +1,4 @@
-// A flight east through Elwynn's world view (#742; docs/TESTS.md, "Probes"): frame by frame the CPU, which shadow maps were redrawn, why and at what cost, and what landed. Numbers for a before/after, checks nothing.
+// A flight east through Elwynn's world view (#742): frame by frame the CPU, which shadow maps were redrawn, why and at what cost, and what landed. Numbers for a before/after, checks nothing.
 // touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/WorldPainter.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/io/region.ts
 // The camera flies 100 yd over the ground, 8 yd a frame for 120 frames (edit STEP and N below for another flight); about 100 s of flight, 140 s with the load.
 const { editor } = await P.state()

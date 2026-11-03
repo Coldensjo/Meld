@@ -12,12 +12,7 @@
     "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
     "format": "bun --bun prettier --write --log-level warn .",
     "format:check": "bun --bun prettier --check --log-level warn .",
-    "probe": "bun probes/run.mjs",
-    "docs:dev": "bun --bun --no-install vitepress dev ../docs",
-    "docs:build": "bun --bun --no-install vitepress build ../docs",
-    "docs:preview": "bun --bun --no-install vitepress preview ../docs",
-    "docs:structure": "bun scripts/docs-check.mjs --structure",
-    "docs:check": "bun run docs:build && bun scripts/docs-check.mjs && bun test scripts/docs-check.test.mjs scripts/docs-check-theme.test.mjs"
+    "probe": "bun probes/run.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
@@ -34,8 +29,7 @@
     "svelte-eslint-parser": "^1.10.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.72.1",
-    "vite": "^8.3.5",
-    "vitepress": "1.6.4"
+    "vite": "^8.3.5"
   },
   "dependencies": {
     "@wailsio/runtime": "3.0.0",

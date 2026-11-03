@@ -1,4 +1,4 @@
-// Terrain heights in a shared session (#1001, docs/architecture/session.md): every height change to the
+// Terrain heights in a shared session (#1001): every height change to the
 // session's map (a stroke, Flatten, a script, an undo) goes out as the changed heights, a few times a
 // second while it lasts, and every member applies the others' in the host's order.
 //

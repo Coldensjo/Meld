@@ -1,4 +1,4 @@
-// The benchmark scene's performance numbers (docs/TESTS.md, "Measuring performance"), for before/after, and a guard (#429):
+// The benchmark scene's performance numbers, for before/after, and a guard (#429):
 // draw calls, triangles, geometries and textures are deterministic on this scene, so the probe fails when one drifts more than
 // the band (10 %) from bench-baseline.json. Milliseconds and heap are printed only (SwiftShader, #226, #337).
 // touches: frontend/src/lib/bench/benchMaps.ts, frontend/src/lib/engine/perfMeter.ts, frontend/src/lib/engine/Engine.ts, frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/terrain/TerrainMaterial.ts

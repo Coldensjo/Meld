@@ -1,4 +1,4 @@
-// The probe runner (docs/TESTS.md, "Probes"): runs named checks in the dev page over a headless
+// The probe runner: runs named checks in the dev page over a headless
 // Chrome and prints one JSON line a probe. Needs `make dev-page` running (http://localhost:34115), which it starts when it is down.
 //
 //   bun run probe smoke undo-sculpt      run these probes
@@ -716,7 +716,7 @@ async function main() {
 				).catch((e) => ({ unreadable: e.message }))
 				out.pageState = state
 				out.pageLog = pageLog.slice()
-				out.hint = 'the page loaded but the app did not start; see pageLog and docs/TESTS.md, "a page that never sets up __engine"'
+				out.hint = 'the page loaded but the app did not start; see pageLog'
 			}
 			for (const m of (err.description ?? '').matchAll(/<anonymous>:(\d+):(\d+)/g)) {
 				if (Number(m[1]) >= bodyStart) {
@@ -757,7 +757,7 @@ async function main() {
 			}
 		}
 		// After a new Go binding, a page Vite served before make bindings rewrote lib/wails/App.ts can fail on
-		// "does not provide an export named" (docs/TESTS.md). Moving the file out and back makes Vite see a
+		// "does not provide an export named". Moving the file out and back makes Vite see a
 		// new file; then run the probe again, once.
 		if (!atRun && !out.ok && out.pageErrors?.some((e) => e.includes('does not provide an export named')) && existsSync(APP_JS)) {
 			renameSync(APP_JS, APP_JS + '.probe-refresh')

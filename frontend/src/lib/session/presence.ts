@@ -1,4 +1,4 @@
-// Presence in a shared session (#1004, docs/architecture/session.md): where each member's camera is and,
+// Presence in a shared session (#1004): where each member's camera is and,
 // while they hold a brush tool over the ground, their brush circle, so two people don't sculpt the same
 // hill unknowingly. Not map content: no replay, no History; each member keeps the latest message per
 // member and sends its own only when it changed, a few times a second. Kept free of the bindings and

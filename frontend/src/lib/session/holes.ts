@@ -1,4 +1,4 @@
-// Holes in a shared session (#1016, docs/architecture/session.md): every hole cut or filled in the
+// Holes in a shared session (#1016): every hole cut or filled in the
 // session's map (the hole brush, Hole walls, the Clear tool, a paste, a script, an undo) goes out as the
 // hole bytes of the cells it touched, and every member applies the others' in the host's order.
 //

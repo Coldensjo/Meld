@@ -1,4 +1,4 @@
-// Painted liquids in a shared session (#1017, docs/architecture/session.md): every liquid change to the
+// Painted liquids in a shared session (#1017): every liquid change to the
 // session's map (the water brush, Crop water, Import watermap, Regenerate opacity, the Clear tool, a
 // paste, a script, an undo) goes out as the changed chunks' layers whole, and every member applies the
 // others' in the host's order.

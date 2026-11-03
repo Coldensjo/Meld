@@ -78,7 +78,7 @@ func main() {
 			ProgramName: "Meld",
 		},
 		// The browser page (make dev-page, server mode) listens where wails dev's page did, so the probes
-		// and the docs keep their address (#854).
+		// keep their address (#854).
 		Server: application.ServerOptions{Port: 34115},
 	})
 	app.app = wa

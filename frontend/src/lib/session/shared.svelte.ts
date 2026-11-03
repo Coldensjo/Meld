@@ -1,6 +1,6 @@
 // A shared editing session's page side (#728, #1000): File › Host Session and Join Session, the members
 // for the status bar, and the map a guest starts from. The transport is Go's (internal/session,
-// app_session.go, docs/architecture/session.md): every message comes here as a "session:message" event,
+// app_session.go): every message comes here as a "session:message" event,
 // the page's own broadcasts too, and the end of this Meld's part as "session:ended".
 //
 // The state is low-rate (a member joining, the session starting or ending), so it is reactive. The last

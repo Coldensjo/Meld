@@ -1,8 +1,7 @@
 -- The spawn tables of a CMaNGOS classic world database, as far as Meld's spawn SQL writes them
 -- (#894): the columns and keys of cmangos/mangos-classic's sql/base/mangos.sql at z2836, written out
 -- by hand with only what a test needs. No data. cmangos_test.go checks every statement of the export
--- against these columns; the same tables loaded into a scratch database run the export for real
--- (docs/tests/spawns.md, "Spawn SQL for CMaNGOS classic").
+-- against these columns; the same tables loaded into a scratch database run the export for real.
 
 CREATE TABLE `creature` (
 	`guid` INT UNSIGNED NOT NULL,

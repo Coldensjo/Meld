@@ -1,4 +1,4 @@
-// A model's opaque materials draw as one call into the shadow maps (#926; docs/tests/rendering.md, "One shadow draw for a model's opaque materials"): in Elwynn's world view over Goldshire at a low sun, the far and near cascades redrawn with the merge on draw well under the calls they draw with it off, and the view looks the same both ways, there and over Stormwind (the WMO with the most materials).
+// A model's opaque materials draw as one call into the shadow maps (#926): in Elwynn's world view over Goldshire at a low sun, the far and near cascades redrawn with the merge on draw well under the calls they draw with it off, and the view looks the same both ways, there and over Stormwind (the WMO with the most materials).
 // touches: frontend/src/lib/world/shadowRun.ts, frontend/src/lib/world/wmoGroupCull.ts, frontend/src/lib/models/assets.ts, frontend/src/lib/world/ObjectLayer.ts
 const { editor, prefs } = await P.state()
 const e = P.e

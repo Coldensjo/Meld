@@ -1,4 +1,4 @@
-// The ground's chunk data in a shared session (#1018, docs/architecture/session.md): every change to the
+// The ground's chunk data in a shared session (#1018): every change to the
 // session map's zones (`areaIds`), chunk flags (`chunkFlags`, the impassable flag) and no-effect cells
 // (`noEffect`) (the Map data tool, a paste, the reference image's zones, a script, an undo) and to its
 // biome map (`biomeMap`, the Biome Brush's cells, #1036) goes out as the changed chunks' and cells' values,

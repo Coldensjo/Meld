@@ -1,6 +1,6 @@
 // Benchmark maps (#322): generated maps that each stress one system (instancing, draw calls, WMOs,
 // lights, skinning, terrain paint, liquids), and one that mixes them, for measuring performance
-// work (docs/TESTS.md, "Benchmark maps"). The same kind, count and seed always give the same map.
+// work. The same kind, count and seed always give the same map.
 // Models are picked from the user's own client by path, so nothing of Blizzard's is in the repo.
 import type { Engine } from '../engine/Engine'
 import type { MapDocument } from '../engine/MapDocument'
@@ -19,7 +19,7 @@ export interface BenchMap {
 	kind: BenchKind
 	/** The menu's name for it. */
 	label: string
-	/** What it stresses, for the probe's line and the docs. */
+	/** What it stresses, for the probe's line. */
 	stresses: string
 	/** How many of its main thing it places by default (objects, buildings, lights, creatures; chunks for terrain and water). */
 	count: number

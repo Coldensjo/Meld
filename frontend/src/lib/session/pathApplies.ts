@@ -1,4 +1,4 @@
-// The paths' last applies in a shared session (#1022, docs/architecture/session.md). What an apply writes
+// The paths' last applies in a shared session (#1022). What an apply writes
 // (heights, paint, liquids, models) syncs as those edits, but the record of what it replaced (`appliesOf`,
 // pathRecord.ts) stays with the member who applied: another member re-applying that path could not take
 // the first apply back and would lay the road a second time. So each member tells the others which paths
