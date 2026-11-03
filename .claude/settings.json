@@ -9,6 +9,17 @@
 					}
 				]
 			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "command -v bun >/dev/null 2>&1 || exit 0; bun \"$CLAUDE_PROJECT_DIR\"/scripts/block-heredoc-script.mjs"
+					}
+				]
+			}
 		]
 	}
 }
