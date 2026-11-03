@@ -1,4 +1,4 @@
-// A guest places spawns without a server (#1050): the page joins a scripted host (meldtool session host --on-join, through P.bun) whose map holds a wolf, a vendor and a chair, with every template, look and guid binding swapped to throw; the browser's Creatures, NPCs and Objects tabs list the templates the session map's rows use, a pick places a copy of the row (its look, a guid in the page's lane from the host's floor), the pipette picks from the same list, and the new spawns go to the host as `spawns` messages from member 2.
+// A guest places spawns without a server (#1050): the page joins a scripted host (meldtool session host --on-join, through P.bun) whose map holds a wolf, a vendor and a chair, with every template, look and guid binding swapped to throw; the browser's Creatures, NPCs and Objects tabs list the templates the session map's rows use, a pick places a copy of the row (its look, a guid in the page's lane from the host's floor), the pipette picks from the same list, the placed wolf sat down is dressed from the sitting wolf's row (#1087), and the new spawns and the edit go to the host as `spawns` messages from member 2.
 // touches: frontend/src/lib/session/spawnTemplates.ts, frontend/src/lib/session/shared.svelte.ts, frontend/src/components/SpawnBrowser.svelte, frontend/src/lib/tools/PipetteTool.ts, frontend/src/lib/engine/SpawnActions.ts, frontend/src/lib/world/spawnEdits.ts, frontend/probes/session-bot.mjs
 // timeout: 180
 const e = P.e
@@ -99,6 +99,10 @@ try {
 	await e.spawnActions.placeCreature(ui.placeCreature, { x: 40, y: 0, z: 40 })
 	const wolf = editor.selectedSpawn
 	got.wolf = wolf && { entry: wolf.entry, guid: wolf.guid, look: wolf.look, stand: wolf.standState }
+	// Sitting it down takes the sitting wolf's pose from the map's rows (#1087), with SpawnLook throwing.
+	await e.editSpawn(`monster/${wolf.guid}`, { standState: 1 }, 'Stand state')
+	const sat = L.get(`monster/${wolf.guid}`)
+	got.sat = sat && { stand: sat.standState, anim: sat.anim, look: sat.look }
 	// The pipette on the chair picks it from the session's templates, and it places as well.
 	await pickSpawn(L.get('object/20'))
 	got.pipette = ui.placeObject?.entry
@@ -117,6 +121,7 @@ await P.until(() => !shared.role, 5000, 'the session ending')
 const lines = await P.bun('botDone', host.bot)
 const puts = lines.filter((l) => l.kind === 'spawns' && l.from === 2).flatMap((l) => l.data?.put ?? [])
 const sentGuids = puts.map((p) => p.guid)
+const sentSat = puts.some((p) => p.guid === got.wolf?.guid && p.standState === 1 && p.anim === 97)
 const t = got.tabs
 const ok =
 	t.Creatures?.join() === '110' &&
@@ -128,6 +133,10 @@ const ok =
 	got.wolf.stand === 0 &&
 	got.wolf.guid >= floors.creature &&
 	got.wolf.guid % 16 === 1 &&
+	got.sat?.stand === 1 &&
+	got.sat.anim === 97 &&
+	got.sat.look === 'skin=Wolf' &&
+	sentSat &&
 	got.pipette === 130 &&
 	got.chair?.entry === 130 &&
 	got.chair.guid >= floors.object &&
@@ -135,4 +144,4 @@ const ok =
 	asked.length === 0 &&
 	sentGuids.includes(got.wolf.guid) &&
 	sentGuids.includes(got.chair.guid)
-return { ok, got, asked, sentGuids }
+return { ok, got, asked, sentGuids, sentSat }

@@ -11,7 +11,7 @@ import { spawnType } from '../world/spawnInfo'
 import { inLane } from '../world/ObjectLayer'
 import type { SpawnFloors } from '../session/spawns'
 import { isGuestMap } from '../session/shared.svelte'
-import { copyCreatureRow, copyObjectRow, layerTemplates, type SpawnTemplates } from '../session/spawnTemplates'
+import { copyCreatureRow, copyObjectRow, layerTemplates, lookFromRows, type SpawnTemplates } from '../session/spawnTemplates'
 import { pageColumn } from '../world/objectFields'
 import { copyItems } from '../ui/copyId'
 import { firstKeyOf, pressed } from '../ui/commands'
@@ -329,7 +329,8 @@ export class SpawnActions {
 
 	/**
 	 * Changes fields of the active region's spawn `key` as one undoable step. A creature whose
-	 * display, equipment or pose changes is dressed again by the Go side first.
+	 * display, equipment or pose changes is dressed again by the Go side first (on a guest's session
+	 * map, from the map's rows).
 	 */
 	async editSpawn(key: string, vals: SpawnFields, label: string) {
 		const d = this.host.doc
@@ -337,7 +338,9 @@ export class SpawnActions {
 		if (!s) return
 		let full: SpawnFields
 		try {
-			full = await withLook(s, vals)
+			// A guest's session map dresses it from the map's own rows (#1087): the guest may have no server.
+			const rows = isGuestMap(d.id) ? d.spawnLayer.spawns : null
+			full = await withLook(s, vals, rows ? (display, equipment, stand, emote, sheath) => lookFromRows(rows, s.entry, display, equipment, stand, emote, sheath) : undefined)
 		} catch (err) {
 			setStatus(`Could not dress the spawn: ${err}`, 8000)
 			return

@@ -95,6 +95,27 @@ export function layerTemplates(layer: TemplateLayer): SpawnTemplates {
 	return t
 }
 
+/** The AnimationData loop of each stand state, as Go's `standAnims` (internal/vmangos/looks.go) has it: an emote's pose has none of its own here. */
+const STAND_ANIMS: Record<number, number> = { 1: 97, 2: 102, 3: 100, 4: 102, 5: 103, 6: 104, 7: 6, 8: 115 }
+
+/**
+ * A creature's look on a guest's session map (#1087), read from the map's rows as `SpawnLook` would give it:
+ * the model, look and size of a row with the same display, equipment and sheath state, and the animation of
+ * a row with the same stand and emote state (or the stand state's own loop with no emote). Display 0 is the
+ * template's of `entry`, as a row of it without a display of its own shows. Throws when no row has it, since
+ * a guest has no world database or client tables to dress it from.
+ */
+export function lookFromRows(rows: readonly vmangos.WorldSpawn[], entry: number, display: number, equipment: number, stand: number, emote: number, sheath: number): vmangos.LookResult {
+	const creatures = rows.filter((r) => r.kind !== 'object')
+	if (display === 0) display = creatures.find((r) => r.entry === entry && !r.ownDisplay)?.display ?? 0
+	const dressed = creatures.find((r) => r.display === display && r.equipment === equipment && r.sheathState === sheath)
+	if (!dressed) throw new Error("no spawn on the session's map has that display, equipment and weapons, and a guest dresses only from those")
+	let anim: number | undefined = creatures.find((r) => r.standState === stand && r.emoteState === emote)?.anim
+	if (anim === undefined && emote === 0) anim = STAND_ANIMS[stand] ?? 0
+	if (anim === undefined) throw new Error("no spawn on the session's map plays that emote, and a guest poses only from those")
+	return { model: dressed.model, look: dressed.look, anim, displayScale: dressed.displayScale || 1 }
+}
+
 /** A new creature spawn copying row `s`'s template, look and pose, with guid `guid`, at a point. */
 export function copyCreatureRow(s: vmangos.WorldSpawn, guid: number, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn {
 	const n = newCreatureSpawn(creatureFromRow(s), guid, x, y, z, orientation, { model: s.model, look: s.look, anim: s.anim, displayScale: s.displayScale || 1 })

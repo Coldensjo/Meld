@@ -12,7 +12,7 @@ const { SpawnLayer } = await import('../src/lib/world/SpawnLayer.ts')
 const { History } = await import('../src/lib/state/history.ts')
 const { SpawnActions } = await import('../src/lib/engine/SpawnActions.ts')
 const { shared } = await import('../src/lib/session/shared.svelte.ts')
-const { copyCreatureRow, layerTemplates, templatesOf } = await import('../src/lib/session/spawnTemplates.ts')
+const { copyCreatureRow, layerTemplates, lookFromRows, templatesOf } = await import('../src/lib/session/spawnTemplates.ts')
 const { editor } = await import('../src/lib/state/editor.svelte.ts')
 
 function row(kind: 'monster' | 'npc' | 'object', guid: number, entry: number, extra: Partial<vmangos.WorldSpawn> = {}): vmangos.WorldSpawn {
@@ -144,6 +144,56 @@ test("a guest places a template its session map uses as a copy of the map's row,
 		shared.role = ''
 		shared.docId = 0
 		void go
+		delete (globalThis as Record<string, unknown>).window
+	}
+})
+
+test("a guest dresses a spawn from the session map's rows: the look of one with the same display, equipment and weapons, the animation of one in the same pose", () => {
+	const rows = [
+		row('monster', 1, 50, { look: 'wolf', displayScale: 1.5 }),
+		row('monster', 2, 60, { display: 300, ownDisplay: true, equipment: 4, ownEquipment: true, sheathState: 0, look: 'armed', model: 'm' }),
+		row('monster', 3, 60, { emoteState: 10, anim: 69 }),
+	]
+	assert.deepEqual(lookFromRows(rows, 50, 150, 0, 0, 0, 1), { model: '', look: 'wolf', anim: 0, displayScale: 1.5 })
+	// Display 0 is the template's, from a row of the entry without one of its own; a stand state has its own loop.
+	assert.deepEqual(lookFromRows(rows, 50, 0, 0, 3, 0, 1), { model: '', look: 'wolf', anim: 100, displayScale: 1.5 })
+	// An emote comes from a row playing it.
+	assert.equal(lookFromRows(rows, 60, 300, 4, 0, 10, 0).anim, 69)
+	assert.equal(lookFromRows(rows, 60, 300, 4, 0, 0, 0).look, 'armed')
+	assert.throws(() => lookFromRows(rows, 50, 150, 0, 0, 0, 2), /display, equipment and weapons/)
+	assert.throws(() => lookFromRows(rows, 50, 999, 0, 0, 0, 1), /display, equipment and weapons/)
+	assert.throws(() => lookFromRows(rows, 50, 150, 0, 0, 11, 1), /emote/)
+})
+
+test("a guest's spawn edit of a pose is dressed from the map's rows, with no database read", async () => {
+	const spawnLayer = new SpawnLayer()
+	spawnLayer.set([row('monster', 10, 50, { look: 'wolf' }), row('monster', 11, 50, { look: 'wolf', standState: 1, anim: 97 })])
+	const doc = { id: 3, spawnLayer, history: new History() }
+	const actions = new SpawnActions({
+		documents: [doc] as unknown as MapDocument[],
+		doc: doc as unknown as MapDocument,
+		cameraPos: new THREE.Vector3(),
+		menuSeq: 0,
+		focus: () => {},
+		deselect: () => {},
+		teleport: () => {},
+	})
+	const asked: string[] = []
+	;(globalThis as Record<string, unknown>).window = { go: { main: { App: new Proxy({}, { get: (_, n) => () => (asked.push(String(n)), Promise.reject(new Error('no server'))) }) } } }
+	shared.role = 'guest'
+	shared.docId = 3
+	try {
+		await actions.editSpawn('monster/10', { standState: 3 }, 'Stand state')
+		const s = spawnLayer.get('monster/10')!
+		assert.deepEqual([s.standState, s.anim, s.look], [3, 100, 'wolf'])
+		// A display no row has is refused, and the spawn is left as it was.
+		await actions.editSpawn('monster/10', { display: 999 }, 'Display')
+		assert.equal(spawnLayer.get('monster/10')!.display, 150)
+		assert.deepEqual(asked, [])
+	} finally {
+		editor.selectedSpawn = null
+		shared.role = ''
+		shared.docId = 0
 		delete (globalThis as Record<string, unknown>).window
 	}
 })

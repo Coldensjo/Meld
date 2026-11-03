@@ -60,16 +60,19 @@ export const STAND_STATES = ['Stand', 'Sit', 'Sit in chair', 'Sleep', 'Sit in lo
 /** Sheath states (SheathState), by value. */
 export const SHEATH_STATES = ['Weapons away', 'Melee weapons out', 'Ranged weapon out']
 
+/** Where `withLook` dresses a creature: the `SpawnLook` binding, or on a guest's session map its rows (`lookFromRows`). */
+export type LookSource = (display: number, equipment: number, stand: number, emote: number, sheath: number) => Promise<vmangos.LookResult> | vmangos.LookResult
+
 /**
  * The fields of `vals` plus what follows from them: when a creature's display, equipment or pose
  * changes, its model, look, animation and scale as the Go side dresses it. A display or equipment
  * chosen becomes the creature's own (`ownDisplay`, `ownEquipment`), so a copy pasted before the save
  * keeps it (#985); display 0 is its template's again.
  */
-export async function withLook(s: vmangos.WorldSpawn, vals: SpawnFields): Promise<SpawnFields> {
+export async function withLook(s: vmangos.WorldSpawn, vals: SpawnFields, dress: LookSource = SpawnLook): Promise<SpawnFields> {
 	if (s.kind === 'object' || !LOOK_FIELDS.some((f) => vals[f] !== undefined && vals[f] !== s[f])) return vals
 	const n = { ...s, ...vals }
-	const l = await SpawnLook(n.display, n.equipment, n.standState, n.emoteState, n.sheathState)
+	const l = await dress(n.display, n.equipment, n.standState, n.emoteState, n.sheathState)
 	// The spawn's size is the template's scale times the display's; keep the template's part.
 	const templateScale = s.displayScale > 0 ? s.scale / s.displayScale : s.scale
 	const own: SpawnFields = {}
