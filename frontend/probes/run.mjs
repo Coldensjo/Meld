@@ -196,24 +196,46 @@ function findChrome() {
 	return c.find((p) => p && existsSync(p)) ?? fail('no Chrome found; set CHROME to its path')
 }
 
-/** Other probe runs still alive (their Bun runner or headless Chrome), as 'pid: name' lines. A forgotten run doubles the load and skews every timing (#257). */
+/** Whether a process id is alive (signal 0 only tests; EPERM means it exists). */
+function pidAlive(pid) {
+	try {
+		process.kill(pid, 0)
+		return true
+	} catch (err) {
+		return err.code === 'EPERM'
+	}
+}
+
+/** Other probe runs still alive (their Bun runner or headless Chrome), as 'pid: name' lines. A forgotten run doubles the load and skews every timing (#257). A Chrome or Edge whose profile folder names a runner pid that is gone (`meld-probe-<pid>`, see main) is an orphan nothing drives, and is not a run (#1081): it must not block the page restart. */
 function otherRuns() {
-	const lines = []
+	const procs = []
 	try {
 		if (process.platform === 'win32') {
-			const ps = `Get-CimInstance Win32_Process -Filter "Name='bun.exe' OR Name='node.exe' OR Name='chrome.exe' OR Name='msedge.exe'" | Where-Object { $_.CommandLine -match 'meld-probe-|probes.run.mjs' } | ForEach-Object { "$($_.ProcessId): $($_.Name) $($_.CommandLine.Substring(0, [Math]::Min(80, $_.CommandLine.Length)))" }`
+			const ps = `Get-CimInstance Win32_Process -Filter "Name='bun.exe' OR Name='node.exe' OR Name='chrome.exe' OR Name='msedge.exe'" | Where-Object { $_.CommandLine -match 'meld-probe-|probes.run.mjs' } | ForEach-Object { "$($_.ProcessId)|$($_.Name)|$($_.CommandLine)" }`
 			const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8', timeout: 15000 })
-			lines.push(...(r.stdout ?? '').split(/\r?\n/))
+			for (const l of (r.stdout ?? '').split(/\r?\n/)) {
+				const m = /^(\d+)\|([^|]*)\|(.*)$/.exec(l.trim())
+				if (m) procs.push({ pid: m[1], name: m[2], cmd: m[3] })
+			}
 		} else {
 			const r = spawnSync('ps', ['-eo', 'pid,comm,args'], { encoding: 'utf8', timeout: 15000 })
 			for (const l of (r.stdout ?? '').split('\n')) {
-				if (/meld-probe-|probes\/run\.mjs/.test(l) && !/^\s*\d+\s+(ps|sh|bash)\s/.test(l)) lines.push(l.trim().replace(/^(\d+)\s+(\S+).*/, '$1: $2'))
+				if (/meld-probe-|probes\/run\.mjs/.test(l) && !/^\s*\d+\s+(ps|sh|bash)\s/.test(l)) {
+					const m = /^\s*(\d+)\s+(\S+)\s*(.*)$/.exec(l)
+					if (m) procs.push({ pid: m[1], name: m[2], cmd: m[3] })
+				}
 			}
 		}
 	} catch {
 		/* listing is best effort */
 	}
-	return lines.map((l) => l.trim()).filter((l) => l && !l.startsWith(`${process.pid}:`))
+	return procs
+		.filter((p) => {
+			if (p.pid === String(process.pid)) return false
+			const owner = /chrome|msedge|chromium/i.test(p.name) ? /meld-probe-(\d+)/.exec(p.cmd) : null
+			return !(owner && !pidAlive(Number(owner[1])))
+		})
+		.map((p) => `${p.pid}: ${p.name}`)
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
