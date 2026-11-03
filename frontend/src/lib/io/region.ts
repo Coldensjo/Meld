@@ -1,6 +1,6 @@
 // Blocks of the client's tiles: opening a region or a building, its spawns, growing it, Teleport to
 // destination, the world view and Edit Here, and Restore the Client's Paint.
-import { LoadBuildingMap, LoadBaseRegionPaint, LoadRegion, LoadSpawns, MapEntries } from '../wails/App'
+import { LoadBuildingMap, LoadBaseRegionEffects, LoadBaseRegionPaint, LoadRegion, LoadSpawns, MapEntries } from '../wails/App'
 import { guarded } from './backend'
 import type { Engine } from '../engine/Engine'
 import type { MapDocument, RegionRef } from '../engine/MapDocument'
@@ -180,20 +180,40 @@ export function restoreClientPaint(engine: Engine) {
 }
 
 /**
- * Each chunk's own ground effect per texture in a region view, by its chunk on the client's map, for
- * the tufts where the map has no choice of its own (#1033).
+ * Each chunk's own ground effect per texture in a block's chunks (a region view's, or
+ * LoadBaseRegionEffects'), by its chunk on the client's map, for the tufts where the map has no choice
+ * of its own (#1033). The chunks go over `into`'s, when given, and the rest of `into` stays.
  */
-function clientEffects(view: vmangos.RegionView): ClientEffects {
-	const out: ClientEffects = new Map()
-	for (const c of view.chunks) {
+function clientEffects(x: number, y: number, chunks: vmangos.ChunkView[], into?: ClientEffects | null): ClientEffects {
+	const out: ClientEffects = new Map(into ?? [])
+	for (const c of chunks) {
 		const own: Record<string, number> = {}
 		for (const l of c.layers ?? []) {
 			const key = l.texture.toLowerCase()
 			if (!(key in own)) own[key] = l.effect
 		}
-		out.set(clientChunkKey(view.x * TILE_CHUNKS + c.indexX, view.y * TILE_CHUNKS + c.indexY), own)
+		out.set(clientChunkKey(x * TILE_CHUNKS + c.indexX, y * TILE_CHUNKS + c.indexY), own)
 	}
 	return out
+}
+
+/**
+ * Reads the ground effects of region `d`'s chunks as the client has them without Meld's patch, the
+ * ones its compile keeps (#1056), into its tufts: a region opened from a file has none of its own, and
+ * one opened from the client read them from Meld's patch, which a compile before #1033 left with each
+ * texture's usual effect. A tile only the patch has keeps what it had; without a client, nothing changes.
+ */
+export async function loadClientEffects(engine: Engine, d: MapDocument) {
+	const r = d.meta.region
+	if (!r || r.wmoOnly) return
+	try {
+		const chunks = await LoadBaseRegionEffects(r.mapName, r.x, r.y, r.size)
+		// The tab may have closed, or become another block, while the client was read.
+		if (d.meta.region !== r || !engine.documents.includes(d)) return
+		d.clientEffects = clientEffects(r.x, r.y, chunks, d.clientEffects)
+	} catch (err) {
+		console.warn("the client chunks' own ground effects not read", err)
+	}
 }
 
 /** Opens a block read from the client (LoadRegion, LoadBuildingMap) in a new tab, then its spawns. */
@@ -247,7 +267,8 @@ async function openRegionView(engine: Engine, view: vmangos.RegionView) {
 		setStatus(`${mapName} ${x}_${y} ${size}×${size} is already open.`)
 		return
 	}
-	d.clientEffects = clientEffects(view)
+	d.clientEffects = clientEffects(x, y, view.chunks)
+	void loadClientEffects(engine, d)
 	const notes = paint.dropped ? [`${paint.dropped} extra layers left out (a chunk takes four)`] : []
 	setStatus(
 		view.wmoOnly

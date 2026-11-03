@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -282,51 +283,95 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 // and a region read from the patch keeps them so. The view has Chunks and Alpha only, in ReadRegion's
 // order; a WMO-only map, or a tile only Meld's patch has (a new map), is an error.
 func ReadBaseRegionPaint(dataDir, mapName string, x, y, size int) (*RegionView, error) {
-	if err := checkRegion(x, y, size); err != nil {
+	view := &RegionView{MapName: mapName, X: x, Y: y, Size: size, Chunks: []ChunkView{}, Objects: []ObjectView{}, Liquids: []adt.Liquid{}}
+	err := eachBaseTile(dataDir, mapName, x, y, size, false, func(i, j int, terrain *adt.Terrain, textures *adt.Textures) {
+		for k, c := range terrain.Chunks {
+			cv := ChunkView{IndexX: c.IndexX + i*adt.ChunksPerTile, IndexY: c.IndexY + j*adt.ChunksPerTile, AreaID: c.AreaID}
+			for l, layer := range textures.Chunks[k].Layers {
+				cv.Layers = append(cv.Layers, LayerView{Texture: layer.Texture, Effect: layer.Effect})
+				if l > 0 {
+					view.Alpha = append(view.Alpha, textures.Chunks[k].Alpha[l-1]...)
+				}
+			}
+			view.Chunks = append(view.Chunks, cv)
+		}
+	})
+	if err != nil {
 		return nil, err
+	}
+	return view, nil
+}
+
+// ReadBaseRegionEffects reads the texture layers of the block's chunks as the client has them without
+// Meld's patch, for the ground effect each chunk's own layers give a texture: the effect a compile keeps
+// for a layer that has no choice of the map (adt.Layer.OwnEffect, #1056). Each chunk has its index
+// across the block and its layers (texture and effect) only. A tile only Meld's patch has (a new map)
+// is left out, and a WMO-only map has no chunks.
+func ReadBaseRegionEffects(dataDir, mapName string, x, y, size int) ([]ChunkView, error) {
+	chunks := []ChunkView{}
+	err := eachBaseTile(dataDir, mapName, x, y, size, true, func(i, j int, terrain *adt.Terrain, textures *adt.Textures) {
+		for k, c := range terrain.Chunks {
+			cv := ChunkView{IndexX: c.IndexX + i*adt.ChunksPerTile, IndexY: c.IndexY + j*adt.ChunksPerTile}
+			for _, layer := range textures.Chunks[k].Layers {
+				cv.Layers = append(cv.Layers, LayerView{Texture: layer.Texture, Effect: layer.Effect})
+			}
+			chunks = append(chunks, cv)
+		}
+	})
+	if errors.Is(err, errNoGround) {
+		return chunks, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return chunks, nil
+}
+
+// errNoGround is eachBaseTile's error for a WMO-only map.
+var errNoGround = errors.New("a single building with no ground to paint")
+
+// eachBaseTile parses the terrain and texture layers of each of the block's tiles as the client has
+// them without Meld's patch, row by row as ReadRegion orders them, and hands each to fn with its place
+// (i, j) in the block. A tile only Meld's patch has is an error, or skipped with skipMissing.
+func eachBaseTile(dataDir, mapName string, x, y, size int, skipMissing bool, fn func(i, j int, terrain *adt.Terrain, textures *adt.Textures)) error {
+	if err := checkRegion(x, y, size); err != nil {
+		return err
 	}
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer set.Close()
 	wdt, err := set.ReadFile(fmt.Sprintf(`World\Maps\%s\%s.wdt`, mapName, mapName))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !wdtHasTiles(wdt) {
-		return nil, fmt.Errorf("%s is a single building with no ground to paint", mapName)
+		return fmt.Errorf("%s is %w", mapName, errNoGround)
 	}
 	bigAlpha := adt.ReadBigAlpha(wdt)
-	view := &RegionView{MapName: mapName, X: x, Y: y, Size: size, Chunks: []ChunkView{}, Objects: []ObjectView{}, Liquids: []adt.Liquid{}}
 	for j := 0; j < size; j++ {
 		for i := 0; i < size; i++ {
 			tx, ty := x+i, y+j
 			root, err := readUnpatched(set, adt.TilePath(mapName, tx, ty, ""))
 			if err != nil {
-				return nil, fmt.Errorf("tile %d_%d is not in the client without Meld's patch: %w", tx, ty, err)
+				if skipMissing && errors.Is(err, mpq.ErrNotFound) {
+					continue
+				}
+				return fmt.Errorf("tile %d_%d is not in the client without Meld's patch: %w", tx, ty, err)
 			}
 			terrain, err := adt.ParseTerrain(root)
 			if err != nil {
-				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+				return fmt.Errorf("tile %d_%d: %w", tx, ty, err)
 			}
 			textures, err := adt.ParseTextures(root, bigAlpha, terrain)
 			if err != nil {
-				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+				return fmt.Errorf("tile %d_%d: %w", tx, ty, err)
 			}
-			for k, c := range terrain.Chunks {
-				cv := ChunkView{IndexX: c.IndexX + i*adt.ChunksPerTile, IndexY: c.IndexY + j*adt.ChunksPerTile, AreaID: c.AreaID}
-				for l, layer := range textures.Chunks[k].Layers {
-					cv.Layers = append(cv.Layers, LayerView{Texture: layer.Texture, Effect: layer.Effect})
-					if l > 0 {
-						view.Alpha = append(view.Alpha, textures.Chunks[k].Alpha[l-1]...)
-					}
-				}
-				view.Chunks = append(view.Chunks, cv)
-			}
+			fn(i, j, terrain, textures)
 		}
 	}
-	return view, nil
+	return nil
 }
 
 // objectView converts a placement in a file to the block's coordinates (the block starts at tile

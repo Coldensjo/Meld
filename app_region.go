@@ -79,6 +79,18 @@ func (a *App) LoadBaseRegionPaint(mapName string, x, y, size int) (*vmangos.Regi
 	return a.handOffAlpha(vmangos.ReadBaseRegionPaint(dataDir, mapName, x, y, size))
 }
 
+// LoadBaseRegionEffects reads the ground effect each chunk's own layers give a texture in a block, as
+// the client has them without Meld's patch: the ones a compile keeps (#1056), for the tufts of a
+// region opened from a file, or from the client after an earlier compile. Each chunk has its index
+// across the block and its layers only; a tile only Meld's patch has is left out.
+func (a *App) LoadBaseRegionEffects(mapName string, x, y, size int) ([]vmangos.ChunkView, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadBaseRegionEffects(dataDir, mapName, x, y, size)
+}
+
 // handOffAlpha puts a region view's alpha maps in the handoffs for the page to fetch (AlphaURL),
 // since in the reply's JSON they were most of its size (#636).
 func (a *App) handOffAlpha(view *vmangos.RegionView, err error) (*vmangos.RegionView, error) {

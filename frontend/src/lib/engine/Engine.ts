@@ -173,7 +173,7 @@ import { GroundOverlayView } from '../world/groundOverlay'
 import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
-import { teleportTo } from '../io/region'
+import { loadClientEffects, teleportTo } from '../io/region'
 import { openInBlender, opensInBlender } from '../io/blender'
 import { SpawnActions } from './SpawnActions'
 import type { SpawnFloors } from '../session/spawns'
@@ -4034,6 +4034,8 @@ export class Engine {
 			throw e
 		}
 		this.addDocument(d, replace)
+		// A region's file holds no client chunk effects: its tufts read them from the client, as its compile keeps them (#1056).
+		if (d.meta.region) void loadClientEffects(this, d)
 	}
 
 	/** The part of openDocument that can throw: fills the new document `d` from the snapshot. */

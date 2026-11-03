@@ -144,6 +144,7 @@ export const ListScripts: NonNullCall<AppApi['ListScripts']> = (...a) => api().L
 export const ListSpells: Call<AppApi['ListSpells']> = (...a) => api().ListSpells(...a) as never
 export const ListVisualEffects: NonNullCall<AppApi['ListVisualEffects']> = (...a) => api().ListVisualEffects(...a) as never
 export const ListWeapons: NonNullCall<AppApi['ListWeapons']> = (...a) => api().ListWeapons(...a) as never
+export const LoadBaseRegionEffects: NonNullCall<AppApi['LoadBaseRegionEffects']> = (...a) => api().LoadBaseRegionEffects(...a) as never
 export const LoadBaseRegionPaint: NonNullCall<AppApi['LoadBaseRegionPaint']> = (...a) => api().LoadBaseRegionPaint(...a) as never
 export const LoadBuildingMap: NonNullCall<AppApi['LoadBuildingMap']> = (...a) => api().LoadBuildingMap(...a) as never
 export const LoadMap: NonNullCall<AppApi['LoadMap']> = (...a) => api().LoadMap(...a) as never

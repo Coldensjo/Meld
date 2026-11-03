@@ -167,9 +167,10 @@ export class MapDocument {
 	 */
 	chunkDataKnown = true
 	/**
-	 * Each client chunk's own ground effect per texture, as the region's tiles had it when it opened
-	 * from the client (#1033); null for a map of its own or a region opened from a file. The tufts show
-	 * those where the map has no choice of its own, as the compile keeps them.
+	 * Each client chunk's own ground effect per texture, as the region's tiles have it in the client
+	 * without Meld's patch (#1033, #1056: read after the tab opens, from the client or a file,
+	 * `loadClientEffects`); null for a map of its own, or until read. The tufts show those where the map
+	 * has no choice of its own, as the compile keeps them.
 	 */
 	clientEffects: ClientEffects | null = null
 	/**

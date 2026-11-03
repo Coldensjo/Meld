@@ -492,6 +492,44 @@ func TestBaseRegionPaintSkipsMeldsPatch(t *testing.T) {
 	}
 }
 
+// TestBaseRegionEffectsAreBasePaints reads a 2x2 block's chunk effects without Meld's patch: each
+// chunk's layers must be ReadBaseRegionPaint's, with no area or alpha, for the tufts of a region
+// opened from a file (#1056); a WMO-only map has none. It needs WOW_DIR set to the client.
+func TestBaseRegionEffectsAreBasePaints(t *testing.T) {
+	dir := testclient.DataDir(t)
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const x, y, size = 32, 48, 2
+	paint, err := ReadBaseRegionPaint(dataDir, "Azeroth", x, y, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks, err := ReadBaseRegionEffects(dataDir, "Azeroth", x, y, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != len(paint.Chunks) {
+		t.Fatalf("%d chunks, the paint has %d", len(chunks), len(paint.Chunks))
+	}
+	for k, want := range paint.Chunks {
+		got := chunks[k]
+		if got.IndexX != want.IndexX || got.IndexY != want.IndexY || got.AreaID != 0 || len(got.Layers) != len(want.Layers) {
+			t.Fatalf("chunk %d: %d,%d area %d with %d layers, the paint has %d,%d with %d", k, got.IndexX, got.IndexY, got.AreaID, len(got.Layers), want.IndexX, want.IndexY, len(want.Layers))
+		}
+		for l := range want.Layers {
+			if got.Layers[l] != want.Layers[l] {
+				t.Fatalf("chunk %d layer %d: %+v, the paint has %+v", k, l, got.Layers[l], want.Layers[l])
+			}
+		}
+	}
+	none, err := ReadBaseRegionEffects(dataDir, "DeeprunTram", 0, 0, 1)
+	if err != nil || len(none) != 0 {
+		t.Fatalf("a building's map gave %d chunks, %v; want none", len(none), err)
+	}
+}
+
 // TestRegionUnpaintedChunksKeepClientAlpha sends every chunk of a real tile back with the weights the
 // editor reads from it (ClientWeights, which tileImport.test.ts pins to tilePaint), as Compile does:
 // the tile must come out as the same save without paint writes it, byte for byte, where before #526

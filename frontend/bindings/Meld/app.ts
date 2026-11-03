@@ -1010,6 +1010,16 @@ export function ListWeapons(): $CancellablePromise<vmangos$0.WeaponEntry[] | nul
 }
 
 /**
+ * LoadBaseRegionEffects reads the ground effect each chunk's own layers give a texture in a block, as
+ * the client has them without Meld's patch: the ones a compile keeps (#1056), for the tufts of a
+ * region opened from a file, or from the client after an earlier compile. Each chunk has its index
+ * across the block and its layers only; a tile only Meld's patch has is left out.
+ */
+export function LoadBaseRegionEffects(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.ChunkView[] | null> {
+    return $Call.ByID(1714132758, mapName, x, y, size);
+}
+
+/**
  * LoadBaseRegionPaint reads a block's texture layers and alpha maps as the client has them without
  * Meld's patch, for Restore the Client's Paint (#645). Only the view's chunks and alphaUrl are set.
  */
