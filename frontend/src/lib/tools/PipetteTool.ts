@@ -1,6 +1,8 @@
 import type * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
-import { editor, setStatus, ui } from '../state/editor.svelte'
+import { docs, editor, setStatus, ui } from '../state/editor.svelte'
+import { isGuestMap } from '../session/shared.svelte'
+import { templatesOf } from '../session/spawnTemplates'
 import { displayName } from '../models/assets'
 import type { WorldObject } from '../world/ObjectLayer'
 import { layerAt } from './BrushTool'
@@ -47,19 +49,21 @@ export function pickModel(o: WorldObject) {
 
 /**
  * Makes a spawn's template (creature or game object) what the Place tool puts down next, from the
- * browser's lists, and shows it in the browser (Alt+click on a creature or object of the region).
+ * browser's lists, and shows it in the browser (Alt+click on a creature or object of the region). On a
+ * guest's session map, from the templates its rows use (#1050), as the browser lists them there.
  */
 export async function pickSpawn(s: vmangos.WorldSpawn) {
+	const guest = isGuestMap(docs.active) ? templatesOf(editor.spawns) : null
 	try {
 		if (s.kind === 'object') {
-			const t = (await loadObjectTemplates()).find((x) => x.entry === s.entry)
+			const t = (guest?.objects ?? (await loadObjectTemplates())).find((x) => x.entry === s.entry)
 			if (!t) return setStatus(`Object ${s.entry} is not in the world database's templates.`, 4000)
 			ui.placeObject = t
 			ui.placeCreature = null
 			editor.prefab = spawnType({ model: t.model })
 			revealAsset(objectKey(t))
 		} else {
-			const t = (await loadCreatureTemplates()).find((x) => x.entry === s.entry)
+			const t = (guest?.creatures ?? (await loadCreatureTemplates())).find((x) => x.entry === s.entry)
 			if (!t) return setStatus(`Creature ${s.entry} is not in the world database's templates.`, 4000)
 			ui.placeCreature = t
 			ui.placeObject = null

@@ -55,7 +55,9 @@
 	import PaletteTile from './PaletteTile.svelte'
 	import VirtualGrid from './VirtualGrid.svelte'
 	import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
-	import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { docs, editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { isGuestMap } from '../lib/session/shared.svelte'
+	import { templatesOf } from '../lib/session/spawnTemplates'
 	import { entryFrom } from '../lib/tools/spawnBrush'
 	import type { SearchItem } from '../lib/wow/search'
 	import { onDestroy, tick, untrack } from 'svelte'
@@ -81,8 +83,19 @@
 	let objects = $state<vmangos.ObjectTemplate[]>([])
 	let error = $state('')
 	let loading = $state(true)
+	/**
+	 * On a guest's session map (#1050) the tabs list the templates its rows use, which the guest places
+	 * copies of: a guest needs no world database of its own, and the host's may not hold another's.
+	 */
+	const guest = $derived(isGuestMap(docs.active) ? templatesOf(editor.spawns) : null)
 	$effect(() => {
+		if (guest) {
+			loading = false
+			error = ''
+			return
+		}
 		loading = true
+		error = ''
 		const p = kind === 'object' ? loadObjectTemplates().then((o) => (objects = o)) : loadCreatureTemplates().then((c) => (creatures = c))
 		p.catch((err) => (error = String(err))).finally(() => (loading = false))
 	})
@@ -104,7 +117,7 @@
 
 	const all = $derived.by((): Tile[] => {
 		if (kind === 'object') {
-			return objects
+			return (guest?.objects ?? objects)
 				.filter((t) => t.model)
 				.map((t) => ({
 					key: objectKey(t),
@@ -119,7 +132,7 @@
 				}))
 		}
 		const npc = kind === 'npc'
-		return creatures
+		return (guest?.creatures ?? creatures)
 			.filter((t) => t.model && (t.npcFlags !== 0) === npc)
 			.map((t) => ({
 				key: creatureKey(t),
@@ -280,7 +293,7 @@
 			{:else if loading}
 				<p class="hint">Reading the world database…</p>
 			{:else if !items.length}
-				<p class="hint">Nothing matches.</p>
+				<p class="hint">{guest && !all.length ? `No ${kind === 'object' ? 'game objects' : kind === 'npc' ? 'NPCs' : 'creatures'} are on the session's map yet: a guest places what the host's spawns use.` : 'Nothing matches.'}</p>
 			{:else}
 				<VirtualGrid {items} {win} {cols} {tile} gap={GAP} {rowH} key={(t) => t.key}>
 					{#snippet cell(t: Tile)}

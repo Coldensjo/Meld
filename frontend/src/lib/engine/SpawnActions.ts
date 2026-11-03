@@ -10,6 +10,8 @@ import type { SpawnIds } from '../world/clipSpawns'
 import { spawnType } from '../world/spawnInfo'
 import { inLane } from '../world/ObjectLayer'
 import type { SpawnFloors } from '../session/spawns'
+import { isGuestMap } from '../session/shared.svelte'
+import { copyCreatureRow, copyObjectRow, layerTemplates, type SpawnTemplates } from '../session/spawnTemplates'
 import { pageColumn } from '../world/objectFields'
 import { copyItems } from '../ui/copyId'
 import { firstKeyOf, pressed } from '../ui/commands'
@@ -20,6 +22,9 @@ import { creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spaw
 
 /** The most Teleport items a spawn's menu lists (#308); a boss with many blink spots would fill the screen. */
 const MAX_TELEPORT_ITEMS = 10
+
+/** Why a guest can't place template `name` (#1050): its session map has no spawn of it to copy. */
+const notOnSessionMap = (name: string) => `No ${name} is on the session's map to copy; a guest places only what the host's spawns use.`
 
 /** The two guid ranges of the world database: `creature.guid` and `gameobject.guid`. */
 export type SpawnKind = 'creature' | 'object'
@@ -343,8 +348,19 @@ export class SpawnActions {
 		if (cmd) d.history.push(cmd)
 	}
 
-	/** The spawn brush's look for a template: its result, or null while it is read (asked for then). */
+	/**
+	 * The templates of the active tab's rows when it is a guest's session map (#1050), which a new spawn
+	 * there copies instead of reading a world database the guest may not have; null on any other tab.
+	 */
+	private guestTemplates(): SpawnTemplates | null {
+		const d = this.host.doc
+		return isGuestMap(d.id) ? layerTemplates(d.spawnLayer) : null
+	}
+
+	/** The spawn brush's look for a template: its result, or null while it is read (asked for then). On a guest's session map, the look of the map's row of that entry; null when it has none. */
 	brushLook(e: SpawnBrushEntry): vmangos.LookResult | null {
+		const guest = this.guestTemplates()
+		if (guest) return guest.creatureLook.get(e.entry) ?? null
 		const key = `${e.display}|${e.equipment}`
 		if (this.brushLooks.has(key)) return this.brushLooks.get(key) ?? null
 		this.brushLooks.set(key, null)
@@ -363,6 +379,15 @@ export class SpawnActions {
 	 * (the brush can't await), hence `guidReading`.
 	 */
 	brushCreature(e: SpawnBrushEntry, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn | null {
+		const guest = this.guestTemplates()
+		if (guest) {
+			const row = guest.creatureRow.get(e.entry)
+			if (!row) {
+				setStatus(notOnSessionMap(e.name), 4000)
+				return null
+			}
+			return copyCreatureRow(row, this.takeGuid('creature', 0), x, y, z, orientation)
+		}
 		const look = this.brushLook(e)
 		if (!this.next.creature) {
 			if (!this.guidReading) {
@@ -386,6 +411,14 @@ export class SpawnActions {
 
 	/** Spawns a game object template at a point, facing the camera (or turned `rotY`), as one undo step. */
 	placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3, rotY?: number) {
+		const guest = this.guestTemplates()
+		if (guest) {
+			const row = guest.objectRow.get(t.entry)
+			return this.place(t.name, async () => {
+				if (!row) throw new Error(notOnSessionMap(t.name))
+				return copyObjectRow(row, this.takeGuid('object', 0), at.x, at.y, at.z, this.facing(at, rotY))
+			})
+		}
 		return this.place(t.name, async () => {
 			const guid = this.takeGuid('object', await this.dbGuid('object'))
 			return newObjectSpawn(t, guid, at.x, at.y, at.z, this.facing(at, rotY))
@@ -395,9 +428,18 @@ export class SpawnActions {
 	/**
 	 * Spawns creature template `t` at `at` in the active region, facing the camera (or turned `rotY`),
 	 * as one undoable step, and selects it. Its guid is above every creature guid of the world database
-	 * and of every open region, so creatures placed in different tabs never share one.
+	 * and of every open region, so creatures placed in different tabs never share one. On a guest's
+	 * session map (#1050) it copies the map's row of that entry, its look included, and reads no database.
 	 */
 	placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3, rotY?: number) {
+		const guest = this.guestTemplates()
+		if (guest) {
+			const row = guest.creatureRow.get(t.entry)
+			return this.place(t.name, async () => {
+				if (!row) throw new Error(notOnSessionMap(t.name))
+				return copyCreatureRow(row, this.takeGuid('creature', 0), at.x, at.y, at.z, this.facing(at, rotY))
+			})
+		}
 		return this.place(t.name, async () => {
 			const [dbNext, look] = await Promise.all([this.dbGuid('creature'), SpawnLook(t.display, t.equipment, 0, 0, 1)])
 			return newCreatureSpawn(t, this.takeGuid('creature', dbNext), at.x, at.y, at.z, this.facing(at, rotY), look)
