@@ -92,7 +92,7 @@ export async function runImport(
 	}
 }
 
-/** What an import brings that the templates name by ID (#991: loot, gossip menus, spell lists…), as the plan bar says it: the sets it writes under new IDs, then those this server holds the same already. */
+/** What an import brings that the templates name by ID (#991: loot, gossip menus, spell lists…), as the plan bar says it: the sets it writes under new IDs, then those this server holds the same already (under another ID where it holds a copy, such as an earlier import of the script wrote, #1043). */
 export function carriedText(sets: vmangos.CarriedImport[]): string {
 	const fresh = sets.filter((s) => !s.same)
 	const kept = sets.filter((s) => s.same)
@@ -103,7 +103,7 @@ export function carriedText(sets: vmangos.CarriedImport[]): string {
 		parts.push(`Writes what they name by ID under new IDs, since this server holds other rows under theirs (its other templates keep those): ${list.join('; ')}${more(fresh.length)}.`)
 	}
 	if (kept.length) {
-		const list = kept.slice(0, 8).map((s) => `${s.what} ${s.id}`)
+		const list = kept.slice(0, 8).map((s) => (s.to === s.id ? `${s.what} ${s.id}` : `${s.what} ${s.id} (here ${s.to})`))
 		parts.push(`Already here the same, left as they are: ${list.join('; ')}${more(kept.length)}.`)
 	}
 	return parts.join(' ')

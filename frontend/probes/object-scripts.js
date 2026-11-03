@@ -1,5 +1,5 @@
 // The game object editor's Export… and Import… (#939): on the Battered Chest (2843), Export… hands the binding the object's entry and name and notes where it wrote; Import… shows the plan's bar (the template rows, the quest lists it replaces, the contents and pages it writes under new IDs and those the server holds the same (#991, #992), the items the server lacks) and Cancel drops it; a confirmed import notes the object and reads the open one's contents again. The dialogs and the writes are stand-ins, so nothing is written (the SQL itself is Go's: TestObjectScriptRoundTrip, TestObjectsLive).
-// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/objectscripts.go, internal/vmangos/carried.go, internal/vmangos/listscripts.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/lib/ui/templateIo.ts, internal/vmangos/objectscripts.go, internal/vmangos/carried.go, internal/vmangos/carriedmatch.go, internal/vmangos/listscripts.go, internal/vmangos/sqlscript.go, internal/vmangos/sqlparse.go
 const { ui } = await P.state()
 const App = window.go.main.App
 P.e.newDocument(256, 'flat', 0, 'Probe')

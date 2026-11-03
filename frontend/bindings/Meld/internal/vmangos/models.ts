@@ -235,7 +235,8 @@ export interface CarriedImport {
     "rows": number;
 
     /**
-     * Same: this server holds the same rows under ID already, so importing leaves them as they are.
+     * Same: this server holds the same rows under To already (ID, or another ID holding a copy, #1043),
+     * so importing leaves them as they are.
      */
     "same": boolean;
 }

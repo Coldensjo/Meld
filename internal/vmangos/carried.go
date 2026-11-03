@@ -2,7 +2,6 @@ package vmangos
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,10 +17,11 @@ import (
 // set, so it travels as a set of its own: the export writes each set's rows after the templates,
 // keyed by their IDs and cleared first, so the script run on a server alone puts them back by ID as
 // they were. Import doesn't write over a set of the destination, which other templates there may
-// name (the owner's choice, B in #991): a set the destination holds with the same rows under the same
-// ID, naming sets that are the same too, is left as it is; any other gets a fresh ID there (the
-// table's largest plus one), and the templates' columns and the other sets' references are rewritten
-// to the IDs they came to, as the spell editor's import does for icons and visuals (spelllooks.go).
+// name (the owner's choice, B in #991): a set the destination holds with the same rows, naming sets
+// that are the same too, is left as it is, under its own ID or any other holding a copy (#1043,
+// carriedmatch.go); any other gets a fresh ID there (the table's largest plus one), and the
+// templates' columns and the other sets' references are rewritten to the IDs they came to, as the
+// spell editor's import does for icons and visuals (spelllooks.go).
 // The conditions, scripts and points of interest the rows name stay IDs, not in the script, as do
 // the creatures, objects, spells and the like a script's commands name (the quest import's plan
 // lists those the server lacks, #1045).
@@ -182,6 +182,9 @@ type carriedSource interface {
 	rows(t carriedTable, cols []TemplateColumn, ids []int) ([]batchRow, error)
 	// maxID is the largest ID of a table's id column, 0 for an empty table.
 	maxID(t carriedTable) (int, error)
+	// find gives for each query the IDs of the table's sets that may hold its rows, lowest first
+	// (carriedmatch.go).
+	find(t carriedTable, qs []carriedFind) ([][]int, error)
 }
 
 // dbSource is a carriedSource on a world database.
@@ -387,8 +390,8 @@ type importSet struct {
 	kind *carriedKind
 	id   int
 	rows [][]sqlRow
-	// same: the destination holds the same rows under id, naming sets that are the same too, so
-	// importing leaves them as they are; to is the ID the set comes to (id when same).
+	// same: the destination holds the same rows under to (id, or another ID holding a copy), naming
+	// sets that are the same too, so importing leaves them as they are; to is the ID the set comes to.
 	same bool
 	to   int
 }
@@ -574,121 +577,6 @@ func canonical(cols []TemplateColumn, named map[string]bool, value func(i int, c
 	return b.String()
 }
 
-// resolve works out the ID each set comes to on the destination: its own where the destination holds
-// the same rows there and the sets they name are the same too, else a fresh one past the table's
-// largest.
-func (p *carriedPlan) resolve(src carriedSource) error {
-	for _, k := range carriedKinds {
-		var ids []int
-		for _, s := range p.sets {
-			if s.kind.key == k.key {
-				ids = append(ids, s.id)
-			}
-		}
-		if len(ids) == 0 {
-			continue
-		}
-		for _, s := range p.by[k.key] {
-			s.same = true
-		}
-		for ti, t := range k.tables {
-			tc, err := src.columns(t.name)
-			if err != nil {
-				return err
-			}
-			named := map[string]bool{}
-			for _, id := range ids {
-				for _, r := range p.by[k.key][id].rows[ti] {
-					for n := range r.values {
-						named[n] = true
-					}
-				}
-			}
-			named[t.id] = true
-			rs, err := src.rows(t, tc, ids)
-			if err != nil {
-				return err
-			}
-			ci := columnIndex(tc, t.id)
-			if ci < 0 {
-				return fmt.Errorf("%s has no %s column", t.name, t.id)
-			}
-			have := map[int][]string{}
-			for _, f := range rs {
-				n, _ := strconv.Atoi(f[ci])
-				have[n] = append(have[n], canonical(tc, named, func(i int, c TemplateColumn) (string, bool, bool) {
-					return f[i], f[i] == "NULL" && c.Nullable, true
-				}))
-			}
-			for _, id := range ids {
-				s := p.by[k.key][id]
-				var mine []string
-				for _, r := range s.rows[ti] {
-					mine = append(mine, canonical(tc, named, func(_ int, c TemplateColumn) (string, bool, bool) {
-						v, ok := r.values[c.Name]
-						return v, r.null[c.Name], ok
-					}))
-				}
-				theirs := have[id]
-				sort.Strings(mine)
-				sort.Strings(theirs)
-				if !slices.Equal(mine, theirs) {
-					s.same = false
-				}
-			}
-		}
-	}
-	// A set naming a set that moves holds other values than the destination's, so it moves too.
-	for changed := true; changed; {
-		changed = false
-		for _, s := range p.sets {
-			if !s.same {
-				continue
-			}
-			s.eachRef(func(ref carriedRef, _ sqlRow, id int) {
-				if t := p.by[ref.kind][id]; t != nil && !t.same && s.same {
-					s.same = false
-					changed = true
-				}
-			})
-		}
-	}
-	for _, k := range carriedKinds {
-		next, limit := 0, int64(0)
-		for _, s := range p.sets {
-			if s.kind.key != k.key {
-				continue
-			}
-			if s.same {
-				s.to = s.id
-				continue
-			}
-			if next == 0 {
-				for _, t := range k.tables {
-					n, err := src.maxID(t)
-					if err != nil {
-						return err
-					}
-					next = max(next, n+1)
-					tc, err := src.columns(t.name)
-					if err != nil {
-						return err
-					}
-					if ci := columnIndex(tc, t.id); ci >= 0 && tc[ci].Max > 0 && (limit == 0 || tc[ci].Max < limit) {
-						limit = tc[ci].Max
-					}
-				}
-			}
-			if limit > 0 && int64(next) > limit {
-				return fmt.Errorf("%s %d: this server has no free ID for it (%s holds up to %d)", k.what, s.id, k.tables[0].name, limit)
-			}
-			s.to = next
-			next++
-		}
-	}
-	return nil
-}
-
 // rewrite sets the template rows' columns that name a carried set to the IDs the sets come to.
 func (p *carriedPlan) rewrite(roots []rootRef, template []sqlRow) {
 	for _, r := range template {
@@ -815,7 +703,8 @@ type CarriedImport struct {
 	ID    int    `json:"id"`
 	To    int    `json:"to"`
 	Rows  int    `json:"rows"`
-	// Same: this server holds the same rows under ID already, so importing leaves them as they are.
+	// Same: this server holds the same rows under To already (ID, or another ID holding a copy, #1043),
+	// so importing leaves them as they are.
 	Same bool `json:"same"`
 }
 

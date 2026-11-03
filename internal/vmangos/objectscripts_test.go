@@ -247,4 +247,5 @@ func TestObjectsLive(t *testing.T) {
 	if !loot || !pages[245] || !pages[2654] || len(pages) < 3 {
 		t.Fatalf("carried %+v", plan.Carried)
 	}
+	foundElsewhere(t, dir, objectScript, script, objectRoots)
 }

@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,6 +51,43 @@ func (f *fakeSource) maxID(t carriedTable) (int, error) {
 		top = max(top, n)
 	}
 	return top, nil
+}
+
+func (f *fakeSource) find(t carriedTable, qs []carriedFind) ([][]int, error) {
+	cols, err := f.columns(t.name)
+	if err != nil {
+		return nil, err
+	}
+	ci := columnIndex(cols, t.id)
+	by := map[int][]batchRow{}
+	for _, r := range f.data[t.name] {
+		n, _ := strconv.Atoi(r[ci])
+		by[n] = append(by[n], r)
+	}
+	out := make([][]int, len(qs))
+	for k, q := range qs {
+		for id, rs := range by {
+			if len(rs) != q.n {
+				continue
+			}
+			for _, r := range rs {
+				hit := true
+				for _, v := range q.vals {
+					i := columnIndex(cols, v.col.Name)
+					if got, err := importValue(cols[i], r[i], r[i] == "NULL" && cols[i].Nullable); err != nil || (v.in == nil && got != v.text) || (v.in != nil && !slices.Contains(v.in, got)) {
+						hit = false
+						break
+					}
+				}
+				if hit {
+					out[k] = append(out[k], id)
+					break
+				}
+			}
+		}
+		sort.Ints(out[k])
+	}
+	return out, nil
 }
 
 func carriedTestCols() map[string][]TemplateColumn {
@@ -192,6 +230,64 @@ func TestCarriedSets(t *testing.T) {
 	}
 	if strings.Contains(sql, "(500,") || strings.Contains(sql, "(600,") || strings.Contains(sql, "(90,") {
 		t.Errorf("wrote over a set of the server:\n%s", sql)
+	}
+
+	// The same script again on that server once the first import wrote it (#1043): every set is found
+	// under the ID it came to, the menus' loop as one unit, and nothing is written. A list it already
+	// held the same under another ID (equipment 8 here) is found too.
+	copied := &fakeSource{cols: other.cols, data: map[string][]batchRow{}}
+	for k, v := range other.data {
+		copied.data[k] = append([]batchRow{}, v...)
+	}
+	for table, rs := range map[string][]batchRow{
+		"creature_loot_template":  {{"701", "2589", "50", "0", "1", "3"}, {"701", "0", "100", "0", "-651", "1"}},
+		"reference_loot_template": {{"651", "12000", "100", "0", "1", "1"}},
+		"creature_equip_template": {{"8", "1899", "0", "0"}},
+		"gossip_menu":             {{"72", "81"}, {"73", "81"}},
+		"gossip_menu_option":      {{"72", "0", "Tell me more.", "0", "73"}, {"72", "1", "NULL", "0", "-1"}, {"73", "0", "Back", "96", "72"}},
+		"npc_text":                {{"81", "96", "1"}},
+		"broadcast_text":          {{"96", "Well met, it's \"you\"."}},
+	} {
+		copied.data[table] = append(copied.data[table], rs...)
+	}
+	tmpl, _ = planScript(creatureScript, script, order)
+	p, err = planCarried(copied, script, creatureRoots, tmpl.rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range p.imports() {
+		if !s.Same || s.To != want[fmt.Sprintf("%s %d", s.What, s.ID)] {
+			t.Errorf("again: %+v", s)
+		}
+	}
+	if sql, err := p.sql(copied); sql != "" || err != nil {
+		t.Fatalf("again it writes %q, %v", sql, err)
+	}
+	if r := tmpl.rows[0].values; r["loot_id"] != "701" || r["gossip_menu_id"] != "72" || r["equipment_id"] != "8" {
+		t.Fatalf("again, template %v", r)
+	}
+	// A copy of the loop whose second menu's option says something else isn't the loop: both menus move
+	// past it, while the text and broadcast text they name are still found.
+	changed := &fakeSource{cols: copied.cols, data: map[string][]batchRow{}}
+	for k, v := range copied.data {
+		changed.data[k] = v
+	}
+	changed.data["gossip_menu_option"] = append(append([]batchRow{}, other.data["gossip_menu_option"]...),
+		batchRow{"72", "0", "Tell me more.", "0", "73"}, batchRow{"72", "1", "NULL", "0", "-1"}, batchRow{"73", "0", "Go back", "96", "72"})
+	tmpl, _ = planScript(creatureScript, script, order)
+	p, err = planCarried(changed, script, creatureRoots, tmpl.rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = map[string]int{}
+	for _, s := range p.imports() {
+		got[fmt.Sprintf("%s %d", s.What, s.ID)] = s.To
+		if s.Same != (s.What != "gossip menu") {
+			t.Errorf("one changed menu of the loop: %+v", s)
+		}
+	}
+	if got["gossip menu 70"] != 74 || got["gossip menu 71"] != 75 || got["gossip text 80"] != 81 {
+		t.Errorf("one changed menu of the loop: %v", got)
 	}
 
 	// A server with no free ID left for a menu refuses the import.

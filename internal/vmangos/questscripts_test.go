@@ -173,6 +173,7 @@ func TestQuestScriptsLive(t *testing.T) {
 	if kinds["start script"] != 1 || kinds["end script"] != 1 || kinds["broadcast text"] == 0 {
 		t.Fatalf("carried %+v", plan.Carried)
 	}
+	foundElsewhere(t, dir, questScript, script, questRoots)
 	for _, l := range plan.Lists {
 		if l.Rows != l.Had {
 			t.Errorf("%s of quest %d: %d rows, has %d", l.Table, l.Entry, l.Rows, l.Had)

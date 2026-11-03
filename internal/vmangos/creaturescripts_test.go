@@ -148,4 +148,44 @@ func TestCreaturesLive(t *testing.T) {
 		}
 	}
 	t.Logf("%d sets carried", len(plan.Carried))
+
+	foundElsewhere(t, dir, creatureScript, script, creatureRoots)
+}
+
+// foundElsewhere plans a script's sets as if it came from a server where every set had another ID,
+// one this server lacks (#1043): each must be found under a copy here, bottom up and the loops as
+// units, so a second import writes none of them again.
+func foundElsewhere(t *testing.T, dir string, table scriptTable, script string, roots []rootRef) {
+	t.Helper()
+	db, err := openWorld(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl, err := readScript(db, table, script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := newDBSource(db)
+	p, err := readCarried(src, script, roots, tmpl.rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[*importSet]int{}
+	for i, s := range p.sets {
+		ids[s] = s.id
+		s.id = 60000 + i // past every kind's largest, and within a gossip menu's smallint
+	}
+	start := time.Now()
+	if err := p.resolve(src); err != nil {
+		t.Fatal(err)
+	}
+	moved := 0
+	for _, s := range p.sets {
+		if !s.same {
+			t.Errorf("%s %d (here %d) not found", s.kind.what, s.id, ids[s])
+		} else if s.to != ids[s] {
+			moved++
+		}
+	}
+	t.Logf("%d sets found in %v, %d under another ID holding the same rows", len(p.sets), time.Since(start), moved)
 }
