@@ -112,8 +112,9 @@ func TestPendingSpellLive(t *testing.T) {
 	}
 }
 
-// The set of waiting names (#485) answers without the disk: AnyPending and pendingFile follow
-// AddPending, ClearPending and DropPending, and a file nothing was added for is not looked up.
+// The set of waiting names (#485) answers without listing the folder: AnyPending and pendingFile
+// follow AddPending, ClearPending and DropPending, and a file nothing was added for is not looked up.
+// Another process's changes are TestPendingSeesOtherProcess.
 func TestPendingSet(t *testing.T) {
 	dir := t.TempDir()
 	old := pendingRoot

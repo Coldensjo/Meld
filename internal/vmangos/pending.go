@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"Meld/internal/mpq"
 )
@@ -34,67 +35,184 @@ import (
 // meldtool's writes and the app's never write and clear the same slot at once.
 var pendingMu sync.Mutex
 
-// pendingSet is the names of the waiting files (pendingName) of each client data folder's folder,
-// read from disk once and kept up to date by AddPending, ClearPending and DropPending, so the asset
-// server's icon previews don't touch the disk for a name nothing waits under (#485). It is reread
-// when pendingRoot changes (the tests). Guarded by pendingMu.
+// pendingSet is what waits in each client data folder's folder of waiting files: each file's name
+// (pendingName) with its size and modification time, so the asset server's icon previews don't list
+// the folder for a name nothing waits under (#485). Another process (meldtool's record writes,
+// #1055) changes the folders too, so a lookup stats the folder and lists it again when its
+// modification time moved, which every create, rename and removal of an entry does (#1080). A change
+// the listing finds that this process didn't make bumps gen and has Meld's reader forget the files,
+// so what was decoded from the old waiting files is read again. It starts over when pendingRoot
+// changes (the tests). Guarded by pendingMu.
 var pendingSet struct {
 	root string
-	dirs map[string]map[string]bool
+	// rootMod is the root's modification time when its folders were last listed, zero to list them
+	// again.
+	rootMod time.Time
+	dirs    map[string]*pendingFolder
+	// gen counts the changes found on disk (pendingGeneration).
+	gen uint64
 }
 
-// pendingNames is the set of names waiting in dir, loading every folder's from disk on first use.
-// The caller holds pendingMu.
-func pendingNames(dir string) map[string]bool {
-	loadPending()
-	return pendingSet.dirs[dir]
+// pendingFolder is a client data folder's waiting files as last listed.
+type pendingFolder struct {
+	// mod is the folder's modification time at the listing, zero to list it again at the next lookup.
+	mod   time.Time
+	names map[string]pendingStamp
 }
 
-// loadPending fills pendingSet from disk when it is empty or pendingRoot moved. The caller holds
-// pendingMu.
-func loadPending() {
+// pendingStamp tells one stored entry from the next one saved under its name.
+type pendingStamp struct {
+	size int64
+	mod  time.Time
+}
+
+// pendingRacy is how long after a modification time a listing is not trusted: a file system that
+// keeps times coarser than the gap between two writes (FAT's two seconds, a clock tick) leaves a
+// folder's time unchanged by the second, so a folder changed this recently is listed again at every
+// lookup until its time is older, as git does with its index. A variable for the tests.
+var pendingRacy = 2 * time.Second
+
+// pendingNames is the waiting files of dir, synced with the disk. The caller holds pendingMu.
+func pendingNames(dir string) map[string]pendingStamp {
+	return syncPendingDir(dir).names
+}
+
+// startPending empties pendingSet when it is new or pendingRoot moved. The caller holds pendingMu.
+func startPending() {
 	root := pendingRoot()
 	if pendingSet.dirs != nil && pendingSet.root == root {
 		return
 	}
-	pendingSet.root, pendingSet.dirs = root, map[string]map[string]bool{}
-	subs, err := os.ReadDir(root)
-	if err != nil {
-		return
+	pendingSet.root, pendingSet.rootMod, pendingSet.dirs = root, time.Time{}, map[string]*pendingFolder{}
+}
+
+// syncPendingDir lists dir again when its modification time moved since the last listing, and
+// returns what waits in it. The caller holds pendingMu.
+func syncPendingDir(dir string) *pendingFolder {
+	startPending()
+	f := pendingSet.dirs[dir]
+	if f != nil && !f.mod.IsZero() {
+		if st, err := os.Stat(dir); err == nil && st.ModTime().Equal(f.mod) {
+			return f
+		}
 	}
-	for _, sub := range subs {
-		if !sub.IsDir() {
-			continue
+	return listPendingDir(dir, true)
+}
+
+// notePendingDir lists dir again after this process changed it, as syncPendingDir would but without
+// counting the change as one from outside: the caller already had Meld's reader forget its files.
+// The caller holds pendingMu and lockClient, so no other process changed dir since its own
+// syncPendingDir.
+func notePendingDir(dir string) {
+	startPending()
+	listPendingDir(dir, false)
+}
+
+// listPendingDir lists dir into pendingSet. With outside set, entries that came, went or changed
+// since the last listing bump gen and are forgotten by Meld's reader. The caller holds pendingMu.
+func listPendingDir(dir string, outside bool) *pendingFolder {
+	old := pendingSet.dirs[dir]
+	f := &pendingFolder{names: map[string]pendingStamp{}}
+	if st, err := os.Stat(dir); err == nil {
+		if time.Since(st.ModTime()) >= pendingRacy {
+			f.mod = st.ModTime()
 		}
-		dir := filepath.Join(root, sub.Name())
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
+		entries, _ := os.ReadDir(dir)
 		for _, e := range entries {
 			if e.IsDir() || strings.HasSuffix(e.Name(), ".tmp") {
 				continue
 			}
-			if pendingSet.dirs[dir] == nil {
-				pendingSet.dirs[dir] = map[string]bool{}
+			info, err := e.Info()
+			if err != nil {
+				continue
 			}
-			pendingSet.dirs[dir][e.Name()] = true
+			f.names[e.Name()] = pendingStamp{size: info.Size(), mod: info.ModTime()}
+			if time.Since(info.ModTime()) < pendingRacy {
+				f.mod = time.Time{}
+			}
 		}
 	}
+	pendingSet.dirs[dir] = f
+	if outside {
+		var changed []string
+		if old != nil {
+			for key, was := range old.names {
+				if now, ok := f.names[key]; !ok || now.size != was.size || !now.mod.Equal(was.mod) {
+					changed = append(changed, key)
+				}
+			}
+		}
+		for key := range f.names {
+			if old == nil || !hasPendingKey(old.names, key) {
+				changed = append(changed, key)
+			}
+		}
+		if len(changed) > 0 {
+			pendingChanged(changed)
+		}
+	}
+	return f
 }
 
-// AnyPending says whether any file waits for any client data folder, without touching the disk
-// after the first call.
+func hasPendingKey(names map[string]pendingStamp, key string) bool {
+	_, ok := names[key]
+	return ok
+}
+
+// pendingChanged notes waiting entries (by pendingName) that changed on disk without this process:
+// gen moves on, so the decoded spell tables are read again (loadSpellData), and Meld's reader forgets
+// what it decoded from them. The caller holds pendingMu.
+func pendingChanged(keys []string) {
+	pendingSet.gen++
+	r := heldReader()
+	if r == nil {
+		return
+	}
+	names := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if b, err := base64.RawURLEncoding.DecodeString(key); err == nil {
+			names = append(names, string(b))
+		}
+	}
+	r.Forget(names...)
+}
+
+// pendingGeneration syncs dataDir's waiting files with the disk and returns how many changes to the
+// waiting files have been found there so far: a cache built from them is stale once it moves.
+func pendingGeneration(dataDir string) uint64 {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	syncPendingDir(pendingDir(dataDir))
+	return pendingSet.gen
+}
+
+// AnyPending says whether any file waits for any client data folder: a stat of the folder of waiting
+// files and of each client's folder, listing only those whose modification time moved.
 func AnyPending() bool {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
-	loadPending()
-	for _, names := range pendingSet.dirs {
-		if len(names) > 0 {
-			return true
+	startPending()
+	root := pendingSet.root
+	st, err := os.Stat(root)
+	if err == nil && (pendingSet.rootMod.IsZero() || !st.ModTime().Equal(pendingSet.rootMod)) {
+		pendingSet.rootMod = time.Time{}
+		if time.Since(st.ModTime()) >= pendingRacy {
+			pendingSet.rootMod = st.ModTime()
+		}
+		subs, _ := os.ReadDir(root)
+		for _, sub := range subs {
+			if dir := filepath.Join(root, sub.Name()); sub.IsDir() && pendingSet.dirs[dir] == nil {
+				listPendingDir(dir, true)
+			}
 		}
 	}
-	return false
+	found := false
+	for dir := range pendingSet.dirs {
+		if len(syncPendingDir(dir).names) > 0 {
+			found = true
+		}
+	}
+	return found
 }
 
 // pendingRoot is the folder the waiting files are kept in; a variable for the tests.
@@ -134,8 +252,8 @@ func parsePending(b []byte) (name string, data []byte, drop, ok bool) {
 	return "", nil, false, false
 }
 
-// writePending stores an entry in its name's slot, through a temporary file renamed over it, and
-// notes the name in pendingSet. The caller holds pendingMu.
+// writePending stores an entry in its name's slot, through a temporary file renamed over it. The
+// caller holds pendingMu and lists dir again after (notePendingDir).
 func writePending(dir, name string, entry []byte) error {
 	tmp := filepath.Join(dir, pendingName(name)+".tmp")
 	if err := writeSynced(tmp, entry); err != nil {
@@ -145,11 +263,6 @@ func writePending(dir, name string, entry []byte) error {
 		_ = os.Remove(tmp)
 		return err
 	}
-	loadPending()
-	if pendingSet.dirs[dir] == nil {
-		pendingSet.dirs[dir] = map[string]bool{}
-	}
-	pendingSet.dirs[dir][pendingName(name)] = true
 	return nil
 }
 
@@ -164,6 +277,8 @@ func AddPending(dataDir string, files []mpq.File) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
+	syncPendingDir(dir)
+	defer notePendingDir(dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -195,6 +310,8 @@ func AddPendingDrops(dataDir string, names []string) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
+	syncPendingDir(dir)
+	defer notePendingDir(dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -281,8 +398,8 @@ func DropPending(dataDir string) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
-	loadPending()
-	delete(pendingSet.dirs, dir)
+	syncPendingDir(dir)
+	defer notePendingDir(dir)
 	return os.RemoveAll(dir)
 }
 
@@ -301,6 +418,9 @@ func ClearPending(dataDir string, written []mpq.File) error {
 func clearPending(dataDir string, written []mpq.File) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
+	dir := pendingDir(dataDir)
+	syncPendingDir(dir)
+	defer notePendingDir(dir)
 	for _, f := range written {
 		if err := clearEntry(dataDir, f.Name, f.Name+"\x00"+string(f.Data)); err != nil {
 			return err
@@ -314,6 +434,9 @@ func clearPending(dataDir string, written []mpq.File) error {
 func clearDrops(dataDir string, dropped []string) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
+	dir := pendingDir(dataDir)
+	syncPendingDir(dir)
+	defer notePendingDir(dir)
 	for _, name := range dropped {
 		if err := clearEntry(dataDir, name, name+dropMark); err != nil {
 			return err
@@ -322,7 +445,8 @@ func clearDrops(dataDir string, dropped []string) error {
 	return nil
 }
 
-// clearEntry removes what is stored under name when it is still entry. The caller holds pendingMu.
+// clearEntry removes what is stored under name when it is still entry. The caller holds pendingMu
+// and lists the folder again after (notePendingDir).
 func clearEntry(dataDir, name, entry string) error {
 	path := filepath.Join(pendingDir(dataDir), pendingName(name))
 	b, err := os.ReadFile(path)
@@ -335,11 +459,7 @@ func clearEntry(dataDir, name, entry string) error {
 	if string(b) != entry {
 		return nil
 	}
-	if err := os.Remove(path); err != nil {
-		return err
-	}
-	delete(pendingSet.dirs[pendingDir(dataDir)], pendingName(name))
-	return nil
+	return os.Remove(path)
 }
 
 // pendingEntry is what waits under name: a file's data, or a removal (drop).
@@ -347,7 +467,7 @@ func pendingEntry(dataDir, name string) (data []byte, drop, ok bool) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir, key := pendingDir(dataDir), pendingName(name)
-	if !pendingNames(dir)[key] {
+	if _, ok := pendingNames(dir)[key]; !ok {
 		return nil, false, false
 	}
 	b, err := os.ReadFile(filepath.Join(dir, key))
@@ -469,6 +589,8 @@ func dropPendingFiles(dataDir string, names []string) (bool, error) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
+	syncPendingDir(dir)
+	defer notePendingDir(dir)
 	dropped := false
 	for _, name := range names {
 		key := pendingName(name)
@@ -480,8 +602,6 @@ func dropPendingFiles(dataDir string, names []string) (bool, error) {
 			return dropped, err
 		}
 		dropped = true
-		loadPending()
-		delete(pendingSet.dirs[dir], key)
 	}
 	if r := heldReader(); r != nil && dropped {
 		r.Forget(names...)

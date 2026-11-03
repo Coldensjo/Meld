@@ -29,10 +29,13 @@ const (
 	spellFRank        = 129 // enUS
 )
 
-// spellData is what spell descriptions are filled in from, read once per client data folder.
+// spellData is what spell descriptions are filled in from, read once per client data folder, and
+// again when the waiting files changed on disk (another process saved a spell while the game ran,
+// #1080).
 var spellData struct {
 	sync.Mutex
 	dir       string
+	gen       uint64 // pendingGeneration at the read
 	spells    *dbcTable
 	durations map[uint32]int     // SpellDuration.dbc: ID -> milliseconds, -1 for until cancelled
 	icons     map[uint32]string  // SpellIcon.dbc: ID -> texture path, without .blp
@@ -40,7 +43,8 @@ var spellData struct {
 }
 
 func loadSpellData(dataDir string) error {
-	if spellData.spells != nil && spellData.dir == dataDir {
+	gen := pendingGeneration(dataDir)
+	if spellData.spells != nil && spellData.dir == dataDir && spellData.gen == gen {
 		return nil
 	}
 	set, err := mpq.OpenDataDir(dataDir)
@@ -85,7 +89,7 @@ func loadSpellData(dataDir string) error {
 			}
 		}
 	}
-	spellData.dir, spellData.spells, spellData.durations, spellData.icons, spellData.radii = dataDir, spells, durations, icons, radii
+	spellData.dir, spellData.gen, spellData.spells, spellData.durations, spellData.icons, spellData.radii = dataDir, gen, spells, durations, icons, radii
 	return nil
 }
 
