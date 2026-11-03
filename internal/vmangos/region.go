@@ -575,7 +575,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 				}
 				ps, err := adt.ParsePlacements(b)
 				if err != nil {
-					return nil, fmt.Errorf("tile %d_%d in %s: %w", tx, ty, PatchName, err)
+					return nil, fmt.Errorf("tile %d_%d in %s: %w", tx, ty, set.PatchName(), err)
 				}
 				t.patched = map[uint32]adt.Placement{}
 				for _, p := range ps {

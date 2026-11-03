@@ -65,7 +65,7 @@ func samePlace(p adt.Placement, o adt.Object) bool {
 // patchHolds says whether Meld's patch has the named file.
 func patchHolds(set *mpq.Set, name string) bool {
 	for _, a := range set.Archives() {
-		if strings.EqualFold(filepath.Base(a.Path), PatchName) && a.Has(name) {
+		if strings.EqualFold(filepath.Base(a.Path), set.PatchName()) && a.Has(name) {
 			return true
 		}
 	}

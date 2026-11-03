@@ -156,7 +156,7 @@ func Publish(p PublishPlan, spec MapSpec, log func(string)) error {
 	log("Writing the map into the client's patch…")
 	// Whether the server had the patch's last state, before this export writes a newer one: only then
 	// are the tiles this export leaves alone current on the server.
-	current := serverMapsCurrent(p.ServerRoot, spec.MapID, filepath.Join(clientData, PatchName))
+	current := serverMapsCurrent(p.ServerRoot, spec.MapID, PatchPath(clientData))
 	res, err := ExportMap(clientData, clientData, p.ServerRoot, spec)
 	if err != nil {
 		return err
@@ -217,7 +217,7 @@ func serverMapsCurrent(serverRoot string, mapID uint32, patch string) bool {
 
 // ServerMapsCurrent is serverMapsCurrent for the patch in the client's Data folder.
 func ServerMapsCurrent(serverRoot string, mapID uint32, clientData string) bool {
-	return serverMapsCurrent(serverRoot, mapID, filepath.Join(clientData, PatchName))
+	return serverMapsCurrent(serverRoot, mapID, PatchPath(clientData))
 }
 
 // publishServer does the server's share of a publish, once the map is in the client's patch: the world

@@ -169,7 +169,9 @@ cd frontend && bun run build   # frontend only
     client and server the client-dependent Go tests read, and `cmd/meldtool` inspects `.wmap` files,
     tiles, MPQs and the bound methods.
   - `mpq` is our own read-only MPQ reader (a `Set` knows its client's build: 1.12.1, 2.4.3 or 3.3.5a,
-    which `clientbuild` reads from Wow.exe's version resource or the archive names, #1063); `wow` opens the client, decodes BLP, M2 and WMO, dresses
+    which `clientbuild` reads from Wow.exe's version resource or the archive names, #1063, and opens
+    a later client's locale folder too, in that build's order; Meld's patch is `patch-3.MPQ` but in
+    3.3.5a, `patch-4.MPQ`: take it from `vmangos.PatchPath` or `Set.PatchName`, #1065); `wow` opens the client, decodes BLP, M2 and WMO, dresses
     creature looks, builds minimap overviews and serves `/wow/*`.
   - `adt` reads and rewrites 1.12 tiles: terrain, textures and alpha maps, liquids (MCLQ), models,
     holes and ground effects, and builds new tiles.

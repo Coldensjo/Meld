@@ -461,7 +461,7 @@ func PlanSoundImport(dataDir, file string, data []byte, opt SoundImport) ([]mpq.
 		return nil, SoundImported{}, err
 	}
 	defer set.Close()
-	if _, err := set.ReadFileExcept(path, PatchName); err == nil {
+	if _, err := set.ReadFileExcept(path, set.PatchName()); err == nil {
 		return nil, SoundImported{}, fmt.Errorf("the client has %s already (rename the file)", path)
 	}
 	tables, err := readSoundTables(set, dataDir)

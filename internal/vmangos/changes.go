@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -88,7 +87,7 @@ func fileGroup(name string) string {
 // by group, then name.
 func DescribeFiles(dataDir string, files []mpq.File, reason func(f mpq.File) string) []FileChange {
 	var patch *mpq.Archive
-	if a, err := mpq.Open(filepath.Join(dataDir, PatchName)); err == nil {
+	if a, err := mpq.Open(PatchPath(dataDir)); err == nil {
 		patch = a
 		defer a.Close()
 	}
@@ -198,7 +197,7 @@ func PreviewPublish(readDir, patchDir string, m MapSpec) (PublishPreview, error)
 	}
 	// A tile whose copy in the patch differs only in its edge's normals changed for a neighbour (#976).
 	var patch *mpq.Archive
-	if a, err := mpq.Open(filepath.Join(patchDir, PatchName)); err == nil {
+	if a, err := mpq.Open(PatchPath(patchDir)); err == nil {
 		patch = a
 		defer a.Close()
 	}

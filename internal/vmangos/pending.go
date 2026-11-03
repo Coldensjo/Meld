@@ -342,7 +342,7 @@ func readOverlay(set *mpq.Set, dataDir, name string) ([]byte, error) {
 	data, drop, ok := pendingEntry(dataDir, name)
 	switch {
 	case ok && drop:
-		return set.ReadFileExcept(name, PatchName)
+		return set.ReadFileExcept(name, set.PatchName())
 	case ok:
 		return data, nil
 	}
@@ -364,7 +364,7 @@ func PendingOverlay(dataDir, name string) (data []byte, ok bool, err error) {
 		return nil, true, err
 	}
 	defer set.Close()
-	data, err = set.ReadFileExcept(name, PatchName)
+	data, err = set.ReadFileExcept(name, set.PatchName())
 	return data, true, err
 }
 
@@ -489,7 +489,7 @@ func ReadPatchFileStates(dataDir string, paths []string) ([]PatchFileState, erro
 	}
 	defer set.Close()
 	var patch *mpq.Archive
-	if a, err := mpq.Open(filepath.Join(dataDir, PatchName)); err == nil {
+	if a, err := mpq.Open(PatchPath(dataDir)); err == nil {
 		patch = a
 		defer a.Close()
 	}
@@ -501,7 +501,7 @@ func ReadPatchFileStates(dataDir string, paths []string) ([]PatchFileState, erro
 		st.Waiting = waits && !drop
 		st.Leaving = waits && drop && patch != nil && patch.Has(p)
 		st.InPatch = !st.Leaving && patch != nil && patch.Has(p)
-		_, err := set.ReadFileExcept(p, PatchName)
+		_, err := set.ReadFileExcept(p, set.PatchName())
 		st.InClient = err == nil
 		out = append(out, st)
 	}

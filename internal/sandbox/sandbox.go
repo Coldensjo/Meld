@@ -17,10 +17,13 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"Meld/internal/clientbuild"
 )
 
-// Patch is the archive Meld writes, the one the copy holds a copy of rather than a link to (as
-// vmangos.PatchName).
+// Patch is the archive Meld writes in a 1.12.1 client, the one the copy holds a copy of rather than
+// a link to (as vmangos.PatchName). Prepare takes the name from the real client's build
+// (clientbuild.PatchFor), since a 3.3.5a client's is patch-4.MPQ (#1065).
 const Patch = "patch-3.MPQ"
 
 // Prepare makes or refreshes the copy of the Data folder realData under root, and returns the copy's
@@ -37,6 +40,7 @@ func Prepare(realData, root string) (string, error) {
 	if len(real) == 0 {
 		return "", fmt.Errorf("%s holds no MPQ archives", realData)
 	}
+	patch := clientbuild.PatchFor(realData)
 	have, err := os.ReadDir(data)
 	if err != nil {
 		return "", err
@@ -45,7 +49,7 @@ func Prepare(realData, root string) (string, error) {
 	// probe left beside it (a backup, a .tmp) too.
 	for _, e := range have {
 		name := e.Name()
-		if _, ok := real[strings.ToLower(name)]; ok && !strings.EqualFold(name, Patch) {
+		if _, ok := real[strings.ToLower(name)]; ok && !strings.EqualFold(name, patch) {
 			continue
 		}
 		if err := retry(func() error { return os.RemoveAll(filepath.Join(data, name)) }); err != nil {
@@ -54,7 +58,7 @@ func Prepare(realData, root string) (string, error) {
 	}
 	for _, name := range real {
 		src, dst := filepath.Join(realData, name), filepath.Join(data, name)
-		if strings.EqualFold(name, Patch) {
+		if strings.EqualFold(name, patch) {
 			if err := copyFile(src, dst); err != nil {
 				return "", err
 			}
@@ -64,7 +68,7 @@ func Prepare(realData, root string) (string, error) {
 			return "", err
 		}
 	}
-	if err := check(realData, data); err != nil {
+	if err := check(realData, data, patch); err != nil {
 		return "", err
 	}
 	return data, nil
@@ -160,20 +164,20 @@ func retry(op func() error) error {
 }
 
 // check makes sure the copy's patch is a file of its own, so writing it can't change the real one.
-func check(realData, data string) error {
-	ri, err := os.Stat(filepath.Join(realData, Patch))
+func check(realData, data, patch string) error {
+	ri, err := os.Stat(filepath.Join(realData, patch))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	di, err := os.Lstat(filepath.Join(data, Patch))
+	di, err := os.Lstat(filepath.Join(data, patch))
 	if err != nil {
 		return err
 	}
 	if di.Mode()&os.ModeSymlink != 0 || os.SameFile(ri, di) {
-		return fmt.Errorf("the throwaway client's %s is the real one; refusing to use it", Patch)
+		return fmt.Errorf("the throwaway client's %s is the real one; refusing to use it", patch)
 	}
 	return nil
 }

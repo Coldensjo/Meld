@@ -113,7 +113,7 @@ func (a *App) StartClientSandbox() (ClientSandbox, error) {
 	a.cfgMu.Unlock()
 	a.sandboxGen++
 	gen := a.sandboxGen
-	a.sandboxStamp = sandbox.StampOf(filepath.Join(realData, vmangos.PatchName))
+	a.sandboxStamp = sandbox.StampOf(vmangos.PatchPath(realData))
 	a.sandboxReal = realData
 	a.sandboxTimer = time.AfterFunc(sandboxLimit, func() {
 		a.sandboxMu.Lock()
@@ -148,7 +148,7 @@ func (a *App) EndClientSandbox() SandboxEnded {
 	}
 	before, real := a.sandboxStamp, a.sandboxReal
 	a.endSandboxLocked()
-	now := sandbox.StampOf(filepath.Join(real, vmangos.PatchName))
+	now := sandbox.StampOf(vmangos.PatchPath(real))
 	return SandboxEnded{WasOn: true, RealUnchanged: now == before, RealPatch: now}
 }
 

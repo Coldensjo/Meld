@@ -99,6 +99,33 @@ func TestPrepare(t *testing.T) {
 	}
 }
 
+// A 3.3.5a client's patch-3.MPQ is Blizzard's, linked like the rest, and Meld's patch-4.MPQ is the
+// one copied (#1065).
+func TestPrepareWotLKPatch(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "client", "Data")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"common.MPQ", "lichking.MPQ", "patch-3.MPQ", "patch-4.MPQ"} {
+		write(t, filepath.Join(real, n), n)
+	}
+	data, err := Prepare(real, filepath.Join(dir, "sandbox"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n, linked := range map[string]bool{"patch-3.MPQ": true, "patch-4.MPQ": false} {
+		ri, _ := os.Stat(filepath.Join(real, n))
+		di, err := os.Lstat(filepath.Join(data, n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := os.SameFile(ri, di) || di.Mode()&os.ModeSymlink != 0; got != linked {
+			t.Errorf("%s linked: %v, want %v", n, got, linked)
+		}
+	}
+}
+
 func TestPrepareNoArchives(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := Prepare(dir, filepath.Join(dir, "sandbox")); err == nil {

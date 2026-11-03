@@ -14,6 +14,38 @@ import (
 
 var tileFiles = []mpq.File{{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`, Data: []byte("tile")}}
 
+// A 3.3.5a client gets Meld's edits in patch-4.MPQ, beside the patch-3.MPQ it ships, which is left
+// alone (#1065).
+func TestInstallPatchWotLKName(t *testing.T) {
+	dir := t.TempDir()
+	for name, files := range map[string][]mpq.File{"lichking.MPQ": tileFiles, "patch-3.MPQ": {{Name: tileFiles[0].Name, Data: []byte("blizzard")}}} {
+		if err := os.WriteFile(filepath.Join(dir, name), mpq.WriteUnmarked(files), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := PatchPath(dir); got != filepath.Join(dir, "patch-4.MPQ") {
+		t.Fatalf("PatchPath = %s, want patch-4.MPQ", got)
+	}
+	path, err := InstallPatch(dir, []mpq.File{{Name: tileFiles[0].Name, Data: []byte("meld")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "patch-4.MPQ" {
+		t.Fatalf("wrote %s", path)
+	}
+	set, err := mpq.OpenDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	if b, err := set.ReadFile(tileFiles[0].Name); err != nil || string(b) != "meld" {
+		t.Errorf("the tile reads %q, %v; want Meld's", b, err)
+	}
+	if b, err := readUnpatched(set, tileFiles[0].Name); err != nil || string(b) != "blizzard" {
+		t.Errorf("the tile without Meld's patch reads %q, %v; want patch-3.MPQ's", b, err)
+	}
+}
+
 func TestInstallPatchFreshThenReplace(t *testing.T) {
 	dir := t.TempDir()
 	path, err := InstallPatch(dir, tileFiles)

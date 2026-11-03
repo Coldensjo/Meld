@@ -11,13 +11,23 @@ import (
 	"strings"
 	"sync"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 	"Meld/internal/wow"
 )
 
-// PatchName is the client's patch archive that map edits go into. The VMaNGOS tools read
-// patch-3 through patch-9 for the server's map data, so it's the one the server sees too.
+// PatchName is the patch archive that map edits go into in a 1.12.1 client (and a 2.4.3 one). The
+// VMaNGOS tools read patch-3 through patch-9 for the server's map data, so it's the one the server
+// sees too. A 3.3.5a client ships its own patch-3.MPQ, so the name follows the client's build
+// (clientbuild.Build.PatchName, #1065): code that writes or reads the patch takes it from PatchPath or
+// mpq.Set.PatchName, never from this constant, which is the 1.12 name for the tests and the classic
+// extractor's check.
 const PatchName = "patch-3.MPQ"
+
+// PatchPath is the path of Meld's patch in the client Data folder dataDir, named by the client's build.
+func PatchPath(dataDir string) string {
+	return filepath.Join(dataDir, clientbuild.PatchFor(dataDir))
+}
 
 // IronforgeMarker is the file Ironforge's exports carry. Its patch is replaced by Meld's,
 // after a backup, since Meld takes over the same job.
@@ -61,7 +71,7 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 // installPatch is InstallPatch, for a caller holding patchMu. The files named in drop are left out of
 // the new patch (the Icons tool's Delete, #717).
 func installPatch(dataDir string, files []mpq.File, drop ...string) (string, error) {
-	target := filepath.Join(dataDir, PatchName)
+	target := PatchPath(dataDir)
 	// A patch the game has open can't be replaced: say so before anything is backed up or written.
 	if err := checkFree(target); err != nil {
 		return "", err
@@ -73,13 +83,13 @@ func installPatch(dataDir string, files []mpq.File, drop ...string) (string, err
 	var keep []mpq.Entry
 	if _, err := os.Stat(target); err == nil {
 		if old, err = mpq.Open(target); err != nil {
-			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
+			return "", fmt.Errorf("cannot read %s: %w", filepath.Base(target), err)
 		}
 		// Closed before the rename below; this is for the returns before it.
 		defer old.Close()
 		switch archiveOwnerOf(old) {
 		case "":
-			return "", fmt.Errorf("%s is not a patch Meld or Ironforge wrote; move it out of the Data folder first", PatchName)
+			return "", fmt.Errorf("%s is not a patch Meld or Ironforge wrote; move it out of the Data folder first", filepath.Base(target))
 		case IronforgeMarker:
 			if err := backup(target, target+BackupSuffix); err != nil {
 				return "", err
@@ -87,7 +97,7 @@ func installPatch(dataDir string, files []mpq.File, drop ...string) (string, err
 		}
 		// Tiles edited earlier stay in the patch; the ones given here replace theirs.
 		if keep, err = carryOver(old, files, drop...); err != nil {
-			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
+			return "", fmt.Errorf("cannot read %s: %w", filepath.Base(target), err)
 		}
 	}
 	changed := make([]string, 0, len(files)+len(drop))
@@ -98,7 +108,7 @@ func installPatch(dataDir string, files []mpq.File, drop ...string) (string, err
 	if len(keep) > 0 {
 		index, err := minimapIndex(old, files, keep)
 		if err != nil {
-			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
+			return "", fmt.Errorf("cannot read %s: %w", filepath.Base(target), err)
 		}
 		kept := dropUnusedMinimaps(append([]mpq.Entry(nil), keep...), index)
 		changed = append(changed, droppedNames(keep, kept)...)
@@ -147,7 +157,7 @@ func replaceKeepingPrev(tmp, target string, hadOld bool) error {
 		if inUse(err) {
 			return lockedError(target)
 		}
-		return fmt.Errorf("cannot keep the previous %s as %s: %w", PatchName, filepath.Base(prev), err)
+		return fmt.Errorf("cannot keep the previous %s as %s: %w", filepath.Base(target), filepath.Base(prev), err)
 	}
 	if err := replaceFile(tmp, target); err != nil {
 		if rerr := os.Rename(prev, target); rerr != nil {
@@ -351,7 +361,7 @@ func backup(src, dst string) error {
 // writes only what changed since the last one. Without a patch Meld or Ironforge wrote, every file
 // counts as changed (InstallPatch then decides what to do with that patch).
 func ChangedFiles(dataDir string, files []mpq.File) ([]mpq.File, error) {
-	target := filepath.Join(dataDir, PatchName)
+	target := PatchPath(dataDir)
 	if _, err := os.Stat(target); err != nil {
 		return files, nil
 	}

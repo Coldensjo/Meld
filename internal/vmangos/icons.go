@@ -117,7 +117,7 @@ func ReadIconState(dataDir, name string) (IconState, error) {
 	st.InClient = clientHasIcon(set, name)
 	_, drop, waits := pendingEntry(dataDir, path)
 	st.Waiting = waits && !drop
-	if a, err := mpq.Open(filepath.Join(dataDir, PatchName)); err == nil {
+	if a, err := mpq.Open(PatchPath(dataDir)); err == nil {
 		st.InPatch = a.Has(path)
 		_ = a.Close()
 	}
@@ -128,7 +128,7 @@ func ReadIconState(dataDir, name string) (IconState, error) {
 
 // clientHasIcon says whether an archive other than Meld's patch has the icon named name.
 func clientHasIcon(set *mpq.Set, name string) bool {
-	_, err := set.ReadFileExcept(IconPath(name), PatchName)
+	_, err := set.ReadFileExcept(IconPath(name), set.PatchName())
 	return err == nil
 }
 
@@ -162,7 +162,7 @@ func withoutLeaving(set *mpq.Set, dataDir string, paths []string) []string {
 	}
 	gone := map[string]bool{}
 	for _, d := range drops {
-		if _, err := set.ReadFileExcept(d, PatchName); err != nil {
+		if _, err := set.ReadFileExcept(d, set.PatchName()); err != nil {
 			gone[strings.ToLower(strings.ReplaceAll(d, "/", `\`))] = true
 		}
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"path/filepath"
 	goruntime "runtime"
 	"time"
 
@@ -57,7 +56,7 @@ func (a *App) queueClientFiles(dataDir string, files []mpq.File) (patch string, 
 		}
 		a.emitPending(dataDir)
 		a.watchPending()
-		return filepath.Join(dataDir, vmangos.PatchName), true, nil
+		return vmangos.PatchPath(dataDir), true, nil
 	}
 	patch, err = vmangos.InstallWithPending(dataDir, files)
 	return patch, false, err

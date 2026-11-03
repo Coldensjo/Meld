@@ -145,23 +145,20 @@ func (c *Client) load() error {
 	return nil
 }
 
-// archiveStamps names the archives in data with their sizes and modification times, or "" when the
-// folder can't be read.
+// archiveStamps names the archives mpq.OpenDataDir opens in data (its locale folder's too, for a
+// later client, #1065) with their sizes and modification times, or "" when one can't be read.
 func archiveStamps(data string) string {
-	entries, err := os.ReadDir(data)
-	if err != nil {
-		return ""
-	}
 	var b strings.Builder
-	for _, e := range entries {
-		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".mpq") {
-			continue
-		}
-		info, err := e.Info()
+	for _, p := range mpq.ArchivePaths(data, clientbuild.Detect(data).Build) {
+		info, err := os.Stat(p)
 		if err != nil {
 			return ""
 		}
-		fmt.Fprintf(&b, "%s|%d|%d\n", e.Name(), info.Size(), info.ModTime().UnixNano())
+		name, err := filepath.Rel(data, p)
+		if err != nil {
+			name = p
+		}
+		fmt.Fprintf(&b, "%s|%d|%d\n", name, info.Size(), info.ModTime().UnixNano())
 	}
 	return b.String()
 }
