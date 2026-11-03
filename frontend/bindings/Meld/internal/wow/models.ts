@@ -27,6 +27,18 @@ export interface Status {
     "archives": number;
 
     /**
+     * Build is the loaded client's build (5875 for 1.12.1, 8606 for 2.4.3, 12340 for 3.3.5a; a build
+     * Meld doesn't know reads as 5875), 0 with no client (#1063). Version is its version ("1.12.1").
+     */
+    "build": number;
+    "version": string;
+
+    /**
+     * BuildWarning names a build Meld doesn't know, for the status line.
+     */
+    "buildWarning": string;
+
+    /**
      * Started is when this process started (Unix ms), so the probe runner can tell that wails dev rebuilt and
      * restarted the app during a probe (#656).
      */

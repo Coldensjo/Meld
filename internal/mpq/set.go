@@ -5,12 +5,16 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"Meld/internal/clientbuild"
 )
 
 // Set is a stack of archives where later (higher priority) archives override
 // earlier ones, mirroring how the WoW client applies patch-N.MPQ files.
 type Set struct {
 	archives []*Archive // lowest priority first
+	// build is the client's build, told when the set opened (#1063), so a reader follows its formats.
+	build clientbuild.Info
 }
 
 // priority orders 1.x client archives: base data first, patches last.
@@ -48,7 +52,7 @@ func OpenDataDir(dir string) (*Set, error) {
 		}
 		return strings.ToLower(names[i]) < strings.ToLower(names[j])
 	})
-	s := &Set{}
+	s := &Set{build: clientbuild.Detect(dir)}
 	for _, n := range names {
 		a, err := Open(filepath.Join(dir, n))
 		if err != nil {
@@ -61,6 +65,17 @@ func OpenDataDir(dir string) (*Set, error) {
 	}
 	return s, nil
 }
+
+// Build is the build of the client the set's archives are from (Vanilla for one Meld doesn't know).
+func (s *Set) Build() clientbuild.Build {
+	if s.build.Build == clientbuild.Unknown {
+		return clientbuild.Vanilla
+	}
+	return s.build.Build
+}
+
+// BuildInfo is how the client's build was told, with the warning for a build Meld doesn't know.
+func (s *Set) BuildInfo() clientbuild.Info { return s.build }
 
 // Archives returns the opened archives, lowest priority first.
 func (s *Set) Archives() []*Archive { return s.archives }

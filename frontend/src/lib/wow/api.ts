@@ -3,7 +3,7 @@ import { BrowseWowFolder, LiquidTypes, SetWowPath, WowStatus } from '../wails/Ap
 import { setLiquidTypes } from '../water/liquids'
 import { EventsOn } from '../wails/runtime'
 import { hasBackend } from '../io/backend'
-import { logFile, wow } from '../state/editor.svelte'
+import { logFile, setStatus, wow } from '../state/editor.svelte'
 import { beginLoad, endLoad } from './loadProgress'
 import { textureFrom } from './textureReply'
 import { parseCollision, parseMesh, type CollisionReply } from './meshReply'
@@ -159,13 +159,17 @@ export interface WowLiquid {
 	indices: Uint32Array
 }
 
-type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
+type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number; build?: number; version?: string; buildWarning?: string }
 
 export function applyStatus(s: StatusLike) {
 	wow.path = s.path
 	wow.loaded = s.loaded
 	wow.error = s.error
 	wow.files = s.files
+	wow.build = s.build ?? 0
+	wow.version = s.version ?? ''
+	// A client build Meld doesn't know reads as 1.12.1 (#1063): say so once each time it loads.
+	if (s.loaded && s.buildWarning) setStatus(s.buildWarning, 10000)
 	wow.loading = false
 	lists.clear()
 	wow.revision++

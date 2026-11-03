@@ -447,6 +447,10 @@ export const wow = $state({
 	loading: false,
 	error: '',
 	files: 0,
+	/** The client's build (5875 for 1.12.1, 8606 for 2.4.3, 12340 for 3.3.5a), told by Go when it loads (#1063); 0 with none. */
+	build: 0,
+	/** The client's version, '1.12.1', '2.4.3' or '3.3.5a'; '' with none. */
+	version: '',
 	/** Bumped whenever the client changes so lists refetch. */
 	revision: 0,
 	/** Bumped when the client's liquid list (LIQUID_TYPES) was read, so the Water tool's select refreshes. */

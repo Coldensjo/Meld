@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 )
 
@@ -178,6 +179,12 @@ type Status struct {
 	Error    string `json:"error"`
 	Files    int    `json:"files"`
 	Archives int    `json:"archives"`
+	// Build is the loaded client's build (5875 for 1.12.1, 8606 for 2.4.3, 12340 for 3.3.5a; a build
+	// Meld doesn't know reads as 5875), 0 with no client (#1063). Version is its version ("1.12.1").
+	Build   int    `json:"build"`
+	Version string `json:"version"`
+	// BuildWarning names a build Meld doesn't know, for the status line.
+	BuildWarning string `json:"buildWarning"`
 	// Started is when this process started (Unix ms), so the probe runner can tell that wails dev rebuilt and
 	// restarted the app during a probe (#656).
 	Started int64 `json:"started"`
@@ -192,11 +199,24 @@ func (c *Client) Status() Status {
 	s := Status{Path: c.dir, Loaded: c.set != nil, Files: len(c.files), Started: processStart}
 	if c.set != nil {
 		s.Archives = len(c.set.Archives())
+		b := c.set.Build()
+		s.Build, s.Version, s.BuildWarning = int(b), b.Version(), c.set.BuildInfo().Warning
 	}
 	if c.err != nil {
 		s.Error = c.err.Error()
 	}
 	return s
+}
+
+// Build is the loaded client's build, read from its Wow.exe or archives when it opened (#1063):
+// Vanilla with no client, or one Meld doesn't know.
+func (c *Client) Build() clientbuild.Build {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.set == nil {
+		return clientbuild.Vanilla
+	}
+	return c.set.Build()
 }
 
 // suspendWait is how long a read waits for the archives a Suspend closed to open again.

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"Meld/internal/clientbuild"
+	"Meld/internal/mpq"
 	"Meld/internal/testclient"
 )
 
@@ -66,4 +68,27 @@ func TestClientAssets(t *testing.T) {
 		t.Errorf("%d/%d textures missing", missing, total)
 	}
 	_ = strings.ToLower
+}
+
+// TestClientBuild checks that the configured 1.12 client reads as build 5875 from its Wow.exe
+// (#1063). A 2.4.3 or 3.3.5a client is checked by clientbuild's synthetic Wow.exe only.
+func TestClientBuild(t *testing.T) {
+	dir := testclient.DataDir(t)
+	data, err := ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	info := set.BuildInfo()
+	if set.Build() != clientbuild.Vanilla || info.Warning != "" {
+		t.Errorf("the client's build = %v (%+v), want %v", set.Build(), info, clientbuild.Vanilla)
+	}
+	if info.From == "Wow.exe" && info.Exe != "1.12.1.5875" {
+		t.Errorf("Wow.exe's FileVersion = %q, want 1.12.1.5875", info.Exe)
+	}
+	t.Logf("build %+v", info)
 }
