@@ -77,6 +77,13 @@ Before commit (all of them):
 Cannot run here: the Linux build (`make build-linux`), on Windows. Workers say so in the closing
 comment.
 
+A worker cannot run any Linux check on this machine: Docker Desktop's engine does not start here (the
+CPU's virtualization is off: `hasNoVirtualization` in its backend log, and WSL lists only the stopped
+`docker-desktop`), and the owner chose not to change that or to add a CI job for it (#1040). Do not
+start Docker or WSL to find out. An item whose point is a Linux-only check (WebKitGTK, the
+`make build-linux` binary run) goes straight to the owner: comment what to check and add
+`owner-question`.
+
 If the item changes what the app shows or does, check it in the app or say in the closing comment
 that you did not. A check worth repeating becomes a probe (`frontend/probes/<name>.js`), committed with the item. Name the probes run in the closing comment.
 
