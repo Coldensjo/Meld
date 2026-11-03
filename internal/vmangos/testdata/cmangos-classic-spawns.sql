@@ -2,6 +2,8 @@
 -- (#894): the columns and keys of cmangos/mangos-classic's sql/base/mangos.sql at z2836, written out
 -- by hand with only what a test needs. No data. cmangos_test.go checks every statement of the export
 -- against these columns; the same tables loaded into a scratch database run the export for real.
+-- instance_template (at the end) is the row a dungeon published to CMaNGOS needs (#1037), checked
+-- against cmangospublish.go's SQL by cmangospublish_test.go.
 
 CREATE TABLE `creature` (
 	`guid` INT UNSIGNED NOT NULL,
@@ -230,4 +232,19 @@ CREATE TABLE `waypoint_path` (
 	`ScriptId` MEDIUMINT UNSIGNED NOT NULL DEFAULT 0,
 	`Comment` TEXT,
 	PRIMARY KEY (`PathId`, `Point`)
+);
+
+CREATE TABLE `instance_template` (
+	`map` SMALLINT UNSIGNED NOT NULL,
+	`parent` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+	`levelMin` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`levelMax` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`maxPlayers` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`reset_delay` INT UNSIGNED NOT NULL DEFAULT 0,
+	`ghostEntranceMap` SMALLINT UNSIGNED NOT NULL,
+	`ghostEntranceX` FLOAT NOT NULL,
+	`ghostEntranceY` FLOAT NOT NULL,
+	`ScriptName` VARCHAR(128) NOT NULL DEFAULT '',
+	`mountAllowed` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (`map`)
 );

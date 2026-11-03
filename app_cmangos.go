@@ -88,3 +88,46 @@ func (a *App) UpdateCMaNGOSServer(mapID int) (err error) {
 	}()
 	return nil
 }
+
+// PublishCMaNGOSMap publishes a map made in the editor to the CMaNGOS server (#1037): written into the
+// client's patch, its instance_template row (a dungeon, raid or battleground) written into an SQL file
+// in the server's meld-sql folder to import, and the server's map data rebuilt by its extractors, once
+// the game is closed and the world server stopped. Returns that SQL file's path, or "" for a world map.
+// It runs in the background as PublishVmangosMap does: "publish:log" events, then "publish:done" with
+// an error message, or nothing. It shares the server rebuild's busy flag.
+func (a *App) PublishCMaNGOSMap(m vmangos.MapSpec) (sqlPath string, err error) {
+	if !a.serverBusy.CompareAndSwap(false, true) {
+		return "", errServerBusy
+	}
+	started := false
+	defer func() {
+		if !started {
+			a.serverBusy.Store(false)
+		}
+	}()
+	clientDir, err := a.clientRoot()
+	if err != nil {
+		return "", err
+	}
+	path := a.CmangosPath()
+	if path == "" {
+		return "", errors.New("set the CMaNGOS server folder first (Edit › Preferences › Folders)")
+	}
+	server, err := vmangos.CheckCMaNGOS(path)
+	if err != nil {
+		return "", err
+	}
+	started = true
+	go func() {
+		defer a.serverBusy.Store(false)
+		logf := func(line string) { a.emit("publish:log", line) }
+		msg := ""
+		if err := a.waitForGameClosed(filepath.Join(clientDir, "Data"), logf); err != nil {
+			msg = err.Error()
+		} else if _, err := vmangos.PublishCMaNGOS(server, clientDir, m, !a.buildMoveMaps(), nil, logf); err != nil {
+			msg = err.Error()
+		}
+		a.emit("publish:done", msg)
+	}()
+	return vmangos.CMaNGOSInstanceSQLPath(server, m), nil
+}

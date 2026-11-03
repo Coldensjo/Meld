@@ -213,6 +213,7 @@ export const PlanTaxiImport: Call<AppApi['PlanTaxiImport']> = (...a) => api().Pl
 export const PlayHere: Call<AppApi['PlayHere']> = (...a) => api().PlayHere(...a) as never
 export const ProjectInFolder: Call<AppApi['ProjectInFolder']> = (...a) => api().ProjectInFolder(...a) as never
 export const Projects: Call<AppApi['Projects']> = (...a) => api().Projects(...a) as never
+export const PublishCMaNGOSMap: Call<AppApi['PublishCMaNGOSMap']> = (...a) => api().PublishCMaNGOSMap(...a) as never
 export const PublishPending: Call<AppApi['PublishPending']> = (...a) => api().PublishPending(...a) as never
 export const PublishVmangosMap: Call<AppApi['PublishVmangosMap']> = (...a) => api().PublishVmangosMap(...a) as never
 export const QuestTables: Call<AppApi['QuestTables']> = (...a) => api().QuestTables(...a) as never

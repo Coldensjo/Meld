@@ -1,5 +1,5 @@
 // Publishing a map made for the client, and Save, which publishes one.
-import { PublishVmangosMap } from '../wails/App'
+import { CmangosPath, PublishCMaNGOSMap, PublishVmangosMap } from '../wails/App'
 import { guarded } from './backend'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
@@ -15,6 +15,8 @@ import { saveMap } from './mapio'
 
 /** The `.go` line the last publish's message gives: the map's start, or a WMO-only map's building. */
 let lastGo = ''
+/** What the last publish's message says first: which world server to start, and any SQL to import first. */
+let lastStart = 'Start the world server and the game'
 /** Clears the Saving bar of the publish running in the background; a no-op when none is. */
 let endPublish = () => {}
 let listening = false
@@ -31,7 +33,7 @@ function listenToPublish() {
 		ui.busy = false
 		endPublish()
 		if (msg) setStatus(`Publish failed: ${msg}`, 0)
-		else setStatus(`Map published. Start the world server and the game, then type ${lastGo} in the game to go there.`, 15000)
+		else setStatus(`Map published. ${lastStart}, then type ${lastGo} in the game to go there.`, 15000)
 	})
 }
 
@@ -100,11 +102,48 @@ export function publishVmangosMap(engine: Engine) {
 		}
 		listenToPublish()
 		lastGo = p.go
+		lastStart = 'Start the world server and the game'
 		ui.busy = true
 		endPublish = startSaving(`Publishing ${p.dir}`)
 		setStatus(`Publishing ${p.dir}…${p.notes.length ? ' ' + p.notes.join('. ') + '.' : ''}`, 0)
 		try {
 			await PublishVmangosMap(p.spec)
+		} catch (e) {
+			ui.busy = false
+			endPublish()
+			throw e
+		}
+	})
+}
+
+/**
+ * A map made for the client published to the CMaNGOS classic server (#1037; File › Compile to CMaNGOS Server
+ * on such a map): written into the client's patch, then the server's map data rebuilt by its own extractors,
+ * which take no map filter, so every map is extracted. CMaNGOS has no map_template: a dungeon, raid or
+ * battleground gets its instance_template row in an SQL file in the server's meld-sql folder, which the author
+ * imports (Meld runs no SQL against a CMaNGOS database). Runs in the background, through the publish events.
+ */
+export function publishCmangosMap(engine: Engine) {
+	if (refuseGuestExport(engine)) return
+	return guarded('Publish to CMaNGOS', async () => {
+		const p = publishInput(engine)
+		if (typeof p === 'string') {
+			setStatus(p, 6000)
+			return
+		}
+		if (!(await CmangosPath())) {
+			setStatus('Set the CMaNGOS server folder first (Edit › Preferences › Folders), then Compile to CMaNGOS Server.', 8000)
+			return
+		}
+		listenToPublish()
+		lastGo = p.go
+		ui.busy = true
+		endPublish = startSaving(`Publishing ${p.dir} to the CMaNGOS server`)
+		setStatus(`Publishing ${p.dir} to the CMaNGOS server: its extractors take no map filter, so every map of the client is extracted.${p.notes.length ? ' ' + p.notes.join('. ') + '.' : ''}`, 0)
+		lastStart = 'Start the CMaNGOS world server and the game'
+		try {
+			const sql = await PublishCMaNGOSMap(p.spec)
+			if (sql) lastStart = `Import ${sql} into the CMaNGOS world database (the map's instance_template row), start the CMaNGOS world server and the game`
 		} catch (e) {
 			ui.busy = false
 			endPublish()

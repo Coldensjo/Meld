@@ -125,22 +125,9 @@ func UpdateCMaNGOSMaps(s CMaNGOSServer, clientRoot string, mapID uint32, skipMov
 		log(fmt.Sprintf("%v: the CMaNGOS server keeps its old map data.", err))
 		return err
 	}
-	if err := Supported(run); err != nil {
-		return fail(err)
-	}
-	tools, err := s.Tools()
+	tools, err := cmangosTools(s, clientRoot, run)
 	if err != nil {
 		return fail(err)
-	}
-	if ok, err := readsCustomPatches(filepath.Join(tools, cmangosMapExtractor)); err != nil {
-		return fail(err)
-	} else if !ok {
-		return fail(ErrStockExtractor)
-	}
-	for _, t := range []string{cmangosVmapExtractor, cmangosVmapAssembler} {
-		if !fileExists(filepath.Join(tools, t)) {
-			return fail(fmt.Errorf("no %s beside %s in %s", t, cmangosMapExtractor, tools))
-		}
 	}
 	if run.Running("mangosd.exe") {
 		log("Stop the world server: its map data is rebuilt as soon as it has stopped.")
@@ -157,6 +144,34 @@ func UpdateCMaNGOSMaps(s CMaNGOSServer, clientRoot string, mapID uint32, skipMov
 	return nil
 }
 
+// cmangosTools checks that the server's extractors can rebuild its map data from the client at
+// clientRoot, before anything is written: this is Windows, the map extractor reads Meld's patch and its
+// collision tools sit beside it, and the client's path fits ad's. Returns the tools' folder.
+func cmangosTools(s CMaNGOSServer, clientRoot string, run Runner) (string, error) {
+	if err := Supported(run); err != nil {
+		return "", err
+	}
+	tools, err := s.Tools()
+	if err != nil {
+		return "", err
+	}
+	if ok, err := readsCustomPatches(filepath.Join(tools, cmangosMapExtractor)); err != nil {
+		return "", err
+	} else if !ok {
+		return "", ErrStockExtractor
+	}
+	for _, t := range []string{cmangosVmapExtractor, cmangosVmapAssembler} {
+		if !fileExists(filepath.Join(tools, t)) {
+			return "", fmt.Errorf("no %s beside %s in %s", t, cmangosMapExtractor, tools)
+		}
+	}
+	// ad keeps its paths in 128 bytes, and copies a longer one past them.
+	if len(clientRoot) >= 128 {
+		return "", fmt.Errorf("CMaNGOS's map extractor takes a client path of at most 127 characters, and %s has %d", clientRoot, len(clientRoot))
+	}
+	return tools, nil
+}
+
 // extractCMaNGOSMaps runs ad, vmap_extractor and vmap_assembler into stagingDir under the server's
 // DataDir and, when all have passed and ad's Map.dbc has the map, moves their files over the server's.
 func extractCMaNGOSMaps(s CMaNGOSServer, tools, clientRoot string, mapID uint32, run Runner, log func(string)) error {
@@ -169,11 +184,8 @@ func extractCMaNGOSMaps(s CMaNGOSServer, tools, clientRoot string, mapID uint32,
 		return err
 	}
 
-	// Relative to the DataDir, where the tools run: ad keeps its paths in 128 bytes, and copies a longer
-	// one past them. -e 3 is the map and dbc files, without the cinematic cameras, which no map changes.
-	if len(clientRoot) >= 128 {
-		return fmt.Errorf("CMaNGOS's map extractor takes a client path of at most 127 characters, and %s has %d", clientRoot, len(clientRoot))
-	}
+	// Relative to the DataDir, where the tools run, as ad's paths are short (cmangosTools). -e 3 is the
+	// map and dbc files, without the cinematic cameras, which no map changes.
 	log("Extracting the client's DBC and map files with CMaNGOS's extractor (every map: it has no map filter)…")
 	if err := run.Run(s.Data, filepath.Join(tools, cmangosMapExtractor), []string{"-i", clientRoot, "-o", stagingDir, "-e", "3"}, log); err != nil {
 		return fmt.Errorf("map extraction: %w", err)

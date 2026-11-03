@@ -1542,6 +1542,18 @@ export function Projects(): $CancellablePromise<$models.ProjectList> {
 }
 
 /**
+ * PublishCMaNGOSMap publishes a map made in the editor to the CMaNGOS server (#1037): written into the
+ * client's patch, its instance_template row (a dungeon, raid or battleground) written into an SQL file
+ * in the server's meld-sql folder to import, and the server's map data rebuilt by its extractors, once
+ * the game is closed and the world server stopped. Returns that SQL file's path, or "" for a world map.
+ * It runs in the background as PublishVmangosMap does: "publish:log" events, then "publish:done" with
+ * an error message, or nothing. It shares the server rebuild's busy flag.
+ */
+export function PublishCMaNGOSMap(m: vmangos$0.MapSpec): $CancellablePromise<string> {
+    return $Call.ByID(1947408720, m);
+}
+
+/**
  * PublishPending is what Publish would write for map m, without writing anything (#959): the client
  * files that differ from the patch's copies, and the world database's rows.
  */

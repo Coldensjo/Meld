@@ -196,11 +196,17 @@ func removeFiles(dir string, match func(name string) bool) {
 // serverMapsCurrent reports whether the server has extracted map data for the map since the patch was
 // last written: one of its data/maps files (named by the map ID in three digits and the tile) is newer.
 func serverMapsCurrent(serverRoot string, mapID uint32, patch string) bool {
+	return mapsCurrent(filepath.Join(serverRoot, "data", "maps"), mapID, patch)
+}
+
+// mapsCurrent is serverMapsCurrent for a server's maps folder: VMaNGOS's data/maps, or the maps of a
+// CMaNGOS server's DataDir, whose extractor names its files the same way.
+func mapsCurrent(maps string, mapID uint32, patch string) bool {
 	info, err := os.Stat(patch)
 	if err != nil {
 		return false
 	}
-	entries, err := os.ReadDir(filepath.Join(serverRoot, "data", "maps"))
+	entries, err := os.ReadDir(maps)
 	if err != nil {
 		return false
 	}

@@ -14,6 +14,7 @@ import { vmangos } from '../wails/models'
 import { EventsOn } from '../wails/runtime'
 import { applyNote } from './applyNote'
 import { countOf, pickSpawnEdits, skippedTiles, spawnItem } from './leaveOut'
+import { publishCmangosMap } from './publish'
 
 /**
  * Writes the active region's spawn edits (moved, changed, added and deleted creatures and objects)
@@ -304,10 +305,12 @@ async function compileServer(engine: Engine, region: RegionBlock, name: string) 
  * File › Compile to CMaNGOS Server (#894, shown while Preferences › Compile and export › Spawn SQL for is
  * CMaNGOS classic): the CMaNGOS server's map data rebuilt from the client's patch by that server's own
  * extractors, which take no map filter, so every map is extracted. The patch must already hold the
- * region's edits (Compile to Client); its spawns go to CMaNGOS through File › Export Spawn SQL….
+ * region's edits (Compile to Client); its spawns go to CMaNGOS through File › Export Spawn SQL…. On a map made
+ * for the client (File › New World) it publishes that map to CMaNGOS instead (#1037).
  */
 export function compileCmangos(engine: Engine) {
 	if (refuseGuestExport(engine)) return
+	if (engine.activeVmangos()) return publishCmangosMap(engine)
 	return guarded('Compile to CMaNGOS', () =>
 		withSaving('Compiling to the CMaNGOS server', async () => {
 			const region = engine.activeRegion()
