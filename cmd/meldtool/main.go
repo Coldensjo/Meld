@@ -3,9 +3,10 @@
 // 1.12 tile's chunks (dumped or compared chunk by chunk), the client's MPQ archives, and the methods
 // the app binds for the frontend. It converts local files: BLP textures to and from PNG, a .wmap's
 // heights to and from a heightmap image. And it reads an M2's or WMO's facts and the world database's
-// creatures, objects, items and spells (#778, #893). No subcommand writes into the client or the
-// server; one that does will print what it would do and act only with --write (#778's decision).
-// And `meldtool mcp` offers the commands to an AI agent as an MCP server on stdin and stdout (#777).
+// creatures, objects, items and spells (#778, #893), and changes and makes them (#1055): a command
+// that writes into the world database or the client prints what it would write and does it only
+// with --write (#778's decision), through the app's own save path (internal/records). And
+// `meldtool mcp` offers the commands to an AI agent as an MCP server on stdin and stdout (#777).
 //
 //	go run ./cmd/meldtool wmap info <file.wmap>
 //	go run ./cmd/meldtool adt dump [--client DIR] [--chunk x,y] [--placements] <tile>
@@ -17,7 +18,8 @@
 //	go run ./cmd/meldtool blp decode|encode ...
 //	go run ./cmd/meldtool m2 info|wmo info [--client DIR] <model>
 //	go run ./cmd/meldtool heightmap export|import ...
-//	go run ./cmd/meldtool creature|object|item|spell get|search ...
+//	go run ./cmd/meldtool creature|object|item|spell get|search|set|new ...
+//	go run ./cmd/meldtool item export|import ...
 //	go run ./cmd/meldtool mcp
 //
 //	go run ./cmd/meldtool session join|host ...
@@ -35,8 +37,9 @@ import (
 	"os"
 )
 
-const usage = `meldtool: Meld's command line tools. None writes into the
-client or the server. The output is JSON, or a table with --table where a command takes it.
+const usage = `meldtool: Meld's command line tools. Only set, new and import
+write into the world database or the client, and only with --write: without it they print what they
+would write. The output is JSON, or a table with --table where a command takes it.
 
   meldtool wmap info <file.wmap>
   meldtool adt dump [--client DIR] [--big-alpha] [--chunk x,y] [--placements] <tile>
@@ -58,6 +61,14 @@ client or the server. The output is JSON, or a table with --table where a comman
   meldtool object search [--server DIR] [--client DIR] [--limit 100] [--table] <name or entry>
   meldtool spell get [--server DIR] [--client DIR] [--table] <entry>
   meldtool spell search [--client DIR] [--limit 100] [--table] <name or id>
+
+  meldtool creature|object|item set [--server DIR] [--client DIR] [--content-patch N] [--values JSON|@file] [--write] <entry> [column=value ...]
+  meldtool spell set [--server DIR] [--client DIR] [--build N] [--icon NAME] [--values JSON|@file] [--write] <entry> [column=value ...]
+  meldtool creature|object new [--server DIR] [--client DIR] [--from ENTRY] [--write] <name>
+  meldtool item new [--server DIR] [--client DIR] [--from ENTRY | --kind class,subclass,inventory_type] [--write] <name>
+  meldtool spell new [--server DIR] [--client DIR] (--from ID | --starter bolt|strike|heal|dot|buff|area) [--write] <name>
+  meldtool item export [--server DIR] [-o file.sql] <entry,...>
+  meldtool item import [--server DIR] [--client DIR] [--write] <file.sql>
 
   meldtool session join [--name N] [--send file.jsonl] [--for seconds] <addr> <code>
   meldtool session host [--name N] [--send file.jsonl] [--on-join] [--for seconds] [--code C] [--bind ADDR] [port]
@@ -82,6 +93,15 @@ export and import use the app's scale (black -1024 yards, white 1024); import se
 (the app's Set mode), stretching an image of another size over the map, and writes -o as a new
 file. The server is --server (a VMaNGOS folder), else config.json's vmangosPath; the record
 commands start its database when it is down, as the app does.
+
+set changes a template's columns (or a spell's) in its newest row, or --content-patch's (the
+patch column, not patch-3.MPQ), checked as the editor checks them; a refused value exits 2 with the
+reason. new makes one under the first free entry, a copy of --from or the editor's defaults. A
+spell's set and new also write its Spell.dbc row into Meld's patch, which waits for a running game
+to close (Meld's watcher writes it then). With --write, a running world server reloads what was
+written (its SOAP console, with the Game Login's account), and the game's cache forgets the old
+template when the game is closed. item export prints the item editor's SQL script, and item import
+says what importing one would write.
 `
 
 // errUsage is a call with the wrong arguments; main prints the usage for it.
@@ -148,6 +168,14 @@ func dispatch(args []string, out io.Writer) error {
 		return heightmapImport(args[2:], out)
 	case recordKinds[args[0]].get != nil && (sub == "get" || sub == "search"):
 		return record(args[0], sub, args[2:], out)
+	case recordKinds[args[0]].get != nil && sub == "set":
+		return recordSet(args[0], args[2:], out)
+	case recordKinds[args[0]].get != nil && sub == "new":
+		return recordNew(args[0], args[2:], out)
+	case args[0] == "item" && sub == "export":
+		return itemExport(args[2:], out)
+	case args[0] == "item" && sub == "import":
+		return itemImport(args[2:], out)
 	case args[0] == "session" && (sub == "join" || sub == "host"):
 		return sessionCmd(sub, args[2:], out)
 	case args[0] == "mcp":

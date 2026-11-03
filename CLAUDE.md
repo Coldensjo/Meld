@@ -163,7 +163,9 @@ cd frontend && bun run build   # frontend only
   - `mapfile` reads and writes `.wmap` files; `config` keeps the user's settings; `heightmap` reads
     and writes heightmap PNGs; `recovery` autosaves maps with unsaved changes for after a crash;
     `sessionlog` keeps each session's status lines in a file; `handoff` passes a bound method's large
-    binary reply to the page as one GET; `scripts` keeps the user's Lua scripts folder; `session` carries a
+    binary reply to the page as one GET; `records` is what follows a creature, object, item or spell
+    save (the world server's reload, the game's stale caches, client files waiting for the game),
+    shared by the app's Save bindings and `meldtool`'s write commands; `scripts` keeps the user's Lua scripts folder; `session` carries a
     shared editing session's messages between the host and its guests, in the host's order.
   - For tests: `sandbox` copies the client's Data folder for the probes, `testclient` finds the
     client and server the client-dependent Go tests read, and `cmd/meldtool` inspects `.wmap` files,

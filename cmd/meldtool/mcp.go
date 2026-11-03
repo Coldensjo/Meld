@@ -24,15 +24,15 @@ import (
 // text. So the server and the CLI share one code path, and a new command needs only its entry in
 // mcpTools. It works with Meld closed, and cannot see the map open in the app.
 //
-// No command writes into the client or the server yet. One that does takes a `write` boolean
-// (false by default) passed as --write, so a call without it is the command's dry run (#778's
-// decision), and its tool is not marked read-only.
+// A command that writes into the world database or the client (the record set, new and import,
+// #1055) takes a `write` boolean (false by default) passed as --write, so a call without it is the
+// command's dry run (#778's decision), and its tool is not marked read-only.
 
 // mcpParam is one argument of a tool: its name in the call, its JSON type, and the command's flag it
 // becomes (flag "" is a positional argument, given in the params' order).
 type mcpParam struct {
 	name     string
-	kind     string // string, integer, number or boolean
+	kind     string // string, integer, number, boolean or object (passed as its JSON)
 	flag     string
 	desc     string
 	required bool
@@ -59,6 +59,7 @@ var (
 	serverParam = mcpParam{name: "server", kind: "string", flag: "server", desc: "The VMaNGOS server folder (with run\\mangosd.conf). Default: the one set in Meld (config.json's vmangosPath). Its database is started when it is down, as the app does."}
 	limitParam  = mcpParam{name: "limit", kind: "integer", flag: "limit", desc: "The most results to list (default 100)."}
 	bigAlpha    = mcpParam{name: "big_alpha", kind: "boolean", flag: "big-alpha", desc: "Read 8-bit alpha maps, for a tile on disk from a map whose WDT says so (a client tile reads its WDT)."}
+	writeParam  = mcpParam{name: "write", kind: "boolean", flag: "write", desc: "Write the change. Without it (the default) the call is a dry run: it gives the SQL (and client files) it would write and changes nothing. Make the dry run first."}
 )
 
 // fileOrArchive describes an argument that is a file on disk or, when no such file exists, an
@@ -199,10 +200,70 @@ var mcpTools = func() []mcpTool {
 		}
 		tools = append(tools,
 			mcpTool{name: r.kind + "_get", cmd: []string{r.kind, "get"}, readOnly: true, desc: getDesc, params: get},
-			mcpTool{name: r.kind + "_search", cmd: []string{r.kind, "search"}, readOnly: true, desc: searchDesc, params: search})
+			mcpTool{name: r.kind + "_search", cmd: []string{r.kind, "search"}, readOnly: true, desc: searchDesc, params: search},
+			recordSetTool(r.kind, r.what), recordNewTool(r.kind, r.what))
 	}
+	tools = append(tools,
+		mcpTool{
+			name: "item_export", cmd: []string{"item", "export"},
+			desc: "Give the item editor's SQL script of items: every patch row of each, as REPLACE statements naming their columns, which item_import (or the editor's Import) loads again.",
+			params: []mcpParam{
+				{name: "entries", kind: "string", required: true, desc: "The items' entries, comma separated (25,2092)."},
+				serverParam,
+				{name: "out", kind: "string", flag: "o", desc: "Write the script to this file instead of returning it (an absolute path is safest)."},
+			},
+		},
+		mcpTool{
+			name: "item_import", cmd: []string{"item", "import"},
+			desc: "Import the items of an SQL script (item_export's form) into the world database, replacing rows of the same entry and patch. Dry run by default: lists the rows it would write, whether each exists, and what it leaves out.",
+			params: []mcpParam{
+				{name: "file", kind: "string", required: true, desc: "The SQL script (an absolute path is safest)."},
+				serverParam, clientParam, writeParam,
+			},
+		})
 	return tools
 }()
+
+// recordSetTool is the tool that changes a record's columns (<kind> set).
+func recordSetTool(kind, what string) mcpTool {
+	desc := "Change a " + what + "'s columns in the world database, in its newest patch row (or content_patch's), checked as the editor checks them: a refused value is an error that says why. " +
+		"With write, a running world server reloads it and the game's cache forgets the old one (when the game is closed). Dry run by default: gives the SQL. Read the record with " + kind + "_get first for its columns."
+	params := []mcpParam{
+		{name: "entry", kind: "integer", required: true, desc: "The " + what + "'s entry (ID)."},
+		{name: "values", kind: "object", flag: "values", required: true, desc: "The columns to change and their new values, as {\"column\": value}; the columns are " + kind + "_get's."},
+		serverParam, clientParam,
+	}
+	if kind == "spell" {
+		desc = "Change a spell's columns in its spell_template row (the server's build) and write its whole row into the client's Spell.dbc in Meld's patch, as the spell editor saves it; checked as the editor checks it. " +
+			"With write, a running world server reloads its spells, and the patch is written at once or, while the game runs, once it has closed. Dry run by default: gives the SQL and the client files. Read the spell with spell_get first for its columns."
+		params = append(params,
+			mcpParam{name: "icon", kind: "string", flag: "icon", desc: "The icon, a name under Interface\\Icons (INV_Sword_04), added to SpellIcon.dbc when the client lacks it."},
+			mcpParam{name: "build", kind: "integer", flag: "build", desc: "The spell_template row's build (default: the one the server uses)."})
+	} else {
+		params = append(params,
+			mcpParam{name: "content_patch", kind: "integer", flag: "content-patch", desc: "The row's content patch (the table's patch column, not patch-3.MPQ). Default: the newest row's."})
+	}
+	return mcpTool{name: kind + "_set", cmd: []string{kind, "set"}, desc: desc, params: append(params, writeParam)}
+}
+
+// recordNewTool is the tool that makes a record (<kind> new).
+func recordNewTool(kind, what string) mcpTool {
+	desc := "Make a " + what + " in the world database under the first free entry, a copy of from or the editor's defaults, and give its entry. Dry run by default: gives the entry it would get and the SQL."
+	params := []mcpParam{
+		{name: "name", kind: "string", required: true, desc: "Its name."},
+		{name: "from", kind: "integer", flag: "from", desc: "Copy this " + what + " (its newest patch row)."},
+	}
+	switch kind {
+	case "item":
+		params = append(params, mcpParam{name: "kind", kind: "string", flag: "kind", desc: "Instead of from: start from the usual item of this kind, as class,subclass,inventory_type (2,7,13 a one-handed sword), with no stats."})
+	case "spell":
+		desc = "Make a spell under the first entry neither the world database nor the client uses: its spell_template row and its Spell.dbc row in Meld's patch (written at once, or once a running game has closed). Give from (a copy) or starter. Dry run by default: gives the entry, the SQL and the client file."
+		params[1].desc = "Copy this spell (the row the server uses); it loses its script_name."
+		params = append(params, mcpParam{name: "starter", kind: "string", flag: "starter", enum: strings.Split(starterIDs(), ","), desc: "Instead of from: the spell editor's starter to make it from."})
+	}
+	params = append(params, serverParam, clientParam, writeParam)
+	return mcpTool{name: kind + "_new", cmd: []string{kind, "new"}, desc: desc, params: params}
+}
 
 // schema is the tool's input schema: an object of its params.
 func (t mcpTool) schema() map[string]any {
@@ -290,6 +351,16 @@ func (p mcpParam) text(v json.RawMessage) (string, error) {
 			return bad()
 		}
 		return strconv.FormatBool(b), nil
+	case "object":
+		var m map[string]json.RawMessage
+		if !bytes.HasPrefix(bytes.TrimSpace(v), []byte("{")) || json.Unmarshal(v, &m) != nil {
+			return bad()
+		}
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, v); err != nil {
+			return bad()
+		}
+		return buf.String(), nil
 	case "integer", "number":
 		// json.Number would take a quoted number too; the schema says a number.
 		var n json.Number
@@ -309,7 +380,7 @@ func (p mcpParam) text(v json.RawMessage) (string, error) {
 }
 
 // kindNames are the JSON types as an error names them.
-var kindNames = map[string]string{"string": "a string", "integer": "an integer", "number": "a number", "boolean": "true or false"}
+var kindNames = map[string]string{"string": "a string", "integer": "an integer", "number": "a number", "boolean": "true or false", "object": "a JSON object"}
 
 func contains(list []string, s string) bool {
 	for _, x := range list {
@@ -383,8 +454,8 @@ func toolError(msg string) *mcp.CallToolResult {
 // newMCPServer is the server with every tool added.
 func newMCPServer() *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "meld", Title: "Meld", Version: "1"}, &mcp.ServerOptions{
-		Instructions: "Meld's command line tools (meldtool) for a WoW 1.12.1 client and a VMaNGOS server: inspect .wmap maps, terrain tiles, MPQ archives, BLP textures, M2 and WMO models; convert textures and heightmaps; read creatures, objects, items and spells. " +
-			"A tile, texture or model argument is a file on disk or an archive path in the client. No tool writes into the client or the server; the ones with an out argument write that file only. " +
+		Instructions: "Meld's command line tools (meldtool) for a WoW 1.12.1 client and a VMaNGOS server: inspect .wmap maps, terrain tiles, MPQ archives, BLP textures, M2 and WMO models; convert textures and heightmaps; read, change and make creatures, objects, items and spells. " +
+			"A tile, texture or model argument is a file on disk or an archive path in the client. Only the _set, _new and item_import tools write into the world database (and, for spells, Meld's patch in the client), and only when given write: true; without it they are dry runs that say what they would write. The ones with an out argument write that file only. " +
 			"The tools work on files, not on the map open in the Meld app.",
 	})
 	for _, t := range mcpTools {
