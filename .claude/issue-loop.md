@@ -164,6 +164,12 @@ Started by the coordinator before the first worker and left running; workers nev
   will not restart while another live loop holds the loop lock or another probe run is alive, and says
   so (`staleBackend`).
 
+## Umbrella issues (#936)
+
+An issue whose work is in its child issues carries the `umbrella` label. The coordinator's pick skips it
+like `needs-approval`, `parked` and `owner-question`, and the triage that splits an issue into parts adds
+the label to it. Never hand an `umbrella` issue to a worker; pick one of its parts.
+
 ## Priority lanes
 
 Labels worked right after `bug`, in this order, lowest issue number first within each:
