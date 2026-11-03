@@ -86,6 +86,33 @@ export interface AssetsImported {
 }
 
 /**
+ * BlenderImported is a model brought back from Blender: written into the client as a still M2.
+ */
+export interface BlenderImported {
+    /**
+     * Type is the placed object type of the new model, "m2:<path>".
+     */
+    "type": string;
+
+    /**
+     * Triangles and Textures count what it holds.
+     */
+    "triangles": number;
+    "textures": number;
+
+    /**
+     * Replaced are the files of an earlier import written over, for the page to load again.
+     */
+    "replaced": string[] | null;
+
+    /**
+     * Waiting says the files wait for the game to close before the patch has them; Meld reads them
+     * meanwhile.
+     */
+    "waiting": boolean;
+}
+
+/**
  * BlenderInfo is the Blender Open in Blender starts.
  */
 export interface BlenderInfo {

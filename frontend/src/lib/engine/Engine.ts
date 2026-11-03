@@ -174,7 +174,7 @@ import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
 import { loadClientEffects, teleportTo } from '../io/region'
-import { openInBlender, opensInBlender } from '../io/blender'
+import { importFromBlender, openInBlender, opensInBlender } from '../io/blender'
 import { SpawnActions } from './SpawnActions'
 import type { SpawnFloors } from '../session/spawns'
 import { TaxiEditing } from './TaxiEditing'
@@ -3339,7 +3339,11 @@ export class Engine {
 			items.push({ label: 'Duplicate', shortcut: 'Ctrl+Shift+D', run: () => this.duplicateSelected() })
 			items.push({ label: 'Place more of this', run: () => pickModel(o) })
 			// The model exported to glTF and opened in Blender, or its saved .blend (#290).
-			if (n === 1 && opensInBlender(o.type)) items.push({ label: 'Open in Blender', run: () => void openInBlender(o.type) })
+			if (n === 1 && opensInBlender(o.type)) {
+				items.push({ label: 'Open in Blender', run: () => void openInBlender(o.type) })
+				// The model saved there written into the client and put in this one's place.
+				items.push({ label: 'Import from Blender', run: () => void importFromBlender(o.id, o.type) })
+			}
 			// A road sign's words are in its texture (#843): swap the model for another sign instead.
 			if (isSignModel(o.type)) items.push({ label: n > 1 ? 'Swap signs…' : 'Swap sign…', run: () => (ui.signSwap = true) })
 			items.push({ label: 'Unselect', run: () => this.deselect() })
@@ -6391,6 +6395,18 @@ export class Engine {
 		if (!changed.length) return
 		this.retype(changed, changed.length === 1 ? 'Swap sign' : `Swap ${changed.length} signs`)
 		setStatus(`Swapped ${changed.length === 1 ? 'the sign' : `${changed.length} signs`} for ${displayName(type)}.`, 4000)
+	}
+
+	/**
+	 * Import from Blender (#290): swaps model `id`, still of type `from`, for model `to` (the one written
+	 * from Blender), keeping its place, turn, tilt, scale and attachments. One undo step. False when the
+	 * model is gone or changed meanwhile, or already is `to`.
+	 */
+	swapModel(id: number, from: string, to: string): boolean {
+		const o = this.objects.objects.get(id)
+		if (!o || o.type !== from || from === to) return false
+		this.retype([{ id, from, to }], 'Import from Blender')
+		return true
 	}
 
 	/**

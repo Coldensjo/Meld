@@ -8,6 +8,7 @@ export type AreaSaveResult = V2<M.AreaSaveResult>
 export type AreaTriggerImportResult = V2<M.AreaTriggerImportResult>
 export type AreaTriggerList = V2<M.AreaTriggerList>
 export type AssetsImported = V2<M.AssetsImported>
+export type BlenderImported = V2<M.BlenderImported>
 export type BlenderInfo = V2<M.BlenderInfo>
 export type BlenderOpened = V2<M.BlenderOpened>
 export type ClientSandbox = V2<M.ClientSandbox>

@@ -13,6 +13,7 @@ import type * as gameIo from '../io/game'
 import type * as externalIo from '../io/external'
 import type * as imagesIo from '../io/images'
 import type * as listsIo from '../io/lists'
+import type * as blenderIo from '../io/blender'
 import type * as mapIo from '../io/mapio'
 import type * as regionIo from '../io/region'
 import type * as prefabIo from '../io/prefabFiles'
@@ -57,6 +58,7 @@ export interface MenuIo {
 	exportObjectList: typeof listsIo.exportObjectList
 	importDoodadBrushes: typeof listsIo.importDoodadBrushes
 	importObjectList: typeof listsIo.importObjectList
+	importModelFile: typeof blenderIo.importModelFile
 	requestRevert: typeof mapIo.requestRevert
 	editWorldHere: typeof regionIo.editWorldHere
 	extendRegion: typeof regionIo.extendRegion
@@ -445,6 +447,8 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 					{ kind: 'action', label: 'Write Minimap Tiles to the Client', disabled: !backend || ui.busy, run: withEngine((e) => io.writeMinimapTiles(e)) },
 				]),
 				{ kind: 'sep' },
+				// A .blend or GLB written into the client as a doodad, then placed (#290).
+				{ kind: 'action', label: 'Import 3D Model (Blender, glTF)…', disabled: !backend || ui.busy, run: () => void io.importModelFile() },
 				{ kind: 'action', label: 'Import Doodad Brushes…', disabled: !backend || ui.busy, run: () => io.importDoodadBrushes() },
 				{
 					kind: 'action',

@@ -1,8 +1,11 @@
 // Package blender opens a client model in Blender (#290): it finds Blender's program, keeps a work
-// folder a model, and starts Blender on the model's export with a script that imports it.
+// folder a model, and starts Blender on the model's export with a script that imports it. The way
+// back: a background Blender exports the saved .blend as a GLB (ExportGLB), which the app turns into
+// a client model under ClientDir.
 package blender
 
 import (
+	"context"
 	"crypto/sha1"
 	_ "embed"
 	"encoding/hex"
@@ -13,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // openScript is the Python Blender runs as it starts on a fresh export (open.py).
@@ -97,6 +101,97 @@ func WorkFor(root, name, objType string) Work {
 	return Work{Dir: dir, GLB: filepath.Join(dir, name+".glb"), Blend: filepath.Join(dir, name+".blend")}
 }
 
+// ClientDir is the client folder the models that come back from Blender are written in, each in a
+// folder named as its work folder, so Open in Blender on that model finds its .blend again
+// (WorkForType). The client's own files are never written over.
+const ClientDir = `World\Meld`
+
+// WorkForType is the work folder of a placed object of type objType ("m2:<path>" or "wmo:<path>", with
+// any look or doodad set after '?'): the folder a model Meld wrote from Blender came from
+// (ClientDir\<folder>\<name>.m2), else the one WorkFor gives the client's model.
+func WorkForType(root, objType string) Work {
+	_, path, _ := strings.Cut(objType, ":")
+	if q := strings.IndexByte(path, '?'); q >= 0 {
+		path = path[:q]
+	}
+	path = strings.ReplaceAll(path, "/", `\`)
+	name := path[strings.LastIndexByte(path, '\\')+1:]
+	if dot := strings.LastIndexByte(name, '.'); dot > 0 {
+		name = name[:dot]
+	}
+	if rest, ok := cutPrefixFold(path, ClientDir+`\`); ok {
+		if folder, file, ok := strings.Cut(rest, `\`); ok && !strings.Contains(file, `\`) && folder == safeName(folder) && name == safeName(name) {
+			dir := filepath.Join(root, folder)
+			return Work{Dir: dir, GLB: filepath.Join(dir, name+".glb"), Blend: filepath.Join(dir, name+".blend")}
+		}
+	}
+	return WorkFor(root, name, objType)
+}
+
+func cutPrefixFold(s, prefix string) (string, bool) {
+	if len(s) < len(prefix) || !strings.EqualFold(s[:len(prefix)], prefix) {
+		return s, false
+	}
+	return s[len(prefix):], true
+}
+
+// WorkForFile is the work folder of a model imported from a file the user chose (a .blend or a .glb,
+// Import 3D Model), named after it and kept apart by a hash of its path.
+func WorkForFile(root, file string) Work {
+	if abs, err := filepath.Abs(file); err == nil {
+		file = abs
+	}
+	name := filepath.Base(file)
+	name = strings.TrimSuffix(name, filepath.Ext(name))
+	return WorkFor(root, name, "file:"+file)
+}
+
+// Name is the model's name, which its client files take: the .blend's without its extension.
+func (w Work) Name() string {
+	return strings.TrimSuffix(filepath.Base(w.Blend), ".blend")
+}
+
+// Client is the client path the model of w is written to: ClientDir\<folder>\<name>.m2.
+func (w Work) Client() string {
+	return ClientDir + `\` + filepath.Base(w.Dir) + `\` + w.Name() + ".m2"
+}
+
+// sourceName is the file in a work folder that names the file the user imported the model from.
+const sourceName = "source.txt"
+
+// SetSource records file as the file w's model was imported from.
+func (w Work) SetSource(file string) error {
+	if err := os.MkdirAll(w.Dir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(w.Dir, sourceName), []byte(file), 0o644)
+}
+
+// Source is the file w's model was imported from (WorkForFile), "" for none or one that is gone.
+func (w Work) Source() string {
+	b, err := os.ReadFile(filepath.Join(w.Dir, sourceName))
+	if err != nil {
+		return ""
+	}
+	p := strings.TrimSpace(string(b))
+	if st, err := os.Stat(p); err != nil || st.IsDir() {
+		return ""
+	}
+	return p
+}
+
+// Model is the file the model of w comes back from: the .blend saved in the work folder, else the file
+// it was imported from, else "" (nothing saved yet).
+func (w Work) Model() string {
+	if _, err := os.Stat(w.Blend); err == nil {
+		return w.Blend
+	}
+	return w.Source()
+}
+
+// isBlend says whether path is a .blend file.
+func isBlend(path string) bool { return strings.EqualFold(filepath.Ext(path), ".blend") }
+
 // safeName keeps a model's name to the characters every file system takes.
 func safeName(name string) string {
 	var b strings.Builder
@@ -116,10 +211,11 @@ func safeName(name string) string {
 }
 
 // Args are the arguments Blender starts with for w: its .blend when the user has saved one there
-// (their edits are kept, never overwritten by a new export), else the GLB through the import script.
+// (their edits are kept, never overwritten by a new export) or imported the model from one, else the
+// GLB through the import script.
 func Args(w Work) (args []string, fresh bool) {
-	if _, err := os.Stat(w.Blend); err == nil {
-		return []string{w.Blend}, false
+	if m := w.Model(); isBlend(m) {
+		return []string{m}, false
 	}
 	return []string{"--python", filepath.Join(w.Dir, "open.py"), "--", w.GLB, w.Blend}, true
 }
@@ -152,4 +248,71 @@ func Open(exe string, w Work, glb func() ([]byte, error)) (fresh bool, err error
 	allowForeground()
 	go func() { _ = cmd.Wait() }()
 	return fresh, nil
+}
+
+// exportScript is the Python a background Blender runs to export a .blend as a GLB (export.py).
+//
+//go:embed export.py
+var exportScript []byte
+
+// Console is the program to run Blender in the background with: on Windows blender.exe beside the
+// launcher, which detaches and never says how the run went.
+func Console(exe string) string {
+	if runtime.GOOS == "windows" && strings.EqualFold(filepath.Base(exe), "blender-launcher.exe") {
+		if p := filepath.Join(filepath.Dir(exe), "blender.exe"); InFolder(p) != "" {
+			return p
+		}
+	}
+	return exe
+}
+
+// exportTimeout bounds one background export: a large scene takes Blender some seconds, a hung one
+// never ends.
+const exportTimeout = 3 * time.Minute
+
+// ExportGLB runs Blender's program exe in the background on .blend file blend and returns its scene
+// as a GLB (export.py: the visible meshes, modifiers applied).
+func ExportGLB(ctx context.Context, exe, blend string) ([]byte, error) {
+	tmp, err := os.MkdirTemp("", "meld-blender-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmp)
+	script, out := filepath.Join(tmp, "export.py"), filepath.Join(tmp, "model.glb")
+	if err := os.WriteFile(script, exportScript, 0o644); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, Console(exe), "-b", "--factory-startup", blend, "--python-exit-code", "1", "--python", script, "--", out)
+	cmd.Dir = tmp
+	hideConsole(cmd)
+	log, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("Blender took over %s to export %s", exportTimeout, filepath.Base(blend))
+	}
+	b, rerr := os.ReadFile(out)
+	if err != nil || rerr != nil {
+		return nil, fmt.Errorf("Blender didn't export %s: %v%s", filepath.Base(blend), firstErr(err, rerr), lastLines(log, 6))
+	}
+	return b, nil
+}
+
+func firstErr(a, b error) error {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
+// lastLines is the end of a run's output, n lines at most, after a line break; "" for none.
+func lastLines(out []byte, n int) string {
+	lines := strings.Split(strings.TrimSpace(strings.ReplaceAll(string(out), "\r\n", "\n")), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return ""
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return "\n" + strings.Join(lines, "\n")
 }

@@ -40,11 +40,16 @@ function revealAsset(key: string) {
 
 /** Makes a placed model's type the model to place next and switches to the Place tool (Alt+click on it). */
 export function pickModel(o: WorldObject) {
-	editor.prefab = o.type
+	placeModelType(o.type)
+	setStatus(`Picked ${displayName(o.type)}: click to place more.`, 3000)
+}
+
+/** Makes model type `type` the model to place next, switches to the Place tool and shows it in the asset browser. */
+export function placeModelType(type: string) {
+	editor.prefab = type
 	ui.placeCreature = ui.placeObject = null
 	editor.tool = 'place'
-	revealAsset(o.type)
-	setStatus(`Picked ${displayName(o.type)}: click to place more.`, 3000)
+	revealAsset(type)
 }
 
 /**

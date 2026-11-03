@@ -33,6 +33,7 @@ export const BrowseBlenderFolder: Call<AppApi['BrowseBlenderFolder']> = (...a) =
 export const BrowseBrushImageFolder: Call<AppApi['BrowseBrushImageFolder']> = (...a) => api().BrowseBrushImageFolder(...a) as never
 export const BrowseCmangosFolder: Call<AppApi['BrowseCmangosFolder']> = (...a) => api().BrowseCmangosFolder(...a) as never
 export const BrowseExternalConf: Call<AppApi['BrowseExternalConf']> = (...a) => api().BrowseExternalConf(...a) as never
+export const BrowseModelFile: Call<AppApi['BrowseModelFile']> = (...a) => api().BrowseModelFile(...a) as never
 export const BrowseOtherClient: Call<AppApi['BrowseOtherClient']> = (...a) => api().BrowseOtherClient(...a) as never
 export const BrowsePrefabFolder: Call<AppApi['BrowsePrefabFolder']> = (...a) => api().BrowsePrefabFolder(...a) as never
 export const BrowseProjectFolder: Call<AppApi['BrowseProjectFolder']> = (...a) => api().BrowseProjectFolder(...a) as never
@@ -107,9 +108,11 @@ export const ImportAreaTriggers: Call<AppApi['ImportAreaTriggers']> = (...a) => 
 export const ImportAreas: Call<AppApi['ImportAreas']> = (...a) => api().ImportAreas(...a) as never
 export const ImportCharacter: Call<AppApi['ImportCharacter']> = (...a) => api().ImportCharacter(...a) as never
 export const ImportCreatures: NonNullCall<AppApi['ImportCreatures']> = (...a) => api().ImportCreatures(...a) as never
+export const ImportFromBlender: Call<AppApi['ImportFromBlender']> = (...a) => api().ImportFromBlender(...a) as never
 export const ImportIconPictures: Call<AppApi['ImportIconPictures']> = (...a) => api().ImportIconPictures(...a) as never
 export const ImportItems: NonNullCall<AppApi['ImportItems']> = (...a) => api().ImportItems(...a) as never
 export const ImportLights: NonNullCall<AppApi['ImportLights']> = (...a) => api().ImportLights(...a) as never
+export const ImportModelFile: Call<AppApi['ImportModelFile']> = (...a) => api().ImportModelFile(...a) as never
 export const ImportObjects: NonNullCall<AppApi['ImportObjects']> = (...a) => api().ImportObjects(...a) as never
 export const ImportOtherAssets: Call<AppApi['ImportOtherAssets']> = (...a) => api().ImportOtherAssets(...a) as never
 export const ImportQuests: NonNullCall<AppApi['ImportQuests']> = (...a) => api().ImportQuests(...a) as never

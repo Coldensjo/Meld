@@ -135,6 +135,13 @@ export function BrowseExternalConf(): $CancellablePromise<string> {
 }
 
 /**
+ * BrowseModelFile lets the user pick a model made in Blender (a .blend, or a GLB). Returns "" if cancelled.
+ */
+export function BrowseModelFile(): $CancellablePromise<string> {
+    return $Call.ByID(3412073322);
+}
+
+/**
  * BrowseOtherClient asks for another client's folder. Returns "" if cancelled.
  */
 export function BrowseOtherClient(): $CancellablePromise<string> {
@@ -722,6 +729,17 @@ export function ImportCreatures(path: string): $CancellablePromise<number[] | nu
 }
 
 /**
+ * ImportFromBlender brings back the model a placed object opened in Blender (its type, as
+ * OpenInBlender takes it): its saved .blend, exported by a background Blender as a GLB, written into
+ * the client's patch as a still M2 with its textures as BLPs and a collision box, under
+ * World\Meld\<work folder> (never over a client file), at once or once the game has closed. The page
+ * then swaps the placement for it.
+ */
+export function ImportFromBlender(objType: string): $CancellablePromise<$models.BlenderImported> {
+    return $Call.ByID(2364150668, objType);
+}
+
+/**
  * ImportIconPictures adds the pictures to the client as icons under Interface\Icons, in Meld's patch
  * without closing anything (as the spell editor saves, #365): at once, or once the game has closed.
  * The game shows them from its next start. A name the client has outside Meld's patch is refused
@@ -745,6 +763,15 @@ export function ImportItems(path: string): $CancellablePromise<number[] | null> 
  */
 export function ImportLights(): $CancellablePromise<vmangos$0.LightsEdit | null> {
     return $Call.ByID(1383770393);
+}
+
+/**
+ * ImportModelFile writes the model in file (a .blend, exported by a background Blender, or a GLB) into
+ * the client as ImportFromBlender does, under a work folder of its own that remembers the file, so
+ * Open in Blender on the new model opens it and Import from Blender reads it again.
+ */
+export function ImportModelFile(file: string): $CancellablePromise<$models.BlenderImported> {
+    return $Call.ByID(2258892031, file);
 }
 
 /**
@@ -1322,7 +1349,8 @@ export function OpenImageDialog(title: string): $CancellablePromise<string> {
 /**
  * OpenInBlender opens a placed client model (its object type, "m2:<path>" or "wmo:<path>" with any look
  * or doodad set after '?') in Blender: exported as glTF into its work folder and imported there by a
- * script, or, once the user has saved a .blend there, that file as it is.
+ * script, or, once the user has saved a .blend there, that file as it is. A model Meld wrote from
+ * Blender opens the .blend (or the file) it came from.
  */
 export function OpenInBlender(objType: string): $CancellablePromise<$models.BlenderOpened> {
     return $Call.ByID(685561090, objType);

@@ -8,6 +8,7 @@
 	import { exportAlphamap, importAlphamap, exportHeightmap, exportNormalMap, writeMinimapTiles } from '../lib/io/images'
 	import { exportDoodadBrush, exportObjectList, importDoodadBrushes, importObjectList } from '../lib/io/lists'
 	import { requestRevert } from '../lib/io/mapio'
+	import { importModelFile } from '../lib/io/blender'
 	import { editWorldHere, extendRegion, openWorldView, restoreClientPaint } from '../lib/io/region'
 	import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
 	import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
@@ -75,6 +76,7 @@
 			exportObjectList,
 			importDoodadBrushes,
 			importObjectList,
+			importModelFile,
 			requestRevert,
 			editWorldHere,
 			extendRegion,
