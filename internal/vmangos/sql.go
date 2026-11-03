@@ -148,11 +148,18 @@ func mulQuat(a, b [4]float64) [4]float64 {
 }
 
 // tiltOf is a game object's rotation q relative to its facing o (WorldSpawn.Tilt): q turned back
-// about Z by o. It is nil for an object that only turns about Z (q's x and y zero), whose rotation
-// the facing gives.
+// about Z by o. It is nil for an object whose rotation the facing gives: one that only turns about Z
+// (q's x and y zero) by its facing, or has no rotation (q zero). An object that only turns, but by
+// another angle than its facing, keeps a tilt about Z, since the game turns it by q (#1047: half the
+// Deeprun Tram's cars face pi/2 and turn -pi/2).
 func tiltOf(o float64, q [4]float64) []float64 {
 	if math.Abs(q[0]) < 1e-6 && math.Abs(q[1]) < 1e-6 {
-		return nil
+		n := math.Hypot(q[2], q[3])
+		f := facing(o)
+		// q and -q are the same turn; within about 0.003 rad of the facing counts as the facing.
+		if n < 1e-6 || math.Abs(q[2]*f[2]+q[3]*f[3])/n > 1-1e-6 {
+			return nil
+		}
 	}
 	t := mulQuat(facing(-o), q)
 	return t[:]

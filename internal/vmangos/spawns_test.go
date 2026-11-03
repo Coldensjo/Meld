@@ -15,7 +15,7 @@ import (
 func TestParseSpawnRows(t *testing.T) {
 	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\t0\t7\t1\t233\t1\t1\t5.5\t420\t1\t0\t0\t0\n" +
 		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\t99\t0\t0\t0\t1\t2\t0\t600\t0\t0\t0\t0\r\n" +
-		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180\t0\t0\t0.5\t0.866025\n")
+		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t1.047198\t120\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180\t0\t0\t0.5\t0.866025\n")
 	rows, err := parseSpawnRows(raw, "creature")
 	if err != nil {
 		t.Fatal(err)
@@ -105,6 +105,39 @@ func TestTiltedObjectKeepsItsTilt(t *testing.T) {
 	}
 	if math.Abs(math.Hypot(q[0], q[1])-math.Hypot(-0.118706, -0.071149)) > 1e-6 {
 		t.Fatalf("turning about Z changed the tilt: %v", q)
+	}
+}
+
+// A game object that only turns, but by its quaternion otherwise than its orientation (#1047): a
+// Deeprun Tram car (map 369) faces pi/2 and turns -pi/2. It keeps the quaternion as a tilt about Z,
+// so it is drawn as the game turns it, and a move writes the database's quaternion back.
+func TestTurnedObjectKeepsItsQuaternion(t *testing.T) {
+	raw := []byte("18802\t176080\tSubway\t\t0\t0\t0\t0\t0\t3\t4.58065\t28.2097\t7.01107\t1.5708\t180\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180" +
+		"\t0\t0\t-0.707107\t0.707107\n")
+	rows, err := parseSpawnRows(raw, "object")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows[0].Tilt) != 4 {
+		t.Fatalf("an object turned otherwise than its orientation must have a tilt, got %v", rows[0].Tilt)
+	}
+	w := regionSpawn(rows[0], 32, 48, nil, [3]heldItem{})
+	// The tilt is a half turn about Z: the facing pi/2 and the tilt make the database's -pi/2.
+	if tl := w.Tilt; math.Abs(tl[0]) > 1e-6 || math.Abs(tl[1]) > 1e-6 || math.Abs(math.Abs(tl[2])-1) > 1e-5 {
+		t.Fatalf("tilt %v, want a half turn about Z", tl)
+	}
+	orig := serverSpawn(w, 0, 32, 48)
+	now := orig
+	now.X += 2
+	res := ExportSQL([]Edit{{Spawn: now, Original: &orig}}, fixedTime)
+	if !strings.Contains(res.SQL, "`rotation0` = 0, `rotation1` = 0, `rotation2` = -0.707107, `rotation3` = 0.707107,") {
+		t.Fatalf("a moved object must keep its database's quaternion:\n%s", res.SQL)
+	}
+	// Within a hair of the orientation, or no rotation at all, the facing gives the turn.
+	for _, q := range [][4]float64{{0, 0, 0.707107, 0.707107}, {0, 0, -0.707107, -0.707107}, {0, 0, 0, 0}} {
+		if tl := tiltOf(math.Pi/2, q); tl != nil {
+			t.Errorf("q %v at facing pi/2: tilt %v, want none", q, tl)
+		}
 	}
 }
 
