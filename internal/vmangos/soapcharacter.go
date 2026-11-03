@@ -46,6 +46,19 @@ func consoleCommand(c soapConsole, account, password, command string) (string, e
 	return out, err
 }
 
+// characterCommand sends a command naming a character through the SOAP console c, as consoleCommand,
+// and adds to the server's "Player not found" why a character in the database can be missing (#1078):
+// the console finds a name in the world server's player cache, which holds the characters it read
+// when it started and those made or logged in since, and `.pdump load` (Import character) doesn't add
+// to it (VMaNGOS PlayerDump.cpp, LoadDump).
+func characterCommand(c soapConsole, account, password, command string) (string, error) {
+	out, err := consoleCommand(c, account, password, command)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "player not found") {
+		return out, fmt.Errorf("%w (a character imported since the world server started is known to its console only after it has logged in to the game once, or the server has restarted)", err)
+	}
+	return out, err
+}
+
 // levelCommand is the console command that sets the character called name to level: `.character
 // level`, which works on a character in the world (it levels up there) and on one logged out (its row).
 func levelCommand(name string, level int) string {
@@ -64,7 +77,7 @@ func SetCharacterLevel(serverRoot, account, password, name string, level int) (s
 	if err != nil {
 		return "", err
 	}
-	return consoleCommand(soap, account, password, levelCommand(name, level))
+	return characterCommand(soap, account, password, levelCommand(name, level))
 }
 
 // mailSubject and mailText are the letter MailItems sends the items with.
@@ -96,7 +109,7 @@ func MailItems(serverRoot, account, password, name string, item, count int) (str
 	if err != nil {
 		return "", err
 	}
-	return consoleCommand(soap, account, password, mailCommand(name, item, count))
+	return characterCommand(soap, account, password, mailCommand(name, item, count))
 }
 
 // ConsoleReady says whether the character test actions can run on the server in serverRoot: nil when

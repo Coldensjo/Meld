@@ -48,7 +48,7 @@ func TestSetCharacterLevelSendsCharacterLevel(t *testing.T) {
 		t.Fatalf("sent %q", got)
 	}
 	got = nil
-	if _, err := SetCharacterLevel(root, "gm", "pw", "Nobody", 5); err == nil || !strings.Contains(err.Error(), "Player not found") {
+	if _, err := SetCharacterLevel(root, "gm", "pw", "Nobody", 5); err == nil || !strings.Contains(err.Error(), "Player not found") || !strings.Contains(err.Error(), "imported since the world server started") {
 		t.Fatalf("unknown player: %v", err)
 	}
 	got = nil

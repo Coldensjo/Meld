@@ -312,7 +312,7 @@
 			charactersOf = 0
 			await readAccounts()
 			ui.characterEditor = { account: imp.account, guid: c.guid }
-			ed.note = `Imported ${c.name} as character ${c.guid}${c.name !== imp.dump.name ? `, from ${imp.dump.name}'s file` : ''}.`
+			ed.note = `Imported ${c.name} as character ${c.guid}${c.name !== imp.dump.name ? `, from ${imp.dump.name}'s file` : ''}. The running world server's console knows the name only once ${c.name} has logged in to the game or the server has restarted, so Set ${c.name}'s level and Mail to ${c.name} can't find it until then.`
 			setStatus(ed.note, 10000)
 		} catch (err) {
 			ed.error = String(err)

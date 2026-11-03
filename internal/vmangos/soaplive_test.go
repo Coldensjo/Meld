@@ -152,6 +152,13 @@ func TestSoapFeaturesLive(t *testing.T) {
 		if c.Guid == guid || c.Name != copyName {
 			t.Errorf("imported %+v, want a new guid called %s", c, copyName)
 		}
+		// The server's load doesn't put the name in its player cache (#1078), so the console can't find it
+		// until the character logs in or the server restarts, and the error says so.
+		if _, err := SetCharacterLevel(s.Root, s.Account, s.Password, copyName, 5); err == nil {
+			t.Error("the console found the imported character: the import's note about the restart is wrong now")
+		} else if !strings.Contains(err.Error(), "imported since the world server started") {
+			t.Errorf("level of the imported character: %v", err)
+		}
 		cols := "race, class, gender, level, map, position_x, position_y, position_z"
 		a, err := runSQL(db, fmt.Sprintf("SELECT %s FROM characters WHERE guid = %d", cols, guid))
 		if err != nil {
