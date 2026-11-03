@@ -293,6 +293,11 @@ func TestCMaNGOSEquipmentByItems(t *testing.T) {
 		!strings.Contains(res.SQL, "SELECT 1000000009, -1, -1, 0, 100, @meld_equip,") {
 		t.Errorf("an unchanged equipment of known items is not written by them:\n%s", res.SQL)
 	}
+	look.EquipItems = &[3]int{25819, 0, vmangosStockItemMax}
+	if res = export(look); !strings.Contains(res.SQL, "WHERE `equipentry1` = 25819 AND") ||
+		len(res.Skipped) != 1 || !strings.Contains(res.Skipped[0], "item 25819; it was made in the VMaNGOS world database") {
+		t.Errorf("an item made in the VMaNGOS database is not listed as not exported: %v\n%s", res.Skipped, res.SQL)
+	}
 
 	// SpawnSQL hands the items to the spawns that name the equipment, and SpawnEquipmentIDs lists
 	// the ones to read.

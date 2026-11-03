@@ -219,6 +219,11 @@ func cmangosAddonSQL(s Spawn, orig *Spawn) ([]string, []string) {
 			case *s.EquipItems == [3]int{}:
 				equip = "0"
 			default:
+				for _, item := range *s.EquipItems {
+					if item > vmangosStockItemMax {
+						skipped = append(skipped, fmt.Sprintf("its equipment's item %d; it was made in the VMaNGOS world database, so CMaNGOS's item_template lacks it and the server empties that slot", item))
+					}
+				}
 				out = append(out, cmangosEquipSQL(*s.EquipItems)...)
 				equip = "@meld_equip"
 			}
@@ -227,6 +232,11 @@ func cmangosAddonSQL(s Spawn, orig *Spawn) ([]string, []string) {
 	}
 	return out, skipped
 }
+
+// vmangosStockItemMax is the highest item_template entry of VMaNGOS's own world database (its
+// db-dump's "Monster - Shield, Legion"). Meld makes its items after the table's highest entry
+// (planCreate), so an item past it is one made in the user's database, which CMaNGOS's lacks (#1058).
+const vmangosStockItemMax = 25818
 
 // cmangosEquipSQL finds the creature_equip_template row holding exactly these items (main hand, off
 // hand, ranged) into @meld_equip, made after the highest entry when none does (#1042), as
