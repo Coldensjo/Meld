@@ -1,14 +1,19 @@
-// Making and editing boats and zeppelins (#955): World › Transports at Menethil Harbor (Azeroth 33_39). Edit on Proudmore's Treasure (176231, path 292) puts its whole path on the map as the Flight Paths window's route (the map's 15 points marked); a click on its Menethil dock picks the point, which shows as a dock waiting 60 s; a wait of 45 and Save hand SaveTransport the template's entry, path, speed and the 30 points with the new wait, and the status says to restart the world server. New transport (NewTransportIDs stood in) starts a route of 7 points under the camera, two of them docks, drawn as a transport of its own; Draw and a click on the water add a point after the picked one; Go on to Kalimdor adds four points on map 1; Save sends it all. SaveTransport and NewTransportIDs are stood in, so nothing is written.
+// Making and editing boats and zeppelins (#955): World › Transports at Menethil Harbor (Azeroth 33_39). Edit on Proudmore's Treasure (176231, path 292) puts its whole path on the map as the Flight Paths window's route (the map's 15 points marked); a click on its Menethil dock picks the point, which shows as a dock waiting 60 s; a wait of 45 and Save hand SaveTransport the template's entry, path, speed and the 30 points with the new wait, and the status says to restart the world server. New transport (NewTransportIDs stood in) starts a route of 7 points under the camera, two of them docks, drawn as a transport of its own; Draw and a click on the water add a point after the picked one; Go on to Kalimdor adds four points on map 1; Save sends it all. Delete on Proudmore's Treasure (#1039) asks first, then hands DeleteTransport its entry and says its path is out of the client. SaveTransport, NewTransportIDs and DeleteTransport are stood in, so nothing is written.
 // touches: frontend/src/components/TransportsWindow.svelte, frontend/src/lib/world/transportRoute.ts, frontend/src/lib/engine/TaxiEditing.ts, frontend/src/lib/world/TaxiLayer.ts, internal/vmangos/transports.go, internal/vmangos/transportedit.go, app_transports.go
 const { ui, prefs } = await P.state()
 const App = window.go.main.App
-const real = { SaveTransport: App.SaveTransport, NewTransportIDs: App.NewTransportIDs }
+const real = { SaveTransport: App.SaveTransport, NewTransportIDs: App.NewTransportIDs, DeleteTransport: App.DeleteTransport }
 const saved = []
 App.SaveTransport = async (edit) => {
 	saved.push(edit)
 	return { patch: '', server: true, waiting: false, restart: true, period: 329313 }
 }
 App.NewTransportIDs = async () => ({ entry: 900001, pathId: 9001 })
+const deleted = []
+App.DeleteTransport = async (entry) => {
+	deleted.push(entry)
+	return { patch: 'patch-3.MPQ', server: true, waiting: false, restart: true, pathId: 292, pathShared: false }
+}
 const wasShown = prefs.showTransports
 try {
 	prefs.showTransports = false
@@ -110,7 +115,22 @@ try {
 	const second = saved[1]
 	const savedNew = { entry: second.entry, pathId: second.pathId, points: second.points.length, onKalimdor: second.points.filter((p) => p.mapId === 1).length, docks: second.points.filter((p) => p.flags === 2).length }
 
+	// Delete on the picked transport: asked first, then the binding gets its entry.
+	await P.until(() => (button('New transport') && !button('New transport').disabled) || null, 30_000, 'the second save done')
+	;[...win.querySelectorAll('.list button')].find((b) => b.textContent.includes('Menethil Harbor and Theramore'))?.click()
+	await P.frames(2)
+	button('Delete')?.click()
+	const ask = await P.until(() => P.dialog('Delete the transport'), 10_000, 'the delete confirmation')
+	const asked = ask.textContent.includes('176231')
+	ask.querySelector('[data-confirm="yes"]').click()
+	await P.until(() => deleted.length > 0 || null, 10_000, 'DeleteTransport called')
+	await P.until(() => win.textContent.includes('Deleted ') || null, 10_000, 'the delete note')
+	const deletedOne = { entry: deleted[0], asked, note: win.textContent.includes('path 292 is out of the client') }
+
 	const ok =
+		deletedOne.entry === 176231 &&
+		deletedOne.asked &&
+		deletedOne.note &&
 		edited.route === 292 &&
 		edited.points === 30 &&
 		edited.marked === 15 &&
@@ -139,10 +159,12 @@ try {
 		savedNew.points === 12 &&
 		savedNew.onKalimdor === 4 &&
 		savedNew.docks === 2
-	return { ok, edited, pickedDock, savedEdit, created, pickedLast, last, drawn, stretches, savedNew }
+	return { ok, deletedOne, edited, pickedDock, savedEdit, created, pickedLast, last, drawn, stretches, savedNew }
 } finally {
 	App.SaveTransport = real.SaveTransport
 	App.NewTransportIDs = real.NewTransportIDs
+	App.DeleteTransport = real.DeleteTransport
+	ui.confirm = null
 	ui.transports = false
 	prefs.showTransports = wasShown
 }

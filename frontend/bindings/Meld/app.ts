@@ -387,6 +387,17 @@ export function DeleteSound(id: number): $CancellablePromise<boolean> {
 }
 
 /**
+ * DeleteTransport takes a boat or zeppelin out (#1039): its template and `transports` rows from the
+ * world database, then its taxi path from the client's TaxiPath.dbc and TaxiPathNode.dbc (Meld's
+ * patch) and the server's data, unless another transport sails the same path. The rows go first: a
+ * path no template sails is left alone by the server and the client, so a delete that fails after
+ * them leaves only an unused path.
+ */
+export function DeleteTransport(entry: number): $CancellablePromise<$models.TransportDeleteResult> {
+    return $Call.ByID(3662209543, entry);
+}
+
+/**
  * DisconnectExternalDatabase goes back to the server folder's own databases.
  */
 export function DisconnectExternalDatabase(): $CancellablePromise<void> {

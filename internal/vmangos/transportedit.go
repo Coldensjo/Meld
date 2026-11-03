@@ -186,3 +186,43 @@ func TransportEntryFree(serverRoot string, entry uint32) (bool, error) {
 func ForgetObjectTemplates() {
 	forgetObjectTemplates()
 }
+
+// DeleteTransportSQL takes transport entry out of the world database (#1039): every patch row of its
+// type 15 template and its `transports` rows of every build. No transaction of its own: runScript
+// wraps the script in one.
+func DeleteTransportSQL(entry uint32) string {
+	return fmt.Sprintf("DELETE FROM `gameobject_template` WHERE `entry` = %d AND `type` = %d;\nDELETE FROM `transports` WHERE `entry` = %d;\n", entry, objectTypeTransport, entry)
+}
+
+// TransportPathOf is the taxi path transport entry sails (its newest template's data0) and whether
+// another type 15 template sails it too, so deleting entry keeps the path. ok is false when entry is
+// no transport.
+func TransportPathOf(serverRoot string, entry uint32) (path uint32, shared, ok bool, err error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return 0, false, false, err
+	}
+	raw, err := runSQL(db, fmt.Sprintf("SELECT t.data0, (SELECT COUNT(*) FROM %s WHERE o.type = %d AND o.data0 = t.data0 AND o.entry <> t.entry) FROM %s WHERE t.entry = %d AND t.type = %d",
+		strings.TrimSuffix(newestObjects, " t")+" o", objectTypeTransport, newestObjects, entry, objectTypeTransport))
+	if err != nil {
+		return 0, false, false, err
+	}
+	rows := batchRows(raw, 2)
+	if len(rows) == 0 {
+		return 0, false, false, nil
+	}
+	return rows[0].u32(0), rows[0].u32(1) > 0, true, nil
+}
+
+// RemoveTransportPath returns the taxi tables without path pathID and its points, or tt itself when
+// they lack it (a delete that failed after the tables were written, done again).
+func RemoveTransportPath(tt TaxiTables, pathID uint32) (TaxiTables, error) {
+	p, err := parseTaxi(tt)
+	if err != nil {
+		return TaxiTables{}, err
+	}
+	if _, ok := p.paths.row(pathID); !ok {
+		return tt, nil
+	}
+	return SetTaxi(tt, nil, nil, nil, []uint32{pathID})
+}

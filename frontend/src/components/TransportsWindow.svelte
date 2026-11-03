@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte'
-	import { MapEntries, NewTransportIDs, ObjectModel, SaveTransport, Transports } from '../lib/wails/App'
+	import { DeleteTransport, MapEntries, NewTransportIDs, ObjectModel, SaveTransport, Transports } from '../lib/wails/App'
 	import type { vmangos } from '../lib/wails/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -27,7 +27,9 @@
 	// after the picked one). A point is made a dock with its wait, and Go on to another map adds a
 	// stretch on another continent, edited with that map open. Save writes the template, the transports
 	// row (with the client's period) and the path (SaveTransport). A form saved with Save, as the Flight
-	// Paths window is: not undo steps (decision #83).
+	// Paths window is: not undo steps (decision #83). Delete (#1039, asked to confirm) takes the picked
+	// one out: its template and transports rows, and its path unless another transport sails it
+	// (DeleteTransport).
 
 	let mapId = $state<number | null>(null)
 	let mapName = $state('')
@@ -378,6 +380,32 @@
 		}
 	}
 
+	async function remove() {
+		const t = transport
+		if (!t || draft || mapId === null) return
+		const ask = `Delete ${t.name} (game object ${t.entry})? Its gameobject_template and transports rows go out of the world database, and its path ${t.pathId} out of the client's and the server's taxi tables unless another transport sails it.`
+		if (!(await askConfirm(ask, { title: 'Delete the transport', ok: 'Delete' }))) return
+		saving = true
+		const end = startSaving('Deleting the transport')
+		error = ''
+		try {
+			engineRef.current?.stopTransportSail()
+			const res = await DeleteTransport(t.entry)
+			const route = [res.patch ? 'the client' : '', res.server ? "the server's data" : ''].filter(Boolean).join(' and ')
+			const path = res.pathShared ? ` Its path ${res.pathId} stays: another transport sails it.` : route ? ` Its path ${res.pathId} is out of ${route}.` : ''
+			const after = res.restart ? '' : ' The world server reads transports only when it starts.'
+			note = `Deleted ${t.name} (${t.entry}) from the world database.${path}${after}${applyNote(res)}`
+			setStatus(note, 12000)
+			picked = null
+			list = (await Transports(mapId)) ?? []
+		} catch (err) {
+			error = String(err)
+		} finally {
+			saving = false
+			end()
+		}
+	}
+
 	const whole = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)))
 	const value = (e: Event) => (e.target as HTMLInputElement).value
 
@@ -593,6 +621,7 @@
 						<option value={16}>16× faster</option>
 					</select>
 					<button onclick={editTransport} title="Edit its route, docks, waits, speed and model">Edit</button>
+					<button onclick={() => void remove()} disabled={saving} title="Take it out of the world database, and its path out of the taxi tables unless another transport sails it">Delete</button>
 				</div>
 			{/if}
 			{#if !draft}

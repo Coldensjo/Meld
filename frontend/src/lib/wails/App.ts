@@ -65,6 +65,7 @@ export const DeleteItem: Call<AppApi['DeleteItem']> = (...a) => api().DeleteItem
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
 export const DeleteScript: Call<AppApi['DeleteScript']> = (...a) => api().DeleteScript(...a) as never
 export const DeleteSound: Call<AppApi['DeleteSound']> = (...a) => api().DeleteSound(...a) as never
+export const DeleteTransport: Call<AppApi['DeleteTransport']> = (...a) => api().DeleteTransport(...a) as never
 export const DisconnectExternalDatabase: Call<AppApi['DisconnectExternalDatabase']> = (...a) => api().DisconnectExternalDatabase(...a) as never
 export const DropRecovery: Call<AppApi['DropRecovery']> = (...a) => api().DropRecovery(...a) as never
 export const DropRecoveryParts: Call<AppApi['DropRecoveryParts']> = (...a) => api().DropRecoveryParts(...a) as never

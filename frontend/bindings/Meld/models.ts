@@ -425,6 +425,19 @@ export interface TemplateSaved {
 }
 
 /**
+ * TransportDeleteResult is what DeleteTransport did: Save's result (AreaSaveResult's fields), and
+ * whether the path was kept because another transport sails it.
+ */
+export interface TransportDeleteResult {
+    "patch": string;
+    "server": boolean;
+    "waiting": boolean;
+    "restart": boolean;
+    "pathId": number;
+    "pathShared": boolean;
+}
+
+/**
  * TransportSaveResult is what SaveTransport wrote: Save's result (AreaSaveResult's fields), and the
  * period written into the transports row, in milliseconds.
  */

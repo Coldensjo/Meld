@@ -199,3 +199,57 @@ func TestTransportSQL(t *testing.T) {
 		t.Error("a 101-character name was written")
 	}
 }
+
+func TestRemoveTransportPath(t *testing.T) {
+	tt := transportFixture()
+	withNew, err := SetTransportPath(tt, 22, ferry().Points)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := RemoveTransportPath(withNew, 22)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := parseTaxi(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := p.paths.row(22); ok {
+		t.Error("path 22 is still in TaxiPath.dbc")
+	}
+	points := p.routePoints()
+	if len(points[22]) != 0 {
+		t.Errorf("path 22 keeps %d points", len(points[22]))
+	}
+	if len(points[20]) != 10 || len(points[21]) != 4 {
+		t.Errorf("the other paths: %d and %d points, want 10 and 4", len(points[20]), len(points[21]))
+	}
+	// Done again (a delete that failed after the tables were written), the tables stay as they are.
+	again, err := RemoveTransportPath(out, 22)
+	if err != nil || string(again.Paths) != string(out.Paths) || string(again.Points) != string(out.Points) {
+		t.Errorf("removing a path the tables lack changed them (%v)", err)
+	}
+}
+
+func TestDeleteTransportSQL(t *testing.T) {
+	want := "DELETE FROM `gameobject_template` WHERE `entry` = 900000 AND `type` = 15;\nDELETE FROM `transports` WHERE `entry` = 900000;\n"
+	if got := DeleteTransportSQL(900000); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestTransportPathOf reads the path of the Menethil-Theramore boat (entry 20808, path 241, which no
+// other transport sails) from the world database, and finds no path for an entry that is no transport.
+func TestTransportPathOf(t *testing.T) {
+	server := testclient.ServerDir(t)
+	path, shared, ok, err := TransportPathOf(server, 20808)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || path != 241 || shared {
+		t.Errorf("entry 20808: path %d, shared %v, ok %v; want 241, false, true", path, shared, ok)
+	}
+	if _, _, ok, err := TransportPathOf(server, 1<<24-1); err != nil || ok {
+		t.Errorf("an entry that is no transport: ok %v, %v", ok, err)
+	}
+}

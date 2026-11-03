@@ -40,6 +40,7 @@ export type {
     SpellSaved,
     TaxiImportResult,
     TemplateSaved,
+    TransportDeleteResult,
     TransportSaveResult,
     WorldMapResult,
     ZoneWeatherList
