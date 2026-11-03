@@ -3,6 +3,7 @@ package vmangos
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -17,7 +18,9 @@ import (
 //     or equipment: CMaNGOS sets those per spawn through a creature_spawn_data row naming a
 //     creature_spawn_data_template, whose ModelId 0 and EquipmentId -1 keep the creature template's
 //     (#906). A spawn's own template is cmangosOwnID(guid), copied from the template the spawn had,
-//     so its other overrides (faction, flags, relay script) stay.
+//     so its other overrides (faction, flags, relay script) stay. Its EquipmentId is the
+//     creature_equip_template row (entry, equipentry1 to equipentry3) with the items of the spawn's
+//     VMaNGOS equipment (Spawn.EquipItems), found or made by the SQL (#1042).
 //   - creature_movement is Id, Point, PositionX to Orientation, WaitTime and ScriptId: one path a
 //     creature, no wander distance at a point, and script ids that name dbscripts_on_creature_movement,
 //     not VMaNGOS's creature_movement_scripts, so a path is written without its scripts.
@@ -197,32 +200,68 @@ func cmangosAddonSQL(s Spawn, orig *Spawn) ([]string, []string) {
 	}
 	if s.Display != base.Display || s.Equipment != base.Equipment {
 		if s.GUID > cmangosMaxOwnGUID {
-			skipped = append(skipped, "its display and equipment; its guid is past the spawn data templates Meld numbers from it")
-		} else {
-			out = append(out, cmangosSpawnDataSQL(s)...)
+			return out, append(skipped, "its display and equipment; its guid is past the spawn data templates Meld numbers from it")
 		}
+		// The equipment as the editor shows it, by its items: the spawn's equipment id is the VMaNGOS
+		// database's row, which CMaNGOS's lacks or holds other gear under (#1042).
+		equip := strconv.Itoa(max(s.Equipment, -1))
+		if s.Equipment > 0 {
+			switch {
+			case s.EquipItems == nil && s.Equipment == base.Equipment:
+				// Not an edit: the creature keeps the equipment CMaNGOS gives it.
+				equip = "-1"
+			case s.EquipItems == nil:
+				skipped = append(skipped, fmt.Sprintf("its equipment; the items of equipment %d couldn't be read from the VMaNGOS world database", s.Equipment))
+				if s.Display == base.Display {
+					return out, skipped
+				}
+				equip = "-1"
+			case *s.EquipItems == [3]int{}:
+				equip = "0"
+			default:
+				out = append(out, cmangosEquipSQL(*s.EquipItems)...)
+				equip = "@meld_equip"
+			}
+		}
+		out = append(out, cmangosSpawnDataSQL(s, equip)...)
 	}
 	return out, skipped
+}
+
+// cmangosEquipSQL finds the creature_equip_template row holding exactly these items (main hand, off
+// hand, ranged) into @meld_equip, made after the highest entry when none does (#1042), as
+// EquipmentFor does in VMaNGOS. Not in a range of Meld's own: CMaNGOS keeps the table in an array
+// as long as its highest entry, and a spawn data template's EquipmentId is a signed MEDIUMINT.
+func cmangosEquipSQL(items [3]int) []string {
+	match := fmt.Sprintf("`equipentry1` = %d AND `equipentry2` = %d AND `equipentry3` = %d", items[0], items[1], items[2])
+	return []string{
+		// The next entry is read in a derived table, so the INSERT's WHERE can leave out its one row.
+		fmt.Sprintf("INSERT INTO `creature_equip_template` (`entry`, `equipentry1`, `equipentry2`, `equipentry3`) SELECT n.e, %d, %d, %d "+
+			"FROM (SELECT COALESCE(MAX(`entry`), 0) + 1 AS e FROM `creature_equip_template`) n "+
+			"WHERE NOT EXISTS (SELECT 1 FROM `creature_equip_template` WHERE %s);", items[0], items[1], items[2], match),
+		fmt.Sprintf("SET @meld_equip = (SELECT `entry` FROM `creature_equip_template` WHERE %s ORDER BY `entry` LIMIT 1);", match),
+	}
 }
 
 // cmangosSpawnDataSQL gives a creature its own spawn data template with its display and equipment:
 // a copy of the template it has (CMaNGOS's data gives some spawns one, for a faction or flags), or of
 // the default (template 0: nothing overridden) when it has none, then the link to it. The table's key
 // spans the model and equipment, but the server keeps one template an Entry, so the old row of the
-// spawn's own entry goes once the new one is in.
-func cmangosSpawnDataSQL(s Spawn) []string {
+// spawn's own entry goes once the new one is in. equip is the EquipmentId as SQL: a number, or the
+// variable cmangosEquipSQL sets.
+func cmangosSpawnDataSQL(s Spawn, equip string) []string {
 	t := cmangosOwnID(s.GUID)
-	model, equip := max(s.Display, 0), max(s.Equipment, -1)
+	model := max(s.Display, 0)
 	name := sqlQuote(fmt.Sprintf("Meld: %s", label(s)))
 	cols := "`Entry`, `NpcFlags`, `UnitFlags`, `Faction`, `ModelId`, `EquipmentId`, `CurHealth`, `CurMana`, `SpawnFlags`, `RelayId`, `StringId`, `Name`"
 	return []string{
-		fmt.Sprintf("INSERT IGNORE INTO `creature_spawn_data_template` (%s) SELECT %d, `t`.`NpcFlags`, `t`.`UnitFlags`, `t`.`Faction`, %d, %d, "+
+		fmt.Sprintf("INSERT IGNORE INTO `creature_spawn_data_template` (%s) SELECT %d, `t`.`NpcFlags`, `t`.`UnitFlags`, `t`.`Faction`, %d, %s, "+
 			"`t`.`CurHealth`, `t`.`CurMana`, `t`.`SpawnFlags`, `t`.`RelayId`, `t`.`StringId`, %s FROM `creature_spawn_data` `d` "+
 			"JOIN `creature_spawn_data_template` `t` ON `t`.`Entry` = `d`.`Id` WHERE `d`.`Guid` = %d LIMIT 1;", cols, t, model, equip, name, s.GUID),
-		fmt.Sprintf("INSERT INTO `creature_spawn_data_template` (%s) SELECT %d, -1, -1, 0, %d, %d, 0, 0, 0, 0, 0, %s FROM DUAL "+
-			"WHERE NOT EXISTS (SELECT 1 FROM `creature_spawn_data_template` WHERE `Entry` = %d AND `ModelId` = %d AND `EquipmentId` = %d);",
+		fmt.Sprintf("INSERT INTO `creature_spawn_data_template` (%s) SELECT %d, -1, -1, 0, %d, %s, 0, 0, 0, 0, 0, %s FROM DUAL "+
+			"WHERE NOT EXISTS (SELECT 1 FROM `creature_spawn_data_template` WHERE `Entry` = %d AND `ModelId` = %d AND `EquipmentId` = %s);",
 			cols, t, model, equip, name, t, model, equip),
-		fmt.Sprintf("DELETE FROM `creature_spawn_data_template` WHERE `Entry` = %d AND (`ModelId` <> %d OR `EquipmentId` <> %d);", t, model, equip),
+		fmt.Sprintf("DELETE FROM `creature_spawn_data_template` WHERE `Entry` = %d AND (`ModelId` <> %d OR `EquipmentId` <> %s);", t, model, equip),
 		fmt.Sprintf("INSERT INTO `creature_spawn_data` (`Guid`, `Id`) VALUES (%d, %d) ON DUPLICATE KEY UPDATE `Id` = VALUES(`Id`);", s.GUID, t),
 	}
 }

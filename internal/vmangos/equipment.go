@@ -132,6 +132,52 @@ func EquipmentItems(serverRoot string, id int) ([3]int, error) {
 	return items, nil
 }
 
+// EquipmentItemsOf are EquipmentItems for each equipment template in ids, for the spawn SQL of a core
+// whose database has other equipment rows (#1042). A template the database lacks is left out.
+func EquipmentItemsOf(serverRoot string, ids []int) (map[int][3]int, error) {
+	out := map[int][3]int{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return nil, err
+	}
+	list := make([]string, len(ids))
+	for i, id := range ids {
+		list[i] = strconv.Itoa(id)
+	}
+	raw, err := runSQL(db, "SELECT entry, item1, item2, item3 FROM creature_equip_template WHERE entry IN ("+strings.Join(list, ",")+") ORDER BY entry, probability DESC")
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range batchRows(raw, 4) {
+		n, ok := atoiAll(f)
+		if !ok {
+			continue
+		}
+		if _, seen := out[n[0]]; !seen {
+			out[n[0]] = [3]int{n[1], n[2], n[3]}
+		}
+	}
+	return out, nil
+}
+
+// SpawnEquipmentIDs are the equipment templates the creatures edits keep name, each once, for
+// EquipmentItemsOf.
+func SpawnEquipmentIDs(edits []SpawnEdit) []int {
+	var out []int
+	seen := map[int]bool{}
+	for _, e := range edits {
+		w := e.Spawn
+		if !e.Deleted && w.Kind != KindObject && w.Equipment > 0 && !seen[w.Equipment] {
+			seen[w.Equipment] = true
+			out = append(out, w.Equipment)
+		}
+	}
+	return out
+}
+
 // EquipmentFor is the equipment template holding exactly these items, made as a new row after the
 // highest entry when none does; 0 for no items at all. The spawn's equipment_id then names it.
 func EquipmentFor(serverRoot string, items [3]int) (int, error) {

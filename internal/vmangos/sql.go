@@ -46,6 +46,9 @@ type Spawn struct {
 	// (-1 for the template's), stand state, looping emote and sheath state.
 	Display, Equipment                  int
 	StandState, EmoteState, SheathState int
+	// EquipItems are Equipment's main hand, off hand and ranged items, read from the VMaNGOS database
+	// for a core whose database has other equipment rows (CMaNGOS, #1042); nil when unknown.
+	EquipItems *[3]int
 	// Path is the creature's waypoints (creature_movement), in point order.
 	Path []PathPoint
 	// The creature's formation (creature_groups): its leader's guid (its own for a leader, 0 for
@@ -451,7 +454,7 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 		// database already gives another spawn fails on the key rather than replacing that spawn.
 		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.",
 			fmt.Sprintf("-- A spawn's own display and equipment go in creature_spawn_data_template, and a formation in a spawn group, numbered %d plus the guid", cmangosOwnBase),
-			"-- (the leader's for a formation). An equipment id names the VMaNGOS database's creature_equip_template row.")
+			"-- (the leader's for a formation). A spawn's equipment is the creature_equip_template row with its items, made after the highest entry when none has them.")
 	}
 	if len(res.Skipped) > 0 {
 		header = append(header, "--", "-- Not exported:")

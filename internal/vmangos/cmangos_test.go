@@ -34,7 +34,7 @@ func cmangosSchema(t *testing.T) map[string]map[string]bool {
 // (the object turned into another); a creature and a game object deleted; a pool put into a mother pool.
 func cmangosEdits() []Edit {
 	walker := Spawn{Kind: Creature, GUID: 500, Entry: 3, Name: "Guard", Map: 0, X: 1, Y: 2, Z: 3, O: 1, Scale: 1, MovementType: 2,
-		Display: 3167, Equipment: 7, StandState: 1, SheathState: 1, EmoteState: 10, Leader: 501, FollowDist: 3, GroupFlags: FormationDefault,
+		Display: 3167, Equipment: 7, EquipItems: &[3]int{1899, 0, 2550}, StandState: 1, SheathState: 1, EmoteState: 10, Leader: 501, FollowDist: 3, GroupFlags: FormationDefault,
 		Pool: 77, PoolLimit: 1, PoolName: "Guards", PoolChance: 50, MotherPool: 78, MotherLimit: 2,
 		Path: []PathPoint{{X: 1, Y: 2, Z: 3, WaitMs: 1000}, {X: 4, Y: 5, Z: 6, O: 2, WanderDistance: 3, ScriptID: 9}}}
 	captain := Spawn{Kind: Creature, GUID: 501, Entry: 3, Name: "Captain", Scale: 1, MovementType: 2, Equipment: -1, SheathState: 1,
@@ -131,11 +131,17 @@ func TestCMaNGOSSpawnSQL(t *testing.T) {
 		"WHERE `s`.`Guid` = 44 AND `g`.`Type` = 0;",
 		"DELETE FROM `gameobject_addon` WHERE `guid` = 45;",
 		"WHERE `s`.`Guid` = 45 AND `g`.`Type` = 1;",
-		// The guard's own spawn data template (#906): copied from the one it has, else made, then linked.
+		// The guard's equipment row by its items (#1042), found or made after the highest entry.
+		"INSERT INTO `creature_equip_template` (`entry`, `equipentry1`, `equipentry2`, `equipentry3`) SELECT n.e, 1899, 0, 2550 " +
+			"FROM (SELECT COALESCE(MAX(`entry`), 0) + 1 AS e FROM `creature_equip_template`) n " +
+			"WHERE NOT EXISTS (SELECT 1 FROM `creature_equip_template` WHERE `equipentry1` = 1899 AND `equipentry2` = 0 AND `equipentry3` = 2550);",
+		"SET @meld_equip = (SELECT `entry` FROM `creature_equip_template` WHERE `equipentry1` = 1899 AND `equipentry2` = 0 AND `equipentry3` = 2550 ORDER BY `entry` LIMIT 1);",
+		// Its own spawn data template (#906): copied from the one it has, else made, then linked.
 		"INSERT IGNORE INTO `creature_spawn_data_template` (`Entry`, `NpcFlags`,",
-		"SELECT 1000000500, `t`.`NpcFlags`, `t`.`UnitFlags`, `t`.`Faction`, 3167, 7,",
-		"SELECT 1000000500, -1, -1, 0, 3167, 7, 0, 0, 0, 0, 0, 'Meld: Guard (guid 500, entry 3)' FROM DUAL",
-		"DELETE FROM `creature_spawn_data_template` WHERE `Entry` = 1000000500 AND (`ModelId` <> 3167 OR `EquipmentId` <> 7);",
+		"SELECT 1000000500, `t`.`NpcFlags`, `t`.`UnitFlags`, `t`.`Faction`, 3167, @meld_equip,",
+		"SELECT 1000000500, -1, -1, 0, 3167, @meld_equip, 0, 0, 0, 0, 0, 'Meld: Guard (guid 500, entry 3)' FROM DUAL",
+		"`ModelId` = 3167 AND `EquipmentId` = @meld_equip);",
+		"DELETE FROM `creature_spawn_data_template` WHERE `Entry` = 1000000500 AND (`ModelId` <> 3167 OR `EquipmentId` <> @meld_equip);",
 		"INSERT INTO `creature_spawn_data` (`Guid`, `Id`) VALUES (500, 1000000500) ON DUPLICATE KEY UPDATE",
 		// The captain's formation: its group, slot 0, the walking formation and its path.
 		"INSERT INTO `spawn_group` (`Id`, `Name`, `Type`, `MaxCount`, `Flags`) VALUES (1000000501, 'Meld: formation led by guid 501', 0, 0, 1) ON DUPLICATE KEY UPDATE `Flags` = VALUES(`Flags`);",
@@ -245,5 +251,66 @@ func TestCMaNGOSFormationChanges(t *testing.T) {
 	got = sql(still, leader)
 	if body := got[strings.Index(got, "-- Change"):]; strings.Contains(body, "spawn_group") || strings.Contains(body, "creature_spawn_data") {
 		t.Errorf("a leader that only moved rewrites its group or look:\n%s", got)
+	}
+}
+
+// A spawn's equipment goes to CMaNGOS by its items, since the id is the VMaNGOS database's row
+// (#1042): an equipment whose items are unknown is reported and left to CMaNGOS, one with no items is
+// none, and an unchanged one the editor read the items of is written by them too when the look is.
+func TestCMaNGOSEquipmentByItems(t *testing.T) {
+	orig := Spawn{Kind: Creature, GUID: 9, Entry: 1, Name: "Guard", Equipment: 4, SheathState: 1}
+	// The statements only: the header names the tables too.
+	export := func(s Spawn) Result {
+		res := ExportSQLFor(CMaNGOSClassic, []Edit{{Spawn: s, Original: &orig}}, fixedTime)
+		res.SQL = res.SQL[strings.Index(res.SQL, "-- Change"):]
+		return res
+	}
+	unknown := orig
+	unknown.Equipment = 5
+	res := export(unknown)
+	if strings.Contains(res.SQL, "creature_spawn_data") || strings.Contains(res.SQL, "creature_equip_template") ||
+		len(res.Skipped) != 1 || !strings.Contains(res.Skipped[0], "the items of equipment 5 couldn't be read") {
+		t.Errorf("an equipment with unknown items: %v\n%s", res.Skipped, res.SQL)
+	}
+	unknown.Display = 100
+	if res = export(unknown); !strings.Contains(res.SQL, "SELECT 1000000009, -1, -1, 0, 100, -1,") || len(res.Skipped) != 1 {
+		t.Errorf("a new display beside an equipment with unknown items keeps the creature's equipment: %v\n%s", res.Skipped, res.SQL)
+	}
+
+	bare := orig
+	bare.Equipment, bare.EquipItems = 6, &[3]int{}
+	if res = export(bare); !strings.Contains(res.SQL, "SELECT 1000000009, -1, -1, 0, 0, 0,") || strings.Contains(res.SQL, "creature_equip_template") {
+		t.Errorf("an equipment with no items is not none:\n%s", res.SQL)
+	}
+
+	look := orig
+	look.Display = 100
+	if res = export(look); !strings.Contains(res.SQL, "SELECT 1000000009, -1, -1, 0, 100, -1,") || len(res.Skipped) != 0 {
+		t.Errorf("an unchanged equipment of unknown items: %v\n%s", res.Skipped, res.SQL)
+	}
+	look.EquipItems = &[3]int{12, 0, 0}
+	if res = export(look); !strings.Contains(res.SQL, "WHERE `equipentry1` = 12 AND `equipentry2` = 0 AND `equipentry3` = 0") ||
+		!strings.Contains(res.SQL, "SELECT 1000000009, -1, -1, 0, 100, @meld_equip,") {
+		t.Errorf("an unchanged equipment of known items is not written by them:\n%s", res.SQL)
+	}
+
+	// SpawnSQL hands the items to the spawns that name the equipment, and SpawnEquipmentIDs lists
+	// the ones to read.
+	edits := []SpawnEdit{
+		{Spawn: WorldSpawn{Kind: KindNPC, GUID: 1, Entry: 2, Equipment: 7}, Created: true},
+		{Spawn: WorldSpawn{Kind: KindNPC, GUID: 2, Entry: 2, Equipment: 7}, Created: true},
+		{Spawn: WorldSpawn{Kind: KindNPC, GUID: 3, Entry: 2, Equipment: 8}, Deleted: true},
+		{Spawn: WorldSpawn{Kind: KindNPC, GUID: 4, Entry: 2, Equipment: -1}, Created: true},
+	}
+	if ids := SpawnEquipmentIDs(edits); len(ids) != 1 || ids[0] != 7 {
+		t.Errorf("SpawnEquipmentIDs = %v, want [7]", ids)
+	}
+	data := clientWithMaps(t, []uint32{0}, []string{"Azeroth"})
+	got, err := SpawnSQL(CMaNGOSClassic, "", data, "Azeroth", 32, 32, 1, edits, map[int][3]int{7: {11, 0, 0}}, fixedTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(got.SQL, "SET @meld_equip = (SELECT `entry` FROM `creature_equip_template` WHERE `equipentry1` = 11 AND"); n != 2 || len(got.Skipped) != 0 {
+		t.Errorf("SpawnSQL wrote %d equipment rows by the items, want 2 (%v):\n%s", n, got.Skipped, got.SQL)
 	}
 }

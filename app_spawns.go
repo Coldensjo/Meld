@@ -178,7 +178,8 @@ func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
 // SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it, in
 // the schema of core ("vmangos" or "cmangos-classic": Edit › Preferences › Compile and export › Spawn
 // SQL for, #894). Another core than VMaNGOS takes the map's ID from the client's Map.dbc, since the
-// VMaNGOS server's isn't its.
+// VMaNGOS server's isn't its, and the items of the spawns' equipment from the VMaNGOS database when
+// there is one, since its equipment ids aren't the core's (#1042; the SQL lists what it couldn't read).
 func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit, coreName string) (vmangos.Result, error) {
 	core := vmangos.ParseCore(coreName)
 	if core != vmangos.VMaNGOS {
@@ -186,13 +187,19 @@ func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.Spawn
 		if err != nil {
 			return vmangos.Result{}, err
 		}
-		return vmangos.SpawnSQL(core, "", dataDir, mapName, x, y, size, edits, time.Now())
+		var equipment map[int][3]int
+		if ids := vmangos.SpawnEquipmentIDs(edits); len(ids) > 0 {
+			if server, _, err := a.serverAndData(); err == nil {
+				equipment, _ = vmangos.EquipmentItemsOf(server, ids)
+			}
+		}
+		return vmangos.SpawnSQL(core, "", dataDir, mapName, x, y, size, edits, equipment, time.Now())
 	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return vmangos.Result{}, err
 	}
-	return vmangos.SpawnSQL(core, server, dataDir, mapName, x, y, size, edits, time.Now())
+	return vmangos.SpawnSQL(core, server, dataDir, mapName, x, y, size, edits, nil, time.Now())
 }
 
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
@@ -206,7 +213,7 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 	if err := vmangos.CheckCreatedGUIDs(server, edits); err != nil {
 		return vmangos.Result{}, err
 	}
-	res, err := vmangos.SpawnSQL(vmangos.VMaNGOS, server, dataDir, mapName, x, y, size, edits, time.Now())
+	res, err := vmangos.SpawnSQL(vmangos.VMaNGOS, server, dataDir, mapName, x, y, size, edits, nil, time.Now())
 	if err != nil {
 		return res, err
 	}

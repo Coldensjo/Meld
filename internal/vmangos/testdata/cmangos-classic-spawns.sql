@@ -90,6 +90,14 @@ CREATE TABLE `creature_spawn_data_template` (
 	PRIMARY KEY (`Entry`, `UnitFlags`, `ModelId`, `EquipmentId`, `CurHealth`, `CurMana`, `SpawnFlags`)
 );
 
+CREATE TABLE `creature_equip_template` (
+	`entry` MEDIUMINT UNSIGNED NOT NULL DEFAULT 0,
+	`equipentry1` MEDIUMINT UNSIGNED NOT NULL DEFAULT 0,
+	`equipentry2` MEDIUMINT UNSIGNED NOT NULL DEFAULT 0,
+	`equipentry3` MEDIUMINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (`entry`)
+);
+
 CREATE TABLE `creature_spawn_entry` (
 	`guid` INT UNSIGNED NOT NULL DEFAULT 0,
 	`entry` MEDIUMINT UNSIGNED NOT NULL DEFAULT 0,

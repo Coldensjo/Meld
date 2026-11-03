@@ -86,8 +86,10 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 
 // SpawnSQL turns a region's spawn edits into SQL for the world database of core (#894). The region
 // is the block of size tiles at (x, y) of map mapName; dataDir is the client's Data folder, whose
-// Map.dbc gives the map ID when no server folder is set.
-func SpawnSQL(core Core, serverRoot, dataDir, mapName string, x, y, size int, edits []SpawnEdit, now time.Time) (Result, error) {
+// Map.dbc gives the map ID when no server folder is set. equipment holds the items of the equipment
+// templates the edits name (EquipmentItemsOf), for a core whose database has other equipment rows
+// than the VMaNGOS one the editor reads (#1042); nil for VMaNGOS.
+func SpawnSQL(core Core, serverRoot, dataDir, mapName string, x, y, size int, edits []SpawnEdit, equipment map[int][3]int, now time.Time) (Result, error) {
 	if err := checkRegion(x, y, size); err != nil {
 		return Result{}, err
 	}
@@ -98,6 +100,9 @@ func SpawnSQL(core Core, serverRoot, dataDir, mapName string, x, y, size int, ed
 	list := make([]Edit, 0, len(edits))
 	for _, e := range edits {
 		ed := Edit{Spawn: serverSpawn(e.Spawn, mapID, x, y), Created: e.Created, Deleted: e.Deleted}
+		if items, ok := equipment[ed.Spawn.Equipment]; ok && ed.Spawn.Equipment > 0 {
+			ed.Spawn.EquipItems = &items
+		}
 		if e.Original != nil {
 			o := serverSpawn(*e.Original, mapID, x, y)
 			ed.Original = &o
