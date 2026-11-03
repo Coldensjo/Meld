@@ -1,10 +1,4 @@
-<script module lang="ts">
-	/** The manual (docs/MANUAL.md, formerly published on GitHub Pages, which is now off), which Help › Manual opens in the browser. */
-	export const MANUAL_URL = 'https://coldensjo.github.io/Meld/MANUAL'
-</script>
-
 <script lang="ts">
-	import { BrowserOpenURL } from '../lib/wails/runtime'
 	import Modal from './Modal.svelte'
 	import GameLoginDialog from './GameLoginDialog.svelte'
 	import ProjectDialog from './ProjectDialog.svelte'
@@ -35,7 +29,6 @@
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend } from '../lib/io/backend'
 	import { regionSpawnEdits, saveSpawns } from '../lib/io/compile'
 	import { compileAndLaunch, enableSoap, launchGame } from '../lib/io/game'
 	import { connectExternal, databaseLabel } from '../lib/io/external'
@@ -163,9 +156,7 @@
 				<p class="help">{text}</p>
 			{/each}
 		{/each}
-		<p class="dim">The manual has every tool, menu and format in full.</p>
 		{#snippet actions()}
-			<button onclick={() => (hasBackend() ? BrowserOpenURL(MANUAL_URL) : window.open(MANUAL_URL, '_blank', 'noopener'))}>Open the manual</button>
 			<button onclick={() => (ui.dialog = 'shortcuts')}>Keyboard shortcuts</button>
 			<button class="active" onclick={close}>Close</button>
 		{/snippet}

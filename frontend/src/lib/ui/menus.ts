@@ -79,7 +79,6 @@ export interface MenuActions {
 	engine(): Engine | null
 	switchProject(p: ProjectInfo): unknown
 	exit(): void
-	openManual(): void
 	setCameraView(v: CameraView): void
 	setStatus(text: string, ms: number): void
 	io: MenuIo
@@ -745,7 +744,6 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'Help…', ...cmd('help') },
 				{ kind: 'action', label: 'Log…', run: () => (ui.dialog = 'log') },
 				{ kind: 'action', label: 'Keyboard Shortcuts…', run: () => (ui.dialog = 'shortcuts') },
-				{ kind: 'action', label: 'Manual (online)', run: () => act.openManual() },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Copy Scene', disabled: !backend || ui.busy, run: withEngine(io.copyScene) },
 				{ kind: 'action', label: 'Load Scene from Clipboard', disabled: !backend || ui.busy, run: withEngine(io.pasteScene) },

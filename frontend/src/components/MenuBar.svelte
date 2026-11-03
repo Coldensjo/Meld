@@ -18,19 +18,11 @@
 	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
 	import { GameEvents } from '../lib/wails/App'
 	import { quitNow } from '../lib/io/session'
-	import { BrowserOpenURL } from '../lib/wails/runtime'
-	import { MANUAL_URL } from './AppDialogs.svelte'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
 	import { tick, untrack } from 'svelte'
 	import { runCommand } from '../lib/ui/runCommand'
 	import { CAMERA_VIEWS, cameraView, setCameraView } from '../lib/ui/cameraView'
 	import { buildMenus, regionEvents, type MenuActions, type MenuItem } from '../lib/ui/menus'
-
-	/** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
-	function openUrl(url: string) {
-		if (hasBackend()) BrowserOpenURL(url)
-		else window.open(url, '_blank', 'noopener')
-	}
 
 	/** Opens a recent project from the File menu; one that no longer opens shows the Project dialog with why. */
 	async function switchProject(p: ProjectInfo) {
@@ -62,7 +54,6 @@
 		engine: () => engineRef.current,
 		switchProject,
 		exit,
-		openManual: () => openUrl(MANUAL_URL),
 		setCameraView,
 		setStatus,
 		io: {

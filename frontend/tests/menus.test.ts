@@ -36,7 +36,6 @@ function makeCtx(over: { ui?: Bag; editor?: Bag; prefs?: Bag; backend?: boolean;
 		engine: () => null,
 		switchProject: () => {},
 		exit: () => {},
-		openManual: () => {},
 		setCameraView: (v) => (state.cameraView = v),
 		setStatus: () => {},
 		io,
