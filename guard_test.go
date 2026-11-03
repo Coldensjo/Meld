@@ -35,6 +35,8 @@ var guardDBWriters = map[string]bool{
 	"TestCreatedGUIDLive":   true,
 	"TestSpellStartersLive": true,
 	"TestSpellScriptsLive":  true,
+	// It makes the scratch GM account for the SOAP console's live tests (#996).
+	"startSoapServer": true,
 }
 
 // TestNoTestWritesRealClient fails when a Go test hands a folder that is the owner's real client to
