@@ -62,7 +62,7 @@ const GENERAL = [
 	{ id: 'closeMap', group: 'File', desc: 'Close map tab', chords: [ctrl('w')] },
 	{ id: 'nextTab', group: 'File', desc: 'Next map tab', chords: [ctrl('tab')] },
 	{ id: 'prevTab', group: 'File', desc: 'Previous map tab', chords: [ctrl('tab', true)] },
-	{ id: 'hidePanels', group: 'File', desc: 'Hide / show the panels (the menu bar stays)', chords: [key('tab')] },
+	{ id: 'hidePanels', group: 'File', desc: 'Hide / show the panels (the menu bar stays, unless the window is in full screen)', chords: [key('tab')] },
 	{ id: 'fullScreen', group: 'File', desc: 'Full screen on / off', chords: [key('f11')] },
 	{ id: 'uiLarger', group: 'File', desc: 'Interface larger', chords: [ctrl('='), { key: '+', ctrl: true, hidden: true }] },
 	{ id: 'uiSmaller', group: 'File', desc: 'Interface smaller', chords: [ctrl('-'), { key: '_', ctrl: true, hidden: true }] },

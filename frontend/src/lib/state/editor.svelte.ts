@@ -554,6 +554,8 @@ export const ui = $state({
 	prefsPage: 'general' as PrefsPage,
 	/** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
 	hidePanels: false,
+	/** The window is in full screen (F11), kept by `trackFullScreen`; with the panels hidden too, the menu bar goes (#1086). */
+	fullScreen: false,
 	/** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */
 	topDown: false,
 	/** View › Reference Image: the window that lays the author's plan over the map (#184). */

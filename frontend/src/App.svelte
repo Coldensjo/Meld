@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { trackFullScreen } from './lib/engine/display'
 	import MenuBar from './components/MenuBar.svelte'
 	import Toolbar from './components/Toolbar.svelte'
 	import OptionsBar from './components/OptionsBar.svelte'
@@ -71,6 +72,8 @@
 	import { startWheelValue } from './lib/ui/wheelValue'
 
 	let prefsLoaded = $state(false)
+	const bareFull = $derived(ui.hidePanels && ui.fullScreen)
+	onMount(() => trackFullScreen())
 	onMount(() => {
 		const stopLogFile = startSessionLog()
 		const stopWheelValue = startWheelValue()
@@ -250,8 +253,10 @@
 
 <svelte:window onkeydown={onKeyDown} onkeyup={onKeyUp} onbeforeunload={onBeforeUnload} />
 
-<div class="app" class:bare={ui.hidePanels}>
-	<MenuBar />
+<div class="app" class:bare={ui.hidePanels} class:no-menu={bareFull}>
+	{#if !bareFull}
+		<MenuBar />
+	{/if}
 	{#if !ui.hidePanels}
 		<OptionsBar />
 	{/if}
@@ -316,6 +321,10 @@
 	/* With the panels hidden (Tab) the viewport takes the window below the menu bar. */
 	.app.bare {
 		grid-template-rows: auto 1fr;
+	}
+	/* Full screen with the panels hidden also drops the menu bar: nothing but the 3D view (#1086). */
+	.app.no-menu {
+		grid-template-rows: 1fr;
 	}
 	.main {
 		display: grid;

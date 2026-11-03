@@ -1,5 +1,6 @@
 import { WindowFullscreen, WindowIsFullscreen, WindowUnfullscreen } from '../wails/runtime'
 import { hasBackend } from '../io/backend'
+import { ui } from '../state/editor.svelte'
 // Display settings that live outside the renderer's per-frame state (#24): full screen, and whether
 // the WebGL context is made with anti-aliasing, which only a new context can change.
 
@@ -27,10 +28,33 @@ export function rememberAntialias(on: boolean) {
 /** Puts the window into full screen or takes it out: the desktop window through Wails, the dev page through the browser. */
 export async function toggleFullScreen() {
 	if (hasBackend()) {
-		if (await WindowIsFullscreen()) WindowUnfullscreen()
-		else WindowFullscreen()
+		if (await WindowIsFullscreen()) {
+			WindowUnfullscreen()
+			ui.fullScreen = false
+		} else {
+			WindowFullscreen()
+			ui.fullScreen = true
+		}
 		return
 	}
 	if (document.fullscreenElement) await document.exitFullscreen()
 	else await document.documentElement.requestFullscreen()
+}
+
+/**
+ * Keeps `ui.fullScreen` true while the window is in full screen, however it got there or left (the OS, Esc in the
+ * browser): the browser's fullscreenchange event, and on the desktop a re-check on each window resize. Returns the stop function.
+ */
+export function trackFullScreen(): () => void {
+	const fromDocument = () => (ui.fullScreen = !!document.fullscreenElement)
+	const fromWindow = () => void WindowIsFullscreen().then((on) => (ui.fullScreen = on))
+	document.addEventListener('fullscreenchange', fromDocument)
+	if (hasBackend()) {
+		window.addEventListener('resize', fromWindow)
+		fromWindow()
+	} else fromDocument()
+	return () => {
+		document.removeEventListener('fullscreenchange', fromDocument)
+		window.removeEventListener('resize', fromWindow)
+	}
 }
