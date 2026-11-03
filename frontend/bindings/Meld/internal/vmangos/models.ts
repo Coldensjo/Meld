@@ -1177,22 +1177,44 @@ export interface ItemDisplayEntry {
 }
 
 /**
- * ItemImport is what an SQL script of items would write: its item rows, and what of it is left
- * out.
+ * ItemImport is what an SQL script of items would write: its item rows, the contents it replaces,
+ * what they name, and what of it is left out.
  */
 export interface ItemImport {
     "items": ItemImportRow[] | null;
 
     /**
-     * Skipped is how many statements are not item_template rows (a DELETE, another table), which
-     * importing leaves out.
+     * Lists are the items' contents the import replaces.
+     */
+    "lists": ListImport[] | null;
+
+    /**
+     * Carried are the pages, disenchant loot and reference loot the script carries (carried.go):
+     * kept where this server holds the same, else written under fresh IDs.
+     */
+    "carried": CarriedImport[] | null;
+
+    /**
+     * Skipped is how many statements are none of those (another table), which importing leaves out.
      */
     "skipped": number;
 
     /**
-     * Unknown are columns the script names that this server's item_template lacks, left out.
+     * Others counts the contents rows and DELETEs of items the script has no template row of, and the
+     * rows and DELETEs of pages and loot lists nothing it imports names, left out.
+     */
+    "others": number;
+
+    /**
+     * Unknown are columns the script names that this server's tables lack, left out.
      */
     "unknown": string[] | null;
+
+    /**
+     * MissingItems are the items the loot holds that neither the world database nor the script has:
+     * importing writes their rows, which the server leaves out.
+     */
+    "missingItems": number[] | null;
 }
 
 /**

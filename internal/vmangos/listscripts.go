@@ -66,18 +66,28 @@ func exportLists(db worldDB, lists []scriptList, ids func(scriptList) []int) (st
 		if len(keys) == 0 {
 			continue
 		}
-		lc, err := listColumns(db, l)
+		lc, rows, err := listRows(db, l, keys)
 		if err != nil {
 			return "", err
 		}
-		raw, err := runSQL(db, fmt.Sprintf("SELECT %s FROM `%s` WHERE `%s` IN (%s) ORDER BY `%s`, %s",
-			columnNames(lc), l.table, l.entry, idList(keys), l.entry, l.order))
-		if err != nil {
-			return "", err
-		}
-		b.WriteString(listScript(l, lc, batchRows(raw, len(lc)), keys))
+		b.WriteString(listScript(l, lc, rows, keys))
 	}
 	return b.String(), nil
+}
+
+// listRows are the list's rows of ids, in the order the editor lists them, and the columns (the
+// entry first) their values are in.
+func listRows(db worldDB, l scriptList, ids []int) ([]TemplateColumn, []batchRow, error) {
+	lc, err := listColumns(db, l)
+	if err != nil {
+		return nil, nil, err
+	}
+	raw, err := runSQL(db, fmt.Sprintf("SELECT %s FROM `%s` WHERE `%s` IN (%s) ORDER BY `%s`, %s",
+		columnNames(lc), l.table, l.entry, idList(ids), l.entry, l.order))
+	if err != nil {
+		return nil, nil, err
+	}
+	return lc, batchRows(raw, len(lc)), nil
 }
 
 // listScript writes each of ids' rows of a list table (rows, in the order of cols, the entry first)

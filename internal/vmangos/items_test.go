@@ -190,7 +190,34 @@ func TestItemsLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Items) < 2 || !plan.Items[0].Exists || len(plan.Unknown) != 0 || plan.Skipped != 0 {
+	if len(plan.Items) < 2 || !plan.Items[0].Exists || len(plan.Unknown) != 0 || plan.Skipped != 0 || len(plan.Carried) != 0 {
+		t.Fatalf("plan %+v", plan)
+	}
+	// What an item names by ID (#1044): A Treatise on Military Ranks (18664) reads pages 2654 on
+	// (which object 179706 reads too), the Ornate Bronze Lockbox (4632) holds two reference loot
+	// lists (2002, 2003) and Destiny (647) disenchants by list 64; all kept as the same here.
+	script, err = ExportItems(dir, []int{18664, 4632, 647})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err = PlanItemImport(dir, script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]int{}
+	for _, c := range plan.Carried {
+		kinds[c.What]++
+		if !c.Same || c.To != c.ID {
+			t.Errorf("not kept: %+v", c)
+		}
+	}
+	lists := map[int]ListImport{}
+	for _, l := range plan.Lists {
+		lists[l.Entry] = l
+	}
+	t.Logf("carried %v, lists %+v", kinds, plan.Lists)
+	if kinds["page"] < 6 || kinds["reference loot list"] != 2 || kinds["disenchant loot list"] != 1 || len(plan.Unknown) != 0 || plan.Skipped != 0 || plan.Others != 0 ||
+		len(lists) != 3 || lists[4632].Rows != 2 || lists[4632].Had != 2 || lists[18664].Rows != 0 {
 		t.Fatalf("plan %+v", plan)
 	}
 	dataDir, err := wow.ResolveDataDir(clientDir)

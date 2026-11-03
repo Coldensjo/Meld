@@ -289,21 +289,6 @@ func rowKey(entry, key int) string {
 	return strconv.Itoa(entry) + "|" + strconv.Itoa(key)
 }
 
-// importScript writes a script's rows of the table into the world database, replacing rows of the
-// same keys, and returns the plan it wrote. Every row is checked against the table's columns first
-// (cols, its columns but the keys), and nothing is written if one is refused.
-func importScript(db worldDB, t scriptTable, cols []TemplateColumn, script string) (scriptPlan, error) {
-	plan, err := readScript(db, t, script)
-	if err != nil {
-		return scriptPlan{}, err
-	}
-	sql, err := importSQL(t, cols, plan.rows)
-	if err != nil {
-		return scriptPlan{}, err
-	}
-	return plan, runScript(db, sql)
-}
-
 // importSQL is the REPLACE statements that write imported rows, each value checked against its
 // column; a column a row leaves out takes the table's default.
 func importSQL(t scriptTable, cols []TemplateColumn, rows []sqlRow) (string, error) {

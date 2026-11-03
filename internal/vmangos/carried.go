@@ -10,7 +10,8 @@ import (
 // What a creature's or game object's template names by ID (#991): a creature's spell list,
 // equipment, shared vendor and trainer lists, loot, pickpocket and skinning loot and gossip menu, a
 // chest's contents, a readable object's pages (#992: each page_text row a set of its own, naming the
-// next page), a quest's start and end scripts (#993: quest_start_scripts and quest_end_scripts by
+// next page), an item's pages, disenchant loot and the reference loot its contents name (#1044), a
+// quest's start and end scripts (#993: quest_start_scripts and quest_end_scripts by
 // the StartScript and CompleteScript the quest names), and what those name in turn (the reference
 // loot a loot row names, a menu's texts, the broadcast texts they and a script's talk commands show
 // and the menus its options open). Many templates can name one such
@@ -104,6 +105,7 @@ var carriedKinds = func() []carriedKind {
 		lootKind("pickpocket", "pickpocketing_loot_template", "pickpocket loot list"),
 		lootKind("skinning", "skinning_loot_template", "skinning loot list"),
 		lootKind("objectloot", lootTable, "loot list"),
+		lootKind("disenchant", "disenchant_loot_template", "disenchant loot list"),
 		lootKind("reference", "reference_loot_template", "reference loot list"),
 		{key: "gossip", what: "gossip menu", tables: []carriedTable{{name: "gossip_menu", id: "entry", order: "`text_id`"}, {name: "gossip_menu_option", id: "menu_id", order: "`id`"}},
 			refs: []carriedRef{
@@ -124,6 +126,9 @@ var carriedKinds = func() []carriedKind {
 // rootRef is a template column that names a set.
 type rootRef struct {
 	column, kind string
+	// ref: the column names the set negated, a negative value only (an item's contents row's
+	// mincountOrRef naming reference loot), as carriedRef's ref.
+	ref bool
 	// when, if set, says whether a row's column names the set (a game object's data1, by its type),
 	// from the row's values by column.
 	when func(value func(string) string) bool
@@ -149,6 +154,15 @@ var objectRoots = []rootRef{
 	{column: "data1", kind: "objectloot", when: func(v func(string) string) bool { return objectLoot(v("type"), v("data1")) > 0 }},
 	{column: "data0", kind: "page", when: func(v func(string) string) bool { return v("type") == strconv.Itoa(objectTypeText) }},
 	{column: "data7", kind: "page", when: func(v func(string) string) bool { return v("type") == strconv.Itoa(objectTypeGoober) }},
+}
+
+// itemRoots are what an item names (#1044): its text, the page_text chain page_text names, and its
+// disenchant loot; then the reference loot its contents (item_loot_template, a list keyed by the
+// item, itemscripts.go) name, whose rows go through the roots beside the template's.
+var itemRoots = []rootRef{
+	{column: "page_text", kind: "page"},
+	{column: "disenchant_id", kind: "disenchant"},
+	{column: "mincountOrRef", kind: "reference", ref: true},
 }
 
 // refID is the set a column's value names (0 for none).
@@ -246,10 +260,23 @@ func columnIndex(cols []TemplateColumn, name string) int {
 	return -1
 }
 
+// carriedRows are rows the roots are read from: a script's template rows, or a list's (an item's
+// contents), cols' values in order.
+type carriedRows struct {
+	cols []TemplateColumn
+	rows []batchRow
+}
+
 // exportCarried writes the sets the template rows (cols' values in order) name, and what those name
 // in turn, each set's rows of each of its tables after a DELETE of that ID's old ones. A set without
 // rows is left out.
 func exportCarried(src carriedSource, roots []rootRef, cols []TemplateColumn, rows []batchRow) (string, error) {
+	return exportCarriedFrom(src, roots, carriedRows{cols, rows})
+}
+
+// exportCarriedFrom is exportCarried of the sets several groups of rows name, each set once; a root
+// is read from the groups that have its column.
+func exportCarriedFrom(src carriedSource, roots []rootRef, from ...carriedRows) (string, error) {
 	seen := map[string]map[int]bool{}
 	pending := map[string][]int{}
 	add := func(kind string, id int) {
@@ -264,18 +291,20 @@ func exportCarried(src carriedSource, roots []rootRef, cols []TemplateColumn, ro
 			pending[kind] = append(pending[kind], id)
 		}
 	}
-	for _, f := range rows {
-		value := func(name string) string {
-			if i := columnIndex(cols, name); i >= 0 {
-				return f[i]
+	for _, g := range from {
+		for _, f := range g.rows {
+			value := func(name string) string {
+				if i := columnIndex(g.cols, name); i >= 0 {
+					return f[i]
+				}
+				return ""
 			}
-			return ""
-		}
-		for _, r := range roots {
-			if columnIndex(cols, r.column) < 0 || (r.when != nil && !r.when(value)) {
-				continue
+			for _, r := range roots {
+				if columnIndex(g.cols, r.column) < 0 || (r.when != nil && !r.when(value)) {
+					continue
+				}
+				add(r.kind, refID(value(r.column), r.ref))
 			}
-			add(r.kind, refID(value(r.column), false))
 		}
 	}
 	type fetched struct {
@@ -416,7 +445,7 @@ type carriedPlan struct {
 }
 
 // readCarried reads the sets a script carries that the template rows reach (through roots and the
-// sets' own references), the columns of a row without a column list taken in its table's order.
+// sets' own references; an item's contents rows count as template rows here), the columns of a row without a column list taken in its table's order.
 func readCarried(src carriedSource, script string, roots []rootRef, template []sqlRow) (carriedPlan, error) {
 	p := carriedPlan{by: map[string]map[int]*importSet{}}
 	all := map[string]map[int]*importSet{}
@@ -504,7 +533,7 @@ func readCarried(src carriedSource, script string, roots []rootRef, template []s
 		value := func(name string) string { return r.values[name] }
 		for _, root := range roots {
 			if v, ok := r.values[root.column]; ok && (root.when == nil || root.when(value)) {
-				reach(root.kind, refID(v, false))
+				reach(root.kind, refID(v, root.ref))
 			}
 		}
 	}
@@ -586,8 +615,8 @@ func (p *carriedPlan) rewrite(roots []rootRef, template []sqlRow) {
 			if !ok || (root.when != nil && !root.when(value)) {
 				continue
 			}
-			if s := p.by[root.kind][refID(v, false)]; s != nil {
-				r.values[root.column] = strconv.Itoa(s.to)
+			if s := p.by[root.kind][refID(v, root.ref)]; s != nil {
+				r.values[root.column] = refValue(s.to, root.ref)
 			}
 		}
 	}

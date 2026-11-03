@@ -22,7 +22,7 @@
 	import { prefs, setStatus, ui, type ContextItem } from '../lib/state/editor.svelte'
 	import { characterItems, mailAction } from '../lib/io/gameCharacter'
 	import { SERVER_RELOADS } from '../lib/io/applyNote'
-	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
+	import { askImport as planImport, carriedText, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
@@ -340,13 +340,15 @@
 		}
 	}
 
-	// Export and import: SQL scripts of item_template rows.
+	// Export and import: SQL scripts of item_template rows, with each item's contents and what it names by ID (#1044).
 	function exportItem() {
 		if (record) void exportRow(ed, { kind: 'item', entry: record.entry, name: saved.name, unsaved, write: ExportItems })
 	}
 
 	/** An import being confirmed: the script's path and what it writes. */
 	let plan = $state<{ path: string; plan: vmangos.ItemImport } | null>(null)
+	/** The contents an import replaces, as its plan bar lists them. */
+	const contentsText = (l: vmangos.ListImport) => `${l.what} of ${l.of} ${l.entry} (${l.rows}${l.had ? `, replacing ${l.had}` : ''})`
 	let importing = $state(false)
 
 	function askImport() {
@@ -579,7 +581,7 @@
 		{#snippet actions()}
 			<button onclick={askImport} title="Read items from an SQL script into the world database">Import…</button>
 			{#if record}
-				<button onclick={exportItem} title="Write this item to an SQL script">Export…</button>
+				<button onclick={exportItem} title="Write this item, with its contents, pages and disenchant loot, to an SQL script">Export…</button>
 				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
 				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
 					{ed.saving ? 'Saving…' : unsaved ? `Save item (${changeCount + lookChanges})` : 'Saved'}
@@ -611,6 +613,7 @@
 				</div>
 			{/if}
 			{#if plan}
+				{@const lists = (plan.plan.lists ?? []).filter((l) => l.rows || l.had)}
 				<div class="bar warn plan">
 					<div class="what">
 						<strong>Import {plan.plan.items.length} item {plan.plan.items.length === 1 ? 'row' : 'rows'} into the world database?</strong>
@@ -620,9 +623,15 @@
 								.map((i) => `${i.name || 'item'} (${i.entry}${i.patch ? `, patch ${i.patch}` : ''}${i.exists ? ', replaces it' : ', new'})`)
 								.join('; ')}{plan.plan.items.length > 12 ? `; and ${plan.plan.items.length - 12} more` : ''}.
 						</span>
-						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only item_template rows are imported.</span>{/if}
-						{#if plan.plan.unknown?.length}<span>Columns this server's item_template lacks are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
-						<span>A replaced item can't be brought back, unless you exported it first.</span>
+						{#if lists.length}
+							<span>Replaces the contents: {lists.slice(0, 12).map(contentsText).join('; ')}{lists.length > 12 ? `; and ${lists.length - 12} more` : ''}.</span>
+						{/if}
+						{#if plan.plan.carried?.length}<span>{carriedText(plan.plan.carried)}</span>{/if}
+						{#if plan.plan.missingItems?.length}<span>Items this world database lacks, which the loot then lists but the server leaves out: {plan.plan.missingItems.join(', ')}. Import them first.</span>{/if}
+						{#if plan.plan.others}<span>{plan.plan.others} {plan.plan.others === 1 ? 'statement or row is' : 'statements and rows are'} of items, loot lists or pages the script's items don't name, and left out.</span>{/if}
+						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only item_template rows, their contents, pages and loot are imported.</span>{/if}
+						{#if plan.plan.unknown?.length}<span>Columns this server's tables lack are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
+						<span>A replaced item or its contents can't be brought back, unless you exported it first.</span>
 					</div>
 					<button onclick={() => (plan = null)}>Cancel</button>
 					<button class="active" disabled={importing} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
