@@ -177,6 +177,22 @@ An issue whose work is in its child issues carries the `umbrella` label. The coo
 like `needs-approval`, `parked` and `owner-question`, and the triage that splits an issue into parts adds
 the label to it. Never hand an `umbrella` issue to a worker; pick one of its parts.
 
+## Blocked issues (#1077)
+
+An issue that cannot start until something else is done says so, instead of borrowing `needs-approval`
+(which pings the owner and means "not agreed"). Two ways, no ping either way:
+
+- A line `Blocked by #n` (several allowed: `Blocked by #n, #m`) in the issue's body. The coordinator's pick
+  skips the issue while any issue it names is open; when they are all closed it is eligible again, with
+  nothing to remove. To read it, list the candidates with `--json number,body`.
+- The `blocked` label, for a wait on something that is not an issue (a client copied to this machine, the
+  owner's check). The issue's body or a `**Claude:**` comment says what it waits on. The pick skips it;
+  whoever finishes the wait removes the label.
+
+A `Blocked by` line naming an issue that does not exist, or one closed as not planned (`parked`), does not
+block: the coordinator comments on the issue and treats it as eligible. The worker that closes an issue
+needs to do nothing more, since the next pick reads the lines. Never hand a blocked issue to a worker.
+
 ## Priority lanes
 
 Labels worked right after `bug`, in this order, lowest issue number first within each:
