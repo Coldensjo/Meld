@@ -324,19 +324,21 @@ func recordNew(kind string, args []string, out io.Writer) error {
 	if *starter != "" || (*itemKind != "" && kind != "item") {
 		return fmt.Errorf("%w: --starter is for spells and --kind for items", errUsage)
 	}
+	var k vmangos.ItemKind
+	if *itemKind != "" {
+		if *from != 0 {
+			return fmt.Errorf("%w: give --from or --kind, not both", errUsage)
+		}
+		if k, err = parseItemKind(*itemKind); err != nil {
+			return err
+		}
+	}
 	server, data, err := wf.folders(false)
 	if err != nil {
 		return err
 	}
 	res := writeResult{DryRun: !*wf.write}
 	if *itemKind != "" {
-		if *from != 0 {
-			return fmt.Errorf("%w: give --from or --kind, not both", errUsage)
-		}
-		k, err := parseItemKind(*itemKind)
-		if err != nil {
-			return err
-		}
 		if !*wf.write {
 			plan, err := vmangos.PlanCreateItemOfKind(server, k, name)
 			if err != nil {
