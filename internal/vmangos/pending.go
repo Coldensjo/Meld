@@ -29,6 +29,9 @@ import (
 // file share the name's slot, so whichever came last stands: an icon deleted and then imported again
 // under its name is written, not removed.
 
+// pendingMu guards the waiting files within this process. The calls that change them (AddPending,
+// ClearPending, DropPendingFiles, ...) hold the patch's lock file first (lockClient, #1079), so
+// meldtool's writes and the app's never write and clear the same slot at once.
 var pendingMu sync.Mutex
 
 // pendingSet is the names of the waiting files (pendingName) of each client data folder's folder,
@@ -153,6 +156,11 @@ func writePending(dir, name string, entry []byte) error {
 // AddPending keeps files to be written into the patch once the game has closed, each replacing a
 // waiting file of the same name.
 func AddPending(dataDir string, files []mpq.File) error {
+	unlock, err := lockClient(dataDir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
@@ -179,6 +187,11 @@ func AddPending(dataDir string, files []mpq.File) error {
 // AddPendingDrops keeps the removal of the files named names from Meld's patch until the game has
 // closed (#925), each replacing a waiting file of the same name: the next patch write leaves them out.
 func AddPendingDrops(dataDir string, names []string) error {
+	unlock, err := lockClient(dataDir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
@@ -260,6 +273,11 @@ func readPending(dataDir string) ([]mpq.File, []string, error) {
 // DropPending drops every file waiting for a client data folder, unwritten: the probes' throwaway
 // client starts each time without what a probe left waiting (#368).
 func DropPending(dataDir string) error {
+	unlock, err := lockClient(dataDir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
@@ -271,6 +289,16 @@ func DropPending(dataDir string) error {
 // ClearPending drops the waiting files of a client data folder that are the ones in written (by
 // name and content), after they went into the patch; a file saved again meanwhile stays.
 func ClearPending(dataDir string, written []mpq.File) error {
+	unlock, err := lockClient(dataDir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return clearPending(dataDir, written)
+}
+
+// clearPending is ClearPending, for a caller holding lockClient.
+func clearPending(dataDir string, written []mpq.File) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	for _, f := range written {
@@ -282,7 +310,7 @@ func ClearPending(dataDir string, written []mpq.File) error {
 }
 
 // clearDrops drops the waiting removals of the files named dropped, after a patch write left them
-// out; a name saved or removed again meanwhile stays.
+// out; a name saved or removed again meanwhile stays. The caller holds lockClient.
 func clearDrops(dataDir string, dropped []string) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
@@ -370,11 +398,15 @@ func PendingOverlay(dataDir, name string) (data []byte, ok bool, err error) {
 
 // InstallWithPending writes files into the patch with the files waiting for the game to close
 // (#365) taken along, then drops the waiting ones it wrote. Reading the waiting files, the write and
-// the drop hold patchMu together, so no other write can slip between them (#657). With nothing given
-// and nothing waiting it writes nothing and returns "".
+// the drop hold patchMu and the patch's lock file together, so no other write can slip between them,
+// in this process (#657) or another (#1079). With nothing given and nothing waiting it writes nothing
+// and returns "".
 func InstallWithPending(dataDir string, files []mpq.File) (string, error) {
-	patchMu.Lock()
-	defer patchMu.Unlock()
+	unlock, err := lockPatch(dataDir)
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
 	return installTakingPending(dataDir, files, nil, false)
 }
 
@@ -382,7 +414,7 @@ func InstallWithPending(dataDir string, files []mpq.File) (string, error) {
 // the waiting files and removals (#925) along, then clears the waiting ones it wrote. A file given
 // stands over a waiting removal of its name: carryOver leaves the patch's copy out, and files has the
 // new one. With nothing given or waiting it writes nothing and returns "", unless always is set. The
-// caller holds patchMu.
+// caller holds lockPatch.
 func installTakingPending(dataDir string, files []mpq.File, drop []string, always bool) (string, error) {
 	pendingMu.Lock()
 	pending, drops, err := readPending(dataDir)
@@ -397,7 +429,7 @@ func installTakingPending(dataDir string, files []mpq.File, drop []string, alway
 	if err != nil || len(pending) == 0 && len(drops) == 0 {
 		return patch, err
 	}
-	if err := ClearPending(dataDir, pending); err != nil {
+	if err := clearPending(dataDir, pending); err != nil {
 		return patch, err
 	}
 	err = clearDrops(dataDir, drops)
@@ -424,6 +456,16 @@ func WithPending(pending, files []mpq.File) []mpq.File {
 // DropPendingFiles drops the files waiting for a client data folder under the given names, unwritten
 // (an added icon deleted before the patch had it, #717), and says whether one waited.
 func DropPendingFiles(dataDir string, names []string) (bool, error) {
+	unlock, err := lockClient(dataDir)
+	if err != nil {
+		return false, err
+	}
+	defer unlock()
+	return dropPendingFiles(dataDir, names)
+}
+
+// dropPendingFiles is DropPendingFiles, for a caller holding lockClient.
+func dropPendingFiles(dataDir string, names []string) (bool, error) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	dir := pendingDir(dataDir)
@@ -460,9 +502,12 @@ func RemovePatchFiles(dataDir string, names []string) (string, error) {
 // is dropped, unwritten): the Sound tool's Delete (#901) drops an imported sound's file and writes the
 // tables without its rows together. The game must not hold the patch open, as for RemovePatchFiles.
 func InstallDropping(dataDir string, files []mpq.File, drop []string) (string, error) {
-	patchMu.Lock()
-	defer patchMu.Unlock()
-	if _, err := DropPendingFiles(dataDir, drop); err != nil {
+	unlock, err := lockPatch(dataDir)
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
+	if _, err := dropPendingFiles(dataDir, drop); err != nil {
 		return "", err
 	}
 	return installTakingPending(dataDir, files, drop, true)
