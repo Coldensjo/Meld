@@ -220,6 +220,11 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
 
 ## Architecture docs
 
+The documentation (`docs/`, with `DOCUMENTATION_RULES.md`, `DOCUMENTATION_PLAN.md` and
+`DOCUMENTATION_AUDIT.md` in it) lives on this machine only: `docs/` is gitignored and there is no docs
+site any more (GitHub Pages is off). Edit it in place, but never commit it, and don't expect it in a
+fresh clone or cloud session. Where the rules below say "in the same commit", just edit the file.
+
 The architecture lives in `docs/architecture/`, one file an area. It is a reference, not a step
 before every change: **read an area's doc when the issue's notes don't already say which code to
 change and what the traps are**, or when a change reaches past the code the notes name. Update the
@@ -356,7 +361,7 @@ build processes, or user workflows:
 4. Run documentation build and link checks.
 5. Update the documentation roadmap if necessary.
 
-Follow DOCUMENTATION_RULES.md.
+Follow docs/DOCUMENTATION_RULES.md.
 
 Do not perform full documentation audits unless
 explicitly requested.

@@ -24,11 +24,9 @@ To build Meld you need:
 
 To use the result you need your own WoW 1.12.1 client. To export a map into a running game you also
 need a [VMaNGOS](https://github.com/vmangos/core) server with its [MariaDB](https://mariadb.org/download/)
-database, and optionally the [Benilla](https://github.com/samwhosung/benilla) client
-([Benilla guide](docs/BENILLA.md)).
+database, and optionally the [Benilla](https://github.com/samwhosung/benilla) client.
 
-First follow [source checkout and dependency setup](docs/development.md#get-the-source) in the
-development guide. Run these commands from the repository root:
+Run these commands from the repository root:
 
 ```bash
 make dev             # run in a window with hot reload
@@ -40,29 +38,13 @@ make check           # go vet + golangci-lint + ESLint + svelte-check/tsc
 ```
 
 GitHub Actions runs the checks and short tests on Linux at every push (`.github/workflows/check.yml`);
-its `make build-linux` job is allowed to fail for now (see [Development](docs/development.md)).
+its `make build-linux` job is allowed to fail for now.
 
 On first start, pick your WoW 1.12 client folder under Edit › Preferences… › Folders.
 
 ## Documentation
 
-The docs are also published as a site: <https://coldensjo.github.io/Meld/>.
-
-- [Getting started](docs/getting-started.md): client setup, your first edits and a saved working copy.
-- [Manual](docs/MANUAL.md): tools, camera controls and menus (also Help › Manual in the app).
-- [Saving, compiling and playing](docs/guides/saving-and-compiling.md): working files, client patches,
-  server updates and recovery precautions.
-- [Troubleshooting](docs/troubleshooting.md): missing assets, pending writes, crashes and bug reports.
-- [Settings, local data and backups](docs/guides/settings-and-data.md): preferences, private login
-  data, projects and recovery storage.
-- [Benilla](docs/BENILLA.md): using the open-source Benilla client as Meld's game client.
-- [Development](docs/development.md): prerequisites, building Meld and working on the documentation.
-- [Testing](docs/TESTS.md): how to test and verify changes.
-- [Architecture](docs/architecture/index.md): code boundaries and detailed subsystem references.
-- [Engineering notebooks](docs/reference/index.md): retained investigations and the original design draft.
-
-Documentation maintainers: read the [living roadmap](DOCUMENTATION_PLAN.md),
-[audit evidence](DOCUMENTATION_AUDIT.md) and [documentation rules](DOCUMENTATION_RULES.md).
+The documentation is not part of this repository: it is kept in a local, untracked `docs/` folder.
 
 ## Credits
 

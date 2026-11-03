@@ -11,6 +11,6 @@ frontend/package.json.md5
 *.MPQ
 frontend/probes/scratch/
 *.probe-refresh
-docs/.vitepress/cache
-docs/.vitepress/dist
+# The documentation is kept on this machine only, out of the repository.
+/docs/
 meld_windows_amd64.syso

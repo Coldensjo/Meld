@@ -45,9 +45,6 @@ jobs:
         working-directory: frontend
       - run: bun run check
         working-directory: frontend
-      - name: Markdown structure of the docs (docs-check.mjs --structure)
-        run: bun run docs:structure
-        working-directory: frontend
       # The root package embeds frontend/dist, so it is vetted, linted and tested after the build.
       - run: bun run build
         working-directory: frontend

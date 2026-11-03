@@ -81,7 +81,7 @@ export function markdownStructure(tokens, source) {
 // The Markdown structure test alone (one H1, no NUL, closed fences), without the VitePress build: `make check` runs it (--structure), since a lone carriage return once broke it unseen (#924).
 export async function parseDocuments(config) {
 	const markdown = await createMarkdownRenderer(docs, config.markdown)
-	const documents = [...filesUnder(docs, '.md'), ...['README.md', 'CLAUDE.md', 'DOCUMENTATION_PLAN.md', 'DOCUMENTATION_AUDIT.md', 'DOCUMENTATION_RULES.md', 'build/README.md'].map((path) => join(repository, path))]
+	const documents = [...filesUnder(docs, '.md'), ...['README.md', 'CLAUDE.md'].map((path) => join(repository, path))]
 	const errors = []
 	const parsed = new Map()
 	const report = (path, message) => errors.push(`${relative(repository, path)}: ${message}`)

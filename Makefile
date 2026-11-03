@@ -111,7 +111,7 @@ check: bindings-check notices-check format-check frontend-dist lint
 	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
 	go vet -tags "$(LINUX_TAGS)" ./internal/... ./cmd/... .
 	cd frontend && bun run lint && bun run check
-	cd frontend && bun run docs:structure
+	@if [ -d docs ]; then cd frontend && bun run docs:structure; else echo 'skipping docs:structure (no local docs folder)'; fi
 
 # Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) and the `// tier: manual` ones against the running `make dev-page` (docs/TESTS.md, "Probes").
 # The whole set outgrew the agent harness's 30-minute task limit (#669): `make probe SHARD=1/2`, then `SHARD=2/2`, runs it in halves.
@@ -126,7 +126,7 @@ probe-smoke:
 probe-perf:
 	cd frontend && bun run probe bench 'perf-*'
 
-# The documentation site (VitePress) -> docs/.vitepress/dist; .github/workflows/docs.yml publishes it to GitHub Pages.
+# The documentation site (VitePress) -> docs/.vitepress/dist, built locally only: docs/ is not tracked.
 docs:
 	cd frontend && bun run docs:build
 
