@@ -193,6 +193,14 @@ Besides large and non-goal work, these always get `needs-approval`:
   permission.
 - a new dependency (CLAUDE.md, "Reuse existing code": permissive licence, no cgo).
 
+Check before the pick (#973; the coordinator's "check each candidate for unlabelled approval" step missed #958):
+the coordinator reads the body and the `**Claude:** notes` of each candidate it is about to hand out, owner-filed
+(`source:owner`) ones included, since "always" has no exception. Any of these means an approval trigger:
+"saved in the `.wmap`", a `Version` bump, "map file", "save format", tiles or a patch written to the client,
+"spawn SQL" or other server writes, a new dependency (`go get`, `bun add`), a change to CLAUDE.md's rules. With a
+trigger and neither `needs-approval` nor an `approved` comment by the owner, the coordinator adds `needs-approval`
+with the triage comment and picks the next item; it does not hand the item to a worker to find out.
+
 ## Reference project
 
 Checked when an item's meaning is unclear (shared rules, *Unknown meaning*):
