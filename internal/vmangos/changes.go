@@ -41,6 +41,9 @@ type RowChange struct {
 	Reason string `json:"reason"`
 	// SQL is the statements that make the change, shown on demand.
 	SQL string `json:"sql"`
+	// Core is the server whose world database the row is for: "" for VMaNGOS's, which the editor
+	// writes, or "cmangos-classic" for a row left in an SQL file to import (#1085).
+	Core string `json:"core,omitempty"`
 }
 
 // SpawnChange is one spawn a spawn save will add, change or delete, with its SQL.

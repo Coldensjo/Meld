@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Modal from './Modal.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { changesSql, editOf, loadChanges, type ChangesView } from '../lib/io/changes'
+	import { changesSql, editOf, loadChanges, otherRows, vmangosRows, type ChangesView } from '../lib/io/changes'
 	import { fileLine, groupCount, groupFiles, spawnLine } from '../lib/io/changeList'
 	import { seamWarnings, spawnItem, spawnTies, tileItem } from '../lib/io/leaveOut'
 	import { copyToClipboard } from '../lib/ui/clipboard'
@@ -99,6 +99,17 @@
 	const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 </script>
 
+{#snippet row(r: vmangos.RowChange)}
+	{@const key = `row:${r.core ?? ''}:${r.table}:${r.key}`}
+	<li class="row">
+		<span class="tag">{r.action}</span>
+		<span class="what">{r.table} {r.key}: {r.reason}</span>
+		<button onclick={() => toggle(key)}>{shown[key] ? 'Hide SQL' : 'SQL'}</button>
+		<button title="Copy this row's SQL" onclick={() => copy(r.sql, `${r.table} ${r.key}`)}>Copy</button>
+	</li>
+	{#if shown[key]}<pre>{r.sql}</pre>{/if}
+{/snippet}
+
 <Modal title={view?.title ? `Changes: ${view.title}` : 'Changes'} width={640} {onclose}>
 	{#if loading && !view}
 		<p class="dim">Building the files and the SQL as the write would…</p>
@@ -142,7 +153,7 @@
 				{#each view.waiting as f (f.name)}<li title={f.name}><span class="tag">waiting</span>{fileLine(f)}</li>{/each}
 			</ul>
 		{/if}
-		{#if view.spawns.length || view.rows.length}
+		{#if view.spawns.length || vmangosRows(view).length}
 			<h3>World database</h3>
 			<ul>
 				{#each view.spawns as s (s.guid)}
@@ -169,23 +180,20 @@
 					</li>
 					{#if shown[key]}<pre>{s.sql}</pre>{/if}
 				{/each}
-				{#each view.rows as r (r.table + r.key)}
-					{@const key = `row:${r.table}:${r.key}`}
-					<li class="row">
-						<span class="tag">{r.action}</span>
-						<span class="what">{r.table} {r.key}: {r.reason}</span>
-						<button onclick={() => toggle(key)}>{shown[key] ? 'Hide SQL' : 'SQL'}</button>
-						<button title="Copy this row's SQL" onclick={() => copy(r.sql, `${r.table} ${r.key}`)}>Copy</button>
-					</li>
-					{#if shown[key]}<pre>{r.sql}</pre>{/if}
-				{/each}
+				{#each vmangosRows(view) as r (r.table + r.key)}{@render row(r)}{/each}
+			</ul>
+		{/if}
+		{#if otherRows(view).length}
+			<h3>CMaNGOS classic world database <span class="dim">(an SQL file to import, for Compile to CMaNGOS Server)</span></h3>
+			<ul>
+				{#each otherRows(view) as r (r.table + r.key)}{@render row(r)}{/each}
 			</ul>
 		{/if}
 	{/if}
 	{#snippet actions()}
-		{#if view && (view.spawns.length || view.rows.length)}
+		{#if view && (view.spawns.length || vmangosRows(view).length)}
 			{#if view.tickable && view.spawns.length}<button title="Copy the SQL of the ticked spawns and rows as one script" onclick={() => copyAll(true)}>Copy ticked SQL</button>{/if}
-			<button title="Copy the SQL of every listed spawn and row as one script" onclick={() => copyAll(false)}>Copy all SQL</button>
+			<button title="Copy the SQL of every listed spawn and VMaNGOS row as one script" onclick={() => copyAll(false)}>Copy all SQL</button>
 		{/if}
 		<button disabled={loading} onclick={load}>Refresh</button>
 		<button class="active" onclick={onclose}>{closeLabel}</button>

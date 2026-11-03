@@ -1555,10 +1555,12 @@ export function PublishCMaNGOSMap(m: vmangos$0.MapSpec): $CancellablePromise<str
 
 /**
  * PublishPending is what Publish would write for map m, without writing anything (#959): the client
- * files that differ from the patch's copies, and the world database's rows.
+ * files that differ from the patch's copies, and the world database's rows. While the export's core is
+ * CMaNGOS classic, a dungeon's instance_template row, which Compile to CMaNGOS Server leaves in an SQL
+ * file, follows the map_template row (#1085).
  */
-export function PublishPending(m: vmangos$0.MapSpec): $CancellablePromise<vmangos$0.PublishPreview> {
-    return $Call.ByID(2669731803, m);
+export function PublishPending(m: vmangos$0.MapSpec, core: string): $CancellablePromise<vmangos$0.PublishPreview> {
+    return $Call.ByID(2669731803, m, core);
 }
 
 /**

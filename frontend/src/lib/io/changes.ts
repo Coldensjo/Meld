@@ -5,7 +5,7 @@
 // SQL of a row, of the ticked ones or of all.
 import { PublishPending, RegionPending, SpawnEditSQL, VmangosPath, WaitingClientFiles } from '../wails/App'
 import type { Engine } from '../engine/Engine'
-import { editor } from '../state/editor.svelte'
+import { editor, prefs } from '../state/editor.svelte'
 import type { vmangos } from '../wails/models'
 import { regionEdit, regionName } from './compile'
 import { publishInput } from './publish'
@@ -23,7 +23,7 @@ export type ChangesView = {
 	waiting: vmangos.FileChange[]
 	/** The spawns Save Spawns (and Compile to Server and Compile All) write. */
 	spawns: vmangos.SpawnChange[]
-	/** Other rows of the world database (Publish's map_template). */
+	/** Other rows of the world database (Publish's map_template), and, while the export's core is CMaNGOS classic, a dungeon's instance_template row for that server (`core` set, #1085). */
 	rows: vmangos.RowChange[]
 	/** Each spawn by guid as the editor has it (its original for a deleted one), for Go there. */
 	spawnAt: Map<number, vmangos.WorldSpawn>
@@ -58,7 +58,7 @@ export async function loadChanges(engine: Engine): Promise<ChangesView> {
 			return view
 		}
 		view = empty(`Publish ${p.dir}`)
-		const res = await PublishPending(p.spec)
+		const res = await PublishPending(p.spec, prefs.exportCore)
 		view.files = res.files ?? []
 		view.tiles = res.tiles
 		view.rows = res.rows ?? []
@@ -99,6 +99,11 @@ export async function changesSql(view: ChangesView, leftOut?: ReadonlySet<string
 	const edits = leftOut ? pickSpawnEdits(view.edits, leftOut).write : view.edits
 	const b = editor.regionBlock
 	if (edits.length && b && editor.regionMap) parts.push((await SpawnEditSQL(editor.regionMap, b.x, b.y, b.size, edits, 'vmangos')).sql.trim())
-	for (const r of view.rows) parts.push(r.sql.trim())
+	for (const r of vmangosRows(view)) parts.push(r.sql.trim())
 	return parts.filter(Boolean).join('\n\n') + '\n'
 }
+
+/** The window's rows for the VMaNGOS world database, the one the editor writes (Copy SQL's script holds only these). */
+export const vmangosRows = (view: ChangesView) => view.rows.filter((r) => !r.core)
+/** The window's rows for another core's world database, left in an SQL file to import (#1085), each with its own Copy. */
+export const otherRows = (view: ChangesView) => view.rows.filter((r) => !!r.core)

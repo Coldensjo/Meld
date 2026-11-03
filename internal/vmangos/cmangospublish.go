@@ -32,6 +32,22 @@ func CMaNGOSInstanceSQLPath(s CMaNGOSServer, m MapSpec) string {
 	return filepath.Join(s.Root, cmangosSQLDir, m.Dir+"_instance_template.sql")
 }
 
+// CMaNGOSInstanceRow is map m's instance_template row as the Changes window lists it while the
+// export's core is CMaNGOS classic (#1085), and false for a map that needs none. root is the CMaNGOS
+// server folder the SQL file goes into, or "" when none is set.
+func CMaNGOSInstanceRow(m MapSpec, root string) (RowChange, bool) {
+	sql := CMaNGOSInstanceSQL(m)
+	if sql == "" {
+		return RowChange{}, false
+	}
+	where := filepath.Join(cmangosSQLDir, m.Dir+"_instance_template.sql") + " in the CMaNGOS server folder, once one is set (Edit › Preferences › Folders)"
+	if root != "" {
+		where = CMaNGOSInstanceSQLPath(CMaNGOSServer{Root: root}, m)
+	}
+	return RowChange{Table: "instance_template", Key: fmt.Sprintf("map %d", m.MapID), Action: "add or change", Core: string(CMaNGOSClassic), SQL: sql,
+		Reason: "the map's row for the CMaNGOS world server, which Compile to CMaNGOS Server writes to " + where + ", to import"}, true
+}
+
 // CMaNGOSInstanceSQL is the instance_template row of a dungeon, raid or battleground made in Meld, for a
 // CMaNGOS classic world database, or "" for a world map (or a map without its info, which Publish makes
 // a world map). The row takes the info's player limit, reset delay and ghost entrance, and keeps what

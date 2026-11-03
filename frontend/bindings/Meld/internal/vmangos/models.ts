@@ -2452,6 +2452,12 @@ export interface RowChange {
      * SQL is the statements that make the change, shown on demand.
      */
     "sql": string;
+
+    /**
+     * Core is the server whose world database the row is for: "" for VMaNGOS's, which the editor
+     * writes, or "cmangos-classic" for a row left in an SQL file to import (#1085).
+     */
+    "core"?: string;
 }
 
 /**

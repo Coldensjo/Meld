@@ -207,13 +207,24 @@ func (a *App) RegionPending(edit vmangos.RegionEdit) (vmangos.RegionResult, erro
 }
 
 // PublishPending is what Publish would write for map m, without writing anything (#959): the client
-// files that differ from the patch's copies, and the world database's rows.
-func (a *App) PublishPending(m vmangos.MapSpec) (vmangos.PublishPreview, error) {
+// files that differ from the patch's copies, and the world database's rows. While the export's core is
+// CMaNGOS classic, a dungeon's instance_template row, which Compile to CMaNGOS Server leaves in an SQL
+// file, follows the map_template row (#1085).
+func (a *App) PublishPending(m vmangos.MapSpec, core string) (vmangos.PublishPreview, error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return vmangos.PublishPreview{}, err
 	}
-	return vmangos.PreviewPublish(dataDir, dataDir, m)
+	p, err := vmangos.PreviewPublish(dataDir, dataDir, m)
+	if err != nil {
+		return p, err
+	}
+	if vmangos.ParseCore(core) == vmangos.CMaNGOSClassic {
+		if row, ok := vmangos.CMaNGOSInstanceRow(m, a.CmangosPath()); ok {
+			p.Rows = append(p.Rows, row)
+		}
+	}
+	return p, nil
 }
 
 // WaitingClientFiles lists the client files already written that wait for the game to close (#661),

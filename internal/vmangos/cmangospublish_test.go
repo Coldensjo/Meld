@@ -69,6 +69,27 @@ func TestCMaNGOSInstanceSQL(t *testing.T) {
 	}
 }
 
+// The Changes window's instance_template row (#1085) holds the SQL and names the file it goes to, or
+// where it would go before a CMaNGOS folder is set; a world map lists none.
+func TestCMaNGOSInstanceRow(t *testing.T) {
+	spec := cmangosDungeon()
+	root := filepath.Join(t.TempDir(), "cmangos")
+	row, ok := CMaNGOSInstanceRow(spec, root)
+	if !ok || row.Table != "instance_template" || row.Key != "map 1902" || row.Core != string(CMaNGOSClassic) || row.SQL != CMaNGOSInstanceSQL(spec) {
+		t.Fatalf("row = %+v", row)
+	}
+	if want := CMaNGOSInstanceSQLPath(CMaNGOSServer{Root: root}, spec); !strings.Contains(row.Reason, want) {
+		t.Errorf("reason %q lacks %s", row.Reason, want)
+	}
+	if row, _ := CMaNGOSInstanceRow(spec, ""); !strings.Contains(row.Reason, "once one is set") {
+		t.Errorf("without a folder: %q", row.Reason)
+	}
+	spec.Info.Type = 0
+	if _, ok := CMaNGOSInstanceRow(spec, root); ok {
+		t.Error("a world map got a row")
+	}
+}
+
 // PublishCMaNGOS writes the map into the client's patch, its instance_template SQL into the server's
 // meld-sql folder and rebuilds the server's map data with its extractors; a second publish of the same
 // map over map data newer than the patch runs nothing; a stock extractor is refused before the patch
