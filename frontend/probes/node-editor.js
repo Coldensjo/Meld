@@ -123,6 +123,34 @@ try {
 		if (node('Noise Value')) bad.push('Delete left the selected node')
 		if (nodes().length !== 9) bad.push(`${nodes().length} nodes are left after the Delete, not 9`)
 		if (e.objects.list().length !== models) bad.push('the Delete reached the map')
+
+		// Ctrl+Z on the canvas undoes the graph's own edit, not the map's; Ctrl+Y does it again.
+		const pos2 = e.history.position
+		const key = (k) => canvas.dispatchEvent(new KeyboardEvent('keydown', { key: k, ctrlKey: true, bubbles: true, cancelable: true }))
+		key('z')
+		await P.frames(1)
+		if (!node('Noise Value')) bad.push('Ctrl+Z on the canvas did not bring the deleted node back')
+		if (e.history.position !== pos2) bad.push('Ctrl+Z on the canvas moved the map history')
+		key('y')
+		await P.frames(1)
+		if (node('Noise Value')) bad.push('Ctrl+Y did not delete the node again')
+		if (e.history.position !== pos2) bad.push('Ctrl+Y on the canvas moved the map history')
+		// A node dragged is one step.
+		const hd = node('Add Height')?.querySelector('.head')
+		if (hd) {
+			const x0 = node('Add Height').getBoundingClientRect().left
+			const p0 = at(hd)
+			fire(hd, 'pointerdown', p0)
+			fire(hd, 'pointermove', { clientX: p0.clientX + 40, clientY: p0.clientY })
+			fire(hd, 'pointermove', { clientX: p0.clientX + 80, clientY: p0.clientY })
+			fire(hd, 'pointerup', { clientX: p0.clientX + 80, clientY: p0.clientY })
+			await P.frames(1)
+			const x1 = node('Add Height').getBoundingClientRect().left
+			if (!(x1 > x0 + 40)) bad.push('the node did not move')
+			key('z')
+			await P.frames(1)
+			if (Math.abs(node('Add Height').getBoundingClientRect().left - x0) > 1) bad.push('one Ctrl+Z did not undo the whole drag')
+		}
 	}
 } finally {
 	ui.nodeEditor = false

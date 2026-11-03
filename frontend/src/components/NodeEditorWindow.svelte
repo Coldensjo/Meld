@@ -140,7 +140,43 @@
 		}
 	})
 
+	// The canvas's own undo: snapshots (serializeGraph) of the graph before each change, kept apart from the map's History (a graph is not part of the map).
+	const UNDO_CAP = 100
+	let undoStack: string[] = []
+	let redoStack: string[] = []
+
+	/** Remember `before` (the graph taken ahead of a change) as an undo step, if the graph is no longer that. */
+	function commit(before: string) {
+		if (serializeGraph(graph) === before) return
+		undoStack.push(before)
+		if (undoStack.length > UNDO_CAP) undoStack.shift()
+		redoStack = []
+	}
+
+	function restore(text: string) {
+		graph = parseGraph(text).graph
+		selectedNode = selectedLink = badNode = null
+		menu = null
+		frame()
+	}
+
+	function undo() {
+		const t = undoStack.pop()
+		if (t === undefined) return
+		redoStack.push(serializeGraph(graph))
+		restore(t)
+	}
+
+	function redo() {
+		const t = redoStack.pop()
+		if (t === undefined) return
+		undoStack.push(serializeGraph(graph))
+		restore(t)
+	}
+
 	function load(g: Graph, text: string) {
+		undoStack = []
+		redoStack = []
 		graph = g
 		saved = text
 		selectedNode = selectedLink = badNode = null
@@ -336,6 +372,7 @@
 
 	function pick(spec: NodeSpec) {
 		if (!menu) return
+		const before = serializeGraph(graph)
 		const n = addNode(graph, spec.type, menu.wx, menu.wy)
 		const pend = menu.pending
 		if (pend) {
@@ -349,6 +386,7 @@
 		}
 		selectedNode = n.id
 		menu = null
+		commit(before)
 	}
 
 	function onMenuKey(ev: KeyboardEvent) {
@@ -370,10 +408,15 @@
 		selectedLink = null
 		const x0 = n.x
 		const y0 = n.y
-		drag(ev, (dx, dy) => {
-			n.x = Math.round(x0 + dx / zoom)
-			n.y = Math.round(y0 + dy / zoom)
-		})
+		const before = serializeGraph(graph)
+		drag(
+			ev,
+			(dx, dy) => {
+				n.x = Math.round(x0 + dx / zoom)
+				n.y = Math.round(y0 + dy / zoom)
+			},
+			() => commit(before),
+		)
 	}
 
 	function onPinDown(ev: PointerEvent, n: GraphNode, side: 'in' | 'out', p: PinSpec) {
@@ -383,6 +426,7 @@
 		menu = null
 		let start = { node: n.id, side, pin: p.id, type: p.type }
 		let pickedUp = false
+		const before = serializeGraph(graph)
 		// Taking hold of a linked input picks up its wire, from the output it came from.
 		if (side === 'in') {
 			const l = graph.links.find((x) => x.to === n.id && x.in === p.id)
@@ -409,26 +453,31 @@
 				wire.y2 = m.y
 			},
 			(e) => {
-				const w0 = wire
-				wire = null
-				if (!w0) return
-				const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-pin]')
-				if (!el) {
-					// A wire picked up and let go in the open is unlinked; a new one asks what to link it to.
-					if (!pickedUp && canvasEl?.contains(document.elementFromPoint(e.clientX, e.clientY))) openMenu(e, { node: w0.node, side: w0.side, pin: w0.pin, type: w0.type })
-					return
+				try {
+					const w0 = wire
+					wire = null
+					if (!w0) return
+					const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-pin]')
+					if (!el) {
+						// A wire picked up and let go in the open is unlinked; a new one asks what to link it to.
+						if (!pickedUp && canvasEl?.contains(document.elementFromPoint(e.clientX, e.clientY))) openMenu(e, { node: w0.node, side: w0.side, pin: w0.pin, type: w0.type })
+						return
+					}
+					const to = Number(el.dataset.node)
+					const toSide = el.dataset.side as 'in' | 'out'
+					const toPin = el.dataset.pin as string
+					if (toSide === w0.side) return
+					const err = w0.side === 'out' ? connect(graph, w0.node, w0.pin, to, toPin) : connect(graph, to, toPin, w0.node, w0.pin)
+					if (err) setStatus(err, 4000)
+				} finally {
+					commit(before)
 				}
-				const to = Number(el.dataset.node)
-				const toSide = el.dataset.side as 'in' | 'out'
-				const toPin = el.dataset.pin as string
-				if (toSide === w0.side) return
-				const err = w0.side === 'out' ? connect(graph, w0.node, w0.pin, to, toPin) : connect(graph, to, toPin, w0.node, w0.pin)
-				if (err) setStatus(err, 4000)
 			},
 		)
 	}
 
 	function deleteSelected() {
+		const before = serializeGraph(graph)
 		if (selectedNode !== null) {
 			removeNode(graph, selectedNode)
 			if (badNode === selectedNode) badNode = null
@@ -437,14 +486,17 @@
 			graph.links.splice(selectedLink, 1)
 			selectedLink = null
 		}
+		commit(before)
 	}
 
 	function duplicateSelected() {
 		const n = graph.nodes.find((x) => x.id === selectedNode)
 		if (!n) return
+		const before = serializeGraph(graph)
 		const c = addNode(graph, n.type, n.x + 24, n.y + 24)
 		c.values = { ...$state.snapshot(n.values) }
 		selectedNode = c.id
+		commit(before)
 	}
 
 	function onKey(ev: KeyboardEvent) {
@@ -454,6 +506,8 @@
 		if (mod && k === 'enter') void run()
 		else if (mod && k === 's') void save()
 		else if (typing) return
+		else if (mod && k === 'z') (ev.shiftKey ? redo : undo)()
+		else if (mod && k === 'y') redo()
 		else if (k === 'delete' || k === 'backspace') deleteSelected()
 		else if (mod && k === 'd') duplicateSelected()
 		else return
@@ -466,6 +520,12 @@
 	const valueOf = (n: GraphNode, p: PinSpec): Value => n.values[p.id] ?? p.def ?? ''
 
 	function setValue(n: GraphNode, p: PinSpec, raw: string | boolean) {
+		const before = serializeGraph(graph)
+		assignValue(n, p, raw)
+		commit(before)
+	}
+
+	function assignValue(n: GraphNode, p: PinSpec, raw: string | boolean) {
 		if (typeof raw === 'boolean') n.values[p.id] = raw
 		else if (p.type === 'number') {
 			const v = Number(raw)
