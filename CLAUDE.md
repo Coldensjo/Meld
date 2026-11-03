@@ -50,7 +50,7 @@ in the git history (`git show b47706b:PROGRESS.md`).
 - **Write issues for the next agent.** It starts cold, so the issue must hold what it needs: what and
   why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
   with the code to read (files and functions), the decisions that apply (`decision` issues, earlier
-  comments), how to verify it (the test entry in `docs/tests/`, listed in docs/TESTS.md; a client test, a spot on the map) and the traps
+  comments), how to verify it (a probe, a client test, a spot on the map) and the traps
   you know of. Give a view to reproduce as a scene line (`window.__sceneText()` or Help > Copy Scene,
   `Meld scene {...}`, loaded with `P.scene(line)`), never as camera numbers copied by hand: the line
   holds the target and the prefs that move the camera (Follow the Ground), which the numbers lose. While working on an issue, comment anything a later session would otherwise have to
@@ -78,7 +78,7 @@ in the git history (`git show b47706b:PROGRESS.md`).
   (`gh issue close <n>`). Partly done: comment what is left and keep it open. Dropped: label it
   `parked` and close it as not planned, with the reason.
 - Pass bodies and comments with `--body-file`, so backticks and backslashes survive the shell.
-- Older items keep their B-number in the title (`B-182 ...`), which the older docs refer to.
+- Older items keep their B-number in the title (`B-182 ...`).
 
 ## Folder layout (this machine)
 
@@ -92,7 +92,7 @@ The tool chain lives in `C:\WoW` (moved there 2026-10-15, from `C:\Servers\Meld`
 - `scripts`: the server scripts (`start-server.bat`, `stop-server.bat`, `apply-sql.bat`,
   `restore-world.bat`, `update-maps.bat`), kept out of the vmangos clone. They find the other folders
   relative to their own (`%~dp0..`), so moving all of `C:\WoW` needs no edits.
-- `benilla`: the Benilla client (docs/BENILLA.md).
+- `benilla`: the Benilla client.
 - `blender`: Blender 5.2 LTS, portable (its settings and add-ons in `blender\portable`).
 - `noggit-red`: the Noggit Red map editor.
 - `backup`: files kept aside by hand (not a backup of the rest).
@@ -119,13 +119,12 @@ make verify          # check + test + the build for this OS: the gate before a c
 make bindings        # regenerate frontend/bindings (wails3 generate bindings) and frontend/src/lib/wails/App.ts, models.ts
 make format          # gofmt -w + Prettier over frontend (frontend/.prettierrc.json); make check fails on unformatted files
 make probe           # every live-app probe (frontend/probes) but the benchmarks (bench, perf-*; `make probe-perf`) against the running `make dev-page` (started when it is down)
-cd frontend && bun run probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
+cd frontend && bun run probe <name...>   # chosen probes; --list names them
 cd frontend && bun run build   # frontend only
-make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vitepress/dist; `cd frontend && bun run docs:dev` serves it live
 ```
 
 - A fresh Linux container (a cloud session, CI) first runs `scripts/setup-linux.sh` (wails3, Chrome,
-  GTK3 and WebKitGTK 4.1, `bun install`; docs/development.md). Without the WoW client such a session can
+  GTK3 and WebKitGTK 4.1, `bun install`). Without the WoW client such a session can
   verify `make test`, `make check`, `make build-linux` and the probes on flat maps only, and its closing
   comment must say it did not run the client tests (`make test-full`), the probes that load client
   assets, the benchmark or the Windows build.
@@ -148,23 +147,13 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
   is no `createFrom`: build a Go struct as a typed object literal.
 - The app is one service (`App`, `application.NewService` in `main.go`); `wails_runtime.go` holds the
   dialog, event and window helpers the bound methods call (`a.openFile`, `a.emit`, `a.setTitle`, and
-  `a.window`/`a.newWindow` for the tool windows that open as their own OS windows, `app_toolwindows.go`,
-  docs/architecture/ui.md). The browser page is a separate build (`-tags server`): it has no window, no
+  `a.window`/`a.newWindow` for the tool windows that open as their own OS windows, `app_toolwindows.go`). The browser page is a separate build (`-tags server`): it has no window, no
   native dialogs and no native clipboard (the page uses the browser's), and `serverMode` tells the Go side.
 
-## Testing notes (docs/TESTS.md)
+## Testing
 
-- Before working out how to test or verify a change, read `docs/TESTS.md`. It holds the general
-  methods (unit tests, the probes, the dev page in headless Chrome or Claude in Chrome, scenes,
-  measuring performance) and an index of the checks for each feature, which live in
-  `docs/tests/<area>.md`. A check in the live app worth repeating becomes a probe
-  (`frontend/probes/<name>.js`, run with `bun run probe <name>`) rather than a paragraph.
-- When you find a good way to test something (a command, a scene or spot on the map, a
-  `javascript_tool` probe, a fixture), or a trap that cost you time while testing, add it to the
-  area's file under `docs/tests/` (a general method goes in `docs/TESTS.md` itself), and add its
-  heading to the index in `docs/TESTS.md`, in the same commit as the work or in its own commit. Say
-  what it checks, how to run it, and what to watch out for. Update an entry that turns out to be
-  wrong instead of adding a second one.
+- A check in the live app worth repeating becomes a probe (`frontend/probes/<name>.js`, run with
+  `bun run probe <name>`; `--list` names them).
 
 ## Architecture
 
@@ -178,7 +167,7 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
     shared editing session's messages between the host and its guests, in the host's order.
   - For tests: `sandbox` copies the client's Data folder for the probes, `testclient` finds the
     client and server the client-dependent Go tests read, and `cmd/meldtool` inspects `.wmap` files,
-    tiles, MPQs and the bound methods (docs/TESTS.md).
+    tiles, MPQs and the bound methods.
   - `mpq` is our own read-only MPQ reader; `wow` opens the client, decodes BLP, M2 and WMO, dresses
     creature looks, builds minimap overviews and serves `/wow/*`.
   - `adt` reads and rewrites 1.12 tiles: terrain, textures and alpha maps, liquids (MCLQ), models,
@@ -190,7 +179,7 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
     restarts anything (#661: a write waits for a running game, `installClient` in `app_pending.go`).
     The client is Wow.exe, or Benilla (the
     open-source 1.12.1 client, `config.GameClient`, started from its folder with `WOW_DATA`,
-    `WOW_USER`, `WOW_PASS`, `WOW_REALM` and `WOW_CHAR`; see docs/BENILLA.md). Launch (`LaunchGameAt`)
+    `WOW_USER`, `WOW_PASS`, `WOW_REALM` and `WOW_CHAR`). Launch (`LaunchGameAt`)
     puts the Game Login's character where the camera is: `Engine.playerSpot` finds the ground or
     model below the camera in the server's coordinates (`io/portCoords.ts` `serverSpot`), and
     `vmangos.PlaceCharacter` writes it into the character's row once the server has logged it out.
@@ -218,36 +207,9 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
   *reads* `editor.*` each frame. **Never write per-frame data into reactive state.** `stats` is
   throttled to 2 Hz for this reason.
 
-## Architecture docs
-
-The documentation (`docs/`, with `DOCUMENTATION_RULES.md`, `DOCUMENTATION_PLAN.md` and
-`DOCUMENTATION_AUDIT.md` in it) lives on this machine only: `docs/` is gitignored and there is no docs
-site any more (GitHub Pages is off). Edit it in place, but never commit it, and don't expect it in a
-fresh clone or cloud session. Where the rules below say "in the same commit", just edit the file.
-
-The architecture lives in `docs/architecture/`, one file an area. It is a reference, not a step
-before every change: **read an area's doc when the issue's notes don't already say which code to
-change and what the traps are**, or when a change reaches past the code the notes name. Update the
-docs **once an issue**, in its last commit or a commit of its own, and only for what a later reader
-needs: a feature's behaviour and where it lives, a rule, a trap, a decision. A renamed or moved
-function needs a doc edit only where a doc names it. A new area gets its own file and a line here.
-The test docs are kept to the same rule (see "Testing notes"): a check worth repeating still goes in.
-
-| Doc | What it covers |
-|---|---|
-| `docs/architecture/terrain.md` | The `.wmap` format, heights, holes, splat paint and the paint mask, map data (zones, flags), baked shadows, the far horizon, ground effects, growing a region, the start dialog, zones and the world map |
-| `docs/architecture/tools.md` | The `Tool` interface, brush size and image brushes, Sculpt's painting, Stamp and brush stacks, the doodad and spawn brushes, the Select tool, the clipboard and nudging, the selection outline and gizmo |
-| `docs/architecture/objects.md` | Attachments, `ObjectLayer` (instancing, BVH picking, LOD, WMO group culling, WMO rooms and the portal gate), prop animation, lights, flames, particles, ribbons and texture animation |
-| `docs/architecture/water.md` | Liquid layers, the water brush, the sea, the liquid shader and MCLQ export |
-| `docs/architecture/lighting.md` | Shaders, the sky and time of day, shadow cascades, client lighting and clouds |
-| `docs/architecture/ui.md` | The window layout, the asset browser (search, tabs, sets, prefabs, thumbnails), the dock, the Inspector, History and Map Properties |
-| `docs/architecture/client.md` | The `/wow/*` endpoints, coordinates, the asset registry, WMO doodad sets, and spawns: looks, editing, waypoints, names and the creature editor |
-| `docs/architecture/session.md` | Shared editing sessions: the host-and-join transport (`internal/session`), the host's order of messages, the bindings and the parts still to build |
-| `docs/architecture/scripting.md` | The Lua engine (wasmoon), Noggit Red's script API, the script host and its undo step, the scripts folder and the Scripts window, script brushes (the Script Brush tool), noise maps and images |
-
 ## Rules that cut across the code
 
-These are repeated from the docs above, since breaking one breaks things far from where you work.
+Breaking one of these breaks things far from where you work.
 
 - **Every edit must be undoable** through `History`. Undo closures write per-map state through
   `editor` at call time, never through captured arrays, because tab switches replace those arrays.
@@ -347,24 +309,3 @@ These are repeated from the docs above, since breaking one breaks things far fro
 - Linux/Wayland: `env_linux.go` sets `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Without it, WebKitGTK
   crashes with "Error 71 (Protocol error)" on this KDE Wayland machine.
 - Windows uses WebView2 (Chromium) and has no cgo requirement, so it cross-compiles from Linux.
-
-## Documentation Maintenance
-
-Documentation is a maintained part of the project.
-
-When changing functionality, configuration, APIs,
-build processes, or user workflows:
-
-1. Identify affected documentation.
-2. Update it alongside the implementation.
-3. Verify accuracy against the current source code.
-4. Run documentation build and link checks.
-5. Update the documentation roadmap if necessary.
-
-Follow docs/DOCUMENTATION_RULES.md.
-
-Do not perform full documentation audits unless
-explicitly requested.
-
-Do not create documentation tasks for trivial
-implementation details or speculative features.
