@@ -75,6 +75,9 @@ try {
 
 	// The Spirit Healer: one spawn of entry 6491, one undo step.
 	const spawns = () => P.e.activeDocument().spawnLayer.spawns
+	// The block's spawns come from the world database after the tiles (LoadSpawns), and their arrival
+	// replaces the layer: count only once they are in (#1082: after flight-paths on the GPU they were not yet).
+	if (out.server) await P.until(() => spawns().length > 0 || P.e.activeDocument().spawnsError, WAIT, "the block's spawns loaded")
 	const n0 = spawns().length
 	button('Place a Spirit Healer').click()
 	await P.until(() => spawns().length === n0 + 1 || dlg()?.querySelector('.error')?.textContent.includes('6491'), WAIT, 'the Spirit Healer placed')
