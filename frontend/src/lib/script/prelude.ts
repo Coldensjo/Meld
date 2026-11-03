@@ -579,6 +579,19 @@ function image_mt:gradient_scale(rel)
 end
 function image_mt:width() return self._w end
 function image_mt:height() return self._h end
+-- Meld's own (the Node Editor's image nodes, #1090): every pixel one colour; a Gaussian blur of sigma
+-- pixels, run passes times; a copy stretched to w by h (bilinear).
+function image_mt:fill(r, g, b, a) H.image_fill(self._id, tonumber(r) or 0, tonumber(g) or 0, tonumber(b) or 0, tonumber(a) or 1) end
+function image_mt:blur(sigma, passes)
+	local r = H.image_blur(self._id, tonumber(sigma) or 1, mfloor(tonumber(passes) or 1))
+	if type(r) == 'string' then error('image:blur: ' .. r, 2) end
+end
+function image_mt:resize(w, h)
+	w, h = mfloor(tonumber(w) or 0), mfloor(tonumber(h) or 0)
+	local id = H.image_resize(self._id, w, h)
+	if type(id) == 'string' then error('image:resize: ' .. id, 2) end
+	return wrap_image(id, w, h)
+end
 -- Files (#761): the app reads and writes them, so the script waits; level 3 is the script's line.
 local function await_file(what, p)
 	local r = p:await()

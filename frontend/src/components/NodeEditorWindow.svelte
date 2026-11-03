@@ -1023,6 +1023,14 @@
 		--pin: var(--q2);
 		stroke: var(--q2);
 	}
+	.t-image {
+		--pin: var(--q3);
+		stroke: var(--q3);
+	}
+	.t-list {
+		--pin: var(--q6);
+		stroke: var(--q6);
+	}
 	.t-random,
 	.t-noise {
 		--pin: var(--text-dim);

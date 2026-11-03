@@ -7,6 +7,7 @@
 import { LuaFactory, LuaLibraries, type LuaEngine } from 'wasmoon'
 import { PRELUDE } from './prelude'
 import { noiseAlgorithm, noiseGrid, seedOf } from './scriptNoise'
+import { blurImage, resizeImage } from './scriptImage'
 
 /** A model as the script sees it: rotation in degrees (y the yaw, as Noggit Red gives it), position in yards. */
 export interface ScriptModel {
@@ -411,6 +412,26 @@ export class ScriptSession {
 				d[at + 2] = byte(b)
 				d[at + 3] = byte(a)
 				return true
+			},
+			image_fill: (id: number, r: number, g: number, b: number, a: number) => {
+				const img = this.images.get(id)
+				if (!img) return
+				const byte = (v: number) => Math.max(0, Math.min(255, Math.trunc(v * 255)))
+				const px = [byte(r), byte(g), byte(b), byte(a)]
+				for (let i = 0; i < img.data.length; i++) img.data[i] = px[i & 3]
+			},
+			image_blur: (id: number, sigma: number, passes: number) => {
+				const img = this.images.get(id)
+				if (!img) return 'the image was freed'
+				if (passes > 16) return `at most 16 passes, not ${passes}`
+				blurImage(img, Math.min(sigma, 64), passes)
+				return true
+			},
+			image_resize: (id: number, w: number, hh: number) => {
+				const img = this.images.get(id)
+				if (!img) return 'the image was freed'
+				if (!(w > 0 && hh > 0) || w * hh > MAX_IMAGE_PIXELS) return `invalid image size: x=${w} y=${hh}`
+				return this.keepImage(resizeImage(img, w | 0, hh | 0))
 			},
 			image_free: (id: number) => void this.images.delete(id),
 			image_save: async (id: number, path: string) => {

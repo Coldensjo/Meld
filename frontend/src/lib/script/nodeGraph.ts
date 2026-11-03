@@ -15,7 +15,7 @@
 import { NOISE_NAMES } from './scriptNoise'
 
 /** What a pin carries. `exec` is the flow; `any` links to every data type. */
-export type PinType = 'exec' | 'number' | 'bool' | 'text' | 'vec' | 'sel' | 'vert' | 'model' | 'chunk' | 'random' | 'noise' | 'any'
+export type PinType = 'exec' | 'number' | 'bool' | 'text' | 'vec' | 'sel' | 'vert' | 'model' | 'chunk' | 'image' | 'list' | 'random' | 'noise' | 'any'
 
 export type Value = number | string | boolean
 
@@ -33,9 +33,9 @@ export interface PinSpec {
 	optional?: boolean
 }
 
-export type Category = 'Flow' | 'Variables' | 'Terrain' | 'Chunks' | 'Models' | 'Selection' | 'World' | 'Vectors' | 'Maths' | 'Logic' | 'Text' | 'Random' | 'Noise'
+export type Category = 'Flow' | 'Variables' | 'Lists' | 'Terrain' | 'Chunks' | 'Models' | 'Images' | 'Selection' | 'World' | 'Vectors' | 'Maths' | 'Logic' | 'Text' | 'Random' | 'Noise'
 
-export const CATEGORIES: readonly Category[] = ['Flow', 'Variables', 'Terrain', 'Chunks', 'Models', 'Selection', 'World', 'Vectors', 'Maths', 'Logic', 'Text', 'Random', 'Noise']
+export const CATEGORIES: readonly Category[] = ['Flow', 'Variables', 'Lists', 'Terrain', 'Chunks', 'Models', 'Images', 'Selection', 'World', 'Vectors', 'Maths', 'Logic', 'Text', 'Random', 'Noise']
 
 export interface NodeSpec {
 	type: string
@@ -110,6 +110,8 @@ export interface EmitCtx extends ExprCtx {
 	fail(message: string): never
 	/** Whether the node sits inside a loop (for Break). */
 	inLoop(): boolean
+	/** The label at the end of the innermost loop's body, for Continue to jump to (null outside a loop). */
+	continueLabel(): string | null
 }
 
 /** Lua helpers a node's code may call, written once at the top of a script that needs them. */
@@ -118,6 +120,11 @@ const HELPERS: Record<string, string> = {
 	falloff: 'local function __falloff(d, r) if r <= 0 then return d <= 0 and 1 or 0 end local f = 1 - d / r if f <= 0 then return 0 elseif f >= 1 then return 1 end return f * f * (3 - 2 * f) end',
 	vscale: 'local function __vscale(v, f) return vec(v.x * f, v.y * f, v.z * f) end',
 	area: "local function __area() return selected_area() or error('no area is selected: select one with the Select tool first', 0) end",
+	clear: 'local function __clear(t) for k in pairs(t) do t[k] = nil end end',
+	// Noggit Red's 145 heights a chunk (rows of 9 outer and 8 inner vertices by turns), the first at 1.
+	heights: 'local function __heights(ch) local t = {} for i = 0, 144 do t[i + 1] = ch:get_vert(i):get_pos().y end return t end',
+	// A chunk's alpha layer as a 64 by 64 grey image, as Noggit Red's GetAlphaLayer gives it.
+	alphaImage: 'local function __alpha_image(ch, layer) local img = create_image(64, 64) for i = 0, 4095 do local a = ch:get_tex(i):get_alpha(layer) img:set_pixel_floats(i % 64, i // 64, a, a, a, 1) end return img end',
 }
 
 // Pin builders.
@@ -214,6 +221,28 @@ export const NODE_SPECS: NodeSpec[] = [
 		},
 	},
 	{
+		type: 'continue',
+		title: 'Continue',
+		category: 'Flow',
+		help: 'Skips the rest of the loop’s body this time round, going on with its next turn.',
+		inputs: [flowIn],
+		outputs: [],
+		emit: (c) => {
+			const label = c.continueLabel()
+			if (!label) c.fail('Continue is not inside a loop')
+			c.line(`goto ${label}`)
+		},
+	},
+	{
+		type: 'return',
+		title: 'Return',
+		category: 'Flow',
+		help: 'Ends the run here: what ran before it stays done (a loop’s heights are written back too).',
+		inputs: [flowIn],
+		outputs: [],
+		emit: (c) => c.line('do return end'),
+	},
+	{
 		type: 'print',
 		title: 'Print',
 		category: 'Flow',
@@ -252,6 +281,92 @@ export const NODE_SPECS: NodeSpec[] = [
 		inputs: [{ id: 'name', label: 'name', type: 'text', def: 'count', field: true }],
 		outputs: [pin('value', 'value', 'any')],
 		expr: (c) => `V[${lit(c.field('name'), 'text')}]`,
+	},
+	// Lists: Lua tables, their first item at 1.
+	{
+		type: 'makeList',
+		title: 'Make List',
+		category: 'Lists',
+		help: 'A new empty list, for the nodes after it to fill (keep it in a variable to read it elsewhere).',
+		inputs: [flowIn],
+		outputs: [next(), pin('list', 'list', 'list')],
+		emit: (c) => {
+			c.local('list', '{}')
+		},
+	},
+	{
+		type: 'listAdd',
+		title: 'Add to List',
+		category: 'Lists',
+		help: 'Puts a value at the end of a list.',
+		inputs: [flowIn, pin('list', 'list', 'list'), { id: 'value', label: 'value', type: 'any', def: 0 }],
+		outputs: [next()],
+		emit: (c) => {
+			const l = c.subject('list')
+			c.line(`${l}[#${l} + 1] = ${c.in('value')}`)
+		},
+	},
+	{
+		type: 'listSet',
+		title: 'Set in List',
+		category: 'Lists',
+		help: 'Puts a value at a place in a list (1 the first), replacing what was there.',
+		inputs: [flowIn, pin('list', 'list', 'list'), num('index', 'index', 1), { id: 'value', label: 'value', type: 'any', def: 0 }],
+		outputs: [next()],
+		emit: (c) => c.line(`${c.subject('list')}[${c.in('index')}] = ${c.in('value')}`),
+	},
+	{
+		type: 'listRemove',
+		title: 'Remove from List',
+		category: 'Lists',
+		help: 'Takes the item at a place out of a list (1 the first); the ones after it move up.',
+		inputs: [flowIn, pin('list', 'list', 'list'), num('index', 'index', 1)],
+		outputs: [next()],
+		emit: (c) => c.line(`table.remove(${c.in('list')}, ${c.in('index')})`),
+	},
+	{
+		type: 'listClear',
+		title: 'Clear List',
+		category: 'Lists',
+		help: 'Empties a list.',
+		inputs: [flowIn, pin('list', 'list', 'list')],
+		outputs: [next()],
+		helpers: ['clear'],
+		emit: (c) => c.line(`__clear(${c.in('list')})`),
+	},
+	{
+		type: 'listGet',
+		title: 'Get from List',
+		category: 'Lists',
+		help: 'The item at a place in a list (1 the first; nil past its end).',
+		inputs: [pin('list', 'list', 'list'), num('index', 'index', 1)],
+		outputs: [pin('value', 'value', 'any')],
+		expr: (c) => `(${c.in('list')})[${c.in('index')}]`,
+	},
+	{
+		type: 'listSize',
+		title: 'List Size',
+		category: 'Lists',
+		help: 'How many items a list holds.',
+		inputs: [pin('list', 'list', 'list')],
+		outputs: [pin('size', 'size', 'number')],
+		expr: (c) => `#${c.in('list')}`,
+	},
+	{
+		type: 'forEachItem',
+		title: 'For Each in List',
+		category: 'Lists',
+		help: 'Runs "body" for each item of a list in order, with its place (1 the first), then goes on with "done".',
+		inputs: [flowIn, pin('list', 'list', 'list')],
+		outputs: [exec('body', 'body'), pin('index', 'index', 'number'), pin('item', 'item', 'any'), next('done')],
+		emit: (c) => {
+			const l = c.in('list')
+			const i = c.local('index')
+			const v = c.local('item')
+			c.line(`for ${i}, ${v} in ipairs(${l}) do`)
+			c.block('body', true)
+			c.line('end')
+		},
 	},
 	// Terrain.
 	{
@@ -398,6 +513,66 @@ export const NODE_SPECS: NodeSpec[] = [
 		outputs: [pin('area', 'area ID', 'number')],
 		expr: (c) => `${c.in('chunk')}:get_area_id()`,
 	},
+	{
+		type: 'chunkTextureCount',
+		title: 'Texture Count',
+		category: 'Chunks',
+		help: 'How many texture layers a chunk has (0 to 4).',
+		inputs: [pin('chunk', 'chunk', 'chunk')],
+		outputs: [pin('count', 'count', 'number')],
+		expr: (c) => `${c.in('chunk')}:get_texture_count()`,
+	},
+	{
+		type: 'chunkTexture',
+		title: 'Texture by Layer',
+		category: 'Chunks',
+		help: 'The texture file of a chunk’s layer (0 the base, up to 3); the run stops with an error for a layer the chunk lacks.',
+		inputs: [pin('chunk', 'chunk', 'chunk'), num('layer', 'layer', 0)],
+		outputs: [pin('file', 'texture', 'text')],
+		expr: (c) => `${c.in('chunk')}:get_texture(${c.in('layer')})`,
+	},
+	{
+		type: 'chunkEffect',
+		title: 'Ground Effect',
+		category: 'Chunks',
+		help: 'The ground effect (detail doodads, a GroundEffectTexture ID) the texture of a chunk’s layer grows.',
+		inputs: [pin('chunk', 'chunk', 'chunk'), num('layer', 'layer', 0)],
+		outputs: [pin('effect', 'effect ID', 'number')],
+		expr: (c) => `${c.in('chunk')}:get_effect(${c.in('layer')})`,
+	},
+	{
+		type: 'chunkSetEffect',
+		title: 'Set Ground Effect',
+		category: 'Chunks',
+		help: 'Sets the ground effect (detail doodads; -1 clears it) of the texture of a chunk’s layer, for its tile: every chunk of the tile with that texture grows it.',
+		inputs: [flowIn, pin('chunk', 'chunk', 'chunk'), num('layer', 'layer', 0), num('effect', 'effect ID', -1)],
+		outputs: [next()],
+		emit: (c) => c.line(`${c.subject('chunk')}:set_effect(${c.in('layer')}, ${c.in('effect')})`),
+	},
+	{
+		type: 'chunkHeights',
+		title: 'Get Heightmap',
+		category: 'Chunks',
+		help: 'A chunk’s 145 heights as a list, in Noggit Red’s order: rows of 9 outer and 8 inner vertices by turns (Meld has no inner ones: each reads the corner before it).',
+		inputs: [flowIn, pin('chunk', 'chunk', 'chunk')],
+		outputs: [next(), pin('heights', 'heights', 'list')],
+		helpers: ['heights'],
+		emit: (c) => {
+			c.local('heights', `__heights(${c.in('chunk')})`)
+		},
+	},
+	{
+		type: 'chunkAlpha',
+		title: 'Get Alpha Layer',
+		category: 'Chunks',
+		help: 'How much a chunk’s texture layer (1 to 3) covers its ground, as a 64 by 64 grey image.',
+		inputs: [flowIn, pin('chunk', 'chunk', 'chunk'), num('layer', 'layer', 1)],
+		outputs: [next(), pin('image', 'image', 'image')],
+		helpers: ['alphaImage'],
+		emit: (c) => {
+			c.local('image', `__alpha_image(${c.in('chunk')}, ${c.in('layer')})`)
+		},
+	},
 	// Models.
 	{
 		type: 'addM2',
@@ -492,6 +667,105 @@ export const NODE_SPECS: NodeSpec[] = [
 		inputs: [pin('model', 'model', 'model')],
 		outputs: [pin('position', 'position', 'vec'), pin('rot', 'rotation', 'vec'), pin('scale', 'scale', 'number'), pin('file', 'file', 'text')],
 		expr: (c, out) => `${c.in('model')}:${{ position: 'get_pos', rot: 'get_rot', scale: 'get_scale', file: 'get_filename' }[out]}()`,
+	},
+	// Images: RGBA pixels, channels 0 to 1, x and y from 0 at the top left.
+	{
+		type: 'createImage',
+		title: 'Create Image',
+		category: 'Images',
+		help: 'A new image, every pixel clear (all 0).',
+		inputs: [flowIn, num('w', 'width', 64), num('h', 'height', 64)],
+		outputs: [next(), pin('image', 'image', 'image')],
+		emit: (c) => {
+			c.local('image', `create_image(${c.in('w')}, ${c.in('h')})`)
+		},
+	},
+	{
+		type: 'loadImage',
+		title: 'Load Image',
+		category: 'Images',
+		help: 'A PNG read from a file: a path in the scripts folder, or a whole one.',
+		width: 240,
+		inputs: [flowIn, text('path', 'file', 'brush.png')],
+		outputs: [next(), pin('image', 'image', 'image')],
+		emit: (c) => {
+			c.local('image', `load_png(${c.in('path')})`)
+		},
+	},
+	{
+		type: 'saveImage',
+		title: 'Save Image',
+		category: 'Images',
+		help: 'Writes an image to a PNG file in the scripts folder.',
+		width: 240,
+		inputs: [flowIn, pin('image', 'image', 'image'), text('path', 'file', 'out.png')],
+		outputs: [next()],
+		emit: (c) => c.line(`${c.subject('image')}:save(${c.in('path')})`),
+	},
+	{
+		type: 'imageInfo',
+		title: 'Image Size',
+		category: 'Images',
+		help: 'An image’s width and height, in pixels.',
+		inputs: [pin('image', 'image', 'image')],
+		outputs: [pin('w', 'width', 'number'), pin('h', 'height', 'number')],
+		expr: (c, out) => `${c.in('image')}:${out === 'h' ? 'height' : 'width'}()`,
+	},
+	{
+		type: 'imageGetPixel',
+		title: 'Get Pixel',
+		category: 'Images',
+		help: 'A pixel’s red, green, blue and alpha, 0 to 1.',
+		inputs: [pin('image', 'image', 'image'), num('x', 'x', 0), num('y', 'y', 0)],
+		outputs: [pin('r', 'red', 'number'), pin('g', 'green', 'number'), pin('b', 'blue', 'number'), pin('a', 'alpha', 'number')],
+		expr: (c, out) => `${c.in('image')}:get_${{ r: 'red', g: 'green', b: 'blue', a: 'alpha' }[out] ?? 'red'}(${c.in('x')}, ${c.in('y')})`,
+	},
+	{
+		type: 'imageSetPixel',
+		title: 'Set Pixel',
+		category: 'Images',
+		help: 'Sets a pixel’s red, green, blue and alpha, 0 to 1.',
+		inputs: [flowIn, pin('image', 'image', 'image'), num('x', 'x', 0), num('y', 'y', 0), num('r', 'red', 1), num('g', 'green', 1), num('b', 'blue', 1), num('a', 'alpha', 1)],
+		outputs: [next()],
+		emit: (c) => c.line(`${c.subject('image')}:set_pixel_floats(${['x', 'y', 'r', 'g', 'b', 'a'].map((p) => c.in(p)).join(', ')})`),
+	},
+	{
+		type: 'imageFill',
+		title: 'Fill Image',
+		category: 'Images',
+		help: 'Sets every pixel of an image to one colour, 0 to 1 a channel.',
+		inputs: [flowIn, pin('image', 'image', 'image'), num('r', 'red', 1), num('g', 'green', 1), num('b', 'blue', 1), num('a', 'alpha', 1)],
+		outputs: [next()],
+		emit: (c) => c.line(`${c.subject('image')}:fill(${['r', 'g', 'b', 'a'].map((p) => c.in(p)).join(', ')})`),
+	},
+	{
+		type: 'imageBlur',
+		title: 'Blur Image',
+		category: 'Images',
+		help: 'Softens an image with a Gaussian blur: sigma its spread in pixels, run a number of passes.',
+		inputs: [flowIn, pin('image', 'image', 'image'), num('sigma', 'sigma', 2), num('passes', 'passes', 1)],
+		outputs: [next()],
+		emit: (c) => c.line(`${c.subject('image')}:blur(${c.in('sigma')}, ${c.in('passes')})`),
+	},
+	{
+		type: 'imageResize',
+		title: 'Resize Image',
+		category: 'Images',
+		help: 'A copy of an image stretched to a new width and height, smoothly (bilinear).',
+		inputs: [flowIn, pin('image', 'image', 'image'), num('w', 'width', 128), num('h', 'height', 128)],
+		outputs: [next(), pin('out', 'image', 'image')],
+		emit: (c) => {
+			c.local('out', `${c.subject('image')}:resize(${c.in('w')}, ${c.in('h')})`)
+		},
+	},
+	{
+		type: 'imagePaint',
+		title: 'Paint with Image',
+		category: 'Images',
+		help: 'Adds an image’s red to a texture layer (1 to 3) over a selection, stretched across it, turned by degrees about its middle and fading to its edge (Noggit Red’s paint_texture).',
+		inputs: [flowIn, pin('sel', 'selection', 'sel'), pin('image', 'image', 'image'), num('layer', 'layer', 1), num('pressure', 'pressure', 1), num('angle', 'degrees', 0)],
+		outputs: [next()],
+		emit: (c) => c.line(`procedures.paint_texture(${['sel', 'image', 'layer', 'pressure', 'angle'].map((p) => c.in(p)).join(', ')})`),
 	},
 	// Selections.
 	{
@@ -893,6 +1167,9 @@ class Compiler {
 	private scopes: Set<string>[] = [new Set()]
 	private depth = 1
 	private loops = 0
+	/** The continue labels of the loops the flow is in, innermost last, and whether a Continue jumps to each. */
+	private loopLabels: { label: string; used: boolean }[] = []
+	private labelCount = 0
 	private path = new Set<number>()
 	private usesVars = false
 	/** Set while a hoisted node is tried at the top, where no variable is set yet. */
@@ -1067,12 +1344,20 @@ class Compiler {
 					}
 				this.scopes.push(inner)
 				this.depth++
-				if (loop) this.loops++
+				if (loop) {
+					this.loops++
+					this.loopLabels.push({ label: `__continue${++this.labelCount}`, used: false })
+				}
 				start?.()
 				const before = this.body.length
 				this.chain(n, pin)
 				if (this.body.length === before) this.write('-- (nothing linked)', n.id)
-				if (loop) this.loops--
+				if (loop) {
+					this.loops--
+					// At the body's end, past the scope of its locals, where a goto may jump.
+					const l = this.loopLabels.pop()
+					if (l?.used) this.write(`::${l.label}::`, n.id)
+				}
 				this.depth--
 				this.scopes.pop()
 				// The loop's values are gone after it: a later read is an error, not a stale value.
@@ -1084,6 +1369,12 @@ class Compiler {
 				throw new GraphError(message, n.id)
 			},
 			inLoop: () => this.loops > 0,
+			continueLabel: () => {
+				const l = this.loopLabels[this.loopLabels.length - 1]
+				if (!l) return null
+				l.used = true
+				return l.label
+			},
 		}
 		if (n.type === 'setVar' || n.type === 'addVar') this.usesVars = true
 		return emit
@@ -1174,7 +1465,22 @@ export function connect(graph: Graph, from: number, out: string, to: number, inp
 
 /** A pin type's name in a message. */
 export function typeName(t: PinType): string {
-	return { exec: 'flow', number: 'number', bool: 'condition', text: 'text', vec: 'vector', sel: 'selection', vert: 'vertex', model: 'model', chunk: 'chunk', random: 'random generator', noise: 'noise map', any: 'value' }[t]
+	return {
+		exec: 'flow',
+		number: 'number',
+		bool: 'condition',
+		text: 'text',
+		vec: 'vector',
+		sel: 'selection',
+		vert: 'vertex',
+		model: 'model',
+		chunk: 'chunk',
+		image: 'image',
+		list: 'list',
+		random: 'random generator',
+		noise: 'noise map',
+		any: 'value',
+	}[t]
 }
 
 /** A new node of `type` at (x, y), its id one past the graph's highest. */
