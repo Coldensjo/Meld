@@ -82,7 +82,7 @@ func TestSoapFeaturesLive(t *testing.T) {
 	worldRunning := func() bool { return OSRunner{}.Running(worldServerImage) }
 
 	t.Run("Reloads", func(t *testing.T) {
-		// Every command worldReloads (app_reload.go) sends, with a template reloaded by row too.
+		// Every command records.Reloads (internal/records) sends, with a template reloaded by row too.
 		cmds := []string{"creature_template", "creature_template 6", "gameobject_template", "gameobject_template 1731",
 			"npc_vendor", "creature_questrelation", "creature_involvedrelation", "gameobject_questrelation", "gameobject_involvedrelation",
 			"gameobject_loot_template", "page_text", "quest_template", "gossip_menu_option", "gossip_menu", "creature_spells",

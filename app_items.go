@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"Meld/internal/mpq"
+	"Meld/internal/records"
 	"Meld/internal/vmangos"
 )
 
@@ -79,13 +80,7 @@ func (a *App) SaveItem(entry, patch int, values map[string]string) (TemplateSave
 	if err != nil {
 		return TemplateSaved{}, err
 	}
-	sql, err := vmangos.SaveItem(server, entry, patch, values)
-	if err == nil {
-		a.stale.AddItem(uint32(entry))
-		a.forgetStale()
-		a.reloadWorld("SaveItem")
-	}
-	return templateSaved(sql, err)
+	return templateSaved(records.SaveItem(a.recordHost(server, ""), entry, patch, values))
 }
 
 // CreateItem adds an item named name, a copy of item base (or a plain junk item for 0), and returns
@@ -95,11 +90,7 @@ func (a *App) CreateItem(base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := vmangos.CreateItem(server, base, name)
-	if err == nil {
-		a.reloadWorld("CreateItem")
-	}
-	return res, err
+	return records.CreateItem(a.recordHost(server, ""), base, name)
 }
 
 // PlanItemDelete lists what deleting item entry removes and leaves dangling, changing nothing.
@@ -144,11 +135,7 @@ func (a *App) CreateItemOfKind(class, subclass, invType int, name string) (int, 
 	if err != nil {
 		return 0, err
 	}
-	res, err := vmangos.CreateItemOfKind(server, vmangos.ItemKind{Class: class, Subclass: subclass, InvType: invType}, name)
-	if err == nil {
-		a.reloadWorld("CreateItemOfKind")
-	}
-	return res, err
+	return records.CreateItemOfKind(a.recordHost(server, ""), vmangos.ItemKind{Class: class, Subclass: subclass, InvType: invType}, name)
 }
 
 // ItemModelLook is an item display on a character of race and sex (0 male, 1 female) as an item of
@@ -264,13 +251,5 @@ func (a *App) ImportItems(path string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	entries, err := vmangos.ImportItems(server, string(b))
-	if err == nil {
-		for _, e := range entries {
-			a.stale.AddItem(uint32(e))
-		}
-		a.forgetStale()
-		a.reloadWorld("ImportItems")
-	}
-	return entries, err
+	return records.ImportItems(a.recordHost(server, ""), string(b))
 }

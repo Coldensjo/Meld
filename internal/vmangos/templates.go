@@ -293,10 +293,20 @@ func keyedUpdateSQL(table, key string, cols []TemplateColumn, entry, patch int, 
 // SaveCreature writes changed template values (by column) into creature template entry's row of
 // patch patch, and returns the SQL it ran.
 func SaveCreature(serverRoot string, entry, patch int, values map[string]string) (string, error) {
-	db, err := openWorld(serverRoot)
-	if err != nil {
-		return "", err
+	sql, err := saveTemplate(serverRoot, entry, patch, values, planCreatureSave)
+	if err == nil && sql != "" {
+		forgetDisplays()
 	}
+	return sql, err
+}
+
+// PlanCreatureSave is the SQL SaveCreature would run, checked as it checks it, without writing
+// anything ("" for no change).
+func PlanCreatureSave(serverRoot string, entry, patch int, values map[string]string) (string, error) {
+	return planTemplateSave(serverRoot, entry, patch, values, planCreatureSave)
+}
+
+func planCreatureSave(db worldDB, entry, patch int, values map[string]string) (string, error) {
 	cols, err := templateColumns(db, creatureTable)
 	if err != nil {
 		return "", err
@@ -306,37 +316,58 @@ func SaveCreature(serverRoot string, entry, patch int, values map[string]string)
 			return "", err
 		}
 	}
-	sql, err := templateUpdateSQL(creatureTable, cols, entry, patch, values)
-	if err != nil || sql == "" {
-		return sql, err
-	}
-	if err := runScript(db, sql); err != nil {
-		return "", err
-	}
-	forgetDisplays()
-	return sql, nil
+	return templateUpdateSQL(creatureTable, cols, entry, patch, values)
 }
 
 // SaveObject writes changed template values (by column) into game object template entry's row of
 // patch patch, and returns the SQL it ran. The Objects list is read again next time it is asked
 // for, so the change shows there.
 func SaveObject(serverRoot string, entry, patch int, values map[string]string) (string, error) {
-	db, err := openWorld(serverRoot)
-	if err != nil {
-		return "", err
+	sql, err := saveTemplate(serverRoot, entry, patch, values, planObjectSave)
+	if err == nil && sql != "" {
+		forgetObjectTemplates()
 	}
+	return sql, err
+}
+
+// PlanObjectSave is the SQL SaveObject would run, without writing anything ("" for no change).
+func PlanObjectSave(serverRoot string, entry, patch int, values map[string]string) (string, error) {
+	return planTemplateSave(serverRoot, entry, patch, values, planObjectSave)
+}
+
+func planObjectSave(db worldDB, entry, patch int, values map[string]string) (string, error) {
 	cols, err := templateColumns(db, objectTable)
 	if err != nil {
 		return "", err
 	}
-	sql, err := templateUpdateSQL(objectTable, cols, entry, patch, values)
+	return templateUpdateSQL(objectTable, cols, entry, patch, values)
+}
+
+// templateSavePlan works out a template save's UPDATE on the open world database.
+type templateSavePlan func(db worldDB, entry, patch int, values map[string]string) (string, error)
+
+// planTemplateSave is plan's SQL, on the server's world database (started when it is down).
+func planTemplateSave(serverRoot string, entry, patch int, values map[string]string, plan templateSavePlan) (string, error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return "", err
+	}
+	return plan(db, entry, patch, values)
+}
+
+// saveTemplate runs plan's SQL on the server's world database and returns it ("" for no change).
+func saveTemplate(serverRoot string, entry, patch int, values map[string]string, plan templateSavePlan) (string, error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return "", err
+	}
+	sql, err := plan(db, entry, patch, values)
 	if err != nil || sql == "" {
 		return sql, err
 	}
 	if err := runScript(db, sql); err != nil {
 		return "", err
 	}
-	forgetObjectTemplates()
 	return sql, nil
 }
 
@@ -362,34 +393,68 @@ func unitClassAllowed(v string, classes []string) error {
 		v, strings.Join(classes, ", "))
 }
 
-// createTemplate adds a template named name to table under its first free entry and returns the
-// entry; build makes the INSERT from the table's columns and that entry.
-func createTemplate(serverRoot, table, what, name string, build func(cols []TemplateColumn, entry int, name string) (string, error)) (int, error) {
+// TemplateCreate is what making a template writes: the entry it gets (the first free one) and the
+// INSERT that adds it. A plan's entry is the one free when it was made.
+type TemplateCreate struct {
+	Entry int    `json:"entry"`
+	SQL   string `json:"sql"`
+}
+
+// templateBuild makes a new template's INSERT from its table's columns, entry and name.
+type templateBuild func(cols []TemplateColumn, entry int, name string) (string, error)
+
+// planCreate works out adding a template named name to table under its first free entry, without
+// writing anything; build makes the INSERT. what names the kind in the error for a missing name.
+func planCreate(serverRoot, table, what, name string, build templateBuild) (worldDB, TemplateCreate, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return 0, errors.New("a new " + what + " needs a name")
+		return worldDB{}, TemplateCreate{}, errors.New("a new " + what + " needs a name")
 	}
 	db, err := openWorld(serverRoot)
 	if err != nil {
-		return 0, err
+		return worldDB{}, TemplateCreate{}, err
 	}
 	raw, err := runSQL(db, "SELECT COALESCE(MAX(entry), 0) + 1 FROM "+table)
 	if err != nil {
-		return 0, err
+		return worldDB{}, TemplateCreate{}, err
 	}
 	entry, err := strconv.Atoi(strings.TrimSpace(string(raw)))
 	if err != nil {
-		return 0, err
+		return worldDB{}, TemplateCreate{}, err
 	}
 	cols, err := templateColumns(db, table)
 	if err != nil {
-		return 0, err
+		return worldDB{}, TemplateCreate{}, err
 	}
 	sql, err := build(cols, entry, name)
 	if err != nil {
+		return worldDB{}, TemplateCreate{}, err
+	}
+	return db, TemplateCreate{Entry: entry, SQL: sql}, nil
+}
+
+// createTemplate adds a template named name to table under its first free entry and returns the
+// entry; build makes the INSERT from the table's columns and that entry.
+func createTemplate(serverRoot, table, what, name string, build templateBuild) (int, error) {
+	db, plan, err := planCreate(serverRoot, table, what, name, build)
+	if err != nil {
 		return 0, err
 	}
-	return entry, runScript(db, sql)
+	return plan.Entry, runScript(db, plan.SQL)
+}
+
+// creatureBuild makes a new creature template: a copy of base, or the defaults for base 0.
+func creatureBuild(base int) templateBuild {
+	return func(cols []TemplateColumn, entry int, name string) (string, error) {
+		return createCreatureSQL(cols, entry, base, name)
+	}
+}
+
+// objectBuild makes a new game object template: a copy of base, or a generic object for base 0.
+func objectBuild(base int) templateBuild {
+	return func(cols []TemplateColumn, entry int, name string) (string, error) {
+		return createObjectSQL(cols, entry, base, name)
+	}
 }
 
 // CreateCreature adds a creature template named name under the first free entry and returns the
@@ -397,26 +462,34 @@ func createTemplate(serverRoot, table, what, name string, build func(cols []Temp
 // table's defaults: level 1, a warrior (class 1: the server has no stats for class 0, the column's
 // default), hostile to everyone (faction 14), no display.
 func CreateCreature(serverRoot string, base int, name string) (int, error) {
-	entry, err := createTemplate(serverRoot, creatureTable, "creature", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
-		return createCreatureSQL(cols, entry, base, name)
-	})
+	entry, err := createTemplate(serverRoot, creatureTable, "creature", name, creatureBuild(base))
 	if err == nil {
 		forgetDisplays()
 	}
 	return entry, err
 }
 
+// PlanCreateCreature is what CreateCreature would write, without writing anything.
+func PlanCreateCreature(serverRoot string, base int, name string) (TemplateCreate, error) {
+	_, plan, err := planCreate(serverRoot, creatureTable, "creature", name, creatureBuild(base))
+	return plan, err
+}
+
 // CreateObject adds a game object template named name under the first free entry and returns the
 // entry. It copies template base (its newest patch) when base is not 0, else it starts from the
 // table's defaults: a generic object (type 5) of size 1 with no display.
 func CreateObject(serverRoot string, base int, name string) (int, error) {
-	entry, err := createTemplate(serverRoot, objectTable, "game object", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
-		return createObjectSQL(cols, entry, base, name)
-	})
+	entry, err := createTemplate(serverRoot, objectTable, "game object", name, objectBuild(base))
 	if err == nil {
 		forgetObjectTemplates()
 	}
 	return entry, err
+}
+
+// PlanCreateObject is what CreateObject would write, without writing anything.
+func PlanCreateObject(serverRoot string, base int, name string) (TemplateCreate, error) {
+	_, plan, err := planCreate(serverRoot, objectTable, "game object", name, objectBuild(base))
+	return plan, err
 }
 
 // copyTemplateSQL is the INSERT that makes template entry of table a copy of base's newest patch

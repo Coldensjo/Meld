@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"Meld/internal/mpq"
+	"Meld/internal/records"
 	"Meld/internal/vmangos"
 )
 
@@ -93,14 +93,8 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string,
 	if err != nil {
 		return SpellSaved{}, err
 	}
-	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
+	if _, err := records.SaveSpell(a.recordHost(server, dataDir), plan); err != nil {
 		return SpellSaved{}, err
-	}
-	a.reloadWorld("SaveSpell")
-	err = a.saveClientFiles(dataDir, plan.Files)
-	vmangos.ForgetSpells()
-	if err != nil {
-		return SpellSaved{}, fmt.Errorf("the spell is saved in the world database, but writing it into the client's patch failed (Save again to retry): %w", err)
 	}
 	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Visual: plan.Visual, VisualAdded: plan.VisualAdded}, nil
 }
@@ -117,16 +111,8 @@ func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
-		return 0, err
-	}
-	a.reloadWorld("CreateSpell")
-	err = a.saveClientFiles(dataDir, []mpq.File{plan.File})
-	vmangos.ForgetSpells()
-	if err != nil {
-		return plan.Entry, fmt.Errorf("spell %d is made in the world database, but writing it into the client's patch failed (Save it to retry): %w", plan.Entry, err)
-	}
-	return plan.Entry, nil
+	entry, _, err := records.CreateSpell(a.recordHost(server, dataDir), plan)
+	return entry, err
 }
 
 // ExportSpells asks where to save an SQL script of spells and writes their spell_template rows there

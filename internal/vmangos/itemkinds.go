@@ -62,13 +62,37 @@ func ListItemKinds(serverRoot string) ([]ItemKind, error) {
 // basics of the world database's items of that kind and none of their damage, stats or effects,
 // and returns the entry.
 func CreateItemOfKind(serverRoot string, k ItemKind, name string) (int, error) {
-	db, err := openWorld(serverRoot)
+	build, err := kindBuild(serverRoot, k)
 	if err != nil {
 		return 0, err
 	}
+	entry, err := createTemplate(serverRoot, itemTable, "item", name, build)
+	if err == nil {
+		forgetWeapons()
+	}
+	return entry, err
+}
+
+// PlanCreateItemOfKind is what CreateItemOfKind would write, without writing anything.
+func PlanCreateItemOfKind(serverRoot string, k ItemKind, name string) (TemplateCreate, error) {
+	build, err := kindBuild(serverRoot, k)
+	if err != nil {
+		return TemplateCreate{}, err
+	}
+	_, plan, err := planCreate(serverRoot, itemTable, "item", name, build)
+	return plan, err
+}
+
+// kindBuild makes a new item of kind k, with the usual basics of the world database's items of that
+// kind.
+func kindBuild(serverRoot string, k ItemKind) (templateBuild, error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return nil, err
+	}
 	cols, err := templateColumns(db, itemTable)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	have := map[string]TemplateColumn{}
 	for _, c := range cols {
@@ -87,20 +111,16 @@ func CreateItemOfKind(serverRoot string, k ItemKind, name string) (int, error) {
 	raw, err := runSQL(db, fmt.Sprintf("SELECT %s FROM item_template t WHERE t.class = %d AND t.subclass = %d AND t.inventory_type = %d AND %s",
 		strings.Join(quoted, ", "), k.Class, k.Subclass, k.InvType, newestItemRow))
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	rows := batchRows(raw, len(read))
 	if len(rows) == 0 {
-		return 0, fmt.Errorf("the world database has no item of class %d, subclass %d and inventory type %d to start from", k.Class, k.Subclass, k.InvType)
+		return nil, fmt.Errorf("the world database has no item of class %d, subclass %d and inventory type %d to start from", k.Class, k.Subclass, k.InvType)
 	}
 	values := usualItemValues(read, rows)
-	entry, err := createTemplate(serverRoot, itemTable, "item", name, func(_ []TemplateColumn, entry int, name string) (string, error) {
+	return func(_ []TemplateColumn, entry int, name string) (string, error) {
 		return kindItemSQL(have, entry, k, name, values)
-	})
-	if err == nil {
-		forgetWeapons()
-	}
-	return entry, err
+	}, nil
 }
 
 // usualItemValues is, for each column (cols, the rows' order), the value most rows have (the lowest

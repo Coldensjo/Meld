@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"Meld/internal/mpq"
+	"Meld/internal/records"
 	"Meld/internal/vmangos"
 )
 
@@ -53,13 +54,7 @@ func (a *App) SaveObject(entry, patch int, values map[string]string) (string, er
 	if err != nil {
 		return "", err
 	}
-	sql, err := vmangos.SaveObject(server, entry, patch, values)
-	if err == nil {
-		a.stale.AddObject(uint32(entry))
-		a.forgetStale()
-		a.reloadWorld("SaveObject", entry)
-	}
-	return sql, err
+	return records.SaveObject(a.recordHost(server, ""), entry, patch, values)
 }
 
 // CreateObject adds a game object template named name, a copy of template base (or a generic
@@ -69,11 +64,7 @@ func (a *App) CreateObject(base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := vmangos.CreateObject(server, base, name)
-	if err == nil {
-		a.reloadWorld("CreateObject", res)
-	}
-	return res, err
+	return records.CreateObject(a.recordHost(server, ""), base, name)
 }
 
 // ReadObjectLoot reads what game object template entry holds when its loot list is loot: the rows,
@@ -232,13 +223,7 @@ func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, 
 	if err != nil {
 		return "", err
 	}
-	sql, err := vmangos.SaveCreature(server, entry, patch, values)
-	if err == nil {
-		a.stale.AddCreature(uint32(entry))
-		a.forgetStale()
-		a.reloadWorld("SaveCreature", entry)
-	}
-	return sql, err
+	return records.SaveCreature(a.recordHost(server, ""), entry, patch, values)
 }
 
 // ExportCreatures asks where to save an SQL script of creatures and writes their creature_template
@@ -873,11 +858,7 @@ func (a *App) CreateCreature(base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := vmangos.CreateCreature(server, base, name)
-	if err == nil {
-		a.reloadWorld("CreateCreature", res)
-	}
-	return res, err
+	return records.CreateCreature(a.recordHost(server, ""), base, name)
 }
 
 // ListDisplays lists every creature display, dressed, with the creatures that use it, for the

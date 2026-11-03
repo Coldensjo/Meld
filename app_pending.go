@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
-	goruntime "runtime"
 	"time"
 
 	"Meld/internal/mpq"
+	"Meld/internal/records"
 	"Meld/internal/vmangos"
 )
 
@@ -30,11 +30,8 @@ func (a *App) gameRunning() bool {
 	if a.gameUp != nil {
 		return a.gameUp()
 	}
-	if goruntime.GOOS != "windows" {
-		return false
-	}
 	sess, err := a.gameSession()
-	return err == nil && sess.GameRunning()
+	return err == nil && records.GameHoldsPatch(sess)
 }
 
 // saveClientFiles writes files into Meld's patch without closing anything: at once when the game
@@ -47,19 +44,7 @@ func (a *App) saveClientFiles(dataDir string, files []mpq.File) error {
 // queueClientFiles is saveClientFiles that says where the files go (the patch's path) and whether
 // they wait for the game to close.
 func (a *App) queueClientFiles(dataDir string, files []mpq.File) (patch string, waiting bool, err error) {
-	if len(files) == 0 {
-		return "", false, nil
-	}
-	if a.gameRunning() {
-		if err := vmangos.AddPending(dataDir, files); err != nil {
-			return "", false, err
-		}
-		a.emitPending(dataDir)
-		a.watchPending()
-		return vmangos.PatchPath(dataDir), true, nil
-	}
-	patch, err = vmangos.InstallWithPending(dataDir, files)
-	return patch, false, err
+	return a.recordHost("", dataDir).QueueClientFiles(files)
 }
 
 // installClient writes files into the client's patch as saveClientFiles does, never closing the game

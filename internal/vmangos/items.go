@@ -24,10 +24,20 @@ func ReadItemTemplate(serverRoot string, entry int) (TemplateRecord, error) {
 // SaveItem writes changed values (by column) into item template entry's row of patch patch, and
 // returns the SQL it ran.
 func SaveItem(serverRoot string, entry, patch int, values map[string]string) (string, error) {
-	db, err := openWorld(serverRoot)
-	if err != nil {
-		return "", err
+	sql, err := saveTemplate(serverRoot, entry, patch, values, planItemSave)
+	if err == nil && sql != "" {
+		forgetWeapons()
 	}
+	return sql, err
+}
+
+// PlanItemSave is the SQL SaveItem would run, checked as it checks it, without writing anything
+// ("" for no change).
+func PlanItemSave(serverRoot string, entry, patch int, values map[string]string) (string, error) {
+	return planTemplateSave(serverRoot, entry, patch, values, planItemSave)
+}
+
+func planItemSave(db worldDB, entry, patch int, values map[string]string) (string, error) {
 	cols, err := templateColumns(db, itemTable)
 	if err != nil {
 		return "", err
@@ -35,28 +45,31 @@ func SaveItem(serverRoot string, entry, patch int, values map[string]string) (st
 	if v, ok := values["name"]; ok && strings.TrimSpace(v) == "" {
 		return "", refuse("name", "an item needs a name")
 	}
-	sql, err := templateUpdateSQL(itemTable, cols, entry, patch, values)
-	if err != nil || sql == "" {
-		return sql, err
+	return templateUpdateSQL(itemTable, cols, entry, patch, values)
+}
+
+// itemBuild makes a new item: a copy of base, or a plain junk item for base 0.
+func itemBuild(base int) templateBuild {
+	return func(cols []TemplateColumn, entry int, name string) (string, error) {
+		return createItemSQL(cols, entry, base, name)
 	}
-	if err := runScript(db, sql); err != nil {
-		return "", err
-	}
-	forgetWeapons()
-	return sql, nil
 }
 
 // CreateItem adds an item named name under the first free entry and returns the entry. It copies
 // item base (its newest patch) when base is not 0, else it starts as a common junk item that
 // stacks to one and has no display.
 func CreateItem(serverRoot string, base int, name string) (int, error) {
-	entry, err := createTemplate(serverRoot, itemTable, "item", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
-		return createItemSQL(cols, entry, base, name)
-	})
+	entry, err := createTemplate(serverRoot, itemTable, "item", name, itemBuild(base))
 	if err == nil {
 		forgetWeapons()
 	}
 	return entry, err
+}
+
+// PlanCreateItem is what CreateItem would write, without writing anything.
+func PlanCreateItem(serverRoot string, base int, name string) (TemplateCreate, error) {
+	_, plan, err := planCreate(serverRoot, itemTable, "item", name, itemBuild(base))
+	return plan, err
 }
 
 // createItemSQL is the INSERT that makes item entry named name, a copy of base's newest patch row
