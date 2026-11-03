@@ -41,6 +41,36 @@ func (a *App) DeleteScript(name string) error {
 	return scripts.Delete(dir, name)
 }
 
+// Node graphs (#30): the Node Editor lists, saves and deletes the .mgraph files of the scripts folder;
+// a graph compiles to Lua in the page and runs as a script does.
+
+// ListGraphs reads every node graph of the scripts folder, sorted by name.
+func (a *App) ListGraphs() ([]scripts.File, error) {
+	dir, err := scripts.Dir()
+	if err != nil {
+		return nil, err
+	}
+	return scripts.ListGraphs(dir)
+}
+
+// SaveGraph writes a node graph (its JSON) into the scripts folder and returns its file name.
+func (a *App) SaveGraph(name, text string) (string, error) {
+	dir, err := scripts.Dir()
+	if err != nil {
+		return "", err
+	}
+	return scripts.SaveGraph(dir, name, text)
+}
+
+// DeleteGraph removes a node graph from the scripts folder.
+func (a *App) DeleteGraph(name string) error {
+	dir, err := scripts.Dir()
+	if err != nil {
+		return err
+	}
+	return scripts.DeleteGraph(dir, name)
+}
+
 // ScriptImage is a PNG read for a script's load_png (#29): its size, and where the page fetches its
 // RGBA pixels from (a handoff, since a 4096-square image is 64 MB of pixels).
 type ScriptImage struct {

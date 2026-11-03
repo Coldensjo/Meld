@@ -695,6 +695,8 @@ export const ui = $state({
 	history: false,
 	/** The floating Scripts window (components/ScriptWindow.svelte, #28, Tools › Scripts…): Lua scripts to write and run on the map. */
 	scripts: false,
+	/** The floating Node Editor (components/NodeEditorWindow.svelte, #30, Tools › Node Editor): graphs of nodes that run as Lua scripts. */
+	nodeEditor: false,
 	/** Bumped whenever the active map's undo stack changes or another map's becomes active, so the History window re-reads it. */
 	historyVersion: 0,
 	/** Bumped when a prefab is saved, so the Prefabs tab reads its folder again. */

@@ -60,6 +60,7 @@ export const CreateSpell: Call<AppApi['CreateSpell']> = (...a) => api().CreateSp
 export const DeleteAccount: Call<AppApi['DeleteAccount']> = (...a) => api().DeleteAccount(...a) as never
 export const DeleteCharacter: Call<AppApi['DeleteCharacter']> = (...a) => api().DeleteCharacter(...a) as never
 export const DeleteConditionText: Call<AppApi['DeleteConditionText']> = (...a) => api().DeleteConditionText(...a) as never
+export const DeleteGraph: Call<AppApi['DeleteGraph']> = (...a) => api().DeleteGraph(...a) as never
 export const DeleteIcon: Call<AppApi['DeleteIcon']> = (...a) => api().DeleteIcon(...a) as never
 export const DeleteItem: Call<AppApi['DeleteItem']> = (...a) => api().DeleteItem(...a) as never
 export const DeleteQuest: Call<AppApi['DeleteQuest']> = (...a) => api().DeleteQuest(...a) as never
@@ -134,6 +135,7 @@ export const ListBrushImages: NonNullCall<AppApi['ListBrushImages']> = (...a) =>
 export const ListCharacters: NonNullCall<AppApi['ListCharacters']> = (...a) => api().ListCharacters(...a) as never
 export const ListCreatureTemplates: NonNullCall<AppApi['ListCreatureTemplates']> = (...a) => api().ListCreatureTemplates(...a) as never
 export const ListDisplays: NonNullCall<AppApi['ListDisplays']> = (...a) => api().ListDisplays(...a) as never
+export const ListGraphs: NonNullCall<AppApi['ListGraphs']> = (...a) => api().ListGraphs(...a) as never
 export const ListItemDisplays: NonNullCall<AppApi['ListItemDisplays']> = (...a) => api().ListItemDisplays(...a) as never
 export const ListItemIcons: NonNullCall<AppApi['ListItemIcons']> = (...a) => api().ListItemIcons(...a) as never
 export const ListItemKinds: NonNullCall<AppApi['ListItemKinds']> = (...a) => api().ListItemKinds(...a) as never
@@ -276,6 +278,7 @@ export const SaveCreature: Call<AppApi['SaveCreature']> = (...a) => api().SaveCr
 export const SaveCreatureQuests: Call<AppApi['SaveCreatureQuests']> = (...a) => api().SaveCreatureQuests(...a) as never
 export const SaveCreatureSpells: Call<AppApi['SaveCreatureSpells']> = (...a) => api().SaveCreatureSpells(...a) as never
 export const SaveGossipOptions: Call<AppApi['SaveGossipOptions']> = (...a) => api().SaveGossipOptions(...a) as never
+export const SaveGraph: Call<AppApi['SaveGraph']> = (...a) => api().SaveGraph(...a) as never
 export const SaveGraveyards: Call<AppApi['SaveGraveyards']> = (...a) => api().SaveGraveyards(...a) as never
 export const SaveGreeting: Call<AppApi['SaveGreeting']> = (...a) => api().SaveGreeting(...a) as never
 export const SaveHeightmapDialog: Call<AppApi['SaveHeightmapDialog']> = (...a) => api().SaveHeightmapDialog(...a) as never

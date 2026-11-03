@@ -343,6 +343,13 @@ export function DeleteConditionText(entry: number, textID: number): $Cancellable
 }
 
 /**
+ * DeleteGraph removes a node graph from the scripts folder.
+ */
+export function DeleteGraph(name: string): $CancellablePromise<void> {
+    return $Call.ByID(462199706, name);
+}
+
+/**
  * DeleteIcon takes the icon named name out of Meld's patch (#717), and drops it if it waits for the
  * game to close. Only an icon Meld added or replaced can go: the client's own archives are never
  * written, so deleting a replaced icon brings the client's picture back. A patch the game holds open
@@ -937,6 +944,13 @@ export function ListCreatureTemplates(): $CancellablePromise<vmangos$0.CreatureT
  */
 export function ListDisplays(): $CancellablePromise<vmangos$0.DisplayEntry[] | null> {
     return $Call.ByID(3105370326);
+}
+
+/**
+ * ListGraphs reads every node graph of the scripts folder, sorted by name.
+ */
+export function ListGraphs(): $CancellablePromise<scripts$0.File[] | null> {
+    return $Call.ByID(3297518568);
 }
 
 /**
@@ -2036,6 +2050,13 @@ export function SaveCreatureSpells(entry: number, spells: vmangos$0.CreatureSpel
  */
 export function SaveGossipOptions(entry: number, options: vmangos$0.GossipOption[] | null): $CancellablePromise<vmangos$0.GreetingSaved> {
     return $Call.ByID(2508450781, entry, options);
+}
+
+/**
+ * SaveGraph writes a node graph (its JSON) into the scripts folder and returns its file name.
+ */
+export function SaveGraph(name: string, text: string): $CancellablePromise<string> {
+    return $Call.ByID(110500212, name, text);
 }
 
 /**

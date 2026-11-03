@@ -49,6 +49,38 @@ func TestSaveListDelete(t *testing.T) {
 	}
 }
 
+// Node graphs (#30) keep to their own extension: the Scripts window never lists them, nor the Node
+// Editor a script.
+func TestGraphs(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Save(dir, "hill", "print(1)"); err != nil {
+		t.Fatal(err)
+	}
+	file, err := SaveGraph(dir, "hill", `{"nodes":[]}`)
+	if err != nil || file != "hill.mgraph" {
+		t.Fatalf("SaveGraph = %q, %v", file, err)
+	}
+	if _, err := SaveGraph(dir, "../x", "{}"); err == nil {
+		t.Error("SaveGraph took a name that reaches out of the folder")
+	}
+	graphs, err := ListGraphs(dir)
+	if err != nil || len(graphs) != 1 || graphs[0].Name != "hill.mgraph" || graphs[0].Text != `{"nodes":[]}` {
+		t.Fatalf("ListGraphs = %+v, %v", graphs, err)
+	}
+	if scripts, _ := List(dir); len(scripts) != 1 || scripts[0].Name != "hill.lua" {
+		t.Fatalf("List = %+v; want only hill.lua", scripts)
+	}
+	if err := DeleteGraph(dir, "hill"); err != nil {
+		t.Fatal(err)
+	}
+	if graphs, _ = ListGraphs(dir); len(graphs) != 0 {
+		t.Fatalf("after DeleteGraph, ListGraphs = %+v", graphs)
+	}
+	if scripts, _ := List(dir); len(scripts) != 1 {
+		t.Fatal("DeleteGraph removed the script of the same name")
+	}
+}
+
 func TestLoadPNG(t *testing.T) {
 	dir := t.TempDir()
 	img := image.NewRGBA(image.Rect(0, 0, 3, 2))

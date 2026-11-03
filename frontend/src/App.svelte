@@ -39,6 +39,7 @@
 	import Inspector from './components/Inspector.svelte'
 	import HistoryWindow from './components/HistoryWindow.svelte'
 	import ScriptWindow from './components/ScriptWindow.svelte'
+	import NodeEditorWindow from './components/NodeEditorWindow.svelte'
 	import FlightPathsWindow from './components/FlightPathsWindow.svelte'
 	import TransportsWindow from './components/TransportsWindow.svelte'
 	import LiftsWindow from './components/LiftsWindow.svelte'
@@ -282,6 +283,7 @@
 <Inspector />
 <HistoryWindow />
 <ScriptWindow />
+<NodeEditorWindow />
 {#if ui.flightPaths}<FlightPathsWindow />{/if}
 {#if ui.transports}<TransportsWindow />{/if}
 {#if ui.lifts}<LiftsWindow />{/if}

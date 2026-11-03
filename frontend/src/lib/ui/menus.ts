@@ -406,6 +406,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
 				{ kind: 'action', label: 'Characters and Accounts…', disabled: !backend, run: () => (ui.characterEditor = { account: 0, guid: 0 }) },
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Scripts (Lua)', checked: ui.scripts, toggle: () => (ui.scripts = !ui.scripts) },
+				{ kind: 'check', label: 'Node Editor', checked: ui.nodeEditor, toggle: () => (ui.nodeEditor = !ui.nodeEditor) },
 			],
 		},
 		{
