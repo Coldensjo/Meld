@@ -82,12 +82,13 @@ const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server 
 const SPAWN_SQL_CORES: Record<typeof prefs.exportCore, { title: string; suffix: string }> = {
 	vmangos: { title: 'VMaNGOS', suffix: '' },
 	'cmangos-classic': { title: 'CMaNGOS classic', suffix: '-cmangos' },
+	'cmangos-tbc': { title: 'CMaNGOS TBC', suffix: '-cmangos-tbc' },
 	azerothcore: { title: 'AzerothCore', suffix: '-azerothcore' },
 }
 
 /**
  * Saves the active region's spawn edits as an SQL script for the world database, without running it, for the
- * core Preferences › Compile and export › Spawn SQL for picks (#894, AzerothCore #1073).
+ * core Preferences › Compile and export › Spawn SQL for picks (#894, AzerothCore #1073, CMaNGOS TBC #1076).
  */
 export function exportSpawnSql(engine: Engine) {
 	if (refuseGuestExport(engine)) return

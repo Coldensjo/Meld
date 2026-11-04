@@ -2596,7 +2596,7 @@ export function SoundFiles(): $CancellablePromise<string[] | null> {
 
 /**
  * SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it, in
- * the schema of core ("vmangos", "cmangos-classic" or "azerothcore": Edit › Preferences › Compile and export › Spawn
+ * the schema of core ("vmangos", "cmangos-classic", "cmangos-tbc" or "azerothcore": Edit › Preferences › Compile and export › Spawn
  * SQL for, #894). Another core than VMaNGOS takes the map's ID from the client's Map.dbc, since the
  * VMaNGOS server's isn't its, and the items of the spawns' equipment from the VMaNGOS database when
  * there is one, since its equipment ids aren't the core's (#1042; the SQL lists what it couldn't read).

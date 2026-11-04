@@ -232,12 +232,19 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 	if core == AzerothCore {
 		return azerothcoreSQL(edits, now)
 	}
-	cm := core == CMaNGOSClassic
+	cm, tbc := core.cmangos(), core == CMaNGOSTBC
+	var res Result
+	// How the SQL names a pool: by its entry, or in CMaNGOS TBC by the variable of Meld's pool there
+	// (cmangostbc.go), whose spawns are under Meld's guids.
+	pool, tbcUsed := poolNumber, tbcPools{}
+	if tbc {
+		edits, res.Skipped = tbcEdits(edits)
+		pool = tbcUsed.ref
+	}
 	sorted := append([]Edit(nil), edits...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Spawn.GUID < sorted[j].Spawn.GUID })
 
 	var out []string
-	var res Result
 	poolRows := map[int]Spawn{}
 	var poolOrder []int
 	// The pools whose mother pool changed, and the mother pools whose limit did.
@@ -380,7 +387,7 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 
 		// The creature_addon columns that changed: its display, equipment and pose.
 		if cm && s.Kind == Creature {
-			lines, skipped := cmangosAddonSQL(s, e.Original)
+			lines, skipped := cmangosAddonSQL(core, s, e.Original)
 			out = append(out, lines...)
 			for _, k := range skipped {
 				res.Skipped = append(res.Skipped, name+": "+k)
@@ -401,7 +408,7 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 
 		// The pool membership, when it changed, and the pool's own row when the spawn's pool or the
 		// pool's limit or description did.
-		lines, skipped := poolSQL(s, e.Original, table)
+		lines, skipped := poolSQLAs(s, e.Original, table, pool)
 		out = append(out, lines...)
 		if skipped != "" {
 			res.Skipped = append(res.Skipped, name+": "+skipped)
@@ -432,16 +439,19 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 	for _, p := range poolOrder {
 		s := poolRows[p]
 		desc := sqlQuote(poolDescription(s))
+		if tbc {
+			desc = sqlQuote(tbcPoolDescription(s))
+		}
 		out = append(out, fmt.Sprintf("-- Pool %d", p))
-		out = append(out, fmt.Sprintf("INSERT INTO `pool_template` (`entry`, `max_limit`, `description`) SELECT %d, %d, %s FROM DUAL "+
-			"WHERE NOT EXISTS (SELECT 1 FROM `pool_template` WHERE `entry` = %d);", p, max(s.PoolLimit, 0), desc, p))
-		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d, `description` = %s WHERE `entry` = %d;", max(s.PoolLimit, 0), desc, p))
+		out = append(out, fmt.Sprintf("INSERT INTO `pool_template` (`entry`, `max_limit`, `description`) SELECT %s, %d, %s FROM DUAL "+
+			"WHERE NOT EXISTS (SELECT 1 FROM `pool_template` WHERE `entry` = %s);", pool(p), max(s.PoolLimit, 0), desc, pool(p)))
+		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d, `description` = %s WHERE `entry` = %s;", max(s.PoolLimit, 0), desc, pool(p)))
 	}
 
 	// The pools put into a mother pool or taken out of one (pool_pool), then the mother pools'
 	// limits. A pool of the region keeps its pool_pool row's chance and description.
 	for _, p := range motherOrder {
-		lines, skipped := motherSQL(motherRows[p])
+		lines, skipped := motherSQLAs(motherRows[p], pool)
 		out = append(out, lines...)
 		if skipped != "" {
 			res.Skipped = append(res.Skipped, fmt.Sprintf("Pool %d: %s", p, skipped))
@@ -452,7 +462,14 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 			continue
 		}
 		out = append(out, fmt.Sprintf("-- Master pool %d", m))
-		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d WHERE `entry` = %d;", max(motherLimits[m], 0), m))
+		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d WHERE `entry` = %s;", max(motherLimits[m], 0), pool(m)))
+	}
+	if tbc {
+		// Meld's pools found or made before any statement names them.
+		out = append(tbcPoolsSQL(tbcUsed), out...)
+		for i := range res.Spawns {
+			res.Spawns[i].GUID -= tbcGUIDBase
+		}
 	}
 
 	header := []string{
@@ -461,11 +478,19 @@ func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 		"-- Import it into the world database, then restart the world server (mangosd).",
 		"-- The world tables keep no undo: to go back, restore the world database from its dump.",
 	}
-	if cm {
+	if tbc {
+		header[0] = "-- Meld spawn edits for a CMaNGOS TBC world database (`tbcmangos`)."
+		header = append(header, fmt.Sprintf("-- Meld's spawns are numbered %d plus the editor's guid, since CMaNGOS TBC's own spawns use the guids the editor gives out:", tbcGUIDBase),
+			"-- a change to a spawn of the VMaNGOS database reaches only the copy exported before. A pool of Meld's is the pool_template row",
+			"-- described 'Meld pool <the editor's entry>', made after the highest entry.")
+	} else if cm {
 		header[0] = "-- Meld spawn edits for a CMaNGOS classic world database (`classicmangos`)."
 		// The editor's guids come from the VMaNGOS database it reads; an INSERT under a guid this
 		// database already gives another spawn fails on the key rather than replacing that spawn.
-		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.",
+		header = append(header, "-- The guids are the editor's (from its VMaNGOS database): a new spawn whose guid this database already uses fails on the key.")
+	}
+	if cm {
+		header = append(header,
 			fmt.Sprintf("-- A spawn's own display and equipment go in creature_spawn_data_template, and a formation in a spawn group, numbered %d plus the guid", cmangosOwnBase),
 			"-- (the leader's for a formation). A spawn's equipment is the creature_equip_template row with its items, made after the highest entry when none has them.",
 			fmt.Sprintf("-- A waypoint's VMaNGOS script is translated into a dbscripts_on_creature_movement script of the spawn's own, numbered from %d up and commented 'Meld:'.", cmangosScriptBase))

@@ -291,5 +291,7 @@ test('File › Compile to CMaNGOS Server shows while CMaNGOS classic is the expo
 	}
 	assert.equal(has('cmangos-classic'), true)
 	assert.equal(has('vmangos'), false)
+	// CMaNGOS TBC's map data isn't compiled yet (#1097): its server folder is not the classic one.
+	assert.equal(has('cmangos-tbc'), false)
 	assert.equal(disabled(makeCtx({ prefs: { exportCore: 'cmangos-classic' }, backend: false }).build(), 'File', 'Compile to CMaNGOS Server'), true)
 })

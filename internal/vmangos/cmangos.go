@@ -189,8 +189,8 @@ func cmangosPathSQL(s Spawn) ([]string, []string) {
 }
 
 // cmangosAddonSQL writes a creature's pose (creature_addon) and its look (its own spawn data
-// template: display and equipment) where they changed.
-func cmangosAddonSQL(s Spawn, orig *Spawn) ([]string, []string) {
+// template: display and equipment) where they changed, for core (CMaNGOS classic or TBC).
+func cmangosAddonSQL(core Core, s Spawn, orig *Spawn) ([]string, []string) {
 	base := Spawn{Equipment: -1, SheathState: 1}
 	if orig != nil {
 		base = *orig
@@ -224,7 +224,12 @@ func cmangosAddonSQL(s Spawn, orig *Spawn) ([]string, []string) {
 				equip = "0"
 			default:
 				for _, item := range *s.EquipItems {
-					if item > vmangosStockItemMax {
+					switch {
+					case item <= vmangosStockItemMax:
+					case core == CMaNGOSTBC:
+						// TBC's own items take the entries after 1.12's.
+						skipped = append(skipped, fmt.Sprintf("its equipment's item %d; it was made in the VMaNGOS world database, so CMaNGOS TBC's item_template lacks it or holds another item there", item))
+					default:
 						skipped = append(skipped, fmt.Sprintf("its equipment's item %d; it was made in the VMaNGOS world database, so CMaNGOS's item_template lacks it and the server empties that slot", item))
 					}
 				}

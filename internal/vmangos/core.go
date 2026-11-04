@@ -12,6 +12,9 @@ const (
 	// CMaNGOSClassic is CMaNGOS's 1.12 core (cmangos/mangos-classic), whose world database differs
 	// from VMaNGOS's in its spawn tables: see cmangos.go.
 	CMaNGOSClassic Core = "cmangos-classic"
+	// CMaNGOSTBC is CMaNGOS's 2.4.3 core (cmangos/mangos-tbc, #1076), for a map made for a TBC client,
+	// whose spawn tables are CMaNGOS classic's under guids and pools of Meld's own: see cmangostbc.go.
+	CMaNGOSTBC Core = "cmangos-tbc"
 	// AzerothCore is the 3.3.5a core azerothcore/azerothcore-wotlk (#1073), for a map made for a WotLK
 	// client: see azerothcore.go.
 	AzerothCore Core = "azerothcore"
@@ -20,7 +23,7 @@ const (
 // ParseCore is the core a setting names; anything unknown is VMaNGOS.
 func ParseCore(s string) Core {
 	switch c := Core(s); c {
-	case CMaNGOSClassic, AzerothCore:
+	case CMaNGOSClassic, CMaNGOSTBC, AzerothCore:
 		return c
 	}
 	return VMaNGOS
@@ -31,8 +34,13 @@ func (c Core) Title() string {
 	switch c {
 	case CMaNGOSClassic:
 		return "CMaNGOS classic"
+	case CMaNGOSTBC:
+		return "CMaNGOS TBC"
 	case AzerothCore:
 		return "AzerothCore"
 	}
 	return "VMaNGOS"
 }
+
+// cmangos says whether c is a CMaNGOS core, whose spawn tables are CMaNGOS classic's (cmangos.go).
+func (c Core) cmangos() bool { return c == CMaNGOSClassic || c == CMaNGOSTBC }

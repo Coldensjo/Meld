@@ -1,15 +1,16 @@
 // File › Export Spawn SQL… writes for the core of Preferences › Compile and export › Spawn SQL for (#894).
 // Opens Azeroth 31_50 (1x1), stands in the region's spawn edits (one creature added, with a changed
 // pose, display, scale and formation), the save dialog and the file write, and runs the export through the real
-// SpawnEditSQL binding three times: for CMaNGOS classic (the pref, which the export passes to Go), for
-// AzerothCore (#1073) and for VMaNGOS. Checks: the CMaNGOS file has CMaNGOS's columns (spawndist,
+// SpawnEditSQL binding four times: for CMaNGOS classic (the pref, which the export passes to Go), for
+// CMaNGOS TBC (#1076), for AzerothCore (#1073) and for VMaNGOS. Checks: the CMaNGOS file has CMaNGOS's columns (spawndist,
 // MovementType, emote) and none of VMaNGOS's, names map 0 from the client's Map.dbc, writes the display as
 // the spawn's own spawn data template and the formation as a spawn group (#906), and lists the scale it
 // left out; the AzerothCore file has AzerothCore's columns (id1, spawntimesecs, bytes1) under Meld's own
 // guids (100000000 plus the editor's), the formation with the leader's own row, and lists the display and
-// scale it left out; the VMaNGOS file is VMaNGOS's; the status names the core. Nothing is written to disk or the database, and the pref is
+// scale it left out; the CMaNGOS TBC file is CMaNGOS's under Meld's own guids (10000000 plus the editor's);
+// the VMaNGOS file is VMaNGOS's; the status names the core. Nothing is written to disk or the database, and the pref is
 // put back.
-// touches: frontend/src/lib/io/compile.ts, app_spawns.go, internal/vmangos/sql.go, internal/vmangos/cmangos.go, internal/vmangos/azerothcore.go, internal/vmangos/core.go, internal/vmangos/spawnedit.go
+// touches: frontend/src/lib/io/compile.ts, app_spawns.go, internal/vmangos/sql.go, internal/vmangos/cmangos.go, internal/vmangos/cmangostbc.go, internal/vmangos/pools.go, internal/vmangos/azerothcore.go, internal/vmangos/core.go, internal/vmangos/spawnedit.go
 const { ui, editor, prefs } = await P.state()
 const regionIo = await P.app('/src/lib/io/region.ts')
 const compileIo = await P.app('/src/lib/io/compile.ts')
@@ -39,9 +40,10 @@ const run = async (core) => {
 	return { name: named, sql: file ?? '', status: ui.status }
 }
 
-let cm, ac, vm
+let cm, tbc, ac, vm
 try {
 	cm = await run('cmangos-classic')
+	tbc = await run('cmangos-tbc')
 	ac = await run('azerothcore')
 	vm = await run('vmangos')
 } finally {
@@ -54,6 +56,9 @@ try {
 const out = {
 	cmName: cm.name,
 	cmStatus: cm.status,
+	tbcName: tbc.name,
+	tbcStatus: tbc.status,
+	tbcHead: tbc.sql.split('\n').slice(0, 2),
 	acName: ac.name,
 	acStatus: ac.status,
 	acHead: ac.sql.split('\n').slice(0, 2),
@@ -74,6 +79,14 @@ out.ok =
 	!/wander_distance|movement_type|emote_state|display_id|`patch/.test(cm.sql) &&
 	cm.status.includes('for CMaNGOS classic') &&
 	cm.status.includes('could not be written') &&
+	tbc.name === 'Azeroth-spawns-cmangos-tbc' &&
+	tbc.sql.includes('CMaNGOS TBC world database') &&
+	tbc.sql.includes('`spawndist`, `MovementType`) VALUES (10990001, 3, 0, 1,') &&
+	tbc.sql.includes('INSERT INTO `creature_spawn_data` (`Guid`, `Id`) VALUES (10990001, 1010990001)') &&
+	tbc.sql.includes('SELECT 1010990000, 10990001, COALESCE(MAX(`SlotId`), 0) + 1, 0') &&
+	tbc.sql.includes('its scale (2); CMaNGOS TBC') &&
+	!/VALUES \(990001,|wander_distance|emote_state|`patch/.test(tbc.sql) &&
+	tbc.status.includes('for CMaNGOS TBC') &&
 	ac.name === 'Azeroth-spawns-azerothcore' &&
 	ac.sql.includes('AzerothCore world database') &&
 	ac.sql.includes('`MovementType`, `Comment`) VALUES (100990001, 3, 0, 1, 1, 1,') &&
