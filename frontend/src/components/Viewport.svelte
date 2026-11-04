@@ -43,7 +43,9 @@
 </script>
 
 <div class="doc">
-	<DocTabs />
+	{#if !(ui.hidePanels && ui.fullScreen)}
+		<DocTabs />
+	{/if}
 	<div class="viewport" bind:this={container}>
 		<canvas bind:this={canvas} tabindex="-1"></canvas>
 		{#if ui.topDown && editor.reference?.mode === 'screen' && editor.reference.shown && ui.referenceUrl}
