@@ -9,8 +9,13 @@ import (
 
 // cmangosSchema reads the CMaNGOS classic fixture's tables and their columns, lower-cased.
 func cmangosSchema(t *testing.T) map[string]map[string]bool {
+	return schemaFixture(t, "testdata/cmangos-classic-spawns.sql")
+}
+
+// schemaFixture reads a core's schema fixture: its tables (CREATE TABLE) and their columns, lower-cased.
+func schemaFixture(t *testing.T, path string) map[string]map[string]bool {
 	t.Helper()
-	b, err := os.ReadFile("testdata/cmangos-classic-spawns.sql")
+	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,12 +68,17 @@ func cmangosEdits() []Edit {
 // Every table and column the CMaNGOS spawn SQL names is one CMaNGOS classic's world database has
 // (#894): a VMaNGOS column (wander_distance, emote_state, patch) would fail the import.
 func TestCMaNGOSSpawnSQLMatchesTheSchema(t *testing.T) {
-	schema := cmangosSchema(t)
-	res := ExportSQLFor(CMaNGOSClassic, cmangosEdits(), fixedTime)
+	checkSchema(t, cmangosSchema(t), "CMaNGOS", ExportSQLFor(CMaNGOSClassic, cmangosEdits(), fixedTime).SQL, 30)
+}
+
+// checkSchema checks that every table and column each statement of sql names is one of schema's (the
+// fixture of core), and that sql has at least least statements, so the export reached every writer.
+func checkSchema(t *testing.T, schema map[string]map[string]bool, core, sql string, least int) {
+	t.Helper()
 	ident := regexp.MustCompile("`(\\w+)`")
 	tableRef := regexp.MustCompile("(?:FROM|INTO|UPDATE|JOIN) `(\\w+)`(?: `(\\w+)`)?")
 	statements := 0
-	for _, line := range strings.Split(res.SQL, "\n") {
+	for _, line := range strings.Split(sql, "\n") {
 		if line == "" || strings.HasPrefix(line, "--") {
 			continue
 		}
@@ -78,7 +88,7 @@ func TestCMaNGOSSpawnSQLMatchesTheSchema(t *testing.T) {
 		for _, m := range tableRef.FindAllStringSubmatch(strings.ReplaceAll(line, "KEY UPDATE", "KEY SET"), -1) {
 			name := strings.ToLower(m[1])
 			if schema[name] == nil {
-				t.Errorf("CMaNGOS has no table %s: %s", m[1], line)
+				t.Errorf("%s has no table %s: %s", core, m[1], line)
 			}
 			tables[name] = true
 			if m[2] != "" {
@@ -102,8 +112,8 @@ func TestCMaNGOSSpawnSQLMatchesTheSchema(t *testing.T) {
 			}
 		}
 	}
-	if statements < 30 {
-		t.Errorf("only %d statements; the export should reach every writer:\n%s", statements, res.SQL)
+	if statements < least {
+		t.Errorf("only %d statements; the export should reach every writer:\n%s", statements, sql)
 	}
 }
 

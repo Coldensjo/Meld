@@ -227,8 +227,11 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 }
 
 // ExportSQLFor is ExportSQL for the world database of core (#894). What the core's schema can't hold
-// (cmangos.go) is listed in Skipped.
+// (cmangos.go, azerothcore.go) is listed in Skipped.
 func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
+	if core == AzerothCore {
+		return azerothcoreSQL(edits, now)
+	}
 	cm := core == CMaNGOSClassic
 	sorted := append([]Edit(nil), edits...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Spawn.GUID < sorted[j].Spawn.GUID })

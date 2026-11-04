@@ -78,9 +78,16 @@ async function compileSpawns(engine: Engine): Promise<CompileSpawns> {
 /** The restart hint after spawns were saved with no server rebuild (whose end says to start the world server, #661). */
 const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server to see the spawns.' : '')
 
+/** Each core of Spawn SQL for: its name in the status line, and what its file name ends in. */
+const SPAWN_SQL_CORES: Record<typeof prefs.exportCore, { title: string; suffix: string }> = {
+	vmangos: { title: 'VMaNGOS', suffix: '' },
+	'cmangos-classic': { title: 'CMaNGOS classic', suffix: '-cmangos' },
+	azerothcore: { title: 'AzerothCore', suffix: '-azerothcore' },
+}
+
 /**
  * Saves the active region's spawn edits as an SQL script for the world database, without running it, for the
- * core Preferences › Compile and export › Spawn SQL for picks (#894).
+ * core Preferences › Compile and export › Spawn SQL for picks (#894, AzerothCore #1073).
  */
 export function exportSpawnSql(engine: Engine) {
 	if (refuseGuestExport(engine)) return
@@ -92,13 +99,13 @@ export function exportSpawnSql(engine: Engine) {
 			return
 		}
 		const res = await SpawnEditSQL(editor.regionMap, b.x, b.y, b.size, edits, prefs.exportCore)
-		const cmangos = prefs.exportCore === 'cmangos-classic'
-		const path = await SaveSQLDialog(`${editor.regionMap}-spawns${cmangos ? '-cmangos' : ''}`)
+		const core = SPAWN_SQL_CORES[prefs.exportCore] ?? SPAWN_SQL_CORES.vmangos
+		const path = await SaveSQLDialog(`${editor.regionMap}-spawns${core.suffix}`)
 		if (!path) return
 		await WriteTextFile(path, res.sql)
 		const skipped = res.skipped?.length ? ` ${res.skipped.length} ${res.skipped.length === 1 ? 'change' : 'changes'} could not be written (listed at the top of the file).` : ''
 		const left = kept.length ? ` ${leftOutNote(kept.length)}` : ''
-		setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits for ${cmangos ? 'CMaNGOS classic' : 'VMaNGOS'} to ${path}.${skipped}${left}`, 10000)
+		setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits for ${core.title} to ${path}.${skipped}${left}`, 10000)
 	})
 }
 

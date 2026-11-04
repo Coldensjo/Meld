@@ -12,20 +12,27 @@ const (
 	// CMaNGOSClassic is CMaNGOS's 1.12 core (cmangos/mangos-classic), whose world database differs
 	// from VMaNGOS's in its spawn tables: see cmangos.go.
 	CMaNGOSClassic Core = "cmangos-classic"
+	// AzerothCore is the 3.3.5a core azerothcore/azerothcore-wotlk (#1073), for a map made for a WotLK
+	// client: see azerothcore.go.
+	AzerothCore Core = "azerothcore"
 )
 
 // ParseCore is the core a setting names; anything unknown is VMaNGOS.
 func ParseCore(s string) Core {
-	if Core(s) == CMaNGOSClassic {
-		return CMaNGOSClassic
+	switch c := Core(s); c {
+	case CMaNGOSClassic, AzerothCore:
+		return c
 	}
 	return VMaNGOS
 }
 
 // Title is the core's name in messages and in the SQL's header.
 func (c Core) Title() string {
-	if c == CMaNGOSClassic {
+	switch c {
+	case CMaNGOSClassic:
 		return "CMaNGOS classic"
+	case AzerothCore:
+		return "AzerothCore"
 	}
 	return "VMaNGOS"
 }

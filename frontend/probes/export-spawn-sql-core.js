@@ -1,13 +1,15 @@
 // File › Export Spawn SQL… writes for the core of Preferences › Compile and export › Spawn SQL for (#894).
 // Opens Azeroth 31_50 (1x1), stands in the region's spawn edits (one creature added, with a changed
 // pose, display, scale and formation), the save dialog and the file write, and runs the export through the real
-// SpawnEditSQL binding twice: for CMaNGOS classic (the pref, which the export passes to Go) and for
-// VMaNGOS. Checks: the CMaNGOS file has CMaNGOS's columns (spawndist, MovementType, emote) and none of
-// VMaNGOS's, names map 0 from the client's Map.dbc, writes the display as the spawn's own spawn data
-// template and the formation as a spawn group (#906), and lists the scale it left out; the VMaNGOS file
-// is VMaNGOS's; the status names the core. Nothing is written to disk or the database, and the pref is
+// SpawnEditSQL binding three times: for CMaNGOS classic (the pref, which the export passes to Go), for
+// AzerothCore (#1073) and for VMaNGOS. Checks: the CMaNGOS file has CMaNGOS's columns (spawndist,
+// MovementType, emote) and none of VMaNGOS's, names map 0 from the client's Map.dbc, writes the display as
+// the spawn's own spawn data template and the formation as a spawn group (#906), and lists the scale it
+// left out; the AzerothCore file has AzerothCore's columns (id1, spawntimesecs, bytes1) under Meld's own
+// guids (100000000 plus the editor's), the formation with the leader's own row, and lists the display and
+// scale it left out; the VMaNGOS file is VMaNGOS's; the status names the core. Nothing is written to disk or the database, and the pref is
 // put back.
-// touches: frontend/src/lib/io/compile.ts, app_spawns.go, internal/vmangos/sql.go, internal/vmangos/cmangos.go, internal/vmangos/core.go, internal/vmangos/spawnedit.go
+// touches: frontend/src/lib/io/compile.ts, app_spawns.go, internal/vmangos/sql.go, internal/vmangos/cmangos.go, internal/vmangos/azerothcore.go, internal/vmangos/core.go, internal/vmangos/spawnedit.go
 const { ui, editor, prefs } = await P.state()
 const regionIo = await P.app('/src/lib/io/region.ts')
 const compileIo = await P.app('/src/lib/io/compile.ts')
@@ -37,9 +39,10 @@ const run = async (core) => {
 	return { name: named, sql: file ?? '', status: ui.status }
 }
 
-let cm, vm
+let cm, ac, vm
 try {
 	cm = await run('cmangos-classic')
+	ac = await run('azerothcore')
 	vm = await run('vmangos')
 } finally {
 	App.SaveSQLDialog = real.SaveSQLDialog
@@ -48,7 +51,17 @@ try {
 	prefs.exportCore = realCore
 }
 
-const out = { cmName: cm.name, cmStatus: cm.status, vmName: vm.name, vmStatus: vm.status, cmHead: cm.sql.split('\n').slice(0, 9), vmHead: vm.sql.split('\n').slice(0, 2) }
+const out = {
+	cmName: cm.name,
+	cmStatus: cm.status,
+	acName: ac.name,
+	acStatus: ac.status,
+	acHead: ac.sql.split('\n').slice(0, 2),
+	vmName: vm.name,
+	vmStatus: vm.status,
+	cmHead: cm.sql.split('\n').slice(0, 9),
+	vmHead: vm.sql.split('\n').slice(0, 2),
+}
 out.ok =
 	cm.name === 'Azeroth-spawns-cmangos' &&
 	cm.sql.includes('CMaNGOS classic world database') &&
@@ -61,6 +74,16 @@ out.ok =
 	!/wander_distance|movement_type|emote_state|display_id|`patch/.test(cm.sql) &&
 	cm.status.includes('for CMaNGOS classic') &&
 	cm.status.includes('could not be written') &&
+	ac.name === 'Azeroth-spawns-azerothcore' &&
+	ac.sql.includes('AzerothCore world database') &&
+	ac.sql.includes('`MovementType`, `Comment`) VALUES (100990001, 3, 0, 1, 1, 1,') &&
+	ac.sql.includes('`bytes1` = (`bytes1` & 4294967040) | 1') &&
+	ac.sql.includes('VALUES (100990000, 100990001, 4, 0, 515, 0, 0);') &&
+	ac.sql.includes('VALUES (100990000, 100990000, 0, 0, 515, 0, 0);') &&
+	ac.sql.includes('its display (3167); AzerothCore') &&
+	ac.sql.includes('its scale (2); AzerothCore') &&
+	!/spawntimesecsmin|`creature_movement`|emote_state|display_id|`patch|creature_groups/.test(ac.sql) &&
+	ac.status.includes('for AzerothCore') &&
 	vm.name === 'Azeroth-spawns' &&
 	vm.sql.includes('VMaNGOS world database') &&
 	vm.sql.includes('`wander_distance`') &&
