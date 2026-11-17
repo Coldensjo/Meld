@@ -183,6 +183,20 @@ func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
 		return "", err
 	}
 	character := sess.Login.Character
+	// A 3.3.5a client's character is the AzerothCore server's: placed there once the game is closed.
+	if ac, _, ok, err := a.acWorld(); character != "" && (ok || err != nil) {
+		if err != nil {
+			return "", err
+		}
+		if err := sess.StopGame(); err != nil {
+			return "", err
+		}
+		if err := vmangos.ACPlaceCharacter(ac, sess.Login.Account, sess.Login.Password, character, spot, vmangos.ACWorldRunning()); err != nil {
+			return "", err
+		}
+		a.flushPending()
+		return character, sess.StartGame()
+	}
 	if character == "" || sess.ServerRoot == "" {
 		a.flushPending()
 		return "", sess.StartGame()

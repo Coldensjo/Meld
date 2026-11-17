@@ -112,3 +112,33 @@ func TestACTeleportCharacter(t *testing.T) {
 		t.Errorf("console off: %v", err)
 	}
 }
+
+// Launch places a logged-out character of an AzerothCore server in its row when no world server runs,
+// off any transport and instance.
+func TestACPlaceCharacterOffline(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "worldserver.conf")
+	if err := os.WriteFile(conf, []byte("CharacterDatabaseInfo = \"127.0.0.1;3306;acore;acore;acore_characters\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := runSQL
+	defer func() { runSQL = old }()
+	var place string
+	runSQL = func(db worldDB, sql string) ([]byte, error) {
+		if db.name != "acore_characters" {
+			t.Errorf("query on %s", db.name)
+		}
+		if strings.HasPrefix(sql, "UPDATE") {
+			place = sql
+		}
+		return []byte("0\n"), nil
+	}
+	if err := ACPlaceCharacter(AzerothCoreServer{Root: dir, Conf: conf}, "pascal", "gm", "Kea", CharacterSpot{Map: 571, X: 5583, Y: 850, Z: 195}, false); err != nil {
+		t.Fatal(err)
+	}
+	want := "UPDATE `characters` SET `map` = 571, `instance_id` = 0, `position_x` = 5583, `position_y` = 850, `position_z` = 195, `orientation` = 0, " +
+		"`transguid` = 0, `trans_x` = 0, `trans_y` = 0, `trans_z` = 0, `trans_o` = 0, `taxi_path` = '' WHERE `name` = 'Kea'"
+	if place != want {
+		t.Errorf("place = %s", place)
+	}
+}

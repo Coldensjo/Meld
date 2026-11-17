@@ -215,3 +215,43 @@ func ACTeleportCharacter(s AzerothCoreServer, account, password, name string, sp
 	_, err = acCommands(ra, account, password, "reload game_tele", "tele name "+name+" "+teleName)
 	return err
 }
+
+// ACWorldRunning reports whether an AzerothCore world server (worldserver) runs on this machine.
+func ACWorldRunning() bool {
+	return OSRunner{}.Running(acWorldImage)
+}
+
+// acPlaceSQL puts the character called name at spot in AzerothCore's characters table: off any
+// transport or flight, and not in an instance.
+func acPlaceSQL(name string, s CharacterSpot) string {
+	return fmt.Sprintf("UPDATE `characters` SET `map` = %d, `instance_id` = 0, `position_x` = %s, `position_y` = %s, `position_z` = %s, `orientation` = %s, "+
+		"`transguid` = 0, `trans_x` = 0, `trans_y` = 0, `trans_z` = 0, `trans_o` = 0, `taxi_path` = '' WHERE `name` = %s",
+		s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), sqlQuote(name))
+}
+
+// ACPlaceCharacter is PlaceCharacter for an AzerothCore server, for Launch: it puts the character called
+// name at spot for its next login. While the world server runs, which would save a character still in
+// the world over its row when it logs out, the server moves it (ACTeleportCharacter); else its row is
+// written.
+func ACPlaceCharacter(s AzerothCoreServer, account, password, name string, spot CharacterSpot, worldRunning bool) error {
+	if worldRunning {
+		return ACTeleportCharacter(s, account, password, name, spot)
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("no character to place")
+	}
+	chars, err := acCharacterDB(s)
+	if err != nil {
+		return err
+	}
+	out, err := runSQL(chars, "SELECT `online` FROM `characters` WHERE `name` = "+sqlQuote(name))
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(out)) == "" {
+		return fmt.Errorf("the server has no character called %s", name)
+	}
+	_, err = runSQL(chars, acPlaceSQL(name, spot))
+	return err
+}
