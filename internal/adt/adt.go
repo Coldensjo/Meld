@@ -381,16 +381,20 @@ func parseTexChunk(data []byte, names []string, c chunk, bigAlpha, fix bool) (Te
 // alphaChunk finds a chunk's MCAL, the alpha maps of its layers. Its length is the one the MCNK
 // header gives (+0x28, which counts the sub-chunk's 8-byte header), not the sub-chunk's own size:
 // the 3.3.5a client's Northrend tiles carry 512 there whatever the maps take, which read as the
-// size cut every chunk's paint off after its first few rows. The 1.12 client's tiles agree in both.
+// size cut every chunk's paint off after its first few rows, and for maps shorter than that would
+// run past a chunk that ends with them. The 1.12 client's tiles agree in both.
 func alphaChunk(data []byte, h, end int) (chunk, bool) {
-	mcal, ok := subChunk(data, h, end, u32(data, h+0x24), "MCAL")
-	if !ok {
-		return mcal, false
+	off := int(u32(data, h+0x24))
+	pos := h - 8 + off
+	if off == 0 || pos < 0 || pos+8 > end || string([]byte{data[pos+3], data[pos+2], data[pos+1], data[pos]}) != "MCAL" {
+		return chunk{}, false
 	}
-	if n := int(u32(data, h+0x28)) - 8; n > mcal.end-mcal.start && mcal.start+n <= end {
-		mcal.end = mcal.start + n
+	start := pos + 8
+	size := min(int(u32(data, pos+4)), end-start)
+	if n := int(u32(data, h+0x28)) - 8; n >= 0 && start+n <= end {
+		size = n
 	}
-	return mcal, true
+	return chunk{id: "MCAL", start: start, end: start + size}, true
 }
 
 // decodeRLE expands run-length alpha: a header with the high bit set repeats the next byte, one
