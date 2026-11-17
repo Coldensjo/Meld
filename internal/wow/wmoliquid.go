@@ -1,6 +1,10 @@
 package wow
 
-import "math"
+import (
+	"math"
+
+	"Meld/internal/adt"
+)
 
 // A WMO group's liquid (MLIQ): the lava of Blackrock Depths, the water of Stormwind's canals. Ported
 // from Benilla (MIT/Apache: benilla-wmo's parse_mliq, benilla-formats' build_wmo_liquid_mesh and
@@ -87,6 +91,22 @@ func GroupLiquid(b []byte) (l *WMOLiquid, groupLiquid int, flags int) {
 	return nil, noGroupLiquid, 0
 }
 
+// liquidKindOfID is the kind of the LiquidType.dbc row id (adt.LiquidWater and its fellows), 0 for
+// no liquid: the four base rows are their own kind, and another row has the kind the 3.3.5a
+// client's table gives it, water when the table lacks it.
+func liquidKindOfID(id int) int {
+	switch {
+	case id <= 0:
+		return 0
+	case id <= adt.LiquidSlime:
+		return id
+	}
+	if k, ok := adt.LiquidKind(id); ok {
+		return k
+	}
+	return adt.LiquidWater
+}
+
 // liquidClass is the class a WMO liquid type nibble draws as, false for none (Benilla's from_nibble:
 // 0 and 4 still water, 8 rapids, 1 ocean, 2 and 6 magma, 3 and 7 slime).
 func liquidClass(nibble int) (int, bool) {
@@ -135,9 +155,22 @@ func (l *LiquidMesh) Append(o *LiquidMesh) {
 // LiquidSurface builds a group's liquid as the client draws it: two triangles a tile whose nibble
 // isn't 0xf, one class for the whole surface (groupLiquid's, or else the first wet tile's), in
 // editor space. room is the group plus one; mats are the root's materials. Nil when nothing is wet.
-func LiquidSurface(l *WMOLiquid, groupLiquid, groupFlags int, room int, mats []WMOMaterial) *LiquidMesh {
+//
+// rootFlags are the root's (MOHD's). With 4 in them, as most of the 3.3.5a client's buildings have,
+// groupLiquid is a LiquidType.dbc ID and not 1.12's number, whose low nibble would read a
+// building's "WMO Water" (13) as nothing and its ocean (2) as lava: the class is then that row's
+// kind (#1071's WMO check).
+func LiquidSurface(l *WMOLiquid, groupLiquid, groupFlags, rootFlags int, room int, mats []WMOMaterial) *LiquidMesh {
 	if l == nil {
 		return nil
+	}
+	if rootFlags&4 != 0 {
+		// The same ID the server's extractor gives the group, by its kind: 1.12's nibbles for them.
+		nibble, ok := map[int]int{adt.LiquidWater: 0, adt.LiquidOcean: 1, adt.LiquidMagma: 2, adt.LiquidSlime: 3}[liquidKindOfID(serverLiquidType(groupLiquid, groupFlags, rootFlags, l.Tiles))]
+		if !ok {
+			return nil
+		}
+		groupLiquid = nibble
 	}
 	xv, yv, xt, yt := l.XVerts, l.YVerts, l.XTiles, l.YTiles
 	if xv < 2 || yv < 2 || xt+1 != xv || yt+1 != yv || len(l.Heights) < xv*yv || len(l.Tiles) < xt*yt {

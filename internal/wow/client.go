@@ -488,7 +488,7 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 		}
 		// The group's lava or water, which no group geometry stands for.
 		if l, gl, flags := GroupLiquid(gb); l != nil {
-			if lm := LiquidSurface(l, gl, flags, i+1, root.Materials); lm != nil {
+			if lm := LiquidSurface(l, gl, flags, root.Flags, i+1, root.Materials); lm != nil {
 				if m.Liquid == nil {
 					m.Liquid = &LiquidMesh{}
 				}
