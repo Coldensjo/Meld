@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"Meld/internal/config"
@@ -66,11 +68,30 @@ type Session struct {
 // BenillaExe is the program Meld starts from a Benilla folder: Meld's launcher when it's built there
 // (`cargo build --release` in benilla-launcher puts it in Benilla's target folder), else Benilla's own.
 func BenillaExe(folder string) string {
-	launcher := filepath.Join(folder, "target", "release", launcherImage)
+	launcher := releaseProgram(folder, launcherImage)
 	if _, err := os.Stat(launcher); err == nil {
 		return launcher
 	}
-	return filepath.Join(folder, "target", "release", benillaImage)
+	return releaseProgram(folder, benillaImage)
+}
+
+// releaseProgram is the program image in Benilla's target/release folder: off Windows, where Cargo
+// builds it without .exe (macOS, Linux), the name without it when that is the file there.
+func releaseProgram(folder, image string) string {
+	p := filepath.Join(folder, "target", "release", image)
+	if runtime.GOOS != "windows" {
+		if stem := strings.TrimSuffix(p, ".exe"); stem != p {
+			if fi, err := os.Stat(stem); err == nil && !fi.IsDir() {
+				return stem
+			}
+		}
+	}
+	return p
+}
+
+// isLauncher reports whether exe is Meld's launcher, with or without .exe.
+func isLauncher(exe string) bool {
+	return strings.TrimSuffix(filepath.Base(exe), ".exe") == strings.TrimSuffix(launcherImage, ".exe")
 }
 
 // envStarter is a Runner that can also start a program with extra environment variables.
@@ -221,7 +242,7 @@ func (s Session) startBenilla() error {
 	}
 	exe := BenillaExe(s.Benilla)
 	var err error
-	if r, ok := s.Run.(loggedStarter); ok && filepath.Base(exe) == launcherImage {
+	if r, ok := s.Run.(loggedStarter); ok && isLauncher(exe) {
 		// The launcher is a windowed program: no console beside the game, its log in a file.
 		err = r.StartLogged(s.Benilla, exe, LauncherLog(s.Benilla), env)
 	} else if r, ok := s.Run.(envStarter); ok {

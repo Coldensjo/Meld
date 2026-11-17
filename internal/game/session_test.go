@@ -310,6 +310,9 @@ func TestBenillaStartsThroughTheLauncherOnceBuilt(t *testing.T) {
 	if got := BenillaExe(folder); got != filepath.Join(release, "meld-benilla.exe") {
 		t.Fatalf("with the launcher: %s", got)
 	}
+	if !isLauncher(filepath.Join(release, "meld-benilla")) || isLauncher(filepath.Join(release, "benilla")) {
+		t.Error("the launcher is known by its name with or without .exe")
+	}
 
 	// A Benilla started before the launcher was built is still closed.
 	r := &loggedRunner{envRunner: envRunner{fakeRunner: fakeRunner{running: map[string]bool{"benilla.exe": true}}}}
@@ -344,5 +347,29 @@ func TestStopSaysTheServerNeedsWindows(t *testing.T) {
 	_, err := session(vmangos.OSRunner{}, t.TempDir()).stop(Closed{World: true, Auth: true})
 	if !errors.Is(err, vmangos.ErrNeedsWindows) {
 		t.Fatalf("stop off Windows: %v, want ErrNeedsWindows", err)
+	}
+}
+
+// Off Windows Cargo builds Benilla without .exe (a Mac's Benilla-WotLK): that file is the one started.
+func TestBenillaProgramWithoutExe(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows programs end in .exe")
+	}
+	folder := t.TempDir()
+	release := filepath.Join(folder, "target", "release")
+	if err := os.MkdirAll(release, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(release, "benilla"), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := BenillaExe(folder); got != filepath.Join(release, "benilla") {
+		t.Fatalf("Benilla built without .exe: %s", got)
+	}
+	if err := os.WriteFile(filepath.Join(release, "meld-benilla"), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := BenillaExe(folder); got != filepath.Join(release, "meld-benilla") {
+		t.Fatalf("the launcher built without .exe: %s", got)
 	}
 }
