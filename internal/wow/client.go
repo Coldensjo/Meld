@@ -198,11 +198,28 @@ func (c *Client) Status() Status {
 		s.Archives = len(c.set.Archives())
 		b := c.set.Build()
 		s.Build, s.Version, s.BuildWarning = int(b), b.Version(), c.set.BuildInfo().Warning
+	} else if c.dir != "" {
+		// Not open (it failed, or was never opened): its Wow.exe or archive names still tell the build,
+		// so the start dialog asks for the server that build needs (AzerothCore for 3.3.5a), not VMaNGOS.
+		if b, ok := folderBuild(c.dir); ok {
+			s.Build, s.Version = int(b), b.Version()
+		}
 	}
 	if c.err != nil {
 		s.Error = c.err.Error()
 	}
 	return s
+}
+
+// folderBuild is the build a client folder (its root or its Data folder) names by its Wow.exe or its
+// archives; false when neither tells.
+func folderBuild(dir string) (clientbuild.Build, bool) {
+	for _, d := range []string{dir, filepath.Join(dir, "Data")} {
+		if info := clientbuild.Detect(d); info.From != "" {
+			return info.Build, true
+		}
+	}
+	return 0, false
 }
 
 // Build is the loaded client's build, read from its Wow.exe or archives when it opened (#1063):
@@ -389,7 +406,11 @@ func (c *Client) TextureDXT(path string) ([]byte, error) {
 // m2Mesh decodes an M2 dressed in look (nil for none), with the look's items attached. An item
 // that can't be read is left off.
 func (c *Client) m2Mesh(path string, look *Look) (*Mesh, error) {
-	raw, err := c.readM2(path)
+	anim := 0
+	if look != nil {
+		anim = look.Anim
+	}
+	raw, err := c.readM2Anim(path, anim)
 	if err != nil {
 		return nil, err
 	}
@@ -440,13 +461,22 @@ func (c *Client) recursionChildren(m *Mesh) {
 }
 
 // readM2 reads a model file. Map files and the client's tables name models ".mdx", but the
-// client stores them as ".m2".
-func (c *Client) readM2(path string) ([]byte, error) {
+// client stores them as ".m2". A 3.3.5a client's model comes in the layout the readers take
+// (LegacyM2), with the keys of its idle loop.
+func (c *Client) readM2(path string) ([]byte, error) { return c.readM2Anim(path, 0) }
+
+// readM2Anim is readM2 with the keys of the loop of AnimationData ID anim, for a model dressed in a
+// look that plays it.
+func (c *Client) readM2Anim(path string, anim int) ([]byte, error) {
 	raw, err := c.read(path)
-	if err != nil && strings.HasSuffix(strings.ToLower(path), ".mdx") {
-		raw, err = c.read(path[:len(path)-len(".mdx")] + ".m2")
+	if l := strings.ToLower(path); err != nil && (strings.HasSuffix(l, ".mdx") || strings.HasSuffix(l, ".mdl")) {
+		path = path[:len(path)-4] + ".m2"
+		raw, err = c.read(path)
 	}
-	return raw, err
+	if err != nil {
+		return nil, err
+	}
+	return LegacyM2(raw, path, anim, c.read)
 }
 
 func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
@@ -475,7 +505,7 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 		}
 		// The group's lava or water, which no group geometry stands for.
 		if l, gl, flags := GroupLiquid(gb); l != nil {
-			if lm := LiquidSurface(l, gl, flags, i+1, root.Materials); lm != nil {
+			if lm := LiquidSurface(l, gl, flags, root.Flags, i+1, root.Materials); lm != nil {
 				if m.Liquid == nil {
 					m.Liquid = &LiquidMesh{}
 				}

@@ -60,7 +60,12 @@ func (r *reaches) readHalfSize(kind adt.Kind, name string) [3]float32 {
 	// The client's tiles name models ".mdx" (or ".mdl"), which its archives hold as ".m2"; without this
 	// every model read from a tile kept the writer's default reach.
 	if l := strings.ToLower(name); err != nil && kind == adt.M2 && (strings.HasSuffix(l, ".mdx") || strings.HasSuffix(l, ".mdl")) {
-		b, err = r.set.ReadFile(name[:len(name)-len(".mdx")] + ".m2")
+		name = name[:len(name)-len(".mdx")] + ".m2"
+		b, err = r.set.ReadFile(name)
+	}
+	if err == nil && kind == adt.M2 {
+		// A 3.3.5a client's model, in the layout ParseM2 reads (#1071).
+		b, err = wow.LegacyM2(b, name, 0, r.set.ReadFile)
 	}
 	if err != nil {
 		return [3]float32{}

@@ -1,6 +1,7 @@
 // The game: which client Meld starts and how its window opens, the Benilla and VMaNGOS folders, Launch,
 // Play Here and the port commands.
 import {
+	BrowseAzerothcoreFolder,
 	BrowseCmangosFolder,
 	BrowseVmangosFolder,
 	SaveTextDialog,
@@ -15,6 +16,7 @@ import {
 	LaunchGameAt,
 	PlayHere,
 	EnableSoap,
+	SetAzerothcorePath,
 	SetCmangosPath,
 	SetVmangosPath,
 	ServerStatus,
@@ -241,6 +243,19 @@ export async function chooseCmangosFolder() {
 		setStatus(`CMaNGOS folder: ${dir}`)
 	} catch (e) {
 		setStatus(`Not a CMaNGOS server folder: ${e}`, 8000)
+	}
+}
+
+/** Picks the AzerothCore server folder File › Compile to AzerothCore Server rebuilds (#1094). */
+export async function chooseAzerothcoreFolder() {
+	if (!hasBackend()) return
+	try {
+		const dir = await BrowseAzerothcoreFolder()
+		if (!dir) return
+		await SetAzerothcorePath(dir)
+		setStatus(`AzerothCore folder: ${dir}`)
+	} catch (e) {
+		setStatus(`Not an AzerothCore server folder: ${e}`, 8000)
 	}
 }
 

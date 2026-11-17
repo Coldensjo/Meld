@@ -1,6 +1,21 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import { ApplySpawnEdits, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
+import {
+	ApplySpawnEdits,
+	AzerothcorePath,
+	CmangosPath,
+	SaveSQLDialog,
+	SpawnsInAzerothCore,
+	SpawnEditSQL,
+	WriteTextFile,
+	RegionMapID,
+	RegionPending,
+	SaveRegion,
+	UpdateAzerothCoreServer,
+	UpdateCMaNGOSServer,
+	UpdateRegionServer,
+	VmangosPath,
+} from '../wails/App'
 import { guarded } from './backend'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
@@ -304,9 +319,14 @@ async function compileServer(engine: Engine, region: RegionBlock, name: string) 
 		setStatus(`${spawns.note}${restartNote(spawns)}${only}`.trimStart(), 12000)
 		return
 	}
+	await rebuildServerMaps(mapId, regionTiles(region), `${spawns.note} Rebuilding the server's map data of ${name} from the client's tiles.`.trimStart())
+}
+
+/** The region's tiles, "x_y". */
+function regionTiles(region: RegionBlock): string[] {
 	const tiles: string[] = []
 	for (let j = 0; j < region.size; j++) for (let i = 0; i < region.size; i++) tiles.push(`${region.x + i}_${region.y + j}`)
-	await rebuildServerMaps(mapId, tiles, `${spawns.note} Rebuilding the server's map data of ${name} from the client's tiles.`.trimStart())
+	return tiles
 }
 
 /**
@@ -343,6 +363,60 @@ export function compileCmangos(engine: Engine) {
 			const n = ui.spawnChanges
 			const spawns = n ? ` Its ${countOf(n, 'spawn edit goes', 'spawn edits go')} to CMaNGOS through File › Export Spawn SQL….` : ''
 			await rebuildServerMaps(mapId, [], `Compiling to the CMaNGOS server: its extractors take no map filter, so every map of the client is extracted.${spawns}`, () => UpdateCMaNGOSServer(mapId))
+		}),
+	)
+}
+
+/**
+ * File › Compile to AzerothCore Server (#1094, shown while Preferences › Compile and export › Spawn SQL for
+ * is AzerothCore): the AzerothCore server's map data rebuilt from the client's patch by that server's own
+ * extractors, limited to the region's map, with the movement maps of the region's tiles. The patch must
+ * already hold the region's edits (Compile to Client). With a 3.3.5a client the region's spawns are the
+ * AzerothCore database's own, so they are saved into it first, as Compile to Server saves VMaNGOS's (#342);
+ * with another client they go to AzerothCore through File › Export Spawn SQL….
+ */
+export function compileAzerothcore(engine: Engine) {
+	if (refuseGuestExport(engine)) return
+	if (engine.activeVmangos()) {
+		setStatus('A map made in the editor is not published to AzerothCore yet: Compile to AzerothCore Server rebuilds a continent of the client.', 10000)
+		return
+	}
+	return guarded('Compile to AzerothCore', () =>
+		withSaving('Compiling to the AzerothCore server', async () => {
+			const region = engine.activeRegion()
+			if (!region) {
+				setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
+				return
+			}
+			const name = regionName(region)
+			if (!(await AzerothcorePath())) {
+				setStatus('Set the AzerothCore server folder first (Edit › Preferences › Folders), then Compile to AzerothCore Server.', 8000)
+				return
+			}
+			if (await regionUncompiled(engine)) {
+				setStatus(`${name} has edits the client doesn't have yet, and the AzerothCore server's map data is built from the client's tiles: Compile to Client first.`, 10000)
+				return
+			}
+			const mapId = await RegionMapID(region.mapName).catch(() => -1)
+			if (mapId < 0) {
+				setStatus(`The client's Map.dbc has no row for ${region.mapName}, so the AzerothCore server has no map to rebuild.`, 10000)
+				return
+			}
+			const tiles = regionTiles(region)
+			const n = ui.spawnChanges
+			let spawns = ''
+			if (n && (await SpawnsInAzerothCore())) {
+				// The spawns go first; the world server reads them when the author starts it after the rebuild.
+				const saved = await compileSpawns(engine)
+				if (saved.failed) {
+					setStatus(saved.note.trim(), 12000)
+					return
+				}
+				spawns = saved.note
+			} else if (n) {
+				spawns = ` Its ${countOf(n, 'spawn edit goes', 'spawn edits go')} to AzerothCore through File › Export Spawn SQL….`
+			}
+			await rebuildServerMaps(mapId, tiles, `Compiling ${name} to the AzerothCore server.${spawns}`, () => UpdateAzerothCoreServer(mapId, tiles))
 		}),
 	)
 }

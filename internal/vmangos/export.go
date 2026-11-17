@@ -269,12 +269,19 @@ func buildMapFiles(set *mpq.Set, m MapSpec, dbc []byte) ([]mpq.File, error) {
 			}
 		}
 	}
+	// The new map's WDT takes Azeroth's header, so its tiles are written as Azeroth's are read: with
+	// that map's kind of alpha maps, and liquids where the client keeps them (#1068, #1069).
+	wdtTemplate, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
+	if err != nil {
+		return nil, err
+	}
+	format := tileFormat(set, adt.ReadBigAlpha(wdtTemplate))
 	for i, t := range m.Tiles {
 		var water *adt.Water
 		if m.Water {
 			water = &adt.Water{Level: m.WaterLevel}
 		}
-		data, err := buildTile(t, tileRing(m.Tiles, index, t), adds[i], water)
+		data, err := buildTile(t, tileRing(m.Tiles, index, t), adds[i], water, format)
 		if err != nil {
 			return nil, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
@@ -284,10 +291,6 @@ func buildMapFiles(set *mpq.Set, m MapSpec, dbc []byte) ([]mpq.File, error) {
 		}
 	}
 
-	wdtTemplate, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
-	if err != nil {
-		return nil, err
-	}
 	if m.Global != nil {
 		// A WMO-only map: one building in the WDT, no tiles and no horizon.
 		obj, err := objectIn(0, 0, *m.Global)
@@ -371,9 +374,9 @@ func tileRing(tiles []TileSpec, index map[[2]int]int, t TileSpec) adt.Ring {
 
 // buildTile writes one tile: its ground and paint from t, the ring of heights around it from its
 // neighbours (tileRing), and the models it lists (objs, already numbered and bounded, which may include
-// ones placed in a neighbour that reach into it).
-func buildTile(t TileSpec, ring adt.Ring, objs []adt.Object, water *adt.Water) ([]byte, error) {
-	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water, Add: objs}
+// ones placed in a neighbour that reach into it), in the client's and the map's format.
+func buildTile(t TileSpec, ring adt.Ring, objs []adt.Object, water *adt.Water, format adt.Format) ([]byte, error) {
+	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water, Add: objs, Format: format}
 	liquids, err := liquidsByChunk(t.Liquids, adt.ChunksPerTile)
 	if err != nil {
 		return nil, err

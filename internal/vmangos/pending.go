@@ -269,6 +269,10 @@ func writePending(dir, name string, entry []byte) error {
 // AddPending keeps files to be written into the patch once the game has closed, each replacing a
 // waiting file of the same name.
 func AddPending(dataDir string, files []mpq.File) error {
+	// Refused here as the patch write would refuse them, so no file waits that can never be written.
+	if err := checkWritable(dataDir, files); err != nil {
+		return err
+	}
 	unlock, err := lockClient(dataDir)
 	if err != nil {
 		return err

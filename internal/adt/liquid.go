@@ -12,9 +12,12 @@ type Liquid struct {
 	// IndexX and IndexY place the chunk in its tile, 0 to 15 (or in a block of tiles, for a region).
 	IndexX int `json:"indexX"`
 	IndexY int `json:"indexY"`
-	// Type is the liquid, as LiquidType.dbc numbers it: LiquidWater, LiquidOcean, LiquidMagma or
-	// LiquidSlime.
+	// Type is the liquid's kind: LiquidWater, LiquidOcean, LiquidMagma or LiquidSlime, which are also
+	// the four liquids the 1.12 client's LiquidType.dbc numbers so.
 	Type int `json:"type"`
+	// LiquidID is the LiquidType.dbc row a 3.3.5a tile's layer names (MH2O, #1068), one of the many
+	// of a kind that client has; 0 for a 1.12 layer, which names only its kind.
+	LiquidID int `json:"liquidId,omitempty"`
 	// Heights are the surface heights at the chunk's 9x9 vertices, row-major, in absolute yards.
 	Heights [liquidVerts]float32 `json:"heights"`
 	// Depth is each vertex's opacity, 0 (clear, at the shore) to 255 (deep). Magma and slime keep
@@ -29,7 +32,8 @@ type Liquid struct {
 const liquidDataSize = 8 + liquidVerts*8 + CellsPerChunk*CellsPerChunk
 
 // ParseLiquids returns the liquid layers of every chunk of a tile that has some. A layer that covers
-// no cell is left out.
+// no cell is left out. A 3.3.5a tile's are in its MH2O chunk (mh2o.go) and come first; a tile of
+// that client may hold MCLQ layers as well, which the client still reads.
 //
 // The client stores each chunk's MCLQ right after the MCNK header's liquid offset, without the
 // usual chunk id and size. The header's liquid size counts 8 bytes plus a full entry per layer. Each
@@ -39,6 +43,10 @@ const liquidDataSize = 8 + liquidVerts*8 + CellsPerChunk*CellsPerChunk
 func ParseLiquids(root []byte) ([]Liquid, error) {
 	var out []Liquid
 	err := eachChunk(root, 0, len(root), func(c chunk) error {
+		if c.id == "MH2O" {
+			out = append(out, parseMH2O(root, c)...)
+			return nil
+		}
 		if c.id != "MCNK" {
 			return nil
 		}

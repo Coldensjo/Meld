@@ -32,7 +32,7 @@ func TestGroupLiquidSurface(t *testing.T) {
 		t.Fatalf("grid %+v", l)
 	}
 	mats := []WMOMaterial{{}, {Diffuse: [3]byte{1, 2, 3}}}
-	s := LiquidSurface(l, gl, flags, 4, mats)
+	s := LiquidSurface(l, gl, flags, 0, 4, mats)
 	if s == nil || len(s.Index) != 4*6 || s.vertCount() != 12 {
 		t.Fatalf("surface %+v", s)
 	}
@@ -56,20 +56,41 @@ func TestGroupLiquidSurface(t *testing.T) {
 	// groupLiquid overrides the tiles: water, exterior, with its opacity and no body colour.
 	gb = mliqGroup(0x8, 0, []byte{0x0f, 0x06, 0x06, 0x06, 0x06, 0x0f})
 	l, gl, flags = GroupLiquid(gb)
-	s = LiquidSurface(l, gl, flags, 1, mats)
+	s = LiquidSurface(l, gl, flags, 0, 1, mats)
 	if s.Info[0] != LiquidRiver || s.Info[1] != LiquidExterior || s.Info[2] != 0 || s.Info[3] != 10 || s.Body[0] != 255 {
 		t.Fatalf("water info %v body %v", s.Info[:4], s.Body[:4])
 	}
 	// An interior water pool takes its material's diffuse colour.
-	s = LiquidSurface(l, gl, 0x2000, 1, mats)
+	s = LiquidSurface(l, gl, 0x2000, 0, 1, mats)
 	if s.Info[1] != LiquidInterior || s.Body[0] != 1 || s.Body[2] != 3 {
 		t.Fatalf("interior body %v", s.Body[:4])
+	}
+
+	// A 3.3.5a building whose root says its groups name LiquidType.dbc rows (flag 4): "WMO Water"
+	// (13) is water, though its nibble names nothing in 1.12's numbers; the ocean row (2) is the
+	// sea, not the lava its nibble would be; Naxxramas's slime (21) is slime; and water in a group
+	// flagged as the sea's is the sea.
+	for _, c := range []struct{ liquid, groupFlags, class int }{
+		{13, 0x8, LiquidRiver}, {2, 0x8, LiquidOcean}, {19, 0x8, LiquidMagma}, {21, 0x8, LiquidSlime}, {5, 0x8, LiquidRiver},
+		{13, 0x8 | 0x80000, LiquidOcean}, {81, 0x8, LiquidRiver}, {100, 0x8, LiquidOcean}, {777, 0x8, LiquidRiver},
+	} {
+		gb = mliqGroup(c.groupFlags, c.liquid, []byte{0x0f, 0x06, 0x06, 0x06, 0x06, 0x0f})
+		l, gl, flags = GroupLiquid(gb)
+		if s = LiquidSurface(l, gl, flags, 4, 1, mats); s == nil || int(s.Info[0]) != c.class {
+			t.Errorf("liquid type %d in a group with flags %#x under a root with flag 4: %v, want class %d", c.liquid, c.groupFlags, s, c.class)
+		}
+	}
+	// The same number under a root without the flag is 1.12's: 13's nibble names no liquid.
+	gb = mliqGroup(0x8, 13, []byte{0x0f, 0x06, 0x06, 0x06, 0x06, 0x0f})
+	l, gl, flags = GroupLiquid(gb)
+	if LiquidSurface(l, gl, flags, 0, 1, mats) != nil {
+		t.Error("groupLiquid 13 under a root without flag 4 made a surface")
 	}
 
 	// Every tile a hole: no surface.
 	gb = mliqGroup(0x8, noGroupLiquid, []byte{0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f})
 	l, gl, flags = GroupLiquid(gb)
-	if LiquidSurface(l, gl, flags, 1, mats) != nil {
+	if LiquidSurface(l, gl, flags, 0, 1, mats) != nil {
 		t.Fatal("all holes made a surface")
 	}
 	// A grid longer than its chunk: no liquid.
@@ -93,7 +114,7 @@ func TestMeshLiquidEncoded(t *testing.T) {
 	gb := mliqGroup(0x8, noGroupLiquid, []byte{0x00, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f})
 	l, gl, flags := GroupLiquid(gb)
 	m := &Mesh{Pos: make([]float32, 9), Normal: make([]float32, 9), UV: make([]float32, 6), Index: []uint32{0, 1, 2}}
-	m.Append(&Mesh{Liquid: LiquidSurface(l, gl, flags, 2, nil)})
+	m.Append(&Mesh{Liquid: LiquidSurface(l, gl, flags, 0, 2, nil)})
 	b := m.Encode()
 	n := int(binary.LittleEndian.Uint32(b))
 	if !strings.Contains(string(b[4:4+n]), `"liquidVerts":12,"liquidIndices":6`) {

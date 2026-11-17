@@ -3,6 +3,8 @@ package vmangos
 import (
 	"encoding/binary"
 	"fmt"
+	"reflect"
+	"slices"
 	"strings"
 
 	"Meld/internal/mpq"
@@ -165,9 +167,27 @@ func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay)
 			own[t.u32(r, 0)] = true
 		}
 	}
+	ownRow := map[uint32]int{}
+	for r := 0; r < t.records; r++ {
+		if t.u32(r, c.mapArea) == mapArea {
+			ownRow[t.u32(r, 0)] = r
+		}
+	}
 	names := map[string]bool{}
 	written := make([]WorldMapOverlay, len(overlays))
 	for i, o := range overlays {
+		// An overlay the save hands back as the client has it, its art kept, is written as it is:
+		// the 3.3.5a client's own zones hold overlays without a name or a picture (areas of the map
+		// that only answer the pointer), which the checks below would refuse.
+		if r, ok := ownRow[o.ID]; ok && own[o.ID] && len(o.Pixels) == 0 && sameOverlay(worldOverlayAt(t, c, r), o) {
+			if o.Name != "" {
+				names[strings.ToUpper(o.Name)] = true
+			}
+			delete(own, o.ID)
+			o.Pixels = nil
+			written[i] = o
+			continue
+		}
 		if len(o.Areas) == 0 || len(o.Areas) > c.areas {
 			return nil, nil, fmt.Errorf("overlay %q names %d areas; it needs 1 to %d", o.Name, len(o.Areas), c.areas)
 		}
@@ -203,15 +223,27 @@ func SetWorldMapOverlays(dbc []byte, mapArea uint32, overlays []WorldMapOverlay)
 		}
 	}
 	for _, o := range written {
+		// A row of the zone's starts from the client's own bytes, so the columns Meld has no say in
+		// keep theirs, and keeps its name's string when the name stays.
 		rec := make([]byte, t.recSize)
+		r, kept := ownRow[o.ID]
+		if kept {
+			copy(rec, t.data[20+r*t.recSize:20+(r+1)*t.recSize])
+		}
 		put := func(f int, v uint32) { binary.LittleEndian.PutUint32(rec[f*4:], v) }
 		put(0, o.ID)
 		put(c.mapArea, mapArea)
-		for i, a := range o.Areas {
+		for i := 0; i < c.areas; i++ {
+			var a uint32
+			if i < len(o.Areas) {
+				a = o.Areas[i]
+			}
 			put(c.area+i, a)
 		}
-		put(c.name, uint32(len(strs)))
-		strs = append(append(strs, o.Name...), 0)
+		if !kept || t.str(r, c.name) != o.Name {
+			put(c.name, uint32(len(strs)))
+			strs = append(append(strs, o.Name...), 0)
+		}
 		put(c.width, o.Width)
 		put(c.height, o.Height)
 		put(c.offsetX, o.OffsetX)
@@ -259,4 +291,13 @@ func worldOverlayFiles(zone string, o WorldMapOverlay) ([]mpq.File, error) {
 		}
 	}
 	return files, nil
+}
+
+// sameOverlay says whether overlays a and b are one row, their pictures aside.
+func sameOverlay(a, b WorldMapOverlay) bool {
+	if !slices.Equal(a.Areas, b.Areas) {
+		return false
+	}
+	a.Pixels, b.Pixels, a.Areas, b.Areas = nil, nil, nil, nil
+	return reflect.DeepEqual(a, b)
 }

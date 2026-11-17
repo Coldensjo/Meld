@@ -148,7 +148,7 @@ func TestVanillaColumns(t *testing.T) {
 		{dbcLock, "Index", 0, 9}, {dbcLock, "Skill", 0, 17}, {dbcSkillLine, "Name", -1, 3}, {dbcSkillRaceClass, "SkillTier", -1, 6},
 		{dbcSkillTiers, "Value", 0, 17}, {dbcAuctionHouse, "Name", -1, 4}, {dbcCharSections, "Flags", -1, 9},
 		{dbcCreatureDisplay, "Skin", 0, 6}, {dbcCreatureExtra, "Item", 0, 8}, {dbcCreatureExtra, "Bake", -1, 18},
-		{dbcFacialHair, "Geoset", 3, 6}, {dbcChrRaces, "Prefix", -1, 6}, {dbcCreatureModel, "Path", -1, 2},
+		{dbcFacialHair, "Geoset", 0, 6}, {dbcChrRaces, "Prefix", -1, 6}, {dbcCreatureModel, "Path", -1, 2},
 	}
 	for _, c := range cols {
 		l := c.s.forBuild(clientbuild.Vanilla)

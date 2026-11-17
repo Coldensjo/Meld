@@ -293,8 +293,9 @@ var errStop = errors.New("stop")
 
 // ParseTextures reads a tile's texture layers and alpha maps: from the root file on 1.12, or from
 // the _tex0 file in split tiles. bigAlpha comes from the WDT (see ReadBigAlpha). terrain is the
-// tile's terrain, whose chunk flags say which 4-bit alpha maps need their last row and column
-// repeated. Pass nil to assume they all do.
+// tile's terrain, whose chunk flags say which alpha maps need their last row and column
+// repeated. Pass nil to assume they all do. The alpha maps come out as the game blends a 4-bit
+// map's, layer over layer, also from a map of 8-bit ones (see parseTexChunk).
 func ParseTextures(tex []byte, bigAlpha bool, terrain *Terrain) (*Textures, error) {
 	var mtex []byte
 	var mcnks []chunk
@@ -358,7 +359,7 @@ func parseTexChunk(data []byte, names []string, c chunk, bigAlpha, fix bool) (Te
 			alphaOffsets = append(alphaOffsets, u32(data, o+8))
 		}
 	}
-	mcal, hasAlpha := subChunk(data, h, c.end, u32(data, h+0x24), "MCAL")
+	mcal, hasAlpha := alphaChunk(data, h, c.end)
 	for l := 1; l < len(tc.Layers); l++ {
 		alpha := make([]byte, AlphaSize*AlphaSize)
 		layer := tc.Layers[l]
@@ -367,15 +368,47 @@ func parseTexChunk(data []byte, names []string, c chunk, bigAlpha, fix bool) (Te
 			switch {
 			case layer.Flags&layerAlphaRLE != 0:
 				decodeRLE(src, alpha)
+				if fix {
+					repeatEdge(alpha)
+				}
 			case bigAlpha:
 				copy(alpha, src)
+				if fix {
+					repeatEdge(alpha)
+				}
 			default:
 				decode4Bit(src, alpha, fix)
 			}
 		}
 		tc.Alpha = append(tc.Alpha, alpha)
 	}
+	if bigAlpha && len(tc.Alpha) > 0 {
+		// A map of 8-bit alpha maps stores each layer's share of the texel, the base taking the
+		// rest (WeightAlpha), where a 4-bit one is what the layer shows of those below it. The
+		// reader hands out the second kind for both, which is what the editor's paint and
+		// KeepClientAlpha reckon with; the writer turns it back.
+		tc.Alpha = SequentialAlpha(tc.Alpha)
+	}
 	return tc, nil
+}
+
+// alphaChunk finds a chunk's MCAL, the alpha maps of its layers. Its length is the one the MCNK
+// header gives (+0x28, which counts the sub-chunk's 8-byte header), not the sub-chunk's own size:
+// the 3.3.5a client's Northrend tiles carry 512 there whatever the maps take, which read as the
+// size cut every chunk's paint off after its first few rows, and for maps shorter than that would
+// run past a chunk that ends with them. The 1.12 client's tiles agree in both.
+func alphaChunk(data []byte, h, end int) (chunk, bool) {
+	off := int(u32(data, h+0x24))
+	pos := h - 8 + off
+	if off == 0 || pos < 0 || pos+8 > end || string([]byte{data[pos+3], data[pos+2], data[pos+1], data[pos]}) != "MCAL" {
+		return chunk{}, false
+	}
+	start := pos + 8
+	size := min(int(u32(data, pos+4)), end-start)
+	if n := int(u32(data, h+0x28)) - 8; n >= 0 && start+n <= end {
+		size = n
+	}
+	return chunk{id: "MCAL", start: start, end: start + size}, true
 }
 
 // decodeRLE expands run-length alpha: a header with the high bit set repeats the next byte, one
@@ -410,9 +443,16 @@ func decode4Bit(src, out []byte, fix bool) {
 		out[i*2] = (src[i] & 0x0f) * 17
 		out[i*2+1] = (src[i] >> 4) * 17
 	}
-	if !fix {
-		return
+	if fix {
+		repeatEdge(out)
 	}
+}
+
+// repeatEdge fills a 64x64 alpha map's last column and row from the ones before them: a chunk
+// without the header flag 0x8000 holds a 63x63 map, whatever the form its bytes are in (the
+// 3.3.5a client does this for the 8-bit and the run-length ones too, as Benilla-WotLK's reader has
+// it from the client).
+func repeatEdge(out []byte) {
 	for y := 0; y < AlphaSize; y++ {
 		out[y*AlphaSize+63] = out[y*AlphaSize+62]
 	}

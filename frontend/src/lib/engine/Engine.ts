@@ -1763,7 +1763,9 @@ export class Engine {
 		this.updateSelectionUniforms(time)
 		this.reference.update()
 		// The preview's rock on steep slopes is the map's rock role (the palette's slot 3 without one).
-		u.cliffAuto.value = editor.autoCliff ? 1 : 0
+		// Never on a client region: its cliffs already have the client's own paint, which the rock
+		// would cover with one texture, as WorldPainter's streamed tiles around it already leave it off.
+		u.cliffAuto.value = editor.autoCliff && !editor.region ? 1 : 0
 		u.rockLayer.value = editor.roles.rock === NO_ROLE ? 3 : editor.roles.rock
 		u.waterLevel.value = editor.waterLevel
 		u.waterEnabled.value = editor.waterEnabled ? 1 : 0

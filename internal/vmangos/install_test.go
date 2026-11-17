@@ -17,6 +17,8 @@ var tileFiles = []mpq.File{{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`, Data: 
 // A 3.3.5a client gets Meld's edits in patch-4.MPQ, beside the patch-3.MPQ it ships, which is left
 // alone (#1065).
 func TestInstallPatchWotLKName(t *testing.T) {
+	// The tile stands for any file: this is about the patch's name, not what a later client takes.
+	t.Setenv(LaterWritesEnv, "1")
 	dir := t.TempDir()
 	for name, files := range map[string][]mpq.File{"lichking.MPQ": tileFiles, "patch-3.MPQ": {{Name: tileFiles[0].Name, Data: []byte("blizzard")}}} {
 		if err := os.WriteFile(filepath.Join(dir, name), mpq.WriteUnmarked(files), 0o644); err != nil {

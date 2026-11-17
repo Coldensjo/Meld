@@ -230,7 +230,7 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 // (cmangos.go, azerothcore.go) is listed in Skipped.
 func ExportSQLFor(core Core, edits []Edit, now time.Time) Result {
 	if core == AzerothCore {
-		return azerothcoreSQL(edits, now)
+		return azerothcoreSQL(edits, now, acExport)
 	}
 	cm, tbc := core.cmangos(), core == CMaNGOSTBC
 	var res Result

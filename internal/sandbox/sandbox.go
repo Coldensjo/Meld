@@ -4,7 +4,9 @@
 // The copy is cheap: every archive but Meld's patch is a hard link (or, where the folders are on
 // different volumes, a symbolic link) to the real one, and only the patch is copied. Meld writes
 // nothing but its patch into the Data folder, and it writes that by renaming a new file over it, so
-// a link is never written through. The copy stays between probes; each Prepare links the archives
+// a link is never written through. A 2.4.3 or 3.3.5a client keeps its tables and interface in the
+// archives of its locale folder (Data\enUS), which are linked the same way into a folder of that name
+// (#1066). The copy stays between probes; each Prepare links the archives
 // that changed and copies the patch afresh, so whatever a probe wrote is gone.
 package sandbox
 
@@ -41,15 +43,20 @@ func Prepare(realData, root string) (string, error) {
 		return "", fmt.Errorf("%s holds no MPQ archives", realData)
 	}
 	patch := clientbuild.PatchFor(realData)
+	// The locale folder a later client reads its tables from; "" for a 1.12 client, which has none.
+	locale := clientbuild.Locale(realData)
 	have, err := os.ReadDir(data)
 	if err != nil {
 		return "", err
 	}
 	// Everything the copy holds that isn't one of the real archives goes, Meld's patch and what a
-	// probe left beside it (a backup, a .tmp) too.
+	// probe left beside it (a backup, a .tmp) too. The locale folder stays: linkLocale refreshes it.
 	for _, e := range have {
 		name := e.Name()
-		if _, ok := real[strings.ToLower(name)]; ok && !strings.EqualFold(name, patch) {
+		if locale != "" && e.IsDir() && name == locale {
+			continue
+		}
+		if _, ok := real[strings.ToLower(name)]; ok && !e.IsDir() && !strings.EqualFold(name, patch) {
 			continue
 		}
 		if err := retry(func() error { return os.RemoveAll(filepath.Join(data, name)) }); err != nil {
@@ -68,10 +75,45 @@ func Prepare(realData, root string) (string, error) {
 			return "", err
 		}
 	}
+	if locale != "" {
+		if err := linkLocale(filepath.Join(realData, locale), filepath.Join(data, locale)); err != nil {
+			return "", err
+		}
+	}
 	if err := check(realData, data, patch); err != nil {
 		return "", err
 	}
 	return data, nil
+}
+
+// linkLocale makes dst hold a link to each archive of the real locale folder src and nothing else.
+// Meld writes nothing there, so no archive of it is copied.
+func linkLocale(src, dst string) error {
+	real, err := archives(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return err
+	}
+	have, err := os.ReadDir(dst)
+	if err != nil {
+		return err
+	}
+	for _, e := range have {
+		if _, ok := real[strings.ToLower(e.Name())]; ok && !e.IsDir() {
+			continue
+		}
+		if err := retry(func() error { return os.RemoveAll(filepath.Join(dst, e.Name())) }); err != nil {
+			return err
+		}
+	}
+	for _, name := range real {
+		if err := link(filepath.Join(src, name), filepath.Join(dst, name)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // archives lists the MPQ archives directly in dir, by lower-case name.

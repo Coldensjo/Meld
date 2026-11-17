@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"Meld/internal/adt"
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 )
 
@@ -531,6 +532,8 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 		bigAlpha = adt.ReadBigAlpha(wdt)
 	}
+	// What the save writes anew goes in the form the client and the map have it in (#1068, #1069).
+	format := tileFormat(set, bigAlpha)
 
 	type tileEdit struct {
 		name string
@@ -584,7 +587,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 					}
 				}
 			}
-			t.change = adt.Changes{TileX: tx, TileY: ty, Remove: map[uint32]bool{}, Paint: map[int]adt.ChunkPaint{}}
+			t.change = adt.Changes{TileX: tx, TileY: ty, Remove: map[uint32]bool{}, Paint: map[int]adt.ChunkPaint{}, Format: format}
 			for _, p := range placements {
 				if p.Kind != adt.M2 && p.Kind != adt.WMO {
 					continue
@@ -885,7 +888,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 		// Rewrite lays every chunk out anew, so a tile whose models, paint, headers and liquids the save
 		// leaves as they are keeps its own bytes, and an untouched one equals the client's (#990).
-		if same, err := adt.Rewrite(patched, adt.Changes{TileX: e.X + i, TileY: e.Y + j}); err == nil && bytes.Equal(same, rewritten) {
+		if same, err := adt.Rewrite(patched, adt.Changes{TileX: e.X + i, TileY: e.Y + j, Format: format}); err == nil && bytes.Equal(same, rewritten) {
 			rewritten = patched
 		}
 		files = append(files, mpq.File{Name: t.name, Data: rewritten})
@@ -951,6 +954,12 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	return files, nil
 }
 
+// tileFormat is the form a save writes a tile's new parts in for the client set reads: the 3.3.5a
+// client keeps liquids in MH2O, and bigAlpha is what the map's WDT says of its alpha maps.
+func tileFormat(set *mpq.Set, bigAlpha bool) adt.Format {
+	return adt.Format{MH2O: set.Build() == clientbuild.WotLK, BigAlpha: bigAlpha}
+}
+
 // heightsMoved says whether tile b's heights differ from those of a, the tile it was built from.
 func heightsMoved(a, b []byte) bool {
 	ta, err := adt.ParseTerrain(a)
@@ -1011,7 +1020,9 @@ func changeLiquids(ch *adt.Changes, root []byte, want map[int][]adt.Liquid, i, j
 			if partial && len(layers) == 0 {
 				continue
 			}
-			if !sameLiquids(own[local], layers) {
+			// A 3.3.5a chunk may hold two layers of a kind (Wintergrasp's two waters), which the
+			// editor's come back as one (liquidsByChunk): that is no change either.
+			if !sameLiquids(own[local], layers) && !sameLiquids(adt.MergeLiquids(own[local]), layers) {
 				ch.Liquids[local] = layers
 			}
 		}

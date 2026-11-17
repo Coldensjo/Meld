@@ -7,10 +7,12 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 )
 
@@ -44,8 +46,20 @@ type taxiPathCols struct{ from, to, cost int }
 type taxiPointCols struct{ path, index, mapID, pos, flags, delay int }
 
 // MaxTaxiNode is the highest stop ID a 1.12 player can know: the taxi mask is 8 32-bit fields, and
-// node i is bit i-1 (VMaNGOS's TaxiMaskSize).
-const MaxTaxiNode = 8 * 32
+// node i is bit i-1 (VMaNGOS's TaxiMaskSize). A 3.3.5a player's mask is 14 fields (AzerothCore's
+// TaxiMaskSize), and that client's own stops go past the 1.12 limit.
+const (
+	MaxTaxiNode      = 8 * 32
+	maxTaxiNodeWotLK = 14 * 32
+)
+
+// taxiNodeLimit is the highest stop ID of the client t, its TaxiNodes.dbc, is a table of.
+func taxiNodeLimit(t *dbcTable) uint32 {
+	if t.l.build == clientbuild.WotLK {
+		return maxTaxiNodeWotLK
+	}
+	return MaxTaxiNode
+}
 
 // taxiBuild is the client build taxi_nodes rows are written for (5875 is 1.12.1): the server takes
 // each stop's row of the highest build up to its own.
@@ -101,6 +115,9 @@ type TaxiNetwork struct {
 	Routes    []TaxiRoute `json:"routes"`
 	NextNode  uint32      `json:"nextNode"`
 	NextRoute uint32      `json:"nextRoute"`
+	// MaxNode is the highest stop ID the client's players can know (MaxTaxiNode, or the 3.3.5a
+	// client's).
+	MaxNode uint32 `json:"maxNode"`
 }
 
 // TaxiEdit is what the Flight Paths window saves: stops and routes changed or added (whole, by ID)
@@ -229,7 +246,7 @@ func ReadTaxiNetwork(tt TaxiTables, mapID, serverMaxNode uint32) (TaxiNetwork, e
 	if err != nil {
 		return TaxiNetwork{}, err
 	}
-	net := TaxiNetwork{Nodes: []TaxiNode{}, Routes: []TaxiRoute{}}
+	net := TaxiNetwork{Nodes: []TaxiNode{}, Routes: []TaxiRoute{}, MaxNode: taxiNodeLimit(p.nodes)}
 	onMap := map[uint32]bool{}
 	topNode := serverMaxNode
 	for r := 0; r < p.nodes.records; r++ {
@@ -270,9 +287,9 @@ func finite(vs ...float32) bool {
 	return true
 }
 
-func checkTaxiNode(n TaxiNode) error {
-	if n.ID == 0 || n.ID > MaxTaxiNode {
-		return fmt.Errorf("flight stop %d: the ID must be 1 to %d (the client's taxi mask)", n.ID, MaxTaxiNode)
+func checkTaxiNode(n TaxiNode, limit uint32) error {
+	if n.ID == 0 || n.ID > limit {
+		return fmt.Errorf("flight stop %d: the ID must be 1 to %d (the client's taxi mask)", n.ID, limit)
 	}
 	if strings.TrimSpace(n.Name) == "" || strings.ContainsRune(n.Name, 0) {
 		return fmt.Errorf("flight stop %d needs a name", n.ID)
@@ -357,7 +374,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	nodeCount := p.nodes.records
 	seen := map[uint32]bool{}
 	for _, n := range nodes {
-		if err := checkTaxiNode(n); err != nil {
+		if err := checkTaxiNode(n, taxiNodeLimit(p.nodes)); err != nil {
 			return TaxiTables{}, err
 		}
 		if goneNode[n.ID] {
@@ -417,8 +434,28 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	// Routes: edited in place, new ones at the end.
 	saved := map[uint32]TaxiRoute{}
 	var added []uint32
+	var ownPoints map[uint32][]TaxiPoint
+	unchanged := map[uint32]bool{}
+	// ownRoute says whether route r is the table's own as it has it, which is written as it is: the
+	// 3.3.5a client's own table holds routes no check here would let in (some of a single point).
+	ownRoute := func(r TaxiRoute) bool {
+		row, ok := p.paths.row(r.ID)
+		if !ok {
+			return false
+		}
+		if _, from, to, cost := p.path(row); from != r.From || to != r.To || cost != r.Cost {
+			return false
+		}
+		if ownPoints == nil {
+			ownPoints = p.routePoints()
+		}
+		return slices.Equal(ownPoints[r.ID], r.Points)
+	}
 	for _, r := range routes {
-		if err := checkTaxiRoute(r); err != nil {
+		if ownRoute(r) {
+			// Checked only for what the rest of the write does to its stops (keep, below).
+			unchanged[r.ID] = true
+		} else if err := checkTaxiRoute(r); err != nil {
 			return TaxiTables{}, err
 		}
 		if goneRoute[r.ID] {
@@ -445,6 +482,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	// A transport's new path (#955) runs from stop 0 to stop 0: it is no flight, and no stop is checked.
 	keep := func(id, from, to, cost uint32) error {
 		_, edited := saved[id]
+		edited = edited && !unchanged[id]
 		transport := from == 0 && to == 0
 		for _, stop := range []uint32{from, to} {
 			if !transport && (goneNode[stop] || (edited && !exists[stop])) {
@@ -453,7 +491,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 		}
 		pair := [2]uint32{from, to}
 		if other, ok := pairs[pair]; ok && !transport {
-			if _, otherEdited := saved[other]; edited || otherEdited {
+			if _, otherEdited := saved[other]; edited || otherEdited && !unchanged[other] {
 				return fmt.Errorf("flight routes %d and %d both fly from stop %d to %d: the server keeps one", other, id, from, to)
 			}
 		}
@@ -488,11 +526,16 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	pointCount := 0
 	var topPoint uint32
 	reuse := map[uint32][]uint32{}
+	// The old records of the points a saved route writes anew, by ID: a point that takes an old ID
+	// starts from its record, so the columns Meld has no say in keep theirs (the 3.3.5a client's
+	// arrival and departure events).
+	oldPoint := map[uint32][]uint32{}
 	for r := 0; r < p.points.records; r++ {
 		id, path := p.points.u32(r, 0), p.points.u32(r, p.tc.path)
 		topPoint = max(topPoint, id)
-		if _, ok := saved[path]; ok {
+		if _, ok := saved[path]; ok && !unchanged[path] {
 			reuse[path] = append(reuse[path], id)
+			oldPoint[id] = p.points.record(r)
 			continue
 		}
 		if goneRoute[path] {
@@ -503,7 +546,9 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	}
 	order := make([]uint32, 0, len(saved))
 	for id := range saved {
-		order = append(order, id)
+		if !unchanged[id] {
+			order = append(order, id)
+		}
 	}
 	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
 	for _, path := range order {
@@ -517,7 +562,16 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 				topPoint++
 				id = topPoint
 			}
-			pointRecs = appendFields(pointRecs, p.pointRecord(id, path, uint32(i), pt)...)
+			rec := p.pointRecord(id, path, uint32(i), pt)
+			if old := oldPoint[id]; len(old) == len(rec) {
+				c := p.tc
+				for f := range rec {
+					if f != 0 && f != c.path && f != c.index && f != c.mapID && (f < c.pos || f > c.pos+2) && f != c.flags && f != c.delay {
+						rec[f] = old[f]
+					}
+				}
+			}
+			pointRecs = appendFields(pointRecs, rec...)
 			pointCount++
 		}
 	}

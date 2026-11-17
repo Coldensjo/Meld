@@ -79,7 +79,7 @@ func loadCharTables(dataDir string) (*charTables, error) {
 		if err != nil {
 			return nil, err
 		}
-		t, err := parseTable(b, s)
+		t, err := parseTableFor(b, s, set.Build())
 		if err != nil {
 			return nil, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}

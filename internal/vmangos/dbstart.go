@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -68,11 +67,9 @@ func ensureDatabase(db worldDB, serverRoot string) error {
 // databaseProgram finds the database server program (mariadbd or mysqld) next to the mariadb client
 // on PATH.
 func databaseProgram() (string, error) {
-	client, err := exec.LookPath("mariadb")
-	if err != nil {
-		if client, err = exec.LookPath("mysql"); err != nil {
-			return "", errors.New("mariadb is not on PATH")
-		}
+	client := sqlClient()
+	if !filepath.IsAbs(client) {
+		return "", errors.New("mariadb is not on PATH")
 	}
 	dir := filepath.Dir(client)
 	exe := ""
