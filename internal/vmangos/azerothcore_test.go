@@ -20,7 +20,7 @@ func TestAzerothCoreSpawnSQL(t *testing.T) {
 	}
 	for _, want := range []string{
 		"-- Meld spawn edits for an AzerothCore world database (`acore_world`).",
-		"DELETE FROM `creature` WHERE `guid` = 100000500 AND `id1` IN (3);",
+		"DELETE FROM `creature` WHERE `guid` = 100000500 AND `id` IN (3);",
 		// The guard's equipment by its items, a row of its entry after the highest (2 at least).
 		"INSERT INTO `creature_equip_template` (`CreatureID`, `ID`, `ItemID1`, `ItemID2`, `ItemID3`) SELECT 3, n.i, 1899, 0, 2550 " +
 			"FROM (SELECT GREATEST(COALESCE(MAX(`ID`), 0), 1) + 1 AS i FROM `creature_equip_template` WHERE `CreatureID` = 3) n " +
@@ -62,7 +62,7 @@ func TestAzerothCoreSpawnSQL(t *testing.T) {
 	if a, b := strings.Index(res.SQL, "DELETE FROM `creature_sparring` WHERE `GUID` = 100000044;"), strings.Index(res.SQL, "DELETE FROM `creature` WHERE `guid` = 100000044;"); b < 0 || a > b {
 		t.Errorf("the rat's creature row goes before its sparring row (%d, %d)", a, b)
 	}
-	for _, not := range []string{"`creature_movement`", "creature_groups", "spawntimesecsmin", "spawndist", "emote_state", "display_id", "`patch", "health_percent", "creature_spawn_data", "WHERE `guid` = 500"} {
+	for _, not := range []string{"`id1`", "`id2`", "`id3`", "`creature_movement`", "creature_groups", "spawntimesecsmin", "spawndist", "emote_state", "display_id", "`patch", "health_percent", "creature_spawn_data", "WHERE `guid` = 500"} {
 		if strings.Contains(res.SQL, not) {
 			t.Errorf("SQL has %s, which AzerothCore lacks or numbers otherwise\n%s", not, res.SQL)
 		}

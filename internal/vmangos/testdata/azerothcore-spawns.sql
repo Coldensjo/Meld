@@ -1,14 +1,14 @@
 -- The spawn tables of an AzerothCore world database, as far as Meld's spawn SQL writes them (#1073):
--- the columns and keys of azerothcore/azerothcore-wotlk's data/sql/base/db_world (read 2026-11),
--- written out by hand with only what a test needs (smart_scripts keeps its key and comment only).
+-- the columns and keys of azerothcore/azerothcore-wotlk's data/sql/base/db_world (ACDB 16.0.0) with
+-- the updates since applied (data/sql/updates/db_world, read 2026-11-17: 2026_06_16_00 renames
+-- creature.id1 to id and drops id2 and id3; 2026_02_03_00 and 2026_03_23_01 add columns with
+-- defaults to gameobject_addon and waypoint_data), written out by hand with only what a test needs (smart_scripts keeps its key and comment only).
 -- No data. azerothcore_test.go checks every statement of the export against these columns; the same
 -- tables loaded into a scratch database run the export for real (docs/tests/spawns.md).
 
 CREATE TABLE `creature` (
 	`guid` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-	`id1` INT UNSIGNED NOT NULL DEFAULT 0,
-	`id2` INT UNSIGNED NOT NULL DEFAULT 0,
-	`id3` INT UNSIGNED NOT NULL DEFAULT 0,
+	`id` INT UNSIGNED NOT NULL DEFAULT 0,
 	`map` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
 	`zoneId` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
 	`areaId` SMALLINT UNSIGNED NOT NULL DEFAULT 0,

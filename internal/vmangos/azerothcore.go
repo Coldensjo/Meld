@@ -18,7 +18,8 @@ import (
 //     range of VMaNGOS's (whose numbers the editor gives new spawns and pools), so the editor's numbers
 //     would land on other spawns. A change to a spawn of the VMaNGOS database therefore reaches only the
 //     copy Meld exported before, never AzerothCore's own spawn of it, which has another guid.
-//   - creature names its template in id1 (id2 and id3 0, no alternative), has one respawn time
+//   - creature names its template in id (update 2026_06_16_00 renamed id1 to it and moved id2 and id3,
+//     the alternatives, to creature_multispawn, which Meld leaves alone), has one respawn time
 //     (spawntimesecs), wander_distance and MovementType, spawnMask and phaseMask (1: normal difficulty,
 //     the first phase), zoneId and areaId (left 0, which worldserver.conf's
 //     Calculate.Creature.Zone.Area.Data fills), and no display: the model is the template's.
@@ -132,7 +133,7 @@ func acDeleteSQL(s Spawn) []string {
 func acInsertSQL(s Spawn, secs int, q [4]float64, equip string) string {
 	g := acGUID(s.GUID)
 	if s.Kind == Creature {
-		return fmt.Sprintf("INSERT INTO `creature` (`guid`, `id1`, `map`, `spawnMask`, `phaseMask`, `equipment_id`, `position_x`, `position_y`, `position_z`, `orientation`, "+
+		return fmt.Sprintf("INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `phaseMask`, `equipment_id`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 			"`spawntimesecs`, `wander_distance`, `MovementType`, `Comment`) VALUES (%d, %d, %d, 1, 1, %s, %s, %s, %s, %s, %d, %s, %d, %s);",
 			g, s.Entry, s.Map, equip, num(s.X), num(s.Y), num(s.Z), num(s.O), secs, num(max(s.WanderDistance, 0)), max(s.MovementType, 0), sqlQuote("Meld: "+label(s)))
 	}
@@ -443,10 +444,7 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 			out = append(out, "-- Add "+name)
 			// Only a row of this entry goes, the spawn's own earlier export, so a guid taken since
 			// fails the INSERT on its key instead of losing that spawn (#199).
-			col, ids := "id", strconv.Itoa(s.Entry)
-			if s.Kind == Creature {
-				col = "id1"
-			}
+			ids := strconv.Itoa(s.Entry)
 			if entryChanged {
 				ids = fmt.Sprintf("%d, %d", e.Original.Entry, s.Entry)
 			}
@@ -454,7 +452,7 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 			if s.Kind == Creature {
 				table = "creature"
 			}
-			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `%s` IN (%s);", table, acGUID(s.GUID), col, ids))
+			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` IN (%s);", table, acGUID(s.GUID), ids))
 			out = append(out, pre...)
 			out = append(out, acInsertSQL(s, lo, q, equip))
 			res.Added++
