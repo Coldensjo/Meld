@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -31,9 +32,13 @@ import (
 //     YAML config's dataDir and writes mmaps there, skipping a tile whose file is current, so a tile's
 //     old file is moved away first. A compile builds the region's tiles only: a whole continent takes
 //     hours.
+//   - The server takes its tables (DataDir/dbc) only from what map_extractor's -e 2 copies out of the
+//     locale archives, which never hold Meld's patch, so the tables Meld's patch holds are copied into
+//     DataDir/dbc by Meld itself (acInstallTables), as the client reads them: patch-4.MPQ above every
+//     locale archive (clientbuild.PatchName).
 //
 // The server's own files are never lost: the first time Meld replaces one, it moves it into
-// DataDir/meld-backup (the same folder under it: maps, vmaps, mmaps), so the server's data from
+// DataDir/meld-backup (the same folder under it: dbc, maps, vmaps, mmaps), so the server's data from
 // before Meld can be put back by moving those files back.
 
 // AzerothCoreServer is an AzerothCore server's install, as CheckAzerothCore finds it.
@@ -62,6 +67,8 @@ const (
 	acMoveMapConfig = "mmaps-config.yaml"
 	// acBackupDir is where the server's own files go the first time Meld replaces them, under DataDir.
 	acBackupDir = "meld-backup"
+	// acTablesList names, in acBackupDir, the tables Meld last copied into the server's dbc folder.
+	acTablesList = "meld-tables.txt"
 )
 
 // acProgram is a program's file name on this machine.
@@ -205,7 +212,7 @@ func acComplaints(log func(string)) func(string) {
 }
 
 // extractACMaps runs map_extractor, vmap4_extractor and vmap4_assembler in stagingDir under the server's
-// DataDir and, when all have passed, puts the map's files in place of the server's.
+// DataDir and, when all have passed, puts the map's files and Meld's tables in place of the server's.
 func extractACMaps(s AzerothCoreServer, clientRoot string, mapID uint32, run Runner, log func(string)) error {
 	stage := filepath.Join(s.Data, stagingDir)
 	if err := os.RemoveAll(stage); err != nil {
@@ -228,6 +235,10 @@ func extractACMaps(s AzerothCoreServer, clientRoot string, mapID uint32, run Run
 	only, ok := mapDBCRows(mapDBC, mapID)
 	if !ok {
 		return fmt.Errorf("the client's Map.dbc has no map %d", mapID)
+	}
+	tables, err := patchTables(PatchPath(clientData))
+	if err != nil {
+		return err
 	}
 
 	// Relative to the staging folder, where the tools run, as map_extractor's paths are short.
@@ -277,7 +288,7 @@ func extractACMaps(s AzerothCoreServer, clientRoot string, mapID uint32, run Run
 	}); err != nil {
 		return fmt.Errorf("replacing the collision files: %w", err)
 	}
-	return nil
+	return acInstallTables(s, clientData, tables, log)
 }
 
 // mapDBCRows is a Map.dbc holding only the row of mapID, and whether dbc has one. The string block is
@@ -445,6 +456,97 @@ func backUp(data, sub string, match func(name string) bool) error {
 		}
 	}
 	return nil
+}
+
+// patchTables are the tables (DBFilesClient\*.dbc) Meld's patch at path holds, by file name, with their
+// bytes: none when there is no patch.
+func patchTables(path string) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	if !fileExists(path) {
+		return out, nil
+	}
+	a, err := mpq.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("opening Meld's patch: %w", err)
+	}
+	defer a.Close()
+	names, err := a.ListFile()
+	if err != nil {
+		return nil, fmt.Errorf("listing Meld's patch: %w", err)
+	}
+	for _, n := range names {
+		dir, file, ok := strings.Cut(strings.ReplaceAll(n, "/", `\`), `\`)
+		if !ok || !strings.EqualFold(dir, "DBFilesClient") || strings.Contains(file, `\`) || !strings.EqualFold(filepath.Ext(file), ".dbc") {
+			continue
+		}
+		b, err := a.ReadFile(n)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s from Meld's patch: %w", n, err)
+		}
+		out[file] = b
+	}
+	return out, nil
+}
+
+// acInstallTables writes the tables Meld's patch holds into the server's dbc folder, the server's own
+// copy of each backed up first, and puts back the server's own copy of a table Meld copied there before
+// that the patch no longer holds (acTablesList says which), so the server reads the tables the client
+// does.
+func acInstallTables(s AzerothCoreServer, clientData string, tables map[string][]byte, log func(string)) error {
+	dbc := filepath.Join(s.Data, "dbc")
+	backup := filepath.Join(s.Data, acBackupDir)
+	list := filepath.Join(backup, acTablesList)
+	before := map[string]bool{}
+	if b, err := os.ReadFile(list); err == nil {
+		for _, n := range strings.Fields(string(b)) {
+			before[n] = true
+		}
+	}
+	var names []string
+	for n := range tables {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for n := range before {
+		if _, ok := tables[n]; ok {
+			continue
+		}
+		// The server's own copy back, or none when it had none.
+		own := filepath.Join(backup, "dbc", n)
+		if fileExists(own) {
+			if err := os.Rename(own, filepath.Join(dbc, n)); err != nil {
+				return fmt.Errorf("putting back the server's %s: %w", n, err)
+			}
+		} else {
+			_ = os.Remove(filepath.Join(dbc, n))
+		}
+		log(fmt.Sprintf("Put back the server's own %s, which Meld's patch no longer holds.", n))
+	}
+	if len(names) > 0 {
+		in := map[string]bool{}
+		for _, n := range names {
+			in[n] = true
+		}
+		if err := backUp(s.Data, "dbc", func(name string) bool { return in[name] }); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(dbc, 0o755); err != nil {
+			return err
+		}
+		for _, n := range names {
+			if err := os.WriteFile(filepath.Join(dbc, n), tables[n], 0o644); err != nil {
+				return fmt.Errorf("writing the server's %s: %w", n, err)
+			}
+		}
+		log(fmt.Sprintf("Copied the %d tables of Meld's patch into the server's dbc folder: %s.", len(names), strings.Join(names, ", ")))
+	}
+	if len(names) == 0 && len(before) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(backup, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(list, []byte(strings.Join(names, "\n")+"\n"), 0o644)
 }
 
 // acDataDirLine is mmaps-config.yaml's dataDir setting.

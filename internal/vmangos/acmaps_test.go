@@ -32,7 +32,8 @@ func acMapDBC(ids ...uint32) []byte {
 }
 
 // acFixture is an AzerothCore install as `cmake --install` leaves it (bin, etc, a DataDir of data
-// beside them) holding the old files of maps 571 and 0, and a 3.3.5a client with Meld's patch.
+// beside them) holding the old files of maps 571 and 0, and a 3.3.5a client whose patch holds Meld's
+// AreaTable.dbc.
 func acFixture(t *testing.T) (AzerothCoreServer, string) {
 	t.Helper()
 	root := t.TempDir()
@@ -187,6 +188,7 @@ func TestUpdateAzerothCoreMapsRebuildsOneMap(t *testing.T) {
 		"mmaps/5712131.mmtile":               "(missing)", // tile 31_21
 		"mmaps/571.mmap":                     "(missing)", // written by each generator run
 		"mmaps/0003030.mmtile":               "old",
+		"dbc/AreaTable.dbc":                  "meld", // the table of Meld's patch, as the client reads it
 		"dbc/Map.dbc":                        "old",
 		"meld-backup/maps/5712130.map":       "old",
 		"meld-backup/maps/5712131.map":       "old",
@@ -195,6 +197,8 @@ func TestUpdateAzerothCoreMapsRebuildsOneMap(t *testing.T) {
 		"meld-backup/mmaps/5712130.mmtile":   "old",
 		"meld-backup/mmaps/5712131.mmtile":   "old",
 		"meld-backup/mmaps/571.mmap":         "old",
+		"meld-backup/dbc/AreaTable.dbc":      "old",
+		"meld-backup/meld-tables.txt":        "AreaTable.dbc\n",
 	} {
 		if got := readText(t, filepath.Join(data, filepath.FromSlash(path))); got != want {
 			t.Errorf("%s = %q, want %q", path, got, want)
@@ -208,7 +212,9 @@ func TestUpdateAzerothCoreMapsRebuildsOneMap(t *testing.T) {
 		t.Error("the filtering archive went into the client")
 	}
 
-	// A second compile keeps the first backups, the server's own files.
+	// A second compile keeps the first backups, the server's own files, and puts back the server's
+	// table once Meld's patch no longer holds it.
+	os.WriteFile(filepath.Join(client, "Data", "patch-4.MPQ"), mpq.Write([]mpq.File{{Name: `World\Maps\Map571\Map571_30_21.adt`, Data: []byte("tile")}}), 0o644)
 	run, _ = acRunner(t, s)
 	if err := UpdateAzerothCoreMaps(s, client, 571, []string{"30_21"}, true, run, func(l string) { log = append(log, l) }); err != nil {
 		t.Fatalf("%v\n%s", err, strings.Join(log, "\n"))
@@ -216,7 +222,13 @@ func TestUpdateAzerothCoreMapsRebuildsOneMap(t *testing.T) {
 	if len(run.calls) != 3 {
 		t.Errorf("without movement maps: %q", run.calls)
 	}
-	for path, want := range map[string]string{"maps/5712130.map": "new", "meld-backup/maps/5712130.map": "old"} {
+	for path, want := range map[string]string{
+		"maps/5712130.map":              "new",
+		"meld-backup/maps/5712130.map":  "old",
+		"dbc/AreaTable.dbc":             "old",
+		"meld-backup/dbc/AreaTable.dbc": "(missing)",
+		"meld-backup/meld-tables.txt":   "\n",
+	} {
 		if got := readText(t, filepath.Join(data, filepath.FromSlash(path))); got != want {
 			t.Errorf("after the second compile, %s = %q, want %q", path, got, want)
 		}
@@ -269,7 +281,7 @@ func TestUpdateAzerothCoreMapsKeepsTheDataWhenAStepFails(t *testing.T) {
 	if err := UpdateAzerothCoreMaps(s, client, 571, []string{"30_21"}, false, run, func(string) {}); err == nil || !strings.Contains(err.Error(), "collision assembly") {
 		t.Fatalf("err %v", err)
 	}
-	for _, path := range []string{"maps/5712131.map", "vmaps/571.vmtree", "mmaps/5712130.mmtile"} {
+	for _, path := range []string{"maps/5712131.map", "vmaps/571.vmtree", "dbc/AreaTable.dbc", "mmaps/5712130.mmtile"} {
 		if got := readText(t, filepath.Join(s.Data, filepath.FromSlash(path))); got != "old" {
 			t.Errorf("%s = %q, want it kept", path, got)
 		}
