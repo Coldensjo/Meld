@@ -18,6 +18,10 @@ import (
 //     range of VMaNGOS's (whose numbers the editor gives new spawns and pools), so the editor's numbers
 //     would land on other spawns. A change to a spawn of the VMaNGOS database therefore reaches only the
 //     copy Meld exported before, never AzerothCore's own spawn of it, which has another guid.
+//   - The world server numbers the spawns it makes itself after the highest guid of creature and of
+//     gameobject, and shuts down when that number reaches 0xFFFFFF (ObjectMgr's
+//     GenerateCreatureSpawnId, "Creature spawn id overflow", TCE00007). So Meld's guids stay well
+//     under it (acMaxGUID): a spawn at 100000001 stopped a server right after start-up.
 //   - creature names its template in id (update 2026_06_16_00 renamed id1 to it and moved id2 and id3,
 //     the alternatives, to creature_multispawn, which Meld leaves alone), has one respawn time
 //     (spawntimesecs), wander_distance and MovementType, spawnMask and phaseMask (1: normal difficulty,
@@ -42,12 +46,16 @@ import (
 // AzerothCore's own source (CreatureGroups.cpp, Creature::LoadCreaturesAddon) is GPL: its behaviour is
 // described here, none of its code is copied.
 
-// acGUIDBase and acPoolBase number Meld's spawns and pools in an AzerothCore database (see above). A
-// path's ID is ten times the guid in an int unsigned, which bounds the editor's guids at acMaxGUID.
+// acGUIDBase and acPoolBase number Meld's spawns and pools in an AzerothCore database (see above).
+// acSpawnLimit is the spawn number past which the world server shuts down, and acSpawnRoom what Meld
+// leaves under it for the spawns the server and its GMs add after Meld's, which bounds the editor's
+// guids at acMaxGUID. A path's ID, ten times the guid, stays well inside its int unsigned.
 const (
-	acGUIDBase = 100000000
-	acPoolBase = 100000000
-	acMaxGUID  = math.MaxUint32/10 - acGUIDBase
+	acGUIDBase   = 10000000
+	acPoolBase   = 100000000
+	acSpawnLimit = 0xFFFFFF
+	acSpawnRoom  = 1000000
+	acMaxGUID    = acSpawnLimit - acSpawnRoom - acGUIDBase
 )
 
 // sameRespawn says whether s respawns between lo and hi seconds.

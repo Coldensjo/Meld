@@ -328,7 +328,7 @@
 			'compile',
 			'exportCore',
 			'Spawn SQL for',
-			'The server core File › Export Spawn SQL… writes its SQL for. What the core’s tables can’t hold (a formation member’s own place in CMaNGOS, a spawn’s display or waypoint scripts in AzerothCore) is listed in the file. CMaNGOS classic and AzerothCore also add File › Compile to CMaNGOS Server and File › Compile to AzerothCore Server, which rebuild that server’s map data with its own extractors. CMaNGOS TBC (2.4.3) gets Meld’s spawns under guids of their own, 10000000 plus the editor’s, and pools of their own made after the highest entry; AzerothCore (3.3.5a) under guids and pools of their own, 100000000 plus the editor’s. Saving spawns to the database stays VMaNGOS.',
+			'The server core File › Export Spawn SQL… writes its SQL for. What the core’s tables can’t hold (a formation member’s own place in CMaNGOS, a spawn’s display or waypoint scripts in AzerothCore) is listed in the file. CMaNGOS classic and AzerothCore also add File › Compile to CMaNGOS Server and File › Compile to AzerothCore Server, which rebuild that server’s map data with its own extractors. CMaNGOS TBC (2.4.3) gets Meld’s spawns under guids of their own, 10000000 plus the editor’s, and pools of their own made after the highest entry; AzerothCore (3.3.5a) under guids of their own, 10000000 plus the editor’s (under the 16777215 the world server stops at), and pools 100000000 plus the editor’s. Saving spawns to the database stays VMaNGOS.',
 			[
 				['VMaNGOS', 'vmangos'],
 				['CMaNGOS classic', 'cmangos-classic'],
