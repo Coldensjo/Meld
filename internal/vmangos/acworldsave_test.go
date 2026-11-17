@@ -16,16 +16,20 @@ func TestACSpawnSQLDirect(t *testing.T) {
 	moved.X, moved.MovementType = 20, 2
 	moved.Waypoints = []Waypoint{{X: 20, Z: 10, Y: 190}, {X: 30, Z: 10, Y: 190, WaitMs: 1000}}
 	moved.Pool, moved.PoolLimit, moved.PoolName = 100000003, 1, "Wolves"
-	guard := WorldSpawn{Kind: KindMonster, GUID: 10000002, Entry: 100, Name: "Guard", Scale: 1, RespawnSecs: 300, RespawnMaxSecs: 300, Equipment: sword, SheathState: 1}
+	guard := WorldSpawn{Kind: KindMonster, GUID: 10000002, Entry: 100, Name: "Guard", Scale: 1, RespawnSecs: 300, RespawnMaxSecs: 300, Equipment: sword, SheathState: 1, Display: 25195}
+	// A Northrend creature's items are past the VMaNGOS database's, and its display is its template's.
+	scalebane := WorldSpawn{Kind: KindMonster, GUID: 10000004, Entry: 31402, Name: "Azure Scalebane", Scale: 1, RespawnSecs: 300, RespawnMaxSecs: 300,
+		Equipment: ACEquipmentFor([3]int{36990, 37119, 0}), SheathState: 1, Display: 25195}
 	rabbit := WorldSpawn{Kind: KindMonster, GUID: 10000003, Entry: 721, Name: "Rabbit", Scale: 1, RespawnSecs: 120, RespawnMaxSecs: 120, SheathState: 1}
 	ore := WorldSpawn{Kind: KindObject, GUID: 20000, Entry: 181555, Name: "Saronite Deposit", Scale: 1}
 	res := acSpawnSQL(571, 30, 21, []SpawnEdit{
 		{Spawn: moved, Original: &stock},
 		{Spawn: guard, Created: true},
 		{Spawn: rabbit, Created: true},
+		{Spawn: scalebane, Created: true},
 		{Spawn: ore, Original: &ore, Deleted: true},
 	}, fixedTime)
-	if res.Added != 2 || res.Changed != 1 || res.Deleted != 1 {
+	if res.Added != 3 || res.Changed != 1 || res.Deleted != 1 {
 		t.Fatalf("counts = %d/%d/%d\n%s", res.Added, res.Changed, res.Deleted, res.SQL)
 	}
 	for _, want := range []string{
@@ -39,6 +43,7 @@ func TestACSpawnSQLDirect(t *testing.T) {
 		"WHERE `CreatureID` = 100 AND `ItemID1` = 1899 AND `ItemID2` = 0 AND `ItemID3` = 0 ORDER BY `ID` LIMIT 1), 1);",
 		"VALUES (10000002, 100, 571, 1, 1, @meld_equip,",
 		"VALUES (10000003, 721, 571, 1, 1, 0,",
+		"SELECT 31402, n.i, 36990, 37119, 0 FROM",
 		"DELETE FROM `gameobject` WHERE `guid` = 20000;",
 	} {
 		if !strings.Contains(res.SQL, want) {

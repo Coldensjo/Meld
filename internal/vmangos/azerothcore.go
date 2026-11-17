@@ -191,7 +191,7 @@ func acUpdateSQL(n acNumbering, s Spawn, secs int, q [4]float64, equip string) s
 // acEquipSQL is a creature's equipment_id as SQL, with the statements that find or make its row first,
 // or "" to leave it as it is (a change that kept the equipment, or one whose items are unknown). base
 // is what it was: the original, or the defaults for a spawn AzerothCore doesn't have.
-func acEquipSQL(s, base Spawn, created bool) ([]string, string, []string) {
+func acEquipSQL(n acNumbering, s, base Spawn, created bool) ([]string, string, []string) {
 	if !created && s.Equipment == base.Equipment {
 		return nil, "", nil
 	}
@@ -210,7 +210,8 @@ func acEquipSQL(s, base Spawn, created bool) ([]string, string, []string) {
 	items := *s.EquipItems
 	var skipped []string
 	for _, item := range items {
-		if item > vmangosStockItemMax {
+		// The items of AzerothCore's own spawns are its own (acDirect).
+		if item > vmangosStockItemMax && !n.direct {
 			skipped = append(skipped, fmt.Sprintf("its equipment's item %d; it was made in the VMaNGOS world database, so AzerothCore's item_template lacks it or holds another item there", item))
 		}
 	}
@@ -465,7 +466,7 @@ func azerothcoreSQL(edits []Edit, now time.Time, n acNumbering) Result {
 		equip := ""
 		if s.Kind == Creature {
 			var why []string
-			pre, equip, why = acEquipSQL(s, base, e.Created)
+			pre, equip, why = acEquipSQL(n, s, base, e.Created)
 			skip(name, why)
 			if s.Display != base.Display {
 				skip(name, []string{fmt.Sprintf("its display (%d); AzerothCore's spawns take the template's model", s.Display)})

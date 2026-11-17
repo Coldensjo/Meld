@@ -31,9 +31,17 @@ func acSpawnSQL(mapID, x, y int, edits []SpawnEdit, now time.Time) Result {
 	for _, e := range edits {
 		ed := Edit{Spawn: serverSpawn(e.Spawn, mapID, x, y), Created: e.Created, Deleted: e.Deleted}
 		ed.Spawn.EquipItems = acSpawnItems(e.Spawn)
+		// A display that is the template's is no display of the spawn's own, which AzerothCore's spawns
+		// can't have (the export lists one as not written).
+		if !e.Spawn.OwnDisplay {
+			ed.Spawn.Display = 0
+		}
 		if e.Original != nil {
 			o := serverSpawn(*e.Original, mapID, x, y)
 			o.EquipItems = acSpawnItems(*e.Original)
+			if !e.Original.OwnDisplay {
+				o.Display = 0
+			}
 			ed.Original = &o
 		}
 		list = append(list, ed)
