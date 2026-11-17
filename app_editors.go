@@ -13,6 +13,12 @@ import (
 // SearchCreatures lists up to 100 creature templates of the world database whose name has text
 // in it (or whose entry it is), for placing new creatures.
 func (a *App) SearchCreatures(text string) ([]vmangos.CreatureTemplate, error) {
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.SearchACCreatures(ac, text, 100)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return nil, err
@@ -22,6 +28,12 @@ func (a *App) SearchCreatures(text string) ([]vmangos.CreatureTemplate, error) {
 
 // ListCreatureTemplates lists every creature template of the world database, dressed for a thumbnail.
 func (a *App) ListCreatureTemplates() ([]vmangos.CreatureTemplate, error) {
+	if ac, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.ListACCreatureTemplates(ac, dataDir)
+	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return nil, err
@@ -31,6 +43,12 @@ func (a *App) ListCreatureTemplates() ([]vmangos.CreatureTemplate, error) {
 
 // ListObjectTemplates lists every game object template of the world database with its model.
 func (a *App) ListObjectTemplates() ([]vmangos.ObjectTemplate, error) {
+	if ac, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.ListACObjectTemplates(ac, dataDir)
+	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return nil, err

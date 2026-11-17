@@ -10,8 +10,15 @@ import (
 
 // LoadSpawns reads the creatures and game objects the server's world database places in a block of
 // tiles. It needs the VMaNGOS server folder and the server's database running, or an external
-// database (#856), whose map IDs then come from the client's Map.dbc (#883).
+// database (#856), whose map IDs then come from the client's Map.dbc (#883); for a 3.3.5a client, the
+// AzerothCore server's world database (acWorld).
 func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, error) {
+	if ac, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.ReadACSpawns(ac, dataDir, mapName, x, y, size)
+	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return nil, err
@@ -22,6 +29,12 @@ func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, 
 // SpawnLook dresses a creature display with an equipment and a pose, for a spawn whose display,
 // equipment, stand state, emote or sheath state was edited.
 func (a *App) SpawnLook(display, equipment, stand, emote, sheath int) (vmangos.LookResult, error) {
+	if ac, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return vmangos.LookResult{}, err
+		}
+		return vmangos.ACCreatureLook(ac, dataDir, display, equipment, stand, emote, sheath)
+	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return vmangos.LookResult{}, err
@@ -31,6 +44,12 @@ func (a *App) SpawnLook(display, equipment, stand, emote, sheath int) (vmangos.L
 
 // ListWeapons lists every item of the world database a creature can hold, for the gear picker.
 func (a *App) ListWeapons() ([]vmangos.WeaponEntry, error) {
+	if ac, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.ListACWeapons(ac, dataDir)
+	}
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return nil, err
@@ -40,6 +59,9 @@ func (a *App) ListWeapons() ([]vmangos.WeaponEntry, error) {
 
 // EquipmentItems are the main hand, off hand and ranged items of an equipment template.
 func (a *App) EquipmentItems(id int) ([3]int, error) {
+	if _, _, ok, err := a.acWorld(); ok || err != nil {
+		return vmangos.ACEquipmentItems(id), err
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return [3]int{}, err
@@ -50,6 +72,12 @@ func (a *App) EquipmentItems(id int) ([3]int, error) {
 // EquipmentDisplays are the display IDs of the held items of each equipment template in ids, for
 // the pickers' icons.
 func (a *App) EquipmentDisplays(ids []int) (map[int][3]int, error) {
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.ACEquipmentDisplays(ac, ids)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return nil, err
@@ -60,6 +88,10 @@ func (a *App) EquipmentDisplays(ids []int) (map[int][3]int, error) {
 // EquipmentFor is the equipment template with these items (main hand, off hand, ranged), made
 // in the world database when none has them; 0 for none.
 func (a *App) EquipmentFor(items [3]int) (int, error) {
+	// AzerothCore's rows belong to an entry: the save finds or makes the spawn's (ACEquipmentFor).
+	if _, _, ok, err := a.acWorld(); ok || err != nil {
+		return vmangos.ACEquipmentFor(items), err
+	}
 	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
@@ -119,6 +151,12 @@ func (a *App) ScriptCommands(table string, id int) ([]vmangos.ScriptCommand, err
 
 // NextObjectGUID is the first free game object guid of the world database, for placed objects.
 func (a *App) NextObjectGUID() (int, error) {
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return 0, err
+		}
+		return vmangos.NextACObjectGUID(ac)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return 0, err
@@ -129,6 +167,12 @@ func (a *App) NextObjectGUID() (int, error) {
 // NextPoolEntry is the first spawn pool entry the world database doesn't use yet, for a pool made
 // in the editor.
 func (a *App) NextPoolEntry() (int, error) {
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return 0, err
+		}
+		return vmangos.NextACPoolEntry(ac)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return 0, err
@@ -139,6 +183,12 @@ func (a *App) NextPoolEntry() (int, error) {
 // NextCreatureGUID is the first creature guid the world database doesn't use yet, for creatures
 // placed in the editor.
 func (a *App) NextCreatureGUID() (int, error) {
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return 0, err
+		}
+		return vmangos.NextACCreatureGUID(ac)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return 0, err

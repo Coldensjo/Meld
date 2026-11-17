@@ -4,13 +4,33 @@ import (
 	"errors"
 	"path/filepath"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/config"
 	"Meld/internal/vmangos"
 )
 
 // An AzerothCore server, the 3.3.5a core (#1073, #1094): File › Export Spawn SQL writes its spawns, and
 // File › Compile to AzerothCore Server rebuilds its map data from the client's patch with its own
-// extractors. Every other server tool stays VMaNGOS-only.
+// extractors. While the client is 3.3.5a, its world database (acore_world) is also the one the region's
+// spawns, the creature and object templates and the Place tool read (acWorld). The database editors
+// (items, quests, spells, loot) and the game tools stay VMaNGOS-only.
+
+// acWorld is the AzerothCore server whose world database the spawn bindings use instead of VMaNGOS's,
+// with the client's Data folder: the AzerothCore server folder, while the client is 3.3.5a. ok is false
+// when either is not so, and the bindings go to the VMaNGOS server as before; err is set when the folder
+// is set for a 3.3.5a client but is no AzerothCore server.
+func (a *App) acWorld() (server vmangos.AzerothCoreServer, dataDir string, ok bool, err error) {
+	path := a.AzerothcorePath()
+	if path == "" {
+		return server, "", false, nil
+	}
+	dataDir, err = a.clientDataDir()
+	if err != nil || clientbuild.Detect(dataDir).Build != clientbuild.WotLK {
+		return server, "", false, nil
+	}
+	server, err = vmangos.CheckAzerothCore(path)
+	return server, dataDir, err == nil, err
+}
 
 // AzerothcorePath returns the AzerothCore server folder, or "".
 func (a *App) AzerothcorePath() string {
@@ -37,6 +57,7 @@ func (a *App) SetAzerothcorePath(path string) error {
 		}
 		path = s.Root
 	}
+	vmangos.ForgetACTemplates()
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	a.cfg.AzerothcorePath = path

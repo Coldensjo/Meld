@@ -1,4 +1,5 @@
--- The spawn tables of an AzerothCore world database, as far as Meld's spawn SQL writes them (#1073):
+-- The spawn tables of an AzerothCore world database, as far as Meld's spawn SQL writes them (#1073)
+-- and the editor reads them (acworld.go, with the templates' columns it reads only):
 -- the columns and keys of azerothcore/azerothcore-wotlk's data/sql/base/db_world (ACDB 16.0.0) with
 -- the updates since applied (data/sql/updates/db_world, read 2026-11-17: 2026_06_16_00 renames
 -- creature.id1 to id and drops id2 and id3; 2026_02_03_00 and 2026_03_23_01 add columns with
@@ -232,4 +233,48 @@ CREATE TABLE `waypoint_data` (
 	`action_chance` SMALLINT NOT NULL DEFAULT 100,
 	`wpguid` INT UNSIGNED NOT NULL DEFAULT 0,
 	PRIMARY KEY (`id`, `point`)
+);
+
+CREATE TABLE `creature_template` (
+	`entry` INT UNSIGNED NOT NULL DEFAULT 0,
+	`name` CHAR(100) NOT NULL DEFAULT '0',
+	`subname` CHAR(100) DEFAULT NULL,
+	`minlevel` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+	`maxlevel` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+	`faction` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+	`npcflag` INT UNSIGNED NOT NULL DEFAULT 0,
+	`rank` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`type` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`MovementType` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (`entry`)
+);
+
+CREATE TABLE `creature_template_model` (
+	`CreatureID` INT UNSIGNED NOT NULL,
+	`Idx` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+	`CreatureDisplayID` INT UNSIGNED NOT NULL,
+	`DisplayScale` FLOAT NOT NULL DEFAULT 1,
+	`Probability` FLOAT NOT NULL DEFAULT 0,
+	`VerifiedBuild` INT DEFAULT NULL,
+	PRIMARY KEY (`CreatureID`, `Idx`)
+);
+
+CREATE TABLE `gameobject_template` (
+	`entry` INT UNSIGNED NOT NULL DEFAULT 0,
+	`type` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`displayId` INT UNSIGNED NOT NULL DEFAULT 0,
+	`name` VARCHAR(100) NOT NULL DEFAULT '',
+	`size` FLOAT NOT NULL DEFAULT 1,
+	PRIMARY KEY (`entry`)
+);
+
+CREATE TABLE `item_template` (
+	`entry` INT UNSIGNED NOT NULL DEFAULT 0,
+	`class` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`subclass` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`name` VARCHAR(255) NOT NULL DEFAULT '',
+	`displayid` INT UNSIGNED NOT NULL DEFAULT 0,
+	`Quality` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	`InventoryType` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (`entry`)
 );

@@ -1140,7 +1140,8 @@ export function LoadScriptImage(path: string): $CancellablePromise<$models.Scrip
 /**
  * LoadSpawns reads the creatures and game objects the server's world database places in a block of
  * tiles. It needs the VMaNGOS server folder and the server's database running, or an external
- * database (#856), whose map IDs then come from the client's Map.dbc (#883).
+ * database (#856), whose map IDs then come from the client's Map.dbc (#883); for a 3.3.5a client, the
+ * AzerothCore server's world database (acWorld).
  */
 export function LoadSpawns(mapName: string, x: number, y: number, size: number): $CancellablePromise<vmangos$0.WorldSpawn[] | null> {
     return $Call.ByID(2994186797, mapName, x, y, size);
