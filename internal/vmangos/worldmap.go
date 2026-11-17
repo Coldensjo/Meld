@@ -131,6 +131,15 @@ func SetWorldMapRow(dbc []byte, row WorldMapRow) ([]byte, WorldMapRow, error) {
 		at = len(records)
 		records = append(records, make([]byte, t.recSize)...)
 		added = 1
+		// The 3.3.5a client's columns Meld has no say in (the map a zone's world map is shown for,
+		// a dungeon's first floor, the world map it belongs to) take what most of the client's rows
+		// have, which is what a zone of the open world has: an empty field would show the zone's
+		// map for map 0.
+		for _, name := range []string{"DisplayMap", "DefaultFloor", "ParentMap"} {
+			if f, ok := t.l.byName[name]; ok {
+				binary.LittleEndian.PutUint32(records[at+t.l.fields[f].at*4:], usualValue(t, t.l.fields[f].at))
+			}
+		}
 	}
 	put := func(f int, v uint32) { binary.LittleEndian.PutUint32(records[at+f*4:], v) }
 	if at/t.recSize >= t.records || t.str(at/t.recSize, c.name) != row.Name {
@@ -152,6 +161,22 @@ func SetWorldMapRow(dbc []byte, row WorldMapRow) ([]byte, WorldMapRow, error) {
 	out = binary.LittleEndian.AppendUint32(out, uint32(len(strs)))
 	out = append(out, records...)
 	return append(out, strs...), row, nil
+}
+
+// usualValue is the value most of t's rows have in column col (the lowest of those tied), 0 for a
+// table without rows.
+func usualValue(t *dbcTable, col int) uint32 {
+	count := map[uint32]int{}
+	for r := 0; r < t.records; r++ {
+		count[t.u32(r, col)]++
+	}
+	var best uint32
+	for v, n := range count {
+		if n > count[best] || n == count[best] && v < best {
+			best = v
+		}
+	}
+	return best
 }
 
 // ReadWorldMap reads the client's world map of a zone: its row and art, or a view with no row.
