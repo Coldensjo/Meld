@@ -199,6 +199,12 @@ func (a *App) NextCreatureGUID() (int, error) {
 // CheckSpawnIDs tells File › Check Map what the world database has under the unsaved spawns' guids
 // and entries (#195).
 func (a *App) CheckSpawnIDs(q vmangos.SpawnIDQuery) (vmangos.SpawnIDReport, error) {
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return vmangos.SpawnIDReport{}, err
+		}
+		return vmangos.CheckACSpawnIDs(ac, q)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return vmangos.SpawnIDReport{}, err
@@ -231,6 +237,16 @@ func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
 // VMaNGOS server's isn't its, and the items of the spawns' equipment from the VMaNGOS database when
 // there is one, since its equipment ids aren't the core's (#1042; the SQL lists what it couldn't read).
 func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit, coreName string) (vmangos.Result, error) {
+	// The editor's spawns are the AzerothCore database's own: what a save writes is the SQL for it, under
+	// its own guids, whether for VMaNGOS (the Changes window's preview of a save) or AzerothCore.
+	if _, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return vmangos.Result{}, err
+		}
+		if c := vmangos.ParseCore(coreName); c == vmangos.VMaNGOS || c == vmangos.AzerothCore {
+			return vmangos.ACSpawnSQL(dataDir, mapName, x, y, size, edits, time.Now())
+		}
+	}
 	core := vmangos.ParseCore(coreName)
 	if core != vmangos.VMaNGOS {
 		dataDir, err := a.clientDataDir()
@@ -257,6 +273,19 @@ func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.Spawn
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
 // <user cache>/Meld/spawn-sql first, so what changed can be looked up (or undone by hand).
 func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
+	if ac, dataDir, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return vmangos.Result{}, err
+		}
+		if a.sandboxed() {
+			return vmangos.Result{}, errSandboxed
+		}
+		res, err := vmangos.ApplyACSpawnEdits(ac, dataDir, mapName, x, y, size, edits, time.Now())
+		if res.SQL != "" {
+			keepSpawnSQL(mapName, res.SQL)
+		}
+		return res, err
+	}
 	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return vmangos.Result{}, err
@@ -269,11 +298,17 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 	if err != nil {
 		return res, err
 	}
+	keepSpawnSQL(mapName, res.SQL)
+	return res, vmangos.ApplySQL(server, res.SQL)
+}
+
+// keepSpawnSQL keeps the SQL a spawn save runs in <user cache>/Meld/spawn-sql, so what changed can be
+// looked up (or undone by hand).
+func keepSpawnSQL(mapName, sql string) {
 	if cache, err := os.UserCacheDir(); err == nil {
 		dir := filepath.Join(cache, "Meld", "spawn-sql")
 		if os.MkdirAll(dir, 0o755) == nil {
-			_ = os.WriteFile(filepath.Join(dir, time.Now().Format("20060102-150405")+"-"+mapName+".sql"), []byte(res.SQL), 0o644)
+			_ = os.WriteFile(filepath.Join(dir, time.Now().Format("20060102-150405")+"-"+mapName+".sql"), []byte(sql), 0o644)
 		}
 	}
-	return res, vmangos.ApplySQL(server, res.SQL)
 }

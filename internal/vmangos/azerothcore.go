@@ -64,9 +64,29 @@ func sameRespawn(s Spawn, lo, hi int) bool {
 	return a == lo && b == hi
 }
 
-func acGUID(guid int) int { return acGUIDBase + guid }
-func acPool(pool int) int { return acPoolBase + pool }
-func acPath(guid int) int { return acGUID(guid) * 10 }
+// acNumbering is how the editor's guids and pool entries become AzerothCore's: acExport for the spawn SQL
+// of a VMaNGOS database's edits, under Meld's own numbers, and acDirect for the edits of the AzerothCore
+// database the editor reads (acworld.go), whose numbers are AzerothCore's already.
+type acNumbering struct {
+	guidBase, poolBase int
+	// maxGUID and maxPool are the highest editor guid and pool entry the numbering takes.
+	maxGUID, maxPool int
+	direct           bool
+}
+
+var (
+	acExport = acNumbering{guidBase: acGUIDBase, poolBase: acPoolBase, maxGUID: acMaxGUID, maxPool: MaxPoolEntry}
+	// acDirect takes AzerothCore's own spawns too (up to the server's limit) and its pool entries, an int
+	// unsigned, Meld's from acPoolBase among them.
+	acDirect = acNumbering{maxGUID: acSpawnLimit - 1, maxPool: math.MaxUint32, direct: true}
+)
+
+func (n acNumbering) guid(guid int) int { return n.guidBase + guid }
+func (n acNumbering) pool(pool int) int { return n.poolBase + pool }
+func (n acNumbering) path(guid int) int { return n.guid(guid) * 10 }
+
+func acGUID(guid int) int { return acExport.guid(guid) }
+func acPath(guid int) int { return acExport.path(guid) }
 
 // acCreatureLinks and acObjectLinks are the AzerothCore tables that name a spawn by its guid in a
 // `guid` column, whose rows go with it.
@@ -108,8 +128,8 @@ func acGroupAI(vm int) (int, []string) {
 }
 
 // acDeleteSQL removes a spawn and, first, the rows that name it.
-func acDeleteSQL(s Spawn) []string {
-	g := acGUID(s.GUID)
+func acDeleteSQL(n acNumbering, s Spawn) []string {
+	g := n.guid(s.GUID)
 	table, links, kind := "gameobject", acObjectLinks, acTypeGameObject
 	if s.Kind == Creature {
 		table, links, kind = "creature", acCreatureLinks, acTypeCreature
@@ -124,7 +144,7 @@ func acDeleteSQL(s Spawn) []string {
 			fmt.Sprintf("DELETE FROM `creature_sparring` WHERE `GUID` = %d;", g),
 			// A deleted leader takes its formation with it.
 			fmt.Sprintf("DELETE FROM `creature_formations` WHERE `leaderGUID` = %d OR `memberGUID` = %d;", g, g),
-			fmt.Sprintf("DELETE FROM `waypoint_data` WHERE `id` = %d;", acPath(s.GUID)),
+			fmt.Sprintf("DELETE FROM `waypoint_data` WHERE `id` = %d;", n.path(s.GUID)),
 			fmt.Sprintf("DELETE FROM `linked_respawn` WHERE (`guid` = %d AND `linkType` IN (0, 1)) OR (`linkedGuid` = %d AND `linkType` IN (0, 3));", g, g))
 	} else {
 		out = append(out, fmt.Sprintf("DELETE FROM `linked_respawn` WHERE (`guid` = %d AND `linkType` IN (2, 3)) OR (`linkedGuid` = %d AND `linkType` IN (1, 2));", g, g))
@@ -138,8 +158,8 @@ func acDeleteSQL(s Spawn) []string {
 
 // acInsertSQL adds a spawn, respawning after secs seconds, with rotation q (game objects) and equipment
 // equip (creatures; SQL, a number or @meld_equip).
-func acInsertSQL(s Spawn, secs int, q [4]float64, equip string) string {
-	g := acGUID(s.GUID)
+func acInsertSQL(n acNumbering, s Spawn, secs int, q [4]float64, equip string) string {
+	g := n.guid(s.GUID)
 	if s.Kind == Creature {
 		return fmt.Sprintf("INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `phaseMask`, `equipment_id`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 			"`spawntimesecs`, `wander_distance`, `MovementType`, `Comment`) VALUES (%d, %d, %d, 1, 1, %s, %s, %s, %s, %s, %d, %s, %d, %s);",
@@ -152,8 +172,8 @@ func acInsertSQL(s Spawn, secs int, q [4]float64, equip string) string {
 
 // acUpdateSQL moves a spawn and sets its respawn, its movement (creatures; and its equipment when
 // equip isn't empty) or its entry and rotation (game objects, which can be turned into another, #136).
-func acUpdateSQL(s Spawn, secs int, q [4]float64, equip string) string {
-	g := acGUID(s.GUID)
+func acUpdateSQL(n acNumbering, s Spawn, secs int, q [4]float64, equip string) string {
+	g := n.guid(s.GUID)
 	if s.Kind == Creature {
 		set := ""
 		if equip != "" {
@@ -207,8 +227,8 @@ func acEquipSQL(s, base Spawn, created bool) ([]string, string, []string) {
 
 // acPathSQL replaces a creature's path (waypoint_data) with its points, and says what of them
 // AzerothCore can't take: a wander distance at a point, and the points' scripts.
-func acPathSQL(s Spawn) ([]string, []string) {
-	id := acPath(s.GUID)
+func acPathSQL(n acNumbering, s Spawn) ([]string, []string) {
+	id := n.path(s.GUID)
 	out := []string{fmt.Sprintf("DELETE FROM `waypoint_data` WHERE `id` = %d;", id)}
 	if len(s.Path) == 0 {
 		return out, nil
@@ -248,17 +268,17 @@ func acPathSQL(s Spawn) ([]string, []string) {
 
 // acAddonSQL writes a creature's addon where its pose changed from base or its path was written
 // (path): the row, copied from its template's addon when it has none, then the changed columns.
-func acAddonSQL(s, base Spawn, path bool) []string {
+func acAddonSQL(n acNumbering, s, base Spawn, path bool) []string {
 	pose := s.StandState != base.StandState || s.SheathState != base.SheathState || s.EmoteState != base.EmoteState
 	if !pose && !path {
 		return nil
 	}
-	g := acGUID(s.GUID)
+	g := n.guid(s.GUID)
 	var set []string
 	if path {
 		id := 0
 		if len(s.Path) > 0 {
-			id = acPath(s.GUID)
+			id = n.path(s.GUID)
 		}
 		set = append(set, fmt.Sprintf("`path_id` = %d", id))
 	}
@@ -280,14 +300,14 @@ func acAddonSQL(s, base Spawn, path bool) []string {
 // acFormationSQL writes a creature's formation (creature_formations) when it changed from was's: its
 // row replaced or removed, a leader that stopped leading taking the group's rows with it, and the
 // leader's own row, which the server needs to find the group's leader.
-func acFormationSQL(s, was Spawn) ([]string, []string) {
+func acFormationSQL(n acNumbering, s, was Spawn) ([]string, []string) {
 	if !formationChanged(s, &was) {
 		return nil, nil
 	}
-	if s.Leader > acMaxGUID || was.Leader > acMaxGUID {
+	if s.Leader > n.maxGUID || was.Leader > n.maxGUID {
 		return nil, []string{"its formation; a guid is past the guids Meld numbers AzerothCore's spawns from"}
 	}
-	g := acGUID(s.GUID)
+	g := n.guid(s.GUID)
 	var out []string
 	if was.Leader == s.GUID && s.Leader != s.GUID {
 		out = append(out, fmt.Sprintf("DELETE FROM `creature_formations` WHERE `leaderGUID` = %d OR `memberGUID` = %d;", g, g))
@@ -298,7 +318,7 @@ func acFormationSQL(s, was Spawn) ([]string, []string) {
 		return out, nil
 	}
 	ai, skipped := acGroupAI(s.GroupFlags)
-	l := acGUID(s.Leader)
+	l := n.guid(s.Leader)
 	cols := "`leaderGUID`, `memberGUID`, `dist`, `angle`, `groupAI`, `point_1`, `point_2`"
 	// The server keeps a slot only for a member that follows its leader, and drops it with an error
 	// in its log otherwise.
@@ -315,7 +335,7 @@ func acFormationSQL(s, was Spawn) ([]string, []string) {
 
 // acPoolSQL is the SQL for a spawn's pool membership when it changed from orig's (nil for a spawn the
 // database doesn't have), under Meld's pool entries, or the reason it can't be written.
-func acPoolSQL(s Spawn, orig *Spawn) ([]string, string) {
+func acPoolSQL(n acNumbering, s Spawn, orig *Spawn) ([]string, string) {
 	var was Spawn
 	if orig != nil {
 		was = *orig
@@ -328,51 +348,51 @@ func acPoolSQL(s Spawn, orig *Spawn) ([]string, string) {
 		link = "pool_creature"
 	}
 	if s.Pool == 0 {
-		return []string{fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", link, acGUID(s.GUID))}, ""
+		return []string{fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", link, n.guid(s.GUID))}, ""
 	}
-	if s.Pool < 0 || s.Pool > MaxPoolEntry {
-		return nil, fmt.Sprintf("its pool %d, which the database can't hold (1 to %d)", s.Pool, MaxPoolEntry)
+	if s.Pool < 0 || s.Pool > n.maxPool {
+		return nil, fmt.Sprintf("its pool %d, which the database can't hold (1 to %d)", s.Pool, n.maxPool)
 	}
 	chance := math.Min(math.Max(s.PoolChance, 0), 100)
 	return []string{fmt.Sprintf("INSERT INTO `%s` (`guid`, `pool_entry`, `chance`, `description`) VALUES (%d, %d, %s, %s) "+
-		"ON DUPLICATE KEY UPDATE `pool_entry` = VALUES(`pool_entry`), `chance` = VALUES(`chance`);", link, acGUID(s.GUID), acPool(s.Pool), num(chance), sqlQuote(poolDescription(s)))}, ""
+		"ON DUPLICATE KEY UPDATE `pool_entry` = VALUES(`pool_entry`), `chance` = VALUES(`chance`);", link, n.guid(s.GUID), n.pool(s.Pool), num(chance), sqlQuote(poolDescription(s)))}, ""
 }
 
 // acMotherSQL puts spawn s's pool into its mother pool (pool_pool), or takes it out of the one it had,
 // as motherSQL does under Meld's pool entries.
-func acMotherSQL(s Spawn) ([]string, string) {
+func acMotherSQL(n acNumbering, s Spawn) ([]string, string) {
 	head := fmt.Sprintf("-- Master pool of pool %d", s.Pool)
 	if s.MotherPool == 0 {
-		return []string{head, fmt.Sprintf("DELETE FROM `pool_pool` WHERE `pool_id` = %d;", acPool(s.Pool))}, ""
+		return []string{head, fmt.Sprintf("DELETE FROM `pool_pool` WHERE `pool_id` = %d;", n.pool(s.Pool))}, ""
 	}
-	if s.MotherPool < 0 || s.MotherPool > MaxPoolEntry {
-		return nil, fmt.Sprintf("its master pool %d, which the database can't hold (1 to %d)", s.MotherPool, MaxPoolEntry)
+	if s.MotherPool < 0 || s.MotherPool > n.maxPool {
+		return nil, fmt.Sprintf("its master pool %d, which the database can't hold (1 to %d)", s.MotherPool, n.maxPool)
 	}
 	if s.MotherPool == s.Pool {
 		return nil, "its master pool is the pool itself"
 	}
 	return []string{head, fmt.Sprintf("INSERT INTO `pool_pool` (`pool_id`, `mother_pool`, `chance`, `description`) VALUES (%d, %d, 0, %s) "+
-		"ON DUPLICATE KEY UPDATE `mother_pool` = VALUES(`mother_pool`);", acPool(s.Pool), acPool(s.MotherPool), sqlQuote(poolDescription(s)))}, ""
+		"ON DUPLICATE KEY UPDATE `mother_pool` = VALUES(`mother_pool`);", n.pool(s.Pool), n.pool(s.MotherPool), sqlQuote(poolDescription(s)))}, ""
 }
 
 // acPoolTemplateSQL makes pool p's pool_template row with description desc (SQL) when it has none,
 // then sets its limit, and its description too when named is set. A mother pool keeps its own
 // description, but needs a row: AzerothCore drops a pool_pool row whose mother pool has none.
-func acPoolTemplateSQL(p, limit int, desc string, named bool) []string {
+func acPoolTemplateSQL(n acNumbering, p, limit int, desc string, named bool) []string {
 	set := ""
 	if named {
 		set = ", `description` = " + desc
 	}
 	return []string{
 		fmt.Sprintf("INSERT INTO `pool_template` (`entry`, `max_limit`, `description`) SELECT %d, %d, %s FROM DUAL "+
-			"WHERE NOT EXISTS (SELECT 1 FROM `pool_template` WHERE `entry` = %d);", acPool(p), max(limit, 0), desc, acPool(p)),
-		fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d%s WHERE `entry` = %d;", max(limit, 0), set, acPool(p)),
+			"WHERE NOT EXISTS (SELECT 1 FROM `pool_template` WHERE `entry` = %d);", n.pool(p), max(limit, 0), desc, n.pool(p)),
+		fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d%s WHERE `entry` = %d;", max(limit, 0), set, n.pool(p)),
 	}
 }
 
 // azerothcoreSQL is ExportSQLFor for AzerothCore: the same edits in AzerothCore's tables, under Meld's
 // own guids and pool entries there. Running it twice gives the same result.
-func azerothcoreSQL(edits []Edit, now time.Time) Result {
+func azerothcoreSQL(edits []Edit, now time.Time, n acNumbering) Result {
 	sorted := append([]Edit(nil), edits...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Spawn.GUID < sorted[j].Spawn.GUID })
 
@@ -408,8 +428,12 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 			res.Skipped = append(res.Skipped, name+": not on a map the server has")
 			continue
 		}
-		if s.GUID > acMaxGUID {
-			res.Skipped = append(res.Skipped, fmt.Sprintf("%s: its guid is past %d, the last Meld numbers AzerothCore's spawns from", name, acMaxGUID))
+		if s.GUID > n.maxGUID {
+			why := fmt.Sprintf("%s: its guid is past %d, the last Meld numbers AzerothCore's spawns from", name, n.maxGUID)
+			if n.direct {
+				why = fmt.Sprintf("%s: its guid is past %d, where the world server stops", name, n.maxGUID)
+			}
+			res.Skipped = append(res.Skipped, why)
 			continue
 		}
 		if e.Deleted {
@@ -418,7 +442,7 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 			}
 			begin(s, "delete", nil)
 			out = append(out, "-- Delete "+name)
-			out = append(out, acDeleteSQL(s)...)
+			out = append(out, acDeleteSQL(n, s)...)
 			res.Deleted++
 			continue
 		}
@@ -460,27 +484,27 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 			if s.Kind == Creature {
 				table = "creature"
 			}
-			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` IN (%s);", table, acGUID(s.GUID), ids))
+			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` IN (%s);", table, n.guid(s.GUID), ids))
 			out = append(out, pre...)
-			out = append(out, acInsertSQL(s, lo, q, equip))
+			out = append(out, acInsertSQL(n, s, lo, q, equip))
 			res.Added++
 		} else {
 			begin(s, "change", spawnFields(s, e.Original))
 			out = append(out, "-- Change "+name)
 			out = append(out, pre...)
-			out = append(out, acUpdateSQL(s, lo, q, equip))
+			out = append(out, acUpdateSQL(n, s, lo, q, equip))
 			res.Changed++
 		}
 
 		if s.Kind == Creature {
 			path := !samePath(s.Path, base.Path) || (e.Created && len(s.Path) > 0)
 			if path {
-				lines, why := acPathSQL(s)
+				lines, why := acPathSQL(n, s)
 				out = append(out, lines...)
 				skip(name, why)
 			}
-			out = append(out, acAddonSQL(s, base, path)...)
-			lines, why := acFormationSQL(s, base)
+			out = append(out, acAddonSQL(n, s, base, path)...)
+			lines, why := acFormationSQL(n, s, base)
 			out = append(out, lines...)
 			skip(name, why)
 		}
@@ -489,7 +513,7 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 		if e.Created {
 			orig = nil
 		}
-		lines, why := acPoolSQL(s, orig)
+		lines, why := acPoolSQL(n, s, orig)
 		out = append(out, lines...)
 		if why != "" {
 			skip(name, []string{why})
@@ -517,21 +541,21 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 	for _, p := range poolOrder {
 		s := poolRows[p]
 		out = append(out, fmt.Sprintf("-- Pool %d", p))
-		out = append(out, acPoolTemplateSQL(p, s.PoolLimit, sqlQuote(poolDescription(s)), true)...)
+		out = append(out, acPoolTemplateSQL(n, p, s.PoolLimit, sqlQuote(poolDescription(s)), true)...)
 	}
 	for _, p := range motherOrder {
-		lines, why := acMotherSQL(motherRows[p])
+		lines, why := acMotherSQL(n, motherRows[p])
 		out = append(out, lines...)
 		if why != "" {
 			res.Skipped = append(res.Skipped, fmt.Sprintf("Pool %d: %s", p, why))
 		}
 	}
 	for _, m := range limitOrder {
-		if m < 1 || m > MaxPoolEntry {
+		if m < 1 || m > n.maxPool {
 			continue
 		}
 		out = append(out, fmt.Sprintf("-- Master pool %d", m))
-		out = append(out, acPoolTemplateSQL(m, motherLimits[m], sqlQuote(fmt.Sprintf("Meld pool %d", m)), false)...)
+		out = append(out, acPoolTemplateSQL(n, m, motherLimits[m], sqlQuote(fmt.Sprintf("Meld pool %d", m)), false)...)
 	}
 
 	header := []string{
@@ -543,6 +567,17 @@ func azerothcoreSQL(edits []Edit, now time.Time) Result {
 		"-- so a change to a spawn of the VMaNGOS database changes only what Meld exported of it before, never AzerothCore's own copy.",
 		"-- The entries (creature and game object templates, items) are the VMaNGOS database's. A path is waypoint_data under ten times the guid.",
 		"-- zoneId and areaId are left 0: Calculate.Creature.Zone.Area.Data and Calculate.Gameoject.Zone.Area.Data in worldserver.conf fill them.",
+	}
+	if n.direct {
+		header = []string{
+			"-- Meld spawn edits of an AzerothCore world database (`acore_world`), made in the editor from its own spawns.",
+			header[1],
+			"-- Run against the world database, then restart the world server (worldserver).",
+			header[3],
+			fmt.Sprintf("-- The guids, entries and pools are the database's own; spawns placed in Meld are numbered from %d.", acGUIDBase+1),
+			"-- A path is waypoint_data under ten times the guid.",
+			header[7],
+		}
 	}
 	if len(res.Skipped) > 0 {
 		header = append(header, "--", "-- Not exported:")

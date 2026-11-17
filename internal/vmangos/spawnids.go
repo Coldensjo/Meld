@@ -112,7 +112,14 @@ func CheckSpawnIDs(serverRoot string, q SpawnIDQuery) (SpawnIDReport, error) {
 	if err := ensureDatabase(db, serverRoot); err != nil {
 		return SpawnIDReport{}, err
 	}
+	return checkSpawnIDs(db, q)
+}
+
+// checkSpawnIDs is CheckSpawnIDs once the database answers. Its queries suit AzerothCore's tables too
+// (CheckACSpawnIDs).
+func checkSpawnIDs(db worldDB, q SpawnIDQuery) (SpawnIDReport, error) {
 	var r SpawnIDReport
+	var err error
 	rows := func(table string, guids []int) ([]GUIDRow, error) {
 		sql := guidRowsSQL(table, guids)
 		if sql == "" {
@@ -192,6 +199,19 @@ func guidCollisions(edits []SpawnEdit, r SpawnIDReport) []string {
 // CheckCreatedGUIDs refuses edits whose created spawns have guids the database has given other
 // spawns since the editor picked them (#199), naming them, so the save changes nothing.
 func CheckCreatedGUIDs(serverRoot string, edits []SpawnEdit) error {
+	q, any := createdQuery(edits)
+	if !any {
+		return nil
+	}
+	r, err := CheckSpawnIDs(serverRoot, q)
+	if err != nil {
+		return err
+	}
+	return collisionError(edits, r)
+}
+
+// createdQuery asks for the guids of edits' created spawns; false when there are none.
+func createdQuery(edits []SpawnEdit) (SpawnIDQuery, bool) {
 	var q SpawnIDQuery
 	for _, e := range edits {
 		if !e.Created || e.Deleted {
@@ -203,13 +223,11 @@ func CheckCreatedGUIDs(serverRoot string, edits []SpawnEdit) error {
 			q.CreatureGUIDs = append(q.CreatureGUIDs, e.Spawn.GUID)
 		}
 	}
-	if len(q.CreatureGUIDs)+len(q.ObjectGUIDs) == 0 {
-		return nil
-	}
-	r, err := CheckSpawnIDs(serverRoot, q)
-	if err != nil {
-		return err
-	}
+	return q, len(q.CreatureGUIDs)+len(q.ObjectGUIDs) > 0
+}
+
+// collisionError refuses edits whose created spawns' guids the report shows under other entries.
+func collisionError(edits []SpawnEdit, r SpawnIDReport) error {
 	if taken := guidCollisions(edits, r); len(taken) > 0 {
 		return fmt.Errorf("nothing was saved: the database gave the guids of these new spawns to other spawns since they were placed, and saving would replace those: %s. Delete them and place them again for new guids", strings.Join(taken, ", "))
 	}
