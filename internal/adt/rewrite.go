@@ -103,6 +103,9 @@ type Format struct {
 	// does (#1068), not in an MCLQ in each chunk. A tile of that client that still holds MCLQ
 	// liquids and no MH2O (Outland's do) keeps them there.
 	MH2O bool
+	// BigAlpha says the map's WDT asks for 8-bit alpha maps (ReadBigAlpha, #1069): a painted
+	// chunk's are written a byte a texel, each layer's share of the texel.
+	BigAlpha bool
 }
 
 // Water is a map's sea: ocean at Level yards, over the ground below it.
@@ -122,6 +125,7 @@ const (
 	mddfSize        = 36
 	modfSize        = 64
 	alphaBytes4     = 64 * 64 / 2
+	alphaBytes8     = 64 * 64
 	mcnkVertexColor = 0x74
 	mhdrMFBO        = 0x24
 	mhdrMH2O        = 0x28
@@ -661,6 +665,22 @@ func rebuildChunk(m []byte, idx int, ch Changes, inMH2O bool, texNames *nameList
 			}
 		}
 		mcly = make([]byte, 16*len(paint.Layers))
+		// The alpha maps: four bits a texel, or on a map of 8-bit ones a byte, which there is the
+		// layer's share of the texel and not what it shows of the layers below (WeightAlpha).
+		alphaBytes := alphaBytes4
+		var shares [][]byte
+		if ch.Format.BigAlpha {
+			alphaBytes = alphaBytes8
+			seq := make([][]byte, 0, 3)
+			for l, layer := range paint.Layers {
+				if l > 0 && len(layer.Alpha) == alphaBytes8 {
+					seq = append(seq, layer.Alpha)
+				}
+			}
+			if len(seq) == len(paint.Layers)-1 {
+				shares = WeightAlpha(seq)
+			}
+		}
 		for l, layer := range paint.Layers {
 			id := texNames.of(layer.Texture)
 			binary.LittleEndian.PutUint32(mcly[l*16:], uint32(id))
@@ -668,11 +688,15 @@ func rebuildChunk(m []byte, idx int, ch Changes, inMH2O bool, texNames *nameList
 			var alphaOfs uint32
 			if l > 0 {
 				f = layerUseAlpha
-				alphaOfs = uint32((l - 1) * alphaBytes4)
+				alphaOfs = uint32((l - 1) * alphaBytes)
 				if len(layer.Alpha) != 64*64 {
 					return nil, nil, fmt.Errorf("layer %d alpha is %d bytes, want 4096", l, len(layer.Alpha))
 				}
-				mcal = append(mcal, encode4Bit(layer.Alpha)...)
+				if ch.Format.BigAlpha {
+					mcal = append(mcal, shares[l-1]...)
+				} else {
+					mcal = append(mcal, encode4Bit(layer.Alpha)...)
+				}
 			}
 			if layer.Flags != nil {
 				f |= *layer.Flags & LayerLookFlags
@@ -936,6 +960,37 @@ func SequentialAlpha(weights [][]byte) [][]byte {
 				out[i][t] = uint8(math.Round(math.Min(1, w/left) * 255))
 			}
 			above += w
+		}
+	}
+	return out
+}
+
+// WeightAlpha is SequentialAlpha undone: from the alpha the game blends in order (layers 1 and up),
+// each layer's share of the texel, which is what a map of 8-bit alpha maps stores (#1069). The
+// 3.3.5a client draws such a map's layers as a weighted sum, the base taking what the others leave
+// (as Benilla-WotLK's terrain shader has it from the client), and its own tiles' shares never sum
+// past 255, so a texel whose rounded shares would is brought back under it.
+func WeightAlpha(seq [][]byte) [][]byte {
+	out := make([][]byte, len(seq))
+	for i := range out {
+		out[i] = make([]byte, len(seq[i]))
+	}
+	if len(seq) == 0 {
+		return out
+	}
+	for t := range seq[0] {
+		rest, sum, largest := 1.0, 0, 0
+		for i := len(seq) - 1; i >= 0; i-- {
+			a := float64(seq[i][t]) / 255
+			out[i][t] = uint8(math.Round(a * rest * 255))
+			rest *= 1 - a
+			sum += int(out[i][t])
+			if out[i][t] > out[largest][t] {
+				largest = i
+			}
+		}
+		if sum > 255 {
+			out[largest][t] -= uint8(sum - 255)
 		}
 	}
 	return out

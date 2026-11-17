@@ -10,7 +10,7 @@ import (
 // The tests of what Rewrite does for the later clients' tiles (#1068 to #1070), on tiles made here:
 // the 3.3.5a client's own are read by the client tests (internal/wow).
 
-var laterFormat = Format{MH2O: true}
+var laterFormat = Format{MH2O: true, BigAlpha: true}
 
 // topChunkAt is where the first top-level chunk named id starts (its header), or -1.
 func topChunkAt(t *testing.T, root []byte, id string) int {
@@ -41,7 +41,7 @@ func mhdrField(t *testing.T, root []byte, ofs int) (value, data int) {
 // laterTile is a tile as the 3.3.5a client's Northrend has them, made without Rewrite's help for the
 // parts it must carry: vertex colours (MCCV) after every chunk's heights, with the header's offset
 // and flag, and the flight bounds (MFBO) and MTXF after the MCNK chunks, with MHDR's offsets. Its
-// liquids are in MH2O: a lake, lava and the sea.
+// paint is on 8-bit alpha maps and its liquids are in MH2O: a lake, lava and the sea.
 func laterTile(t *testing.T) []byte {
 	t.Helper()
 	paint := map[int]ChunkPaint{}
@@ -485,5 +485,108 @@ func TestRewriteKeepsMCLQOnATileThatHasIt(t *testing.T) {
 	ls, err := ParseLiquids(out)
 	if err != nil || layerOf(ls, 90%16, 90/16, LiquidWater) == nil {
 		t.Fatalf("the pond is not in chunk 90's MCLQ (%v)", err)
+	}
+}
+
+// On a map whose WDT asks for 8-bit alpha maps, paint is written a byte a texel as each layer's
+// share of it, with the layers' offsets and the header's length to match, and reads back as the
+// alpha it was given (#1069).
+func TestRewriteBigAlpha(t *testing.T) {
+	root := laterTile(t)
+	maps := make([][]byte, 3)
+	for l := range maps {
+		maps[l] = make([]byte, 64*64)
+		for k := range maps[l] {
+			maps[l][k] = byte((k%64)*(l+2) + k/64)
+		}
+	}
+	paint := ChunkPaint{Layers: []Layer{
+		{Texture: `Tileset\Test\Snow.blp`}, {Texture: `Tileset\Test\Ice.blp`, Alpha: maps[0]},
+		{Texture: `Tileset\Test\Rock.blp`, Alpha: maps[1]}, {Texture: `Tileset\Test\Mud.blp`, Alpha: maps[2]},
+	}}
+	out, err := Rewrite(root, Changes{TileX: 30, TileY: 21, Format: laterFormat, Paint: map[int]ChunkPaint{40: paint}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLaterOffsets(t, out)
+	starts, _ := mcnkStarts(out)
+	m := out[starts[40]:]
+	if flags := binary.LittleEndian.Uint32(m); flags&mcnkFlagNoFix == 0 {
+		t.Errorf("the chunk's flags %#x lack the one for 64x64 alpha maps", flags)
+	}
+	if n := binary.LittleEndian.Uint32(m[0x28:]); n != 8+3*alphaBytes8 {
+		t.Errorf("the header gives the alpha maps %d bytes, want %d", n, 8+3*alphaBytes8)
+	}
+	mcly, ok := subRegion(m, int(binary.LittleEndian.Uint32(m[0x1c:])))
+	mcal, ok2 := subRegion(m, int(binary.LittleEndian.Uint32(m[0x24:])))
+	if !ok || !ok2 || len(mcly) != 4*16 || len(mcal) != 3*alphaBytes8 {
+		t.Fatalf("MCLY is %d bytes and MCAL %d", len(mcly), len(mcal))
+	}
+	shares := WeightAlpha(maps)
+	for l := 1; l < 4; l++ {
+		flags, ofs := binary.LittleEndian.Uint32(mcly[l*16+4:]), int(binary.LittleEndian.Uint32(mcly[l*16+8:]))
+		if flags&(layerUseAlpha|layerAlphaRLE) != layerUseAlpha || ofs != (l-1)*alphaBytes8 {
+			t.Errorf("layer %d: flags %#x, alpha at %d", l, flags, ofs)
+		}
+		if !bytes.Equal(mcal[ofs:ofs+alphaBytes8], shares[l-1]) {
+			t.Errorf("layer %d's bytes are not its share of each texel", l)
+		}
+	}
+	for k := 0; k < alphaBytes8; k++ {
+		if sum := int(mcal[k]) + int(mcal[alphaBytes8+k]) + int(mcal[2*alphaBytes8+k]); sum > 255 {
+			t.Fatalf("texel %d's shares sum to %d; the base must be left the rest of 255", k, sum)
+		}
+	}
+	// Read back, each texel shows the same mix: the shares of what was read are the file's.
+	tex, err := ParseTextures(out, true, mustTerrain(t, out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	back := WeightAlpha(tex.Chunks[40].Alpha)
+	for l := range back {
+		for k := range back[l] {
+			if d := int(back[l][k]) - int(shares[l][k]); d < -1 || d > 1 {
+				t.Fatalf("layer %d texel %d reads back as a share of %d, written %d", l+1, k, back[l][k], shares[l][k])
+			}
+		}
+	}
+	// The chunks the save did not paint keep their alpha bytes.
+	for _, i := range []int{3, 39, 41, 255} {
+		a, b := mustAlpha(t, out, i), mustAlpha(t, root, i)
+		if !bytes.Equal(a, b) {
+			t.Errorf("chunk %d's alpha maps changed", i)
+		}
+	}
+}
+
+// mustAlpha is chunk i's MCAL payload, as long as its header says.
+func mustAlpha(t *testing.T, root []byte, i int) []byte {
+	t.Helper()
+	starts, err := mcnkStarts(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := root[starts[i]:]
+	ofs, n := int(binary.LittleEndian.Uint32(m[0x24:])), int(binary.LittleEndian.Uint32(m[0x28:]))
+	if ofs == 0 {
+		return nil
+	}
+	return m[ofs : ofs+n-8]
+}
+
+func TestWeightAlpha(t *testing.T) {
+	// The top layer shows half of the texel; the one under it half of what is left, a quarter.
+	got := WeightAlpha([][]byte{{128}, {128}})
+	if got[1][0] != 128 || got[0][0] != 64 {
+		t.Errorf("shares %d and %d, want 64 under 128", got[0][0], got[1][0])
+	}
+	// And back, to within the rounding of a byte.
+	if seq := SequentialAlpha(got); seq[0][0] < 127 || seq[0][0] > 129 || seq[1][0] != 128 {
+		t.Errorf("back to %d and %d, want 128 and 128", seq[0][0], seq[1][0])
+	}
+	// Three layers whose rounded shares would pass 255 are held to it.
+	got = WeightAlpha([][]byte{{255}, {127}, {127}})
+	if sum := int(got[0][0]) + int(got[1][0]) + int(got[2][0]); sum > 255 {
+		t.Errorf("shares sum to %d", sum)
 	}
 }

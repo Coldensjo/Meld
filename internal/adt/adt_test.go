@@ -438,14 +438,17 @@ func TestSplitNames(t *testing.T) {
 // 3.3.5a client's Northrend tiles carry 512 there, which cut every layer's map off after eight rows
 // and left the layers after the first with none.
 func TestParseTexturesAlphaLengthFromHeader(t *testing.T) {
-	// Two layers over the base: an 8-bit map of 200s whose last row is 250s, then a run-length one
+	// Two layers over the base: an 8-bit map of 200s whose last row is 240s, then a run-length one
 	// (a run of 127 nines, 4096 texels long) that starts past the 512 bytes the size field claims.
+	// On a map of 8-bit alpha maps these are the layers' shares of each texel, and the reader hands
+	// out what each shows of the layers below it: the top one its 9, the one under it 200 of the
+	// 246 that leaves, which is 207 of 255 (and 249 for 240).
 	plain := make([]byte, AlphaSize*AlphaSize)
 	for i := range plain {
 		plain[i] = 200
 	}
 	for i := 63 * AlphaSize; i < len(plain); i++ {
-		plain[i] = 250
+		plain[i] = 240
 	}
 	var rle []byte
 	for n := 0; n < AlphaSize*AlphaSize; n += 127 {
@@ -463,6 +466,7 @@ func TestParseTexturesAlphaLengthFromHeader(t *testing.T) {
 	mcly := append(append(layer(0, 0, 0), layer(1, layerUseAlpha, 0)...), layer(2, layerUseAlpha|layerAlphaRLE, uint32(len(plain)))...)
 
 	header := make([]byte, mcnkHeaderSize)
+	binary.LittleEndian.PutUint32(header, mcnkFlagNoFix) // 64x64 maps, as every chunk of Northrend has
 	var mcvt []byte
 	for i := 0; i < HeightCount; i++ {
 		mcvt = append(mcvt, f32bytes(0)...)
@@ -493,12 +497,33 @@ func TestParseTexturesAlphaLengthFromHeader(t *testing.T) {
 		t.Fatalf("chunks %d, layers and alpha maps %+v", len(tex.Chunks), tex.Chunks)
 	}
 	a, b := tex.Chunks[0].Alpha[0], tex.Chunks[0].Alpha[1]
-	if a[0] != 200 || a[511] != 200 || a[512] != 200 || a[4095] != 250 {
-		t.Errorf("the 8-bit map reads %d %d %d .. %d, want 200 200 200 .. 250", a[0], a[511], a[512], a[4095])
+	if a[0] != 207 || a[511] != 207 || a[512] != 207 || a[4095] != 249 {
+		t.Errorf("the 8-bit map reads %d %d %d .. %d, want 207 207 207 .. 249", a[0], a[511], a[512], a[4095])
 	}
 	if b[0] != 9 || b[4095] != 9 {
 		t.Errorf("the run-length map past the claimed size reads %d .. %d, want 9 .. 9", b[0], b[4095])
 	}
+
+	// And back: the shares the writer stores for those are the file's own.
+	back := WeightAlpha([][]byte{a, b})
+	for _, i := range []int{0, 511, 512, 4095} {
+		if back[0][i] != plain[i] || back[1][i] != 9 {
+			t.Errorf("texel %d goes back as %d and %d, want %d and 9", i, back[0][i], back[1][i], plain[i])
+		}
+	}
+
+	// A chunk without the 64x64 flag holds 63x63 maps: the last row and column repeat the ones
+	// before them, in the 8-bit and the run-length form alike.
+	flagAt := len(root) - len(body)
+	binary.LittleEndian.PutUint32(root[flagAt:], 0)
+	short, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tex, err = ParseTextures(root, true, short); err != nil || tex.Chunks[0].Alpha[0][4095] != 207 {
+		t.Errorf("a 63x63 map: %v, its last texel reads %d, want the 207 of the row before", err, tex.Chunks[0].Alpha[0][4095])
+	}
+	binary.LittleEndian.PutUint32(root[flagAt:], mcnkFlagNoFix)
 
 	// A header length that would leave the chunk is not believed.
 	binary.LittleEndian.PutUint32(root[len(root)-len(body)+0x28:], 1<<20)

@@ -269,8 +269,13 @@ func buildMapFiles(set *mpq.Set, m MapSpec, dbc []byte) ([]mpq.File, error) {
 			}
 		}
 	}
-	// The new map's tiles keep their liquids where the client does (#1068).
-	format := tileFormat(set)
+	// The new map's WDT takes Azeroth's header, so its tiles are written as Azeroth's are read: with
+	// that map's kind of alpha maps, and liquids where the client keeps them (#1068, #1069).
+	wdtTemplate, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
+	if err != nil {
+		return nil, err
+	}
+	format := tileFormat(set, adt.ReadBigAlpha(wdtTemplate))
 	for i, t := range m.Tiles {
 		var water *adt.Water
 		if m.Water {
@@ -286,10 +291,6 @@ func buildMapFiles(set *mpq.Set, m MapSpec, dbc []byte) ([]mpq.File, error) {
 		}
 	}
 
-	wdtTemplate, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
-	if err != nil {
-		return nil, err
-	}
 	if m.Global != nil {
 		// A WMO-only map: one building in the WDT, no tiles and no horizon.
 		obj, err := objectIn(0, 0, *m.Global)

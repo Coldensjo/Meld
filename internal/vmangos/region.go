@@ -532,8 +532,8 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 		bigAlpha = adt.ReadBigAlpha(wdt)
 	}
-	// What the save writes anew goes in the form the client has it in (#1068).
-	format := tileFormat(set)
+	// What the save writes anew goes in the form the client and the map have it in (#1068, #1069).
+	format := tileFormat(set, bigAlpha)
 
 	type tileEdit struct {
 		name string
@@ -955,9 +955,9 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 }
 
 // tileFormat is the form a save writes a tile's new parts in for the client set reads: the 3.3.5a
-// client keeps liquids in MH2O.
-func tileFormat(set *mpq.Set) adt.Format {
-	return adt.Format{MH2O: set.Build() == clientbuild.WotLK}
+// client keeps liquids in MH2O, and bigAlpha is what the map's WDT says of its alpha maps.
+func tileFormat(set *mpq.Set, bigAlpha bool) adt.Format {
+	return adt.Format{MH2O: set.Build() == clientbuild.WotLK, BigAlpha: bigAlpha}
 }
 
 // heightsMoved says whether tile b's heights differ from those of a, the tile it was built from.

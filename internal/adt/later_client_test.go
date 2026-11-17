@@ -170,7 +170,7 @@ func sameTile(t *testing.T, a, b []byte, skip ...string) {
 // under offsets that find them (#1070).
 func TestWotLKRewriteKeepsTheTile(t *testing.T) {
 	eachWotLKTile(t, func(t *testing.T, root []byte, bigAlpha bool, x, y int) {
-		out, err := Rewrite(root, Changes{TileX: x, TileY: y, Format: Format{MH2O: true}})
+		out, err := Rewrite(root, Changes{TileX: x, TileY: y, Format: Format{MH2O: true, BigAlpha: bigAlpha}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -238,7 +238,7 @@ func TestWotLKLiquidsWrittenAsTheClients(t *testing.T) {
 					all[k] = append(all[k], l)
 				}
 			}
-			out, err := Rewrite(root, Changes{TileX: x, TileY: y, Format: Format{MH2O: true}, Liquids: all})
+			out, err := Rewrite(root, Changes{TileX: x, TileY: y, Format: Format{MH2O: true, BigAlpha: bigAlpha}, Liquids: all})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -298,4 +298,85 @@ func TestWotLKLiquidsWrittenAsTheClients(t *testing.T) {
 		}
 	})
 	t.Logf("against the client's own layers: %v", stats)
+}
+
+// Every chunk of a 3.3.5a tile painted with its own layers, as the editor sends a chunk it has
+// painted: the tile reads back with the same mix at every texel, to within a step of a byte, in
+// the map's kind of alpha map (#1069), and everything else stays.
+func TestWotLKPaintWrittenAsTheMaps(t *testing.T) {
+	eachWotLKTile(t, func(t *testing.T, root []byte, bigAlpha bool, x, y int) {
+		terrain := mustTerrain(t, root)
+		was, err := ParseTextures(root, bigAlpha, terrain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		paint := map[int]ChunkPaint{}
+		for i, c := range was.Chunks {
+			if len(c.Layers) == 0 || len(c.Layers) > 4 {
+				continue
+			}
+			var layers []Layer
+			for l, layer := range c.Layers {
+				flags := layer.Flags & LayerLookFlags
+				out := Layer{Texture: layer.Texture, Effect: layer.Effect, Flags: &flags}
+				if l > 0 {
+					out.Alpha = c.Alpha[l-1]
+				}
+				layers = append(layers, out)
+			}
+			paint[terrain.Chunks[i].IndexY*ChunksPerTile+terrain.Chunks[i].IndexX] = ChunkPaint{Layers: layers}
+		}
+		out, err := Rewrite(root, Changes{TileX: x, TileY: y, Format: Format{MH2O: true, BigAlpha: bigAlpha}, Paint: paint})
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkLaterOffsets(t, out)
+		is, err := ParseTextures(out, bigAlpha, mustTerrain(t, out))
+		if err != nil {
+			t.Fatal(err)
+		}
+		step := 1
+		if !bigAlpha {
+			step = 17 // a 4-bit map's
+		}
+		worst := 0
+		for i, c := range was.Chunks {
+			g := is.Chunks[i]
+			if len(g.Layers) != len(c.Layers) {
+				t.Fatalf("chunk %d has %d layers, had %d", i, len(g.Layers), len(c.Layers))
+			}
+			for l := range c.Layers {
+				if g.Layers[l].Texture != c.Layers[l].Texture || g.Layers[l].Effect != c.Layers[l].Effect ||
+					g.Layers[l].Flags&LayerLookFlags != c.Layers[l].Flags&LayerLookFlags {
+					t.Fatalf("chunk %d layer %d: %+v, was %+v", i, l, g.Layers[l], c.Layers[l])
+				}
+			}
+			a, b := WeightAlpha(c.Alpha), WeightAlpha(g.Alpha)
+			for l := range a {
+				for k := range a[l] {
+					if terrain.Chunks[i].Flags&mcnkFlagNoFix == 0 && (k%64 == 63 || k/64 == 63) {
+						continue // a 63x63 map's repeated edge, which a rewritten chunk holds as texels
+					}
+					d := int(a[l][k]) - int(b[l][k])
+					worst = max(worst, d, -d)
+				}
+			}
+		}
+		if worst > step+1 {
+			t.Errorf("a texel's share of a layer moved by %d of 255", worst)
+		}
+		// The rest of each chunk came through.
+		sa, _ := mcnkStarts(root)
+		sb, _ := mcnkStarts(out)
+		for i := range sa {
+			ma := root[sa[i] : sa[i]+int(binary.LittleEndian.Uint32(root[sa[i]-4:]))]
+			mb := out[sb[i] : sb[i]+int(binary.LittleEndian.Uint32(out[sb[i]-4:]))]
+			a, b := subChunksOf(t, ma), subChunksOf(t, mb)
+			for _, id := range []string{"MCVT", "MCCV", "MCNR", "MCRF", "MCSH", "MCSE", "MCLQ"} {
+				if !bytes.Equal(a[id], b[id]) {
+					t.Fatalf("chunk %d: %s changed with the paint", i, id)
+				}
+			}
+		}
+	})
 }
