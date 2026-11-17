@@ -1474,8 +1474,10 @@ export interface LinkSpawn {
 
 /**
  * LiquidTypeEntry is a row of the client's LiquidType.dbc: every liquid the client knows, including
- * the ones only a dungeon's building uses (Naxxramas's slime). Kind is the row's type column: 0 magma,
- * 2 slime, 3 water (ocean is the water row with ID 2); Spell is the aura the liquid gives a swimmer.
+ * the ones only a dungeon's building uses (Naxxramas's slime). Kind is the row's type column as the
+ * 1.12 client numbers it: 0 magma, 2 slime, 3 water (ocean is the water row with ID 2); a 3.3.5a
+ * client's column, which numbers them another way, is given in those numbers (liquidKind112). Spell
+ * is the aura the liquid gives a swimmer.
  */
 export interface LiquidTypeEntry {
     "id": number;

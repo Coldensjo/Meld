@@ -248,6 +248,19 @@ func TestDBCLayoutsMatchWotLKClient(t *testing.T) {
 	if r, ok := liquids.row(1); !ok || !strings.Contains(strings.ToLower(liquids.str(r, liquids.at("Texture", 0))), "xtextures") {
 		t.Errorf("liquid type 1's first texture is not under XTextures")
 	}
+	// The page takes a liquid's kind in 1.12's numbers, which a lake must not read as lava in.
+	types, err := LoadLiquidTypes(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range types {
+		if want, ok := map[int]int{1: 3, 2: 3, 3: 0, 4: 2, 5: 3, 15: 0, 21: 2}[e.ID]; ok && e.Kind != want {
+			t.Errorf("liquid type %d (%s) has kind %d in 1.12's numbers, want %d", e.ID, e.Name, e.Kind, want)
+		}
+	}
+	if len(types) < 20 {
+		t.Errorf("%d liquid types", len(types))
+	}
 	nodes := table(dbcTaxiNodes)
 	if name, m := str(nodes, 310, "Name"), num(nodes, 310, "MapID"); name != "Dalaran" || m != 571 {
 		t.Errorf("taxi node 310 is %q on map %d, want Dalaran on 571", name, m)
