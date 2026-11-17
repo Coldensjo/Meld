@@ -7,6 +7,10 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"Meld/internal/clientbuild"
+	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 func write(t *testing.T, path, data string) {
@@ -123,6 +127,112 @@ func TestPrepareWotLKPatch(t *testing.T) {
 		if got := os.SameFile(ri, di) || di.Mode()&os.ModeSymlink != 0; got != linked {
 			t.Errorf("%s linked: %v, want %v", n, got, linked)
 		}
+	}
+}
+
+// A 3.3.5a client's locale folder comes along as links, so the copy has the client's tables, and a
+// refresh follows the real folder: an archive it gained is linked, and what does not belong goes (#1066).
+func TestPrepareWotLKLocale(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "client", "Data")
+	locale := filepath.Join(real, "enUS")
+	if err := os.MkdirAll(locale, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"common.MPQ", "lichking.MPQ", "patch-4.MPQ"} {
+		write(t, filepath.Join(real, n), n)
+	}
+	for _, n := range []string{"locale-enUS.MPQ", "patch-enUS-3.MPQ"} {
+		write(t, filepath.Join(locale, n), n)
+	}
+	write(t, filepath.Join(locale, "realmlist.wtf"), "set realmlist localhost")
+	// A folder that is no locale (no locale-<name>.MPQ in it) is left out.
+	if err := os.MkdirAll(filepath.Join(real, "Cache"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(dir, "sandbox")
+
+	data, err := Prepare(real, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	linked := func(name string) bool {
+		ri, _ := os.Stat(filepath.Join(real, name))
+		di, err := os.Lstat(filepath.Join(data, name))
+		if err != nil {
+			t.Fatalf("%s is not in the copy: %v", name, err)
+		}
+		return os.SameFile(ri, di) || di.Mode()&os.ModeSymlink != 0
+	}
+	for _, n := range []string{"enUS/locale-enUS.MPQ", "enUS/patch-enUS-3.MPQ"} {
+		if !linked(n) {
+			t.Errorf("%s is not linked", n)
+		}
+		if got := read(t, filepath.Join(data, n)); got != filepath.Base(n) {
+			t.Errorf("%s reads %q", n, got)
+		}
+	}
+	for _, gone := range []string{"enUS/realmlist.wtf", "Cache"} {
+		if _, err := os.Stat(filepath.Join(data, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s was copied: %v", gone, err)
+		}
+	}
+	if linked("patch-4.MPQ") {
+		t.Error("Meld's patch-4.MPQ is linked, not copied")
+	}
+
+	// A probe leaves a file in the copy's locale folder; the real one gains an archive and loses one.
+	write(t, filepath.Join(data, "enUS", "left-by-a-probe.MPQ"), "probe")
+	write(t, filepath.Join(locale, "patch-enUS-4.MPQ"), "four")
+	if err := os.Remove(filepath.Join(locale, "patch-enUS-3.MPQ")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Prepare(real, root); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, filepath.Join(data, "enUS", "patch-enUS-4.MPQ")); got != "four" {
+		t.Errorf("patch-enUS-4.MPQ = %q", got)
+	}
+	for _, gone := range []string{"left-by-a-probe.MPQ", "patch-enUS-3.MPQ"} {
+		if _, err := os.Lstat(filepath.Join(data, "enUS", gone)); !os.IsNotExist(err) {
+			t.Errorf("enUS/%s is still in the copy: %v", gone, err)
+		}
+	}
+	if got := read(t, filepath.Join(locale, "locale-enUS.MPQ")); got != "locale-enUS.MPQ" {
+		t.Errorf("the real locale archive changed: %q", got)
+	}
+}
+
+// The copy of a real 3.3.5a client reads as that client does: the same build, Meld's patch-4.MPQ, and
+// a table that only the locale folder's archives hold (#1066). Skipped without such a client.
+func TestPrepareWotLKClient(t *testing.T) {
+	real := testclient.WotLKDir(t)
+	if st, err := os.Stat(filepath.Join(real, "Data")); err == nil && st.IsDir() {
+		real = filepath.Join(real, "Data")
+	}
+	before := StampOf(filepath.Join(real, clientbuild.PatchFor(real)))
+	data, err := Prepare(real, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	if set.Build() != clientbuild.WotLK || set.PatchName() != "patch-4.MPQ" {
+		t.Errorf("the copy reads as %s with Meld's patch %s; want 3.3.5a and patch-4.MPQ", set.Build(), set.PatchName())
+	}
+	if clientbuild.Locale(data) != clientbuild.Locale(real) {
+		t.Errorf("the copy's locale is %q, the client's %q", clientbuild.Locale(data), clientbuild.Locale(real))
+	}
+	for _, name := range []string{`DBFilesClient\Map.dbc`, `World\Maps\Northrend\Northrend.wdt`} {
+		if b, err := set.ReadFile(name); err != nil || len(b) == 0 {
+			t.Errorf("%s from the copy: %d bytes, %v", name, len(b), err)
+		}
+	}
+	if after := StampOf(filepath.Join(real, clientbuild.PatchFor(real))); after != before {
+		t.Errorf("the real client's patch changed: %+v, was %+v", after, before)
 	}
 }
 
