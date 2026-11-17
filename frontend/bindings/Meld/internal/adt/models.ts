@@ -14,10 +14,16 @@ export interface Liquid {
     "indexY": number;
 
     /**
-     * Type is the liquid, as LiquidType.dbc numbers it: LiquidWater, LiquidOcean, LiquidMagma or
-     * LiquidSlime.
+     * Type is the liquid's kind: LiquidWater, LiquidOcean, LiquidMagma or LiquidSlime, which are also
+     * the four liquids the 1.12 client's LiquidType.dbc numbers so.
      */
     "type": number;
+
+    /**
+     * LiquidID is the LiquidType.dbc row a 3.3.5a tile's layer names (MH2O, #1068), one of the many
+     * of a kind that client has; 0 for a 1.12 layer, which names only its kind.
+     */
+    "liquidId"?: number;
 
     /**
      * Heights are the surface heights at the chunk's 9x9 vertices, row-major, in absolute yards.
