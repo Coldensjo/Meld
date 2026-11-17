@@ -55,8 +55,8 @@
 		{ id: 2224, name: 'Wind Rider' },
 		{ id: 3574, name: 'Riding Bat' },
 	]
-	/** The client's taxi mask holds stops 1 to 256 (vmangos.MaxTaxiNode). */
-	const MAX_STOP = 256
+	/** The client's taxi mask holds stops 1 to this: 256 in 1.12 (vmangos.MaxTaxiNode), more in 3.3.5a (TaxiNetwork.maxNode). */
+	let maxStop = $state(256)
 	/** The npc flag that makes a creature a flight master (1.12's UNIT_NPC_FLAG_FLIGHTMASTER). */
 	const FLIGHT_MASTER = 8
 
@@ -123,6 +123,7 @@
 		stops = (net.nodes ?? []) as Stop[]
 		routes = (net.routes ?? []) as Route[]
 		nextStop = net.nextNode
+		maxStop = net.maxNode || 256
 		nextRoute = net.nextRoute
 		savedStops = new Set(stops.map((s) => s.id))
 		savedRoutes = new Set(routes.map((r) => r.id))
@@ -222,8 +223,8 @@
 		const at = await spotHere(atSpawn)
 		if (!at) return
 		const id = Math.max(nextStop, ...stops.map((s) => s.id + 1), ...removedStops.map((x) => x + 1))
-		if (id > MAX_STOP) {
-			error = `No stop ID is left: the client knows stops 1 to ${MAX_STOP}.`
+		if (id > maxStop) {
+			error = `No stop ID is left: the client knows stops 1 to ${maxStop}.`
 			return
 		}
 		const name = atSpawn && spawn ? spawn.name : 'New flight stop'

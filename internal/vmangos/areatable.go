@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 )
 
@@ -29,8 +30,20 @@ func areaColsOf(l *dbcLayout) areaCols {
 }
 
 // MaxAreaBit is one past the last exploration bit a 1.12 player has (PLAYER_EXPLORED_ZONES is 64
-// 32-bit fields), so a new area's bit must stay below it.
-const MaxAreaBit = 64 * 32
+// 32-bit fields), so a new area's bit must stay below it. A 3.3.5a player has 128 fields
+// (maxAreaBitWotLK): that client's own areas use bits past the 1.12 limit.
+const (
+	MaxAreaBit      = 64 * 32
+	maxAreaBitWotLK = 128 * 32
+)
+
+// areaBitLimit is one past the last exploration bit of the client t is a table of.
+func areaBitLimit(t *dbcTable) uint32 {
+	if t.l.build == clientbuild.WotLK {
+		return maxAreaBitWotLK
+	}
+	return MaxAreaBit
+}
 
 // AreaRow is a whole row of AreaTable.dbc as the zone editor edits it: a zone (Parent 0) or a
 // subzone of one. AreaBit is the area's exploration bit, unique across the table.
@@ -107,7 +120,7 @@ func NewAreaRow(dbc []byte, mapID, parent uint32) (AreaRow, error) {
 		id = max(id, t.u32(r, c.id))
 		bit = max(bit, t.u32(r, c.bit))
 	}
-	if bit+1 >= MaxAreaBit {
+	if bit+1 >= areaBitLimit(t) {
 		return AreaRow{}, errors.New("the client has no exploration bit left for another area")
 	}
 	row := AreaRow{ID: id + 1, MapID: mapID, Parent: parent, AreaBit: bit + 1, Flags: 64, Name: "New zone", AmbientMul: 0}
@@ -149,8 +162,8 @@ func SetAreaRows(dbc []byte, rows []AreaRow) ([]byte, error) {
 		if a.Parent == a.ID {
 			return nil, fmt.Errorf("area %d can't be its own zone", a.ID)
 		}
-		if a.AreaBit >= MaxAreaBit {
-			return nil, fmt.Errorf("area %d's exploration bit %d is past the client's %d", a.ID, a.AreaBit, MaxAreaBit)
+		if a.AreaBit >= areaBitLimit(t) {
+			return nil, fmt.Errorf("area %d's exploration bit %d is past the client's %d", a.ID, a.AreaBit, areaBitLimit(t))
 		}
 		if owner, ok := bits[a.AreaBit]; ok && owner != a.ID {
 			return nil, fmt.Errorf("area %d's exploration bit %d is area %d's", a.ID, a.AreaBit, owner)

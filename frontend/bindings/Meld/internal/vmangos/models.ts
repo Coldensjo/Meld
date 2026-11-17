@@ -3020,6 +3020,12 @@ export interface TaxiNetwork {
     "routes": TaxiRoute[] | null;
     "nextNode": number;
     "nextRoute": number;
+
+    /**
+     * MaxNode is the highest stop ID the client's players can know (MaxTaxiNode, or the 3.3.5a
+     * client's).
+     */
+    "maxNode": number;
 }
 
 /**

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"Meld/internal/clientbuild"
 	"Meld/internal/mpq"
 )
 
@@ -44,8 +45,20 @@ type taxiPathCols struct{ from, to, cost int }
 type taxiPointCols struct{ path, index, mapID, pos, flags, delay int }
 
 // MaxTaxiNode is the highest stop ID a 1.12 player can know: the taxi mask is 8 32-bit fields, and
-// node i is bit i-1 (VMaNGOS's TaxiMaskSize).
-const MaxTaxiNode = 8 * 32
+// node i is bit i-1 (VMaNGOS's TaxiMaskSize). A 3.3.5a player's mask is 14 fields (AzerothCore's
+// TaxiMaskSize), and that client's own stops go past the 1.12 limit.
+const (
+	MaxTaxiNode      = 8 * 32
+	maxTaxiNodeWotLK = 14 * 32
+)
+
+// taxiNodeLimit is the highest stop ID of the client t, its TaxiNodes.dbc, is a table of.
+func taxiNodeLimit(t *dbcTable) uint32 {
+	if t.l.build == clientbuild.WotLK {
+		return maxTaxiNodeWotLK
+	}
+	return MaxTaxiNode
+}
 
 // taxiBuild is the client build taxi_nodes rows are written for (5875 is 1.12.1): the server takes
 // each stop's row of the highest build up to its own.
@@ -101,6 +114,9 @@ type TaxiNetwork struct {
 	Routes    []TaxiRoute `json:"routes"`
 	NextNode  uint32      `json:"nextNode"`
 	NextRoute uint32      `json:"nextRoute"`
+	// MaxNode is the highest stop ID the client's players can know (MaxTaxiNode, or the 3.3.5a
+	// client's).
+	MaxNode uint32 `json:"maxNode"`
 }
 
 // TaxiEdit is what the Flight Paths window saves: stops and routes changed or added (whole, by ID)
@@ -229,7 +245,7 @@ func ReadTaxiNetwork(tt TaxiTables, mapID, serverMaxNode uint32) (TaxiNetwork, e
 	if err != nil {
 		return TaxiNetwork{}, err
 	}
-	net := TaxiNetwork{Nodes: []TaxiNode{}, Routes: []TaxiRoute{}}
+	net := TaxiNetwork{Nodes: []TaxiNode{}, Routes: []TaxiRoute{}, MaxNode: taxiNodeLimit(p.nodes)}
 	onMap := map[uint32]bool{}
 	topNode := serverMaxNode
 	for r := 0; r < p.nodes.records; r++ {
@@ -270,9 +286,9 @@ func finite(vs ...float32) bool {
 	return true
 }
 
-func checkTaxiNode(n TaxiNode) error {
-	if n.ID == 0 || n.ID > MaxTaxiNode {
-		return fmt.Errorf("flight stop %d: the ID must be 1 to %d (the client's taxi mask)", n.ID, MaxTaxiNode)
+func checkTaxiNode(n TaxiNode, limit uint32) error {
+	if n.ID == 0 || n.ID > limit {
+		return fmt.Errorf("flight stop %d: the ID must be 1 to %d (the client's taxi mask)", n.ID, limit)
 	}
 	if strings.TrimSpace(n.Name) == "" || strings.ContainsRune(n.Name, 0) {
 		return fmt.Errorf("flight stop %d needs a name", n.ID)
@@ -357,7 +373,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	nodeCount := p.nodes.records
 	seen := map[uint32]bool{}
 	for _, n := range nodes {
-		if err := checkTaxiNode(n); err != nil {
+		if err := checkTaxiNode(n, taxiNodeLimit(p.nodes)); err != nil {
 			return TaxiTables{}, err
 		}
 		if goneNode[n.ID] {
