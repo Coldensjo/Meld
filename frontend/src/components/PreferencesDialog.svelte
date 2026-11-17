@@ -2,10 +2,10 @@
 	import Modal from './Modal.svelte'
 	import { prefs, setStatus, ui, wow, type PrefsPage } from '../lib/state/editor.svelte'
 	import { hasBackend } from '../lib/io/backend'
-	import { chooseBenillaFolder, chooseCmangosFolder, chooseVmangosFolder, setGameClient, setGameWindow } from '../lib/io/game'
+	import { chooseAzerothcoreFolder, chooseBenillaFolder, chooseCmangosFolder, chooseVmangosFolder, setGameClient, setGameWindow } from '../lib/io/game'
 	import { blenderInfo, chooseBlenderFolder } from '../lib/io/blender'
 	import { chooseWowFolder } from '../lib/wow/api'
-	import { ClearThumbnailCache, CmangosPath, GameClient, VmangosPath } from '../lib/wails/App'
+	import { AzerothcorePath, ClearThumbnailCache, CmangosPath, GameClient, VmangosPath } from '../lib/wails/App'
 	import { rememberAntialias } from '../lib/engine/display'
 	import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
 	import { UI_SCALES } from '../lib/ui/uiScale'
@@ -37,6 +37,7 @@
 	let query = $state('')
 	let server = $state('')
 	let cmangos = $state('')
+	let azerothcore = $state('')
 	let benilla = $state({ path: '', built: false })
 	let blender = $state({ path: '', program: '', error: '' })
 
@@ -45,6 +46,7 @@
 		if (!hasBackend()) return
 		server = await VmangosPath().catch(() => '')
 		cmangos = await CmangosPath().catch(() => '')
+		azerothcore = await AzerothcorePath().catch(() => '')
 		const g = await GameClient().catch(() => null)
 		benilla = { path: g?.benillaPath ?? '', built: !!g?.benillaBuilt }
 		blender = await blenderInfo()
@@ -205,6 +207,19 @@
 		},
 		{
 			page: 'folders',
+			id: 'azerothcoreFolder',
+			label: 'AzerothCore server folder',
+			desc: 'An AzerothCore server’s install (the folder with bin and etc, its tools built), for File › Compile to AzerothCore Server, which needs a 3.3.5a client. Every other server tool stays VMaNGOS.',
+			kind: 'folder',
+			path: azerothcore,
+			disabled: !hasBackend(),
+			run: async () => {
+				await chooseAzerothcoreFolder()
+				await refresh()
+			},
+		},
+		{
+			page: 'folders',
 			id: 'benillaFolder',
 			label: 'Benilla folder',
 			desc: 'The open-source 1.12 client’s repository, with its release build in target/release. Pick it as the game on the Game page.',
@@ -313,7 +328,7 @@
 			'compile',
 			'exportCore',
 			'Spawn SQL for',
-			'The server core File › Export Spawn SQL… writes its SQL for. What the core’s tables can’t hold (a formation member’s own place in CMaNGOS, a spawn’s display or waypoint scripts in AzerothCore) is listed in the file. CMaNGOS classic also adds File › Compile to CMaNGOS Server, which rebuilds that server’s map data with its own extractors. CMaNGOS TBC (2.4.3) gets Meld’s spawns under guids of their own, 10000000 plus the editor’s, and pools of their own made after the highest entry; AzerothCore (3.3.5a) under guids and pools of their own, 100000000 plus the editor’s. Saving spawns to the database stays VMaNGOS.',
+			'The server core File › Export Spawn SQL… writes its SQL for. What the core’s tables can’t hold (a formation member’s own place in CMaNGOS, a spawn’s display or waypoint scripts in AzerothCore) is listed in the file. CMaNGOS classic and AzerothCore also add File › Compile to CMaNGOS Server and File › Compile to AzerothCore Server, which rebuild that server’s map data with its own extractors. CMaNGOS TBC (2.4.3) gets Meld’s spawns under guids of their own, 10000000 plus the editor’s, and pools of their own made after the highest entry; AzerothCore (3.3.5a) under guids and pools of their own, 100000000 plus the editor’s. Saving spawns to the database stays VMaNGOS.',
 			[
 				['VMaNGOS', 'vmangos'],
 				['CMaNGOS classic', 'cmangos-classic'],

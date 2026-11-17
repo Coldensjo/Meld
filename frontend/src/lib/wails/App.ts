@@ -27,7 +27,9 @@ export const ApplySpawnEdits: Call<AppApi['ApplySpawnEdits']> = (...a) => api().
 export const AreaRows: NonNullCall<AppApi['AreaRows']> = (...a) => api().AreaRows(...a) as never
 export const AreaTriggers: Call<AppApi['AreaTriggers']> = (...a) => api().AreaTriggers(...a) as never
 export const Areas: NonNullCall<AppApi['Areas']> = (...a) => api().Areas(...a) as never
+export const AzerothcorePath: Call<AppApi['AzerothcorePath']> = (...a) => api().AzerothcorePath(...a) as never
 export const Blender: Call<AppApi['Blender']> = (...a) => api().Blender(...a) as never
+export const BrowseAzerothcoreFolder: Call<AppApi['BrowseAzerothcoreFolder']> = (...a) => api().BrowseAzerothcoreFolder(...a) as never
 export const BrowseBenillaFolder: Call<AppApi['BrowseBenillaFolder']> = (...a) => api().BrowseBenillaFolder(...a) as never
 export const BrowseBlenderFolder: Call<AppApi['BrowseBlenderFolder']> = (...a) => api().BrowseBlenderFolder(...a) as never
 export const BrowseBrushImageFolder: Call<AppApi['BrowseBrushImageFolder']> = (...a) => api().BrowseBrushImageFolder(...a) as never
@@ -329,6 +331,7 @@ export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog
 export const SessionSend: Call<AppApi['SessionSend']> = (...a) => api().SessionSend(...a) as never
 export const SessionState: Call<AppApi['SessionState']> = (...a) => api().SessionState(...a) as never
 export const SetAccount: Call<AppApi['SetAccount']> = (...a) => api().SetAccount(...a) as never
+export const SetAzerothcorePath: Call<AppApi['SetAzerothcorePath']> = (...a) => api().SetAzerothcorePath(...a) as never
 export const SetBenillaPath: Call<AppApi['SetBenillaPath']> = (...a) => api().SetBenillaPath(...a) as never
 export const SetBlenderPath: Call<AppApi['SetBlenderPath']> = (...a) => api().SetBlenderPath(...a) as never
 export const SetCharacterLevel: Call<AppApi['SetCharacterLevel']> = (...a) => api().SetCharacterLevel(...a) as never
@@ -364,6 +367,7 @@ export const StopServer: Call<AppApi['StopServer']> = (...a) => api().StopServer
 export const TaxiNetwork: Call<AppApi['TaxiNetwork']> = (...a) => api().TaxiNetwork(...a) as never
 export const TemplateNames: NonNullCall<AppApi['TemplateNames']> = (...a) => api().TemplateNames(...a) as never
 export const Transports: NonNullCall<AppApi['Transports']> = (...a) => api().Transports(...a) as never
+export const UpdateAzerothCoreServer: Call<AppApi['UpdateAzerothCoreServer']> = (...a) => api().UpdateAzerothCoreServer(...a) as never
 export const UpdateCMaNGOSServer: Call<AppApi['UpdateCMaNGOSServer']> = (...a) => api().UpdateCMaNGOSServer(...a) as never
 export const UpdateRegionServer: Call<AppApi['UpdateRegionServer']> = (...a) => api().UpdateRegionServer(...a) as never
 export const VmangosPath: Call<AppApi['VmangosPath']> = (...a) => api().VmangosPath(...a) as never

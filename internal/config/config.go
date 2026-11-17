@@ -22,6 +22,9 @@ type Config struct {
 	// CmangosPath is a CMaNGOS classic server folder (the one with mangosd.exe) whose map data Compile
 	// to CMaNGOS rebuilds with that server's extractors (#894). Nothing else of Meld's uses it.
 	CmangosPath string `json:"cmangosPath,omitempty"`
+	// AzerothcorePath is an AzerothCore server's install (the folder with bin and etc) whose map data
+	// Compile to AzerothCore rebuilds with that server's extractors (#1094). Nothing else of Meld's uses it.
+	AzerothcorePath string `json:"azerothcorePath,omitempty"`
 	// ExternalConf is the mangosd.conf copy last picked to connect to an external database (#856), for
 	// the file dialog's start. Only its path: the connection itself lasts one session.
 	ExternalConf string `json:"externalConf,omitempty"`

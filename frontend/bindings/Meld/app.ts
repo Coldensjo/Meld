@@ -91,10 +91,24 @@ export function Areas(): $CancellablePromise<vmangos$0.Area[] | null> {
 }
 
 /**
+ * AzerothcorePath returns the AzerothCore server folder, or "".
+ */
+export function AzerothcorePath(): $CancellablePromise<string> {
+    return $Call.ByID(1218961438);
+}
+
+/**
  * Blender says which Blender Open in Blender starts.
  */
 export function Blender(): $CancellablePromise<$models.BlenderInfo> {
     return $Call.ByID(3582698407);
+}
+
+/**
+ * BrowseAzerothcoreFolder lets the user pick an AzerothCore server folder. Returns "" if cancelled.
+ */
+export function BrowseAzerothcoreFolder(): $CancellablePromise<string> {
+    return $Call.ByID(3846740583);
 }
 
 /**
@@ -2468,6 +2482,13 @@ export function SetAccount(id: number, gmLevel: number, password: string): $Canc
 }
 
 /**
+ * SetAzerothcorePath checks that path is an AzerothCore server folder and remembers it. "" forgets it.
+ */
+export function SetAzerothcorePath(path: string): $CancellablePromise<void> {
+    return $Call.ByID(2339292936, path);
+}
+
+/**
  * SetBenillaPath saves the Benilla folder: the repository, with its Cargo.toml (the program is built
  * into target/release there).
  */
@@ -2742,6 +2763,17 @@ export function TemplateNames(kind: string, ids: number[] | null): $CancellableP
  */
 export function Transports(mapID: number): $CancellablePromise<vmangos$0.Transport[] | null> {
     return $Call.ByID(388490939, mapID);
+}
+
+/**
+ * UpdateAzerothCoreServer rebuilds the AzerothCore server's map data from the client's patch for mapID
+ * (the open region's map), its movement maps for tiles ("x_y"; none for the whole map), once the game is
+ * closed and the world server stopped, in the background, as UpdateCMaNGOSServer does: its progress
+ * arrives as "servermaps:log" events and "servermaps:done" carries an error message, or nothing. It
+ * shares the server rebuilds' busy flag, since they all read the patch.
+ */
+export function UpdateAzerothCoreServer(mapID: number, tiles: string[] | null): $CancellablePromise<void> {
+    return $Call.ByID(353789921, mapID, tiles);
 }
 
 /**
