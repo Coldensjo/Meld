@@ -44,11 +44,12 @@ var guardDBWriters = map[string]bool{
 
 // TestNoTestWritesRealClient fails when a Go test hands a folder that is the owner's real client to
 // a function that writes there (#402). The real client is the folder named by WOW_DIR, or the one
-// testclient.DataDir returns (WOW_DIR, else config.json's wowPath, #400); a test that writes uses
-// t.TempDir() or a hard-linked copy of the client (clientfolder_test.go) instead.
+// testclient.DataDir returns (WOW_DIR, else config.json's wowPath, #400), and the 3.3.5a client the
+// same way (WOW335_DIR, testclient.WotLKDir, #1066); a test that writes uses t.TempDir() or a
+// hard-linked copy of the client (clientfolder_test.go) instead.
 //
 // How it works: in each function, an identifier is "real" when it is assigned from
-// os.Getenv("WOW_DIR") or testclient.DataDir(t), or from an expression that uses another real identifier (ResolveDataDir,
+// os.Getenv("WOW_DIR") or testclient.DataDir(t) (or their 3.3.5a twins), or from an expression that uses another real identifier (ResolveDataDir,
 // filepath.Join, ...), unless the expression calls t.TempDir() or a function whose name contains
 // "TempDir", "Copy", "Link" or "Sandbox". A call of a writer in writerDirArg whose folder argument
 // uses a real identifier fails. Limit: a real folder passed to a helper that writes is not followed;
@@ -105,6 +106,12 @@ func TestD(t *testing.T) {
 	dataDir, _ := wow.ResolveDataDir(dir)
 	InstallWithPending(dataDir, nil)
 }
+func TestE(t *testing.T) {
+	dir := testclient.WotLKDir(t)
+	dataDir, _ := wow.ResolveDataDir(dir)
+	InstallPatch(dataDir, nil)
+	AddPending(os.Getenv("WOW335_DIR"), nil)
+}
 func TestCreatedGUIDLive(t *testing.T) {
 	dir := testclient.ServerDir(t)
 	_ = dir
@@ -120,6 +127,8 @@ func TestA(t *testing.T) {
 	AddPending(filepath.Join(dir, "x"), nil)
 	client := testclient.DataDir(t)
 	ExportMap(client, out, testclient.ServerDir(t), spec)
+	later := testclient.WotLKDir(t)
+	ExportMap(later, t.TempDir(), "", spec)
 }
 func TestCreatedGUIDLive(t *testing.T) {
 	dir := os.Getenv("VMANGOS_DIR")
@@ -133,8 +142,8 @@ func TestCreatedGUIDLive(t *testing.T) {
 		}
 		return len(guardFile(fset, f, "x/x_test.go"))
 	}
-	if n := count(bad); n != 5 {
-		t.Errorf("bad source: %d problems reported, want 5", n)
+	if n := count(bad); n != 7 {
+		t.Errorf("bad source: %d problems reported, want 7", n)
 	}
 	if n := count(good); n != 0 {
 		t.Errorf("good source: %d problems reported, want 0", n)
@@ -263,11 +272,12 @@ func makesCopy(e ast.Expr) bool {
 	return found
 }
 
-// isRealSource reports an expression that yields the real client's folder: os.Getenv("WOW_DIR")
-// or testclient.DataDir.
+// isRealSource reports an expression that yields a real client's folder: os.Getenv("WOW_DIR") or
+// testclient.DataDir for the 1.12 client, os.Getenv("WOW335_DIR") or testclient.WotLKDir for the
+// 3.3.5a one (#1066).
 func isRealSource(e ast.Expr) bool {
 	call, ok := e.(*ast.CallExpr)
-	if ok && calleeName(call) == "testclient.DataDir" {
+	if ok && (calleeName(call) == "testclient.DataDir" || calleeName(call) == "testclient.WotLKDir") {
 		return true
 	}
 	if !ok || calleeName(call) != "os.Getenv" || len(call.Args) != 1 {
@@ -278,7 +288,7 @@ func isRealSource(e ast.Expr) bool {
 		return false
 	}
 	s, _ := strconv.Unquote(lit.Value)
-	return s == "WOW_DIR"
+	return s == "WOW_DIR" || s == "WOW335_DIR"
 }
 
 // calleeName is "pkg.Func", "recv.Method" or "Func" for the called expression.

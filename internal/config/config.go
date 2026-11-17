@@ -13,6 +13,10 @@ import (
 type Config struct {
 	// WowPath is a local WoW 1.x client folder whose MPQs are read live.
 	WowPath string `json:"wowPath"`
+	// Wow335Path is a WoW 3.3.5a client folder for the client-dependent Go tests of that client's
+	// formats (internal/testclient's WotLKDir, #1066), beside the 1.12 one in WowPath. The editor
+	// itself opens WowPath only, whichever client that is.
+	Wow335Path string `json:"wow335Path,omitempty"`
 	// VmangosPath is the VMaNGOS server folder that map patches and SQL are written for.
 	VmangosPath string `json:"vmangosPath,omitempty"`
 	// CmangosPath is a CMaNGOS classic server folder (the one with mangosd.exe) whose map data Compile
