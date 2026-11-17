@@ -16,7 +16,7 @@ ifeq ($(OS),Windows_NT)
 EXE := .exe
 endif
 
-.PHONY: dev dev-page dev-build dev-page-build build build-linux build-windows frontend-build frontend-dist test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf clean
+.PHONY: dev dev-page dev-build dev-page-build build build-linux build-darwin build-windows frontend-build frontend-dist test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf clean
 
 # The desktop window, with Vite's hot reload; a Go change rebuilds and restarts it (build/dev.yml).
 dev:
@@ -41,6 +41,11 @@ frontend-build:
 
 build-linux: frontend-build
 	go build -tags "production $(LINUX_TAGS)" -trimpath -ldflags "-w -s" -o build/bin/Meld .
+
+# macOS: the program alone, not an app bundle, so it is started from a terminal (build/bin/Meld). No CI
+# job and no machine of the owner's builds it; scripts/setup-macos.sh installs what it needs.
+build-darwin: frontend-build
+	go build -tags production -trimpath -ldflags "-w -s" -o build/bin/Meld .
 
 # Cross-compiles from Linux too (Wails' Windows backend needs no cgo). The .syso holds the icon, the
 # manifest and the version info; go build links it in from the root folder.
@@ -97,7 +102,7 @@ format-check:
 
 # The gate before a commit (CLAUDE.md, "Git workflow"): check, test, then the build for this OS.
 verify: check test
-	@if [ "$(OS)" = Windows_NT ]; then $(MAKE) build-windows; else $(MAKE) build-linux; fi
+	@if [ "$(OS)" = Windows_NT ]; then $(MAKE) build-windows; elif [ "$$(uname -s)" = Darwin ]; then $(MAKE) build-darwin; else $(MAKE) build-linux; fi
 
 # Rewrites the generated part of THIRD_PARTY_NOTICES.md: the licence and text of every library the app bundles (frontend/scripts/notices.mjs).
 notices:
