@@ -198,11 +198,28 @@ func (c *Client) Status() Status {
 		s.Archives = len(c.set.Archives())
 		b := c.set.Build()
 		s.Build, s.Version, s.BuildWarning = int(b), b.Version(), c.set.BuildInfo().Warning
+	} else if c.dir != "" {
+		// Not open (it failed, or was never opened): its Wow.exe or archive names still tell the build,
+		// so the start dialog asks for the server that build needs (AzerothCore for 3.3.5a), not VMaNGOS.
+		if b, ok := folderBuild(c.dir); ok {
+			s.Build, s.Version = int(b), b.Version()
+		}
 	}
 	if c.err != nil {
 		s.Error = c.err.Error()
 	}
 	return s
+}
+
+// folderBuild is the build a client folder (its root or its Data folder) names by its Wow.exe or its
+// archives; false when neither tells.
+func folderBuild(dir string) (clientbuild.Build, bool) {
+	for _, d := range []string{dir, filepath.Join(dir, "Data")} {
+		if info := clientbuild.Detect(d); info.From != "" {
+			return info.Build, true
+		}
+	}
+	return 0, false
 }
 
 // Build is the loaded client's build, read from its Wow.exe or archives when it opened (#1063):
