@@ -46,7 +46,7 @@ func loadModelTables(dataDir string) (*modelTables, error) {
 		if err != nil {
 			return nil, err
 		}
-		return parseTable(b, s)
+		return parseTableFor(b, s, set.Build())
 	}
 	var m modelTables
 	if m.creatureDisplay, err = read(dbcCreatureDisplay); err != nil {
@@ -296,14 +296,14 @@ func (m *modelTables) dress(out *creatureDisplay, cl charLook, worn [wearSlots]i
 			}
 		}
 	}
-	// CharacterFacialHairStyles: race, sex, variation, six geosets, the last three the variants of
-	// geoset groups 1, 3 and 2 (the order WoW Model Viewer reads them in).
-	if t := m.facialHair; t != nil && t.fields > t.at("Geoset", 5) {
+	// CharacterFacialHairStyles: race, sex, variation and the variants of geoset groups 1, 3 and 2
+	// (the order WoW Model Viewer reads them in), which each client keeps in its own columns.
+	if t := m.facialHair; t != nil && t.fields > t.at("Geoset", 2) {
 		cr, cs, cv := t.col("Race"), t.col("Sex"), t.col("Variation")
 		for r := 0; r < t.records; r++ {
 			if t.u32(r, cr) == uint32(race) && t.u32(r, cs) == sex && t.u32(r, cv) == facial {
 				for i, group := range []int{geoFacial1, geoFacial3, geoFacial2} {
-					geo[group] = group*100 + max(1, int(t.u32(r, t.at("Geoset", 3+i))))
+					geo[group] = group*100 + max(1, int(t.u32(r, t.at("Geoset", i))))
 				}
 				break
 			}

@@ -25,8 +25,10 @@ import (
 // copied or generated from.
 //
 // A reader resolves the names it needs once per table (t.col, t.at), outside its row loop, and
-// reads the rows by column number as before. A table's layout is picked by its width (so no build
-// is passed around), which makes two layouts of one width a mistake. A localized string reads and
+// reads the rows by column number as before. A table's layout is picked by its width, so most
+// readers pass no build. Two tables (GroundEffectDoodad, CharSections) are as wide in 3.3.5a as in
+// 1.12 with other columns: their readers pass the client's build (parseTableFor), and a reader that
+// does not gets the 1.12 layout. A localized string reads and
 // writes the client's locale slot: slot 0 (enUS) in every build for now, as Meld always read it.
 // The ID is column 0 in every build, the column parseDBC indexes the rows by.
 
@@ -82,8 +84,9 @@ func dbcLocales(b clientbuild.Build) int {
 
 // newDBCSchema reads a table's layout specs, one per build. A spec that cannot be read is a mistake
 // in Meld's code, so it panics when the package loads. Each schema needs a 1.12 layout, the one an
-// unknown build and a table of no known width read with, and no two of its layouts may have the same
-// width, since a table's layout is picked by its width (dbcSchema.layout).
+// unknown build and a table of no known width read with. Two of its layouts may be as wide as each
+// other: the width alone then picks the earlier build's, and the build picks the right one
+// (dbcSchema.layoutFor).
 func newDBCSchema(name string, specs map[clientbuild.Build]string) *dbcSchema {
 	if _, ok := dbcSchemas[name]; ok {
 		panic("DBC schema " + name + " defined twice")
@@ -97,11 +100,6 @@ func newDBCSchema(name string, specs map[clientbuild.Build]string) *dbcSchema {
 		l, err := parseDBCLayout(name, b, spec)
 		if err != nil {
 			panic(err)
-		}
-		for _, o := range s.layouts {
-			if o.columns == l.columns {
-				panic(fmt.Sprintf("%s.dbc has two layouts %d columns wide (%s and %s)", name, l.columns, o.build.Version(), b.Version()))
-			}
 		}
 		s.layouts = append(s.layouts, l)
 	}
@@ -188,6 +186,31 @@ func (s *dbcSchema) layout(fields int) *dbcLayout {
 		}
 	}
 	return s.layouts[0]
+}
+
+// layoutFor is the schema's layout for a table of the given width in a client of build b: that
+// build's own when the table is as wide as it, else the one the width picks (layout). So a table
+// that two builds hold in the same width but in other columns is read as its client's.
+func (s *dbcSchema) layoutFor(b clientbuild.Build, fields int) *dbcLayout {
+	for _, l := range s.layouts {
+		if l.build == b && l.columns == fields {
+			return l
+		}
+	}
+	return s.layout(fields)
+}
+
+// ambiguous reports whether two of the schema's layouts are as wide as each other, so that its
+// readers must pass the client's build.
+func (s *dbcSchema) ambiguous() bool {
+	for i, l := range s.layouts {
+		for _, o := range s.layouts[:i] {
+			if o.columns == l.columns {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // forBuild is the schema's layout for a build, for a table made from nothing; an unknown build, or one
@@ -278,6 +301,17 @@ func parseTable(b []byte, s *dbcSchema) (*dbcTable, error) {
 	return t, nil
 }
 
+// parseTableFor is parseTable for a table read from a client of build b (mpq.Set.Build), which
+// picks between two layouts of the table's width (layoutFor).
+func parseTableFor(b []byte, s *dbcSchema, build clientbuild.Build) (*dbcTable, error) {
+	t, err := parseDBC(b)
+	if err != nil {
+		return nil, err
+	}
+	t.l = s.layoutFor(build, t.fields)
+	return t, nil
+}
+
 // parseExact is parseTable for a table that must be one of its layouts' widths, with a record
 // of 32-bit fields: a reader that rewrites whole records, or that a narrower table would mislead.
 func parseExact(b []byte, s *dbcSchema) (*dbcTable, error) {
@@ -286,7 +320,7 @@ func parseExact(b []byte, s *dbcSchema) (*dbcTable, error) {
 		return nil, fmt.Errorf("%s.dbc: %w", s.name, err)
 	}
 	if t.fields != t.l.columns || t.recSize != t.fields*4 {
-		return nil, fmt.Errorf("%s.dbc has %d fields of %d bytes a record, not 1.12's %d", s.name, t.fields, t.recSize, s.layouts[0].columns)
+		return nil, fmt.Errorf("%s.dbc has %d fields of %d bytes a record, not the %d of a layout Meld knows", s.name, t.fields, t.recSize, s.layouts[0].columns)
 	}
 	return t, nil
 }

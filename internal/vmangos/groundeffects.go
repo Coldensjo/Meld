@@ -67,10 +67,14 @@ const noDoodad = 0xFFFFFFFF
 // GroundEffectTexture slot names a doodad by that ID, not by the row ID (field 0, mostly one more),
 // as the client's CMapChunk::CreateDetailDoodads looks it up (after Benilla's ground_effects.rs, MIT/
 // Apache); keyed by the row ID, 264 of the client's effects mix models of other zones, by the internal
-// ID 29. A path is the file name, .mdl in the table and .m2 in the archives.
+// ID 29. The 3.3.5a table has no internal ID: there a slot names the row's own (Benilla-WotLK's
+// ground_effects.rs). A path is the file name, .mdl in the table and .m2 in the archives.
 func detailPaths(doodads *dbcTable) map[uint32]string {
 	paths := map[uint32]string{}
-	pathCol, idCol := doodads.col("Path"), doodads.col("DoodadID")
+	pathCol, idCol := doodads.col("Path"), 0
+	if doodads.l.has("DoodadID") {
+		idCol = doodads.col("DoodadID")
+	}
 	for r := 0; r < doodads.records; r++ {
 		name := doodads.str(r, pathCol)
 		if name == "" {
@@ -90,7 +94,7 @@ func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s.dbc: %w", s.name, err)
 		}
-		return parseTable(b, s)
+		return parseTableFor(b, s, set.Build())
 	}
 	doodads, err := read(dbcGroundDoodad)
 	if err != nil {
@@ -104,13 +108,19 @@ func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 		return nil, fmt.Errorf("ground effect tables have %d and %d fields; the 1.12 layout has 3 and 7", doodads.fields, textures.fields)
 	}
 	paths := detailPaths(doodads)
+	// An empty slot is noDoodad where the slots name internal IDs, which start at 0, and 0 where they
+	// name rows, which start at 1 (3.3.5a).
+	empty := uint32(noDoodad)
+	if !doodads.l.has("DoodadID") {
+		empty = 0
+	}
 	slot, density, terrain := textures.at("Doodad", 0), textures.col("Density"), textures.col("Terrain")
 	out := map[uint32]GroundEffect{}
 	for r := 0; r < textures.records; r++ {
 		var e GroundEffect
 		for i := range e.Slots {
 			e.Slots[i] = -1
-			if id := textures.u32(r, slot+i); id != noDoodad {
+			if id := textures.u32(r, slot+i); id != empty {
 				if p, ok := paths[id]; ok {
 					e.Slots[i] = len(e.Doodads)
 					e.Doodads = append(e.Doodads, p)
