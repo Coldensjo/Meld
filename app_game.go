@@ -202,6 +202,22 @@ func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
 // moved, or an error that says why it can't (no character or server set, the world server not running,
 // SOAP off, the character not in the world), so the editor can point to Launch instead.
 func (a *App) PlayHere(spot vmangos.CharacterSpot) (string, error) {
+	// A 3.3.5a client's world is the AzerothCore server's: its remote access console moves the
+	// character, in the world or not.
+	if ac, _, ok, err := a.acWorld(); ok || err != nil {
+		if err != nil {
+			return "", err
+		}
+		sess, err := a.gameSession()
+		if err != nil {
+			return "", err
+		}
+		character := sess.Login.Character
+		if character == "" {
+			return "", errors.New("Game Login has no character to move")
+		}
+		return character, vmangos.ACTeleportCharacter(ac, sess.Login.Account, sess.Login.Password, character, spot)
+	}
 	if externalOn() {
 		return "", errExternal
 	}
