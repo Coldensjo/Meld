@@ -19,6 +19,8 @@ type fakeRunner struct {
 	// answers yes before the author stops it.
 	serverUp   bool
 	stopsAfter int
+	// image is the world server's image name serverUp is about: mangosd.exe when empty.
+	image string
 	// writes are the files (slash paths under the folder it runs in) a program whose name holds the
 	// key writes before it returns, as an extractor would.
 	writes map[string][]string
@@ -62,7 +64,11 @@ func (f *fakeRunner) Start(dir, name string, args ...string) error {
 }
 
 func (f *fakeRunner) Running(image string) bool {
-	if image != "mangosd.exe" || !f.serverUp {
+	world := f.image
+	if world == "" {
+		world = "mangosd.exe"
+	}
+	if image != world || !f.serverUp {
 		return false
 	}
 	if f.stopsAfter > 0 {
