@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -150,6 +151,11 @@ func SetAreaTriggers(dbc []byte, rows []AreaTrigger, remove []uint32) ([]byte, e
 		return nil, err
 	}
 	for _, a := range rows {
+		// A row the save hands back as the client has it is written as it is: the 3.3.5a client's
+		// own table holds triggers no check here would let in (some with neither radius nor box).
+		if r, ok := t.row(a.ID); ok && slices.Equal(t.record(r), triggerRecord(t.l, a)) {
+			continue
+		}
 		if err := checkTrigger(a); err != nil {
 			return nil, err
 		}

@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -433,8 +434,28 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	// Routes: edited in place, new ones at the end.
 	saved := map[uint32]TaxiRoute{}
 	var added []uint32
+	var ownPoints map[uint32][]TaxiPoint
+	unchanged := map[uint32]bool{}
+	// ownRoute says whether route r is the table's own as it has it, which is written as it is: the
+	// 3.3.5a client's own table holds routes no check here would let in (some of a single point).
+	ownRoute := func(r TaxiRoute) bool {
+		row, ok := p.paths.row(r.ID)
+		if !ok {
+			return false
+		}
+		if _, from, to, cost := p.path(row); from != r.From || to != r.To || cost != r.Cost {
+			return false
+		}
+		if ownPoints == nil {
+			ownPoints = p.routePoints()
+		}
+		return slices.Equal(ownPoints[r.ID], r.Points)
+	}
 	for _, r := range routes {
-		if err := checkTaxiRoute(r); err != nil {
+		if ownRoute(r) {
+			// Checked only for what the rest of the write does to its stops (keep, below).
+			unchanged[r.ID] = true
+		} else if err := checkTaxiRoute(r); err != nil {
 			return TaxiTables{}, err
 		}
 		if goneRoute[r.ID] {
@@ -461,6 +482,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	// A transport's new path (#955) runs from stop 0 to stop 0: it is no flight, and no stop is checked.
 	keep := func(id, from, to, cost uint32) error {
 		_, edited := saved[id]
+		edited = edited && !unchanged[id]
 		transport := from == 0 && to == 0
 		for _, stop := range []uint32{from, to} {
 			if !transport && (goneNode[stop] || (edited && !exists[stop])) {
@@ -469,7 +491,7 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 		}
 		pair := [2]uint32{from, to}
 		if other, ok := pairs[pair]; ok && !transport {
-			if _, otherEdited := saved[other]; edited || otherEdited {
+			if _, otherEdited := saved[other]; edited || otherEdited && !unchanged[other] {
 				return fmt.Errorf("flight routes %d and %d both fly from stop %d to %d: the server keeps one", other, id, from, to)
 			}
 		}
@@ -504,11 +526,16 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	pointCount := 0
 	var topPoint uint32
 	reuse := map[uint32][]uint32{}
+	// The old records of the points a saved route writes anew, by ID: a point that takes an old ID
+	// starts from its record, so the columns Meld has no say in keep theirs (the 3.3.5a client's
+	// arrival and departure events).
+	oldPoint := map[uint32][]uint32{}
 	for r := 0; r < p.points.records; r++ {
 		id, path := p.points.u32(r, 0), p.points.u32(r, p.tc.path)
 		topPoint = max(topPoint, id)
-		if _, ok := saved[path]; ok {
+		if _, ok := saved[path]; ok && !unchanged[path] {
 			reuse[path] = append(reuse[path], id)
+			oldPoint[id] = p.points.record(r)
 			continue
 		}
 		if goneRoute[path] {
@@ -519,7 +546,9 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 	}
 	order := make([]uint32, 0, len(saved))
 	for id := range saved {
-		order = append(order, id)
+		if !unchanged[id] {
+			order = append(order, id)
+		}
 	}
 	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
 	for _, path := range order {
@@ -533,7 +562,16 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 				topPoint++
 				id = topPoint
 			}
-			pointRecs = appendFields(pointRecs, p.pointRecord(id, path, uint32(i), pt)...)
+			rec := p.pointRecord(id, path, uint32(i), pt)
+			if old := oldPoint[id]; len(old) == len(rec) {
+				c := p.tc
+				for f := range rec {
+					if f != 0 && f != c.path && f != c.index && f != c.mapID && (f < c.pos || f > c.pos+2) && f != c.flags && f != c.delay {
+						rec[f] = old[f]
+					}
+				}
+			}
+			pointRecs = appendFields(pointRecs, rec...)
 			pointCount++
 		}
 	}
