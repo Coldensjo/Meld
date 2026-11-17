@@ -76,6 +76,10 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 // installPatch is InstallPatch, for a caller holding lockPatch. The files named in drop are left out of
 // the new patch (the Icons tool's Delete, #717).
 func installPatch(dataDir string, files []mpq.File, drop ...string) (string, error) {
+	// A later client's tiles, tables and models are not written yet (laterclient.go).
+	if err := checkWritable(dataDir, files); err != nil {
+		return "", err
+	}
 	target := PatchPath(dataDir)
 	// A patch the game has open can't be replaced: say so before anything is backed up or written.
 	if err := checkFree(target); err != nil {
