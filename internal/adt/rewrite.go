@@ -91,6 +91,18 @@ type Changes struct {
 	// Headers sets header fields of the chunks it lists, by chunk index (y*16 + x). Chunks not
 	// listed keep their own.
 	Headers map[int]ChunkHeader
+	// Format says how the tile's client and map store what is written anew. The zero value is the
+	// 1.12 client's.
+	Format Format
+}
+
+// Format is how a client and a map store the parts of a tile Rewrite writes anew; what it copies
+// keeps the form it has.
+type Format struct {
+	// MH2O says the client keeps a tile's liquids in the tile's MH2O chunk, as the 3.3.5a client
+	// does (#1068), not in an MCLQ in each chunk. A tile of that client that still holds MCLQ
+	// liquids and no MH2O (Outland's do) keeps them there.
+	MH2O bool
 }
 
 // Water is a map's sea: ocean at Level yards, over the ground below it.
@@ -110,6 +122,10 @@ const (
 	mddfSize        = 36
 	modfSize        = 64
 	alphaBytes4     = 64 * 64 / 2
+	mcnkVertexColor = 0x74
+	mhdrMFBO        = 0x24
+	mhdrMH2O        = 0x28
+	mhdrMTXF        = 0x2c
 	chunkWidth      = TileSize / ChunksPerTile
 	defaultM2Reach  = 16.0
 	defaultWMOReach = 64.0
@@ -124,16 +140,21 @@ var subFields = []struct {
 	{"MCSH", 0x2c}, {"MCSE", mcnkSoundOfs}, {"MCLQ", mcnkLiquidOfs},
 }
 
-// topLevel holds a root file's chunks, by kind.
+// topLevel holds a root file's chunks, by kind. mh2o is the tile's liquids as the 3.3.5a client
+// keeps them, nil for a tile without the chunk.
 type topLevel struct {
 	mver, mhdr, mcin, mtex, mmdx, mmid, mwmo, mwid, mddf, modf []byte
+	mh2o                                                       []byte
 	mcnks                                                      [][]byte
 	others                                                     []topChunk
 }
 
+// topChunk is a chunk Rewrite carries over as it is; after says it came after the tile's MCNK
+// chunks, where it goes again (the 3.3.5a client's flight bounds, MFBO, and MTXF).
 type topChunk struct {
-	id   string
-	data []byte
+	id    string
+	data  []byte
+	after bool
 }
 
 func readTop(root []byte) (*topLevel, error) {
@@ -161,10 +182,16 @@ func readTop(root []byte) (*topLevel, error) {
 			t.mddf = data
 		case "MODF":
 			t.modf = data
+		case "MH2O":
+			if t.mh2o != nil {
+				t.others = append(t.others, topChunk{id: c.id, data: data, after: len(t.mcnks) > 0})
+				break
+			}
+			t.mh2o = data
 		case "MCNK":
 			t.mcnks = append(t.mcnks, data)
 		default:
-			t.others = append(t.others, topChunk{id: c.id, data: data})
+			t.others = append(t.others, topChunk{id: c.id, data: data, after: len(t.mcnks) > 0})
 		}
 		return nil
 	})
@@ -346,6 +373,10 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 		data   []byte
 	}
 	built := make([]builtChunk, 0, len(top.mcnks))
+	// Liquids go where the tile's client keeps them: in MH2O for a 3.3.5a tile, but for one that
+	// holds its own in MCLQ and has no MH2O (Format).
+	inMH2O := ch.Format.MH2O && (top.mh2o != nil || !holdsMCLQ(top.mcnks))
+	var water map[int]*chunkWater
 	for _, m := range top.mcnks {
 		cx := int(binary.LittleEndian.Uint32(m[0x04:]))
 		cy := int(binary.LittleEndian.Uint32(m[0x08:]))
@@ -353,11 +384,24 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 			return nil, fmt.Errorf("adt: chunk index %d,%d outside the tile", cx, cy)
 		}
 		idx := cy*ChunksPerTile + cx
-		data, err := rebuildChunk(m, idx, ch, texNames, effects, looks, m2Map, wmoMap, &added[idx])
+		data, liquids, err := rebuildChunk(m, idx, ch, inMH2O, texNames, effects, looks, m2Map, wmoMap, &added[idx])
 		if err != nil {
 			return nil, fmt.Errorf("chunk %d,%d: %w", cx, cy, err)
 		}
+		if liquids != nil && inMH2O {
+			if water == nil {
+				water = map[int]*chunkWater{}
+			}
+			water[idx] = liquids
+		}
 		built = append(built, builtChunk{cx: cx, cy: cy, data: data})
+	}
+	// The tile's MH2O: its own, or with the chunks whose liquids changed written anew.
+	mh2o := top.mh2o
+	if water != nil {
+		if mh2o, err = rewriteMH2O(top.mh2o, water); err != nil {
+			return nil, err
+		}
 	}
 	sort.SliceStable(built, func(i, j int) bool {
 		return built[i].cy*ChunksPerTile+built[i].cx < built[j].cy*ChunksPerTile+built[j].cx
@@ -392,9 +436,22 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 	positions["MWID"] = writeChunk("MWID", mwidOffsets)
 	positions["MDDF"] = writeChunk("MDDF", bytes.Join(m2Entries, nil))
 	positions["MODF"] = writeChunk("MODF", bytes.Join(wmoEntries, nil))
-	for _, c := range top.others {
-		writeChunk(c.id, c.data)
+	if mh2o != nil {
+		positions["MH2O"] = writeChunk("MH2O", mh2o)
 	}
+	// The chunks carried over, each on its side of the MCNK chunks.
+	carry := func(after bool) {
+		for _, c := range top.others {
+			if c.after != after {
+				continue
+			}
+			at := writeChunk(c.id, c.data)
+			if _, seen := positions[c.id]; !seen {
+				positions[c.id] = at
+			}
+		}
+	}
+	carry(false)
 	// The MCNK chunks, then MCIN's entries for them and MHDR's offsets to the chunks above.
 	for _, b := range built {
 		at := writeChunk("MCNK", b.data)
@@ -405,14 +462,43 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 			copy(mcin[i*16+8:i*16+16], orig[8:16])
 		}
 	}
+	carry(true)
 	copy(out.Bytes()[mcinAt+8:], mcin)
 	// MHDR's offsets: from its own data to each chunk's header.
 	names := []string{"MCIN", "MTEX", "MMDX", "MMID", "MWMO", "MWID", "MDDF", "MODF"}
 	for k, id := range names {
 		binary.LittleEndian.PutUint32(mhdr[4+k*4:], uint32(positions[id]-(mhdrAt+8)))
 	}
+	// And to the later clients' chunks, which the 3.3.5a client and the server's map extractor
+	// find by these (#1070): the flight bounds, the liquids and MTXF. A tile without one keeps the
+	// field as it has it (0), but for the liquids' when the tile has lost its last.
+	for _, f := range []struct {
+		id  string
+		ofs int
+	}{{"MFBO", mhdrMFBO}, {"MH2O", mhdrMH2O}, {"MTXF", mhdrMTXF}} {
+		if f.ofs+4 > len(mhdr) {
+			continue
+		}
+		if at, ok := positions[f.id]; ok {
+			binary.LittleEndian.PutUint32(mhdr[f.ofs:], uint32(at-(mhdrAt+8)))
+		} else if f.id == "MH2O" && top.mh2o != nil {
+			binary.LittleEndian.PutUint32(mhdr[f.ofs:], 0)
+		}
+	}
 	copy(out.Bytes()[mhdrAt+8:], mhdr)
 	return out.Bytes(), nil
+}
+
+// holdsMCLQ says whether a chunk of the tile holds liquid in an MCLQ: more than the empty one the
+// later clients' tiles carry.
+func holdsMCLQ(mcnks [][]byte) bool {
+	for _, m := range mcnks {
+		if len(m) >= mcnkHeaderLen && binary.LittleEndian.Uint32(m[mcnkLiquidOfs:]) != 0 &&
+			binary.LittleEndian.Uint32(m[mcnkLiquidSize:]) > 8 {
+			return true
+		}
+	}
+	return false
 }
 
 func origMCIN(mcin []byte, i int) []byte {
@@ -475,12 +561,21 @@ func subRegion(m []byte, ofs int) ([]byte, bool) {
 	return m[ofs : ofs+size], true
 }
 
+// chunkWater is a chunk's new liquid layers (the sea among them) and the ground under them, at the
+// chunk's 9x9 outer samples.
+type chunkWater struct {
+	layers []Liquid
+	ground *[liquidVerts]float32
+}
+
 // rebuildChunk writes one MCNK: its header with new offsets and counts, and its sub-chunks, kept
-// or rebuilt.
-func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, looks map[string]uint32,
-	m2Map, wmoMap map[int]int, added *struct{ m2, wmo []int }) ([]byte, error) {
+// or rebuilt. water is the chunk's new liquids when the save replaces them, else nil. With inMH2O
+// they go into the tile's MH2O, which Rewrite writes, and the chunk is left without liquid of its
+// own; otherwise they are written here, as its MCLQ.
+func rebuildChunk(m []byte, idx int, ch Changes, inMH2O bool, texNames *nameList, effects, looks map[string]uint32,
+	m2Map, wmoMap map[int]int, added *struct{ m2, wmo []int }) (out []byte, water *chunkWater, err error) {
 	if len(m) < mcnkHeaderLen {
-		return nil, errTruncated
+		return nil, nil, errTruncated
 	}
 	// Each sub-chunk the header names, by where its header starts (payload offset minus 8).
 	type region struct {
@@ -494,9 +589,37 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 			continue
 		}
 		if ofs < mcnkHeaderLen+8 || ofs > len(m) {
-			return nil, fmt.Errorf("%s offset %d is out of place", f.id, ofs)
+			return nil, nil, fmt.Errorf("%s offset %d is out of place", f.id, ofs)
 		}
 		regions = append(regions, region{id: f.id, start: ofs - 8})
+	}
+	// The vertex colours of the later clients' tiles (MCCV, #1070). The 1.12 client's header has
+	// nothing at their offset, so the sub-chunk must be there by its name.
+	hasColors := false
+	if ofs := int(binary.LittleEndian.Uint32(m[mcnkVertexColor:])); ofs >= mcnkHeaderLen+8 && ofs <= len(m) &&
+		string(m[ofs-8:ofs-4]) == "VCCM" {
+		regions = append(regions, region{id: "MCCV", start: ofs - 8})
+		hasColors = true
+	}
+	// Two fields that point at one place: the 3.3.5a client's chunks without baked shadows point
+	// the shadow's field at their alpha maps. The sub-chunk is the one its name says, and the
+	// other field follows it to wherever it is written (alias, by field).
+	alias := map[string]string{}
+	for i := 0; i < len(regions); i++ {
+		for j := 0; j < len(regions); j++ {
+			a, b := regions[i], regions[j]
+			if i == j || a.start != b.start || a.start+4 > len(m) {
+				continue
+			}
+			name := string([]byte{m[a.start+3], m[a.start+2], m[a.start+1], m[a.start]})
+			if name != b.id || name == a.id {
+				continue
+			}
+			alias[a.id] = b.id
+			regions = append(regions[:i], regions[i+1:]...)
+			i--
+			break
+		}
 	}
 	sort.Slice(regions, func(i, j int) bool { return regions[i].start < regions[j].start })
 	for i := range regions {
@@ -527,7 +650,7 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 	}
 	if painted {
 		if len(paint.Layers) > 4 {
-			return nil, errors.New("more than four layers")
+			return nil, nil, errors.New("more than four layers")
 		}
 		// The effect each texture has in the chunk's own layers, for the layers that keep it.
 		var ownEffects map[string]uint32
@@ -547,7 +670,7 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 				f = layerUseAlpha
 				alphaOfs = uint32((l - 1) * alphaBytes4)
 				if len(layer.Alpha) != 64*64 {
-					return nil, fmt.Errorf("layer %d alpha is %d bytes, want 4096", l, len(layer.Alpha))
+					return nil, nil, fmt.Errorf("layer %d alpha is %d bytes, want 4096", l, len(layer.Alpha))
 				}
 				mcal = append(mcal, encode4Bit(layer.Alpha)...)
 			}
@@ -614,7 +737,10 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 		}
 		replace = true
 	}
-	if replace {
+	if replace && inMH2O {
+		// The tile's MH2O takes them; the chunk's flags name only the liquids of an MCLQ.
+		flags &^= mcnkLiquidMask
+	} else if replace {
 		var kinds uint32
 		liquid, kinds = liquidRecords(layers)
 		flags = flags&^mcnkLiquidMask | kinds
@@ -664,6 +790,9 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 		pieces = append(pieces, piece{id: id, data: append(head[:], data...), fresh: true})
 	}
 	add("MCVT", raw["MCVT"], true)
+	if hasColors {
+		add("MCCV", raw["MCCV"], true)
+	}
 	add("MCNR", raw["MCNR"], true)
 	if layersRaw != nil {
 		if mcly != nil {
@@ -726,9 +855,18 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 			continue
 		}
 		ofs := uint32(at + 8)
+		for _, f := range subFields {
+			// A field that followed this piece in the tile's own chunk, unless the save gave it
+			// a sub-chunk of its own.
+			if alias[f.id] == p.id && !written[f.id] {
+				binary.LittleEndian.PutUint32(header[f.ofs:], ofs)
+			}
+		}
 		switch p.id {
 		case "MCVT":
 			binary.LittleEndian.PutUint32(header[0x14:], ofs)
+		case "MCCV":
+			binary.LittleEndian.PutUint32(header[mcnkVertexColor:], ofs)
 		case "MCNR":
 			binary.LittleEndian.PutUint32(header[0x18:], ofs)
 		case "MCLY":
@@ -755,7 +893,17 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 		at += len(p.data)
 	}
 	// MCRF's and MCVT's raw regions include their own headers; the offsets above assume that.
-	return append(header, body...), nil
+	if replace {
+		water = &chunkWater{layers: layers}
+		if mcvt := raw["MCVT"]; len(mcvt) >= 8+HeightCount*4 {
+			base := f32(m, 0x70)
+			water.ground = new([liquidVerts]float32)
+			for v := range water.ground {
+				water.ground[v] = base + f32(mcvt, 8+(v/9*17+v%9)*4)
+			}
+		}
+	}
+	return append(header, body...), water, nil
 }
 
 // encode4Bit packs a 64x64 alpha map at four bits a texel, two a byte, low nibble first.
