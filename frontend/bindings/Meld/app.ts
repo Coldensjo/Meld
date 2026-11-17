@@ -2482,7 +2482,8 @@ export function SetAccount(id: number, gmLevel: number, password: string): $Canc
 }
 
 /**
- * SetAzerothcorePath checks that path is an AzerothCore server folder and remembers it. "" forgets it.
+ * SetAzerothcorePath checks that path is an AzerothCore server folder and remembers it, or the install
+ * its build names when it is AzerothCore's source. "" forgets it.
  */
 export function SetAzerothcorePath(path: string): $CancellablePromise<void> {
     return $Call.ByID(2339292936, path);

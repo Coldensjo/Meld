@@ -352,3 +352,26 @@ func TestACMoveMapConfigSetsTheDataDir(t *testing.T) {
 		t.Errorf("config:\n%s", got)
 	}
 }
+
+// AzerothCore's source picked for the server: the install its CMake build names is taken instead.
+func TestCheckAzerothCoreFollowsTheSourceToItsInstall(t *testing.T) {
+	inst, _ := acFixture(t)
+	src := t.TempDir()
+	os.WriteFile(filepath.Join(src, "acore.sh"), []byte("#!/bin/bash"), 0o755)
+	os.MkdirAll(filepath.Join(src, "build"), 0o755)
+	cache := filepath.Join(src, "build", "CMakeCache.txt")
+	os.WriteFile(cache, []byte("CMAKE_BUILD_TYPE:STRING=Release\nCMAKE_INSTALL_PREFIX:PATH="+inst.Root+"\n"), 0o644)
+	s, err := CheckAzerothCore(src)
+	if err != nil || s.Root != inst.Root || s.Data != inst.Data {
+		t.Fatalf("got %+v, %v; want the install %s", s, err, inst.Root)
+	}
+	// A build that installs nowhere yet says where.
+	os.WriteFile(cache, []byte("CMAKE_INSTALL_PREFIX:PATH="+filepath.Join(src, "nowhere")+"\n"), 0o644)
+	if _, err := CheckAzerothCore(src); err == nil || !strings.Contains(err.Error(), "cmake --install") {
+		t.Errorf("an install not made: %v", err)
+	}
+	// Not a source checkout: the plain refusal.
+	if _, err := CheckAzerothCore(t.TempDir()); err == nil || !strings.Contains(err.Error(), "pick the folder with bin and etc") {
+		t.Errorf("an empty folder: %v", err)
+	}
+}

@@ -27,12 +27,15 @@ func (a *App) BrowseAzerothcoreFolder() (string, error) {
 	})
 }
 
-// SetAzerothcorePath checks that path is an AzerothCore server folder and remembers it. "" forgets it.
+// SetAzerothcorePath checks that path is an AzerothCore server folder and remembers it, or the install
+// its build names when it is AzerothCore's source. "" forgets it.
 func (a *App) SetAzerothcorePath(path string) error {
 	if path != "" {
-		if _, err := vmangos.CheckAzerothCore(path); err != nil {
+		s, err := vmangos.CheckAzerothCore(path)
+		if err != nil {
 			return err
 		}
+		path = s.Root
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

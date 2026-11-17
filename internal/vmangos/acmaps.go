@@ -98,6 +98,13 @@ func CheckAzerothCore(dir string) (AzerothCoreServer, error) {
 		}
 	}
 	if s.Conf == "" {
+		// A source checkout: its CMake build names the install, which is the folder meant.
+		if prefix := acInstallPrefix(dir); prefix != "" && filepath.Clean(prefix) != filepath.Clean(dir) {
+			if inst, err := CheckAzerothCore(prefix); err == nil {
+				return inst, nil
+			}
+			return s, fmt.Errorf("%s is AzerothCore's source, and its build installs into %s, which has no worldserver.conf yet: run cmake --install there, or pick the folder with bin and etc", dir, prefix)
+		}
 		return s, fmt.Errorf("%s has no worldserver.conf (nor etc/worldserver.conf): not an AzerothCore server folder (pick the folder with bin and etc)", dir)
 	}
 	for _, b := range acBinDirs {
@@ -125,6 +132,34 @@ func CheckAzerothCore(dir string) (AzerothCoreServer, error) {
 		return s, fmt.Errorf("the DataDir of %s (%s) is not a folder", s.Conf, s.Data)
 	}
 	return s, nil
+}
+
+// acInstallPrefix is the install folder (CMAKE_INSTALL_PREFIX) a CMake build of AzerothCore's source at
+// dir names, in dir/build or another folder right under dir, or "" when dir is no such checkout.
+func acInstallPrefix(dir string) string {
+	if !fileExists(filepath.Join(dir, "acore.sh")) && !fileExists(filepath.Join(dir, "src", "server", "apps", "worldserver")) {
+		return ""
+	}
+	caches := []string{filepath.Join(dir, "build", "CMakeCache.txt")}
+	if entries, err := os.ReadDir(dir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() && e.Name() != "build" {
+				caches = append(caches, filepath.Join(dir, e.Name(), "CMakeCache.txt"))
+			}
+		}
+	}
+	for _, c := range caches {
+		b, err := os.ReadFile(c)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "CMAKE_INSTALL_PREFIX:PATH="); ok && v != "" {
+				return v
+			}
+		}
+	}
+	return ""
 }
 
 // ErrStockACExtractor is what a map extractor that never opens Meld's patch gets.
