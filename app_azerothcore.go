@@ -111,3 +111,11 @@ func (a *App) UpdateAzerothCoreServer(mapID int, tiles []string) (err error) {
 	}()
 	return nil
 }
+
+// SpawnsInAzerothCore says whether the region's spawns are read from and saved into the AzerothCore
+// server's world database (the client is 3.3.5a and the AzerothCore server folder is set), for the
+// compile and the Changes window, which otherwise wait for a VMaNGOS server folder.
+func (a *App) SpawnsInAzerothCore() bool {
+	_, _, ok, _ := a.acWorld()
+	return ok
+}

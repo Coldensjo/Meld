@@ -2661,6 +2661,15 @@ export function SpawnTeleports(kind: string, entry: number, guid: number): $Canc
 }
 
 /**
+ * SpawnsInAzerothCore says whether the region's spawns are read from and saved into the AzerothCore
+ * server's world database (the client is 3.3.5a and the AzerothCore server folder is set), for the
+ * compile and the Changes window, which otherwise wait for a VMaNGOS server folder.
+ */
+export function SpawnsInAzerothCore(): $CancellablePromise<boolean> {
+    return $Call.ByID(750989840);
+}
+
+/**
  * SpellCategories lists the categories the creature editor's Spells tab browses the client's
  * spells by (#340): the creature abilities, all spells, and the class, pet and profession skill lines.
  */

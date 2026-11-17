@@ -1,6 +1,21 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import { ApplySpawnEdits, AzerothcorePath, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateAzerothCoreServer, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
+import {
+	ApplySpawnEdits,
+	AzerothcorePath,
+	CmangosPath,
+	SaveSQLDialog,
+	SpawnsInAzerothCore,
+	SpawnEditSQL,
+	WriteTextFile,
+	RegionMapID,
+	RegionPending,
+	SaveRegion,
+	UpdateAzerothCoreServer,
+	UpdateCMaNGOSServer,
+	UpdateRegionServer,
+	VmangosPath,
+} from '../wails/App'
 import { guarded } from './backend'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
@@ -356,8 +371,9 @@ export function compileCmangos(engine: Engine) {
  * File › Compile to AzerothCore Server (#1094, shown while Preferences › Compile and export › Spawn SQL for
  * is AzerothCore): the AzerothCore server's map data rebuilt from the client's patch by that server's own
  * extractors, limited to the region's map, with the movement maps of the region's tiles. The patch must
- * already hold the region's edits (Compile to Client); its spawns go to AzerothCore through File › Export
- * Spawn SQL….
+ * already hold the region's edits (Compile to Client). With a 3.3.5a client the region's spawns are the
+ * AzerothCore database's own, so they are saved into it first, as Compile to Server saves VMaNGOS's (#342);
+ * with another client they go to AzerothCore through File › Export Spawn SQL….
  */
 export function compileAzerothcore(engine: Engine) {
 	if (refuseGuestExport(engine)) return
@@ -388,7 +404,18 @@ export function compileAzerothcore(engine: Engine) {
 			}
 			const tiles = regionTiles(region)
 			const n = ui.spawnChanges
-			const spawns = n ? ` Its ${countOf(n, 'spawn edit goes', 'spawn edits go')} to AzerothCore through File › Export Spawn SQL….` : ''
+			let spawns = ''
+			if (n && (await SpawnsInAzerothCore())) {
+				// The spawns go first; the world server reads them when the author starts it after the rebuild.
+				const saved = await compileSpawns(engine)
+				if (saved.failed) {
+					setStatus(saved.note.trim(), 12000)
+					return
+				}
+				spawns = saved.note
+			} else if (n) {
+				spawns = ` Its ${countOf(n, 'spawn edit goes', 'spawn edits go')} to AzerothCore through File › Export Spawn SQL….`
+			}
 			await rebuildServerMaps(mapId, tiles, `Compiling ${name} to the AzerothCore server.${spawns}`, () => UpdateAzerothCoreServer(mapId, tiles))
 		}),
 	)

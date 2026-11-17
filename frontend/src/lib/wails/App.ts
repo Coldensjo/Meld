@@ -353,6 +353,7 @@ export const SpawnEmotes: NonNullCall<AppApi['SpawnEmotes']> = (...a) => api().S
 export const SpawnLook: Call<AppApi['SpawnLook']> = (...a) => api().SpawnLook(...a) as never
 export const SpawnScripts: NonNullCall<AppApi['SpawnScripts']> = (...a) => api().SpawnScripts(...a) as never
 export const SpawnTeleports: NonNullCall<AppApi['SpawnTeleports']> = (...a) => api().SpawnTeleports(...a) as never
+export const SpawnsInAzerothCore: Call<AppApi['SpawnsInAzerothCore']> = (...a) => api().SpawnsInAzerothCore(...a) as never
 export const SpellCategories: NonNullCall<AppApi['SpellCategories']> = (...a) => api().SpellCategories(...a) as never
 export const SpellRefs: NonNullCall<AppApi['SpellRefs']> = (...a) => api().SpellRefs(...a) as never
 export const SpellStarters: NonNullCall<AppApi['SpellStarters']> = (...a) => api().SpellStarters(...a) as never

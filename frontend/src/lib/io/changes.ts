@@ -3,7 +3,7 @@
 // which write nothing, and lists the file names and rows, never the files themselves. The author can
 // untick a spawn edit or a tile there to leave it out of the writes (#960, io/leaveOut.ts) and copy the
 // SQL of a row, of the ticked ones or of all.
-import { PublishPending, RegionPending, SpawnEditSQL, VmangosPath, WaitingClientFiles } from '../wails/App'
+import { PublishPending, RegionPending, SpawnEditSQL, SpawnsInAzerothCore, VmangosPath, WaitingClientFiles } from '../wails/App'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs } from '../state/editor.svelte'
 import type { vmangos } from '../wails/models'
@@ -73,7 +73,8 @@ async function addSpawns(engine: Engine, view: ChangesView) {
 	const b = editor.regionBlock
 	const edits = engine.spawnEdits()
 	if (!b || !editor.regionMap || !edits.length) return
-	if (!(await VmangosPath())) {
+	// A 3.3.5a client's spawns are the AzerothCore database's, which the Go side writes instead (SpawnsInAzerothCore).
+	if (!(await VmangosPath()) && !(await SpawnsInAzerothCore().catch(() => false))) {
 		view.notes.push(`${edits.length} spawn ${edits.length === 1 ? 'edit waits' : 'edits wait'} for a VMaNGOS server folder (Edit › Preferences › Folders) before they can be listed or saved.`)
 		return
 	}
