@@ -44,9 +44,10 @@ func Supported(r Runner) error {
 	return nil
 }
 
-// Running asks Windows' task list for the image name. Off Windows it reads the process table, matching
-// the name without ".exe" (a native build such as Benilla's) or with it (under Wine), so a patch write
-// still waits for a running game there (#730); the servers stay Windows-only (Supported).
+// Running asks Windows' task list for the image name. Off Windows it reads the process table (/proc, or
+// ps's list on macOS, which has none), matching the name without ".exe" (a native build such as
+// Benilla's) or with it (under Wine), so a patch write still waits for a running game there (#730); the
+// servers stay Windows-only (Supported).
 func (OSRunner) Running(image string) bool {
 	if hostOS != "windows" {
 		return runningOffWindows(image)

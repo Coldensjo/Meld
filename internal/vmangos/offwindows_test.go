@@ -77,10 +77,35 @@ func TestOSRunnerReadsTheProcessTableOffWindows(t *testing.T) {
 	if !r.Running("a-very-long-program.exe") {
 		t.Error("a name longer than comm keeps was not found")
 	}
-	// No process table (macOS): nothing runs.
+}
+
+// Without a /proc (macOS) the process list ps prints is read: a program's path, whole.
+func TestOSRunnerReadsThePsListWithoutAProcessTable(t *testing.T) {
+	withHostOS(t, "darwin")
+	old, oldList := procRoot, processList
 	procRoot = filepath.Join(t.TempDir(), "missing")
-	if r.Running("benilla.exe") {
-		t.Error("Running answered yes without a process table")
+	t.Cleanup(func() { procRoot, processList = old, oldList })
+	processList = func() []string {
+		return []string{"/sbin/launchd", "  /Volumes/T7/WoWServer/server/bin/worldserver", "/usr/bin/a-very-long-program-name", "Wow.exe", ""}
+	}
+	r := OSRunner{}
+	for image, want := range map[string]bool{
+		"worldserver.exe":              true, // a native build: the name without .exe
+		"worldserver":                  true,
+		"Wow.exe":                      true, // under Wine: the whole name
+		"authserver.exe":               false,
+		"launch.exe":                   false,
+		"a-very-long-program-name.exe": true, // ps keeps the whole name
+		"a-very-long-pro.exe":          false,
+	} {
+		if got := r.Running(image); got != want {
+			t.Errorf("Running(%q) = %v, want %v", image, got, want)
+		}
+	}
+	// ps failed: nothing runs.
+	processList = func() []string { return nil }
+	if r.Running("worldserver.exe") {
+		t.Error("Running answered yes without a process list")
 	}
 }
 

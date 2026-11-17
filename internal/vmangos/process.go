@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -28,12 +29,12 @@ func procNames(image string) []string {
 	return names
 }
 
-// runningOffWindows reads every process's name from procRoot and reports whether one is the image's
-// (#730). A machine without a /proc (macOS) reports nothing running.
+// runningOffWindows reports whether a process is the image's (#730): by every process's name in
+// procRoot, or, on a machine without a /proc (macOS), in the process list ps prints.
 func runningOffWindows(image string) bool {
 	entries, err := os.ReadDir(procRoot)
 	if err != nil {
-		return false
+		return listedProcess(image, processList())
 	}
 	names := procNames(image)
 	for _, e := range entries {
@@ -47,6 +48,38 @@ func runningOffWindows(image string) bool {
 		comm := strings.TrimRight(string(b), "\n")
 		for _, n := range names {
 			if comm == n {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// processList is the program of every process, as `ps -A -o comm=` prints it: macOS gives a
+// program's path there, whole. Nil when ps fails. Tests replace it.
+var processList = func() []string {
+	out, err := exec.Command("ps", "-A", "-o", "comm=").Output()
+	if err != nil {
+		return nil
+	}
+	return strings.Split(string(out), "\n")
+}
+
+// listedProcess reports whether one of the programs ps listed is the image's: its file name is the
+// image's stem (a native build) or its whole name (under Wine), uncut, as ps keeps it.
+func listedProcess(image string, programs []string) bool {
+	names := []string{image}
+	if ext := filepath.Ext(image); strings.EqualFold(ext, ".exe") && len(image) > len(ext) {
+		names = append(names, image[:len(image)-len(ext)])
+	}
+	for _, p := range programs {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		base := p[strings.LastIndexAny(p, `/\`)+1:]
+		for _, n := range names {
+			if base == n {
 				return true
 			}
 		}
