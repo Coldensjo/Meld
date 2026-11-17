@@ -770,7 +770,12 @@ func ModelAnimations(dataDir, model string) ([]AnimInfo, error) {
 	defer set.Close()
 	b, err := set.ReadFile(model)
 	if err != nil && strings.HasSuffix(strings.ToLower(model), ".mdx") {
-		b, err = set.ReadFile(model[:len(model)-len(".mdx")] + ".m2")
+		model = model[:len(model)-len(".mdx")] + ".m2"
+		b, err = set.ReadFile(model)
+	}
+	if err == nil {
+		// A 3.3.5a client's model, in the layout M2Animations reads (#1071).
+		b, err = wow.LegacyM2(b, model, 0, set.ReadFile)
 	}
 	if err != nil {
 		return nil, err

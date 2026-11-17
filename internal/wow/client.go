@@ -389,7 +389,11 @@ func (c *Client) TextureDXT(path string) ([]byte, error) {
 // m2Mesh decodes an M2 dressed in look (nil for none), with the look's items attached. An item
 // that can't be read is left off.
 func (c *Client) m2Mesh(path string, look *Look) (*Mesh, error) {
-	raw, err := c.readM2(path)
+	anim := 0
+	if look != nil {
+		anim = look.Anim
+	}
+	raw, err := c.readM2Anim(path, anim)
 	if err != nil {
 		return nil, err
 	}
@@ -440,13 +444,22 @@ func (c *Client) recursionChildren(m *Mesh) {
 }
 
 // readM2 reads a model file. Map files and the client's tables name models ".mdx", but the
-// client stores them as ".m2".
-func (c *Client) readM2(path string) ([]byte, error) {
+// client stores them as ".m2". A 3.3.5a client's model comes in the layout the readers take
+// (LegacyM2), with the keys of its idle loop.
+func (c *Client) readM2(path string) ([]byte, error) { return c.readM2Anim(path, 0) }
+
+// readM2Anim is readM2 with the keys of the loop of AnimationData ID anim, for a model dressed in a
+// look that plays it.
+func (c *Client) readM2Anim(path string, anim int) ([]byte, error) {
 	raw, err := c.read(path)
-	if err != nil && strings.HasSuffix(strings.ToLower(path), ".mdx") {
-		raw, err = c.read(path[:len(path)-len(".mdx")] + ".m2")
+	if l := strings.ToLower(path); err != nil && (strings.HasSuffix(l, ".mdx") || strings.HasSuffix(l, ".mdl")) {
+		path = path[:len(path)-4] + ".m2"
+		raw, err = c.read(path)
 	}
-	return raw, err
+	if err != nil {
+		return nil, err
+	}
+	return LegacyM2(raw, path, anim, c.read)
 }
 
 func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {

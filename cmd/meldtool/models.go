@@ -94,10 +94,17 @@ func m2InfoCmd(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// A 3.3.5a client's model is read in the layout of a 1.12 one (wow.LegacyM2, #1071), with its
+	// .skin file from beside it; the version printed is the file's own.
+	version := wow.M2Version(b)
+	if b, err = wow.LegacyM2(b, path, 0, src.file); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
 	info, err := readM2Info(b, path)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
+	info.Version = version
 	info.File = path
 	return writeJSON(out, info)
 }
