@@ -119,11 +119,9 @@ var shutdownDatabase = func(db worldDB) error {
 
 // adminProgram finds mariadb-admin (or mysqladmin) next to the mariadb client on PATH.
 func adminProgram() (string, error) {
-	client, err := exec.LookPath("mariadb")
-	if err != nil {
-		if client, err = exec.LookPath("mysql"); err != nil {
-			return "", errors.New("mariadb is not on PATH")
-		}
+	client := sqlClient()
+	if !filepath.IsAbs(client) {
+		return "", errors.New("mariadb is not on PATH")
 	}
 	exe := ""
 	if runtime.GOOS == "windows" {

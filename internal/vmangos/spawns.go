@@ -139,7 +139,7 @@ type Waypoint struct {
 var runSQL = func(db worldDB, sql string) ([]byte, error) {
 	guardTestDatabase("query on " + db.host + ":" + db.port + "/" + db.name)
 	args := append([]string{"-B", "-N"}, db.args(sql)...)
-	cmd := exec.Command("mariadb", args...)
+	cmd := exec.Command(sqlClient(), args...)
 	cmd.Env = append(os.Environ(), db.env()...)
 	hideConsole(cmd)
 	var out, errOut bytes.Buffer
@@ -150,13 +150,14 @@ var runSQL = func(db worldDB, sql string) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// mariadbError is mariadb's error output without its WARNING lines: with the password in MYSQL_PWD,
+// mariadbError is the client's error output without its warning lines: with the password in MYSQL_PWD,
 // MariaDB 11.4's client warns on every run that it skips the server certificate check of a
 // "passwordless" login, which would otherwise come before every error.
 func mariadbError(stderr string) string {
 	var keep []string
 	for _, line := range strings.Split(stderr, "\n") {
-		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "WARNING:") {
+		// MySQL's client warns the same way, as "mysql: [Warning] ...".
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "WARNING:") && !strings.Contains(line, ": [Warning] ") {
 			keep = append(keep, line)
 		}
 	}
