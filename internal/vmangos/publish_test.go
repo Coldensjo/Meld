@@ -160,7 +160,7 @@ func callOf(calls []string, name string) string {
 func TestPublishServerExtractsEveryMapWithoutWholeVmaps(t *testing.T) {
 	server := serverFolder(t)
 	f := &fakeRunner{}
-	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Mariadb: "mariadb", Run: f}
 	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), MapSpec{Dir: "MyMap", MapID: 1900}, []string{"1_2"}, func(string) {}); err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestPublishServerExtractsOnlyTheMap(t *testing.T) {
 		"MapExtractor":  {stagingDir + "/maps/19000403.map"},
 		"VMapAssembler": {stagingDir + "/vmaps/1900_03_04.vmtile"},
 	}}
-	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Mariadb: "mariadb", Run: f}
 	spec := MapSpec{Dir: "MyMap", MapID: 1900}
 	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, []string{"1_2", "3_4"}, func(string) {}); err != nil {
 		t.Fatal(err)
@@ -252,7 +252,7 @@ func TestPublishServerBuildsMoveMaps(t *testing.T) {
 		os.WriteFile(filepath.Join(data, filepath.FromSlash(n)), []byte("old"), 0o644)
 	}
 	f := &fakeRunner{}
-	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Mariadb: "mariadb", Run: f}
 	spec := MapSpec{Dir: "MyMap", MapID: 1900}
 
 	// Compiled tiles: one run a tile, after the assembler, as --tile x,y.

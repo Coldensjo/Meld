@@ -129,7 +129,7 @@ type PublishPlan struct {
 	ClientRoot string
 	// ServerRoot is the VMaNGOS server folder.
 	ServerRoot string
-	// Mariadb is the mariadb client program (or mysql). Empty means look it up on PATH.
+	// Mariadb is the mariadb client program (or mysql). Empty means look it up (mariadbClient).
 	Mariadb string
 	// Run runs programs; OSRunner in the app, a fake in tests.
 	Run Runner
@@ -239,7 +239,9 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []strin
 	}
 	mariadb := p.Mariadb
 	if mariadb == "" {
-		mariadb = "mariadb"
+		if mariadb, err = mariadbClient(); err != nil {
+			return err
+		}
 	}
 	log("Adding the map to the world database…")
 	if err := p.Run.RunEnv(p.ServerRoot, mariadb, db.env(), db.args(templateSQL(spec)), nil); err != nil {

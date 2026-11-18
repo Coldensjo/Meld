@@ -142,7 +142,11 @@ func transactionScript(script string) string {
 // It's a variable so tests can catch the script runScript sends, and fail it.
 var pipeMariadb = func(args, env []string, input string) error {
 	guardTestDatabase("mariadb script")
-	cmd := exec.Command("mariadb", args...)
+	client, err := mariadbClient()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(client, args...)
 	cmd.Env = append(os.Environ(), env...)
 	hideConsole(cmd)
 	cmd.Stdin = strings.NewReader(input)

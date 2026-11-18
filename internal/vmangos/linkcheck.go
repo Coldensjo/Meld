@@ -238,7 +238,11 @@ var querySQL = func(db worldDB, script string) ([]byte, error) {
 	guardTestDatabase("query script on " + db.host + ":" + db.port + "/" + db.name)
 	args := db.args("")
 	args = append([]string{"-B", "-N"}, args[:len(args)-2]...)
-	cmd := exec.Command("mariadb", args...)
+	client, err := mariadbClient()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(client, args...)
 	cmd.Env = append(os.Environ(), db.env()...)
 	hideConsole(cmd)
 	cmd.Stdin = strings.NewReader(script)
