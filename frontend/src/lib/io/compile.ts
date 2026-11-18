@@ -1,7 +1,8 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import { ApplySpawnEdits, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
+import { ApplySpawnEdits, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, RegionPendingParts, SaveRegion, SaveRegionParts, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
 import { guarded } from './backend'
+import { PART_CHARS, sendInParts } from './inParts'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
@@ -152,6 +153,18 @@ export function regionEdit(engine: Engine, region: RegionBlock) {
 	} as vmangos.RegionEdit
 }
 
+/** The most characters of a region edit's JSON one binding call carries (inParts.ts). */
+export const REGION_PART_CHARS = PART_CHARS
+
+/** Hands a region edit to Go, whole or in parts (sendInParts). */
+export const sendRegionEdit = <T>(edit: vmangos.RegionEdit, whole: (e: vmangos.RegionEdit) => Promise<T>, parts: (id: string) => Promise<T>) => sendInParts('region', edit, whole, parts)
+
+/** SaveRegion, in parts for an edit too large for one call. */
+export const saveRegion = (edit: vmangos.RegionEdit) => sendRegionEdit(edit, SaveRegion, SaveRegionParts)
+
+/** RegionPending, in parts for an edit too large for one call. */
+export const regionPending = (edit: vmangos.RegionEdit) => sendRegionEdit(edit, RegionPending, RegionPendingParts)
+
 /** The region's name in the status lines: "Azeroth 32_59". */
 export const regionName = (r: RegionBlock) => `${r.mapName} ${r.x}_${r.y}`
 
@@ -174,7 +187,7 @@ export async function regionUncompiled(engine: Engine): Promise<boolean> {
 	if (cached !== null) return cached > 0
 	// Taken before the call, so an edit made while it runs is not credited with its answer.
 	const k = keyNow()
-	const { files } = await RegionPending(regionEdit(engine, region))
+	const { files } = await regionPending(regionEdit(engine, region))
 	d.pending = { key: k, changes, files }
 	return files > 0
 }
@@ -226,7 +239,7 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 			const compiled = { key: engine.regionKey(), changes: d.history.changes }
 			// The tiles unticked in the Changes window are left out (#960).
 			const skip = skippedTiles(d.leftOut)
-			const res = await SaveRegion({ ...regionEdit(engine, region), skip })
+			const res = await saveRegion({ ...regionEdit(engine, region), skip })
 			if (res.skipped?.length) {
 				// The patch still lacks the left-out tiles' edits: whether it does is asked of the Go side again.
 				d.compiled = { key: null, changes: -1 }

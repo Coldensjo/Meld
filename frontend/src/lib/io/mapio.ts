@@ -1,5 +1,6 @@
 // The map file: File › Save, Open and Revert of a .wmap (mapData.ts converts it).
-import { LoadMap, OpenMapDialog, SaveMap, SaveMapDialog } from '../wails/App'
+import { LoadMap, OpenMapDialog, SaveMap, SaveMapDialog, SaveMapParts } from '../wails/App'
+import { sendInParts } from './inParts'
 import { guarded } from './backend'
 import { fromMapData, toMapData } from './mapData'
 import type { Engine } from '../engine/Engine'
@@ -20,7 +21,16 @@ export function saveMap(engine: Engine, saveAs = false) {
 			if (!path) return
 		}
 		const t0 = performance.now()
-		await withSaving('Saving map', () => SaveMap(path, toMapData(sessionOrdered(engine.activeDocument(), engine.snapshot()))))
+		const data = toMapData(sessionOrdered(engine.activeDocument(), engine.snapshot()))
+		// A big map's file passes what one binding call carries, so it goes in parts (inParts.ts).
+		await withSaving('Saving map', () =>
+			sendInParts(
+				'map',
+				data,
+				(d) => SaveMap(path, d),
+				(id) => SaveMapParts(path, id),
+			),
+		)
 		editor.filePath = path
 		editor.dirty = false
 		engine.refreshTabs()

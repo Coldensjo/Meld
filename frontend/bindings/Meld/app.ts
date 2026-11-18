@@ -434,6 +434,13 @@ export function DropRecoveryParts(doc: number): $CancellablePromise<void> {
 }
 
 /**
+ * DropRegionEditParts forgets the parts sent under id, for an edit or map the page gave up sending.
+ */
+export function DropRegionEditParts(id: string): $CancellablePromise<void> {
+    return $Call.ByID(1759785470, id);
+}
+
+/**
  * EnableSoap turns the world server's SOAP console on for Play here: it sets SOAP.Enabled = 1 in
  * mangosd.conf and, when the world server runs, restarts it (the conf is read only at its start),
  * which kicks anyone in the game. The editor asks the owner first (the soapOff dialog, #270).
@@ -1907,6 +1914,13 @@ export function RegionPending(edit: vmangos$0.RegionEdit): $CancellablePromise<v
 }
 
 /**
+ * RegionPendingParts is RegionPending for the edit sent in parts under id.
+ */
+export function RegionPendingParts(id: string): $CancellablePromise<vmangos$0.RegionResult> {
+    return $Call.ByID(2838684334, id);
+}
+
+/**
  * RegionShadows reads the baked terrain shadows (MCSH) of a square block of 1.12 map tiles from the
  * client, for the editor to draw as the client does.
  */
@@ -2171,6 +2185,13 @@ export function SaveMapDialog(suggested: string): $CancellablePromise<string> {
 }
 
 /**
+ * SaveMapParts is SaveMap for the map sent in parts under id.
+ */
+export function SaveMapParts(path: string, id: string): $CancellablePromise<void> {
+    return $Call.ByID(1526510340, path, id);
+}
+
+/**
  * SaveModelSetDialog asks where to save a model set. Returns "" if cancelled.
  */
 export function SaveModelSetDialog(suggested: string): $CancellablePromise<string> {
@@ -2278,6 +2299,13 @@ export function SaveRegion(edit: vmangos$0.RegionEdit): $CancellablePromise<vman
 }
 
 /**
+ * SaveRegionParts is SaveRegion for the edit sent in parts under id.
+ */
+export function SaveRegionParts(id: string): $CancellablePromise<vmangos$0.RegionResult> {
+    return $Call.ByID(324787782, id);
+}
+
+/**
  * SaveSQLDialog asks where to save an SQL file. Returns "" if cancelled.
  */
 export function SaveSQLDialog(suggested: string): $CancellablePromise<string> {
@@ -2290,6 +2318,13 @@ export function SaveSQLDialog(suggested: string): $CancellablePromise<string> {
  */
 export function SaveSceneMap(data: mapfile$0.MapData): $CancellablePromise<string> {
     return $Call.ByID(2148499438, data);
+}
+
+/**
+ * SaveSceneMapParts is SaveSceneMap for the map sent in parts under id.
+ */
+export function SaveSceneMapParts(id: string): $CancellablePromise<string> {
+    return $Call.ByID(813778044, id);
 }
 
 /**
@@ -2428,6 +2463,16 @@ export function SearchSpells(text: string): $CancellablePromise<vmangos$0.SpellR
  */
 export function SearchWorldRefs(kind: string, text: string): $CancellablePromise<vmangos$0.NamedID[] | null> {
     return $Call.ByID(1330501713, kind, text);
+}
+
+/**
+ * SendRegionEditPart sends the next slice of a region edit's JSON (vmangos.RegionEdit, as SaveRegion
+ * takes it) or a map's (mapfile.MapData, as SaveMap takes it), index 0 first, for one too large for one
+ * binding call; SaveRegionParts, RegionPendingParts, SaveMapParts or SaveSceneMapParts with the same id
+ * then takes the whole of it.
+ */
+export function SendRegionEditPart(id: string, index: number, part: string): $CancellablePromise<void> {
+    return $Call.ByID(1562549566, id, index, part);
 }
 
 /**

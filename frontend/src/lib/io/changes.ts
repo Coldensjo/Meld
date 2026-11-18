@@ -3,11 +3,11 @@
 // which write nothing, and lists the file names and rows, never the files themselves. The author can
 // untick a spawn edit or a tile there to leave it out of the writes (#960, io/leaveOut.ts) and copy the
 // SQL of a row, of the ticked ones or of all.
-import { PublishPending, RegionPending, SpawnEditSQL, VmangosPath, WaitingClientFiles } from '../wails/App'
+import { PublishPending, SpawnEditSQL, VmangosPath, WaitingClientFiles } from '../wails/App'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs } from '../state/editor.svelte'
 import type { vmangos } from '../wails/models'
-import { regionEdit, regionName } from './compile'
+import { regionEdit, regionName, regionPending } from './compile'
 import { publishInput } from './publish'
 import { pickSpawnEdits } from './leaveOut'
 
@@ -44,7 +44,7 @@ export async function loadChanges(engine: Engine): Promise<ChangesView> {
 	if (region) {
 		view = empty(`Compile ${regionName(region)}`)
 		view.tickable = true
-		const res = await RegionPending(regionEdit(engine, region))
+		const res = await regionPending(regionEdit(engine, region))
 		view.files = res.list ?? []
 		view.tiles = res.tiles
 		await addSpawns(engine, view)
