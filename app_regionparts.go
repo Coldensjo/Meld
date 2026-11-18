@@ -6,14 +6,16 @@ import (
 	"strings"
 	"sync"
 
+	"Meld/internal/mapfile"
 	"Meld/internal/vmangos"
 )
 
-// regionPartStore holds region edits sent in parts (SendRegionEditPart) until SaveRegionParts or
-// RegionPendingParts takes them. Wails refuses a binding call whose body passes 64 MB ("assembled
-// body too large"), and a big region's edit passes it: every painted chunk's weights, its water and
-// its chunk headers come to about 1.5 MB a tile, so a block of more than about 6x6 tiles could not be
-// compiled or listed in the Changes window in one call.
+// regionPartStore holds region edits and maps sent in parts (SendRegionEditPart) until
+// SaveRegionParts, RegionPendingParts, SaveMapParts or SaveSceneMapParts takes them. Wails refuses a
+// binding call whose body passes 64 MB ("assembled body too large"), and a big region's edit passes
+// it: every painted chunk's weights, its water and its chunk headers come to about 1.5 MB a tile, so
+// a block of more than about 6x6 tiles could not be compiled or listed in the Changes window in one
+// call. A big map passes it the same way when it is saved to a file.
 type regionPartStore struct {
 	mu    sync.Mutex
 	edits map[string]*strings.Builder
@@ -44,19 +46,24 @@ func (s *regionPartStore) add(id string, index int, part string) error {
 }
 
 func (s *regionPartStore) take(id string) (vmangos.RegionEdit, error) {
+	var edit vmangos.RegionEdit
+	return edit, s.takeJSON(id, "region edit", &edit)
+}
+
+// takeJSON joins the parts sent under id and decodes them into into; what names the value in errors.
+func (s *regionPartStore) takeJSON(id, what string, into any) error {
 	s.mu.Lock()
 	b := s.edits[id]
 	delete(s.edits, id)
 	delete(s.next, id)
 	s.mu.Unlock()
-	var edit vmangos.RegionEdit
 	if b == nil {
-		return edit, fmt.Errorf("no parts of region edit %s were sent", id)
+		return fmt.Errorf("no parts of %s %s were sent", what, id)
 	}
-	if err := json.Unmarshal([]byte(b.String()), &edit); err != nil {
-		return edit, fmt.Errorf("region edit %s: %w", id, err)
+	if err := json.Unmarshal([]byte(b.String()), into); err != nil {
+		return fmt.Errorf("%s %s: %w", what, id, err)
 	}
-	return edit, nil
+	return nil
 }
 
 func (s *regionPartStore) drop(id string) {
@@ -67,13 +74,14 @@ func (s *regionPartStore) drop(id string) {
 }
 
 // SendRegionEditPart sends the next slice of a region edit's JSON (vmangos.RegionEdit, as SaveRegion
-// takes it), index 0 first, for an edit too large for one binding call; SaveRegionParts or
-// RegionPendingParts with the same id then takes the whole of it.
+// takes it) or a map's (mapfile.MapData, as SaveMap takes it), index 0 first, for one too large for one
+// binding call; SaveRegionParts, RegionPendingParts, SaveMapParts or SaveSceneMapParts with the same id
+// then takes the whole of it.
 func (a *App) SendRegionEditPart(id string, index int, part string) error {
 	return a.regionParts.add(id, index, part)
 }
 
-// DropRegionEditParts forgets the parts sent under id, for an edit the page gave up sending.
+// DropRegionEditParts forgets the parts sent under id, for an edit or map the page gave up sending.
 func (a *App) DropRegionEditParts(id string) {
 	a.regionParts.drop(id)
 }
@@ -94,4 +102,22 @@ func (a *App) RegionPendingParts(id string) (vmangos.RegionResult, error) {
 		return vmangos.RegionResult{}, err
 	}
 	return a.RegionPending(edit)
+}
+
+// SaveMapParts is SaveMap for the map sent in parts under id.
+func (a *App) SaveMapParts(path, id string) error {
+	var data mapfile.MapData
+	if err := a.regionParts.takeJSON(id, "map", &data); err != nil {
+		return err
+	}
+	return a.SaveMap(path, data)
+}
+
+// SaveSceneMapParts is SaveSceneMap for the map sent in parts under id.
+func (a *App) SaveSceneMapParts(id string) (string, error) {
+	var data mapfile.MapData
+	if err := a.regionParts.takeJSON(id, "map", &data); err != nil {
+		return "", err
+	}
+	return a.SaveSceneMap(data)
 }

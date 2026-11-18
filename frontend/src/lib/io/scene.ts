@@ -9,7 +9,8 @@ import { parseScene, PREFIX, VIEW_PREFS, type Scene, type ViewPrefs } from './sc
 import { hasBackend } from './backend'
 import { fromMapData, toMapData } from './mapData'
 import { openWowRegion } from './region'
-import { LoadMap, SaveSceneMap } from '../wails/App'
+import { LoadMap, SaveSceneMap, SaveSceneMapParts } from '../wails/App'
+import { sendInParts } from './inParts'
 import { ClipboardGetText } from '../wails/runtime'
 
 // A scene is the editor's state as one line of text (Help > Copy Scene), so a view can be handed to
@@ -26,7 +27,7 @@ async function mapRef(engine: Engine): Promise<Scene['map']> {
 	if (!editor.dirty && editor.filePath) return { file: editor.filePath }
 	const r = editor.regionBlock
 	if (!editor.dirty && r && editor.regionMap) return { region: { mapName: editor.regionMap, x: r.x, y: r.y, size: r.size } }
-	return { file: await SaveSceneMap(toMapData(engine.snapshot())), copy: true }
+	return { file: await sendInParts('map', toMapData(engine.snapshot()), SaveSceneMap, SaveSceneMapParts), copy: true }
 }
 
 export async function sceneText(engine: Engine): Promise<string> {

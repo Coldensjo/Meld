@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"Meld/internal/adt"
+	"Meld/internal/mapfile"
 	"Meld/internal/vmangos"
 )
 
@@ -62,5 +63,33 @@ func TestRegionEditParts(t *testing.T) {
 	s.drop("r3")
 	if _, err := s.take("r3"); err == nil {
 		t.Fatal("a dropped edit was taken")
+	}
+}
+
+// A map sent in parts joins back into the map sent whole, as SaveMapParts and SaveSceneMapParts take it.
+func TestMapParts(t *testing.T) {
+	var s regionPartStore
+	var data mapfile.MapData
+	data.Name = "Outland 42_30"
+	data.Heights = strings.Repeat("AAAA", 2000)
+	data.Weights = strings.Repeat("/w==", 3000)
+	whole, err := json.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, at := 0, 0; at < len(whole); i, at = i+1, at+1009 {
+		if err := s.add("m1", i, string(whole[at:min(at+1009, len(whole))])); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var got mapfile.MapData
+	if err := s.takeJSON("m1", "map", &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, data) {
+		t.Fatalf("joined map %+v, want %+v", got.Header, data.Header)
+	}
+	if err := s.takeJSON("m1", "map", &got); err == nil || !strings.Contains(err.Error(), "no parts of map m1") {
+		t.Fatalf("a second take: %v", err)
 	}
 }

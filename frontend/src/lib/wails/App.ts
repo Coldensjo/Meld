@@ -294,6 +294,7 @@ export const SaveLift: Call<AppApi['SaveLift']> = (...a) => api().SaveLift(...a)
 export const SaveLights: Call<AppApi['SaveLights']> = (...a) => api().SaveLights(...a) as never
 export const SaveMap: Call<AppApi['SaveMap']> = (...a) => api().SaveMap(...a) as never
 export const SaveMapDialog: Call<AppApi['SaveMapDialog']> = (...a) => api().SaveMapDialog(...a) as never
+export const SaveMapParts: Call<AppApi['SaveMapParts']> = (...a) => api().SaveMapParts(...a) as never
 export const SaveModelSetDialog: Call<AppApi['SaveModelSetDialog']> = (...a) => api().SaveModelSetDialog(...a) as never
 export const SaveObject: Call<AppApi['SaveObject']> = (...a) => api().SaveObject(...a) as never
 export const SaveObjectDisplaySounds: Call<AppApi['SaveObjectDisplaySounds']> = (...a) => api().SaveObjectDisplaySounds(...a) as never
@@ -310,6 +311,7 @@ export const SaveRegion: Call<AppApi['SaveRegion']> = (...a) => api().SaveRegion
 export const SaveRegionParts: Call<AppApi['SaveRegionParts']> = (...a) => api().SaveRegionParts(...a) as never
 export const SaveSQLDialog: Call<AppApi['SaveSQLDialog']> = (...a) => api().SaveSQLDialog(...a) as never
 export const SaveSceneMap: Call<AppApi['SaveSceneMap']> = (...a) => api().SaveSceneMap(...a) as never
+export const SaveSceneMapParts: Call<AppApi['SaveSceneMapParts']> = (...a) => api().SaveSceneMapParts(...a) as never
 export const SaveScript: Call<AppApi['SaveScript']> = (...a) => api().SaveScript(...a) as never
 export const SaveScriptImage: Call<AppApi['SaveScriptImage']> = (...a) => api().SaveScriptImage(...a) as never
 export const SaveSpell: Call<AppApi['SaveSpell']> = (...a) => api().SaveSpell(...a) as never

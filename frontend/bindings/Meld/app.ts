@@ -434,7 +434,7 @@ export function DropRecoveryParts(doc: number): $CancellablePromise<void> {
 }
 
 /**
- * DropRegionEditParts forgets the parts sent under id, for an edit the page gave up sending.
+ * DropRegionEditParts forgets the parts sent under id, for an edit or map the page gave up sending.
  */
 export function DropRegionEditParts(id: string): $CancellablePromise<void> {
     return $Call.ByID(1759785470, id);
@@ -2185,6 +2185,13 @@ export function SaveMapDialog(suggested: string): $CancellablePromise<string> {
 }
 
 /**
+ * SaveMapParts is SaveMap for the map sent in parts under id.
+ */
+export function SaveMapParts(path: string, id: string): $CancellablePromise<void> {
+    return $Call.ByID(1526510340, path, id);
+}
+
+/**
  * SaveModelSetDialog asks where to save a model set. Returns "" if cancelled.
  */
 export function SaveModelSetDialog(suggested: string): $CancellablePromise<string> {
@@ -2311,6 +2318,13 @@ export function SaveSQLDialog(suggested: string): $CancellablePromise<string> {
  */
 export function SaveSceneMap(data: mapfile$0.MapData): $CancellablePromise<string> {
     return $Call.ByID(2148499438, data);
+}
+
+/**
+ * SaveSceneMapParts is SaveSceneMap for the map sent in parts under id.
+ */
+export function SaveSceneMapParts(id: string): $CancellablePromise<string> {
+    return $Call.ByID(813778044, id);
 }
 
 /**
@@ -2453,8 +2467,9 @@ export function SearchWorldRefs(kind: string, text: string): $CancellablePromise
 
 /**
  * SendRegionEditPart sends the next slice of a region edit's JSON (vmangos.RegionEdit, as SaveRegion
- * takes it), index 0 first, for an edit too large for one binding call; SaveRegionParts or
- * RegionPendingParts with the same id then takes the whole of it.
+ * takes it) or a map's (mapfile.MapData, as SaveMap takes it), index 0 first, for one too large for one
+ * binding call; SaveRegionParts, RegionPendingParts, SaveMapParts or SaveSceneMapParts with the same id
+ * then takes the whole of it.
  */
 export function SendRegionEditPart(id: string, index: number, part: string): $CancellablePromise<void> {
     return $Call.ByID(1562549566, id, index, part);

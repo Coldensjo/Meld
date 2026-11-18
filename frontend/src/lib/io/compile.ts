@@ -1,23 +1,8 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import {
-	ApplySpawnEdits,
-	CmangosPath,
-	DropRegionEditParts,
-	SaveSQLDialog,
-	SendRegionEditPart,
-	SpawnEditSQL,
-	WriteTextFile,
-	RegionMapID,
-	RegionPending,
-	RegionPendingParts,
-	SaveRegion,
-	SaveRegionParts,
-	UpdateCMaNGOSServer,
-	UpdateRegionServer,
-	VmangosPath,
-} from '../wails/App'
+import { ApplySpawnEdits, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, RegionPendingParts, SaveRegion, SaveRegionParts, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
 import { guarded } from './backend'
+import { PART_CHARS, sendInParts } from './inParts'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
@@ -168,33 +153,11 @@ export function regionEdit(engine: Engine, region: RegionBlock) {
 	} as vmangos.RegionEdit
 }
 
-/**
- * The most characters of a region edit's JSON one binding call carries. Wails refuses a call whose body
- * passes 64 MB ("assembled body too large"), and a big region's edit passes it (about 1.5 MB a tile, in
- * its paint, water and chunk headers), so a larger one goes to Go in parts of this size. The JSON of a
- * part is escaped again in the call, which leaves this far under the limit.
- */
-export const REGION_PART_CHARS = 16_000_000
+/** The most characters of a region edit's JSON one binding call carries (inParts.ts). */
+export const REGION_PART_CHARS = PART_CHARS
 
-let regionSends = 0
-
-/**
- * Hands a region edit to Go: whole, through `whole`, when it fits one binding call, else in parts
- * through SendRegionEditPart and then `parts` with their id, which joins and takes them.
- */
-export async function sendRegionEdit<T>(edit: vmangos.RegionEdit, whole: (e: vmangos.RegionEdit) => Promise<T>, parts: (id: string) => Promise<T>): Promise<T> {
-	const json = JSON.stringify(edit)
-	if (json.length <= REGION_PART_CHARS) return whole(edit)
-	const id = `region-${Date.now()}-${++regionSends}`
-	let sent = false
-	try {
-		for (let at = 0, i = 0; at < json.length; at += REGION_PART_CHARS, i++) await SendRegionEditPart(id, i, json.slice(at, at + REGION_PART_CHARS))
-		sent = true
-	} finally {
-		if (!sent) await DropRegionEditParts(id).catch(() => {})
-	}
-	return parts(id)
-}
+/** Hands a region edit to Go, whole or in parts (sendInParts). */
+export const sendRegionEdit = <T>(edit: vmangos.RegionEdit, whole: (e: vmangos.RegionEdit) => Promise<T>, parts: (id: string) => Promise<T>) => sendInParts('region', edit, whole, parts)
 
 /** SaveRegion, in parts for an edit too large for one call. */
 export const saveRegion = (edit: vmangos.RegionEdit) => sendRegionEdit(edit, SaveRegion, SaveRegionParts)
