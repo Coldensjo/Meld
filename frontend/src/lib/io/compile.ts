@@ -1,6 +1,22 @@
 // Writing a region back: Compile to Client, Server and All, whether it has edits the client lacks,
 // the rebuild of the server's map data, and saving its spawn edits to the world database.
-import { ApplySpawnEdits, CmangosPath, SaveSQLDialog, SpawnEditSQL, WriteTextFile, RegionMapID, RegionPending, SaveRegion, UpdateCMaNGOSServer, UpdateRegionServer, VmangosPath } from '../wails/App'
+import {
+	ApplySpawnEdits,
+	CmangosPath,
+	DropRegionEditParts,
+	SaveSQLDialog,
+	SendRegionEditPart,
+	SpawnEditSQL,
+	WriteTextFile,
+	RegionMapID,
+	RegionPending,
+	RegionPendingParts,
+	SaveRegion,
+	SaveRegionParts,
+	UpdateCMaNGOSServer,
+	UpdateRegionServer,
+	VmangosPath,
+} from '../wails/App'
 import { guarded } from './backend'
 import { refuseGuestExport } from '../session/shared.svelte'
 import type { Engine } from '../engine/Engine'
@@ -152,6 +168,40 @@ export function regionEdit(engine: Engine, region: RegionBlock) {
 	} as vmangos.RegionEdit
 }
 
+/**
+ * The most characters of a region edit's JSON one binding call carries. Wails refuses a call whose body
+ * passes 64 MB ("assembled body too large"), and a big region's edit passes it (about 1.5 MB a tile, in
+ * its paint, water and chunk headers), so a larger one goes to Go in parts of this size. The JSON of a
+ * part is escaped again in the call, which leaves this far under the limit.
+ */
+export const REGION_PART_CHARS = 16_000_000
+
+let regionSends = 0
+
+/**
+ * Hands a region edit to Go: whole, through `whole`, when it fits one binding call, else in parts
+ * through SendRegionEditPart and then `parts` with their id, which joins and takes them.
+ */
+export async function sendRegionEdit<T>(edit: vmangos.RegionEdit, whole: (e: vmangos.RegionEdit) => Promise<T>, parts: (id: string) => Promise<T>): Promise<T> {
+	const json = JSON.stringify(edit)
+	if (json.length <= REGION_PART_CHARS) return whole(edit)
+	const id = `region-${Date.now()}-${++regionSends}`
+	let sent = false
+	try {
+		for (let at = 0, i = 0; at < json.length; at += REGION_PART_CHARS, i++) await SendRegionEditPart(id, i, json.slice(at, at + REGION_PART_CHARS))
+		sent = true
+	} finally {
+		if (!sent) await DropRegionEditParts(id).catch(() => {})
+	}
+	return parts(id)
+}
+
+/** SaveRegion, in parts for an edit too large for one call. */
+export const saveRegion = (edit: vmangos.RegionEdit) => sendRegionEdit(edit, SaveRegion, SaveRegionParts)
+
+/** RegionPending, in parts for an edit too large for one call. */
+export const regionPending = (edit: vmangos.RegionEdit) => sendRegionEdit(edit, RegionPending, RegionPendingParts)
+
 /** The region's name in the status lines: "Azeroth 32_59". */
 export const regionName = (r: RegionBlock) => `${r.mapName} ${r.x}_${r.y}`
 
@@ -174,7 +224,7 @@ export async function regionUncompiled(engine: Engine): Promise<boolean> {
 	if (cached !== null) return cached > 0
 	// Taken before the call, so an edit made while it runs is not credited with its answer.
 	const k = keyNow()
-	const { files } = await RegionPending(regionEdit(engine, region))
+	const { files } = await regionPending(regionEdit(engine, region))
 	d.pending = { key: k, changes, files }
 	return files > 0
 }
@@ -226,7 +276,7 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
 			const compiled = { key: engine.regionKey(), changes: d.history.changes }
 			// The tiles unticked in the Changes window are left out (#960).
 			const skip = skippedTiles(d.leftOut)
-			const res = await SaveRegion({ ...regionEdit(engine, region), skip })
+			const res = await saveRegion({ ...regionEdit(engine, region), skip })
 			if (res.skipped?.length) {
 				// The patch still lacks the left-out tiles' edits: whether it does is asked of the Go side again.
 				d.compiled = { key: null, changes: -1 }

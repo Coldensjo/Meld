@@ -1,0 +1,97 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"sync"
+
+	"Meld/internal/vmangos"
+)
+
+// regionPartStore holds region edits sent in parts (SendRegionEditPart) until SaveRegionParts or
+// RegionPendingParts takes them. Wails refuses a binding call whose body passes 64 MB ("assembled
+// body too large"), and a big region's edit passes it: every painted chunk's weights, its water and
+// its chunk headers come to about 1.5 MB a tile, so a block of more than about 6x6 tiles could not be
+// compiled or listed in the Changes window in one call.
+type regionPartStore struct {
+	mu    sync.Mutex
+	edits map[string]*strings.Builder
+	next  map[string]int
+}
+
+func (s *regionPartStore) add(id string, index int, part string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.edits == nil {
+		s.edits = map[string]*strings.Builder{}
+		s.next = map[string]int{}
+	}
+	// Part 0 starts the edit afresh, dropping what an edit given up under the same id left.
+	if index == 0 {
+		s.edits[id] = &strings.Builder{}
+		s.next[id] = 0
+	}
+	b := s.edits[id]
+	if b == nil || index != s.next[id] {
+		delete(s.edits, id)
+		delete(s.next, id)
+		return fmt.Errorf("part %d of region edit %s came out of order", index, id)
+	}
+	b.WriteString(part)
+	s.next[id] = index + 1
+	return nil
+}
+
+func (s *regionPartStore) take(id string) (vmangos.RegionEdit, error) {
+	s.mu.Lock()
+	b := s.edits[id]
+	delete(s.edits, id)
+	delete(s.next, id)
+	s.mu.Unlock()
+	var edit vmangos.RegionEdit
+	if b == nil {
+		return edit, fmt.Errorf("no parts of region edit %s were sent", id)
+	}
+	if err := json.Unmarshal([]byte(b.String()), &edit); err != nil {
+		return edit, fmt.Errorf("region edit %s: %w", id, err)
+	}
+	return edit, nil
+}
+
+func (s *regionPartStore) drop(id string) {
+	s.mu.Lock()
+	delete(s.edits, id)
+	delete(s.next, id)
+	s.mu.Unlock()
+}
+
+// SendRegionEditPart sends the next slice of a region edit's JSON (vmangos.RegionEdit, as SaveRegion
+// takes it), index 0 first, for an edit too large for one binding call; SaveRegionParts or
+// RegionPendingParts with the same id then takes the whole of it.
+func (a *App) SendRegionEditPart(id string, index int, part string) error {
+	return a.regionParts.add(id, index, part)
+}
+
+// DropRegionEditParts forgets the parts sent under id, for an edit the page gave up sending.
+func (a *App) DropRegionEditParts(id string) {
+	a.regionParts.drop(id)
+}
+
+// SaveRegionParts is SaveRegion for the edit sent in parts under id.
+func (a *App) SaveRegionParts(id string) (vmangos.RegionResult, error) {
+	edit, err := a.regionParts.take(id)
+	if err != nil {
+		return vmangos.RegionResult{}, err
+	}
+	return a.SaveRegion(edit)
+}
+
+// RegionPendingParts is RegionPending for the edit sent in parts under id.
+func (a *App) RegionPendingParts(id string) (vmangos.RegionResult, error) {
+	edit, err := a.regionParts.take(id)
+	if err != nil {
+		return vmangos.RegionResult{}, err
+	}
+	return a.RegionPending(edit)
+}

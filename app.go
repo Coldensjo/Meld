@@ -46,6 +46,9 @@ type App struct {
 	cfgMu sync.Mutex // bound methods run concurrently
 	cfg   config.Config
 
+	// regionParts holds the region edits sent in parts, too large for one binding call (app_regionparts.go).
+	regionParts regionPartStore
+
 	// rec holds the autosaved copies of dirty maps; nil if its folder couldn't be made.
 	rec *recovery.Store
 	// slog is this session's log file in the user cache; nil if its folder couldn't be made.

@@ -71,6 +71,7 @@ export const DeleteTransport: Call<AppApi['DeleteTransport']> = (...a) => api().
 export const DisconnectExternalDatabase: Call<AppApi['DisconnectExternalDatabase']> = (...a) => api().DisconnectExternalDatabase(...a) as never
 export const DropRecovery: Call<AppApi['DropRecovery']> = (...a) => api().DropRecovery(...a) as never
 export const DropRecoveryParts: Call<AppApi['DropRecoveryParts']> = (...a) => api().DropRecoveryParts(...a) as never
+export const DropRegionEditParts: Call<AppApi['DropRegionEditParts']> = (...a) => api().DropRegionEditParts(...a) as never
 export const EnableSoap: Call<AppApi['EnableSoap']> = (...a) => api().EnableSoap(...a) as never
 export const EndClientSandbox: Call<AppApi['EndClientSandbox']> = (...a) => api().EndClientSandbox(...a) as never
 export const EndRecovery: Call<AppApi['EndRecovery']> = (...a) => api().EndRecovery(...a) as never
@@ -260,6 +261,7 @@ export const RegionHorizon: NonNullCall<AppApi['RegionHorizon']> = (...a) => api
 export const RegionInner: NonNullCall<AppApi['RegionInner']> = (...a) => api().RegionInner(...a) as never
 export const RegionMapID: Call<AppApi['RegionMapID']> = (...a) => api().RegionMapID(...a) as never
 export const RegionPending: Call<AppApi['RegionPending']> = (...a) => api().RegionPending(...a) as never
+export const RegionPendingParts: Call<AppApi['RegionPendingParts']> = (...a) => api().RegionPendingParts(...a) as never
 export const RegionShadows: NonNullCall<AppApi['RegionShadows']> = (...a) => api().RegionShadows(...a) as never
 export const ReplaceSound: Call<AppApi['ReplaceSound']> = (...a) => api().ReplaceSound(...a) as never
 export const RestartServer: Call<AppApi['RestartServer']> = (...a) => api().RestartServer(...a) as never
@@ -305,6 +307,7 @@ export const SaveQuestGivers: Call<AppApi['SaveQuestGivers']> = (...a) => api().
 export const SaveRecovery: Call<AppApi['SaveRecovery']> = (...a) => api().SaveRecovery(...a) as never
 export const SaveRecoveryPart: Call<AppApi['SaveRecoveryPart']> = (...a) => api().SaveRecoveryPart(...a) as never
 export const SaveRegion: Call<AppApi['SaveRegion']> = (...a) => api().SaveRegion(...a) as never
+export const SaveRegionParts: Call<AppApi['SaveRegionParts']> = (...a) => api().SaveRegionParts(...a) as never
 export const SaveSQLDialog: Call<AppApi['SaveSQLDialog']> = (...a) => api().SaveSQLDialog(...a) as never
 export const SaveSceneMap: Call<AppApi['SaveSceneMap']> = (...a) => api().SaveSceneMap(...a) as never
 export const SaveScript: Call<AppApi['SaveScript']> = (...a) => api().SaveScript(...a) as never
@@ -324,6 +327,7 @@ export const SearchItemsSorted: NonNullCall<AppApi['SearchItemsSorted']> = (...a
 export const SearchQuests: NonNullCall<AppApi['SearchQuests']> = (...a) => api().SearchQuests(...a) as never
 export const SearchSpells: NonNullCall<AppApi['SearchSpells']> = (...a) => api().SearchSpells(...a) as never
 export const SearchWorldRefs: NonNullCall<AppApi['SearchWorldRefs']> = (...a) => api().SearchWorldRefs(...a) as never
+export const SendRegionEditPart: Call<AppApi['SendRegionEditPart']> = (...a) => api().SendRegionEditPart(...a) as never
 export const ServerStatus: Call<AppApi['ServerStatus']> = (...a) => api().ServerStatus(...a) as never
 export const SessionLog: Call<AppApi['SessionLog']> = (...a) => api().SessionLog(...a) as never
 export const SessionSend: Call<AppApi['SessionSend']> = (...a) => api().SessionSend(...a) as never
