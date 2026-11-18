@@ -27,6 +27,24 @@ func TestOpenToolWindowFallsBack(t *testing.T) {
 	a.saveToolWindows()
 }
 
+// On macOS the Inspector stays in the main page, since its own window fell behind the focused main window;
+// every other kind, and every kind elsewhere, opens as its own window.
+func TestInPageToolWindows(t *testing.T) {
+	for goos, kinds := range inPageToolWindows {
+		for kind := range kinds {
+			if _, ok := toolWindowKinds[kind]; !ok {
+				t.Errorf("inPageToolWindows[%q] names %q, which is no tool window kind", goos, kind)
+			}
+		}
+	}
+	if !inPageToolWindows["darwin"]["inspector"] {
+		t.Error("the Inspector opens as its own window on macOS")
+	}
+	if inPageToolWindows["darwin"]["history"] || inPageToolWindows["linux"]["inspector"] || inPageToolWindows["windows"]["inspector"] {
+		t.Error("a kind stays in the page where it should open as its own window")
+	}
+}
+
 func TestToolWindowURL(t *testing.T) {
 	u, err := url.Parse(toolWindowURL("history", map[string]string{"id": "7 8", "window": "other"}))
 	if err != nil {

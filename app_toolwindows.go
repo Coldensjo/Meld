@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,18 @@ var toolWindowKinds = map[string]toolWindowKind{
 	"object":   {title: "Game objects", width: 1400, height: 900, minWidth: 960, minHeight: 560},
 }
 
+// inPageToolWindows are the kinds that stay in the main page on an OS, keyed by GOOS: on macOS the
+// Inspector's own window fell behind the main window whenever that had the focus, so there it floats over
+// the viewport as on the browser page.
+var inPageToolWindows = map[string]map[string]bool{
+	"darwin": {"inspector": true},
+}
+
+// inPageToolWindow tells whether the tool window of kind stays in the main page on this OS.
+func inPageToolWindow(kind string) bool {
+	return inPageToolWindows[runtime.GOOS][kind]
+}
+
 // toolWindowPrefix starts the Wails name of every tool window, followed by its kind.
 const toolWindowPrefix = "tool-"
 
@@ -62,7 +75,7 @@ func (a *App) OpenToolWindow(kind string, args map[string]string) (bool, error) 
 	if !ok {
 		return false, fmt.Errorf("no tool window of kind %q", kind)
 	}
-	if serverMode || a.app == nil {
+	if serverMode || a.app == nil || inPageToolWindow(kind) {
 		return false, nil
 	}
 	a.toolMu.Lock()
