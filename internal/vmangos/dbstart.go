@@ -1,10 +1,8 @@
 package vmangos
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -66,13 +64,11 @@ func ensureDatabase(db worldDB, serverRoot string) error {
 }
 
 // databaseProgram finds the database server program (mariadbd or mysqld) next to the mariadb client
-// on PATH.
+// (mariadbClient).
 func databaseProgram() (string, error) {
-	client, err := exec.LookPath("mariadb")
+	client, err := mariadbClient()
 	if err != nil {
-		if client, err = exec.LookPath("mysql"); err != nil {
-			return "", errors.New("mariadb is not on PATH")
-		}
+		return "", err
 	}
 	dir := filepath.Dir(client)
 	exe := ""

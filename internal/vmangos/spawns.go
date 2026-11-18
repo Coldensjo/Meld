@@ -139,7 +139,11 @@ type Waypoint struct {
 var runSQL = func(db worldDB, sql string) ([]byte, error) {
 	guardTestDatabase("query on " + db.host + ":" + db.port + "/" + db.name)
 	args := append([]string{"-B", "-N"}, db.args(sql)...)
-	cmd := exec.Command("mariadb", args...)
+	client, err := mariadbClient()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(client, args...)
 	cmd.Env = append(os.Environ(), db.env()...)
 	hideConsole(cmd)
 	var out, errOut bytes.Buffer

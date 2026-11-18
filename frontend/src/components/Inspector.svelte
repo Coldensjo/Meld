@@ -14,7 +14,8 @@
 	// it opens as its own OS window (#910: components/toolwin/InspectorToolWindow.svelte), which this
 	// component feeds over the channel (lib/toolwin): the view of the selection when it changes, and the
 	// window's actions and edits run here, so each edit is an undo step of this page's History. On the
-	// browser page (server mode, the probes), or when that window can't open, it floats over the viewport.
+	// browser page (server mode, the probes), on macOS (OpenToolWindow answers false there, since its own
+	// window fell behind the focused main window), or when that window can't open, it floats over the viewport.
 
 	const view = $derived.by(() => {
 		void ui.historyVersion
