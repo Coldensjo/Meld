@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -168,6 +169,61 @@ func TestPublishServerExtractsEveryMapWithoutWholeVmaps(t *testing.T) {
 		if c := callOf(f.calls, name); c == "" || strings.Contains(c, " -m ") {
 			t.Fatalf("%s call = %q, want one with no map filter", name, c)
 		}
+	}
+}
+
+// stockExtractor is a fakeRunner whose MapExtractor has no map or tile filter, as stock VMaNGOS's: given
+// -m it prints its usage and fails, before writing anything.
+type stockExtractor struct{ fakeRunner }
+
+func (s *stockExtractor) Run(dir, name string, args []string, log func(string)) error {
+	if strings.Contains(name, "MapExtractor") && !strings.Contains(name, "VMap") && slices.Contains(args, "-m") {
+		s.calls = append(s.calls, name+" "+strings.Join(args, " "))
+		log("Usage:")
+		log(name + " -[var] [value]")
+		return errors.New("exit status 1")
+	}
+	return s.fakeRunner.Run(dir, name, args, log)
+}
+
+func TestUpdateServerMapsExtractsEveryMapWhenTheExtractorHasNoFilter(t *testing.T) {
+	server := serverFolder(t)
+	os.MkdirAll(filepath.Join(server, "data", "vmaps"), 0o755)
+	os.WriteFile(filepath.Join(server, "data", "vmaps", "temp_gameobject_models"), []byte("x"), 0o644)
+	f := &stockExtractor{fakeRunner{writes: map[string][]string{"MapExtractor": {stagingDir + "/maps/0004832.map"}}}}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f, SkipMoveMaps: true}
+	var lines []string
+	if err := UpdateServerMaps(p, filepath.Join(p.ClientRoot, "Data"), 0, []string{"32_48"}, func(s string) { lines = append(lines, s) }); err != nil {
+		t.Fatal(err)
+	}
+	var maps []string
+	for _, c := range f.calls {
+		if strings.Contains(c, "MapExtractor.exe") && !strings.Contains(c, "VMap") {
+			maps = append(maps, c)
+		}
+	}
+	if len(maps) != 2 || !strings.HasSuffix(maps[0], "-m 0 -t 32_48") || strings.Contains(maps[1], " -m ") {
+		t.Fatalf("map extractor calls %q, want the filtered one, then one over every map", maps)
+	}
+	if c := callOf(f.calls, "VMapExtractor.exe"); c == "" || strings.Contains(c, " -m ") {
+		t.Fatalf("vmap extractor call = %q, want one with no map filter", c)
+	}
+	if fileText(filepath.Join(server, "data", "maps", "0004832.map")) != "new" {
+		t.Fatal("the extracted tile was not moved in")
+	}
+	log := strings.Join(lines, "\n")
+	if strings.Contains(log, "Usage:") || !strings.Contains(log, "no map filter") {
+		t.Fatalf("log %q: want the fallback said, without the extractor's usage", log)
+	}
+
+	// A filtered run that fails without its usage is the compile's failure, with no run over every map.
+	g := &fakeRunner{failAt: "MapExtractor"}
+	p.Run = g
+	if err := UpdateServerMaps(p, filepath.Join(p.ClientRoot, "Data"), 0, []string{"32_48"}, func(string) {}); err == nil || !strings.Contains(err.Error(), "map extraction") {
+		t.Fatalf("a failing map extractor: %v", err)
+	}
+	if len(g.calls) != 1 {
+		t.Fatalf("calls %q, want the one failed run", g.calls)
 	}
 }
 

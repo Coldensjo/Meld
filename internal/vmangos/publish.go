@@ -32,6 +32,41 @@ type OSRunner struct{}
 // program would look stopped and every step would fail with a misleading error.
 var ErrNeedsWindows = errors.New("managing the VMaNGOS server needs Windows: Meld finds and stops its programs with tasklist and taskkill")
 
+// ErrNoNativeExtractors is what a rebuild of the server's map data returns off Windows when the server
+// has no extractors built for this machine: there VMaNGOS's tools have no .exe, and the Windows ones
+// beside them would not run.
+var ErrNoNativeExtractors = errors.New("rebuilding the server's map data off Windows needs VMaNGOS's extractors built for this machine (MapExtractor, VMapExtractor and VMapAssembler, without .exe) in the server's run/Extractors folder")
+
+// nativeExtractors are the tools a map rebuild runs, by the names a build off Windows gives them.
+var nativeExtractors = []string{"MapExtractor", "VMapExtractor", "VMapAssembler"}
+
+// mapsSupported is Supported for a rebuild of the server's map data, which needs no tasklist: off
+// Windows it only needs the extractors built for this machine in run/Extractors (a macOS or Linux
+// build of VMaNGOS installs them there without .exe).
+func mapsSupported(p PublishPlan) error {
+	if Supported(p.Run) == nil {
+		return nil
+	}
+	dir := filepath.Join(p.ServerRoot, "run", "Extractors")
+	for _, n := range nativeExtractors {
+		if !fileExists(filepath.Join(dir, n)) {
+			return ErrNoNativeExtractors
+		}
+	}
+	return nil
+}
+
+// serverTool is the path of one of the server's extractors in dir: name with .exe, as VMaNGOS's
+// Windows build has it, or, for this machine's runner off Windows, name alone when it is there.
+func serverTool(r Runner, dir, name string) string {
+	if _, isOS := r.(OSRunner); isOS && hostOS != "windows" {
+		if native := filepath.Join(dir, name); fileExists(native) {
+			return native
+		}
+	}
+	return filepath.Join(dir, name+".exe")
+}
+
 // hostOS is runtime.GOOS; tests change it to check the guard on any machine.
 var hostOS = runtime.GOOS
 
@@ -285,7 +320,7 @@ func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []st
 	if p.Run == nil {
 		p.Run = OSRunner{}
 	}
-	if err := Supported(p.Run); err != nil {
+	if err := mapsSupported(p); err != nil {
 		log(fmt.Sprintf("%v: the server keeps its old map data.", err))
 		return err
 	}
@@ -326,6 +361,9 @@ func extractServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []s
 
 	// Relative to data, where the extractors run: MapExtractor keeps its output path in 128 bytes.
 	mapArgs := []string{"-i", p.ClientRoot, "-o", stagingDir, "-e", "1", "--silent"}
+	// The arguments of a run over every map; the map and tile filters follow them.
+	everyMap := len(mapArgs)
+	refused := false
 	switch {
 	case whole:
 		log("Extracting every map from the client, as the server's collision data was never built whole…")
@@ -336,8 +374,19 @@ func extractServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []s
 		log("Extracting the map from the client…")
 		mapArgs = append(mapArgs, "-m", id)
 	}
-	if err := p.Run.Run(data, filepath.Join(extractors, "MapExtractor.exe"), mapArgs, log); err != nil {
-		return fmt.Errorf("map extraction: %w", err)
+	mapExtractor := serverTool(p.Run, extractors, "MapExtractor")
+	if err := p.Run.Run(data, mapExtractor, mapArgs, usageAware(log, &refused)); err != nil {
+		if whole || !refused {
+			return fmt.Errorf("map extraction: %w", err)
+		}
+		// Stock VMaNGOS's extractors have no map or tile filter (the owner's are built from vmangos's
+		// local branch, which adds them): this one printed its usage and stopped before writing
+		// anything, so every map is extracted, as on a server whose collision data was never built whole.
+		log("This MapExtractor has no map filter (a stock VMaNGOS build), so every map is extracted from the client…")
+		whole = true
+		if err := p.Run.Run(data, mapExtractor, mapArgs[:everyMap], log); err != nil {
+			return fmt.Errorf("map extraction: %w", err)
+		}
 	}
 	log("Extracting collision data…")
 	// Buildings is the extractor's scratch output, which the server never reads.
@@ -346,10 +395,10 @@ func extractServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []s
 	if !whole {
 		vmapArgs = append(vmapArgs, "-m", id)
 	}
-	if err := p.Run.Run(data, filepath.Join(extractors, "VMapExtractor.exe"), vmapArgs, log); err != nil {
+	if err := p.Run.Run(data, serverTool(p.Run, extractors, "VMapExtractor"), vmapArgs, log); err != nil {
 		return fmt.Errorf("collision extraction: %w", err)
 	}
-	if err := p.Run.Run(data, filepath.Join(extractors, "VMapAssembler.exe"),
+	if err := p.Run.Run(data, serverTool(p.Run, extractors, "VMapAssembler"),
 		[]string{"Buildings", filepath.Join(stagingDir, "vmaps")}, log); err != nil {
 		return fmt.Errorf("collision assembly: %w", err)
 	}
@@ -388,9 +437,9 @@ func extractServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []s
 // (mmap.enabled in mangosd.conf, which Meld leaves alone: the owner's choice on #173).
 func buildMoveMaps(p PublishPlan, mapID uint32, tiles []string, log func(string)) {
 	extractors := filepath.Join(p.ServerRoot, "run", "Extractors")
-	gen := filepath.Join(extractors, "MoveMapGenerator.exe")
+	gen := serverTool(p.Run, extractors, "MoveMapGenerator")
 	if _, err := os.Stat(gen); err != nil {
-		log("No MoveMapGenerator.exe beside the extractors, so the server's movement maps were left as they were.")
+		log("No MoveMapGenerator beside the extractors, so the server's movement maps were left as they were.")
 		return
 	}
 	data := filepath.Join(p.ServerRoot, "data")
@@ -430,6 +479,19 @@ func buildMoveMaps(p PublishPlan, mapID uint32, tiles []string, log func(string)
 	}
 	if failed > 0 {
 		log(fmt.Sprintf("MoveMapGenerator failed %d time(s): those movement maps keep their old state. The map data itself was rebuilt.", failed))
+	}
+}
+
+// usageAware passes an extractor's lines to log until it prints its usage ("Usage:", as MapExtractor
+// does for an option it doesn't know), and sets refused then; the usage itself is not logged.
+func usageAware(log func(string), refused *bool) func(string) {
+	return func(line string) {
+		if strings.HasPrefix(line, "Usage:") {
+			*refused = true
+		}
+		if !*refused && log != nil {
+			log(line)
+		}
 	}
 }
 

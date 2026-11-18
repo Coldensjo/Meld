@@ -126,14 +126,41 @@ func TestStopCommand(t *testing.T) {
 	}
 }
 
-func TestUpdateServerMapsSaysItNeedsWindows(t *testing.T) {
+func TestUpdateServerMapsNeedsNativeExtractorsOffWindows(t *testing.T) {
 	withHostOS(t, "linux")
 	var lines []string
 	err := UpdateServerMaps(PublishPlan{ServerRoot: t.TempDir()}, t.TempDir(), 0, nil, func(s string) { lines = append(lines, s) })
-	if !errors.Is(err, ErrNeedsWindows) {
-		t.Fatalf("UpdateServerMaps off Windows: %v, want ErrNeedsWindows", err)
+	if !errors.Is(err, ErrNoNativeExtractors) {
+		t.Fatalf("UpdateServerMaps off Windows without native extractors: %v, want ErrNoNativeExtractors", err)
 	}
 	if len(lines) != 1 {
 		t.Errorf("logged %q, want one line", lines)
+	}
+
+	// With the extractors built for this machine, the guard lets the rebuild through, and this machine's
+	// runner gets their native paths (a test's fake runner, and Windows, the .exe ones).
+	server := t.TempDir()
+	dir := filepath.Join(server, "run", "Extractors")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range append([]string{"MoveMapGenerator"}, nativeExtractors...) {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte("tool"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := PublishPlan{ServerRoot: server, Run: OSRunner{}}
+	if err := mapsSupported(p); err != nil {
+		t.Fatalf("with native extractors: %v, want nil", err)
+	}
+	if got := serverTool(OSRunner{}, dir, "MapExtractor"); got != filepath.Join(dir, "MapExtractor") {
+		t.Errorf("this machine's runner off Windows gets %s", got)
+	}
+	if got := serverTool(&fakeRunner{}, dir, "MapExtractor"); got != filepath.Join(dir, "MapExtractor.exe") {
+		t.Errorf("a fake runner gets %s", got)
+	}
+	withHostOS(t, "windows")
+	if got := serverTool(OSRunner{}, dir, "MapExtractor"); got != filepath.Join(dir, "MapExtractor.exe") {
+		t.Errorf("on Windows: %s", got)
 	}
 }
