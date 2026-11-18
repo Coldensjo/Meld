@@ -3,6 +3,7 @@ package vmangos
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -104,4 +105,24 @@ func TestLoadObjectTablesClient(t *testing.T) {
 			len(tt.Locks), len(tt.LockTypes), len(tt.Languages), len(tt.SpellFocus), len(tt.TaxiPaths), len(tt.AuctionHouses), len(tt.Cinematics), len(tt.PageMaterials))
 	}
 	t.Logf("lock 1 %+v, path %s, cinematic %s, house %s", tt.Locks[0], tt.TaxiPaths[0].Name, tt.Cinematics[0].Name, tt.AuctionHouses[0].Name)
+}
+
+// The reference lists' queries run on MySQL as well as MariaDB: none takes a LIMIT inside GROUP_CONCAT,
+// which only MariaDB has, and the first-values cut keeps n values joined by the separator asked for.
+func TestWorldRowsSQLPortable(t *testing.T) {
+	limited := regexp.MustCompile(`SEPARATOR '[^']*' LIMIT`)
+	for _, kind := range []string{"gossip", "page", "text", "event", "loot", "disenchant", "vendor", "trainer", "equipment", "creature loot", "pickpocket loot",
+		"skinning loot", "spell list", "gossip script", "map point", "quest start script", "quest end script", "exclusive group"} {
+		q, err := worldRowsSQL(kind)
+		if err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+		if limited.MatchString(q) {
+			t.Errorf("%s: GROUP_CONCAT with a LIMIT, which MySQL refuses: %s", kind, q)
+		}
+	}
+	want := "REPLACE(SUBSTRING_INDEX(GROUP_CONCAT(DISTINCT name ORDER BY id SEPARATOR '\x1f'), '\x1f', 3), '\x1f', '; ')"
+	if got := firstListedSQL("DISTINCT name", "id", "; ", 3); got != want {
+		t.Errorf("firstListedSQL = %q, want %q", got, want)
+	}
 }
