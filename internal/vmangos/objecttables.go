@@ -177,6 +177,16 @@ func spellNameSQL(id string) string {
 		" ORDER BY build DESC LIMIT 1), CONCAT('spell ', " + id + "))"
 }
 
+// firstListedSQL is GROUP_CONCAT(expr ORDER BY order) cut to its first n values joined by sep (an SQL
+// expression), for MySQL as well as MariaDB: only MariaDB takes a LIMIT inside GROUP_CONCAT, and MySQL
+// refuses the whole query over it. The values are joined by the unit separator (CHAR(31)), which no
+// name holds, so cutting at the nth one never splits a value that contains sep. It goes in as a
+// literal, since SEPARATOR takes nothing else. expr may start with DISTINCT.
+func firstListedSQL(expr, order, sep string, n int) string {
+	us := sqlQuote("\x1f")
+	return fmt.Sprintf("REPLACE(SUBSTRING_INDEX(GROUP_CONCAT(%s ORDER BY %s SEPARATOR %s), %s, %d), %s, %s)", expr, order, us, us, n, us, sqlQuote(sep))
+}
+
 // countSQL is "<n> <thing>s" for COUNT(expr), with the singular for one.
 func countSQL(expr, thing string) string {
 	return "CONCAT(COUNT(" + expr + "), IF(COUNT(" + expr + ") = 1, ' " + thing + "', ' " + thing + "s'))"
@@ -185,14 +195,14 @@ func countSQL(expr, thing string) string {
 // lootListSQL names each entry of a loot table by its row count and its likeliest drops (an item, or
 // a reference_loot_template entry for a negative mincountOrRef).
 func lootListSQL(table string) string {
-	return "SELECT entry AS id, CONCAT(" + countSQL("*", "item") + ", ': ', GROUP_CONCAT(IF(mincountOrRef < 0, CONCAT('reference loot ', -mincountOrRef), " + itemNameSQL("item") +
-		") ORDER BY ABS(ChanceOrQuestChance) DESC SEPARATOR ', ' LIMIT 6)) AS name, 0 AS ord FROM " + table + " GROUP BY entry"
+	return "SELECT entry AS id, CONCAT(" + countSQL("*", "item") + ", ': ', " + firstListedSQL("IF(mincountOrRef < 0, CONCAT('reference loot ', -mincountOrRef), "+itemNameSQL("item")+")", "ABS(ChanceOrQuestChance) DESC", ", ", 6) +
+		") AS name, 0 AS ord FROM " + table + " GROUP BY entry"
 }
 
 // scriptListSQL names each id of a script table (gossip_scripts, quest_start_scripts…) by its
 // command count and its first commands' comments.
 func scriptListSQL(table string) string {
-	return "SELECT id, CONCAT_WS(': ', " + countSQL("*", "command") + ", GROUP_CONCAT(DISTINCT NULLIF(comments, '') ORDER BY delay SEPARATOR '; ' LIMIT 3)) AS name, 0 AS ord " +
+	return "SELECT id, CONCAT_WS(': ', " + countSQL("*", "command") + ", " + firstListedSQL("DISTINCT NULLIF(comments, '')", "delay", "; ", 3) + ") AS name, 0 AS ord " +
 		"FROM " + table + " GROUP BY id"
 }
 
@@ -225,10 +235,10 @@ func worldRowsSQL(kind string) (string, error) {
 		return "SELECT d.entry AS id, GROUP_CONCAT(DISTINCT COALESCE(i.name, CONCAT('item ', d.item)) ORDER BY d.ChanceOrQuestChance DESC SEPARATOR ', ') AS name, 0 AS ord " +
 			"FROM disenchant_loot_template d LEFT JOIN item_template i ON i.entry = d.item AND i.patch = (SELECT MAX(patch) FROM item_template WHERE entry = d.item) GROUP BY d.entry", nil
 	case "vendor":
-		return "SELECT entry AS id, CONCAT(" + countSQL("*", "item") + ", ': ', GROUP_CONCAT(" + itemNameSQL("item") + " ORDER BY slot, item SEPARATOR ', ' LIMIT 6)) AS name, 0 AS ord " +
+		return "SELECT entry AS id, CONCAT(" + countSQL("*", "item") + ", ': ', " + firstListedSQL(itemNameSQL("item"), "slot, item", ", ", 6) + ") AS name, 0 AS ord " +
 			"FROM npc_vendor_template GROUP BY entry", nil
 	case "trainer":
-		return "SELECT entry AS id, CONCAT(" + countSQL("DISTINCT spell", "spell") + ", ': ', GROUP_CONCAT(DISTINCT " + spellNameSQL("spell") + " ORDER BY reqlevel, spell SEPARATOR ', ' LIMIT 6)) AS name, 0 AS ord " +
+		return "SELECT entry AS id, CONCAT(" + countSQL("DISTINCT spell", "spell") + ", ': ', " + firstListedSQL("DISTINCT "+spellNameSQL("spell"), "reqlevel, spell", ", ", 6) + ") AS name, 0 AS ord " +
 			"FROM npc_trainer_template GROUP BY entry", nil
 	case "equipment":
 		// Each row's weapons, the likeliest row first (an entry has a row per patch or chance).
@@ -257,7 +267,7 @@ func worldRowsSQL(kind string) (string, error) {
 	case "quest end script":
 		return scriptListSQL("quest_end_scripts"), nil
 	case "exclusive group":
-		return "SELECT ExclusiveGroup AS id, CONCAT(" + countSQL("DISTINCT entry", "quest") + ", ': ', GROUP_CONCAT(DISTINCT CONCAT(Title, ' (', entry, ')') ORDER BY entry SEPARATOR ', ' LIMIT 6)) AS name, 0 AS ord " +
+		return "SELECT ExclusiveGroup AS id, CONCAT(" + countSQL("DISTINCT entry", "quest") + ", ': ', " + firstListedSQL("DISTINCT CONCAT(Title, ' (', entry, ')')", "entry", ", ", 6) + ") AS name, 0 AS ord " +
 			"FROM quest_template WHERE ExclusiveGroup <> 0 GROUP BY ExclusiveGroup", nil
 	}
 	return "", fmt.Errorf("no world rows of kind %q", kind)
