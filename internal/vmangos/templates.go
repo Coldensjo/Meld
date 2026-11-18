@@ -607,12 +607,14 @@ func ListDisplays(serverRoot, dataDir string) ([]DisplayEntry, error) {
 	return out, nil
 }
 
-// displayUsesSQL lists each creature template's displays with its type and name, newest patch.
+// displayUsesSQL lists each creature template's displays with its type and name, newest patch. The
+// type and name are grouped by too (one value per entry, as its patch is fixed), since MySQL's
+// ONLY_FULL_GROUP_BY refuses them otherwise, and ListDisplays then lists no display's creatures.
 const displayUsesSQL = `SELECT d, t.type, t.name FROM (
 	SELECT entry, display_id1 AS d FROM creature_template UNION ALL SELECT entry, display_id2 FROM creature_template
 	UNION ALL SELECT entry, display_id3 FROM creature_template UNION ALL SELECT entry, display_id4 FROM creature_template) u
 	JOIN creature_template t ON t.entry = u.entry AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = u.entry)
-	WHERE d <> 0 GROUP BY d, t.entry`
+	WHERE d <> 0 GROUP BY d, t.entry, t.type, t.name`
 
 // displayUse is what the creature templates using a display have in common: the count of each type,
 // and their names.
